@@ -80,6 +80,8 @@ export async function POST(request: Request) {
       status: (b.status as string) || 'scheduled',
       pay_rate: b.pay_rate || null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
+      discount_type: (b.discount_type as string) || null,
+      discount_value: b.discount_value != null ? b.discount_value : null,
     }
   })
 

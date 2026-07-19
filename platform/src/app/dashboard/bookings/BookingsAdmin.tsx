@@ -54,6 +54,8 @@ interface Booking {
   final_video_url: string | null
   suggested_cleaner_id: string | null
   suggested_reason: string | null
+  discount_type: 'percent' | 'dollar' | null
+  discount_value: number | null
 }
 
 interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_cleaner_id?: string | null }
@@ -650,10 +652,21 @@ function BookingsPage() {
       ? knownRates.reduce((best, r) => Math.abs(r - rate) < Math.abs(best - rate) ? r : best, 69)
       : rate
     const fullPrice = (hours || 2) * snappedRate * 100
-    const hasDiscount = booking.price < fullPrice && booking.price > 0
-    const inferredDiscountPercent = hasDiscount && fullPrice > 0
+    // Prefer the real stored discount_type/discount_value -- guessing from
+    // the price ratio only ever produces a percent and silently corrupts a
+    // real flat-dollar discount into a wrong percent on re-save. Only fall
+    // back to guessing for bookings created before discount_type/value
+    // existed (see migrations/2026_07_19_booking_discount_type_value.sql).
+    const storedDiscountType = booking.discount_type
+    const storedDiscountValue = booking.discount_value
+    const hasStoredDiscount = !!storedDiscountType && storedDiscountValue != null && storedDiscountValue > 0
+    const hasDiscount = hasStoredDiscount || (booking.price < fullPrice && booking.price > 0)
+    const inferredDiscountPercent = !hasStoredDiscount && hasDiscount && fullPrice > 0
       ? Math.max(1, Math.min(50, Math.round((1 - booking.price / fullPrice) * 100)))
       : 10
+    const resolvedDiscountType: 'percent' | 'dollar' = hasStoredDiscount ? (storedDiscountType as 'percent' | 'dollar') : 'percent'
+    const resolvedDiscountPercent = hasStoredDiscount && storedDiscountType === 'percent' ? (storedDiscountValue as number) : inferredDiscountPercent
+    const resolvedDiscountDollars = hasStoredDiscount && storedDiscountType === 'dollar' ? (storedDiscountValue as number) : 10
 
     const endDate3 = new Date()
     endDate3.setMonth(endDate3.getMonth() + 3)
@@ -670,9 +683,9 @@ function BookingsPage() {
       service_type: booking.service_type,
       hourly_rate: snappedRate,
       discount_enabled: hasDiscount,
-      discount_percent: inferredDiscountPercent,
-      discount_type: 'percent',
-      discount_dollars: 10,
+      discount_percent: resolvedDiscountPercent,
+      discount_type: resolvedDiscountType,
+      discount_dollars: resolvedDiscountDollars,
       repeat_enabled: !!booking.recurring_type,
       repeat_type: reverseRecurringType(booking.recurring_type),
       repeat_end: 'never',
@@ -877,6 +890,7 @@ function BookingsPage() {
       start_time: newStartStr,
       end_time: newEndStr,
       price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
+      discount_value: form.discount_enabled ? (form.discount_type === 'dollar' ? form.discount_dollars : form.discount_percent) : null,
       recurring_type: recurringType,
       force: true,
     }
@@ -949,6 +963,8 @@ function BookingsPage() {
             end_time: shiftNaive(booking.start_time, deltaMinutes + durationMinutes),
             cleaner_id: form.cleaner_id || null,
             price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
+            discount_type: form.discount_enabled ? form.discount_type : null,
+            discount_value: form.discount_enabled ? (form.discount_type === 'dollar' ? form.discount_dollars : form.discount_percent) : null,
             hourly_rate: form.hourly_rate,
             service_type: form.service_type,
             notes: form.notes || null,
@@ -1125,6 +1141,8 @@ function BookingsPage() {
         recurring_type: recurringType,
         notes: createForm.notes || null,
         status: createForm.status,
+        discount_type: createForm.discount_enabled ? createForm.discount_type : null,
+        discount_value: createForm.discount_enabled ? (createForm.discount_type === 'dollar' ? createForm.discount_dollars : createForm.discount_percent) : null,
         team_size: createForm.team_size,
         extra_cleaner_ids: createForm.extra_cleaner_ids,
         max_hours: createForm.max_hours,

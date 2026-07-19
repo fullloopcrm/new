@@ -53,7 +53,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'price'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'discount_type', 'discount_value', 'price'])
 
     // client_id/team_member_id are caller-supplied; verify each belongs to this
     // tenant before writing it — the response (and every later GET) joins
