@@ -21,6 +21,7 @@ import { parseTimestamp, formatET } from '@/lib/dates'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export const maxDuration = 300
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, tenant_id, team_member_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, team_member_id, client_id, payment_status, fifteen_min_alert_time, discount_percent, one_time_credit_cents, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
       .single()) as { data: {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
         hourly_rate: number | null; pay_rate: number | null; price: number | null; notes: string | null
         max_hours: number | null; team_size: number | null; client_id: string | null
         payment_status: string | null; fifteen_min_alert_time: string | null
+        discount_percent: number | null; one_time_credit_cents: number | null
         clients: unknown; team_members: unknown
       } | null }
 
@@ -135,15 +137,29 @@ export async function POST(req: NextRequest) {
 
     const clientRate = booking.hourly_rate || 69
     const teamSizeForBilling = Math.max(1, (booking.team_size as number) || 1)
-    // Bill in real cents (e.g. 3.5hr × $75 = $262.50, not $263).
-    const grossOwed = (Math.round(estimatedTotalHours * clientRate * teamSizeForBilling * 100) / 100).toFixed(2)
+    // Bill in real cents (e.g. 3.5hr × $75 = $262.50, not $263). Rounding to
+    // whole dollars makes the payment-processor see a fake tip because it
+    // compares against precise cents.
+    const grossOwedCents = Math.round(estimatedTotalHours * clientRate * teamSizeForBilling * 100)
+    const grossOwed = (grossOwedCents / 100).toFixed(2)
+
+    // The booking's own discount_percent + one-time credit apply here same as
+    // every other collection point (payment-processor, Stripe webhook,
+    // team-portal checkout) — otherwise the client is texted a total that
+    // doesn't match what they agreed to or what the payment-processor expects
+    // (nycmaid 6ec48424/a8efe43f parity).
+    const bookingDiscountCents = grossOwedCents - applyDiscount(grossOwedCents, booking.discount_percent as number | null)
+    const discountLabel = describeDiscount(booking.discount_percent as number | null)
+    const creditCents = (booking.one_time_credit_cents as number | null) || 0
 
     // $10 self-booking discount applies at billing for self-booked jobs.
     // Flag is in booking.notes; set by /api/client/book at booking time.
     const SELF_BOOKING_DISCOUNT = 10
     const isSelfBooked = typeof booking.notes === 'string' && /self-booking discount/i.test(booking.notes)
     const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT : 0
-    const clientOwes = Math.max(0, Number(grossOwed) - selfBookingDiscount).toFixed(2)
+
+    const clientOwesCents = Math.max(0, grossOwedCents - bookingDiscountCents - creditCents - Math.round(selfBookingDiscount * 100))
+    const clientOwes = (clientOwesCents / 100).toFixed(2)
 
     const teamMember = booking.team_members as unknown as { name: string; pay_rate: number | null } | null
     // Booking-level pay_rate is an admin override and must win over the team
@@ -165,6 +181,15 @@ export async function POST(req: NextRequest) {
 
     const checkedInAt = formatET(workStart, { hour: 'numeric', minute: '2-digit', hour12: true })
 
+    // Every adjustment that can apply, itemized — a booking can carry an
+    // admin-set discount AND a one-time credit AND the self-booking promo all
+    // at once (nycmaid 6ec48424/a8efe43f parity).
+    const adjustments: string[] = []
+    if (bookingDiscountCents > 0) adjustments.push(`${discountLabel || 'discount'} ($${(bookingDiscountCents / 100).toFixed(2)})`)
+    if (creditCents > 0) adjustments.push(`one-time credit ($${(creditCents / 100).toFixed(2)})`)
+    if (selfBookingDiscount > 0) adjustments.push(`$${selfBookingDiscount} self-booking`)
+    const adjustmentNote = adjustments.length > 0 ? `, less ${adjustments.join(', ')}` : ''
+
     const smsLines = [
       `30-MIN HEADS UP`,
       `${clientName} — ${serviceLabel}`,
@@ -172,9 +197,7 @@ export async function POST(req: NextRequest) {
       `Checked in: ${checkedInAt} (${actualHours}hrs so far)`,
       maxHours !== null ? `Est. total: ${estimatedTotalHours}hrs${cappedByMax ? ` (capped at client max ${maxHours}hr)` : ` of max ${maxHours}hr`}` : `Est. total: ${estimatedTotalHours}hrs`,
       ``,
-      selfBookingDiscount > 0
-        ? `Collect $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''} = $${grossOwed}, less $${selfBookingDiscount} self-booking)`
-        : `Collect $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''})`,
+      `Collect $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''} = $${grossOwed}${adjustmentNote})`,
       `Pay ${cleanerName}: $${cleanerOwed} (${cleanerEstHours}hrs × $${cleanerRate}/hr)`,
     ]
 
@@ -220,7 +243,7 @@ export async function POST(req: NextRequest) {
       : []
     const clientSmsText = [
       `Hi ${firstName}! ${cleanerName} is finishing up your clean now 😊`,
-      `Your total: $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''})`,
+      `Your total: $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''}${adjustmentNote})`,
       ...payLines,
       ``,
       `Payment is due ~30 min before completion. Reply "paid" once sent.`,

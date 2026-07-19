@@ -1125,9 +1125,9 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       if (top) { suggestedCleanerId = top.id; suggestedReason = top.reason }
     } catch {}
 
-    // $20 self-booking discount applies to Yinez chat bookings too (self-service channel),
+    // $10 self-booking discount applies to Yinez chat bookings too (self-service channel),
     // but applies at BILLING (not at quote). booking.price stays at the un-discounted
-    // estimate; /api/team/15min-alert subtracts $20 from clientOwes when the booking's
+    // estimate; /api/team-portal/15min-alert subtracts $10 from clientOwes when the booking's
     // notes include the self-booking promo flag.
     const basePriceCents = hourlyRate * estimatedHours * 100
     const finalPriceCents = basePriceCents
@@ -1138,8 +1138,8 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', service_type: serviceType,
       hourly_rate: hourlyRate, price: finalPriceCents,
-      recurring_type: recurringType, suggested_cleaner_id: suggestedCleanerId,
-      notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $20 self-booking discount applies at billing]`,
+      recurring_type: recurringType, suggested_team_member_id: suggestedCleanerId,
+      notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $10 self-booking discount applies at billing]`,
     }).select('id').single()
 
     if (error) throw error

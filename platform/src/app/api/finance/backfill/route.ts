@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 
 // Round to half-hour with 10-min grace: 3:09 → 3.0, 3:10 → 3.5.
 const roundToHalfHour = (hours: number) => {
@@ -22,6 +23,8 @@ interface BookingRow {
   hourly_rate: number | null
   check_in_time: string | null
   check_out_time: string | null
+  discount_percent: number | null
+  one_time_credit_cents: number | null
   team_members: { hourly_rate?: number | null } | null
 }
 
@@ -33,7 +36,7 @@ export async function POST() {
 
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, team_members!bookings_team_member_id_fkey(hourly_rate)')
+      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, discount_percent, one_time_credit_cents, team_members!bookings_team_member_id_fkey(hourly_rate)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .is('team_member_pay', null)
@@ -54,7 +57,7 @@ export async function POST() {
       const teamRate = booking.team_members?.hourly_rate ?? 25
       const clientRate = booking.hourly_rate ?? 75
       const teamPay = Math.round(hours * teamRate * 100)
-      const clientPrice = Math.round(hours * clientRate * 100)
+      const clientPrice = applyCredit(applyDiscount(Math.round(hours * clientRate * 100), booking.discount_percent), booking.one_time_credit_cents)
 
       await supabaseAdmin
         .from('bookings')
