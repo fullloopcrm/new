@@ -536,7 +536,8 @@ export async function POST(request: Request) {
           // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
           // pay_rate. Tip passes through 100% on top.
           const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
-          const baseCleanerRate = (tm as { pay_rate?: number | null })?.pay_rate || (booking as { pay_rate?: number | null }).pay_rate || 25
+          // Booking-level pay_rate override wins over the team member's own default rate.
+          const baseCleanerRate = (booking as { pay_rate?: number | null }).pay_rate || (tm as { pay_rate?: number | null })?.pay_rate || 25
           // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY.
           const cleanerRate = isNycMaid(tenantId)
             ? effectiveCleanerRate(baseCleanerRate, client?.address ?? null)

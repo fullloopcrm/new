@@ -91,7 +91,8 @@ export async function POST(request: Request) {
     const billableCleaner = cap != null ? Math.min(cleanerHours, cap) : cleanerHours
     actualHours = billableClient
     const member = booking.team_members as unknown as { pay_rate?: number | null } | null
-    const baseCleanerRate = member?.pay_rate || (booking.pay_rate as number) || 25
+    // Booking-level pay_rate override wins over the team member's own default rate.
+    const baseCleanerRate = (booking.pay_rate as number) || member?.pay_rate || 25
     // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY
     // (parity port is tenant-scoped, not global).
     const cleanerRate = isNycMaid(auth.tid)

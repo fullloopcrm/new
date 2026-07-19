@@ -1093,7 +1093,12 @@ function BookingsPage() {
           preferred_time: createForm.start_time,
           duration_hours: createForm.hours,
           hourly_rate: createForm.hourly_rate,
-          cleaner_pay_rate: createForm.cleaner_pay_rate,
+          // cleaner_pay_rate intentionally omitted here -- this branch only
+          // runs when !is_emergency (see the `if` above), but the field
+          // defaults to 40 in createForm state and is never cleared, so
+          // sending it unconditionally leaked the emergency "Team Pay Rate"
+          // default into every normal recurring schedule as a silent
+          // per-cleaner pay override.
           notes: createForm.notes || null,
           start_date: createForm.start_date,
           price: calculatePrice(),
