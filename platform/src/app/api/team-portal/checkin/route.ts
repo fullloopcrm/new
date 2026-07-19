@@ -60,8 +60,12 @@ export async function POST(request: Request) {
   // zone so a cleaner at the door is never stranded by NYC GPS jitter.
   let checkInFlagNote = ''
   if (isNycMaid(auth.tid) && CHECK_IN_GPS_ENABLED) {
+    const rejectLog = (code: string, extra: Record<string, unknown> = {}) =>
+      console.error('[check-in reject]', { code, booking_id: booking.id, team_member_id: auth.id, ...extra })
+
     const hasLoc = typeof lat === 'number' && typeof lng === 'number'
     if (!hasLoc) {
+      rejectLog('location_required')
       return NextResponse.json({ error: 'Check-in needs your location. Enable location/GPS for this site and try again.', code: 'location_required' }, { status: 400 })
     }
     applyPropertyToBookingClient(booking as never)
@@ -71,6 +75,13 @@ export async function POST(request: Request) {
     if (coords) {
       const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
       if (dist > CHECK_IN_HARD_BLOCK_MILES) {
+        rejectLog('too_far', {
+          address: addr,
+          distance_miles: Math.round(dist * 100) / 100,
+          max_miles: CHECK_IN_HARD_BLOCK_MILES,
+          cleaner_loc: { lat, lng },
+          address_loc: coords,
+        })
         return NextResponse.json({ error: `You're ${dist.toFixed(2)} mi from the job address. You must be at the address to check in. Move closer and try again.`, code: 'too_far', distance_miles: Math.round(dist * 100) / 100 }, { status: 400 })
       }
       if (dist > CHECK_IN_MAX_MILES) checkInFlagNote = `\n\n[GPS check-in flagged: ${dist.toFixed(2)} mi from address]`
