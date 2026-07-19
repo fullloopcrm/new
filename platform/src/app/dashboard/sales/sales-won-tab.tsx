@@ -1,6 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import BreakdownModal, { type BreakdownItem, type BreakdownTokens } from '../_components/BreakdownModal'
+
+const SL_TOKENS: BreakdownTokens = {
+  canvas: 'var(--sl-canvas)', line: 'var(--sl-line)', lineSoft: 'var(--sl-line-soft)',
+  ink: 'var(--sl-ink)', muted: 'var(--sl-muted)', muted2: 'var(--sl-muted-2)',
+  good: 'var(--sl-good)', warn: 'var(--sl-warn)', display: 'var(--sl-display)', mono: 'var(--sl-mono)',
+}
 
 type Deal = {
   id: string
@@ -26,9 +33,25 @@ function initials(name: string | null): string {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
+// Feeds the click-through "how was this number calculated" breakdown modal.
+function dealToItem(d: Deal, isLost: boolean): BreakdownItem {
+  const ts = d.closed_at || d.last_activity_at
+  return {
+    id: d.id,
+    title: d.clients?.name || '—',
+    subtitle: d.title,
+    meta: d.source || 'web',
+    amountCents: d.value_cents,
+    date: ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined,
+    status: isLost ? 'lost' : 'won',
+    statusTone: isLost ? 'warn' : 'good',
+  }
+}
+
 export default function SalesWonTab({ view = 'won' }: { view?: View }) {
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
+  const [breakdown, setBreakdown] = useState<{ title: string; items: BreakdownItem[] } | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -65,16 +88,26 @@ export default function SalesWonTab({ view = 'won' }: { view?: View }) {
     <>
       <div className="sl-bar-label">{isLost ? 'Lost · Last 90 Days' : 'Won · Last 90 Days'}</div>
       <div className="sl-outlook">
-        <div className="sl-stat">
+        <button
+          type="button"
+          className="sl-stat"
+          style={{ background: 'transparent', border: 'none', borderRight: '1px solid var(--sl-line)', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}
+          onClick={() => setBreakdown({ title: `${isLost ? 'Lost' : 'Won'} · Last 90 Days`, items: filtered.map((d) => dealToItem(d, isLost)) })}
+        >
           <div className="sl-stat-label">Total {isLost ? 'Lost' : 'Won'}</div>
           <div className="sl-stat-value">{filtered.length}</div>
           <div className="sl-stat-sub">{fmtMoney(totalValue)} total</div>
-        </div>
-        <div className="sl-stat">
+        </button>
+        <button
+          type="button"
+          className="sl-stat"
+          style={{ background: 'transparent', border: 'none', borderRight: '1px solid var(--sl-line)', textAlign: 'left', cursor: 'pointer', font: 'inherit' }}
+          onClick={() => setBreakdown({ title: `${isLost ? 'Lost' : 'Won'} · This Month`, items: thisMonth.map((d) => dealToItem(d, isLost)) })}
+        >
           <div className="sl-stat-label">This Month</div>
           <div className="sl-stat-value">{thisMonth.length}</div>
           <div className={`sl-stat-sub ${isLost ? 'warn' : 'good'}`}>{fmtMoney(monthValue)}</div>
-        </div>
+        </button>
         <div className="sl-stat">
           <div className="sl-stat-label">Avg Deal Size</div>
           <div className="sl-stat-value"><span className="unit">$</span>{filtered.length > 0 ? Math.round(totalValue / 100 / filtered.length).toLocaleString('en-US') : 0}</div>
@@ -130,6 +163,15 @@ export default function SalesWonTab({ view = 'won' }: { view?: View }) {
           </div>
         ))}
       </div>
+
+      <BreakdownModal
+        open={breakdown != null}
+        title={breakdown?.title || ''}
+        items={breakdown?.items || []}
+        tokens={SL_TOKENS}
+        onClose={() => setBreakdown(null)}
+        emptyLabel={`No ${isLost ? 'lost' : 'won'} deals in this window.`}
+      />
     </>
   )
 }

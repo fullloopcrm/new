@@ -3,6 +3,8 @@ import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
+import ClickableStatGrid, { type ClickableStatTile } from './_components/ClickableStatGrid'
+import type { BreakdownItem } from './_components/BreakdownModal'
 
 // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
 // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
@@ -20,6 +22,7 @@ const V = {
 const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
 const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+const formatDate = (s: string) => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 type Booking = {
   id: string
@@ -58,6 +61,21 @@ const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status =
 const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
 const sum = (jobs: Booking[]) => jobs.reduce((s, j) => s + (j.price || 0), 0)
 const inRange = (j: Booking, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
+
+// Feeds the click-through "how was this number calculated" breakdown modal.
+function bookingToItem(j: Booking): BreakdownItem {
+  return {
+    id: j.id,
+    title: j.clients?.name || 'No client',
+    subtitle: `${j.service_type || 'Job'} · ${j.team_members?.name || 'Unassigned'}`,
+    meta: j.clients?.address || undefined,
+    amountCents: j.price || 0,
+    date: formatDate(j.start_time),
+    status: j.payment_status === 'paid' ? 'paid' : j.status,
+    statusTone: j.payment_status === 'paid' ? 'good' : j.status === 'completed' ? 'warn' : 'muted',
+    href: `/dashboard/bookings?edit=${j.id}`,
+  }
+}
 
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
@@ -123,27 +141,36 @@ export default async function DashboardPage() {
   const recurringPct = scheduled2026Total > 0 ? Math.round((sum(recurringJobs) / scheduled2026Total) * 100) : 0
   const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
 
-  const revenueLadder = [
-    { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
-    { label: 'Week', val: sum(collectedWeek), jobs: collectedWeek.length, emphasize: false },
-    { label: monthShort, val: sum(collectedMonth), jobs: collectedMonth.length, emphasize: false },
-    { label: `${yearStr} · Actual`, val: sum(collectedYear), jobs: collectedYear.length, emphasize: true },
-    { label: `${yearStr} · Projected`, val: scheduled2026Total, jobs: all2026.length, emphasize: true },
+  const revenueLadder: ClickableStatTile[] = [
+    { key: 'today', label: 'Today', value: formatMoney(sum(collectedToday)), sub: `${collectedToday.length} jobs`, modalTitle: 'Today · Collected', items: collectedToday.map(bookingToItem) },
+    { key: 'week', label: 'Week', value: formatMoney(sum(collectedWeek)), sub: `${collectedWeek.length} jobs`, modalTitle: 'This Week · Collected', items: collectedWeek.map(bookingToItem) },
+    { key: 'month', label: monthShort, value: formatMoney(sum(collectedMonth)), sub: `${collectedMonth.length} jobs`, modalTitle: 'This Month · Collected', items: collectedMonth.map(bookingToItem) },
+    { key: 'year', label: `${yearStr} · Actual`, value: formatMoney(sum(collectedYear)), sub: `${collectedYear.length} jobs`, background: '#FBFBF6', valueFontSize: 32, modalTitle: `${yearStr} · Collected YTD`, items: collectedYear.map(bookingToItem) },
+    { key: 'projected', label: `${yearStr} · Projected`, value: formatMoney(scheduled2026Total), sub: `${all2026.length} jobs`, background: '#FBFBF6', valueFontSize: 32, modalTitle: `${yearStr} · Projected (booked)`, items: all2026.map(bookingToItem) },
   ]
-  const volumeLadder = [
-    { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
-    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: formatMoney(sum(scheduledMonth)) },
-    { label: 'Jobs · YTD', val: all2026.length, sub: formatMoney(scheduled2026Total) },
-    { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
+  const volumeLadder: ClickableStatTile[] = [
+    { key: 'week', label: 'Jobs · Week', value: String(scheduledWeek.length), sub: formatMoney(sum(scheduledWeek)), modalTitle: 'This Week · Jobs', items: scheduledWeek.map(bookingToItem) },
+    { key: 'month', label: `Jobs · ${monthShort}`, value: String(scheduledMonth.length), sub: formatMoney(sum(scheduledMonth)), modalTitle: 'This Month · Jobs', items: scheduledMonth.map(bookingToItem) },
+    { key: 'ytd', label: 'Jobs · YTD', value: String(all2026.length), sub: formatMoney(scheduled2026Total), modalTitle: `${yearStr} · All Jobs YTD`, items: all2026.map(bookingToItem) },
+    { key: 'remaining', label: 'Remaining', value: String(remaining.length), sub: formatMoney(sum(remaining)), modalTitle: `${yearStr} · Booked through year-end`, items: remaining.map(bookingToItem) },
   ]
-  const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
+  const monthsByYear: ClickableStatTile[] = Array.from({ length: 12 }, (_, monthIdx) => {
     const mStart = new Date(now.getFullYear(), monthIdx, 1)
     const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
     const jobs = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status) && inRange(j, mStart, mEnd))
+    const isCurrent = monthIdx === now.getMonth()
+    const isFuture = monthIdx > now.getMonth()
+    const label = mStart.toLocaleDateString('en-US', { month: 'short' })
     return {
-      label: mStart.toLocaleDateString('en-US', { month: 'short' }),
-      count: jobs.length, revenue: sum(jobs),
-      isCurrent: monthIdx === now.getMonth(), isFuture: monthIdx > now.getMonth(),
+      key: label,
+      label,
+      labelColor: isCurrent ? V.ink : undefined,
+      value: String(jobs.length),
+      valueColor: jobs.length === 0 ? V.muted2 : undefined,
+      sub: jobs.length > 0 ? formatMoney(sum(jobs)) : '—',
+      background: isCurrent ? '#FBFBF6' : (isFuture ? 'transparent' : undefined),
+      modalTitle: `${label} ${yearStr} · Jobs`,
+      items: jobs.map(bookingToItem),
     }
   })
   const kpis = [
@@ -169,41 +196,17 @@ export default async function DashboardPage() {
       {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
       <ScheduleIssues />
 
-      {/* REVENUE LADDER */}
+      {/* REVENUE LADDER — click a tile to see the bookings behind the number */}
       <Bar>Revenue</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        {revenueLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: c.emphasize ? '#FBFBF6' : V.canvas }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
-            <div style={{ fontFamily: V.display, fontSize: c.emphasize ? '32px' : '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(c.val)}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.jobs} jobs</div>
-          </div>
-        ))}
-      </div>
+      <ClickableStatGrid tiles={revenueLadder} columns={5} tokens={V} valueFontSize={26} />
 
       {/* JOBS LADDER */}
       <Bar>Jobs</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        {volumeLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
-            <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.sub}</div>
-          </div>
-        ))}
-      </div>
+      <ClickableStatGrid tiles={volumeLadder} columns={4} tokens={V} valueFontSize={28} />
 
       {/* JOBS BY MONTH */}
       <Bar>{`Jobs · ${yearStr} by Month`}</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(12, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        {monthsByYear.map((m, i, arr) => (
-          <div key={m.label} className="px-3 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.14em', color: m.isCurrent ? V.ink : V.muted, fontWeight: 600, marginBottom: 6 }}>{m.label}</div>
-            <div style={{ fontFamily: V.display, fontSize: '22px', fontWeight: 500, color: m.count === 0 ? V.muted2 : V.ink, lineHeight: 1, fontFeatureSettings: '"tnum","lnum"' }}>{m.count}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
-          </div>
-        ))}
-      </div>
+      <ClickableStatGrid tiles={monthsByYear} columns={12} tokens={V} padding="px-3 py-4" valueFontSize={22} labelLetterSpacing="0.14em" />
 
       {/* KPIs */}
       <Bar>KPIs</Bar>
