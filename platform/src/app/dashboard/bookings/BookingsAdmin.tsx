@@ -182,7 +182,7 @@ function BookingsPage() {
   const [form, setForm] = useState({
     status: '', payment_status: '', payment_method: '', notes: '', cleaner_id: '',
     start_date: '', start_time: '', hours: 2, service_type: '', hourly_rate: 69,
-    discount_enabled: false, discount_percent: 10,
+    discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10,
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
     actual_hours: null as number | null, team_member_pay: null as number | null,
@@ -198,7 +198,7 @@ function BookingsPage() {
     hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
-    discount_enabled: false, discount_percent: 10,
+    discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10,
     is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled' as string,
     team_size: 1, extra_cleaner_ids: [] as string[], max_hours: null as number | null,
     override_availability: false, property_id: '' as string,
@@ -306,7 +306,7 @@ function BookingsPage() {
         start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
         team_size: 1, extra_cleaner_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       if (client) {
         setClientSearch(client.name + ' - ' + client.phone)
@@ -341,7 +341,7 @@ function BookingsPage() {
         start_time: time || '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
         team_size: 1, extra_cleaner_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       setClientSearch('')
       setShowClientDropdown(false)
@@ -639,6 +639,8 @@ function BookingsPage() {
       hourly_rate: snappedRate,
       discount_enabled: hasDiscount,
       discount_percent: inferredDiscountPercent,
+      discount_type: 'percent',
+      discount_dollars: 10,
       repeat_enabled: !!booking.recurring_type,
       repeat_type: reverseRecurringType(booking.recurring_type),
       repeat_end: 'never',
@@ -679,7 +681,7 @@ function BookingsPage() {
       start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
       repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
       repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-      discount_enabled: false, discount_percent: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
+      discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
       team_size: 1, extra_cleaner_ids: [], max_hours: null, override_availability: false, property_id: ''    })
     setClientSearch('')
     setShowClientDropdown(false)
@@ -735,7 +737,10 @@ function BookingsPage() {
   const calculatePrice = () => {
     const teamSize = Math.max(1, createForm.team_size || 1)
     const basePrice = createForm.hours * createForm.hourly_rate * teamSize * 100
-    if (createForm.discount_enabled && createForm.discount_percent > 0) {
+    if (createForm.discount_enabled && createForm.discount_type === 'dollar' && createForm.discount_dollars > 0) {
+      return Math.max(0, basePrice - Math.round(createForm.discount_dollars * 100))
+    }
+    if (createForm.discount_enabled && createForm.discount_type === 'percent' && createForm.discount_percent > 0) {
       const discounted = basePrice * (1 - createForm.discount_percent / 100)
       return Math.floor(discounted / 500) * 500 // round down to nearest $5
     }
@@ -749,7 +754,10 @@ function BookingsPage() {
       return Math.round(form.actual_hours * form.hourly_rate * teamSize * 100)
     }
     const basePrice = form.hours * form.hourly_rate * teamSize * 100
-    if (form.discount_enabled && form.discount_percent > 0) {
+    if (form.discount_enabled && form.discount_type === 'dollar' && form.discount_dollars > 0) {
+      return Math.max(0, basePrice - Math.round(form.discount_dollars * 100))
+    }
+    if (form.discount_enabled && form.discount_type === 'percent' && form.discount_percent > 0) {
       const discounted = basePrice * (1 - form.discount_percent / 100)
       return Math.floor(discounted / 500) * 500
     }
@@ -1460,7 +1468,7 @@ function BookingsPage() {
                               hours: 2, hourly_rate: 69, service_type: entry.service_type || 'Standard Cleaning', notes: 'Booked from waitlist',
                               repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
                               repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-                              discount_enabled: false, discount_percent: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
+                              discount_enabled: false, discount_percent: 10, discount_type: 'percent' as 'percent' | 'dollar', discount_dollars: 10, is_emergency: false, cleaner_pay_rate: 40, status: 'scheduled',
                               team_size: 1, extra_cleaner_ids: [], max_hours: null, override_availability: false, property_id: ''                            })
                             if (entry.name) setClientSearch(entry.name + ' - ' + entry.phone)
                             setShowClientDropdown(false)
@@ -2093,39 +2101,56 @@ function BookingsPage() {
               </div>
               {form.discount_enabled && (
                 <div className="flex gap-1 items-center">
-                  <label className="text-[10px] text-gray-400 uppercase w-14">Percent</label>
-                  <select
-                    value={[5, 10, 20].includes(form.discount_percent) ? form.discount_percent : 'custom'}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      if (v === 'custom') {
-                        const isPreset = [5, 10, 20].includes(form.discount_percent)
-                        setForm({ ...form, discount_percent: isPreset ? 15 : form.discount_percent })
-                      } else setForm({ ...form, discount_percent: parseInt(v) })
-                    }}
-                    className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white"
-                  >
-                    <option value={20}>20% ($69 weekly)</option>
-                    <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
-                    <option value={5}>5% ($59 biweekly/monthly)</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                  {![5, 10, 20].includes(form.discount_percent) && (
+                  <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                    <button type="button" onClick={() => setForm({ ...form, discount_type: 'percent' })} className={'px-2 py-1.5 ' + (form.discount_type === 'percent' ? 'bg-[#1C1C1C] text-white' : 'bg-white text-gray-500')}>%</button>
+                    <button type="button" onClick={() => setForm({ ...form, discount_type: 'dollar' })} className={'px-2 py-1.5 ' + (form.discount_type === 'dollar' ? 'bg-[#1C1C1C] text-white' : 'bg-white text-gray-500')}>$</button>
+                  </div>
+                  {form.discount_type === 'percent' ? (
+                    <>
+                      <select
+                        value={[5, 10, 20].includes(form.discount_percent) ? form.discount_percent : 'custom'}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (v === 'custom') {
+                            const isPreset = [5, 10, 20].includes(form.discount_percent)
+                            setForm({ ...form, discount_percent: isPreset ? 15 : form.discount_percent })
+                          } else setForm({ ...form, discount_percent: parseInt(v) })
+                        }}
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white"
+                      >
+                        <option value={20}>20% ($69 weekly)</option>
+                        <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
+                        <option value={5}>5% ($59 biweekly/monthly)</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                      {![5, 10, 20].includes(form.discount_percent) && (
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          step="1"
+                          value={form.discount_percent}
+                          onChange={(e) => setForm({ ...form, discount_percent: parseInt(e.target.value) || 0 })}
+                          className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white"
+                          placeholder="%"
+                        />
+                      )}
+                    </>
+                  ) : (
                     <input
                       type="number"
-                      min="1"
-                      max="50"
+                      min="0"
                       step="1"
-                      value={form.discount_percent}
-                      onChange={(e) => setForm({ ...form, discount_percent: parseInt(e.target.value) || 0 })}
-                      className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white"
-                      placeholder="%"
+                      value={form.discount_dollars}
+                      onChange={(e) => setForm({ ...form, discount_dollars: parseFloat(e.target.value) || 0 })}
+                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white"
+                      placeholder="$ off"
                     />
                   )}
                 </div>
               )}
               <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
-                <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}</span>
+                <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_type === 'percent' && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}{form.discount_enabled && form.discount_type === 'dollar' && form.discount_dollars > 0 ? ` − $${form.discount_dollars}` : ''}</span>
                 <span className="font-semibold text-[#1C1C1C]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
               </div>
               <div className="pt-2 border-t border-gray-200">
@@ -2769,33 +2794,50 @@ function BookingsPage() {
                   </div>
                   {createForm.discount_enabled && (
                     <div className="flex gap-2 items-center pt-1">
-                      <label className="text-xs text-gray-500 w-12">Percent:</label>
-                      <select
-                        value={[5, 10, 20].includes(createForm.discount_percent) ? createForm.discount_percent : 'custom'}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          if (v === 'custom') {
-                            const isPreset = [5, 10, 20].includes(createForm.discount_percent)
-                            setCreateForm({ ...createForm, discount_percent: isPreset ? 15 : createForm.discount_percent })
-                          } else setCreateForm({ ...createForm, discount_percent: parseInt(v) })
-                        }}
-                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1C1C1C]"
-                      >
-                        <option value={20}>20% ($69 weekly)</option>
-                        <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
-                        <option value={5}>5% ($59 biweekly/monthly)</option>
-                        <option value="custom">Custom %</option>
-                      </select>
-                      {![5, 10, 20].includes(createForm.discount_percent) && (
+                      <div className="flex rounded border border-gray-300 overflow-hidden text-xs font-medium">
+                        <button type="button" onClick={() => setCreateForm({ ...createForm, discount_type: 'percent' })} className={'px-2 py-1.5 ' + (createForm.discount_type === 'percent' ? 'bg-[#1C1C1C] text-white' : 'bg-white text-gray-500')}>%</button>
+                        <button type="button" onClick={() => setCreateForm({ ...createForm, discount_type: 'dollar' })} className={'px-2 py-1.5 ' + (createForm.discount_type === 'dollar' ? 'bg-[#1C1C1C] text-white' : 'bg-white text-gray-500')}>$</button>
+                      </div>
+                      {createForm.discount_type === 'percent' ? (
+                        <>
+                          <select
+                            value={[5, 10, 20].includes(createForm.discount_percent) ? createForm.discount_percent : 'custom'}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (v === 'custom') {
+                                const isPreset = [5, 10, 20].includes(createForm.discount_percent)
+                                setCreateForm({ ...createForm, discount_percent: isPreset ? 15 : createForm.discount_percent })
+                              } else setCreateForm({ ...createForm, discount_percent: parseInt(v) })
+                            }}
+                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1C1C1C]"
+                          >
+                            <option value={20}>20% ($69 weekly)</option>
+                            <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
+                            <option value={5}>5% ($59 biweekly/monthly)</option>
+                            <option value="custom">Custom %</option>
+                          </select>
+                          {![5, 10, 20].includes(createForm.discount_percent) && (
+                            <input
+                              type="number"
+                              min="1"
+                              max="50"
+                              step="1"
+                              value={createForm.discount_percent}
+                              onChange={(e) => setCreateForm({ ...createForm, discount_percent: parseInt(e.target.value) || 0 })}
+                              className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1C1C1C]"
+                              placeholder="%"
+                            />
+                          )}
+                        </>
+                      ) : (
                         <input
                           type="number"
-                          min="1"
-                          max="50"
+                          min="0"
                           step="1"
-                          value={createForm.discount_percent}
-                          onChange={(e) => setCreateForm({ ...createForm, discount_percent: parseInt(e.target.value) || 0 })}
-                          className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1C1C1C]"
-                          placeholder="%"
+                          value={createForm.discount_dollars}
+                          onChange={(e) => setCreateForm({ ...createForm, discount_dollars: parseFloat(e.target.value) || 0 })}
+                          className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1C1C1C]"
+                          placeholder="$ off"
                         />
                       )}
                     </div>
@@ -2805,7 +2847,7 @@ function BookingsPage() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-2">ESTIMATE{recurringDates.length > 1 ? ' (per visit)' : ''}</p>
                   <div className="flex justify-between">
-                    <span>~{getEstimatedHoursRange(createForm.hours)}hrs × ${createForm.hourly_rate}/hr{createForm.team_size > 1 ? ` × ${createForm.team_size} cleaners` : ''}{createForm.discount_enabled && createForm.discount_percent > 0 ? ` − ${createForm.discount_percent}%` : ''}</span>
+                    <span>~{getEstimatedHoursRange(createForm.hours)}hrs × ${createForm.hourly_rate}/hr{createForm.team_size > 1 ? ` × ${createForm.team_size} cleaners` : ''}{createForm.discount_enabled && createForm.discount_type === 'percent' && createForm.discount_percent > 0 ? ` − ${createForm.discount_percent}%` : ''}{createForm.discount_enabled && createForm.discount_type === 'dollar' && createForm.discount_dollars > 0 ? ` − $${createForm.discount_dollars}` : ''}</span>
                     <span className="font-semibold">~${(calculatePrice() / 100).toFixed(0)}</span>
                   </div>
                   {recurringDates.length > 1 && <p className="text-xs text-gray-500 mt-1">Recurring schedule — billed per visit</p>}
