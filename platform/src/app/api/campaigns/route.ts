@@ -53,8 +53,18 @@ export async function POST(request: Request) {
       // freshly-created campaign. PATCH /api/campaigns/[id] already accepts
       // this same field via pick() — only POST was missing it.
       scheduled_at: { type: 'date' },
+      // Feedback-request campaigns: a reply from a recipient gets captured
+      // into client_feedback (Clients -> Feedback) instead of the normal
+      // AI/booking flow, and reply_credit_cents (if set) is queued as a
+      // one-time credit on that feedback row. Default 'promo' — existing
+      // campaigns and callers that never send these fields are unaffected.
+      campaign_type: { type: 'string', max: 20 },
+      reply_credit_cents: { type: 'number', min: 0 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+    if (fields!.campaign_type && !['promo', 'feedback'].includes(fields!.campaign_type as string)) {
+      return NextResponse.json({ error: "campaign_type must be 'promo' or 'feedback'" }, { status: 400 })
+    }
 
     // scheduled_at landing on the row was only half the earlier fix: with
     // status always forced to 'draft', a campaign the admin scheduled had no

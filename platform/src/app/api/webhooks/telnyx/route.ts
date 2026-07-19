@@ -288,6 +288,98 @@ export async function POST(request: Request) {
     }
 
     // ============================================
+    // FEEDBACK-CAMPAIGN REPLY — ported from nycmaid (client_feedback +
+    // campaign_type='feedback' + reply_credit_cents), tenant-scoped.
+    // ============================================
+    // A client replying to a campaign flagged campaign_type='feedback' gets
+    // their message logged to client_feedback (Clients -> Feedback) and the
+    // campaign's reply_credit_cents (if any) queued as a pending credit on
+    // that row, instead of running the normal rating-intercept/chatbot flow
+    // below. Placed after STOP/START so consent handling is never bypassed;
+    // before rating/chatbot so a real feedback reply can't be swallowed by
+    // either.
+    {
+      const { data: fbClient } = await supabaseAdmin
+        .from('clients')
+        .select('id, name')
+        .eq('tenant_id', tenantId)
+        .eq('phone', from)
+        .maybeSingle()
+
+      if (fbClient) {
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: recip } = await supabaseAdmin
+          .from('campaign_recipients')
+          .select('campaign_id, created_at, campaigns(campaign_type, reply_credit_cents, name)')
+          .eq('tenant_id', tenantId)
+          .eq('client_id', fbClient.id)
+          .eq('channel', 'sms')
+          .in('status', ['sent', 'delivered'])
+          .gte('created_at', fourteenDaysAgo)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        const fbCampaign = recip?.campaigns as unknown as { campaign_type?: string; reply_credit_cents?: number | null; name?: string } | null
+
+        if (recip?.campaign_id && fbCampaign?.campaign_type === 'feedback') {
+          const { data: existingFb } = await supabaseAdmin
+            .from('client_feedback')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('client_id', fbClient.id)
+            .eq('campaign_id', recip.campaign_id)
+            .limit(1)
+            .maybeSingle()
+
+          if (!existingFb) {
+            await supabaseAdmin.from('client_feedback').insert({
+              tenant_id: tenantId,
+              client_id: fbClient.id,
+              campaign_id: recip.campaign_id,
+              source: 'sms',
+              message: text,
+              category: 'client',
+              credit_cents: fbCampaign.reply_credit_cents ?? null,
+            })
+
+            const creditLine = fbCampaign.reply_credit_cents
+              ? ` We've added a $${(fbCampaign.reply_credit_cents / 100).toFixed(0)} credit to your account for your next booking.`
+              : ''
+            if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+              await sendSMS({
+                to: from,
+                body: `Thank you for the feedback!${creditLine}`,
+                telnyxApiKey: tenant.telnyx_api_key,
+                telnyxPhone: tenant.telnyx_phone,
+              }).catch(() => {})
+            }
+
+            await supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'client_feedback',
+              title: `Feedback: ${fbClient.name || from}`,
+              message: text.slice(0, 300),
+              channel: 'in_app',
+              metadata: { client_id: fbClient.id, campaign_id: recip.campaign_id, phone: from },
+              status: 'sent',
+            })
+          } else if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Already captured this campaign's feedback — ack without re-crediting.
+            await sendSMS({
+              to: from,
+              body: `Thanks again — we've got your feedback on file!`,
+              telnyxApiKey: tenant.telnyx_api_key,
+              telnyxPhone: tenant.telnyx_phone,
+            }).catch(() => {})
+          }
+
+          return NextResponse.json({ received: true, action: 'feedback_captured' })
+        }
+      }
+    }
+
+    // ============================================
     // CONFIRMATION RESPONSES — YES/CONFIRM/OK
     // ============================================
     if (['YES', 'CONFIRM', 'CONFIRMED', 'OK', 'Y', 'SI'].includes(normalizedText)) {
