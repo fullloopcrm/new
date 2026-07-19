@@ -327,7 +327,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { tenant, error: authError } = await requirePermission('bookings.delete')
@@ -336,6 +336,10 @@ export async function DELETE(
   try {
     const { tenantId } = tenant
     const { id } = await params
+    // Callers batch-cancelling several future occurrences of a legacy (no
+    // schedule_id) recurring series pass this on every row after the first
+    // so the client isn't sent one cancellation email/SMS per occurrence.
+    const skipEmail = new URL(request.url).searchParams.get('skip_email') === 'true'
 
     const guard = await checkBookingDeletable(tenantId, id)
     if (!guard.deletable) {
@@ -361,7 +365,7 @@ export async function DELETE(
     }
 
     // Send cancellation notifications
-    if (booking) {
+    if (booking && !skipEmail) {
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')

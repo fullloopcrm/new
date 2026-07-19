@@ -1166,8 +1166,16 @@ function BookingsPage() {
     try {
       if (scope === 'all' && (editingBooking.schedule_id || editingBooking.recurring_type)) {
         if (editingBooking.schedule_id) {
-          // Use schedule_id for precise series cancellation (server-side)
-          const res = await fetch('/api/bookings/' + editingBooking.id + '?cancel_series=true', { method: 'DELETE' })
+          // DELETE /api/bookings/:id?cancel_series=true never actually cascaded --
+          // the query param was never read server-side, so this silently cancelled
+          // only the ONE clicked booking while every other future occurrence (and
+          // the schedule itself, which the daily cron reads to keep generating new
+          // ones) stayed live. The recurring-schedules DELETE endpoint is the real
+          // "cancel this series" primitive: it flips the schedule to 'cancelled'
+          // (stopping the generator) and soft-cancels every future booking on it
+          // in one atomic call, already respecting the deliberate no-client-SMS
+          // policy for admin-initiated schedule actions (feedback_no_client_sms).
+          const res = await fetch('/api/admin/recurring-schedules/' + editingBooking.schedule_id, { method: 'DELETE' })
           if (!res.ok) {
             const err = await res.json().catch(() => ({ error: res.statusText }))
             alert(`Failed to cancel series: ${err.error || 'Unknown error'}`)
