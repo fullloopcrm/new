@@ -166,7 +166,13 @@ function SalesPageInner() {
   const [schedShowEnd, setSchedShowEnd] = useState(false)
   const [schedEndDate, setSchedEndDate] = useState('')
   const [schedEndTime, setSchedEndTime] = useState('17:00')
-  const [crews, setCrews] = useState<Array<{ id: string; name: string }>>([])
+  const [crews, setCrews] = useState<Array<{
+    id: string
+    name: string
+    member_count?: number | null
+    available_count?: number | null
+    fully_available?: boolean | null
+  }>>([])
 
   const loadDeals = () => {
     setLoading(true)
@@ -206,6 +212,26 @@ function SalesPageInner() {
     }
   }
 
+  // With scheduling context (date/time/duration + the job's address), crews
+  // come back ranked by fit (member availability + zone + rating) instead of
+  // alphabetically — see scoreCrewsForBooking in smart-schedule.ts.
+  function loadCrews(ctx?: { date: string; time: string; duration: string; address: string }) {
+    const qs = ctx
+      ? `?date=${encodeURIComponent(ctx.date)}&start_time=${encodeURIComponent(ctx.time)}&duration_hours=${encodeURIComponent(ctx.duration)}&address=${encodeURIComponent(ctx.address)}`
+      : ''
+    fetch(`/api/crews${qs}`).then((r) => r.json())
+      .then((d) => setCrews((d?.crews || []) as typeof crews))
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    if (!schedFor || !schedDate) return
+    const deal = deals.find((d) => d.id === schedFor)
+    const address = deal?.clients?.address
+    if (!address) return
+    loadCrews({ date: schedDate, time: schedTime || '09:00', duration: schedDuration || '2', address })
+  }, [schedFor, schedDate, schedTime, schedDuration, deals])
+
   function toggleExpand(id: string) {
     if (expandedId === id) { setExpandedId(null); return }
     setExpandedId(id)
@@ -215,9 +241,7 @@ function SalesPageInner() {
     if (!activities[id]) loadActivities(id)
     loadQuotes(id)
     if (crews.length === 0) {
-      fetch('/api/crews').then((r) => r.json())
-        .then((d) => setCrews((d?.crews || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))))
-        .catch(() => {})
+      loadCrews()
     }
     if (teamMembers.length === 0) {
       fetch('/api/deals/team-mentions').then((r) => r.json())
@@ -537,7 +561,13 @@ function SalesPageInner() {
                                 )}
                                 <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
                                   <option value="">No crew</option>
-                                  {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                  {crews.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.fully_available ? '✓ ' : ''}
+                                      {c.name}
+                                      {c.available_count != null && c.member_count ? ` (${c.available_count}/${c.member_count})` : ''}
+                                    </option>
+                                  ))}
                                 </select>
                                 <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate || (schedShowEnd && !schedEndDate)} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
                                 <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
