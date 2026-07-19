@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { PRICING, computeMonthly } from '@/lib/billing-pricing'
+import { formatLabel } from '@/lib/format'
 import { NotesPanel } from '@/components/admin/NotesPanel'
 import { TenantUsers } from '@/components/admin/TenantUsers'
 import { LaunchPanel } from '@/components/admin/LaunchPanel'
@@ -409,11 +410,11 @@ export default function BusinessDetailPage() {
               biz.status === 'active' ? 'bg-green-50 text-green-600' :
               biz.status === 'setup' ? 'bg-teal-50 text-teal-600' :
               biz.status === 'suspended' ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'
-            }`}>{biz.status}</span>
+            }`}>{formatLabel(biz.status)}</span>
             <span className={`px-2.5 py-1 rounded text-xs font-semibold ${
               biz.billing_status === 'active' ? 'bg-green-50 text-green-600' :
               biz.billing_status === 'past_due' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
-            }`}>billing: {biz.billing_status}</span>
+            }`}>billing: {formatLabel(biz.billing_status)}</span>
           </div>
           <p className="text-slate-500 capitalize">{biz.industry?.replace(/_/g, ' ')} &middot; {biz.zip_code || '—'} &middot; {biz.timezone}</p>
           {biz.owner_name && <p className="text-slate-500 mt-1">{biz.owner_name} {biz.owner_email && `· ${biz.owner_email}`}</p>}

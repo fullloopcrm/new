@@ -41,6 +41,10 @@ const statusTabs = [
 
 const plans = ['free', 'starter', 'pro', 'enterprise']
 
+function cap(s: string): string {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
 export function AccountsPanel() {
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, active: 0, suspended: 0, cancelled: 0, mrr: 0 })
@@ -192,7 +196,7 @@ export function AccountsPanel() {
                     className="bg-white border border-slate-300 rounded px-2 py-1 text-xs"
                   >
                     {plans.map((p) => (
-                      <option key={p} value={p}>{p}</option>
+                      <option key={p} value={p}>{cap(p)}</option>
                     ))}
                   </select>
                 </td>
@@ -201,7 +205,7 @@ export function AccountsPanel() {
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-slate-200 text-slate-400'}`}>
-                    {t.status}
+                    {cap(t.status)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs">

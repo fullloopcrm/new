@@ -453,7 +453,7 @@ export default function CampaignsPage() {
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                     c.type === 'both' ? 'bg-purple-50 text-purple-700' :
                     c.type === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'
-                  }`}>{c.type === 'both' ? 'email + sms' : c.type}</span>
+                  }`}>{c.type === 'both' ? 'Email + SMS' : c.type === 'sms' ? 'SMS' : 'Email'}</span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${

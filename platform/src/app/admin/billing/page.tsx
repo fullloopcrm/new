@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PLAN_COLORS } from '@/lib/constants'
+import { formatLabel } from '@/lib/format'
 
 // 'plan' is a non-pricing segment label only. Real revenue is seat-based
 // ($2,500/admin + $250/team) via each tenant's monthly_rate — see billing-pricing.ts.
@@ -156,7 +157,7 @@ export default function BillingPage() {
                         className="bg-white border border-slate-300 rounded px-2 py-1 text-xs"
                       >
                         {PLAN_OPTIONS.map((p) => (
-                          <option key={p} value={p}>{p}</option>
+                          <option key={p} value={p}>{formatLabel(p)}</option>
                         ))}
                       </select>
                       <button
@@ -175,7 +176,7 @@ export default function BillingPage() {
                     </div>
                   ) : (
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[t.plan] || planColors.free}`}>
-                      {t.plan}
+                      {formatLabel(t.plan)}
                     </span>
                   )}
                 </td>
@@ -186,7 +187,7 @@ export default function BillingPage() {
                     t.status === 'suspended' ? 'bg-yellow-50 text-yellow-600 border border-yellow-200' :
                     'bg-slate-100 text-slate-500'
                   }`}>
-                    {t.status}
+                    {formatLabel(t.status)}
                   </span>
                 </td>
                 <td className="px-5 py-3 text-right font-mono text-slate-700">

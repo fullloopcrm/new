@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { formatLabel } from '@/lib/format'
 
 type TenantSms = {
   tenant_id: string
@@ -374,7 +375,7 @@ export default function AdminSmsPage() {
                               c.status === 'closed' ? 'bg-slate-100 text-slate-400' :
                               'bg-teal-50 text-teal-600'
                             }`}>
-                              {c.status}
+                              {formatLabel(c.status)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between mt-0.5">

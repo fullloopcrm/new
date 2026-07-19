@@ -21,6 +21,9 @@ function formatCents(cents: number): string {
 }
 
 const FREQUENCIES = ['daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']
+function cap(s: string): string {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
 
 export default function RecurringExpensesPage() {
   const [rows, setRows] = useState<Recurring[]>([])
@@ -103,7 +106,7 @@ export default function RecurringExpensesPage() {
               className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
             <select value={frequency} onChange={e => setFrequency(e.target.value)}
               className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
-              {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
+              {FREQUENCIES.map(f => <option key={f} value={f}>{cap(f)}</option>)}
             </select>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
               className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
@@ -142,7 +145,7 @@ export default function RecurringExpensesPage() {
                 <tr key={r.id}>
                   <td className="px-5 py-3 font-medium">{r.label}</td>
                   <td className="px-5 py-3 text-slate-500">{r.category || '—'}</td>
-                  <td className="px-5 py-3 text-slate-500">{r.frequency}</td>
+                  <td className="px-5 py-3 text-slate-500">{cap(r.frequency)}</td>
                   <td className="px-5 py-3 text-right font-medium">{formatCents(r.amount_cents)}</td>
                   <td className="px-5 py-3 text-xs text-slate-500">
                     {r.next_due_date ? new Date(r.next_due_date).toLocaleDateString() : '—'}

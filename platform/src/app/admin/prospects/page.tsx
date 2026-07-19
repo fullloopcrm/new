@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { PRICING } from '@/lib/billing-pricing'
+import { formatLabel } from '@/lib/format'
 
 type P = {
   id: string
@@ -119,7 +120,7 @@ export default function ProspectsAdminPage() {
                   </td>
                   <td className="px-4 py-3 text-xs">{p.annual_revenue_bracket || '—'}</td>
                   <td className="px-4 py-3 text-xs">{p.tier_interest || '—'}</td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[p.status]}`}>{p.status}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[p.status]}`}>{formatLabel(p.status)}</span></td>
                   <td className="px-4 py-3">
                     {['new','reviewing'].includes(p.status) && (
                       <div className="flex flex-wrap items-center gap-1.5">

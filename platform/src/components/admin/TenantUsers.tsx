@@ -17,6 +17,7 @@ interface TenantUser {
 }
 
 const ROLES = ['owner', 'admin', 'manager', 'staff', 'va']
+const ROLE_LABELS: Record<string, string> = { owner: 'Owner', admin: 'Admin', manager: 'Manager', staff: 'Staff', va: 'VA' }
 
 export function TenantUsers({ tenantId }: { tenantId: string }) {
   const [users, setUsers] = useState<TenantUser[]>([])
@@ -65,7 +66,7 @@ export function TenantUsers({ tenantId }: { tenantId: string }) {
         <div className="grid grid-cols-2 gap-3">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Name *" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
           <select value={role} onChange={e => setRole(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>)}
           </select>
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
@@ -85,7 +86,7 @@ export function TenantUsers({ tenantId }: { tenantId: string }) {
           {users.map(u => (
             <div key={u.id} className="flex items-center justify-between px-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-900">{u.name} <span className="text-xs text-slate-400 capitalize">· {u.role}</span></p>
+                <p className="text-sm font-medium text-slate-900">{u.name} <span className="text-xs text-slate-400">· {ROLE_LABELS[u.role] || u.role}</span></p>
                 <p className="text-xs text-slate-500 truncate">{u.email || u.phone || '—'} · {u.status}{u.last_login ? ` · last login ${new Date(u.last_login).toLocaleDateString()}` : ''}</p>
               </div>
               <button onClick={() => remove(u.id)} className="text-xs text-slate-400 hover:text-red-600 shrink-0">remove</button>

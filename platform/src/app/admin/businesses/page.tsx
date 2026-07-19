@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { TENANT_STATUS_COLORS, BILLING_COLORS } from '@/lib/constants'
+import { formatLabel } from '@/lib/format'
 
 type Business = {
   id: string
@@ -201,12 +202,12 @@ export default function BusinessesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[b.status] || 'bg-slate-200 text-slate-400'}`}>
-                      {b.status}
+                      {formatLabel(b.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${billingColors[b.billing_status] || 'bg-slate-200 text-slate-400'}`}>
-                      {b.billing_status || 'setup'}
+                      {formatLabel(b.billing_status || 'setup')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-500">

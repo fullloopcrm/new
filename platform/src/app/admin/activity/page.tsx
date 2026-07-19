@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatLabel } from '@/lib/format'
 
 type Tenant = { name: string | null; slug: string | null }
 
@@ -117,7 +118,7 @@ export default function AdminActivityPage() {
         >
           <option value="">All entities</option>
           {ENTITY_TYPES.map(t => (
-            <option key={t} value={t}>{t.replace('_', ' ')}</option>
+            <option key={t} value={t}>{formatLabel(t)}</option>
           ))}
         </select>
       </div>

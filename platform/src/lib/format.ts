@@ -76,6 +76,15 @@ export function formatEmail(email: string): string {
   return email.toLowerCase().trim()
 }
 
+// Display label for a lowercase/snake_case enum value, e.g. "past_due" -> "Past Due"
+export function formatLabel(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 // Format address - capitalize properly
 export function formatAddress(address: string): string {
   // Common abbreviations to keep uppercase

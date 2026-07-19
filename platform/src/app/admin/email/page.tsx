@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { formatLabel } from '@/lib/format'
 
 type TenantEmail = {
   tenant_id: string
@@ -364,7 +365,7 @@ export default function AdminEmailPage() {
                               log.status === 'failed' ? 'bg-red-50 text-red-500' :
                               'bg-slate-100 text-slate-400'
                             }`}>
-                              {log.status}
+                              {formatLabel(log.status)}
                             </span>
                           </td>
                           <td className="py-2 text-right text-xs text-slate-400">{timeAgo(log.created_at)}</td>

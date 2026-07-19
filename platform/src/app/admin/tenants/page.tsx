@@ -23,6 +23,10 @@ const statusColors = TENANT_STATUS_COLORS
 
 const planColors = PLAN_COLORS
 
+function cap(s: string): string {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
 const statusTabs = [
   { value: 'all', label: 'All' },
   { value: 'active', label: 'Active' },
@@ -113,12 +117,12 @@ export default function TenantsPage() {
                 <td className="px-4 py-3 text-slate-600 capitalize">{t.industry?.replace(/_/g, ' ')}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[t.plan || 'free'] || 'bg-slate-200 text-slate-400'}`}>
-                    {t.plan || 'free'}
+                    {cap(t.plan || 'free')}
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusColors[t.status] || 'bg-slate-200 text-slate-400'}`}>
-                    {t.status}
+                    {cap(t.status)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-600">{t.team_size || 'solo'}</td>
