@@ -17,6 +17,12 @@
  *    tenant has zero clients yet.
  *  - Required key must be mapped before staging is allowed.
  *  - Row cap mirrors the stage API (5,000 / file).
+ *  - Columns the preset can't place fall through to the AI analyzer
+ *    (/api/dashboard/import/analyze): it only SUGGESTS a mapping for fields
+ *    still unmapped after the preset runs, into columns not already used.
+ *    Suggestions pre-fill the same editable select the preset uses and are
+ *    flagged "AI suggested" — the operator still reviews/edits before staging,
+ *    nothing is ever written on the AI's say-so alone.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -57,6 +63,12 @@ const SCHEDULE_FIELDS: FieldDef[] = [
 
 type Step = 'source' | 'export' | 'map'
 
+type AiAnalyzeResult = {
+  mapping?: Record<string, number | number[] | null>
+  notes?: string
+  confidence?: 'high' | 'medium' | 'low'
+}
+
 export default function ImportWizard({ kind }: { kind: ImportKind }) {
   const router = useRouter()
   const fields = kind === 'schedules' ? SCHEDULE_FIELDS : CLIENT_FIELDS
@@ -71,6 +83,9 @@ export default function ImportWizard({ kind }: { kind: ImportKind }) {
   const [clientCount, setClientCount] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [aiFields, setAiFields] = useState<Set<string>>(new Set())
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiNote, setAiNote] = useState('')
 
   // Schedules guardrail: know how many clients exist before allowing an upload.
   useEffect(() => {
@@ -85,6 +100,51 @@ export default function ImportWizard({ kind }: { kind: ImportKind }) {
 
   const pickPreset = (p: CrmPreset) => { setPresetState(p); setErr(''); setStep('export') }
 
+  // Preset mapping leaves some fields unmapped — ask the tenant's own AI to
+  // suggest a fit from the remaining unmapped columns. Never applied silently:
+  // only fills fields still empty, only into columns not already used, and the
+  // result lands in the same editable select the preset uses (flagged below).
+  const runAiFallback = useCallback(async (h: string[], r: string[][], initialPlan: MappingPlan) => {
+    const stillUnmapped = fields.some((f) => !initialPlan.fields[f.key]?.length)
+    if (!stillUnmapped || initialPlan.unmappedHeaders.length === 0) return
+    setAiBusy(true)
+    try {
+      const res = await fetch('/api/dashboard/import/analyze', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, columns: h, samples: r.slice(0, 8) }),
+      })
+      if (!res.ok) return
+      const data = (await res.json().catch(() => null)) as AiAnalyzeResult | null
+      if (!data?.mapping) return
+      setPlan((prev) => {
+        const nextFields = { ...prev.fields }
+        const used = new Set(Object.values(nextFields).flat())
+        const filled = new Set<string>()
+        for (const f of fields) {
+          if (nextFields[f.key]?.length) continue
+          const raw = data.mapping?.[f.key]
+          if (raw === null || raw === undefined) continue
+          const idxs = (Array.isArray(raw) ? raw : [raw]).filter(
+            (i) => Number.isInteger(i) && i >= 0 && i < h.length && !used.has(i),
+          )
+          if (idxs.length === 0) continue
+          nextFields[f.key] = idxs
+          idxs.forEach((i) => used.add(i))
+          filled.add(f.key)
+        }
+        if (filled.size === 0) return prev
+        setAiFields(filled)
+        return { fields: nextFields, unmappedHeaders: h.filter((_, i) => !used.has(i)) }
+      })
+      if (data.notes) setAiNote(data.notes)
+    } catch {
+      // Analyze is a best-effort suggestion layer — silently fall back to manual mapping.
+    } finally {
+      setAiBusy(false)
+    }
+  }, [fields, kind])
+
   const onFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !preset) return
@@ -97,15 +157,20 @@ export default function ImportWizard({ kind }: { kind: ImportKind }) {
       setFileName(file.name)
       setHeaders(h)
       setRows(r)
-      setPlan(resolveMapping(preset, kind, h))
+      const initialPlan = resolveMapping(preset, kind, h)
+      setPlan(initialPlan)
+      setAiFields(new Set())
+      setAiNote('')
       const ranked = detectPreset(kind, h)
       setDetected(ranked[0]?.preset ?? null)
       setStep('map')
+      void runAiFallback(h, r, initialPlan)
     }
     reader.readAsText(file)
-  }, [preset, kind])
+  }, [preset, kind, runAiFallback])
 
-  // Editing the plan: assign a field to a single column, or clear it.
+  // Editing the plan: assign a field to a single column, or clear it. A manual
+  // edit counts as the operator reviewing it, so it drops the AI-suggested flag.
   const setFieldColumn = (fieldKey: string, idx: number) => {
     setPlan((p) => {
       const next = { ...p.fields }
@@ -113,6 +178,12 @@ export default function ImportWizard({ kind }: { kind: ImportKind }) {
       else next[fieldKey] = [idx]
       const usedIdx = new Set(Object.values(next).flat())
       return { fields: next, unmappedHeaders: headers.filter((_, i) => !usedIdx.has(i)) }
+    })
+    setAiFields((prev) => {
+      if (!prev.has(fieldKey)) return prev
+      const next = new Set(prev)
+      next.delete(fieldKey)
+      return next
     })
   }
 
@@ -161,6 +232,7 @@ export default function ImportWizard({ kind }: { kind: ImportKind }) {
           kind={kind} preset={preset} detected={detected} fields={fields}
           headers={headers} rowsCount={rows.length} plan={plan} previewRows={previewRows}
           mappedFieldKeys={mappedFieldKeys} requiredMet={requiredMet} busy={busy}
+          aiFields={aiFields} aiBusy={aiBusy} aiNote={aiNote}
           onSetColumn={setFieldColumn} onBack={() => setStep('export')} onStage={stage}
         />
       )}
@@ -253,10 +325,11 @@ function ExportStep({ preset, noClientsYet, onBack, onFile }: {
   )
 }
 
-function MapStep({ kind, preset, detected, fields, headers, rowsCount, plan, previewRows, mappedFieldKeys, requiredMet, busy, onSetColumn, onBack, onStage }: {
+function MapStep({ kind, preset, detected, fields, headers, rowsCount, plan, previewRows, mappedFieldKeys, requiredMet, busy, aiFields, aiBusy, aiNote, onSetColumn, onBack, onStage }: {
   kind: ImportKind; preset: CrmPreset; detected: CrmPreset | null; fields: FieldDef[]
   headers: string[]; rowsCount: number; plan: MappingPlan; previewRows: Array<Record<string, string>>
   mappedFieldKeys: string[]; requiredMet: boolean; busy: boolean
+  aiFields: Set<string>; aiBusy: boolean; aiNote: string
   onSetColumn: (field: string, idx: number) => void; onBack: () => void; onStage: () => void
 }) {
   const mismatch = detected && detected.id !== preset.id
@@ -278,6 +351,18 @@ function MapStep({ kind, preset, detected, fields, headers, rowsCount, plan, pre
         ? <Tip>Duplicates are skipped automatically by email and phone. A row with neither a phone nor an email can&apos;t be saved — you&apos;ll see it flagged on the review screen.</Tip>
         : <Tip>Each appointment is matched to a client by phone, then name. Recurring rows need weekly/biweekly/monthly; one-time rows need a start date. Unmatched rows are held for review.</Tip>}
 
+      {aiBusy && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700">
+          Asking AI to suggest a mapping for the remaining unmapped columns…
+        </div>
+      )}
+      {!aiBusy && aiFields.size > 0 && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700">
+          <span className="font-semibold">AI suggested {aiFields.size} of the fields below</span> (marked) from columns the preset didn&apos;t recognize — check them before staging.
+          {aiNote && <p className="mt-1 text-violet-600">{aiNote}</p>}
+        </div>
+      )}
+
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 font-heading text-lg font-semibold text-slate-900">Confirm the column mapping</h2>
         <div className="space-y-2.5">
@@ -290,6 +375,7 @@ function MapStep({ kind, preset, detected, fields, headers, rowsCount, plan, pre
                   {f.label}
                   {f.required && <span className="text-red-500"> *</span>}
                   {f.matchKey && <span className="ml-1 text-[10px] text-slate-400">match key</span>}
+                  {aiFields.has(f.key) && <span className="ml-1 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">AI suggested</span>}
                 </label>
                 {composite ? (
                   <div className="flex items-center gap-2 text-sm text-slate-600">
