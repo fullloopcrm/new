@@ -119,6 +119,7 @@ export async function POST(request: Request) {
         total_cents: totals.total_cents,
         terms: body.terms || null,
         notes: body.notes || null,
+        job_notes: body.job_notes || null,
         valid_until: body.valid_until || null,
         deposit_type,
         deposit_value,

@@ -30,6 +30,7 @@ type Quote = {
   status: string
   title: string | null
   description: string | null
+  job_notes: string | null
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
@@ -256,6 +257,7 @@ export default function QuoteView({ token }: { token: string }) {
           <div className="px-6 py-6 border-b border-slate-200" style={{ borderTopColor: primary }}>
             <h1 className="text-2xl font-bold text-slate-900">{quote.title || 'Quote'}</h1>
             {quote.description && <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{quote.description}</p>}
+            {quote.job_notes && <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{quote.job_notes}</p>}
           </div>
 
           {/* Recipient block */}

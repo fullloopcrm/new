@@ -58,6 +58,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [jobNotes, setJobNotes] = useState('')
 
   const [items, setItems] = useState<LineItem[]>([blankLine()])
   const [taxPct, setTaxPct] = useState('0')
@@ -142,6 +143,12 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       ...prev.filter(li => li.name.trim() || li.unit_price_cents),
       { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents, duration_hours: it.default_duration_hours ?? undefined },
     ])
+    // Preset the proposal-level description from the catalog item's own
+    // description -- but only while it's still untouched. Once the operator
+    // has typed or a prior catalog pick has already set it, further catalog
+    // adds must not clobber it; job-specific detail belongs in Job Notes
+    // instead, which never touches this field.
+    if (it.description) setDescription(prev => (prev.trim() === '' ? it.description as string : prev))
   }
   function updateItem(id: string, patch: Partial<LineItem>) { setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li))) }
   function addItem() { setItems(prev => [...prev, blankLine()]) }
@@ -175,6 +182,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       service_address: serviceAddress || null,
       title,
       description: description || null,
+      job_notes: jobNotes || null,
       line_items: items.filter(li => li.name.trim()).map(li => ({
         id: li.id, name: li.name, description: li.description || undefined,
         quantity: li.quantity, unit_price_cents: li.unit_price_cents,
@@ -194,7 +202,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       notes: notes || null,
       valid_until: validUntil,
     }
-  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, fulfillment, terms, notes, validUntilDays])
+  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, jobNotes, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, fulfillment, terms, notes, validUntilDays])
 
   const meaningful = title.trim().length > 0 || items.some(li => li.name.trim().length > 0)
 
@@ -285,7 +293,10 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         <h2 className="font-heading font-semibold text-slate-900 mb-3">Quote Details</h2>
         <input placeholder="Quote title (e.g., Kitchen deep clean · 4 hours)" value={title} onChange={e => setTitle(e.target.value)}
           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3" />
-        <textarea placeholder="Description (optional) — scope of work, assumptions, exclusions" value={description} onChange={e => setDescription(e.target.value)} rows={3}
+        <textarea placeholder="Description — auto-fills from the catalog item's own description when you add one from catalog below; edit freely" value={description} onChange={e => setDescription(e.target.value)} rows={3}
+          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3" />
+        <label className="block text-xs text-slate-500 uppercase mb-1">Job Notes (shown to client, below the description)</label>
+        <textarea placeholder="Anything specific to this job — access instructions, special requests, exceptions to the standard scope above" value={jobNotes} onChange={e => setJobNotes(e.target.value)} rows={3}
           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
       </section>
 

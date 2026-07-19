@@ -153,6 +153,7 @@ export async function GET(request: Request, { params }: Params) {
       status: update.status || quote.status,
       title: quote.title,
       description: quote.description,
+      job_notes: quote.job_notes,
       contact_name: quote.contact_name,
       contact_email: quote.contact_email,
       contact_phone: quote.contact_phone,

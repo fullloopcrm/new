@@ -62,7 +62,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const assignables = [
       'title', 'description',
       'contact_name', 'contact_email', 'contact_phone', 'service_address',
-      'terms', 'notes', 'valid_until', 'client_id', 'tiers',
+      'terms', 'notes', 'job_notes', 'valid_until', 'client_id', 'tiers',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
