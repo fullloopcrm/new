@@ -14,6 +14,7 @@ type AuditAction =
   | 'team_portal.login' | 'team_portal.checkin' | 'team_portal.checkout'
   | 'portal.login' | 'portal.booking_created' | 'portal.booking_cancelled'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'
+  | 'package.created' | 'package.updated' | 'package.deleted'
 
 export async function audit({
   tenantId,

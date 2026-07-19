@@ -15,6 +15,8 @@ import { getScopeTemplates } from '@/lib/quote-scope-templates'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
+type PackageItem = { id: string; catalog_item_id: string | null; name: string; description: string | null; quantity: number; unit_price_cents: number }
+type Package = { id: string; name: string; description: string | null; items: PackageItem[] }
 
 type LineItem = {
   id: string
@@ -47,6 +49,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [clients, setClients] = useState<Client[]>([])
   const [clientId, setClientId] = useState<string>(clientIdInit || '')
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
+  const [packages, setPackages] = useState<Package[]>([])
 
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -93,6 +96,8 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       .then(data => setClients(Array.isArray(data) ? data : data.clients || [])).catch(() => {})
     fetch('/api/catalog').then(r => r.json())
       .then(data => setCatalog((data?.items || []).filter((i: { active?: boolean }) => i.active !== false))).catch(() => {})
+    fetch('/api/catalog/packages').then(r => r.json())
+      .then(data => setPackages((data?.packages || []).filter((p: { active?: boolean }) => p.active !== false))).catch(() => {})
     // Prefill tax / valid-days / deposit / terms from the tenant's Sales &
     // Proposals defaults. Functional guards ensure we never overwrite a value
     // the operator has already changed (e.g. if settings resolves late).
@@ -145,6 +150,23 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     setItems(prev => [
       ...prev.filter(li => li.name.trim() || li.unit_price_cents),
       { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
+    ])
+  }
+
+  // Picking a package auto-fills title (if blank), appends the package
+  // description to the scope (if any is already typed), and drops in every
+  // package item as its own line — each keeping the description it was built
+  // with. The tenant then only has to add job-specific notes on top.
+  function addFromPackage(packageId: string) {
+    const pkg = packages.find(p => p.id === packageId)
+    if (!pkg) return
+    setTitle(prev => (prev.trim() ? prev : pkg.name))
+    if (pkg.description) {
+      setDescription(prev => (prev.trim() ? `${prev.trim()}\n\n${pkg.description}` : pkg.description || ''))
+    }
+    setItems(prev => [
+      ...prev.filter(li => li.name.trim() || li.unit_price_cents),
+      ...pkg.items.map(pi => ({ ...blankLine(), name: pi.name, description: pi.description || '', quantity: pi.quantity || 1, unit_price_cents: pi.unit_price_cents })),
     ])
   }
   function updateItem(id: string, patch: Partial<LineItem>) { setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li))) }
@@ -306,6 +328,13 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-semibold text-slate-900">Line Items</h2>
           <div className="flex items-center gap-2">
+            {packages.length > 0 && (
+              <select value="" onChange={e => { if (e.target.value) { addFromPackage(e.target.value); e.target.value = '' } }}
+                className="text-xs px-2 py-1 bg-white border border-teal-300 rounded text-teal-700">
+                <option value="">+ From package…</option>
+                {packages.map(p => <option key={p.id} value={p.id}>{p.name} — {p.items.length} item{p.items.length === 1 ? '' : 's'}</option>)}
+              </select>
+            )}
             {catalog.length > 0 && (
               <select value="" onChange={e => { if (e.target.value) { addFromCatalog(e.target.value); e.target.value = '' } }}
                 className="text-xs px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">
