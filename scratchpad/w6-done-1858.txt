@@ -1,0 +1,3 @@
+LEADER session-8: 4-worker transition fully complete. W6 kept working productively (landed 2 more real fixes - a double-submit checkout billing-inflation bug and a video-upload cross-tenant ownership gap) since these invocations run continuously and dont naturally break between bugs. Waited for a clean commit boundary, verified zero uncommitted work in its worktree, then stopped it directly.
+
+Verified right now: ps -eo pid,ppid,command | awk PPID==1 match on worker-driver.sh shows exactly 4 drivers - W1 30262, W2 30764, W3 31571, W4 32032. pgrep for any flwork-p1-w5 or flwork-p1-w6 process of any kind returns nothing. Fleet is genuinely 4 workers now, banked permanently in LEADER-HANDOFF.md.

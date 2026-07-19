@@ -1,0 +1,94 @@
+diff --git a/platform/src/app/dashboard/page.tsx b/platform/src/app/dashboard/page.tsx
+index f0889a27..328b212a 100644
+--- a/platform/src/app/dashboard/page.tsx
++++ b/platform/src/app/dashboard/page.tsx
+@@ -6,7 +6,7 @@ import JobsMap, { type MapJob } from './_components/JobsMap'
+ 
+ // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
+ // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
+-// Sections: Revenue ladder, Jobs ladder, Jobs-by-month, KPIs, Today/Tomorrow.
++// Sections: Revenue ladder, Sales (leads + proposals), Jobs ladder, Jobs-by-month, KPIs, Today/Tomorrow.
+ // (Schedule-Issues triage + live Map land in a follow-on increment.)
+ export const dynamic = 'force-dynamic'
+ 
+@@ -58,6 +58,9 @@ const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status =
+ const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
+ const sum = (jobs: Booking[]) => jobs.reduce((s, j) => s + (j.price || 0), 0)
+ const inRange = (j: Booking, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
++const inDateRange = (iso: string, a: Date, b: Date) => { const d = new Date(iso); return d >= a && d <= b }
++
++const PENDING_QUOTE_STATUSES = ['sent', 'viewed']
+ 
+ export default async function DashboardPage() {
+   const tenant = await getCurrentTenant()
+@@ -75,13 +78,17 @@ export default async function DashboardPage() {
+   const monthShort = now.toLocaleDateString('en-US', { month: 'short' })
+   const yearStr = String(now.getFullYear())
+ 
+-  const [allJobs, rosterRes, newClientsRes] = await Promise.all([
++  const [allJobs, rosterRes, newClientsRes, leadsRes, quotesRes] = await Promise.all([
+     fetchYearBookings(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
+     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
+     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', startOfMonth.toISOString()),
++    supabaseAdmin.from('deals').select('id,created_at').eq('tenant_id', tenant.id).eq('stage', 'new').limit(2000),
++    supabaseAdmin.from('quotes').select('id,status,created_at,accepted_at').eq('tenant_id', tenant.id).in('status', [...PENDING_QUOTE_STATUSES, 'accepted']).limit(2000),
+   ])
+   const roster = rosterRes.count || 0
+   const newThisMonth = newClientsRes.count || 0
++  const leads = (leadsRes.data || []) as { id: string; created_at: string }[]
++  const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
+ 
+   // Map jobs — this month, with client address for geocoding.
+   const { data: mapRows } = await supabaseAdmin
+@@ -139,6 +146,25 @@ export default async function DashboardPage() {
+     { label: 'Jobs · YTD', val: all2026.length, sub: formatMoney(scheduled2026Total) },
+     { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
+   ]
++
++  const leadsWeek = leads.filter(l => inDateRange(l.created_at, startOfWeek, endOfWeek)).length
++  const leadsToday = leads.filter(l => inDateRange(l.created_at, startOfDay, endOfDay)).length
++  const leadsLadder = [
++    { label: 'Total Leads', val: leads.length },
++    { label: 'Leads · Week', val: leadsWeek },
++    { label: 'Leads · Today', val: leadsToday },
++  ]
++
++  const pendingQuotes = quotesForStats.filter(q => PENDING_QUOTE_STATUSES.includes(q.status))
++  const approvedQuotes = quotesForStats.filter(q => q.status === 'accepted')
++  const proposalsLadder = [
++    { label: 'Pending · Day', val: pendingQuotes.filter(q => inDateRange(q.created_at, startOfDay, endOfDay)).length },
++    { label: 'Pending · Week', val: pendingQuotes.filter(q => inDateRange(q.created_at, startOfWeek, endOfWeek)).length },
++    { label: 'Pending · Month', val: pendingQuotes.filter(q => inDateRange(q.created_at, startOfMonth, endOfMonth)).length },
++    { label: 'Approved · Day', val: approvedQuotes.filter(q => q.accepted_at && inDateRange(q.accepted_at, startOfDay, endOfDay)).length },
++    { label: 'Approved · Week', val: approvedQuotes.filter(q => q.accepted_at && inDateRange(q.accepted_at, startOfWeek, endOfWeek)).length },
++    { label: 'Approved · Month', val: approvedQuotes.filter(q => q.accepted_at && inDateRange(q.accepted_at, startOfMonth, endOfMonth)).length },
++  ]
+   const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
+     const mStart = new Date(now.getFullYear(), monthIdx, 1)
+     const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
+@@ -184,6 +210,25 @@ export default async function DashboardPage() {
+         ))}
+       </div>
+ 
++      {/* SALES — leads + proposals */}
++      <Bar>Sales</Bar>
++      <div className="grid mb-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
++        {leadsLadder.map((c, i, arr) => (
++          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
++            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
++            <div style={{ fontFamily: V.display, fontSize: '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
++          </div>
++        ))}
++      </div>
++      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(6, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
++        {proposalsLadder.map((c, i, arr) => (
++          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
++            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
++            <div style={{ fontFamily: V.display, fontSize: '24px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
++          </div>
++        ))}
++      </div>
++
+       {/* JOBS LADDER */}
+       <Bar>Jobs</Bar>
+       <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>

@@ -1362,7 +1362,7 @@ function BookingsPage() {
             Completed <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'completed' ? 'bg-white/20' : 'bg-green-100 text-green-600')}>{statusCounts.completed}</span>
           </button>
           <button onClick={() => setFilters({ ...filters, status: 'cancelled' })} className={statusPillClass('cancelled')}>
-            Cancelled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'cancelled' ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>{statusCounts.cancelled}</span>
+            Canceled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'cancelled' ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>{statusCounts.cancelled}</span>
           </button>
         </div>
 
@@ -1770,7 +1770,7 @@ function BookingsPage() {
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                         {b.status === 'cancelled' ? (
-                          <button onClick={() => { if (confirm(`Permanently delete this cancelled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
+                          <button onClick={() => { if (confirm(`Permanently delete this canceled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         ) : (
@@ -1949,7 +1949,7 @@ function BookingsPage() {
                   <option value="scheduled">Scheduled</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="cancelled">Canceled</option>
                 </select>
                 {(editingBooking.recurring_type || editingBooking.schedule_id) && (
                   <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{editingBooking.recurring_type || 'Recurring'}</span>
@@ -2845,7 +2845,7 @@ function BookingsPage() {
                     <option value="pending">Pending</option>
                     <option value="scheduled">Scheduled</option>
                     <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="cancelled">Canceled</option>
                   </select>
                 </div>
                 <div>

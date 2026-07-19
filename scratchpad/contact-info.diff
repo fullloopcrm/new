@@ -1,0 +1,57 @@
+diff --git a/platform/src/app/dashboard/sales/page.tsx b/platform/src/app/dashboard/sales/page.tsx
+index 5302dccf..92582259 100644
+--- a/platform/src/app/dashboard/sales/page.tsx
++++ b/platform/src/app/dashboard/sales/page.tsx
+@@ -82,7 +82,7 @@ type Deal = {
+   last_activity_at: string | null
+   last_contacted_at: string | null
+   created_at: string
+-  clients: { name: string | null; address: string | null } | null
++  clients: { name: string | null; email: string | null; phone: string | null; address: string | null } | null
+ }
+ 
+ type Activity = {
+@@ -390,6 +390,28 @@ function SalesPageInner() {
+ 
+                   {isOpen && (
+                     <div className="sl-deal-panel">
++                      {/* Contact info + deal notes */}
++                      {(d.clients?.phone || d.clients?.email || d.clients?.address || d.notes) && (
++                        <div className="sl-proposal">
++                          {(d.clients?.phone || d.clients?.email || d.clients?.address) && (
++                            <>
++                              <div className="sl-proposal-head">Contact</div>
++                              <div className="sl-contact-line">
++                                {d.clients?.phone && <a href={`tel:${d.clients.phone}`} className="sl-contact-item">{d.clients.phone}</a>}
++                                {d.clients?.email && <a href={`mailto:${d.clients.email}`} className="sl-contact-item">{d.clients.email}</a>}
++                                {d.clients?.address && <span className="sl-contact-item">{d.clients.address}</span>}
++                              </div>
++                            </>
++                          )}
++                          {d.notes && (
++                            <>
++                              <div className="sl-proposal-head">Notes</div>
++                              <div className="sl-contact-notes">{d.notes}</div>
++                            </>
++                          )}
++                        </div>
++                      )}
++
+                       {/* Stage-driven primary actions */}
+                       <div className="sl-actions">
+                         {d.stage === 'new' && (
+diff --git a/platform/src/app/dashboard/sales/sales.css b/platform/src/app/dashboard/sales/sales.css
+index 7ddf5d58..410bbaed 100644
+--- a/platform/src/app/dashboard/sales/sales.css
++++ b/platform/src/app/dashboard/sales/sales.css
+@@ -675,6 +675,10 @@ a.sl-act-btn { display: inline-block; text-decoration: none; text-align: center;
+ .sl-proposal-status.accepted { background: rgba(31,77,44,0.12); color: var(--sl-good); }
+ .sl-proposal-status.declined { background: rgba(192,57,43,0.1); color: #c0392b; }
+ .sl-proposal-status.expired { background: rgba(192,57,43,0.08); color: #c0392b; }
++.sl-contact-line { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
++.sl-contact-item { color: var(--sl-ink); text-decoration: none; }
++a.sl-contact-item:hover { text-decoration: underline; }
++.sl-contact-notes { font-size: 12px; color: var(--sl-ink); line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+ .sl-sched-input {
+   font-size: 12px; padding: 5px 8px; border: 1px solid var(--sl-line);
+   border-radius: 7px; background: #fff; color: var(--sl-ink); font-family: inherit;

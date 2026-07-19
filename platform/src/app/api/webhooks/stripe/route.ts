@@ -18,7 +18,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { isCommEnabled } from '@/lib/comms-prefs'
 import { cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
@@ -601,8 +600,8 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[stripe] cleaner SMS failed:', err))
       }
 
-      // 6. SMS client a thank-you (payment_receipt:sms)
-      if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone && await isCommEnabled(tenantId, 'payment_receipt', 'sms')) {
+      // 6. SMS client a thank-you
+      if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const tipLine = tipCents > 0 ? ` and the ${(tipCents / 100).toFixed(0)} tip` : ''
         const body = `Thanks for the payment of $${(amountCents / 100).toFixed(0)}${tipLine}! 😊 — ${tenant.name || ''}`
         sendSMS({

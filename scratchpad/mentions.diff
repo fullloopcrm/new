@@ -1,0 +1,234 @@
+diff --git a/platform/src/app/api/deals/[id]/activities/route.ts b/platform/src/app/api/deals/[id]/activities/route.ts
+index 5d30f9ed..fc85edf0 100644
+--- a/platform/src/app/api/deals/[id]/activities/route.ts
++++ b/platform/src/app/api/deals/[id]/activities/route.ts
+@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+     if (_authError) return _authError
+     const { tenantId } = _authTenant
+     const { id } = await params
+-    const { type, description } = await request.json()
++    const { type, description, tagged_user_ids } = await request.json()
+ 
+     if (!type || !description) {
+       return NextResponse.json({ error: 'type and description are required' }, { status: 400 })
+@@ -56,6 +56,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+     if (!ALLOWED_TYPES.includes(type)) {
+       return NextResponse.json({ error: `type must be one of: ${ALLOWED_TYPES.join(', ')}` }, { status: 400 })
+     }
++    if (tagged_user_ids !== undefined && !Array.isArray(tagged_user_ids)) {
++      return NextResponse.json({ error: 'tagged_user_ids must be an array' }, { status: 400 })
++    }
+ 
+     // Verify deal belongs to tenant.
+     const { data: deal } = await supabaseAdmin
+@@ -66,9 +69,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+       .maybeSingle()
+     if (!deal) return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
+ 
++    // Only store tags for team members that actually belong to this tenant —
++    // an operator's client can't paste in another tenant's user id.
++    let taggedUserIds: string[] = []
++    if (Array.isArray(tagged_user_ids) && tagged_user_ids.length > 0) {
++      const candidates = tagged_user_ids.filter((v): v is string => typeof v === 'string')
++      const { data: validMembers } = await supabaseAdmin
++        .from('team_members')
++        .select('id')
++        .eq('tenant_id', tenantId)
++        .in('id', candidates)
++      taggedUserIds = (validMembers || []).map((m) => m.id)
++    }
++
+     const { data, error } = await supabaseAdmin
+       .from('deal_activities')
+-      .insert({ tenant_id: tenantId, deal_id: id, type, description })
++      .insert({ tenant_id: tenantId, deal_id: id, type, description, tagged_user_ids: taggedUserIds })
+       .select()
+       .single()
+     if (error) throw error
+diff --git a/platform/src/app/dashboard/sales/page.tsx b/platform/src/app/dashboard/sales/page.tsx
+index 8ad30d2a..99e45a55 100644
+--- a/platform/src/app/dashboard/sales/page.tsx
++++ b/platform/src/app/dashboard/sales/page.tsx
+@@ -1,6 +1,6 @@
+ 'use client'
+ 
+-import { useEffect, useMemo, useState, Suspense } from 'react'
++import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
+ import { useSearchParams } from 'next/navigation'
+ import './sales.css'
+ import CalendarShell from '../calendar/CalendarShell'
+@@ -93,6 +93,11 @@ type Activity = {
+   created_at: string
+ }
+ 
++type TeamMember = {
++  id: string
++  name: string
++}
++
+ type Quote = {
+   id: string
+   quote_number: string | null
+@@ -146,8 +151,11 @@ function SalesPageInner() {
+   const [activities, setActivities] = useState<Record<string, Activity[]>>({})
+   const [actLoading, setActLoading] = useState<Record<string, boolean>>({})
+   const [quotesByDeal, setQuotesByDeal] = useState<Record<string, Quote[]>>({})
+-  const [composer, setComposer] = useState<{ type: ActType; text: string }>({ type: 'note', text: '' })
++  const [composer, setComposer] = useState<{ type: ActType; text: string; taggedIds: string[] }>({ type: 'note', text: '', taggedIds: [] })
+   const [busyId, setBusyId] = useState<string | null>(null)
++  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
++  const [mention, setMention] = useState<{ query: string; start: number } | null>(null)
++  const composerRef = useRef<HTMLTextAreaElement | null>(null)
+   const [reasonFor, setReasonFor] = useState<string | null>(null)
+   const [reason, setReason] = useState<string>('not_qualified')
+   const [schedFor, setSchedFor] = useState<string | null>(null)
+@@ -201,7 +209,8 @@ function SalesPageInner() {
+   function toggleExpand(id: string) {
+     if (expandedId === id) { setExpandedId(null); return }
+     setExpandedId(id)
+-    setComposer({ type: 'note', text: '' })
++    setComposer({ type: 'note', text: '', taggedIds: [] })
++    setMention(null)
+     setReasonFor(null)
+     if (!activities[id]) loadActivities(id)
+     loadQuotes(id)
+@@ -210,8 +219,49 @@ function SalesPageInner() {
+         .then((d) => setCrews((d?.crews || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))))
+         .catch(() => {})
+     }
++    if (teamMembers.length === 0) {
++      fetch('/api/deals/team-mentions').then((r) => r.json())
++        .then((d) => setTeamMembers(Array.isArray(d) ? d : []))
++        .catch(() => {})
++    }
++  }
++
++  function handleComposerChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
++    const val = e.target.value
++    const pos = e.target.selectionStart ?? val.length
++    setComposer((c) => ({ ...c, text: val }))
++    const before = val.slice(0, pos)
++    const m = before.match(/(?:^|\s)@([^\s@]*)$/)
++    setMention(m ? { query: m[1], start: pos - m[1].length - 1 } : null)
+   }
+ 
++  function selectMention(tm: TeamMember) {
++    if (!mention) return
++    const text = composer.text
++    const end = mention.start + 1 + mention.query.length
++    const before = text.slice(0, mention.start)
++    const after = text.slice(end)
++    const insert = `@${tm.name} `
++    const newText = before + insert + after
++    setComposer((c) => ({
++      ...c,
++      text: newText,
++      taggedIds: c.taggedIds.includes(tm.id) ? c.taggedIds : [...c.taggedIds, tm.id],
++    }))
++    setMention(null)
++    requestAnimationFrame(() => {
++      const pos = before.length + insert.length
++      composerRef.current?.focus()
++      composerRef.current?.setSelectionRange(pos, pos)
++    })
++  }
++
++  const mentionMatches = useMemo(() => {
++    if (!mention) return []
++    const q = mention.query.toLowerCase()
++    return teamMembers.filter((tm) => tm.name.toLowerCase().includes(q)).slice(0, 6)
++  }, [mention, teamMembers])
++
+   async function moveDeal(id: string, stage: string, lostReason?: string) {
+     setBusyId(id)
+     try {
+@@ -263,9 +313,10 @@ function SalesPageInner() {
+       await fetch(`/api/deals/${id}/activities`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ type: composer.type, description: text }),
++        body: JSON.stringify({ type: composer.type, description: text, tagged_user_ids: composer.taggedIds }),
+       })
+-      setComposer({ type: 'note', text: '' })
++      setComposer({ type: 'note', text: '', taggedIds: [] })
++      setMention(null)
+       await loadActivities(id)
+       // First outbound touch on a raw lead advances it into Qualifying.
+       if (stage === 'new' && (composer.type === 'call' || composer.type === 'text' || composer.type === 'email')) {
+@@ -505,13 +556,26 @@ function SalesPageInner() {
+                             <button key={a.key} type="button" className={`sl-chan ${composer.type === a.key ? 'active' : ''}`} onClick={() => setComposer((c) => ({ ...c, type: a.key }))}>{a.label}</button>
+                           ))}
+                         </div>
+-                        <textarea
+-                          className="sl-composer-input"
+-                          rows={2}
+-                          placeholder={composer.type === 'note' ? 'Add a note…' : `Log the ${composer.type}…`}
+-                          value={composer.text}
+-                          onChange={(e) => setComposer((c) => ({ ...c, text: e.target.value }))}
+-                        />
++                        <div className="sl-composer-input-wrap">
++                          <textarea
++                            ref={composerRef}
++                            className="sl-composer-input"
++                            rows={2}
++                            placeholder={composer.type === 'note' ? 'Add a note… (@ to tag a teammate)' : `Log the ${composer.type}…`}
++                            value={composer.text}
++                            onChange={handleComposerChange}
++                            onBlur={() => setTimeout(() => setMention(null), 150)}
++                          />
++                          {mention && mentionMatches.length > 0 && (
++                            <div className="sl-mention-menu">
++                              {mentionMatches.map((tm) => (
++                                <button key={tm.id} type="button" className="sl-mention-item" onMouseDown={(e) => { e.preventDefault(); selectMention(tm) }}>
++                                  {tm.name}
++                                </button>
++                              ))}
++                            </div>
++                          )}
++                        </div>
+                         <button type="button" className="sl-act-btn" disabled={busyId === d.id || !composer.text.trim()} onClick={() => logActivity(d.id, d.stage)}>
+                           {busyId === d.id ? 'Saving…' : 'Log it'}
+                         </button>
+diff --git a/platform/src/app/dashboard/sales/sales.css b/platform/src/app/dashboard/sales/sales.css
+index 0fa8668d..74fedf59 100644
+--- a/platform/src/app/dashboard/sales/sales.css
++++ b/platform/src/app/dashboard/sales/sales.css
+@@ -644,6 +644,38 @@
+ }
+ .sl-composer .sl-act-btn { align-self: flex-start; }
+ 
++.sl-composer-input-wrap { position: relative; }
++.sl-mention-menu {
++  position: absolute;
++  left: 0;
++  right: 0;
++  bottom: calc(100% + 4px);
++  z-index: 20;
++  display: flex;
++  flex-direction: column;
++  background: #fff;
++  border: 1px solid var(--sl-line);
++  border-radius: 8px;
++  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
++  overflow: hidden;
++  max-height: 180px;
++  overflow-y: auto;
++}
++.sl-mention-item {
++  display: block;
++  width: 100%;
++  text-align: left;
++  padding: 7px 10px;
++  font-size: 12.5px;
++  color: var(--sl-ink);
++  background: #fff;
++  border: none;
++  border-bottom: 1px solid var(--sl-line-soft);
++  cursor: pointer;
++}
++.sl-mention-item:last-child { border-bottom: none; }
++.sl-mention-item:hover { background: var(--sl-bg); }
++
+ .sl-timeline { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+ .sl-tl-empty { font-size: 11.5px; color: var(--sl-muted); padding: 4px 0; }
+ .sl-tl-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--sl-line-soft); }

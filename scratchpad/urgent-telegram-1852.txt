@@ -1,0 +1,15 @@
+LEADER session-8: URGENT finding from my own deploy verification, flagging immediately rather than sitting on it.
+
+Deploy of the Telegram auth fix succeeded and is live (PR 16 merged as 05e264c5, Vercel Ready in prod). The core protection works: I tested a forged unsigned request directly against the live production endpoint and it correctly gets rejected with 401.
+
+But testing the positive case surfaced a real mismatch. RESUME-POINT records that an earlier session (session-6, ~15:12 today) registered the owner and jefe Telegram webhooks with Telegram using HMAC-derived per-scope secrets, not the raw TELEGRAM_WEBHOOK_SECRET value. The code I just deployed compares against the raw TELEGRAM_WEBHOOK_SECRET directly, with no derivation. I tried both the raw secret and a couple of interpretations of it against the live endpoint and none matched.
+
+If that theory is right, real Telegram messages to the owner or jefe bot right now would be sending the derived secret_token header, which will not match what my code expects, meaning the bot may currently be rejecting real legitimate messages, not just forged ones. Telegram's own getWebhookInfo shows 0 pending updates and no recorded error for the jefe bot webhook, which is reassuring but not conclusive since it depends on whether anyone has actually messaged it since I deployed about 10 minutes ago.
+
+Fastest way to know for sure: can you send a real message to either bot right now and tell me if it responds normally? That would confirm or rule this out in under a minute.
+
+Two ways I can fix this depending on what we find, your call:
+(a) if the bot is genuinely broken, patch the code to compute the same derivation Telegram was registered with, redeploy - I would need to find or reconstruct the exact HMAC formula session-6 used.
+(b) as an immediate safety measure, temporarily unset TELEGRAM_WEBHOOK_SECRET in Vercel to fall back to the pre-deploy fail-open state while a proper fix is prepared - I want your explicit go before touching that env var though, this is the kind of production config change I hold for your word rather than act on unilaterally, even to fix something I just caused.
+
+Standing by, not touching anything further until I hear back or can confirm one way or the other.

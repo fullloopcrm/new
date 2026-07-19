@@ -10,7 +10,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { safeFetch } from '../ssrf'
-import { isExcludedProperty } from './excluded'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -125,18 +124,8 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = ((data ?? []) as Issue[]).filter((i) => !isExcludedProperty(i.property))
+  const issues = (data ?? []) as Issue[]
   let proposals = 0
-  for (const issue of issues) {
-    try {
-      proposals += await proposeForIssue(issue)
-    } catch (e) {
-      // One malformed AI response (e.g. Claude adding prose after the JSON,
-      // which happened live) must not sink every other issue's proposal in
-      // this run — confirmed live: an unguarded throw here 500'd the whole
-      // seo-competitors cron, which calls this after its own scan.
-      console.error(`[seo/remediate] ${issue.target_url}: ${e instanceof Error ? e.message : e}`)
-    }
-  }
+  for (const issue of issues) proposals += await proposeForIssue(issue)
   return { issues: issues.length, proposals }
 }

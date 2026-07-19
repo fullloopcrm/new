@@ -1062,6 +1062,67 @@
 }
 .clients-delete-btn:hover { text-decoration: underline; }
 
+/* EDIT CLIENT MODAL */
+.clients-edit-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(28,28,28,0.32);
+  backdrop-filter: blur(2px);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.clients-edit-modal {
+  width: 420px;
+  max-width: 92vw;
+  background: var(--clients-canvas);
+  border: 1px solid var(--clients-ink);
+  border-radius: 4px;
+  padding: 22px 24px;
+  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.28);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.clients-edit-modal-title {
+  font-family: var(--clients-display);
+  font-size: 19px;
+  color: var(--clients-ink);
+  margin-bottom: 16px;
+}
+.clients-edit-field { margin-bottom: 12px; }
+.clients-edit-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--clients-muted);
+  margin-bottom: 4px;
+}
+.clients-edit-input {
+  width: 100%;
+  border: 1px solid var(--clients-line);
+  background: var(--clients-canvas);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--clients-ink);
+  outline: none;
+  box-sizing: border-box;
+}
+.clients-edit-input:focus { border-color: var(--clients-ink); }
+.clients-edit-error {
+  font-size: 12.5px;
+  color: var(--clients-danger);
+  margin-bottom: 10px;
+}
+.clients-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 @media (max-width: 1100px) {
   .clients-outlook { grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .clients-stat { border-right: none !important; padding: 0 !important; }

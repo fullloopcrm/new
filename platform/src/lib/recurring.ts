@@ -114,3 +114,17 @@ export function getRecurringDisplayName(
     default: return null
   }
 }
+
+/**
+ * Naive-ET "now" — a 'YYYY-MM-DDTHH:MM:SS' wall-clock string in
+ * America/New_York, matching the convention bookings.start_time/end_time
+ * (and other naive-ET columns) already use. Use this instead of
+ * `new Date().toISOString()` when defaulting a naive-ET column, since the
+ * ISO string is UTC and silently skews by the ET/UTC gap.
+ */
+export function nowNaiveET(msOffset = 0): string {
+  const d = new Date(Date.now() + msOffset)
+  const date = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const time = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
+  return `${date}T${time}`
+}

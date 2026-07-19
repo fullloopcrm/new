@@ -320,6 +320,7 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
           p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
           p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
+          p.startsWith('/api/uploads') ||
           p.startsWith('/api/tenant/public')) {
         return
       }

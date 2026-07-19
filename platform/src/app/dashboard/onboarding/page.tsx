@@ -8,20 +8,14 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ONBOARDING_STEPS } from '@/lib/onboarding-steps'
 
 type Profile = Record<string, string | number | boolean | undefined>
 
 const ENTITY_TYPES = ['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietor', 'Partnership', 'Nonprofit']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-const STEPS = [
-  { key: 'identity', title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
-  { key: 'contact', title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
-  { key: 'brand', title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
-  { key: 'compliance', title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
-  { key: 'social', title: 'Social & Reviews', blurb: 'Public profiles for your site footer, schema, and review flow.' },
-  { key: 'import', title: 'Import your business', blurb: 'Bring your existing clients, schedule, and books into Full Loop.' },
-] as const
+const STEPS = ONBOARDING_STEPS
 
 // Data importers surfaced in the final onboarding step. Clients first — schedules
 // match appointments to imported clients.
@@ -43,8 +37,12 @@ export default function OnboardingProfilePage() {
     fetch('/api/dashboard/onboarding/profile')
       .then((r) => r.json())
       .then((d) => {
+        // __step is the wizard's own bookkeeping (see saveDraft below), not a
+        // form field — strip it out before merging into the field state.
+        const { __step, ...draftFields } = (d.draft || {}) as Record<string, unknown>
         // Draft (in-progress) wins over saved prefill so a resume is exact.
-        setForm({ ...(d.prefill || {}), ...(d.draft || {}) })
+        setForm({ ...(d.prefill || {}), ...draftFields } as Profile)
+        if (typeof __step === 'number') setStep(Math.min(Math.max(__step, 0), STEPS.length - 1))
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -53,12 +51,12 @@ export default function OnboardingProfilePage() {
   const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }))
 
   const saveDraft = useCallback(
-    async (silent = false) => {
+    async (silent = false, stepOverride?: number) => {
       setSaving(true)
       await fetch('/api/dashboard/onboarding/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft: form }),
+        body: JSON.stringify({ draft: form, step: stepOverride ?? step }),
       }).catch(() => {})
       setSaving(false)
       if (!silent) {
@@ -66,11 +64,11 @@ export default function OnboardingProfilePage() {
         setTimeout(() => setMsg(''), 3000)
       }
     },
-    [form],
+    [form, step],
   )
 
   const goto = async (next: number) => {
-    await saveDraft(true)
+    await saveDraft(true, next)
     setStep(next)
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }

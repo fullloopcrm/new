@@ -10,16 +10,12 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { applyOverride } from './overrides'
 import { evaluateSafety, type SafetyInput } from './safety-gate'
-import { isExcludedProperty } from './excluded'
 
 const CANARY_PAGES_PER_RUN = 3 // new pages auto-applied per site, per run
 const RATE_CAP_PER_WEEK = 5 // max autopilot applies per site in a rolling 7 days
 
 export function autopilotEnabled(): boolean {
-  // Trimmed defensively — a sibling flag (SEOMGR_AUTOVERIFY_ENABLED) was found
-  // stored in prod as literally 'true\n' (trailing-newline artifact), which a
-  // strict === silently failed on for 11 days. See auto-verify.ts.
-  return (process.env.SEO_AUTOPILOT_ENABLED ?? '').trim() === 'true'
+  return process.env.SEO_AUTOPILOT_ENABLED === 'true'
 }
 
 type ChangeRow = {
@@ -101,11 +97,6 @@ export async function runAutopilot(): Promise<AutopilotResult> {
   const bundles = new Map<string, UrlBundle>()
   for (const c of changes) {
     if (!c.target_url || !c.after_value) continue
-    // Defense-in-depth: excluded properties are already filtered out of
-    // seo_changes at proposal time (remediate.ts/enrich.ts/competitor-
-    // remediate.ts), but autopilot must never apply one even if a row slips
-    // through — e.g. proposals generated before this exclusion existed.
-    if (isExcludedProperty(c.property)) continue
     const b = bundles.get(c.target_url) ?? { property: c.property, url: c.target_url }
     const entry = { id: c.id, before: c.before_value ?? '', after: c.after_value }
     if (c.field === 'title') b.title = entry
