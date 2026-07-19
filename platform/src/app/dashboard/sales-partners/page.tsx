@@ -17,6 +17,8 @@ type SalesPartner = {
   active: boolean
   approved_at: string
   created_at: string
+  agreement_document_id: string | null
+  documents: { status: string } | null
 }
 
 type Commission = {
@@ -43,6 +45,11 @@ export default function SalesPartnersPage() {
   const [search, setSearch] = useState('')
   const [copied, setCopied] = useState('')
   const [busyId, setBusyId] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({ name: '', email: '', phone: '', tier: 'standard' })
+  const [addBusy, setAddBusy] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [addResult, setAddResult] = useState<{ signUrl: string; warning?: string } | null>(null)
 
   useEffect(() => {
     load()
@@ -96,6 +103,34 @@ export default function SalesPartnersPage() {
     setBusyId('')
   }
 
+  async function addPartner() {
+    setAddError('')
+    setAddBusy(true)
+    try {
+      const res = await fetch('/api/sales-partners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addForm),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAddError(data.error || 'Could not add partner')
+        return
+      }
+      setAddResult({ signUrl: data.signUrl, warning: data.warning })
+      await load()
+    } finally {
+      setAddBusy(false)
+    }
+  }
+
+  function closeAddModal() {
+    setShowAdd(false)
+    setAddForm({ name: '', email: '', phone: '', tier: 'standard' })
+    setAddError('')
+    setAddResult(null)
+  }
+
   function copyLink(code: string) {
     const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/book?ref=${code}`
     navigator.clipboard.writeText(link)
@@ -124,17 +159,65 @@ export default function SalesPartnersPage() {
           <h2 className="text-2xl font-bold text-slate-900">Sales Partners</h2>
           <p className="text-sm text-slate-400">{partners.length} total &middot; {activeCount} active</p>
         </div>
-        <button
-          onClick={() => downloadCSV(
-            partners.map((p) => ({ ...p, total_earned: (p.total_earned / 100).toFixed(2), total_paid: (p.total_paid / 100).toFixed(2) })) as unknown as Record<string, unknown>[],
-            'sales-partners',
-            ['name', 'email', 'phone', 'referral_code', 'tier', 'total_earned', 'total_paid', 'active', 'created_at']
-          )}
-          className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
-        >
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="text-sm text-white bg-teal-600 hover:bg-teal-700 px-3 py-2 rounded-lg font-medium"
+          >
+            + Add Partner
+          </button>
+          <button
+            onClick={() => downloadCSV(
+              partners.map((p) => ({ ...p, total_earned: (p.total_earned / 100).toFixed(2), total_paid: (p.total_paid / 100).toFixed(2) })) as unknown as Record<string, unknown>[],
+              'sales-partners',
+              ['name', 'email', 'phone', 'referral_code', 'tier', 'total_earned', 'total_paid', 'active', 'created_at']
+            )}
+            className="text-sm text-slate-400 hover:text-slate-900 border border-slate-200 px-3 py-2 rounded-lg"
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            {addResult ? (
+              <>
+                <h3 className="font-semibold text-slate-900 mb-2">Partner added</h3>
+                <p className="text-sm text-slate-400 mb-3">
+                  {addResult.warning ? addResult.warning : `Their agreement was emailed to ${addForm.email}.`} They'll be activated automatically once they sign.
+                </p>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-slate-400 mb-1">Signing link</p>
+                  <p className="text-xs font-mono break-all text-slate-900">{addResult.signUrl}</p>
+                </div>
+                <button onClick={closeAddModal} className="w-full text-sm bg-slate-900 text-white rounded-lg py-2 font-medium">Done</button>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-slate-900 mb-4">Add Sales Partner</h3>
+                {addError && <p className="text-sm text-red-600 mb-3">{addError}</p>}
+                <div className="space-y-3 mb-4">
+                  <input placeholder="Full name" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500" />
+                  <input placeholder="Email" type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500" />
+                  <input placeholder="Phone (optional)" value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder-gray-500" />
+                  <select value={addForm.tier} onChange={(e) => setAddForm({ ...addForm, tier: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    {Object.entries(TIER_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-400 mb-4">They'll be emailed a Commission Sales Partner Agreement to sign. Their portal login activates automatically once signed.</p>
+                <div className="flex gap-2">
+                  <button onClick={closeAddModal} className="flex-1 text-sm border border-slate-200 rounded-lg py-2 font-medium text-slate-400">Cancel</button>
+                  <button disabled={addBusy || !addForm.name || !addForm.email} onClick={addPartner} className="flex-1 text-sm bg-teal-600 text-white rounded-lg py-2 font-medium disabled:opacity-50">
+                    {addBusy ? 'Sending…' : 'Send agreement'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
@@ -183,6 +266,7 @@ export default function SalesPartnersPage() {
                 <th className="px-4 py-3 font-medium">Tier</th>
                 <th className="px-4 py-3 font-medium">Earned</th>
                 <th className="px-4 py-3 font-medium">Pending</th>
+                <th className="px-4 py-3 font-medium">Agreement</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
@@ -218,6 +302,11 @@ export default function SalesPartnersPage() {
                   <td className="px-4 py-3 font-medium text-slate-900">{fmt(p.total_earned)}</td>
                   <td className="px-4 py-3 text-slate-400">{fmt(p.total_earned - p.total_paid)}</td>
                   <td className="px-4 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${p.documents?.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                      {p.documents?.status === 'completed' ? 'Signed' : p.agreement_document_id ? 'Awaiting signature' : 'Not sent'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${p.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                       {p.active ? 'Active' : 'Inactive'}
                     </span>
@@ -234,7 +323,7 @@ export default function SalesPartnersPage() {
                 </tr>
               ))}
               {searchFiltered.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{search ? 'No matching partners' : 'No sales partners yet — approvals provision them here'}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{search ? 'No matching partners' : 'No sales partners yet — add one above to send their agreement'}</td></tr>
               )}
             </tbody>
           </table>
