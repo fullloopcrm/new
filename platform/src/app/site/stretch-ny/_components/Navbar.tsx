@@ -25,6 +25,8 @@ const moreLinks = [
   { label: "Hotel Stretching", href: "/hotel-stretching" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
+  { label: "Refer & Earn", href: "/referral" },
+  { label: "Sales Partner Login", href: "/sales" },
 ];
 
 const topBoroughs = [
@@ -348,6 +350,20 @@ export default function Navbar() {
                   >
                     Text 212.202.7080
                   </a>
+                  <Link
+                    href="/referral"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Refer & Earn
+                  </Link>
+                  <Link
+                    href="/sales"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Sales Partner Login
+                  </Link>
                   <a
                     href="sms:+12122027080"
                     onClick={() => setMobileOpen(false)}

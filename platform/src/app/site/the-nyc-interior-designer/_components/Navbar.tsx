@@ -328,6 +328,8 @@ export default function Navbar() {
                       { label: "Interior Design 101", href: "/interior-design-101" },
                       { label: "Estimate Tool", href: "/estimate" },
                       { label: "Apply for a Job", href: "/apply" },
+                      { label: "Refer & Earn", href: "/referral" },
+                      { label: "Sales Partner Login", href: "/sales" },
                     ].map((link) => (
                       <Link
                         key={link.href}
@@ -538,6 +540,22 @@ export default function Navbar() {
                     className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
                   >
                     Contact
+                  </Link>
+
+                  <Link
+                    href="/referral"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Refer & Earn
+                  </Link>
+
+                  <Link
+                    href="/sales"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Sales Partner Login
                   </Link>
 
                   {/* Text -- highlighted in mobile (no calls) */}

@@ -25,6 +25,8 @@ const moreLinks = [
   { label: "FAQ", href: "/nyc-marketing-company-faqs" },
   { label: "Marketing 101", href: "/nyc-marketing-101-guide" },
   { label: "Blog", href: "/the-marketing-blog" },
+  { label: "Refer & Earn", href: "/referral" },
+  { label: "Sales Partner Login", href: "/sales" },
 ];
 
 export default function Navbar() {
@@ -290,6 +292,22 @@ export default function Navbar() {
                   className="rounded-lg px-4 py-3 text-base font-bold text-teal-600 transition-colors hover:bg-teal-50 font-cta"
                 >
                   AI
+                </Link>
+
+                <Link
+                  href="/referral"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                >
+                  Refer & Earn
+                </Link>
+
+                <Link
+                  href="/sales"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                >
+                  Sales Partner Login
                 </Link>
 
                 {/* Contact CTA */}

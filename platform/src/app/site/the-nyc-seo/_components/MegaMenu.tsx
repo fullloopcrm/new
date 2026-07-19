@@ -325,6 +325,18 @@ export default function MegaMenu({ categories, regions, regionCounts, phone }: M
         >
           Contact
         </Link>
+        <Link
+          href="/referral"
+          className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+        >
+          Refer &amp; Earn
+        </Link>
+        <Link
+          href="/sales"
+          className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+        >
+          Sales Partner Login
+        </Link>
 
         <Link
           href="/partnership-request-form"
@@ -362,6 +374,8 @@ export default function MegaMenu({ categories, regions, regionCounts, phone }: M
               { name: "Pricing", href: "/pricing" },
               { name: "Blog", href: "/blog" },
               { name: "Contact", href: "/contact" },
+              { name: "Refer & Earn", href: "/referral" },
+              { name: "Sales Partner Login", href: "/sales" },
             ].map((item) => (
               <Link
                 key={item.href}

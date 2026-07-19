@@ -25,6 +25,8 @@ const moreLinks = [
   { label: "Foreign Nationals", href: "/services/dscr-loans-foreign-nationals" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
+  { label: "Refer & Earn", href: "/referral" },
+  { label: "Sales Partner Login", href: "/sales" },
 ];
 
 export default function Navbar() {
@@ -351,6 +353,20 @@ export default function Navbar() {
                   >
                     (855) 300-DSCR | Text
                   </a>
+                  <Link
+                    href="/referral"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Refer & Earn
+                  </Link>
+                  <Link
+                    href="/sales"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Sales Partner Login
+                  </Link>
 
                   {/* CTA */}
                   <Link
