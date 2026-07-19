@@ -61,6 +61,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [industry, setIndustry] = useState<string | null>(null)
 
   const [items, setItems] = useState<LineItem[]>([blankLine()])
+  const [packageQuery, setPackageQuery] = useState('')
   const [taxPct, setTaxPct] = useState('0')
   const [discount, setDiscount] = useState('0')
   const [depositType, setDepositType] = useState<'none' | 'flat' | 'percent'>('none')
@@ -329,11 +330,14 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
           <h2 className="font-heading font-semibold text-slate-900">Line Items</h2>
           <div className="flex items-center gap-2">
             {packages.length > 0 && (
-              <select value="" onChange={e => { if (e.target.value) { addFromPackage(e.target.value); e.target.value = '' } }}
-                className="text-xs px-2 py-1 bg-white border border-teal-300 rounded text-teal-700">
-                <option value="">+ From package…</option>
-                {packages.map(p => <option key={p.id} value={p.id}>{p.name} — {p.items.length} item{p.items.length === 1 ? '' : 's'}</option>)}
-              </select>
+              <input placeholder="+ From package… (type to search)" list="package-picker" value={packageQuery}
+                onChange={e => {
+                  const v = e.target.value
+                  setPackageQuery(v)
+                  const match = packages.find(p => p.name.toLowerCase() === v.trim().toLowerCase())
+                  if (match) { addFromPackage(match.id); setPackageQuery('') }
+                }}
+                className="text-xs px-2 py-1 bg-white border border-teal-300 rounded text-teal-700 w-56" />
             )}
             {catalog.length > 0 && (
               <select value="" onChange={e => { if (e.target.value) { addFromCatalog(e.target.value); e.target.value = '' } }}
@@ -348,6 +352,9 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
         <datalist id="sku-catalog">
           {catalog.map(c => <option key={c.id} value={c.name}>{`${formatCents(c.price_cents)} / ${c.per_unit}${c.category ? ` · ${c.category}` : ''}`}</option>)}
+        </datalist>
+        <datalist id="package-picker">
+          {packages.map(p => <option key={p.id} value={p.name}>{`${p.items.length} item${p.items.length === 1 ? '' : 's'}`}</option>)}
         </datalist>
 
         <div className="space-y-2">
