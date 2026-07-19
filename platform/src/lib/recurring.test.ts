@@ -143,18 +143,22 @@ describe('generateRecurringDates — monthly_date (setMonth day-of-month math)',
     expect(dates.map(ymd)).toEqual(['2026-11-10', '2026-12-10', '2027-01-10'])
   })
 
-  it('month-end (Jan 31) overflows per JS Date semantics — pinned, not "fixed"', () => {
-    // setMonth on a 31st rolls short months forward (Feb 31 -> Mar 3). This is a
-    // known JS Date quirk the current impl inherits; assert the ACTUAL behavior
-    // so a future change to it is a conscious, visible decision rather than a
-    // silent scheduling shift.
+  it('month-end (Jan 31) clamps to each month\'s last day instead of drifting via setMonth overflow', () => {
+    // Recomputed fresh off the ORIGINAL day-of-month every iteration (clamped
+    // to that month's last day when the target day doesn't exist), instead of
+    // chaining setMonth() off the previous (possibly-already-overflowed)
+    // date. The old chained version let one short month permanently shift
+    // the day-of-month forward for every later month (Jan 31 -> Feb 31
+    // overflow -> Mar 3 -> stabilizing at day 3 forever, never returning to
+    // 31 even in 31-day months) -- a silent permanent drift of the client's
+    // whole recurring day, not a one-month hiccup.
     const dates = generateRecurringDates({
       recurringType: 'monthly_date',
       startDate: noon(2026, 0, 31), // Jan 31 2026
       weeksToGenerate: 4,
     })
-    // Jan31 -> +1mo lands Mar 3 (Feb overflow) -> +1mo Apr 3 -> +1mo May 3.
-    expect(dates.map(ymd)).toEqual(['2026-01-31', '2026-03-03', '2026-04-03', '2026-05-03'])
+    // Jan31 -> Feb28 (clamped, 2026 not a leap year) -> Mar31 (back to 31) -> Apr30 (clamped).
+    expect(dates.map(ymd)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
   })
 
   it('leap-day start (2028-02-29) advances without throwing', () => {
