@@ -6,6 +6,7 @@ import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { safeColor } from '@/lib/safe-color'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -90,8 +91,8 @@ export async function POST(request: Request) {
   const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const jobTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const endTime = booking.end_time ? new Date(booking.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
-  const payRate = booking.pay_rate || 40
   const client = booking.clients as unknown as { name: string; address: string } | null
+  const payRate = effectiveCleanerRate(booking.pay_rate || 40, client?.address)
 
   const reports: { name: string; sms: boolean; email: boolean }[] = []
 
