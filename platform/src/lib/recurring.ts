@@ -114,3 +114,40 @@ export function getRecurringDisplayName(
     default: return null
   }
 }
+
+/**
+ * bookings.start_time/end_time are stored as naive 'YYYY-MM-DDTHH:MM:SS'
+ * strings in America/New_York wall-clock time, no timezone suffix. A plain
+ * `new Date().toISOString()` produces a naive-looking string too, but it's
+ * genuinely UTC -- treating it as "now" for a naive-ET comparison silently
+ * skews every now-cutoff by the ET/UTC gap (4h EDT / 5h EST). Use this
+ * instead wherever "now" needs to be compared against a naive-ET column.
+ */
+export function nowNaiveET(msOffset = 0): string {
+  const d = new Date(Date.now() + msOffset)
+  const date = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const time = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
+  return `${date}T${time}`
+}
+
+/**
+ * The inverse of nowNaiveET(): converts an arbitrary naive 'YYYY-MM-DDTHH:MM:SS'
+ * America/New_York wall-clock string (the bookings.start_time/end_time
+ * convention) into the real UTC instant it represents. `src/lib/dates.ts`'s
+ * parseTimestamp() deliberately forces UTC interpretation instead -- correct
+ * for check_in_time/check_out_time (genuinely UTC) but wrong for
+ * start_time/end_time. Use this for naive-ET columns instead.
+ */
+export function parseNaiveET(naive: string): Date {
+  const guess = new Date(naive.endsWith('Z') ? naive : `${naive}Z`)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(guess)
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value)
+  const hour = get('hour')
+  const etAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
+  const offsetMs = etAsUtc - guess.getTime()
+  return new Date(guess.getTime() - offsetMs)
+}

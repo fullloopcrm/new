@@ -10,6 +10,7 @@
  * 4000 on job completion is a follow-up (needs the deposit→final-invoice link).
  */
 import { supabaseAdmin } from '../supabase'
+import { nowNaiveET } from '../recurring'
 import {
   postJournalEntry,
   ensureChartAccounts,

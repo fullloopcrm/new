@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
