@@ -1,23 +1,45 @@
-// tenantDb triage (P1/W2 c): N/A for this whole file. Every supabaseAdmin
-// call here is hardcoded to NYCMAID_TENANT_ID (see below) rather than a
-// per-request tenantId, and several lookups (comhub_active_calls by
-// Telnyx call_control_id, comhub_admin_presence) are keyed by Telnyx's own
-// identifiers before any tenant context exists — the pattern tenantDb is not
-// built for. Existing `.eq('tenant_id', …)` filters are the enforced
-// invariant; some call sites already carry a `tenant-scope-ok` note.
+// tenantDb triage (P1/W2 c): N/A for this whole file. Several lookups
+// (comhub_active_calls by Telnyx call_control_id, comhub_admin_presence)
+// are keyed by Telnyx's own identifiers before any tenant context exists —
+// the pattern tenantDb is not built for. Existing `.eq('tenant_id', …)`
+// filters are the enforced invariant; some call sites already carry a
+// `tenant-scope-ok` note.
+//
+// Voice AI agent (Yinez/Selena) routing: the inbound-call branch below now
+// resolves the ACTUAL tenant that owns the dialed number (same
+// telnyx_phone||sms_number lookup as the inbound SMS webhook, via
+// lib/voice/tenant-by-phone.ts) instead of assuming NYCMAID_TENANT_ID, and
+// threads that resolved tenant_id through every comhub_active_calls /
+// comhub_messages write for the rest of the call's lifecycle (admin-leg
+// bridge, recording, transcript, hangup) via the `active.tenant_id` already
+// stored on the row. If resolution fails (lookup error, or the dialed
+// number doesn't match any tenant) this falls back to NYCMAID_TENANT_ID —
+// the pre-existing single-tenant behavior — rather than risk breaking the
+// one live phone line on an unverified change. The ring/voicemail/
+// ADMIN_RING_LIST fallback system itself (env-based, single-tenant) is
+// UNCHANGED — only the new SIP-agent-routing branch and the tenant_id
+// finally being correct end-to-end are new.
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { tenantServesSite } from '@/lib/tenant-status'
+import { resolveTenantByToNumber } from '@/lib/voice/tenant-by-phone'
+import { resolveXaiVoiceAgentConfig } from '@/lib/voice/xai-voice-config'
+import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
 
-// Bind to nycmaid tenant — single Telnyx voice connection (TELNYX_VOICE_CONNECTION_ID,
-// ADMIN_RING_LIST) is nycmaid's. Other tenants need their own voice routing config.
+// Bind to nycmaid tenant as the FALLBACK only — used when the per-call
+// phone-based resolution below can't confirm a tenant (lookup error, or an
+// unrecognized `to` number), so an unverified voice-agent change can never
+// regress nycmaid's one live phone line. Single Telnyx voice connection
+// (TELNYX_VOICE_CONNECTION_ID, ADMIN_RING_LIST) is still nycmaid's; other
+// tenants configuring their own ring list is a separate, larger migration
+// not in scope here.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
 // Comma-separated E.164 list. We dial them one at a time, 25s each, until
@@ -235,7 +257,54 @@ async function startRecordingAndTranscription(callControlId: string): Promise<vo
   })
 }
 
+// Transfer the (already-answered) customer leg to the xAI Grok voice agent
+// over SIP. xAI answers as Yinez/Selena and bridges the audio. Digest auth
+// (the tenant's own xai_sip_username/xai_sip_password) must match what was
+// set on the Direct SIP number in that tenant's xAI console. Returns true
+// on a successful transfer; false lets the caller fall back to
+// ring/voicemail. Port of nycmaid's 25c162bf transferToAgent, tenant-scoped
+// (Telnyx API key + xAI creds both resolved per-tenant instead of module-
+// level env constants).
+async function transferToAgent(
+  callControlId: string,
+  toNumber: string,
+  fromPhone: string,
+  telnyxApiKey: string,
+  xaiSipUsername: string,
+  xaiSipPassword: string,
+): Promise<boolean> {
+  if (!telnyxApiKey) return false
+  const d = toNumber.replace(/\D/g, '')
+  const e164 = d.length === 11 && d.startsWith('1') ? `+${d}` : d.length === 10 ? `+1${d}` : `+${d}`
+  const target = `sip:${e164}@sip.voice.x.ai;transport=tls`
+  try {
+    const res = await fetch(
+      `https://api.telnyx.com/v2/calls/${callControlId}/actions/transfer`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${telnyxApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: target,
+          from: fromPhone,
+          from_display_name: 'Yinez',
+          ...(xaiSipUsername ? { sip_auth_username: xaiSipUsername } : {}),
+          ...(xaiSipPassword ? { sip_auth_password: xaiSipPassword } : {}),
+        }),
+      },
+    )
+    if (!res.ok) {
+      console.error('[telnyx-voice] agent transfer failed', await res.text().catch(() => ''))
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[telnyx-voice] agent transfer threw', err)
+    return false
+  }
+}
+
 async function logVoiceMessage(opts: {
+  tenantId: string
   threadId: string
   contactId: string
   direction: 'in' | 'out' | 'system'
@@ -250,7 +319,7 @@ async function logVoiceMessage(opts: {
   const { data, error } = await supabaseAdmin
     .from('comhub_messages')
     .insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: opts.tenantId,
       thread_id: opts.threadId,
       contact_id: opts.contactId,
       channel: 'voice',
@@ -285,6 +354,7 @@ async function logVoiceMessage(opts: {
 }
 
 async function maybeSendMissedCallSMS(opts: {
+  tenantId: string
   customerPhone: string
   threadId: string
   activeCallId: string
@@ -316,13 +386,14 @@ async function maybeSendMissedCallSMS(opts: {
 
   if (result.success) {
     await supabaseAdmin.from('comhub_missed_call_sms').insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: opts.tenantId,
       customer_phone: opts.customerPhone,
       thread_id: opts.threadId,
       active_call_id: opts.activeCallId,
       reason: opts.reason,
     })
     await logVoiceMessage({
+      tenantId: opts.tenantId,
       threadId: opts.threadId,
       contactId: opts.contactId,
       direction: 'out',
@@ -354,6 +425,7 @@ async function notifyVoicemailToAdmin(opts: {
 }
 
 async function startVoicemail(opts: {
+  tenantId: string
   customerCallId: string
   threadId: string
   contactId: string
@@ -381,6 +453,7 @@ async function startVoicemail(opts: {
     .update({ status: 'voicemail' })
     .eq('customer_call_id', opts.customerCallId)
   await logVoiceMessage({
+    tenantId: opts.tenantId,
     threadId: opts.threadId,
     contactId: opts.contactId,
     direction: 'system',
@@ -390,8 +463,9 @@ async function startVoicemail(opts: {
 }
 
 // Telnyx Programmable Voice webhook. Drives the entire inbound + outbound
-// call lifecycle: answer → ring admin list → bridge → record → transcribe,
-// and on no-answer falls back to voicemail with a missed-call SMS.
+// call lifecycle: answer → (optionally route to the Yinez voice agent) →
+// ring admin list → bridge → record → transcribe, and on no-answer falls
+// back to voicemail with a missed-call SMS.
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
@@ -471,9 +545,14 @@ export async function POST(req: NextRequest) {
   const ringIndex = Number(headers['X-Comhub-Ring-Index'] || '-1')
 
   // ─── Inbound call: customer dialed our number ─────────────────────────────
-  // Answer the customer leg, then ring admin targets (online softphones
-  // first via SIP transfer, then PSTN cells from ADMIN_RING_LIST). If no
-  // targets are online, drop straight to voicemail.
+  // Resolve which tenant actually owns the dialed number (same
+  // telnyx_phone||sms_number lookup the SMS webhook uses), falling back to
+  // NYCMAID_TENANT_ID on any lookup failure/no-match so an unverified change
+  // here can never take down the one live phone line. Then: answer the
+  // customer leg, optionally route to the Yinez voice agent (flag-gated per
+  // tenant), otherwise ring admin targets (online softphones first via SIP
+  // transfer, then PSTN cells from ADMIN_RING_LIST). If no targets are
+  // online and the agent isn't enabled, drop straight to voicemail.
   if (
     event === 'call.initiated' &&
     p.direction === 'incoming' &&
@@ -481,15 +560,23 @@ export async function POST(req: NextRequest) {
     p.from &&
     !leg
   ) {
+    let tenantId = NYCMAID_TENANT_ID
+    try {
+      const resolved = await resolveTenantByToNumber(p.to || '')
+      if (resolved) tenantId = resolved.id
+    } catch (err) {
+      console.error('[telnyx-voice] tenant-by-phone resolution failed, defaulting to nycmaid', err)
+    }
+
     const { data: cId } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
-      p_tenant_id: NYCMAID_TENANT_ID,
+      p_tenant_id: tenantId,
       p_phone: p.from,
     })
     if (!cId) return NextResponse.json({ ok: true, note: 'contact create failed' })
     const contactId = cId as string
 
     const { data: tId } = await supabaseAdmin.rpc('comhub_get_or_create_thread', {
-      p_tenant_id: NYCMAID_TENANT_ID,
+      p_tenant_id: tenantId,
       p_contact_id: contactId,
       p_channel: 'voice',
     })
@@ -497,6 +584,7 @@ export async function POST(req: NextRequest) {
     const threadId = tId as string
 
     await logVoiceMessage({
+      tenantId,
       threadId,
       contactId,
       direction: 'in',
@@ -510,7 +598,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from('comhub_threads').update({ unread_count: 1 }).eq('id', threadId)
 
     await supabaseAdmin.from('comhub_active_calls').insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: tenantId,
       customer_call_id: callControlId,
       thread_id: threadId,
       contact_id: contactId,
@@ -520,13 +608,66 @@ export async function POST(req: NextRequest) {
     })
 
     // Answer the customer leg first so they hear something other than
-    // silence while we dial admins. Required for PSTN target dialing;
-    // harmless for SIP-URI transfer (the transfer moves the leg).
+    // silence while we dial admins/the agent. Required for PSTN target
+    // dialing; harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
+
+    // ── Voice AI agent: route to Yinez over SIP when this tenant has opted
+    // in ── Flag-gated per tenant (voice_agent_enabled + xai_sip_username/
+    // password, migrations/2026_07_18_voice_agent.sql). On success the call
+    // is handed to xAI and we stop here, marking the active-call row
+    // 'bridged' so the hangup handler below does NOT fire the missed-call
+    // SMS (the caller talked to Yinez, they weren't missed — port of
+    // nycmaid's 36448bc3). On failure (or if disabled) we fall through to
+    // the normal ring/voicemail flow below — a down or unconfigured agent
+    // never means dead air.
+    const xaiConfig = await resolveXaiVoiceAgentConfig(tenantId)
+    if (xaiConfig.enabled && xaiConfig.sipUsername && xaiConfig.sipPassword) {
+      const voiceCfg = await resolveTenantVoiceConfig(tenantId)
+      await startRecordingAndTranscription(callControlId)
+      const routed = await transferToAgent(
+        callControlId,
+        p.to || '',
+        p.from,
+        voiceCfg.apiKey,
+        xaiConfig.sipUsername,
+        xaiConfig.sipPassword,
+      )
+      if (routed) {
+        await supabaseAdmin
+          .from('comhub_active_calls')
+          .update({ status: 'bridged', answered_at: new Date().toISOString() })
+          .eq('customer_call_id', callControlId)
+        await logVoiceMessage({
+          tenantId,
+          threadId,
+          contactId,
+          direction: 'system',
+          author: 'yinez',
+          body: '🤖 Routed to Yinez (AI voice agent)',
+          fromAddress: p.from,
+          toAddress: p.to ?? null,
+          externalId: callControlId,
+        })
+        return NextResponse.json({ ok: true, routed: 'agent' })
+      }
+      await logVoiceMessage({
+        tenantId,
+        threadId,
+        contactId,
+        direction: 'system',
+        author: 'system',
+        body: '⚠️ Yinez unavailable — falling back to team/voicemail',
+        fromAddress: p.from,
+        toAddress: p.to ?? null,
+        externalId: callControlId,
+      })
+    }
 
     const ringTargets = await buildRingTargets()
     if (ringTargets.length === 0) {
       await startVoicemail({
+        tenantId,
         customerCallId: callControlId,
         threadId,
         contactId,
@@ -576,11 +717,12 @@ export async function POST(req: NextRequest) {
 
       const { data: active } = await supabaseAdmin
         .from('comhub_active_calls')
-        .select('thread_id, contact_id, admin_phone')
+        .select('tenant_id, thread_id, contact_id, admin_phone')
         .eq('customer_call_id', customerCallId)
         .single()
       if (active) {
         await logVoiceMessage({
+          tenantId: active.tenant_id,
           threadId: active.thread_id,
           contactId: active.contact_id,
           direction: 'system',
@@ -596,7 +738,7 @@ export async function POST(req: NextRequest) {
       const nextIndex = ringIndex + 1
       const { data: active } = await supabaseAdmin
         .from('comhub_active_calls')
-        .select('id, thread_id, contact_id, customer_phone, status')
+        .select('id, tenant_id, thread_id, contact_id, customer_phone, status')
         .eq('customer_call_id', customerCallId)
         .single()
       if (!active) return NextResponse.json({ ok: true })
@@ -625,6 +767,7 @@ export async function POST(req: NextRequest) {
       } else {
         // Ring list exhausted → voicemail.
         await startVoicemail({
+          tenantId: active.tenant_id,
           customerCallId,
           threadId: active.thread_id,
           contactId: active.contact_id,
@@ -640,13 +783,14 @@ export async function POST(req: NextRequest) {
     const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-      .select('id, thread_id, contact_id, customer_phone, status')
+      .select('id, tenant_id, thread_id, contact_id, customer_phone, status')
       .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (!active || !url) return NextResponse.json({ ok: true })
 
     const isVoicemail = active.status === 'voicemail'
     const messageId = await logVoiceMessage({
+      tenantId: active.tenant_id,
       threadId: active.thread_id,
       contactId: active.contact_id,
       direction: 'system',
@@ -673,6 +817,7 @@ export async function POST(req: NextRequest) {
         transcript: null,
       })
       await maybeSendMissedCallSMS({
+        tenantId: active.tenant_id,
         customerPhone: active.customer_phone,
         threadId: active.thread_id,
         activeCallId: active.id,
@@ -688,11 +833,12 @@ export async function POST(req: NextRequest) {
     const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-      .select('id, thread_id, contact_id, status, customer_phone')
+      .select('id, tenant_id, thread_id, contact_id, status, customer_phone')
       .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (active) {
       await logVoiceMessage({
+        tenantId: active.tenant_id,
         threadId: active.thread_id,
         contactId: active.contact_id,
         direction: 'system',
@@ -721,7 +867,7 @@ export async function POST(req: NextRequest) {
   if (event === 'call.hangup' && callControlId && !leg) {
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')
-      .select('id, thread_id, contact_id, customer_phone, status, answered_at')
+      .select('id, tenant_id, thread_id, contact_id, customer_phone, status, answered_at')
       .eq('customer_call_id', callControlId)
       .single()
     if (active) {
@@ -746,6 +892,7 @@ export async function POST(req: NextRequest) {
         .eq('id', active.id)
 
       await logVoiceMessage({
+        tenantId: active.tenant_id,
         threadId: active.thread_id,
         contactId: active.contact_id,
         direction: 'system',
@@ -755,10 +902,11 @@ export async function POST(req: NextRequest) {
         rawPayload: payload as object,
       })
 
-      // If the customer hung up before any admin picked up AND no voicemail
-      // was recorded, send a missed-call SMS.
+      // If the customer hung up before any admin (or the AI agent) picked
+      // up AND no voicemail was recorded, send a missed-call SMS.
       if (active.status !== 'bridged' && active.status !== 'voicemail') {
         await maybeSendMissedCallSMS({
+          tenantId: active.tenant_id,
           customerPhone: active.customer_phone,
           threadId: active.thread_id,
           activeCallId: active.id,
