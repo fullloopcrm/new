@@ -30,7 +30,7 @@ type Booking = {
   service_type: string | null
   schedule_id: string | null
   team_member_id: string | null
-  clients: { name: string | null } | null
+  clients: { name: string | null; address: string | null } | null
   team_members: { name: string | null } | null
 }
 
@@ -41,7 +41,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
   for (let from = 0; ; from += page) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members!bookings_team_member_id_fkey(name)')
+      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
       .gte('start_time', startISO)
       .lte('start_time', endISO)
@@ -83,21 +83,18 @@ export default async function DashboardPage() {
   const roster = rosterRes.count || 0
   const newThisMonth = newClientsRes.count || 0
 
-  // Map jobs — this month, with client address for geocoding.
-  const { data: mapRows } = await supabaseAdmin
-    .from('bookings')
-    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', tenant.id)
-    .gte('start_time', startOfMonth.toISOString())
-    .lte('start_time', endOfMonth.toISOString())
-    .order('start_time', { ascending: true })
-    .limit(1000)
-  const mapJobs = (mapRows || []).map((r) => ({
-    id: r.id, start_time: r.start_time, status: r.status, service_type: r.service_type,
-    cleaner_id: (r as { team_member_id?: string | null }).team_member_id ?? null,
-    clients: r.clients as unknown as { name: string; address: string } | null,
-    team_members: r.team_members as unknown as { name: string } | null,
-  })) as MapJob[]
+  // Map jobs — this month, with client address for geocoding. allJobs
+  // already covers the full year (including this month) with the same
+  // clients/team_members join, so this month's slice is derived in memory
+  // instead of firing a second, largely-duplicate DB round trip.
+  const mapJobs = allJobs
+    .filter(j => inRange(j, startOfMonth, endOfMonth))
+    .map((j) => ({
+      id: j.id, start_time: j.start_time, status: j.status, service_type: j.service_type,
+      cleaner_id: j.team_member_id,
+      clients: j.clients,
+      team_members: j.team_members,
+    })) as MapJob[]
 
   const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))
   const scheduled = (a: Date, b: Date) => allJobs.filter(j => SCHEDULED(j) && inRange(j, a, b))

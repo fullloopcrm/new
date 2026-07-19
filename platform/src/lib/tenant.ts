@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
@@ -164,7 +165,12 @@ async function getHeaderTenant(): Promise<Tenant | null> {
   return data
 }
 
-export async function getCurrentTenant(): Promise<Tenant | null> {
+// cache() dedupes repeated calls within a single request — the /dashboard
+// layout and every page under it call getCurrentTenant() independently
+// (there's no shared request context to pass it through), which without this
+// re-ran the full header/impersonation/membership DB lookup chain once per
+// caller instead of once per request.
+export const getCurrentTenant = cache(async (): Promise<Tenant | null> => {
   // Tenant custom-domain / subdomain context (signed header from middleware)
   const headerTenant = await getHeaderTenant()
   if (headerTenant) return headerTenant
@@ -222,7 +228,7 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
   if (!tenant || !tenantServesSite(tenant.status)) return null
 
   return tenant
-}
+})
 
 // Check if current session is an impersonation
 export async function isImpersonating(): Promise<boolean> {
