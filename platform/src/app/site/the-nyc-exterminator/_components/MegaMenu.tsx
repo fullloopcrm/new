@@ -13,6 +13,8 @@ const MORE_LINKS = [
   { name: "About", href: "/about" },
   { name: "FAQ", href: "/faq" },
   { name: "Careers", href: "/careers" },
+  { name: "Refer & Earn", href: "/referral" },
+  { name: "Sales Partner Login", href: "/sales" },
 ];
 
 export default function MegaMenu({ categories, phone }: MegaMenuProps) {

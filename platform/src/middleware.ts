@@ -125,6 +125,7 @@ const isPublicRoute = createRouteMatcher([
   '/portal(.*)',            // Client portal uses phone/email auth, not Clerk
   '/join(.*)',              // Invite acceptance page
   '/referral(.*)',          // Public referral pages
+  '/sales(.*)',             // Sales partner portal (email+PIN auth, not Clerk)
   '/api/portal(.*)',        // Portal API routes
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/uploads',           // File upload (team-portal photo upload's only
@@ -408,6 +409,7 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
           p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
           p.startsWith('/api/referral-commissions') ||
+          p.startsWith('/api/sales-partners') || p.startsWith('/api/sales-partner-commissions') ||
           // H-01: these owner APIs were missing, so super-admin impersonation
           // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
           // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.

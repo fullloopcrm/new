@@ -259,6 +259,78 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
   }
 }
 
+/**
+ * Sales partner commission earned (direct client or referrer-recruit
+ * override) → accrue the same expense/payable pair a referral commission
+ * uses. Distinct source key ('sales_partner_commission') so it never
+ * collides with a referral_commissions accrual on the same booking — the
+ * two are meant to stack. Idempotent by (source, source_id=commission.id).
+ */
+export async function postSalesPartnerCommissionAccrual(opts: { tenantId: string; commissionId: string }): Promise<PostAdjResult> {
+  const { tenantId, commissionId } = opts
+  if (await journalEntryExists(tenantId, 'sales_partner_commission', commissionId)) return { posted: false, reason: 'already_posted' }
+  const { data: c } = await supabaseAdmin
+    .from('sales_partner_commissions')
+    .select('commission_cents, status')
+    .eq('tenant_id', tenantId)
+    .eq('id', commissionId)
+    .maybeSingle()
+  if (!c) return { posted: false, reason: 'not_found' }
+  if (c.status === 'void') return { posted: false, reason: 'void' }
+  const amt = Number(c.commission_cents) || 0
+  if (amt <= 0) return { posted: false, reason: 'zero_amount' }
+
+  const acct = await resolveAccounts(tenantId, ['6045', '2400'])
+  if (!acct) return { posted: false, reason: 'accounts_missing' }
+  const lines: JournalLineInput[] = [
+    { coa_id: acct['6045'], debit_cents: amt, memo: 'Sales partner commission earned' },
+    { coa_id: acct['2400'], credit_cents: amt, memo: 'Commission payable' },
+  ]
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: new Date().toISOString().slice(0, 10),
+    memo: 'Sales partner commission',
+    source: 'sales_partner_commission',
+    source_id: commissionId,
+    lines,
+  })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
+  return { posted: true, entryId }
+}
+
+/** Sales partner commission paid out → clear the payable against cash. */
+export async function postSalesPartnerCommissionPayment(opts: { tenantId: string; commissionId: string }): Promise<PostAdjResult> {
+  const { tenantId, commissionId } = opts
+  if (await journalEntryExists(tenantId, 'sales_partner_commission_paid', commissionId)) return { posted: false, reason: 'already_posted' }
+  const { data: c } = await supabaseAdmin
+    .from('sales_partner_commissions')
+    .select('commission_cents')
+    .eq('tenant_id', tenantId)
+    .eq('id', commissionId)
+    .maybeSingle()
+  if (!c) return { posted: false, reason: 'not_found' }
+  const amt = Number(c.commission_cents) || 0
+  if (amt <= 0) return { posted: false, reason: 'zero_amount' }
+
+  await postSalesPartnerCommissionAccrual({ tenantId, commissionId }).catch(() => {})
+  const acct = await resolveAccounts(tenantId, ['2400', '1010'])
+  if (!acct) return { posted: false, reason: 'accounts_missing' }
+  const lines: JournalLineInput[] = [
+    { coa_id: acct['2400'], debit_cents: amt, memo: 'Commission paid' },
+    { coa_id: acct['1010'], credit_cents: amt, memo: 'Commission payout' },
+  ]
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: new Date().toISOString().slice(0, 10),
+    memo: 'Sales partner commission paid',
+    source: 'sales_partner_commission_paid',
+    source_id: commissionId,
+    lines,
+  })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
+  return { posted: true, entryId }
+}
+
 /** Safety net: accrue every commission + post payments for paid ones. Idempotent. */
 export async function backfillUnpostedCommissions(tenantId: string, limit = 500): Promise<{ accrued: number; paid: number }> {
   let accrued = 0

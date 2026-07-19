@@ -3,10 +3,10 @@
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useFormTracking } from '@/app/site/the-florida-maid/_lib/useFormTracking'
+import { useFormTracking } from '@/lib/useFormTracking'
 
 function ReferralSignupContent() {
-  useEffect(() => { document.title = 'Become a Referrer | The Florida Maid' }, []);
+  useEffect(() => { document.title = 'Become a Referrer | The NYC Towing Service' }, []);
   const router = useRouter()
   const searchParams = useSearchParams()
   // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
@@ -64,7 +64,7 @@ function ReferralSignupContent() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://www.thefloridamaid.com/portal/login?ref=${refCode}`)
+    navigator.clipboard.writeText(`https://www.thenyctowingservice.com/book-towing-service-today?ref=${refCode}`)
     alert('Link copied!')
   }
 
@@ -78,21 +78,21 @@ function ReferralSignupContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-[#1E2A4A] mb-2">You&apos;re In! 🎉</h1>
-          <p className="text-gray-600 mb-6">Welcome to The Florida Maid referral program</p>
+          <h1 className="text-2xl font-bold text-[#b91c1c] mb-2">You&apos;re In! 🎉</h1>
+          <p className="text-gray-600 mb-6">Welcome to the The NYC Towing Service referral program</p>
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-500 mb-2">Your referral code</p>
-            <p className="text-2xl font-bold text-[#1E2A4A]">{refCode}</p>
+            <p className="text-2xl font-bold text-[#b91c1c]">{refCode}</p>
           </div>
 
           <p className="text-xs text-gray-400 mt-4">📧 Please check your spam/junk folder if you don&apos;t see our email in your inbox.</p>
-          <div className="bg-[#A8F0DC]/20 rounded-lg p-4 mb-6">
-            <p className="text-sm text-[#1E2A4A] mb-2">Your referral link</p>
-            <p className="text-sm font-mono text-[#1E2A4A] break-all">https://www.thefloridamaid.com/portal/login?ref={refCode}</p>
+          <div className="bg-[#fdecec] rounded-lg p-4 mb-6">
+            <p className="text-sm text-[#b91c1c] mb-2">Your referral link</p>
+            <p className="text-sm font-mono text-[#b91c1c] break-all">https://www.thenyctowingservice.com/book-towing-service-today?ref={refCode}</p>
             <button
               onClick={copyLink}
-              className="mt-3 px-4 py-2 bg-[#1E2A4A] text-white rounded-lg text-sm hover:bg-[#1E2A4A]/90"
+              className="mt-3 px-4 py-2 bg-[#b91c1c] text-white rounded-lg text-sm hover:bg-[#b91c1c]/90"
             >
               Copy Link
             </button>
@@ -101,12 +101,12 @@ function ReferralSignupContent() {
           <div className="space-y-3">
             <Link
               href={`/referral?code=${refCode}`}
-              className="block w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90"
+              className="block w-full py-3 bg-[#b91c1c] text-white rounded-lg font-medium hover:bg-[#b91c1c]/90"
             >
               Go to My Dashboard
             </Link>
             <p className="text-sm text-gray-500">
-              Share your link and earn 10% of every cleaning!
+              Share your link and earn 10% of every job!
             </p>
           </div>
         </div>
@@ -118,10 +118,10 @@ function ReferralSignupContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#1E2A4A] text-white py-6 px-4">
+      <header className="bg-[#b91c1c] text-white py-6 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-3xl font-bold mb-2">Get Paid for Referrals</h1>
-          <p className="text-gray-300">Earn 10% commission every time we clean for someone you refer</p>
+          <p className="text-gray-300">Earn 10% commission every time we serve someone you refer</p>
         </div>
       </header>
 
@@ -132,7 +132,7 @@ function ReferralSignupContent() {
             <div>
               <div className="text-3xl mb-2">💰</div>
               <p className="font-semibold">10% Commission</p>
-              <p className="text-sm text-gray-500">On every cleaning</p>
+              <p className="text-sm text-gray-500">On every job</p>
             </div>
             <div>
               <div className="text-3xl mb-2">🔄</div>
@@ -151,7 +151,7 @@ function ReferralSignupContent() {
       {/* Form */}
       <div className="max-w-md mx-auto py-8 px-4">
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-bold text-[#1E2A4A] mb-6">Sign Up to Start Earning</h2>
+          <h2 className="text-xl font-bold text-[#b91c1c] mb-6">Sign Up to Start Earning</h2>
 
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
@@ -182,7 +182,7 @@ function ReferralSignupContent() {
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]"
+                className="w-full px-4 py-3 border rounded-lg text-[#b91c1c]"
                 placeholder="John Smith"
               />
             </div>
@@ -196,7 +196,7 @@ function ReferralSignupContent() {
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]"
+                className="w-full px-4 py-3 border rounded-lg text-[#b91c1c]"
                 placeholder="john@email.com"
               />
             </div>
@@ -209,8 +209,8 @@ function ReferralSignupContent() {
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]"
-                placeholder="954-555-1234"
+                className="w-full px-4 py-3 border rounded-lg text-[#b91c1c]"
+                placeholder="212-555-1234"
               />
             </div>
 
@@ -221,7 +221,7 @@ function ReferralSignupContent() {
               <select
                 value={form.preferred_payout}
                 onChange={(e) => setForm({ ...form, preferred_payout: e.target.value })}
-                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]"
+                className="w-full px-4 py-3 border rounded-lg text-[#b91c1c]"
               >
                 <option value="zelle">Zelle</option>
                 <option value="apple_cash">Apple Cash</option>
@@ -236,7 +236,7 @@ function ReferralSignupContent() {
                 type="text"
                 value={form.zelle_email}
                 onChange={(e) => setForm({ ...form, zelle_email: e.target.value })}
-                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]"
+                className="w-full px-4 py-3 border rounded-lg text-[#b91c1c]"
                 placeholder={form.preferred_payout === 'zelle' ? 'Same as email if blank' : 'Your Apple Cash phone number'}
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -247,14 +247,14 @@ function ReferralSignupContent() {
             <div style={{ margin: '20px 0', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', background: '#fafafa' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '13px', lineHeight: '1.5', color: '#555' }}>
                 <input type="checkbox" name="sms_consent" required style={{ marginTop: '3px', minWidth: '18px', minHeight: '18px' }} />
-                <span>By checking this box, I consent to receive transactional text messages from <strong>The Florida Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.thefloridamaid.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.thefloridamaid.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
+                <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Towing Service</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply.</span>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90 disabled:opacity-50"
+              className="w-full py-3 bg-[#b91c1c] text-white rounded-lg font-medium hover:bg-[#b91c1c]/90 disabled:opacity-50"
             >
               {loading ? 'Signing Up...' : 'Join Referral Program'}
             </button>
@@ -263,7 +263,7 @@ function ReferralSignupContent() {
           <div className="mt-6 pt-6 border-t text-center">
             <p className="text-sm text-gray-500">
               Already a referrer?{' '}
-              <Link href="/referral" className="text-[#1E2A4A] hover:underline">
+              <Link href="/referral" className="text-[#b91c1c] hover:underline">
                 Log in to your dashboard
               </Link>
             </p>
@@ -272,27 +272,27 @@ function ReferralSignupContent() {
 
         {/* How it works */}
         <div className="mt-8 bg-white rounded-lg shadow p-6">
-          <h3 className="font-bold text-[#1E2A4A] mb-4">How It Works</h3>
+          <h3 className="font-bold text-[#b91c1c] mb-4">How It Works</h3>
           <div className="space-y-4">
             <div className="flex gap-4">
-              <div className="w-8 h-8 bg-[#1E2A4A] text-white rounded-full flex items-center justify-center flex-shrink-0">1</div>
+              <div className="w-8 h-8 bg-[#b91c1c] text-white rounded-full flex items-center justify-center flex-shrink-0">1</div>
               <div>
                 <p className="font-medium">Sign up & get your link</p>
                 <p className="text-sm text-gray-500">Takes 30 seconds</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 bg-[#1E2A4A] text-white rounded-full flex items-center justify-center flex-shrink-0">2</div>
+              <div className="w-8 h-8 bg-[#b91c1c] text-white rounded-full flex items-center justify-center flex-shrink-0">2</div>
               <div>
                 <p className="font-medium">Share with friends & family</p>
                 <p className="text-sm text-gray-500">They book using your link</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-8 h-8 bg-[#1E2A4A] text-white rounded-full flex items-center justify-center flex-shrink-0">3</div>
+              <div className="w-8 h-8 bg-[#b91c1c] text-white rounded-full flex items-center justify-center flex-shrink-0">3</div>
               <div>
                 <p className="font-medium">Earn 10% every time</p>
-                <p className="text-sm text-gray-500">Paid after each cleaning</p>
+                <p className="text-sm text-gray-500">Paid after each job</p>
               </div>
             </div>
           </div>
@@ -301,7 +301,7 @@ function ReferralSignupContent() {
 
       {/* Footer */}
       <div className="text-center py-8 text-sm text-gray-500">
-        <p>Questions? Email us at hi@thefloridamaid.com</p>
+        <p>Questions? Email us at hi@thenyctowingservice.com</p>
       </div>
     </div>
   )

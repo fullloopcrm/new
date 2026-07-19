@@ -128,6 +128,8 @@ export function Header() {
                     <Link href="/franchise" onClick={() => setMoreOpen(false)} className="block px-4 py-2.5 text-[14px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors font-cta">Join Our Fleet</Link>
                     <Link href="/blog" onClick={() => setMoreOpen(false)} className="block px-4 py-2.5 text-[14px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors font-cta">Towing Tips</Link>
                     <Link href="/blog" onClick={() => setMoreOpen(false)} className="block px-4 py-2.5 text-[14px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors font-cta">Blog</Link>
+                    <Link href="/referral" onClick={() => setMoreOpen(false)} className="block px-4 py-2.5 text-[14px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors font-cta">Refer & Earn</Link>
+                    <Link href="/sales" onClick={() => setMoreOpen(false)} className="block px-4 py-2.5 text-[14px] font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors font-cta">Sales Partner Login</Link>
                   </div>
                 </>
               )}
@@ -191,6 +193,8 @@ export function Header() {
             <Link href="/franchise" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-yellow-400 transition-colors font-cta">Join Our Fleet</Link>
             <Link href="/blog" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-yellow-400 transition-colors font-cta">Towing Tips</Link>
             <Link href="/blog" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-yellow-400 transition-colors font-cta">Blog</Link>
+            <Link href="/referral" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-yellow-400 transition-colors font-cta">Refer & Earn</Link>
+            <Link href="/sales" onClick={() => setMobileOpen(false)} className="block text-base font-medium text-slate-300 hover:text-yellow-400 transition-colors font-cta">Sales Partner Login</Link>
           </div>
           <div className="mt-4 space-y-3">
             <a href={SMS_HREF} className="block">

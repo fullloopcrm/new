@@ -66,6 +66,8 @@ export default function MarketingNav() {
               <span className="text-white/30">|</span>
               <a href="/referral" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
               <span className="text-white/30">|</span>
+              <a href="/sales" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Sales Partner Login</a>
+              <span className="text-white/30">|</span>
               <a href="/team/login" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Team Login</a>
             </div>
           </div>
@@ -200,6 +202,7 @@ export default function MarketingNav() {
                 <Link href="/portal/login" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</Link>
                 <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Pay Now</a>
                 <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Referral Program</Link>
+                <Link href="/sales" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Sales Partner Login</Link>
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
