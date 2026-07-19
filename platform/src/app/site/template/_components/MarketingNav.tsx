@@ -22,6 +22,7 @@ const moreLinks = [
   { name: 'FAQ', href: '/faq' },
   { name: 'Careers — Cleaning Jobs', href: '/careers' },
   { name: 'Careers — Operations Admin', href: '/careers/operations-coordinator' },
+  { name: 'Careers — Commission Sales Partner', href: '/careers/commission-sales-partner' },
   { name: 'Locations', href: '/service-areas' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
 ]
