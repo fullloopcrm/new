@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import TierProgress from './TierProgress'
+import LinkPerformance from './LinkPerformance'
+import KnowledgePanel from './KnowledgePanel'
 
 interface Partner {
   id: string
@@ -27,6 +30,20 @@ interface Commission {
   created_at: string
 }
 
+interface TierProgressData {
+  tier: string
+  label: string
+  rate_percent: number
+  direct_client_count: number
+  next_tier: { label: string; rate_percent: number; threshold: number } | null
+  remaining_to_next: number | null
+  progress_pct: number
+  just_promoted: boolean
+}
+
+interface KBEntry { q: string; a: string }
+interface KBCategory { category: string; entries: KBEntry[] }
+
 interface PortalData {
   partner: Partner
   tenant: { name: string; primary_color: string }
@@ -35,6 +52,10 @@ interface PortalData {
   stats: { total_earned: number; total_pending: number; recruited_referrer_count: number }
   commissions: Commission[]
   recruited_referrers: { id: string; name: string; referral_code: string; total_earned: number; status: string }[]
+  tier_progress: TierProgressData
+  link_stats: { clicks: number; uniqueVisitors: number; bookClicks: number; thisWeek: number }
+  funnel: { clicks: number; direct_clients: number; completed_cleanings: number }
+  knowledge_base: KBCategory[]
 }
 
 const TOKEN_KEY = 'sales_partner_token'
@@ -138,7 +159,7 @@ export default function SalesPartnerPortalPage() {
     )
   }
 
-  const { partner, stats, share_url, referrer_signup_url, commissions, recruited_referrers } = data
+  const { partner, stats, share_url, referrer_signup_url, commissions, recruited_referrers, tier_progress, link_stats, funnel, knowledge_base } = data
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -165,6 +186,19 @@ export default function SalesPartnerPortalPage() {
             <p className="text-xl font-bold text-gray-900">{stats.recruited_referrer_count}</p>
           </div>
         </div>
+
+        <TierProgress
+          tier={tier_progress.tier}
+          label={tier_progress.label}
+          ratePercent={tier_progress.rate_percent}
+          directClientCount={tier_progress.direct_client_count}
+          nextTier={tier_progress.next_tier}
+          remainingToNext={tier_progress.remaining_to_next}
+          progressPct={tier_progress.progress_pct}
+          justPromoted={tier_progress.just_promoted}
+        />
+
+        <LinkPerformance linkStats={link_stats} funnel={funnel} />
 
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 space-y-3">
           <div>
@@ -235,6 +269,8 @@ export default function SalesPartnerPortalPage() {
             </div>
           )}
         </div>
+
+        <KnowledgePanel categories={knowledge_base} />
       </div>
     </div>
   )

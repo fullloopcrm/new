@@ -8,10 +8,21 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
+import { getSettings } from '@/lib/settings'
+import { buildSalesKnowledgeBase } from '@/lib/knowledge-base'
+import { autoPromoteSalesPartnerTier, computeTierProgress } from '@/lib/sales-partner-tier'
 
 export async function GET(request: Request) {
   const auth = getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Self-heal on every load: promote tier/commission_rate if the partner's
+  // direct-client count has crossed a threshold since the last check (also
+  // triggered live at checkout — see team-portal/checkout/route.ts).
+  const promotion = await autoPromoteSalesPartnerTier(auth.tid, auth.pid).catch((err) => {
+    console.error(`[sales-partners/me] auto-promote failed: ${err instanceof Error ? err.message : err}`)
+    return null
+  })
 
   const { data: partner, error: partnerError } = await supabaseAdmin
     .from('sales_partners')
@@ -62,6 +73,46 @@ export async function GET(request: Request) {
     .select('id, name, referral_code, total_earned, status')
     .eq('recruited_by_sales_partner_id', partner.id)
 
+  // Click tracking — reuses lead_clicks (already keyed by generic ref_code,
+  // populated by every site's /api/track beacon), same as referrer analytics
+  // (src/app/api/referrers/analytics/route.ts). Not FK'd to sales_partners,
+  // so this data was already being captured, just never surfaced here.
+  const now = new Date()
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const { data: clickRows } = await supabaseAdmin
+    .from('lead_clicks')
+    .select('action, session_id, lead_id, created_at')
+    .eq('tenant_id', partner.tenant_id)
+    .eq('ref_code', partner.referral_code)
+    .order('created_at', { ascending: false })
+    .limit(2000)
+  const clicks = clickRows || []
+  const linkStats = {
+    clicks: clicks.length,
+    uniqueVisitors: new Set(clicks.map((c) => c.session_id || c.lead_id).filter(Boolean)).size,
+    bookClicks: clicks.filter((c) => c.action === 'book').length,
+    thisWeek: clicks.filter((c) => new Date((c.created_at || '') + 'Z') >= weekAgo).length,
+  }
+
+  let directClientCount = promotion?.directClientCount ?? null
+  if (directClientCount == null) {
+    const { count } = await supabaseAdmin
+      .from('clients')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', partner.tenant_id)
+      .eq('sales_partner_id', partner.id)
+    directClientCount = count || 0
+  }
+
+  // Completed cleanings = every direct-source commission this partner has
+  // ever earned (a commission is only created at checkout on an actually
+  // completed booking — see createPartnerCommission in team-portal/checkout).
+  const completedCleanings = (commissionRows || []).filter((c) => c.source === 'direct').length
+
+  const settings = await getSettings(partner.tenant_id)
+  const tierProgress = computeTierProgress(partner.tier as string, directClientCount)
+  const knowledgeBase = buildSalesKnowledgeBase(settings, tierProgress)
+
   const rawRate = Number(partner.commission_rate) || 0
   const ratePercent = rawRate > 0 && rawRate <= 1 ? Math.round(rawRate * 100) : Math.round(rawRate)
 
@@ -80,6 +131,23 @@ export async function GET(request: Request) {
       zelle_phone: partner.zelle_phone,
       apple_cash_phone: partner.apple_cash_phone,
     },
+    tier_progress: {
+      tier: tierProgress.current.key,
+      label: tierProgress.current.label,
+      rate_percent: Math.round(tierProgress.current.rate * 100),
+      direct_client_count: directClientCount,
+      next_tier: tierProgress.next ? { label: tierProgress.next.label, rate_percent: Math.round(tierProgress.next.rate * 100), threshold: tierProgress.next.threshold } : null,
+      remaining_to_next: tierProgress.remainingToNext,
+      progress_pct: tierProgress.progressPct,
+      just_promoted: promotion?.promoted || false,
+    },
+    link_stats: linkStats,
+    funnel: {
+      clicks: linkStats.clicks,
+      direct_clients: directClientCount,
+      completed_cleanings: completedCleanings,
+    },
+    knowledge_base: knowledgeBase,
     tenant: {
       name: tenant.name,
       slug: tenant.slug,

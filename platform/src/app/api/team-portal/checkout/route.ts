@@ -9,6 +9,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
+import { autoPromoteSalesPartnerTier } from '@/lib/sales-partner-tier'
 import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
@@ -251,6 +252,15 @@ export async function POST(request: Request) {
         relatedId: booking.id as string,
         partnerName: (partner as { name?: string | null }).name,
       }).catch((err) => console.error('[team-portal-checkout] sales partner ledger flag failed:', err))
+      // A 'direct' commission means this partner's own direct-client count may
+      // have just crossed a tier threshold (clients.sales_partner_id is set at
+      // booking/client-creation time, not here, but checkout is the reliable
+      // moment a partner's activity is known to be live) -- promote in real
+      // time rather than waiting for the partner's next portal page load.
+      if (source === 'direct') {
+        autoPromoteSalesPartnerTier(auth.tid, partner.id).catch((err) =>
+          console.error('[team-portal-checkout] tier auto-promote failed:', err))
+      }
       await supabaseAdmin.from('notifications').insert({
         tenant_id: auth.tid,
         type: 'sales_partner_commission',
