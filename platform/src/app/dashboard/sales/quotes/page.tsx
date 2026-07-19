@@ -144,7 +144,7 @@ export default function QuotesListPage() {
                     </p>
                   </td>
                   <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[q.status] || 'bg-slate-100 text-slate-500'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${STATUS_COLORS[q.status] || 'bg-slate-100 text-slate-500'}`}>
                       {q.status}
                     </span>
                   </td>

@@ -110,7 +110,7 @@ export default function CleanersPage() {
           <div style={{ fontWeight: 700, color: 'var(--ink, #1E2A4A)', fontSize: 15 }}>{app.name}</div>
           <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>
             applied {timeAgo(app.created_at)}
-            {app.status !== 'pending' && ` · ${app.status}`}
+            {app.status !== 'pending' && <span style={{ textTransform: 'capitalize' }}>{` · ${app.status}`}</span>}
           </div>
         </div>
         {app.photo_url && (

@@ -79,7 +79,7 @@ export default function JobsPage() {
                   <p className="text-xs text-slate-400 font-mono">{j.job_number || j.id.slice(0, 8)}</p>
                   {j.client_name && <p className="text-xs text-slate-500">{j.client_name}</p>}
                 </td>
-                <td className="px-4 py-3"><span className={`text-[11px] px-2 py-0.5 rounded font-medium ${STATUS_STYLE[j.status] || 'bg-slate-100'}`}>{j.status}</span></td>
+                <td className="px-4 py-3"><span className={`text-[11px] px-2 py-0.5 rounded font-medium capitalize ${STATUS_STYLE[j.status] || 'bg-slate-100'}`}>{j.status.replace(/_/g, ' ')}</span></td>
                 <td className="px-4 py-3 text-right text-slate-700">{money(j.contracted)}</td>
                 <td className="px-4 py-3 text-right text-green-600">{money(j.paid)}</td>
                 <td className={`px-4 py-3 text-right font-medium ${j.overdue > 0 ? 'text-red-600' : 'text-amber-600'}`}>{money(j.due)}</td>

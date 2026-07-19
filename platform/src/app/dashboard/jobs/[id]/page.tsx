@@ -239,7 +239,7 @@ export default function JobDetailPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-bold text-slate-900">{job.title || 'Job'}</h1>
-            <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status.replace(/_/g, ' ')}</span>
           </div>
           <p className="text-xs text-slate-400 font-mono mt-0.5">{job.job_number || job.id.slice(0, 8)}</p>
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
@@ -334,7 +334,7 @@ export default function JobDetailPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium text-slate-800">{dayLabel(s.start_time)}</span>
                               <span className="text-xs text-slate-500">{timeLabel(s.start_time)}{dur ? ` · ${dur}h` : ''}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${SESSION_STATUS_STYLE[s.status || ''] || 'bg-slate-100 text-slate-500'}`}>{s.status || '—'}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium capitalize ${SESSION_STATUS_STYLE[s.status || ''] || 'bg-slate-100 text-slate-500'}`}>{s.status ? s.status.replace(/_/g, ' ') : '—'}</span>
                             </div>
                             {s.service_type && s.service_type !== job.title && <p className="text-xs text-slate-500 mt-0.5">{s.service_type}</p>}
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">

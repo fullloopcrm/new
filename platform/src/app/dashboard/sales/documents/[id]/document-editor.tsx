@@ -334,7 +334,7 @@ export default function DocumentEditor({ id }: { id: string }) {
                       {s.email && <p className="text-xs text-slate-500 truncate">{s.email}</p>}
                       {s.role && <p className="text-xs text-slate-400">{s.role}</p>}
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${
                           s.status === 'signed' ? 'bg-green-50 text-green-700' :
                           s.status === 'declined' ? 'bg-red-50 text-red-600' :
                           s.status === 'viewed' ? 'bg-violet-50 text-violet-700' :

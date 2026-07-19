@@ -62,7 +62,7 @@ export default function BatchReviewPage({ params }: { params: Promise<{ batchId:
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="font-heading text-2xl font-bold text-slate-900">Review import</h1>
       <p className="mb-6 text-sm text-slate-500">
-        {review.batch.kind} · {review.batch.source_filename || 'upload'} · {review.batch.total_rows} rows · status: <strong>{review.batch.status}</strong>
+        <span className="capitalize">{review.batch.kind}</span> · {review.batch.source_filename || 'upload'} · {review.batch.total_rows} rows · status: <strong className="capitalize">{review.batch.status}</strong>
       </p>
 
       {/* Bucket summary */}

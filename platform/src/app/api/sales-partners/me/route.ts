@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     .from('sales_partners')
     .select('id, tenant_id, name, email, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone')
     .eq('id', auth.pid)
+    .eq('tenant_id', auth.tid)
     .maybeSingle()
 
   if (partnerError) {

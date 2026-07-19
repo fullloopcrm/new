@@ -324,7 +324,7 @@ export default function ReferralsPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-400">{r.clients?.name || '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${
                       r.status === 'converted' ? 'bg-green-50 text-green-700' :
                       r.status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
                       'bg-slate-100 text-slate-500'

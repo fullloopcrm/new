@@ -265,7 +265,7 @@ export default function SchedulesPage() {
                   <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `· ${s.duration_hours}hr` : ''}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${
                     s.status === 'active' ? 'bg-green-50 text-green-700' :
                     s.status === 'paused' ? 'bg-yellow-50 text-yellow-700' :
                     'bg-red-50 text-red-700'

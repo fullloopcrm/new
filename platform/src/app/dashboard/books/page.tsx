@@ -293,7 +293,7 @@ export default function BooksPage() {
                   <div className="books-account-tag">{r.account_tag}</div>
                 </div>
                 <div><span className="books-source">{r.source}</span></div>
-                <div><span className={`books-status ${r.status}`}>{r.status}</span></div>
+                <div><span className={`books-status capitalize ${r.status}`}>{r.status}</span></div>
                 <div />
                 <div className={`books-row-amount ${r.type === 'revenue' ? 'revenue' : 'expense'}`}>{fmtMoney(r.amount_cents)}</div>
               </div>

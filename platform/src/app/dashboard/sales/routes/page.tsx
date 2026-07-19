@@ -202,7 +202,7 @@ export default function RoutesPage() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h2 className="font-heading font-semibold text-slate-900">{tmName}</h2>
-                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-500'}`}>
                         {r.status}
                       </span>
                     </div>

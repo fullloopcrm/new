@@ -30,6 +30,16 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   va: 'Bookings, clients, and calendar. Can add & reschedule — cannot delete anything',
 }
 
+// Display-only labels -- the stored role value stays lowercase (owner/admin/
+// manager/staff/va), this just proper-cases it for the read-only badge.
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  manager: 'Manager',
+  staff: 'Staff',
+  va: 'VA / Booking Agent',
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
@@ -248,7 +258,7 @@ export default function UsersPage() {
                     </select>
                   ) : (
                     <span className={`px-2 py-1 text-xs rounded ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-700'}`} title={ROLE_DESCRIPTIONS[u.role]}>
-                      {u.role}
+                      {ROLE_LABELS[u.role] || u.role}
                     </span>
                   )}
                 </td>

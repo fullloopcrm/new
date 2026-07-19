@@ -302,7 +302,7 @@ export default function ReviewsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-medium capitalize ${
                     c.status === 'paid' ? 'bg-green-50 text-green-700' :
                     c.status === 'verified' ? 'bg-blue-50 text-blue-700' :
                     'bg-slate-100 text-slate-500'
@@ -373,7 +373,7 @@ export default function ReviewsPage() {
                     {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
                   </span>
                 )}
-                <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                <span className={`text-[10px] px-2 py-0.5 rounded font-medium capitalize ${
                   r.status === 'collected' ? 'bg-green-50 text-green-700' :
                   r.status === 'posted' ? 'bg-blue-50 text-blue-700' :
                   'bg-slate-100 text-slate-500'

@@ -431,7 +431,7 @@ function SalesPageInner() {
                           {(quotesByDeal[d.id] || []).map((q) => (
                             <a key={q.id} href={`/dashboard/sales/quotes/${q.id}`} className="sl-proposal-row">
                               <span className="sl-proposal-num">{q.quote_number || 'Draft'}</span>
-                              <span className={`sl-proposal-status ${q.status}`}>{q.status}</span>
+                              <span className={`sl-proposal-status capitalize ${q.status}`}>{q.status}</span>
                               <span className="sl-proposal-total">{fmtMoney(q.total_cents || 0)}</span>
                             </a>
                           ))}

@@ -393,7 +393,7 @@ export default function TeamPage() {
                           <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                         </div>
                         <div className="tm-app-actions">
-                          <span className={`tm-app-status ${app.status}`}>{app.status}</span>
+                          <span className={`tm-app-status capitalize ${app.status}`}>{app.status}</span>
                           <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
                         </div>
                       </div>

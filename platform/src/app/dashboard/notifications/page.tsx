@@ -92,10 +92,10 @@ export default function NotificationsPage() {
           <div key={n.id} className={`border border-slate-200 rounded-lg p-4 ${!n.metadata?.read ? 'border-l-4 border-l-blue-500' : ''}`}>
             <div className="flex items-start justify-between mb-1">
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded font-medium ${TYPE_COLORS[n.type] || 'bg-slate-100 text-slate-500'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${TYPE_COLORS[n.type] || 'bg-slate-100 text-slate-500'}`}>
                   {n.type.replace(/_/g, ' ')}
                 </span>
-                <span className={`text-xs ${n.status === 'sent' ? 'text-green-500' : n.status === 'failed' ? 'text-red-500' : 'text-slate-400'}`}>
+                <span className={`text-xs capitalize ${n.status === 'sent' ? 'text-green-500' : n.status === 'failed' ? 'text-red-500' : 'text-slate-400'}`}>
                   {n.status}
                 </span>
               </div>

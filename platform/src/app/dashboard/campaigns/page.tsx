@@ -456,7 +456,7 @@ export default function CampaignsPage() {
                   }`}>{c.type === 'both' ? 'email + sms' : c.type}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${
                     c.status === 'sent' ? 'bg-green-50 text-green-700' :
                     c.status === 'scheduled' ? 'bg-yellow-50 text-yellow-700' :
                     c.status === 'sending' ? 'bg-blue-50 text-blue-700' :

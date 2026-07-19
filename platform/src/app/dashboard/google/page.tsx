@@ -322,7 +322,7 @@ export default function GoogleBusinessPage() {
                   <div key={post.id} className="bg-white border border-slate-200 rounded-lg p-4">
                     <p className="text-sm text-slate-700">{post.summary}</p>
                     <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs text-green-600 font-medium">{post.status}</span>
+                      <span className="text-xs text-green-600 font-medium capitalize">{post.status}</span>
                       <span className="text-xs text-slate-400">
                         {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>

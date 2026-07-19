@@ -631,12 +631,12 @@ export default function TeamMemberDetailPage() {
                       <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
                       <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded ${
+                    <span className={`text-xs px-2 py-0.5 rounded capitalize ${
                       b.status === 'completed' ? 'bg-green-50 text-green-700' :
                       b.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :
                       b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                       'bg-slate-100 text-slate-500'
-                    }`}>{b.status}</span>
+                    }`}>{b.status.replace(/_/g, ' ')}</span>
                   </Link>
                 ))}
               </div>

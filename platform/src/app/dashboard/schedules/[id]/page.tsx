@@ -221,7 +221,7 @@ export default function ScheduleDetailPage() {
                     <p className="text-sm font-medium">{new Date(b.start_time).toLocaleDateString()}</p>
                     <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
+                  <span className={`text-xs px-2 py-0.5 rounded capitalize ${
                     b.status === 'completed' ? 'bg-green-50 text-green-700' :
                     b.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                     'bg-blue-50 text-blue-700'

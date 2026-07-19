@@ -199,7 +199,7 @@ export default function QuoteDetailPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-bold text-slate-900">{quote.quote_number}</h1>
-            <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[quote.status] || 'bg-slate-100 text-slate-500'}`}>{quote.status}</span>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${STATUS_COLORS[quote.status] || 'bg-slate-100 text-slate-500'}`}>{quote.status}</span>
           </div>
           <p className="text-slate-600 mt-1">{quote.title || '—'}</p>
         </div>

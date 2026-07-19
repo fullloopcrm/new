@@ -194,7 +194,7 @@ export default function InvoiceDetailPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-bold text-slate-900">{invoice.invoice_number}</h1>
-            <span className={`text-xs px-2 py-0.5 rounded font-medium ${STATUS_COLORS[invoice.status] || 'bg-slate-100 text-slate-500'}`}>{invoice.status}</span>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium capitalize ${STATUS_COLORS[invoice.status] || 'bg-slate-100 text-slate-500'}`}>{invoice.status}</span>
           </div>
           <p className="text-slate-600 mt-1">{invoice.title || '—'}</p>
           {invoice.quote_id && (

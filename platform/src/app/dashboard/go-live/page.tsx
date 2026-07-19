@@ -115,8 +115,8 @@ export default function GoLivePage() {
               onClick={() => setStatus(t, STATUS_CYCLE[t.status] || 'completed')}
               disabled={busy === t.id}
               title={t.status === 'blocked' && t.blocked_reason ? t.blocked_reason : undefined}
-              className={`shrink-0 text-[11px] px-2 py-1 rounded font-medium ${STATUS_STYLE[t.status] || 'bg-slate-100'}`}>
-              {busy === t.id ? '…' : t.status}
+              className={`shrink-0 text-[11px] px-2 py-1 rounded font-medium capitalize ${STATUS_STYLE[t.status] || 'bg-slate-100'}`}>
+              {busy === t.id ? '…' : t.status.replace(/_/g, ' ')}
             </button>
             <span className="flex-1 text-sm text-slate-700">
               {t.notes || t.task_type}
