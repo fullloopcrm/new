@@ -2082,7 +2082,7 @@ function BookingsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Time</label>
-                  <input type="time" min="08:00" max="16:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white" />
+                  <input type="time" min="07:00" max="19:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1C1C1C] bg-white" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Hours</label>
@@ -2561,7 +2561,7 @@ function BookingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#1C1C1C] mb-1">Time *</label>
-                    <input type="time" required min="08:00" max="16:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C]" />
+                    <input type="time" required min="07:00" max="19:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C]" />
                   </div>
                 </div>
                 {createForm.is_emergency ? (
