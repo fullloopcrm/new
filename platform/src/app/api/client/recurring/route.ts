@@ -6,6 +6,7 @@ import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     team_size,
     max_hours,
     notes,
+    renurture_code, // optional — from a renurture win-back link/message
   } = body
   const maxHoursClean = typeof max_hours === 'number' && max_hours > 0 ? max_hours : null
   const extras: string[] = Array.isArray(extra_cleaner_ids)
@@ -102,9 +104,32 @@ export async function POST(request: Request) {
     }, { status: 403 })
   }
 
+  // Renurture win-back code — validates against renurture_log. Only boosts
+  // the discount for 'monthly' bookings (that's the cadence the offer was
+  // messaged for); weekly/biweekly already get standard pricing at or above
+  // any renurture tier. Redemption is stamped after the schedule is created
+  // below, regardless of frequency, so /api/admin/renurture/stats can
+  // attribute the booking back to the touch that drove it either way.
+  let renurtureLogId: string | null = null
+  let renurtureDiscountPct: number | null = null
+  if (renurture_code && typeof renurture_code === 'string') {
+    const { data: logRow } = await supabaseAdmin
+      .from('renurture_log')
+      .select('id, client_id, discount_pct, redeemed_at')
+      .eq('tenant_id', tenantId)
+      .eq('redemption_code', renurture_code)
+      .maybeSingle()
+    if (logRow && logRow.client_id === client_id && !logRow.redeemed_at) {
+      renurtureLogId = logRow.id
+      renurtureDiscountPct = logRow.discount_pct
+    }
+  }
+
   // Pricing: weekly 20%, biweekly/monthly 10%
   const baseRate = supplies === 'client' ? 59 : 79
-  const discountPercent = frequency === 'weekly' ? 20 : 10
+  const discountPercent = frequency === 'monthly' && renurtureDiscountPct !== null
+    ? renurtureDiscountPct
+    : frequency === 'weekly' ? 20 : 10
   const basePriceCents = hours * baseRate * finalTeamSize * 100
   const price = Math.floor(basePriceCents * (1 - discountPercent / 100) / 500) * 500
 
@@ -151,6 +176,14 @@ export async function POST(request: Request) {
     .single()
 
   if (scheduleErr) return NextResponse.json({ error: scheduleErr.message }, { status: 500 })
+
+  if (renurtureLogId) {
+    await supabaseAdmin
+      .from('renurture_log')
+      .update({ redeemed_at: new Date().toISOString(), redeemed_by_schedule_id: schedule.id })
+      .eq('id', renurtureLogId)
+      .then(() => {}, () => {})
+  }
 
   // Insert bookings
   const [hh, mm] = time.split(':').map(Number)
