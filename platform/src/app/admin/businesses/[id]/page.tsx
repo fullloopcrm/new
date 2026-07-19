@@ -46,6 +46,10 @@ type Business = {
   telnyx_api_key: string | null
   telegram_bot_token: string | null
   telegram_chat_id: string | null
+  voice_mcp_token: string | null
+  voice_agent_enabled: boolean
+  xai_sip_username: string | null
+  xai_sip_password: string | null
   google_place_id: string | null
   google_tokens: { access_token?: string; refresh_token?: string; expires_at?: number } | null
   google_business: { account_name?: string; location_name?: string; location_title?: string } | null
@@ -188,6 +192,10 @@ export default function BusinessDetailPage() {
   const [telnyxPhone, setTelnyxPhone] = useState('')
   const [telegramBotToken, setTelegramBotToken] = useState('')
   const [telegramChatId, setTelegramChatId] = useState('')
+  const [voiceMcpToken, setVoiceMcpToken] = useState('')
+  const [voiceAgentEnabled, setVoiceAgentEnabled] = useState(false)
+  const [xaiSipUsername, setXaiSipUsername] = useState('')
+  const [xaiSipPassword, setXaiSipPassword] = useState('')
   const [stripeAccountId, setStripeAccountId] = useState('')
   const [stripeApiKey, setStripeApiKey] = useState('')
   const [googlePlaceId, setGooglePlaceId] = useState('')
@@ -254,6 +262,10 @@ export default function BusinessDetailPage() {
           setTelnyxPhone(b.telnyx_phone || '')
           setTelegramBotToken(b.telegram_bot_token || '')
           setTelegramChatId(b.telegram_chat_id || '')
+          setVoiceMcpToken(b.voice_mcp_token || '')
+          setVoiceAgentEnabled(!!b.voice_agent_enabled)
+          setXaiSipUsername(b.xai_sip_username || '')
+          setXaiSipPassword(b.xai_sip_password || '')
           setStripeAccountId(b.stripe_account_id || '')
           setStripeApiKey(b.stripe_api_key || '')
           setGooglePlaceId(b.google_place_id || '')
@@ -788,6 +800,53 @@ export default function BusinessDetailPage() {
             </div>
           </div>
 
+          {/* Voice AI Agent — xAI Grok (Yinez/Selena answers the phone) */}
+          <div>
+            <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Voice AI Agent — xAI Grok</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Lets the agent answer this tenant&apos;s phone line via a Telnyx SIP transfer to an xAI Custom MCP
+              connector. Requires an xAI Grok account with Direct SIP + Custom MCP access. Disabled by default —
+              flipping the toggle on with no credentials configured is a no-op, inbound calls keep ringing/voicemail
+              as normal.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 uppercase">MCP Secret Token</label>
+                <div className="flex gap-2 mt-1">
+                  <input value={voiceMcpToken} onChange={(e) => setVoiceMcpToken(e.target.value)} type="password"
+                    placeholder="not configured" className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono" />
+                  <button type="button"
+                    onClick={() => setVoiceMcpToken(crypto.randomUUID().replace(/-/g, ''))}
+                    className="px-3 py-2 text-sm font-medium text-teal-600 border border-teal-600 rounded-lg hover:bg-teal-50 transition whitespace-nowrap">
+                    Generate
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Path secret for xAI&apos;s Custom MCP connector (xAI can&apos;t send a Bearer header, so this
+                  lives in the URL: <code className="font-mono">/api/voice/mcp/&lt;token&gt;/mcp</code>) and the
+                  Telnyx call webhook. Must be unique per tenant.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase">xAI SIP Username</label>
+                  <input value={xaiSipUsername} onChange={(e) => setXaiSipUsername(e.target.value)}
+                    placeholder="from the xAI console" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 uppercase">xAI SIP Password</label>
+                  <input type="password" value={xaiSipPassword} onChange={(e) => setXaiSipPassword(e.target.value)}
+                    placeholder="from the xAI console" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 pt-1">
+                <input type="checkbox" checked={voiceAgentEnabled} onChange={(e) => setVoiceAgentEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300" />
+                <span className="text-sm text-slate-700">Enable voice agent for this tenant&apos;s inbound calls</span>
+              </label>
+            </div>
+          </div>
+
           {/* Stripe — Payments */}
           <div>
             <h3 className="font-heading font-semibold text-slate-900 mb-1 pb-2 border-b border-slate-200">Stripe — Payments</h3>
@@ -889,6 +948,10 @@ export default function BusinessDetailPage() {
               telnyx_phone: telnyxPhone || null,
               telegram_bot_token: telegramBotToken || null,
               telegram_chat_id: telegramChatId || null,
+              voice_mcp_token: voiceMcpToken || null,
+              voice_agent_enabled: voiceAgentEnabled,
+              xai_sip_username: xaiSipUsername || null,
+              xai_sip_password: xaiSipPassword || null,
               stripe_account_id: stripeAccountId || null,
               stripe_api_key: stripeApiKey || null,
               imap_host: imapHost || null,

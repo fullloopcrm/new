@@ -89,6 +89,7 @@ export const ENCRYPTED_TENANT_FIELDS = [
   'anthropic_api_key',
   'indexnow_key',
   'telegram_bot_token',
+  'xai_sip_password',
 ] as const
 
 /**

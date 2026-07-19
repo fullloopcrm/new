@@ -218,6 +218,8 @@ export async function PUT(
     'telnyx_api_key', 'telnyx_phone',
     'telnyx_voice_connection_id', 'telnyx_telephony_credential_id', 'telnyx_credential_connection_id',
     'voice_ring_list', 'voicemail_prompt', 'missed_call_sms',
+    // Voice AI agent (Yinez/Selena answers the phone) — xAI SIP + MCP config
+    'voice_mcp_token', 'voice_agent_enabled', 'xai_sip_username', 'xai_sip_password',
     'stripe_account_id', 'stripe_api_key',
     'imap_host', 'imap_port', 'imap_user', 'imap_pass',
     'zelle_email',
