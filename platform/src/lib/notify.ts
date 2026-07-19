@@ -32,6 +32,7 @@ export type NotificationType =
   | 'new_booking'
   | 'schedule_paused'
   | 'schedule_resumed'
+  | 'duplicate_recurring_schedule'
   | 'campaign_sent'
   | 'referral_converted'
   | 'team_member_added'

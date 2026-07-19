@@ -13,6 +13,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/duplicate-schedule-audit",
+      "schedule": "0 8 * * 1"
+    },
+    {
       "path": "/api/cron/reminders",
       "schedule": "0 * * * *"
     },

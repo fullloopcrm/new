@@ -250,6 +250,15 @@ export async function DELETE(
       .eq('tenant_id', tenantId)
       .single()
 
+    // Idempotency guard: a booking already marked cancelled (e.g. via the
+    // recurring-schedule cancel path, admin/recurring-schedules/[id]
+    // DELETE, which soft-cancels without notifying) must not re-send
+    // cancellation SMS/email when it's hard-deleted here afterward — same
+    // double-send class nycmaid fixed on its own cancel endpoint (ref
+    // 33d97974), just reached via a different call path in this codebase
+    // (cross-route re-cancel rather than a same-route repeat DELETE).
+    const alreadyCancelled = booking?.status === 'cancelled'
+
     const { error } = await supabaseAdmin
       .from('bookings')
       .delete()
@@ -261,7 +270,7 @@ export async function DELETE(
     }
 
     // Send cancellation notifications
-    if (booking) {
+    if (booking && !alreadyCancelled) {
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')

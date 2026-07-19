@@ -10,7 +10,23 @@ import { safeEqual } from '@/lib/timing-safe-equal'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { tenantServesSite } from '@/lib/tenant-status'
 
-// Weekly cron: auto-generate bookings 4 weeks out
+// Widened horizon below means the first run after this deploy backfills every
+// active schedule from a ~4-week buffer up to ~1-2 years of rows in one pass
+// — needs real headroom, not the default function timeout (nycmaid ref d307903c).
+export const maxDuration = 300
+
+// weeksToGenerate is really "iteration count" (generateRecurringDates counts
+// months, not weeks, for the two monthly types) — the exact count doesn't
+// need to be tight since the caller filters generated dates to <= horizon
+// afterward; this just needs to not undershoot.
+export function iterationsToHorizon(recurringType: string, startDate: Date, horizon: Date): number {
+  const days = Math.max(0, Math.ceil((horizon.getTime() - startDate.getTime()) / 86400000))
+  const isMonthly = recurringType === 'monthly_date' || recurringType === 'monthly_weekday'
+  return (isMonthly ? Math.ceil(days / 28) : Math.ceil(days / 7)) + 1
+}
+
+// Daily cron (see vercel.json): auto-generate bookings for every active
+// recurring schedule through the end of next year.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
@@ -87,10 +103,18 @@ export async function GET(request: Request) {
       .limit(1)
 
     const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date()
-    const fourWeeksOut = new Date()
-    fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
+    // Recurring commitments are booked out through the end of NEXT year.
+    // Previously this only kept a rolling 4-week buffer, which is why the
+    // dashboard's later-year numbers looked hollow even for clients with a
+    // standing weekly/monthly commitment — the booking rows simply didn't
+    // exist yet (nycmaid ref d307903c). Every path that mutates a whole
+    // recurring series (pause, cancel, batch-update) already collapses to
+    // at most one client notification regardless of how many bookings are
+    // affected, so the notification-spam risk a short buffer used to guard
+    // against doesn't apply here.
+    const horizon = new Date(new Date().getFullYear() + 1, 11, 31)
 
-    if (lastDate >= fourWeeksOut) continue // Already generated enough
+    if (lastDate >= horizon) continue // Already generated through the horizon
 
     const startDate = new Date(lastDate)
     startDate.setDate(startDate.getDate() + 1)
@@ -103,8 +127,8 @@ export async function GET(request: Request) {
       recurringType: schedule.recurring_type as RecurringType,
       startDate,
       dayOfWeek: schedule.day_of_week ?? undefined,
-      weeksToGenerate: 4,
-    }).filter((d) => d <= fourWeeksOut)
+      weeksToGenerate: iterationsToHorizon(schedule.recurring_type, startDate, horizon),
+    }).filter((d) => d <= horizon)
 
     if (dates.length === 0) continue
 
