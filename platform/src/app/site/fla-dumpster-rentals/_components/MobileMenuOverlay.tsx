@@ -56,6 +56,8 @@ export default function MobileMenuOverlay({
     { name: "Broker Service", href: "/broker-service" },
     { name: "Reviews", href: "/reviews" },
     { name: "Contact", href: "/contact" },
+    { name: "Refer & Earn", href: "/referral" },
+    { name: "Sales Partner Login", href: "/sales" },
   ];
 
   return (

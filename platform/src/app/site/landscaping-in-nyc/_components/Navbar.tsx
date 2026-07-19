@@ -277,6 +277,8 @@ export default function Navbar() {
                       { label: "Landscaping 101", href: "/landscaping-101" },
                       { label: "Estimate Tool", href: "/estimate" },
                       { label: "Apply for a Job", href: "/apply" },
+                      { label: "Refer & Earn", href: "/referral" },
+                      { label: "Sales Partner Login", href: "/sales" },
                     ].map((link) => (
                       <Link
                         key={link.href}
@@ -451,6 +453,22 @@ export default function Navbar() {
                     className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
                   >
                     Contact
+                  </Link>
+
+                  <Link
+                    href="/referral"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Refer & Earn
+                  </Link>
+
+                  <Link
+                    href="/sales"
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                  >
+                    Sales Partner Login
                   </Link>
 
                   {/* Phone -- highlighted in mobile */}
