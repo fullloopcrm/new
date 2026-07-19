@@ -10,6 +10,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
 import { bumpReferrerTotalOrFlag } from '@/lib/referrer-ledger'
+import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, recurring_type, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -210,6 +211,95 @@ export async function POST(request: Request) {
             `<p>Hi ${(ref as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${escapeHtml(clientName) || 'a'} booking. Thank you for spreading the word!</p>`,
           ).catch(() => {})
         }
+      }
+    }
+  }
+
+  // Sales partner commission — two independent, stackable payouts on the same
+  // booking: 'direct' when the client booked on the partner's own referral
+  // link (booking.sales_partner_id, set at booking creation — see
+  // /api/client/book), 'override' when the booking's referrer was recruited
+  // by a partner (referrers.recruited_by_sales_partner_id). Mutually
+  // exclusive in practice (a booking has either its own sales_partner_id or
+  // a referrer_id, not both), checked independently to match nycmaid's rule.
+  // Idempotent via UNIQUE(booking_id, sales_partner_id).
+  if (updatedPriceCents && updatedPriceCents > 0) {
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || null
+    const grossAmount = updatedPriceCents
+
+    const createPartnerCommission = async (
+      salesPartnerId: string,
+      source: 'direct' | 'override',
+      referrerId: string | null,
+    ) => {
+      const { data: partner } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id, commission_rate, email, name')
+        .eq('id', salesPartnerId)
+        .eq('tenant_id', auth.tid)
+        .eq('active', true)
+        .maybeSingle()
+      if (!partner) return
+
+      const rate = Number(partner.commission_rate) || 0.10
+      const commissionCents = Math.round(grossAmount * rate)
+
+      const { error: commErr } = await supabaseAdmin.from('sales_partner_commissions').insert({
+        tenant_id: auth.tid,
+        booking_id: booking.id,
+        sales_partner_id: partner.id,
+        source,
+        referrer_id: referrerId,
+        client_name: clientName,
+        gross_amount_cents: grossAmount,
+        commission_rate: rate,
+        commission_cents: commissionCents,
+        status: 'pending',
+      })
+      // commErr expected (and ignored) when a commission already exists for
+      // this (booking, partner) pair — UNIQUE(booking_id, sales_partner_id)
+      // makes re-checkout safe.
+      if (commErr) return
+
+      bumpSalesPartnerTotalOrFlag(auth.tid, partner.id, 'total_earned', commissionCents, {
+        relatedType: 'booking',
+        relatedId: booking.id as string,
+        partnerName: (partner as { name?: string | null }).name,
+      }).catch((err) => console.error('[team-portal-checkout] sales partner ledger flag failed:', err))
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: auth.tid,
+        type: 'sales_partner_commission',
+        title: 'Sales partner commission',
+        message: `${(partner as { name?: string | null }).name || 'Partner'} earned $${(commissionCents / 100).toFixed(2)} (${source}) on ${clientName || 'a'} booking`,
+        recipient_type: 'admin',
+      }).then(() => {}, () => {})
+      if (isNycMaid(auth.tid) && (partner as { email?: string | null }).email) {
+        const { sendEmail } = await import('@/lib/nycmaid/email')
+        await sendEmail(
+          (partner as { email: string }).email,
+          'You earned a sales partner commission',
+          `<p>Hi ${(partner as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${escapeHtml(clientName) || 'a'} booking. Thank you for spreading the word!</p>`,
+        ).catch(() => {})
+      }
+    }
+
+    // booking.sales_partner_id (set at self-book time via /api/client/book)
+    // takes precedence; clients.sales_partner_id (set via the admin "Sales
+    // Person" dropdown on client creation) is the sticky fallback so an
+    // admin-created booking for an already-attributed client still commissions.
+    const directPartnerId = (booking.sales_partner_id as string | null)
+      || ((booking.clients as unknown as { sales_partner_id?: string | null } | null)?.sales_partner_id ?? null)
+    if (directPartnerId) {
+      await createPartnerCommission(directPartnerId, 'direct', null)
+    } else if (booking.referrer_id) {
+      const { data: referrerRow } = await supabaseAdmin
+        .from('referrers')
+        .select('id, recruited_by_sales_partner_id')
+        .eq('id', booking.referrer_id as string)
+        .eq('tenant_id', auth.tid)
+        .maybeSingle()
+      if (referrerRow?.recruited_by_sales_partner_id) {
+        await createPartnerCommission(referrerRow.recruited_by_sales_partner_id as string, 'override', referrerRow.id as string)
       }
     }
   }

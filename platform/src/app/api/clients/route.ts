@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       address: { type: 'string', max: 500 },
       source: { type: 'string', max: 100 },
       status: { type: 'string', max: 50 },
+      sales_partner_id: { type: 'uuid' },
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
@@ -78,6 +79,23 @@ export async function POST(request: Request) {
     }
     if (fields && !fields.status) {
       fields.status = settings.default_client_status || 'active'
+    }
+
+    // sales_partner_id is a plain uuid per the validate() schema above --
+    // confirm it actually belongs to this tenant before it's attributed,
+    // same tenant-ownership check every other FK-by-id write in this route
+    // family enforces (a cross-tenant id here would misattribute commission
+    // earnings to the wrong tenant's partner).
+    if (fields?.sales_partner_id) {
+      const { data: partnerRow } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id')
+        .eq('id', fields.sales_partner_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!partnerRow) {
+        return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
+      }
     }
 
     // Check for potential duplicates

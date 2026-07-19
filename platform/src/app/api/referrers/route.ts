@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { name, email, phone, preferred_payout, zelle_email, apple_cash_phone, _t } = body
+  const { name, email, phone, preferred_payout, zelle_email, apple_cash_phone, _t, recruited_by_sales_partner_ref } = body
 
   if (!name || !email) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
@@ -120,6 +120,23 @@ export async function POST(request: NextRequest) {
   // Pre-fix this threw the raw 23505 as an unhandled 500 straight to a real
   // signup, same class already fixed for clients.pin/team_members.pin --
   // auto-generated codes are safe to retry with a freshly regenerated value.
+  // A referrer recruited via a sales partner's "recruit a referrer" link
+  // (?ref=<partner code> on /referral/signup) carries that attribution so
+  // the partner earns a stacked override on this referrer's commissions.
+  // Silently ignored if the code doesn't resolve to an active partner --
+  // this is a best-effort attribution, not a hard requirement to sign up.
+  let recruitedBySalesPartnerId: string | null = null
+  if (recruited_by_sales_partner_ref) {
+    const { data: recruiter } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('referral_code', String(recruited_by_sales_partner_ref).toUpperCase())
+      .eq('active', true)
+      .maybeSingle()
+    recruitedBySalesPartnerId = recruiter?.id || null
+  }
+
   const MAX_CODE_ATTEMPTS = 5
   let referralCode = generateRefCode(name)
   let data, error
@@ -140,6 +157,7 @@ export async function POST(request: NextRequest) {
         total_earned: 0,
         total_paid: 0,
         status: 'active',
+        recruited_by_sales_partner_id: recruitedBySalesPartnerId,
       })
       .select()
       .single())

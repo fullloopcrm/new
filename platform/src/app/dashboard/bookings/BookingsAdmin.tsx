@@ -73,6 +73,7 @@ interface Booking {
 interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_team_member_id?: string | null }
 interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; max_jobs_per_day?: number }
 interface Referrer { id: string; name: string; ref_code: string; active: boolean }
+interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
 interface SmartScore {
   id: string
   score: number
@@ -219,8 +220,9 @@ function BookingsPage() {
   })
   // Addresses for the selected client (the Create Booking address picker).
   const [clientProperties, setClientProperties] = useState<{ id: string; address: string; is_primary: boolean }[]>([])
-  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', notes: '' })
+  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
   const [referrers, setReferrers] = useState<Referrer[]>([])
+  const [salesPartners, setSalesPartners] = useState<SalesPartner[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmCheckout, setConfirmCheckout] = useState(false)
 
@@ -286,7 +288,7 @@ function BookingsPage() {
   }, [])
 
   useEffect(() => {
-    loadBookings(); loadClients(); loadCleaners(); loadReferrers()
+    loadBookings(); loadClients(); loadCleaners(); loadReferrers(); loadSalesPartners()
     const interval = setInterval(loadBookings, 300000) // Auto-refresh bookings every 5min
     return () => clearInterval(interval)
   }, [])
@@ -461,6 +463,7 @@ function BookingsPage() {
   }
   const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (!res.ok) return; const j = await res.json(); setCleaners(Array.isArray(j) ? j : (j.cleaners ?? j.team ?? [])) }
   const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (!res.ok) return; const j = await res.json(); setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }
+  const loadSalesPartners = async () => { const res = await fetch('/api/sales-partners'); if (!res.ok) return; const j = await res.json(); setSalesPartners(Array.isArray(j) ? j : (j.sales_partners ?? [])) }
 
   const loadWaitlist = async () => {
     setWaitlistLoading(true)
@@ -713,7 +716,7 @@ function BookingsPage() {
   }
 
   const handleNewClientClick = () => {
-    setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', notes: '' })
+    setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
     setShowNewClientModal(true)
     setShowClientDropdown(false)
   }
@@ -727,7 +730,7 @@ function BookingsPage() {
     const res = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newClientForm.name, phone: newClientForm.phone, email: newClientForm.email, address: fullAddress, referrer_id: newClientForm.referrer_id || null, notes: newClientForm.notes || null })
+      body: JSON.stringify({ name: newClientForm.name, phone: newClientForm.phone, email: newClientForm.email, address: fullAddress, referrer_id: newClientForm.referrer_id || null, sales_partner_id: newClientForm.sales_partner_id || null, notes: newClientForm.notes || null })
     })
     if (res.ok) {
       const newClient = await res.json()
@@ -735,7 +738,7 @@ function BookingsPage() {
       setCreateForm({ ...createForm, client_id: newClient.id })
       setClientSearch(newClient.name + ' - ' + newClient.phone)
       setShowNewClientModal(false)
-      setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', notes: '' })
+      setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
     }
     setSaving(false)
   }
@@ -2907,6 +2910,13 @@ function BookingsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit / Apt</label>
                 <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="Apt 4B" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sales Person</label>
+                <select value={newClientForm.sales_partner_id} onChange={(e) => setNewClientForm({ ...newClientForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
+                  <option value="">None</option>
+                  {salesPartners.filter(sp => sp.active).map(sp => <option key={sp.id} value={sp.id}>{sp.name} ({sp.referral_code})</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
