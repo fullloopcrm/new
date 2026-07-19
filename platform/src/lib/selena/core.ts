@@ -1090,7 +1090,30 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     const date = input.date as string, time = input.time as string
     const serviceType = input.service_type as string, hourlyRate = input.hourly_rate as number
     const estimatedHours = (input.estimated_hours as number) || 2
-    const recurringType = (input.recurring_type as string) || 'one_time'
+    // 'one_time' was previously used as a truthy sentinel for "not recurring"
+    // here, but every OTHER reader of bookings.recurring_type across the
+    // platform (email/sms isRecurring checks, formatRecurringLabel,
+    // dashboard displays) treats any non-null value as recurring -- a plain
+    // one-time SMS booking stored 'one_time' and then got told the recurring
+    // cancellation policy (7-day notice) instead of the correct one-time
+    // policy in smsBookingConfirmation/smsReminder. null is the real
+    // "not recurring" convention every other writer in the codebase uses;
+    // this module's own reads already tolerate both `null` and the legacy
+    // 'one_time' string (`=== 'one_time' || !recurring_type`), so this is
+    // backward-compatible with rows written before this fix.
+    // Also normalize an explicit 'one_time' input, not just a missing one:
+    // an owner-side caller (create_manual_booking, the only reachable path to
+    // this handler now that client-facing create_booking is retired) may
+    // still pass the literal string, so `|| null` alone (falsy-only) isn't
+    // enough. Also normalizes bare 'monthly' -- RecurringType (lib/recurring.ts)
+    // has no bare 'monthly', only monthly_date/monthly_weekday (the same
+    // normalization client/book, portal/bookings, and the CSV import routes
+    // already apply to their own bare-'monthly' form inputs) -- so it's
+    // normalized here too, keeping formatRecurringLabel's customer-facing
+    // "Schedule: Monthly" instead of the unformatted raw-value fallback
+    // "Schedule: monthly".
+    const rawRecurringType = input.recurring_type === 'one_time' ? null : (input.recurring_type as string) || null
+    const recurringType = rawRecurringType === 'monthly' ? 'monthly_date' : rawRecurringType
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
@@ -1259,7 +1282,11 @@ async function handleUpdateAccount(input: Record<string, unknown>, conversationI
       if (!prop) return JSON.stringify({ error: 'Failed to add address' })
       return JSON.stringify({ success: true, message: `Address added and set as primary: ${value}` })
     }
-    await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
+    const { error: updateAccountError } = await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
+    if (updateAccountError) {
+      await yinezError('update_account', updateAccountError, conversationId)
+      return JSON.stringify({ error: 'Failed to update' })
+    }
     return JSON.stringify({ success: true, message: `${field} updated to ${value}` })
   } catch (err) {
     await yinezError('update_account', err, conversationId)
@@ -1506,8 +1533,32 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
-    return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
+    // Does NOT move the booking — only the policy checks above run here.
+    // Flags it for owner approval instead of mutating start_time/end_time
+    // directly; the owner reviews and applies the actual change from the
+    // dashboard. (nycmaid cc92e0e6 parity — cancel/reschedule are requests,
+    // not self-executing actions, on a client channel.)
+    const { error: taskError } = await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tid,
+      type: 'reschedule_request',
+      priority: 'normal',
+      title: `Reschedule request — ${booking.start_time.split('T')[0]} → ${input.new_date}`,
+      description: `Client requested moving booking ${bookingId} from ${booking.start_time} to ${input.new_date} ${input.new_time}. Not yet applied — review and reschedule from the dashboard.`,
+      related_type: 'booking',
+      related_id: bookingId,
+    })
+    if (taskError) {
+      await yinezError('reschedule_booking', taskError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not submit the reschedule request — please try again or contact us.' })
+    }
+    await notify({
+      tenantId: tid,
+      type: 'reschedule_requested',
+      title: `Reschedule requested — booking ${bookingId}`,
+      message: `Client requested moving their ${booking.start_time.split('T')[0]} booking to ${input.new_date} ${input.new_time}. Pending your approval.`,
+      booking_id: bookingId,
+    }).catch(() => {})
+    return JSON.stringify({ success: true, pending: true, message: `Got it — I've sent your request to move this to ${input.new_date} at ${input.new_time} to our team for approval. It's not confirmed yet; we'll follow up shortly.` })
   } catch (err) {
     await yinezError('reschedule_booking', err, conversationId)
     return JSON.stringify({ error: 'Failed' })
@@ -1531,10 +1582,33 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
-    await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId).eq('tenant_id', tid)
+    // Does NOT cancel the booking — only the policy checks above run here.
+    // Flags it for owner approval instead of mutating status directly; the
+    // owner reviews and applies the actual cancellation from the dashboard.
+    // (nycmaid cc92e0e6 parity — cancel/reschedule are requests, not
+    // self-executing actions, on a client channel.)
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
-    await notify({ type: 'booking_cancelled', title: `Cancelled — ${clientName}`, message: `${clientName} cancelled ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}`, booking_id: bookingId }).catch(() => {})
-    return JSON.stringify({ success: true })
+    const { error: taskError } = await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tid,
+      type: 'cancellation_request',
+      priority: 'normal',
+      title: `Cancellation request — ${clientName}, ${booking.start_time.split('T')[0]}`,
+      description: `${clientName} requested cancelling booking ${bookingId} (${booking.start_time.split('T')[0]}). Reason: ${reason}. Not yet applied — review and cancel from the dashboard.`,
+      related_type: 'booking',
+      related_id: bookingId,
+    })
+    if (taskError) {
+      await yinezError('cancel_booking', taskError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not submit the cancellation request — please try again or contact us.' })
+    }
+    await notify({
+      tenantId: tid,
+      type: 'cancellation_requested',
+      title: `Cancellation requested — ${clientName}`,
+      message: `${clientName} requested cancelling ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}. Pending your approval.`,
+      booking_id: bookingId,
+    }).catch(() => {})
+    return JSON.stringify({ success: true, pending: true, message: `Got it — I've sent your cancellation request to our team for approval. It's not cancelled yet; we'll follow up shortly.` })
   } catch (err) {
     await yinezError('cancel_booking', err, conversationId)
     return JSON.stringify({ error: 'Failed' })
@@ -1559,15 +1633,27 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
 
     if (action === 'pause') {
       const pauseUntil = input.pause_until as string
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: pauseError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (pauseError) {
+        await yinezError('manage_recurring:pause', pauseError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not pause — please try again or contact us.' })
+      }
       return JSON.stringify({ success: true, message: `Recurring paused${pauseUntil ? ` until ${pauseUntil}` : ''}` })
     }
     if (action === 'resume') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: resumeError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (resumeError) {
+        await yinezError('manage_recurring:resume', resumeError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not resume — please try again or contact us.' })
+      }
       return JSON.stringify({ success: true, message: 'Recurring resumed' })
     }
     if (action === 'cancel') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: recurringCancelError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (recurringCancelError) {
+        await yinezError('manage_recurring:cancel', recurringCancelError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not cancel — please try again or contact us.' })
+      }
       await notify({ type: 'recurring_cancelled', title: 'Recurring Cancelled', message: `Client cancelled recurring schedule via SMS` }).catch(() => {})
       return JSON.stringify({ success: true, message: 'Recurring schedule cancelled' })
     }
