@@ -19,6 +19,7 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-blue-100 text-blue-800',
   manager: 'bg-green-100 text-green-800',
   staff: 'bg-gray-100 text-gray-800',
+  va: 'bg-amber-100 text-amber-800',
 }
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -26,6 +27,7 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   admin: 'Full operational access; no billing/settings edits',
   manager: 'Bookings, clients, calendar, campaigns, Selena',
   staff: 'Read-only access to dashboard + assigned bookings',
+  va: 'Bookings, clients, and calendar. Can add & reschedule — cannot delete anything',
 }
 
 export default function UsersPage() {
@@ -39,7 +41,7 @@ export default function UsersPage() {
 
   // Add-member form
   const [newName, setNewName] = useState('')
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'staff'>('manager')
+  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'staff' | 'va'>('manager')
 
   // Issued-PIN reveal (shown once)
   const [issued, setIssued] = useState<{ name: string; pin: string } | null>(null)
@@ -189,12 +191,13 @@ export default function UsersPage() {
           />
           <select
             value={newRole}
-            onChange={(e) => setNewRole(e.target.value as 'admin' | 'manager' | 'staff')}
+            onChange={(e) => setNewRole(e.target.value as 'admin' | 'manager' | 'staff' | 'va')}
             className="px-3 py-2 border rounded"
           >
             <option value="admin">Admin</option>
             <option value="manager">Manager</option>
             <option value="staff">Staff</option>
+            <option value="va">VA / Booking Agent</option>
           </select>
           <button
             onClick={addMember}
@@ -241,6 +244,7 @@ export default function UsersPage() {
                       <option value="admin">Admin</option>
                       <option value="manager">Manager</option>
                       <option value="staff">Staff</option>
+                      <option value="va">VA / Booking Agent</option>
                     </select>
                   ) : (
                     <span className={`px-2 py-1 text-xs rounded ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-700'}`} title={ROLE_DESCRIPTIONS[u.role]}>

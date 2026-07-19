@@ -32,7 +32,7 @@ export default function PermissionsTab() {
       {view === 'dashboard' ? (
         <PermissionsPanel
           endpoint="/api/settings/permissions"
-          intro="Office / operator roles for people who log into the dashboard. Owner always has full access. Re-tune Admin, Manager, and Staff — changes apply to everyone with that role."
+          intro="Office / operator roles for people who log into the dashboard. Owner always has full access. Re-tune Admin, Manager, Staff, and VA — changes apply to everyone with that role."
         />
       ) : (
         <PermissionsPanel

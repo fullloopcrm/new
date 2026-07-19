@@ -7,7 +7,7 @@
 // `owner` is never customizable — it always keeps every permission, which is
 // what prevents a tenant from locking itself out.
 
-export type Role = 'owner' | 'admin' | 'manager' | 'staff'
+export type Role = 'owner' | 'admin' | 'manager' | 'staff' | 'va'
 
 export type Permission =
   | 'clients.view' | 'clients.create' | 'clients.edit' | 'clients.delete'
@@ -79,6 +79,17 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view',
     'reviews.view',
     'sales.view',
+    'notifications.view',
+  ],
+  // VA / booking agent — phone/scheduling desk. Bookings + clients + calendar
+  // only: can add and reschedule but never delete (no *.delete permission
+  // granted, which is what actually blocks DELETE at every requirePermission()
+  // call site — no separate enforcement needed). No finance, team, campaigns,
+  // settings, or sales visibility.
+  va: [
+    'clients.view', 'clients.create', 'clients.edit',
+    'bookings.view', 'bookings.create', 'bookings.edit',
+    'schedules.view',
     'notifications.view',
   ],
 }
@@ -164,7 +175,7 @@ export function isValidPermission(value: string): value is Permission {
 }
 
 // Roles a tenant is allowed to customize (owner is excluded on purpose).
-export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff']
+export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff', 'va']
 
 export function isCustomizableRole(value: string): value is Exclude<Role, 'owner'> {
   return (CUSTOMIZABLE_ROLES as string[]).includes(value)
@@ -214,4 +225,5 @@ export const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'admin', label: 'Admin', description: 'Full access except deleting team and integrations' },
   { value: 'manager', label: 'Manager', description: 'Manage day-to-day operations, no finance payroll or settings' },
   { value: 'staff', label: 'Staff', description: 'View-only access, can create bookings' },
+  { value: 'va', label: 'VA / Booking Agent', description: 'Bookings, clients, and calendar — can add and reschedule, cannot delete or view finance' },
 ]

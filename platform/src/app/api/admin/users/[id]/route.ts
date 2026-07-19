@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.email) updates.email = body.email.toLowerCase().trim()
     if (body.phone !== undefined) updates.phone = body.phone
     if (body.role) {
-      const validRoles = ['owner', 'admin', 'manager', 'staff']
+      const validRoles = ['owner', 'admin', 'manager', 'staff', 'va']
       if (!validRoles.includes(body.role)) {
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }

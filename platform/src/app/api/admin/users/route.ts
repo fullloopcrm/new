@@ -10,7 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
 
-const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
+const VALID_ROLES = ['owner', 'admin', 'manager', 'staff', 'va']
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('settings.edit')
@@ -141,7 +141,7 @@ export async function PUT(request: NextRequest) {
   const { id, role, name, phone } = await request.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const validRoles = ['owner', 'admin', 'manager', 'staff']
+  const validRoles = ['owner', 'admin', 'manager', 'staff', 'va']
   const update: Record<string, unknown> = {}
   if (role) {
     if (!validRoles.includes(role)) {

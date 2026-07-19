@@ -11,7 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
 
-const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
+const VALID_ROLES = ['owner', 'admin', 'manager', 'staff', 'va']
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()

@@ -16,7 +16,7 @@ interface TenantUser {
   last_login: string | null
 }
 
-const ROLES = ['owner', 'admin', 'manager', 'staff']
+const ROLES = ['owner', 'admin', 'manager', 'staff', 'va']
 
 export function TenantUsers({ tenantId }: { tenantId: string }) {
   const [users, setUsers] = useState<TenantUser[]>([])

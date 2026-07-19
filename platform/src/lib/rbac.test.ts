@@ -65,6 +65,31 @@ describe('RBAC', () => {
     })
   })
 
+  describe('va', () => {
+    it('can view, create, and edit clients and bookings, and view the calendar', () => {
+      expect(hasPermission('va', 'clients.view')).toBe(true)
+      expect(hasPermission('va', 'clients.create')).toBe(true)
+      expect(hasPermission('va', 'clients.edit')).toBe(true)
+      expect(hasPermission('va', 'bookings.view')).toBe(true)
+      expect(hasPermission('va', 'bookings.create')).toBe(true)
+      expect(hasPermission('va', 'bookings.edit')).toBe(true)
+      expect(hasPermission('va', 'schedules.view')).toBe(true)
+    })
+
+    it('cannot delete clients or bookings', () => {
+      expect(hasPermission('va', 'clients.delete')).toBe(false)
+      expect(hasPermission('va', 'bookings.delete')).toBe(false)
+    })
+
+    it('cannot access finance, team, campaigns, settings, or sales', () => {
+      expect(hasPermission('va', 'finance.view')).toBe(false)
+      expect(hasPermission('va', 'team.view')).toBe(false)
+      expect(hasPermission('va', 'campaigns.view')).toBe(false)
+      expect(hasPermission('va', 'settings.view')).toBe(false)
+      expect(hasPermission('va', 'sales.view')).toBe(false)
+    })
+  })
+
   describe('unknown role', () => {
     it('has no permissions', () => {
       expect(hasPermission('unknown', 'clients.view')).toBe(false)
