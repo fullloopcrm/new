@@ -202,7 +202,7 @@ function BookFormContent() {
             <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">✓</div>
             <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Pending Owner Review</div>
             <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Request Submitted — Awaiting Confirmation.</h1>
-            <p className="text-gray-600 text-sm mb-6">This is <strong>not finalized yet</strong>. We review + confirm within the hour. You&rsquo;ll get a second text/email locking in your date, time, and cleaner. Your <strong>$20 self-booking discount</strong> is locked in &mdash; it&rsquo;ll show on your final bill once confirmed{pin ? '. A confirmation email with your client portal PIN is on its way' : ''}.</p>
+            <p className="text-gray-600 text-sm mb-6">This is <strong>not finalized yet</strong>. We review + confirm within the hour. You&rsquo;ll get a second text/email locking in your date, time, and cleaner. Your <strong>$10 self-booking discount</strong> is locked in &mdash; it&rsquo;ll show on your final bill once confirmed{pin ? '. A confirmation email with your client portal PIN is on its way' : ''}.</p>
             {pin && (
               <div className="bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6">
                 <p className="text-xs text-[#1E2A4A]/60 tracking-widest uppercase mb-1">Your PIN</p>
@@ -224,7 +224,7 @@ function BookFormContent() {
           <div className="text-center mb-8">
             <div className="inline-block bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">The Florida Maid Self-Booking System</div>
             <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide mb-3">You&rsquo;re one of the smart ones.</h1>
-            <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[#A8F0DC] font-semibold">$20</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
+            <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[#A8F0DC] font-semibold">$10</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5">
@@ -396,10 +396,10 @@ function BookFormContent() {
                 <div>
                   <p className="text-xs text-gray-500 tracking-widest uppercase">Estimate</p>
                   <p className="text-xs text-gray-500 mt-0.5">{estimatedHours}hrs &times; ${hourlyRate}/hr{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''} &middot; pay after, never before</p>
-                  <p className="text-xs text-green-700 font-semibold mt-1">−$20 self-booking discount applied at billing</p>
+                  <p className="text-xs text-green-700 font-semibold mt-1">−$10 self-booking discount applied at billing</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">~${Math.max(0, estimatedTotal - 20)}</p>
+                  <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">~${Math.max(0, estimatedTotal - 10)}</p>
                   <p className="text-xs text-gray-400 line-through">${estimatedTotal}</p>
                 </div>
               </div>
@@ -447,7 +447,7 @@ function BookFormContent() {
               <div><span className="text-gray-500">When:</span> {form.date} @ {form.time}</div>
               <div><span className="text-gray-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
               <div><span className="text-gray-500">Rate:</span> ${hourlyRate}/hr × ~{estimatedHours} hrs{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}</div>
-              <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - 20)}</span> <span className="text-xs text-green-700">($20 self-booking discount applied at billing)</span></div>
+              <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - 10)}</span> <span className="text-xs text-green-700">($10 self-booking discount applied at billing)</span></div>
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-xs text-amber-900 leading-relaxed">
               <p className="font-semibold mb-1">By clicking Confirm you agree to:</p>

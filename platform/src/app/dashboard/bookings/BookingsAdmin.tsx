@@ -2853,7 +2853,7 @@ function BookingsPage() {
 
                 <div className="py-3 border-t border-b border-gray-200 space-y-2">
                   <div className="flex justify-between items-center">
-                    <h4 className="font-medium text-[#1C1C1C]">Recurring Discount</h4>
+                    <h4 className="font-medium text-[#1C1C1C]">Discount</h4>
                     <div
                       onClick={() => setCreateForm({ ...createForm, discount_enabled: !createForm.discount_enabled })}
                       className={`w-10 h-6 rounded-full transition-colors ${createForm.discount_enabled ? 'bg-green-600' : 'bg-gray-300'} relative cursor-pointer`}

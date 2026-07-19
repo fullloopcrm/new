@@ -82,7 +82,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const noteText = (booking.notes as string) || ''
   const isSelfBooked = /self-booking discount/i.test(noteText)
   const discounts: Array<{ label: string; cents: number }> = []
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 2000 })
+  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 1000 })
   const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?applied\]/gi
   let m: RegExpExecArray | null
   while ((m = promoRe.exec(noteText)) !== null) {
