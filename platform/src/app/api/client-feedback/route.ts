@@ -53,7 +53,11 @@ export async function POST(request: Request) {
       clientId = match.id
       category = 'client'
       if (sms_consent) {
-        await supabaseAdmin.from('clients').update({ sms_consent: true }).eq('id', match.id)
+        await supabaseAdmin
+          .from('clients')
+          .update({ sms_consent: true })
+          .eq('id', match.id)
+          .eq('tenant_id', tenant.id)
       }
     }
   }
