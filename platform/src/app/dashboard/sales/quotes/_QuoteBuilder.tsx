@@ -14,6 +14,7 @@ import HelpTip from '../../_components/HelpTip'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
+type InventoryItem = { id: string; name: string; category: string | null; unit_label: string; unit_cost_cents: number; active: boolean }
 type JobOption = { id: string; title: string; status: string; client_id: string | null; client_name: string | null }
 
 type LineItem = {
@@ -47,6 +48,9 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [clients, setClients] = useState<Client[]>([])
   const [clientId, setClientId] = useState<string>(clientIdInit || '')
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
+  // Physical stock (supplies/materials), selectable as a line item alongside
+  // the sellable catalog — see 2026_07_19_inventory_items.sql.
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
 
   // Change order: link this proposal to an existing job instead of picking a
   // client — accepting it attaches new job_payments to that job rather than
@@ -100,6 +104,8 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       .then(data => setClients(Array.isArray(data) ? data : data.clients || [])).catch(() => {})
     fetch('/api/catalog').then(r => r.json())
       .then(data => setCatalog((data?.items || []).filter((i: { active?: boolean }) => i.active !== false))).catch(() => {})
+    fetch('/api/inventory').then(r => r.json())
+      .then(data => setInventory((data?.items || []).filter((i: { active?: boolean }) => i.active !== false))).catch(() => {})
     // Prefill tax / valid-days / deposit / terms from the tenant's Sales &
     // Proposals defaults. Functional guards ensure we never overwrite a value
     // the operator has already changed (e.g. if settings resolves late).
@@ -159,10 +165,18 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
   function addFromCatalog(itemId: string) {
     const it = catalog.find(c => c.id === itemId)
-    if (!it) return
+    if (it) {
+      setItems(prev => [
+        ...prev.filter(li => li.name.trim() || li.unit_price_cents),
+        { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
+      ])
+      return
+    }
+    const inv = inventory.find(i => i.id === itemId)
+    if (!inv) return
     setItems(prev => [
       ...prev.filter(li => li.name.trim() || li.unit_price_cents),
-      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
+      { ...blankLine(), name: inv.name, description: inv.category ? `${inv.category} · from inventory` : 'From inventory', unit_price_cents: inv.unit_cost_cents },
     ])
   }
   function updateItem(id: string, patch: Partial<LineItem>) { setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li))) }
@@ -347,11 +361,20 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-semibold text-slate-900">Line Items</h2>
           <div className="flex items-center gap-2">
-            {catalog.length > 0 && (
+            {(catalog.length > 0 || inventory.length > 0) && (
               <select value="" onChange={e => { if (e.target.value) { addFromCatalog(e.target.value); e.target.value = '' } }}
                 className="text-xs px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">
                 <option value="">+ From catalog…</option>
-                {catalog.map(c => <option key={c.id} value={c.id}>{c.name} — {formatCents(c.price_cents)}/{c.per_unit}</option>)}
+                {catalog.length > 0 && (
+                  <optgroup label="Catalog">
+                    {catalog.map(c => <option key={c.id} value={c.id}>{c.name} — {formatCents(c.price_cents)}/{c.per_unit}</option>)}
+                  </optgroup>
+                )}
+                {inventory.length > 0 && (
+                  <optgroup label="Inventory">
+                    {inventory.map(i => <option key={i.id} value={i.id}>{i.name} — {formatCents(i.unit_cost_cents)}/{i.unit_label}</option>)}
+                  </optgroup>
+                )}
               </select>
             )}
             <button onClick={addItem} className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">+ Add line</button>
@@ -360,6 +383,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
         <datalist id="sku-catalog">
           {catalog.map(c => <option key={c.id} value={c.name}>{`${formatCents(c.price_cents)} / ${c.per_unit}${c.category ? ` · ${c.category}` : ''}`}</option>)}
+          {inventory.map(i => <option key={i.id} value={i.name}>{`${formatCents(i.unit_cost_cents)} / ${i.unit_label}${i.category ? ` · ${i.category}` : ''} · inventory`}</option>)}
         </datalist>
 
         <div className="space-y-2">
@@ -370,8 +394,10 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
                   onChange={e => {
                     const v = e.target.value
                     const match = catalog.find(c => c.name.toLowerCase() === v.trim().toLowerCase())
-                    if (match) updateItem(li.id, { name: match.name, unit_price_cents: match.price_cents, description: li.description || match.description || '' })
-                    else updateItem(li.id, { name: v })
+                    if (match) { updateItem(li.id, { name: match.name, unit_price_cents: match.price_cents, description: li.description || match.description || '' }); return }
+                    const invMatch = inventory.find(i => i.name.toLowerCase() === v.trim().toLowerCase())
+                    if (invMatch) { updateItem(li.id, { name: invMatch.name, unit_price_cents: invMatch.unit_cost_cents, description: li.description || (invMatch.category ? `${invMatch.category} · from inventory` : '') }); return }
+                    updateItem(li.id, { name: v })
                   }}
                   className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-sm mb-1" />
                 <input placeholder="Description (optional)" value={li.description} onChange={e => updateItem(li.id, { description: e.target.value })}
