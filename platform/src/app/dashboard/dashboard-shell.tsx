@@ -64,10 +64,11 @@ const navMain: Array<{
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
-    { letter: 'D', label: 'Social', href: '/dashboard/social' },
-    { letter: 'E', label: 'Google', href: '/dashboard/google' },
-    { letter: 'F', label: 'Websites', href: '/dashboard/websites' },
-    { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
+    { letter: 'D', label: 'Sales Partners', href: '/dashboard/sales-partners' },
+    { letter: 'E', label: 'Social', href: '/dashboard/social' },
+    { letter: 'F', label: 'Google', href: '/dashboard/google' },
+    { letter: 'G', label: 'Websites', href: '/dashboard/websites' },
+    { letter: 'H', label: 'Analytics', href: '/dashboard/analytics' },
   ]},
 ]
 
@@ -81,7 +82,7 @@ const foldMap: Record<string, string[]> = {
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
-    '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
+    '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals', '/dashboard/sales-partners',
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
     '/dashboard/analytics',
   ],

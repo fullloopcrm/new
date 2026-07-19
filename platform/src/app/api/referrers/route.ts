@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { name, email, phone, preferred_payout, zelle_email, apple_cash_phone, _t } = body
+  const { name, email, phone, preferred_payout, zelle_email, apple_cash_phone, _t, recruited_by_sales_partner_ref } = body
 
   if (!name || !email) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
@@ -124,32 +124,64 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
   }
 
-  const referralCode = generateRefCode(name)
+  // referrers_code_unique constrains (tenant_id, referral_code)
+  // (019_referral_commissions.sql). generateRefCode only has ~900 possible
+  // suffixes per 4-letter name-prefix, so two referrers sharing a common
+  // first-name prefix (e.g. "John"/"Joan" -> "JOHN"/"JOAN"... or shared
+  // exact prefixes) collide far more often than a random UUID would.
+  // Pre-fix this threw the raw 23505 as an unhandled 500 straight to a real
+  // signup, same class already fixed for clients.pin/team_members.pin --
+  // auto-generated codes are safe to retry with a freshly regenerated value.
+  // A referrer recruited via a sales partner's "recruit a referrer" link
+  // (?ref=<partner code> on /referral/signup) carries that attribution so
+  // the partner earns a stacked override on this referrer's commissions.
+  // Silently ignored if the code doesn't resolve to an active partner --
+  // this is a best-effort attribution, not a hard requirement to sign up.
+  let recruitedBySalesPartnerId: string | null = null
+  if (recruited_by_sales_partner_ref) {
+    const { data: recruiter } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('referral_code', String(recruited_by_sales_partner_ref).toUpperCase())
+      .eq('active', true)
+      .maybeSingle()
+    recruitedBySalesPartnerId = recruiter?.id || null
+  }
 
-  const { data, error } = await db
-    .from('referrers')
-    .insert({
-      name,
-      email,
-      phone: phone || null,
-      referral_code: referralCode,
-      // Every tenant's own /referral portal page (and the client/book referrer
-      // lookup) key off this legacy nycmaid-parity column, not referral_code —
-      // keep both in sync so new signups aren't invisible to those code paths.
-      ref_code: referralCode,
-      zelle_email: zelle_email || email,
-      apple_cash_phone: apple_cash_phone || null,
-      preferred_payout: preferred_payout || 'zelle',
-      // Stored as a fraction (0.10 = 10%), matching the schema default and the
-      // existing rows. The old code wrote `10` here (into the wrong table), which
-      // would read as 1000% wherever commission_rate is applied to a gross amount.
-      commission_rate: 0.10,
-      total_earned: 0,
-      total_paid: 0,
-      status: 'active',
-    })
-    .select()
-    .single()
+  const MAX_CODE_ATTEMPTS = 5
+  let referralCode = generateRefCode(name)
+  let data, error
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    ;({ data, error } = await db
+      .from('referrers')
+      .insert({
+        name,
+        email,
+        phone: phone || null,
+        referral_code: referralCode,
+        // Every tenant's own /referral portal page (and the client/book referrer
+        // lookup) key off this legacy nycmaid-parity column, not referral_code —
+        // keep both in sync so new signups aren't invisible to those code paths.
+        ref_code: referralCode,
+        zelle_email: zelle_email || email,
+        apple_cash_phone: apple_cash_phone || null,
+        preferred_payout: preferred_payout || 'zelle',
+        // Stored as a fraction (0.10 = 10%), matching the schema default and the
+        // existing rows. The old code wrote `10` here (into the wrong table), which
+        // would read as 1000% wherever commission_rate is applied to a gross amount.
+        commission_rate: 0.10,
+        total_earned: 0,
+        total_paid: 0,
+        status: 'active',
+        recruited_by_sales_partner_id: recruitedBySalesPartnerId,
+      })
+      .select()
+      .single())
+    if (!error) break
+    if (error.code !== '23505') break
+    referralCode = generateRefCode(name)
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
