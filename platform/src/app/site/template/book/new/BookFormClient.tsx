@@ -130,14 +130,12 @@ function BookFormContent({ services, businessName, phone, phoneDigits }: { servi
   const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const isSameDay = form.service_type === emergencyValue
   const isMultiCleaner = form.team_size >= 2
-  // The 48-hour rule applies ONLY to multi-cleaner bookings: a 2+ cleaner
-  // booking with under 48hr notice is billed at emergency pricing ($89/hr).
-  // Single-cleaner bookings under 48hr are NOT emergency (same-day is its own
-  // explicitly-chosen service type).
-  const bookingStart = form.date ? new Date(`${form.date}T${to24h(form.time)}:00`) : null
-  const hoursUntilBooking = bookingStart && !isNaN(bookingStart.getTime()) ? (bookingStart.getTime() - Date.now()) / 3_600_000 : Infinity
-  const isUnder48 = hoursUntilBooking < 48
-  const isEmergency = isSameDay || (isUnder48 && isMultiCleaner)
+  // Emergency ($89/hr) is same-day ONLY (nycmaid ref 287c8cc4). Multi-cleaner
+  // bookings still carry their own 4-hour minimum and lose the self-booking
+  // discount below, regardless of notice — that's unchanged; it's just no
+  // longer coupled to the emergency surcharge itself. Same-day is its own
+  // explicitly-chosen service type.
+  const isEmergency = isSameDay
   const hourlyRate = isEmergency ? 89 : form.supplies === 'we_bring' ? 69 : 59
   // Minimums: 2hr standard, 4hr for multi-cleaner. Floor the billable estimate.
   const minHours = isMultiCleaner ? 4 : 2
@@ -411,12 +409,6 @@ function BookFormContent({ services, businessName, phone, phoneDigits }: { servi
             </div>
           )}
 
-          {isUnder48 && isMultiCleaner && !isSameDay && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-              <p className="text-amber-800 text-sm">Heads up — multi-cleaner bookings need 48 hours notice. This date is under 48 hours away, so your 2+ cleaner booking is billed at <strong>emergency pricing ($89/hr)</strong> with no discounts. Pick a date 48+ hours out, or book a single cleaner, for standard rates.</p>
-            </div>
-          )}
-
           {/* Date + time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -681,7 +673,7 @@ function BookFormContent({ services, businessName, phone, phoneDigits }: { servi
                 <p className="text-xs text-gray-500 mt-0.5">{estimatedHours}hrs &times; ${hourlyRate}/hr{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''} &middot; pay after, never before</p>
                 {selfBookingDiscount > 0
                   ? <p className="text-xs text-green-700 font-semibold mt-1">−$10 self-booking discount applied at billing</p>
-                  : <p className="text-xs text-amber-700 font-semibold mt-1">{isMultiCleaner ? `Multi-cleaner booking — no discounts apply · 4-hour minimum${isEmergency ? ' · under-48hr emergency rate' : ''}` : 'Same-day / emergency booking — no discounts apply'}</p>}
+                  : <p className="text-xs text-amber-700 font-semibold mt-1">{isMultiCleaner ? `Multi-cleaner booking — no discounts apply · 4-hour minimum${isEmergency ? ' · same-day emergency rate' : ''}` : 'Same-day / emergency booking — no discounts apply'}</p>}
               </div>
               <div className="text-right">
                 <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</p>
@@ -702,7 +694,7 @@ function BookFormContent({ services, businessName, phone, phoneDigits }: { servi
             <p className="font-bold uppercase tracking-wide mb-2">Read before booking</p>
             <ul className="list-disc list-inside space-y-1 mb-3">
               <li><strong>2-hour minimum on all bookings</strong>, first-time cleanings included.</li>
-              <li><strong>2 or more cleaners = 4-hour minimum</strong>, no discounts, and <strong>48 hours notice required</strong>. A multi-cleaner booking with under 48 hours notice is billed at emergency pricing (<strong>$89/hr</strong>).</li>
+              <li><strong>2 or more cleaners = 4-hour minimum</strong>, no discounts.</li>
               <li><strong>First-time bookings CANNOT be cancelled or rescheduled.</strong> We hold the slot and turn other clients away.</li>
               <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel.</li>
               <li>Hourly billing in 30-min increments. 30-min weekday / 60-min weekend arrival window.</li>
@@ -758,7 +750,7 @@ function BookFormContent({ services, businessName, phone, phoneDigits }: { servi
             <p className="font-semibold mb-1">By clicking Confirm you agree to:</p>
             <ul className="list-disc list-inside space-y-0.5">
               <li>Hourly billing in 30-min increments at the rate above (no flat total)</li>
-              <li><strong>2-hour minimum</strong> (first-time cleanings included); <strong>2+ cleaners = 4-hour minimum</strong>, no discounts, and 48 hours notice required (under 48 hours = $89/hr emergency rate)</li>
+              <li><strong>2-hour minimum</strong> (first-time cleanings included); <strong>2+ cleaners = 4-hour minimum</strong>, no discounts</li>
               <li>30-min weekday / 60-min weekend arrival window</li>
               <li><strong>No-cancellation policy on this first booking</strong> — first-time bookings can&apos;t be cancelled or rescheduled</li>
               <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel</li>

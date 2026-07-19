@@ -7,6 +7,7 @@ import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { parseTimestamp } from '@/lib/dates'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -615,7 +616,13 @@ export async function handleBookingDetails(tenantId: string, input: Record<strin
     let calculatedHours: number | null = null
     let rawMinutes: number | null = null
     if (booking.check_in_time && booking.check_out_time) {
-      const diffMs = new Date(booking.check_out_time).getTime() - new Date(booking.check_in_time).getTime()
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+      // — a bare new Date() reads them in the runtime's local zone, which can
+      // silently give the client a wrong duration/bill over chat (nycmaid ref
+      // 64cba3c4).
+      const checkIn = parseTimestamp(booking.check_in_time as string) || new Date(booking.check_in_time as string)
+      const checkOut = parseTimestamp(booking.check_out_time as string) || new Date(booking.check_out_time as string)
+      const diffMs = checkOut.getTime() - checkIn.getTime()
       rawMinutes = Math.round(diffMs / (1000 * 60))
       const fullHalf = Math.floor(rawMinutes / 30)
       const remainder = rawMinutes % 30

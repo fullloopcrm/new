@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { postPayrollToLedger } from '@/lib/finance/post-labor'
+import { parseTimestamp } from '@/lib/dates'
 
 export async function GET() {
   try {
@@ -30,7 +31,13 @@ export async function GET() {
       let pendingPay = 0
       memberBookings.forEach((b) => {
         if (b.check_in_time && b.check_out_time) {
-          const hours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+          // parseTimestamp: check_in_time/check_out_time are stored naive (no
+          // tz) — a bare new Date() reads them in the runtime's local zone,
+          // which can silently under/over-count worked hours and mispay a
+          // team member (nycmaid ref 64cba3c4).
+          const checkIn = parseTimestamp(b.check_in_time as string) || new Date(b.check_in_time as string)
+          const checkOut = parseTimestamp(b.check_out_time as string) || new Date(b.check_out_time as string)
+          const hours = (checkOut.getTime() - checkIn.getTime()) / 3600000
           pendingHours += hours
           pendingPay += hours * (b.pay_rate || member.pay_rate || 0)
         }

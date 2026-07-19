@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { parseTimestamp } from '@/lib/dates'
 
 type Booking = {
   id: string
@@ -160,12 +161,17 @@ export default function BookingDetailPage() {
 
   const actions = STATUS_ACTIONS[booking.status] || []
 
+  // check_in_time/check_out_time are stored naive (no tz) — a bare new
+  // Date() reads them in the runtime's local zone, which can silently
+  // mis-total worked hours and the estimated bill (nycmaid ref 64cba3c4).
+  const pt = (ts: string) => parseTimestamp(ts) || new Date(ts)
+
   // Compute actual labor
   const estimatedHours = booking.start_time && booking.end_time
     ? (new Date(booking.end_time).getTime() - new Date(booking.start_time).getTime()) / 3600000
     : null
   const clockedHours = booking.check_in_time && booking.check_out_time
-    ? (new Date(booking.check_out_time).getTime() - new Date(booking.check_in_time).getTime()) / 3600000
+    ? (pt(booking.check_out_time).getTime() - pt(booking.check_in_time).getTime()) / 3600000
     : null
   const actualHours = booking.actual_hours || clockedHours
   const estimatedPrice = booking.price != null ? booking.price / 100 : null
@@ -389,7 +395,7 @@ export default function BookingDetailPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-slate-400">Check-in</dt>
-                <dd>{booking.check_in_time ? new Date(booking.check_in_time).toLocaleString() : 'Not checked in'}</dd>
+                <dd>{booking.check_in_time ? pt(booking.check_in_time).toLocaleString() : 'Not checked in'}</dd>
               </div>
               {booking.check_in_lat && (
                 <div className="flex justify-between">
@@ -399,7 +405,7 @@ export default function BookingDetailPage() {
               )}
               <div className="flex justify-between">
                 <dt className="text-slate-400">Check-out</dt>
-                <dd>{booking.check_out_time ? new Date(booking.check_out_time).toLocaleString() : 'Not checked out'}</dd>
+                <dd>{booking.check_out_time ? pt(booking.check_out_time).toLocaleString() : 'Not checked out'}</dd>
               </div>
               {booking.check_out_lat && (
                 <div className="flex justify-between">
@@ -419,7 +425,7 @@ export default function BookingDetailPage() {
               <button
                 disabled={sendingHeadsUp}
                 onClick={async () => {
-                  const checkIn = new Date(booking.check_in_time!)
+                  const checkIn = pt(booking.check_in_time!)
                   const now = new Date()
                   const hoursWorked = (now.getTime() - checkIn.getTime()) / 3600000
                   const rate = booking.hourly_rate || 0

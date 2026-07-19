@@ -233,17 +233,17 @@ export async function POST(request: Request) {
     const bkMaxHours = typeof body.max_hours === 'number' && body.max_hours > 0 ? (body.max_hours as number) : null
 
     if (isNycMaid(tenant.id)) {
-      // Emergency = same-day, OR a multi-cleaner booking under 48hr notice.
-      // Emergency rate ($89) overrides the supplies-based rate ($59 client-
-      // supplies / $69 we-bring). 2hr min (single) / 4hr min (2+ cleaners).
-      // The $10 self-booking promo (applied at billing in the 30-min alert) is
-      // suppressed for emergency + multi-cleaner. Faithful port of NYC Maid.
+      // Emergency ($89/hr) is same-day ONLY (nycmaid ref 287c8cc4 — the
+      // original under-48hr-multi-cleaner-also-counts rule wrongly surcharged
+      // a booking placed, say, on a Monday for Wednesday just because it
+      // needed 2+ cleaners). Multi-cleaner bookings still carry their own
+      // 4-hour minimum and lose the self-booking discount regardless of
+      // notice — that part of the rule is unchanged, just decoupled from the
+      // emergency rate itself. 2hr min (single) / 4hr min (2+ cleaners).
       const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       const isSameDay = bookingDate === todayET
-      const hoursUntilBooking = (new Date(startTime).getTime() - Date.now()) / 3_600_000
-      const isUnder48 = hoursUntilBooking < 48
       const isMultiCleaner = bkTeamSize >= 2
-      bkIsEmergency = isSameDay || (isUnder48 && isMultiCleaner)
+      bkIsEmergency = isSameDay
       const effectiveRate = bkIsEmergency ? 89 : (Number(body.hourly_rate) || 69)
       const minHours = isMultiCleaner ? 4 : 2
       const billableHours = Math.max(Number(body.estimated_hours) || 2, minHours)
@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       bkNotes = ((body.notes as string) || '') + (discountEligible
         ? '\n\n[Promo: $10 self-booking discount applies at billing]'
         : isMultiCleaner
-          ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
+          ? '\n\n[Multi-cleaner booking — no discount, 4-hour minimum]'
           : '\n\n[Same-day emergency booking — no discount, $89/hr]')
 
       // Form-recap consent: when the client clicks Confirm in the recap modal we
@@ -365,7 +365,7 @@ export async function POST(request: Request) {
       booking_id: data.id,
     })
 
-    // NYC Maid emergency alert — same-day / under-48hr bookings need a cleaner ASAP.
+    // NYC Maid emergency alert — same-day bookings need a cleaner ASAP.
     if (isNycMaid(tenant.id) && bkIsEmergency) {
       await nmSmsAdmins(
         `🚨 EMERGENCY: ${data.clients?.name || 'Client'} booked ${data.service_type || 'cleaning'} for ${bookingDate}. $89/hr, no discount${bkTeamSize > 1 ? `, ${bkTeamSize} cleaners` : ''}. Assign a cleaner ASAP.`,

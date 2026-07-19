@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
+import { parseTimestamp } from '@/lib/dates'
 
 type TeamMember = {
   id: string
@@ -337,7 +338,13 @@ export default function TeamMemberDetailPage() {
   const completedBookings = bookings.filter((b) => b.status === 'completed' || b.status === 'paid')
   const totalEarnings = completedBookings.reduce((sum, b) => {
     if (b.check_in_time && b.check_out_time && member.pay_rate) {
-      const hours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no
+      // tz) — a bare new Date() reads them in the runtime's local zone,
+      // which can silently mis-total this member's earnings (nycmaid ref
+      // 64cba3c4).
+      const checkIn = parseTimestamp(b.check_in_time) || new Date(b.check_in_time)
+      const checkOut = parseTimestamp(b.check_out_time) || new Date(b.check_out_time)
+      const hours = (checkOut.getTime() - checkIn.getTime()) / 3600000
       return sum + hours * member.pay_rate
     }
     return sum

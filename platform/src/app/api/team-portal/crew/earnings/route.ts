@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
+import { parseTimestamp } from '@/lib/dates'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
 // Gated on earnings.view_crew, which defaults ON only for manager. Scoped to the
@@ -42,9 +43,13 @@ export async function GET(request: Request) {
   const totals = new Map<string, { jobs: number; earnings: number }>()
   for (const j of jobs || []) {
     if (!j.team_member_id) continue
-    const startMs = new Date(j.check_in_time || j.start_time).getTime()
+    // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+    // — a bare new Date() reads them in the runtime's local zone, which can
+    // silently mis-total crew pay (nycmaid ref 64cba3c4). start_time/end_time
+    // are always proper ISO, so parseTimestamp is a safe no-op there too.
+    const startMs = (parseTimestamp((j.check_in_time || j.start_time) as string) || new Date((j.check_in_time || j.start_time) as string)).getTime()
     const endRaw = j.check_out_time || j.end_time
-    const hours = endRaw ? roundToHalfHour((new Date(endRaw).getTime() - startMs) / 3_600_000) : 0
+    const hours = endRaw ? roundToHalfHour(((parseTimestamp(endRaw as string) || new Date(endRaw as string)).getTime() - startMs) / 3_600_000) : 0
     const rate = Number(j.pay_rate) || rateFor.get(j.team_member_id) || 25
     const prev = totals.get(j.team_member_id) || { jobs: 0, earnings: 0 }
     prev.jobs += 1

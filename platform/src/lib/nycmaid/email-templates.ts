@@ -132,7 +132,7 @@ export function clientBookingReceivedEmail(booking: any) {
       </p>
       <p style="margin: 12px 0 0 0; color: #1a1a1a; font-size: 13px; line-height: 1.7;">
         ${(booking.team_size || 1) > 1
-          ? '<strong>Booking policy:</strong> This is a 2+ cleaner booking, which requires 48 hours notice, carries a <strong>4-hour minimum</strong>, and receives no discounts. A multi-cleaner booking made with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).'
+          ? '<strong>Booking policy:</strong> This is a 2+ cleaner booking, which carries a <strong>4-hour minimum</strong> and receives no discounts, regardless of notice.'
           : '<strong>Booking policy:</strong> A <strong>2-hour minimum</strong> applies to all bookings (first-time cleanings included).'}
       </p>
     </div>

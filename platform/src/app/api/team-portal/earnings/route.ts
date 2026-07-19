@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
+import { parseTimestamp } from '@/lib/dates'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
 const roundToHalfHour = (hours: number) => {
@@ -85,7 +86,12 @@ export async function GET(request: NextRequest) {
   const weekJobDetails = (weekJobs || []).map((b) => {
     let hours = 0
     if (b.check_in_time && b.check_out_time) {
-      const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+      // — a bare new Date() reads them in the runtime's local zone, which can
+      // silently mis-total a team member's paid hours (nycmaid ref 64cba3c4).
+      const checkIn = parseTimestamp(b.check_in_time as string) || new Date(b.check_in_time as string)
+      const checkOut = parseTimestamp(b.check_out_time as string) || new Date(b.check_out_time as string)
+      const rawHours = (checkOut.getTime() - checkIn.getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
     }
     // Flat per-job pay is earned on completion even without check-in/out times;
@@ -115,7 +121,12 @@ export async function GET(request: NextRequest) {
   const monthJobDetails = (monthJobs || []).map((b) => {
     let hours = 0
     if (b.check_in_time && b.check_out_time) {
-      const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+      // — a bare new Date() reads them in the runtime's local zone, which can
+      // silently mis-total a team member's paid hours (nycmaid ref 64cba3c4).
+      const checkIn = parseTimestamp(b.check_in_time as string) || new Date(b.check_in_time as string)
+      const checkOut = parseTimestamp(b.check_out_time as string) || new Date(b.check_out_time as string)
+      const rawHours = (checkOut.getTime() - checkIn.getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
     }
     // Flat per-job pay is earned on completion even without check-in/out times;
@@ -144,7 +155,12 @@ export async function GET(request: NextRequest) {
   const yearJobDetails = (yearJobs || []).map((b) => {
     let hours = 0
     if (b.check_in_time && b.check_out_time) {
-      const rawHours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+      // — a bare new Date() reads them in the runtime's local zone, which can
+      // silently mis-total a team member's paid hours (nycmaid ref 64cba3c4).
+      const checkIn = parseTimestamp(b.check_in_time as string) || new Date(b.check_in_time as string)
+      const checkOut = parseTimestamp(b.check_out_time as string) || new Date(b.check_out_time as string)
+      const rawHours = (checkOut.getTime() - checkIn.getTime()) / 3600000
       hours = roundToHalfHour(rawHours)
     }
     // Flat per-job pay is earned on completion even without check-in/out times;

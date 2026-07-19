@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { parseTimestamp } from '@/lib/dates'
 
 export async function POST(request: NextRequest) {
   const { tenant, error: authError } = await requirePermission('notifications.view')
@@ -54,7 +55,12 @@ export async function POST(request: NextRequest) {
         // Calculate estimated amount for the SMS
         let amountStr = ''
         if (booking.check_in_time && booking.hourly_rate) {
-          const hours = (Date.now() - new Date(booking.check_in_time).getTime()) / 3600000
+          // parseTimestamp: check_in_time is stored naive (no tz) — a bare
+          // new Date() reads it in the runtime's local zone, which can
+          // silently text the client a wrong estimated amount (nycmaid ref
+          // 64cba3c4).
+          const checkIn = parseTimestamp(booking.check_in_time as string) || new Date(booking.check_in_time as string)
+          const hours = (Date.now() - checkIn.getTime()) / 3600000
           amountStr = ` (~$${Math.round(hours * booking.hourly_rate)})`
         }
 

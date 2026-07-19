@@ -7,6 +7,7 @@ import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
+import { parseTimestamp } from '@/lib/dates'
 
 // nycmaid's well-known UUID — fallback when a conversation row pre-dates the
 // tenant_id column. Phase 3.2 sweep: every tenant-scoped query in this file
@@ -1721,7 +1722,13 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     let calculatedHours: number | null = null
     let rawMinutes: number | null = null
     if (booking.check_in_time && booking.check_out_time) {
-      const diffMs = new Date(booking.check_out_time).getTime() - new Date(booking.check_in_time).getTime()
+      // parseTimestamp: check_in_time/check_out_time are stored naive (no tz)
+      // — a bare new Date() reads them in the runtime's local zone, which can
+      // silently give the client a wrong duration/bill over chat (nycmaid ref
+      // 64cba3c4).
+      const checkIn = parseTimestamp(booking.check_in_time as string) || new Date(booking.check_in_time as string)
+      const checkOut = parseTimestamp(booking.check_out_time as string) || new Date(booking.check_out_time as string)
+      const diffMs = checkOut.getTime() - checkIn.getTime()
       rawMinutes = Math.round(diffMs / (1000 * 60))
       const fullHalfHours = Math.floor(rawMinutes / 30)
       const remainder = rawMinutes % 30
