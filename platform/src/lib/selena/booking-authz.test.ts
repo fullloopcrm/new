@@ -28,6 +28,7 @@ type Resolved = { data: unknown; error: unknown }
 
 let selectResolver: (table: string, eqs: Eqs) => Resolved
 let updateCalls: Array<{ table: string; values: Record<string, unknown>; eqs: Eqs }>
+let insertCalls: Array<{ table: string; values: Record<string, unknown> }>
 const emailMock = vi.hoisted(() => ({ calls: [] as Array<{ to: string; subject: string }> }))
 
 function builder(table: string) {
@@ -38,6 +39,10 @@ function builder(table: string) {
     select: () => chain,
     update: (values: Record<string, unknown>) => {
       updateValues = values
+      return chain
+    },
+    insert: (values: Record<string, unknown>) => {
+      insertCalls.push({ table, values })
       return chain
     },
     eq: (col: string, val: unknown) => {
@@ -76,6 +81,7 @@ const coreResult = (): CoreResult => ({ text: '', checklist: EMPTY_CHECKLIST })
 
 beforeEach(() => {
   updateCalls = []
+  insertCalls = []
   emailMock.calls = []
   selectResolver = () => ({ data: null, error: null })
 })
@@ -106,15 +112,19 @@ describe('reschedule_booking / cancel_booking — client ownership', () => {
     expect(updateCalls).toHaveLength(0)
   })
 
-  it('reschedule_booking ALLOWS the owning client to reschedule their own recurring booking', async () => {
+  it('reschedule_booking ALLOWS the owning client to request a reschedule on their own recurring booking (queued for owner approval, not applied directly)', async () => {
     selectResolver = (table) => {
       if (table === 'sms_conversations') return { data: { client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
       if (table === 'bookings') return { data: { id: 'bk-A', start_time: '2099-06-01T10:00:00', recurring_type: 'weekly', client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
       return { data: null, error: null }
     }
     const out = await handleTool('reschedule_booking', { booking_id: 'bk-A', new_date: '2099-06-08', new_time: '10am' }, 'convo-A', coreResult(), TENANT_A)
-    expect(JSON.parse(out).success).toBe(true)
-    expect(updateCalls).toHaveLength(1)
+    const parsed = JSON.parse(out)
+    expect(parsed.success).toBe(true)
+    expect(parsed.pending).toBe(true)
+    // Does NOT move the booking directly -- flags it for owner approval instead.
+    expect(updateCalls).toHaveLength(0)
+    expect(insertCalls.filter(c => c.table === 'admin_tasks')).toHaveLength(1)
   })
 
   it('cancel_booking REJECTS a same-tenant booking owned by a different client, no mutation', async () => {
@@ -128,15 +138,19 @@ describe('reschedule_booking / cancel_booking — client ownership', () => {
     expect(updateCalls).toHaveLength(0)
   })
 
-  it('cancel_booking ALLOWS the owning client to cancel their own recurring booking', async () => {
+  it('cancel_booking ALLOWS the owning client to request cancellation of their own recurring booking (queued for owner approval, not applied directly)', async () => {
     selectResolver = (table) => {
       if (table === 'sms_conversations') return { data: { client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
       if (table === 'bookings') return { data: { id: 'bk-A', start_time: '2099-06-01T10:00:00', recurring_type: 'weekly', client_id: CLIENT_A, clients: { name: 'A Client' }, tenant_id: TENANT_A }, error: null }
       return { data: null, error: null }
     }
     const out = await handleTool('cancel_booking', { booking_id: 'bk-A' }, 'convo-A', coreResult(), TENANT_A)
-    expect(JSON.parse(out).success).toBe(true)
-    expect(updateCalls).toHaveLength(1)
+    const parsed = JSON.parse(out)
+    expect(parsed.success).toBe(true)
+    expect(parsed.pending).toBe(true)
+    // Does NOT cancel the booking directly -- flags it for owner approval instead.
+    expect(updateCalls).toHaveLength(0)
+    expect(insertCalls.filter(c => c.table === 'admin_tasks')).toHaveLength(1)
   })
 })
 

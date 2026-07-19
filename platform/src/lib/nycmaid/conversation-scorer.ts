@@ -41,16 +41,19 @@ export async function scoreConversation(conversationId: string): Promise<ScoreRe
 
   // ── DEDUCTIONS ──
 
-  // Asked for name as first question (-15)
-  if (yinezMessages.length > 0 && /what(?:'s| is) your (?:first )?(?:and last )?name/i.test(yinezMessages[0])) {
-    score -= 15
-    issues.push('Asked name as first question')
-  }
+  // Asking for name as the FIRST question is mandated, correct behavior under
+  // the current self-book-only strategy (nycmaid.ts: "NEVER skip the name ask
+  // on the first turn") — not a defect. Previously docked -15 here, directly
+  // contradicting the system prompt's own hard rule (nycmaid cc92e0e6 parity).
 
-  // Mentioned recurring/weekly/biweekly (-10)
-  if (/recurring|weekly|biweekly|bi-weekly|how often|monthly/i.test(allYinez)) {
+  // Pushed recurring/frequency unprompted on what looks like a first-time
+  // booking flow (-10). NOT a blanket ding on the word appearing anywhere —
+  // a returning client asking about their own existing weekly schedule is a
+  // legitimate, necessary use of "weekly" and must not be penalized.
+  const clientRaisedFrequency = clientMessages.some(m => /recurring|weekly|biweekly|bi-weekly|how often|monthly/i.test(m))
+  if (!clientRaisedFrequency && /recurring|weekly|biweekly|bi-weekly|monthly/i.test(allYinez)) {
     score -= 10
-    issues.push('Mentioned recurring/frequency')
+    issues.push('Raised recurring/frequency unprompted')
   }
 
   // Invented a total price (not hourly) (-10)
@@ -114,6 +117,9 @@ export async function scoreConversation(conversationId: string): Promise<ScoreRe
   }
 
   // Too many messages to reach booking (>12 = inefficient) (-5)
+  // Rare under self-book-only (booking happens on the web form, not in chat)
+  // — kept for the occasional case where outcome IS 'booked' (owner channel,
+  // create_manual_booking), but no longer the primary efficiency signal.
   if (convo.outcome === 'booked' && messages.length > 24) {
     score -= 5
     issues.push('Too many messages (' + messages.length + ') to complete booking')
@@ -125,12 +131,30 @@ export async function scoreConversation(conversationId: string): Promise<ScoreRe
     issues.push('Conversation abandoned')
   }
 
+  // Booking-shaped conversation (client asked about pricing/availability/
+  // "how do I book") that never got the self-book link (-10) — the real
+  // dead-end under the current strategy, where every booking-shaped
+  // conversation should end with the link, not a chat-completed booking.
+  const clientSoundedReadyToBook = clientMessages.some(m => /how (?:much|do i book)|book|available|schedule|price|quote/i.test(m))
+  const sentSelfBookLink = /thenycmaid\.com\/book\/new/i.test(allYinez)
+  if (clientSoundedReadyToBook && !sentSelfBookLink) {
+    score -= 10
+    issues.push('Booking-shaped conversation never got the self-book link')
+  }
+
   // ── BONUSES ──
 
-  // Booking completed (+15)
+  // Booking completed (+15) — rare under self-book-only, kept for owner-side bookings.
   if (convo.outcome === 'booked') {
     score += 15
     strengths.push('Booking completed')
+  }
+
+  // Sent the self-book link on a booking-shaped conversation (+10) — the
+  // primary positive signal now that booking itself happens on the web form.
+  if (clientSoundedReadyToBook && sentSelfBookLink) {
+    score += 10
+    strengths.push('Sent self-book link')
   }
 
   // Answered question mid-flow without breaking flow (+5)
@@ -223,18 +247,18 @@ export async function selfReviewConversation(conversationId: string): Promise<{ 
 
 Your job: tear it apart. Find every mistake, every missed opportunity, every moment she could have done better.
 
-RULES SELENA MUST FOLLOW:
-- Never ask for name as the first question
+RULES YINEZ MUST FOLLOW (current strategy — self-book only, effective now; do not score against any older "collect details and book her in chat" flow):
+- MUST ask for the client's name as the very first question on a new conversation, then send the self-book link — this is correct, mandated behavior, not a mistake. Do NOT dock points for asking name first.
+- MUST NEVER create or confirm a booking herself on a client channel (SMS/web) — she always redirects to the self-book form for the client to book themselves. Calling/attempting create_booking on a client channel, or saying a booking is confirmed without the client having self-booked, is a real violation. She CAN call score_cleaners to give a real yes/no on a specific date before sending the link — that's correct, not a mistake.
+- MUST NEVER move or cancel a booking herself when a client asks — reschedule_booking/cancel_booking flag the request for owner approval; she must tell the client it's pending, not done.
 - Pricing: $79/hr (company brings supplies) or $59/hr (client provides), $99/hr same-day. NEVER confuse which is which
 - Never push recurring discounts during first-time booking flow (only mention if asked)
 - Never invent total prices — only quote hourly rates
 - Never say: "certainly" "absolutely" "great question" "happy to help" "I'd love to help"
-- Only use 😊 emoji
-- Must include no-cancellation policy in recap for first-time clients
-- Must mention client portal (thenycmaid.com/portal)
-- Must call create_booking tool (not just say "confirmed")
+- Only use 😊 emoji, sparingly.
+- Must include no-cancellation policy before a client books.
+- Must mention client portal (thenycmaid.com/portal) when relevant to account help.
 - For disputes: must pull GPS check-in/out data and show the math. Never cave or offer refunds without manager
-- All bookings are one-time. Never ask about recurring frequency
 - She IS the business — should say "we" and "our", not "the system" or "the company"
 
 SCORE 0-100. Be harsh. Every violation is points off.
@@ -287,23 +311,60 @@ IMPROVEMENTS: [bullet list of specific suggestions]`,
 }
 
 /**
- * Score all unscored conversations.
+ * Score all unscored, settled conversations.
  * Called by cron or manually.
+ *
+ * "Settled" = no new message in 2+ hours, NOT outcome IS NOT NULL — outcome
+ * only gets set by the booking-created path in src/app/api/yinez/route.ts
+ * (`if (result.bookingCreated) { scoreConversation(...) }`), which almost
+ * never fires for a client SMS/web conversation now that create_booking is
+ * owner-only (self-book-only enforcement, see selena/tools.ts). Gating on
+ * outcome would leave nearly every real conversation permanently unscored
+ * (nycmaid cc92e0e6 parity — same silent-dead-scoring bug).
+ *
+ * sms_conversations.updated_at is never bumped on new messages (checked --
+ * no per-message write touches it, no DB trigger exists), so "settled" is
+ * derived from the latest sms_conversation_messages row per conversation
+ * instead of that column.
  */
 export async function scoreRecentConversations(): Promise<{ scored: number; avgScore: number }> {
-  const { data: unscored } = await supabaseAdmin
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  const { data: candidates } = await supabaseAdmin
     .from('sms_conversations')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
     .select('id')
     .is('quality_score', null)
-    .not('outcome', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(100)
+
+  const candidateIds = (candidates || []).map(c => c.id)
+  if (candidateIds.length === 0) return { scored: 0, avgScore: 0 }
+
+  // Latest message per conversation, newest first — first occurrence of each
+  // conversation_id in this order IS its latest message.
+  const { data: recentMessages } = await supabaseAdmin
+    .from('sms_conversation_messages')
+    .select('conversation_id, created_at')
+    .in('conversation_id', candidateIds)
+    .order('created_at', { ascending: false })
+    .limit(2000)
+
+  const lastMessageAt = new Map<string, string>()
+  for (const m of recentMessages || []) {
+    if (!lastMessageAt.has(m.conversation_id as string)) lastMessageAt.set(m.conversation_id as string, m.created_at as string)
+  }
+
+  const settledIds = candidateIds
+    .filter(id => {
+      const last = lastMessageAt.get(id)
+      return !last || last < twoHoursAgo // no messages at all, or none recent
+    })
+    .slice(0, 50)
 
   let totalScore = 0
   let count = 0
 
-  for (const convo of unscored || []) {
-    const result = await scoreConversation(convo.id)
+  for (const id of settledIds) {
+    const result = await scoreConversation(id)
     totalScore += result.score
     count++
   }

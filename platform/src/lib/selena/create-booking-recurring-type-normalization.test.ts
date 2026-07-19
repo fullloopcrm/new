@@ -31,14 +31,19 @@ vi.mock('@/lib/nycmaid/email-templates', () => ({ emailWrapper: (s: string) => s
 
 import type { FakeSupabase } from '@/test/fake-supabase'
 import { supabaseAdmin } from '@/lib/supabase'
-import { runTool } from '@/lib/selena/tools'
-import type { YinezResult } from '@/lib/selena/agent'
+// create_booking is no longer reachable through runTool's dispatcher --
+// self-book-only enforcement made it owner-only, and it isn't wired into any
+// owner-side route either (the owner uses create_manual_booking instead), so
+// it's effectively retired. Test handleCreateBooking's normalization logic
+// directly rather than through the now-dead client-tool path (nycmaid
+// cc92e0e6 parity: create_booking-via-chat is retired).
+import { handleCreateBooking, EMPTY_CHECKLIST, type YinezResult } from '@/lib/selena/core'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
 
 const TENANT_A = 'tenant-a'
 
-const emptyResult = (): YinezResult => ({ text: '', toolsCalled: [] })
+const emptyResult = (): YinezResult => ({ text: '', checklist: { ...EMPTY_CHECKLIST } })
 
 beforeEach(() => {
   fake._store.clear()
@@ -58,9 +63,9 @@ const bookingInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-describe('create_booking (Yinez client tool) — recurring_type normalization', () => {
+describe('handleCreateBooking — recurring_type normalization', () => {
   it('stores null, not the literal string, when the model sends recurring_type: "one_time"', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'one_time' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleCreateBooking(bookingInput({ recurring_type: 'one_time' }), 'convo-1', emptyResult())
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows.length).toBe(1)
@@ -68,7 +73,7 @@ describe('create_booking (Yinez client tool) — recurring_type normalization', 
   })
 
   it('normalizes bare "monthly" to monthly_date, not the raw string', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'monthly' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleCreateBooking(bookingInput({ recurring_type: 'monthly' }), 'convo-1', emptyResult())
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows.length).toBe(1)
@@ -76,14 +81,14 @@ describe('create_booking (Yinez client tool) — recurring_type normalization', 
   })
 
   it('CONTROL: a real cadence (weekly) passes through unchanged', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'weekly' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleCreateBooking(bookingInput({ recurring_type: 'weekly' }), 'convo-1', emptyResult())
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows[0].recurring_type).toBe('weekly')
   })
 
   it('CONTROL: omitting recurring_type still defaults to null', async () => {
-    const out = await runTool('create_booking', bookingInput(), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleCreateBooking(bookingInput(), 'convo-1', emptyResult())
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows[0].recurring_type).toBeNull()

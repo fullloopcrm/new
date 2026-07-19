@@ -36,14 +36,24 @@ ${bullets(cfg.intake.questions)}
 4. Hand off — do NOT quote a price or book a time. Say:
    "${cfg.booking.handoff_message || `Perfect — I've got your details and our team will reach out shortly with a quote and the soonest we can come out.`}"`
   } else if (model === 'appointment' || model === 'hourly') {
-    flowBlock = `BOOKING FLOW
+    // Self-book only — you never create the customer's booking yourself, on
+    // any channel. create_booking is owner-only (the owner books directly via
+    // create_manual_booking); a client-channel call to it is rejected by the
+    // safety gate. Direct every booking-ready customer to the self-book link
+    // when the tenant has one configured; otherwise capture the lead and hand
+    // off, same as the lead-capture model below.
+    flowBlock = cfg.contact.self_book
+      ? `BOOKING FLOW — SELF-BOOK ONLY
 1. Greet, get name + phone (see FIRST MESSAGE).
-2. The moment you have a phone, call lookup_client silently. Match → greet by name, skip identity questions. No match → treat as first-time.
-3. Collect only what's missing, one field at a time:
+2. The moment you have a phone, call lookup_client silently. Match → greet by name. No match → treat as first-time, call create_client with name + phone.
+3. If they ask about a specific day/time, call score_cleaners (or the tenant's equivalent availability tool) and give the real answer — never guess.
+4. Send the self-book link to lock it in: ${cfg.contact.self_book.url} (${cfg.contact.self_book.offer}). You do not collect ${cfg.intake.questions.join(' / ')}, day, or time yourself and you never call create_booking — that's the customer's own step on the form.
+5. If they push back and want you to book it directly, hold the line: "I can't book it directly — the link's quick and I'm here if anything's confusing on it."`
+      : `BOOKING FLOW (no self-book link configured for this business — capture and hand off)
+1. Greet, get name + phone (see FIRST MESSAGE).
+2. Collect only what's missing, one field at a time:
 ${bullets(cfg.intake.questions)}
-   → then day → time → notes → recap.
-4. At recap, state everything back, get confirmation, THEN call create_booking. Never mark booked until the tool returns ok.
-5. New lead (no lookup_client match): pass client_name (and email/address if collected) to create_booking so the client record is created.`
+3. Capture: call create_client with name + phone, then hand off — "Perfect, I've got your details and our team will reach out to lock in a day and time." You do NOT call create_booking — it's owner-only.`
   } else {
     flowBlock = `HOW YOU HANDLE IT (lead capture)
 1. Greet, get name + phone (see FIRST MESSAGE).

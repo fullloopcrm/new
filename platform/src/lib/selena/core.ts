@@ -1577,12 +1577,32 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    const { error: rescheduleError } = await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
-    if (rescheduleError) {
-      await yinezError('reschedule_booking', rescheduleError, conversationId)
-      return JSON.stringify({ error: 'Failed', message: 'Could not reschedule — please try again or contact us.' })
+    // Does NOT move the booking — only the policy checks above run here.
+    // Flags it for owner approval instead of mutating start_time/end_time
+    // directly; the owner reviews and applies the actual change from the
+    // dashboard. (nycmaid cc92e0e6 parity — cancel/reschedule are requests,
+    // not self-executing actions, on a client channel.)
+    const { error: taskError } = await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tid,
+      type: 'reschedule_request',
+      priority: 'normal',
+      title: `Reschedule request — ${booking.start_time.split('T')[0]} → ${input.new_date}`,
+      description: `Client requested moving booking ${bookingId} from ${booking.start_time} to ${input.new_date} ${input.new_time}. Not yet applied — review and reschedule from the dashboard.`,
+      related_type: 'booking',
+      related_id: bookingId,
+    })
+    if (taskError) {
+      await yinezError('reschedule_booking', taskError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not submit the reschedule request — please try again or contact us.' })
     }
-    return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
+    await notify({
+      tenantId: tid,
+      type: 'reschedule_requested',
+      title: `Reschedule requested — booking ${bookingId}`,
+      message: `Client requested moving their ${booking.start_time.split('T')[0]} booking to ${input.new_date} ${input.new_time}. Pending your approval.`,
+      booking_id: bookingId,
+    }).catch(() => {})
+    return JSON.stringify({ success: true, pending: true, message: `Got it — I've sent your request to move this to ${input.new_date} at ${input.new_time} to our team for approval. It's not confirmed yet; we'll follow up shortly.` })
   } catch (err) {
     await yinezError('reschedule_booking', err, conversationId)
     return JSON.stringify({ error: 'Failed' })
@@ -1603,14 +1623,33 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
-    const { error: cancelError } = await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId).eq('tenant_id', tid)
-    if (cancelError) {
-      await yinezError('cancel_booking', cancelError, conversationId)
-      return JSON.stringify({ error: 'Failed', message: 'Could not cancel — please try again or contact us.' })
-    }
+    // Does NOT cancel the booking — only the policy checks above run here.
+    // Flags it for owner approval instead of mutating status directly; the
+    // owner reviews and applies the actual cancellation from the dashboard.
+    // (nycmaid cc92e0e6 parity — cancel/reschedule are requests, not
+    // self-executing actions, on a client channel.)
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
-    await notify({ type: 'booking_cancelled', title: `Cancelled — ${clientName}`, message: `${clientName} cancelled ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}`, booking_id: bookingId }).catch(() => {})
-    return JSON.stringify({ success: true })
+    const { error: taskError } = await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tid,
+      type: 'cancellation_request',
+      priority: 'normal',
+      title: `Cancellation request — ${clientName}, ${booking.start_time.split('T')[0]}`,
+      description: `${clientName} requested cancelling booking ${bookingId} (${booking.start_time.split('T')[0]}). Reason: ${reason}. Not yet applied — review and cancel from the dashboard.`,
+      related_type: 'booking',
+      related_id: bookingId,
+    })
+    if (taskError) {
+      await yinezError('cancel_booking', taskError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not submit the cancellation request — please try again or contact us.' })
+    }
+    await notify({
+      tenantId: tid,
+      type: 'cancellation_requested',
+      title: `Cancellation requested — ${clientName}`,
+      message: `${clientName} requested cancelling ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}. Pending your approval.`,
+      booking_id: bookingId,
+    }).catch(() => {})
+    return JSON.stringify({ success: true, pending: true, message: `Got it — I've sent your cancellation request to our team for approval. It's not cancelled yet; we'll follow up shortly.` })
   } catch (err) {
     await yinezError('cancel_booking', err, conversationId)
     return JSON.stringify({ error: 'Failed' })

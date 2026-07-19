@@ -76,6 +76,27 @@ function forceUpdateError(table: string) {
   }) as typeof fake.from
 }
 
+/** Same as forceUpdateError, but forces `.insert()` against `table` to
+ * resolve as a DB-level write failure instead of `.update()`. */
+function forceInsertError(table: string) {
+  const realFrom = fake.from.bind(fake)
+  fake.from = ((t: string) => {
+    const builder = realFrom(t)
+    if (t === table) {
+      const forced: ForcedErrorBuilder = {
+        eq: () => forced,
+        neq: () => forced,
+        is: () => forced,
+        single: async () => ({ data: null, error: { message: 'simulated write failure', code: 'XXFAKE' } }),
+        then: (onfulfilled: (v: unknown) => unknown) =>
+          Promise.resolve({ data: null, error: { message: 'simulated write failure', code: 'XXFAKE' }, count: null }).then(onfulfilled),
+      }
+      ;(builder as unknown as { insert: () => unknown }).insert = () => forced
+    }
+    return builder
+  }) as typeof fake.from
+}
+
 function freshResult(): YinezResult {
   return { text: '', checklist: { ...EMPTY_CHECKLIST } }
 }
@@ -85,20 +106,24 @@ beforeEach(() => {
   fake._store.clear()
 })
 
-describe('cancel_booking — update error is no longer swallowed', () => {
-  it('does not report success when the bookings.update write fails', async () => {
+describe('cancel_booking — insert error is no longer swallowed', () => {
+  // cancel_booking no longer mutates bookings directly -- it inserts an
+  // admin_tasks row to flag the request for owner approval (self-book-only
+  // enforcement, nycmaid cc92e0e6 parity). The write to guard against a
+  // swallowed error is now that insert, not a bookings.update.
+  it('does not report success when the admin_tasks.insert write fails', async () => {
     fake._seed('sms_conversations', [{ id: CONVO_ID, tenant_id: TENANT, client_id: CLIENT_ID }])
     fake._seed('bookings', [{ id: 'booking-1', tenant_id: TENANT, client_id: CLIENT_ID, status: 'confirmed', recurring_type: 'weekly', start_time: new Date(Date.now() + 10 * 86400000).toISOString() }])
-    forceUpdateError('bookings')
+    forceInsertError('admin_tasks')
 
     const out = await handleTool('cancel_booking', { booking_id: 'booking-1', reason: 'test' }, CONVO_ID, freshResult())
     const parsed = JSON.parse(out)
 
     expect(parsed.success).not.toBe(true)
     expect(parsed.error).toBeTruthy()
-    // The admin notify for a "confirmed cancelled" booking must not fire
-    // when the write never actually happened.
-    expect(notifyMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'booking_cancelled' }))
+    // The admin notify for a cancellation REQUEST must not fire when the
+    // admin_tasks write never actually happened.
+    expect(notifyMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'cancellation_requested' }))
   })
 })
 

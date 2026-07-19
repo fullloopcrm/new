@@ -163,6 +163,10 @@
     {
       "path": "/api/cron/seo-alerts",
       "schedule": "15 8 * * 2"
+    },
+    {
+      "path": "/api/cron/score-conversations",
+      "schedule": "0 * * * *"
     }
   ]
 }
