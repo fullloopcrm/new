@@ -6,10 +6,16 @@
 -- first time it was really exercised. Adding the columns the code already
 -- assumes are there (not renaming/removing anything).
 --
--- NOTE: team-portal/checkout/route.ts also selects bookings.
--- one_time_credit_cents, which is ALSO missing — NOT added here, that's a
--- separate pre-existing bug outside the scope of this branch. Flagged
--- separately, not fixed in this migration.
+-- team-portal/checkout/route.ts's select also referenced bookings.
+-- one_time_credit_cents and bookings/clients.sales_partner_id, neither of
+-- which existed either. one_time_credit_cents added below. sales_partner_id
+-- turned out to belong to a whole separate, already-written feature (the
+-- Commission Sales Partner program, src/lib/migrations/2026_07_18_sales_
+-- partners.sql + 2026_07_19_sales_partner_agreement.sql) that was merged to
+-- main but never actually applied to the database — applied directly, not
+-- part of this file (those migrations already existed correctly, they just
+-- needed to be run).
 ALTER TABLE recurring_schedules ADD COLUMN IF NOT EXISTS discount_percent integer;
 ALTER TABLE recurring_schedules ADD COLUMN IF NOT EXISTS invoice_consolidation text;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_percent integer;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS one_time_credit_cents integer;
