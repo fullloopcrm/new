@@ -1111,3 +1111,50 @@ Groups 1 (BLOCKED — 114-commit security mega-sweep, needs Jeff's ownership cal
 ### Fleet state at this handoff
 All 4 workers (`flwork-p1-w{1..4}`) confirmed alive, one driver each, verified via `pgrep` at handoff time. They've been idle/holding since ~17:10 when this session told them to stand down for the NYC Maid merge — do not redispatch them on new work without Jeff's explicit say-so, per the standing-work-freeze instruction above.
 
+## HANDOFF 2026-07-19 ~21:30 — Groups 2,3,4,5,6,7,8,9,10 fully landed; Group 11 at 18/28
+
+**Read this section first, supersedes everything above as current state.** Branch `integration/nycmaid-parity-move` now has **113 real commits** past `f074d401` (up from 58 at the ~18:30 handoff), all pushed to origin, HEAD = `294f2184`. Every single pick this session was tsc-verified and real-test-verified after landing, per standing method.
+
+**Groups fully done:** 2 (26), 3 (39 — see prior handoff section for detail), 4 (3), 5 (1), 6 (3), 7 (1, docs), 8 (1), 9 (4 — **catch: only 4 real commits, `3017117b`/`44fc0431`/`6046e10a`/`333bb0f2`, not just the first one — a leader session mid-stream skipped 3 of them by mistake, caught it two groups later when a phantom-file conflict wouldn't resolve, backfilled clean**), 10 (1).
+
+**Group 11 (concurrency/TOCTOU sweep, `91e00476^..1f493381`, 28 commits) — 18/28 done:**
+DONE: `91e00476 ee88776f 19be2a7a 549f48b3 e873f2cc 8c5457b9 2e9dc801 34ee00e5(docs) 58b80317 99a45b7d 87458513 ac54142a 84a9e42c 123b5c2c(docs) c4525e3d 5f34ddf2 2d8ad320 0ee7ea61`
+**REMAINING (do these next, in this order):** `1be90abd 095f3c70 47e31807 e17ab0ac c1dcf2e0 23ec52a9 99de930b b1f98863 882c9e0e(docs) 1f493381`
+
+### The real method that worked this whole session — repeat it exactly
+1. `git cherry-pick -x <sha>` from `~/flwork-nycmadebigmove`.
+2. **Conflict shape A — HEAD lacks an atomic CAS guard the incoming commit adds** (by far the most common shape all session): HEAD does a plain blind `.update()`; incoming re-reads a status/timestamp column into the update's own `.eq()`/`.is()` WHERE clause and checks `.maybeSingle()` for null → 409. Take incoming's guard logic, but **always swap `supabaseAdmin` for the file's own `db = tenantDb(tenantId)` variable** if that pattern is already established in the file (check — most files in `src/app/api/*` already migrated to tenantDb; a handful still use raw supabaseAdmin, match whichever the file already does elsewhere in the SAME file, not what incoming assumes).
+3. **Conflict shape B — genuine duplicate fix, same bug fixed twice, differently shaped:** keep whichever side is more thorough / matches the file's established helper (e.g. `idInTenant()` used 6+ places in `selena/tools.ts` beats an inline per-site `supabaseAdmin` query). If truly identical in effect, `git cherry-pick --skip` (or `git reset --hard <parent>` if already committed before you noticed) — legitimate no-op, not a bug.
+4. **Conflict shape C — incoming depends on an earlier UNCATALOGED commit** (hit constantly — the catalog's sha ranges are NOT reliable membership lists): if a cherry-pick's test file references a helper/column/function that doesn't exist on this branch yet, `git log --all -S"<distinctive string>"` on `~/flwork-p1-w1` (not the integration worktree) to find the real originating commit, `git cherry-pick --abort`, pick the dependency first, then retry.
+5. **After EVERY resolved conflict, before moving to the next sha:** `npx tsc --noEmit --pretty false` (must be 0 new errors) AND `npx vitest run <touched-dir>` (must be all green). **Real recurring test-fixture gap found ~8 times this session:** a NEW test file (added by the commit you just picked) assumes an auth mechanism, mock shape, or bespoke-fake method (`maybeSingle`, `.in()`, `.is()`) that the test's own hand-rolled `vi.mock` fake doesn't implement, because that fake predates this specific fix landing on THIS branch's lineage. Fix is always the same: add the missing method to the fake/mock (mirroring how `single()` or `eq()` is already implemented next to it), NOT to skip or weaken the test. Every one of these was a real, mechanical, few-line fix — never a sign the underlying commit was wrong.
+6. Amend the fix into the same commit (`git commit --amend --no-edit`) if found post-commit, don't leave a separate dangling fixup commit.
+7. `git push origin integration/nycmaid-parity-move` after each landed commit (or small batch) — never let local get more than ~1 commit ahead of origin.
+
+### Two real findings worth Jeff's eventual attention (not gates, not blocking, just noting)
+- `bookings/[id]/route.ts`'s PATCH handler was the **only** place in the entire codebase selecting `team_members(..., pin)` off a booking join — every other of the ~10 other same-shaped embeds omit `pin`. Already fixed as a side effect of landing `e873f2cc`'s CAS guard (incoming's version happened to omit it too) — just flagging that this was a real, isolated credential-exposure gap, already closed, not something that needs separate action.
+- Nothing else new; all other findings from earlier in the session (the `trustedOwnerPhone` gate, the FK-injection dependencies) are covered in the ~18:30 handoff section above and already landed.
+
+### Not yet started (unchanged from before)
+Group 1 (BLOCKED, Jeff's ownership call), Groups 12-23 (18 has one BLOCKED sub-item `f513778c`). Rough remaining size: 12 (~30), 13 (~80, biggest chunk — naive-ET/UTC sweep), 15 (~20), 16 (~10), 17 (~4), 18 (~45), 19 (~14), 20 (~20), 21 (~6), 22 (~15), 23 (~30). No merge to main, no deploy, no exceptions, until Jeff explicitly says go.
+
+### Fleet state
+Unchanged — still 4 workers idle/holding since ~17:10, do not redispatch without Jeff's explicit word.
+
+## HANDOFF 2026-07-19 ~21:45 — Group 11 finished at 18/28 was stale; now mid-Group-12, session ending on context limit
+
+**Read this section first.** This is a same-session continuation of the ~21:30 handoff above — Jeff said "do all then handoff" then "i want alllllll gone nothing left" after I flagged Group 1 is blocked on him + this session can't fit the remaining ~480 commits. Agreed path with Jeff: continue as far as this session's context allows, write a precise resume point, next session picks up clean. That point has now been reached (context >80% used).
+
+**Current state:** `integration/nycmaid-parity-move` HEAD = `a2c1f98a`, **116 real commits** past `f074d401`, all pushed to origin (verified matching, not assumed), tree clean, no cherry-pick in progress. tsc clean, every landed commit real-test-verified.
+
+**Group 11 (28 commits) — landed all planned 18, did NOT do the remaining 10 this pass** (contradicts what the ~21:30 section said was "next" — that's now done for those 18, but the remaining 10 are STILL not picked): `1be90abd 095f3c70 47e31807 e17ab0ac c1dcf2e0 23ec52a9 99de930b b1f98863 882c9e0e(docs) 1f493381`.
+
+**Group 12 (`43d631e5^..a1791f1d`, ~40 commits, cherry-pick as one ordered unit per catalog) — 3/39 done:**
+DONE: `43d631e5 1c80d482 14659f99`
+**IN PROGRESS, aborted cleanly, not yet landed:** `784b71b6` — conflict in `platform/src/app/api/client/reschedule/[id]/route.ts`, not yet resolved. Start here.
+**REMAINING after that** (in original order): `457c39c9 62c18c91 2f41dabd 0d2c1e9e(docs) 2c0e1a16 524ce5b0 01cab687 18f600fe f90dab14(docs) ed2ed372 b79e8ec1 50a97f84 d8cf9732 7a8be4af(docs) 291a6be6 10cc3c1a 7a7583d6(docs) a7ddbe2a b13586fc(docs) bc51754a b835afa7 209456e7(docs) 8a6eeedc 6337a9fd 238ef836 dc7c4142(docs) fbe03591 10a335f1(docs) 6edca6af 908290ca e971e392 bef21b8b(docs) 7da18e9b 81bd334b(docs) a1791f1d`
+
+**Real gotcha found twice more this pass, same class as before:** twice this pass HEAD already had a SUPERSET of what the incoming commit adds (once for `deal_id`/`client_id` FK checks on quotes PATCH, once for the entire `check_in_time`/`check_out_time` field-allowlist on bookings PUT) — both were genuine no-conflict-in-substance duplicates, resolved by keeping HEAD's fuller version and discarding incoming's narrower one. Also hit a **new gotcha**: an auto-merged (non-conflicting) hunk elsewhere in the SAME file still referenced bare `supabaseAdmin` where the rest of the file already uses `db = tenantDb(tenantId)` — tsc caught it (`Cannot find name 'supabaseAdmin'`) after a clean-looking cherry-pick with zero conflict markers. **Lesson: a green cherry-pick with no conflicts is not proof of correctness — still run tsc every single time, even when git reports no conflict at all.**
+
+### Not yet started (unchanged)
+Group 1 (BLOCKED, Jeff's ownership call — has not been asked again this pass, still pending). Groups 13, 15-23 untouched. Rough remaining size after Group 12 finishes: 13 (~80, biggest — naive-ET/UTC), 15 (~20), 16 (~10), 17 (~4), 18 (~45), 19 (~14), 20 (~20), 21 (~6), 22 (~15), 23 (~30). No merge to main, no deploy — confirmed via `git merge-base --is-ancestor` this pass that integration branch HEAD is NOT an ancestor of `origin/main` (main still at `4ad259e4`). Do not merge/deploy until every group is landed AND Jeff gives the explicit final go on top of that — "do all" was authorization to keep cherry-picking, not to merge/deploy a partial state, per his own correction mid-session.
+
