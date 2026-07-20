@@ -95,10 +95,14 @@ describe('buildGeneralLedger — pagination + tenant isolation', () => {
     expect(rows.every(r => (r.memo as string).startsWith('a-'))).toBe(true)
   })
 
+  // 200k synthetic rows + repeated pagination through the in-memory mock is
+  // consistently >5s on CI's shared runners (reproducible, not flaky —
+  // failed identically twice) despite running in ~1s locally. Not a real
+  // hang; the default timeout is just too tight for what this test builds.
   it('sets .truncated instead of silently dropping rows past the 200k safety cap', async () => {
     holder.state.journal_lines = makeLines(A, 200_050, 'a')
     const rows = await buildGeneralLedger(A, null, '2026-01-01', '2026-12-31')
     expect(rows).toHaveLength(200_000)
     expect(rows.truncated).toBe(true)
-  })
+  }, 20_000)
 })
