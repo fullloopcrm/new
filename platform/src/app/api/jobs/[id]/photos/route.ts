@@ -1,5 +1,5 @@
 /**
- * Job photos — job-site photo documentation (CompanyCam-style), tenant-scoped.
+ * Job photos — job-site photo documentation (LoopCam-style), tenant-scoped.
  *
  * GET  → { photos: JobPhoto[] }  — full gallery for the job, newest first
  * POST → uploads one photo (multipart), tags it to the job and optionally a

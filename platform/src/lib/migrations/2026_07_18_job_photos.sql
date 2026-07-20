@@ -1,6 +1,6 @@
--- Job photos — CompanyCam-style job-site photo documentation under Production.
+-- Job photos — LoopCam-style job-site photo documentation under Production.
 --
--- WHY: CompanyCam's core value (job-tied, timestamped, geotagged photos with
+-- WHY: CompanyCam-style value (job-tied, timestamped, geotagged photos with
 -- before/after pairing and comments) has no equivalent today. We EXTEND the
 -- existing job/booking model rather than build a parallel system:
 --   • a photo belongs to a Job, optionally to one Booking (visit/session)
