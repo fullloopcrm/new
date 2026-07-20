@@ -169,6 +169,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/invoices/public(.*)', // Public invoice API (token-auth)
   '/sign/(.*)',               // Public document signer view (token-auth)
   '/api/documents/public(.*)', // Public document signer API (token-auth)
+  '/photos/(.*)',              // Public job-photo timeline view (token-auth)
+  '/api/jobs/public(.*)',      // Public job-photo timeline API (token-auth)
   '/api/cpa/(.*)',             // CPA read-only access (token-auth)
   '/qualify',                  // Public prospect application form
   '/qualify(.*)',              // e.g. /qualify?cancelled=1
