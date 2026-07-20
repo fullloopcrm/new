@@ -6,6 +6,7 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 // Weekly cron: auto-generate bookings 4 weeks out
@@ -90,11 +91,11 @@ export async function GET(request: Request) {
     // "needs reassignment" instead of a false standing assignment. (Day/hours/
     // day-off only — keyed on the ET date + preferred_time so it's TZ-safe; the
     // conflict/max-jobs sub-check is enforced at manual assignment, not here.)
-    let mem: { name?: string; working_days?: string[] | null; schedule?: Record<string, unknown> | null; unavailable_dates?: string[] | null } | null = null
+    let mem: { name?: string; working_days?: string[] | null; schedule?: Record<string, unknown> | null; unavailable_dates?: string[] | null; status?: string | null } | null = null
     if (schedule.team_member_id) {
       const { data } = await supabaseAdmin
         .from('team_members')
-        .select('name, working_days, schedule, unavailable_dates')
+        .select('name, working_days, schedule, unavailable_dates, status')
         .eq('id', schedule.team_member_id)
         .eq('tenant_id', schedule.tenant_id)
         .single()
@@ -111,6 +112,12 @@ export async function GET(request: Request) {
     }
     const memberCanTake = (d: Date): boolean => {
       if (!schedule.team_member_id || !mem) return false
+      // A deactivated member stays wired via schedule.team_member_id forever
+      // otherwise — this check only ever verified hours/days/buffer, never
+      // whether the assigned member is still active. The smartAssign path's
+      // own scoreTeamForBooking query already filters status != 'inactive';
+      // this brings the legacy (default) path to the same standard.
+      if (mem.status === 'inactive') return false
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       if (Array.isArray(mem.unavailable_dates) && mem.unavailable_dates.includes(dateStr)) return false
       if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr)) return false
@@ -195,6 +202,25 @@ export async function GET(request: Request) {
         unassignedNote = null
       }
 
+      // Occurrence has nobody assigned (no schedule.team_member_id, or the
+      // legacy path found them unavailable, or smartAssign found nobody
+      // available) — suggest instead of leaving it with zero recommendation
+      // for the life of the schedule. Suggestion only, never auto-assigns
+      // (matches the one-time-booking pattern: suggested_team_member_id set,
+      // team_member_id stays null, owner approves).
+      let suggestedId: string | null = null
+      if (!assignedId) {
+        suggestedId = await suggestTeamMemberForRecurring({
+          tenantId: schedule.tenant_id,
+          clientId: schedule.client_id,
+          propertyId: schedule.property_id,
+          date: dateStr,
+          startTime: ex?.type === 'move' && ex.new_start_time ? String(ex.new_start_time).slice(0, 5) : startHHMM(),
+          durationHours: durH,
+          hourlyRate: schedule.hourly_rate != null ? Number(schedule.hourly_rate) : undefined,
+        })
+      }
+
       bookings.push({
         tenant_id: schedule.tenant_id,
         client_id: schedule.client_id,
@@ -208,6 +234,8 @@ export async function GET(request: Request) {
         status: 'scheduled',
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
+        discount_percent: schedule.discount_percent,
+        suggested_team_member_id: suggestedId,
         notes: unassignedNote
           ? `${schedule.notes ? schedule.notes + ' — ' : ''}${unassignedNote}`
           : schedule.notes,

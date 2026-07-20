@@ -8,6 +8,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -161,6 +162,22 @@ export async function POST(request: Request) {
   const recurringType = frequency
   const lastInitialDate = dates[dates.length - 1]
 
+  // No cleaner picked → suggest one via the same smart-matcher one-time
+  // bookings use, rather than leaving the whole series unassigned with no
+  // recommendation.
+  let suggestedTeamMemberId: string | null = null
+  if (!cleaner_id) {
+    suggestedTeamMemberId = await suggestTeamMemberForRecurring({
+      tenantId,
+      clientId: client_id,
+      propertyId: property_id || null,
+      date: start_date,
+      startTime: time,
+      durationHours: hours,
+      hourlyRate: baseRate,
+    })
+  }
+
   const { data: schedule, error: scheduleErr } = await tenantDb(tenantId)
     .from('recurring_schedules')
     .insert({
@@ -175,6 +192,7 @@ export async function POST(request: Request) {
       notes: notes || null,
       status: 'active',
       next_generate_after: lastInitialDate,
+      discount_percent: discountPercent,
     })
     .select()
     .single()
@@ -208,6 +226,7 @@ export async function POST(request: Request) {
       status: cleaner_id ? 'scheduled' : 'pending',
       schedule_id: schedule.id,
       team_size: finalTeamSize,
+      suggested_team_member_id: cleaner_id ? null : suggestedTeamMemberId,
     }
   })
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
+import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -102,6 +104,14 @@ export async function POST(request: Request) {
   const teamMemberId = team_member_id || cleaner_id || null
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
+  // Auto-apply the recurring discount (weekly 20% / biweekly-monthly 10%)
+  // unless the admin explicitly passed a value (including an explicit 0 to
+  // override off) — matches the policy already enforced in
+  // /api/client/recurring, ported here so admin-created schedules get the
+  // same auto-discount instead of silently defaulting to none.
+  const finalDiscountPercent = discount_percent != null
+    ? discount_percent
+    : Math.round(recurringDiscountPct(recurring_type) * 100)
 
   if (!client_id || !recurring_type || !start_date) {
     return NextResponse.json(
@@ -174,6 +184,23 @@ export async function POST(request: Request) {
   sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
   const nextGenerateAfter = lastInitialDate || sixWeeksOut.toISOString().split('T')[0]
 
+  // No cleaner picked → suggest one via the same smart-matcher one-time
+  // bookings use, rather than leaving the whole series unassigned with no
+  // recommendation. Admin can still override per-visit as normal.
+  let suggestedTeamMemberId: string | null = null
+  if (!teamMemberId && dates.length > 0) {
+    const { h: suggestH, m: suggestM } = parseTime(preferred_time)
+    suggestedTeamMemberId = await suggestTeamMemberForRecurring({
+      tenantId,
+      clientId: client_id,
+      propertyId: property_id || null,
+      date: start_date,
+      startTime: `${String(suggestH).padStart(2, '0')}:${String(suggestM).padStart(2, '0')}`,
+      durationHours: hours,
+      hourlyRate: hourly_rate,
+    })
+  }
+
   const { data: schedule, error: scheduleErr } = await db
     .from('recurring_schedules')
     .insert({
@@ -191,7 +218,7 @@ export async function POST(request: Request) {
       status: 'active',
       next_generate_after: nextGenerateAfter,
       invoice_consolidation: invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit',
-      discount_percent: discount_percent || null,
+      discount_percent: finalDiscountPercent || null,
     })
     .select()
     .single()
@@ -226,7 +253,8 @@ export async function POST(request: Request) {
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',
       schedule_id: schedule.id,
-      discount_percent: discount_percent || null,
+      discount_percent: finalDiscountPercent || null,
+      suggested_team_member_id: teamMemberId ? null : suggestedTeamMemberId,
     }
   })
 
