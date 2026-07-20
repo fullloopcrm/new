@@ -29,6 +29,7 @@ vi.mock('@/lib/rate-limit-db', () => ({
 
 vi.mock('@/lib/notify', () => ({ notify: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/error-tracking', () => ({ trackError: vi.fn() }))
+vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: vi.fn().mockResolvedValue(true) }))
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn().mockResolvedValue(undefined), tenantSender: vi.fn() }))
 vi.mock('@/lib/email-templates', () => ({ adminNewClientEmail: vi.fn().mockReturnValue({ subject: '', html: '' }) }))
 

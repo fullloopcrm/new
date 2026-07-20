@@ -25,7 +25,7 @@ vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowe
 const { emailAdmins } = vi.hoisted(() => ({ emailAdmins: vi.fn(async (..._args: unknown[]) => {}) }))
 vi.mock('@/lib/admin-contacts', () => ({ emailAdmins }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
-vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: vi.fn(async () => false) }))
+vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/error-tracking', () => ({ trackError: vi.fn(async () => {}) }))
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
 

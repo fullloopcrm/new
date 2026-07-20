@@ -18,6 +18,7 @@ const { sendEmail } = vi.hoisted(() => ({
 vi.mock('@/lib/email', () => ({ sendEmail }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => ({ success: true })) }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true })) }))
+vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: vi.fn(async () => ({
     id: 'tid-a',

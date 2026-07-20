@@ -82,12 +82,18 @@ export async function GET(request: Request) {
     }
   }
 
-  // Source 2 (fallback): tenants.domain, only for tenants tenant_domains didn't cover
+  // Source 2 (fallback): tenants.domain, only for tenants tenant_domains didn't cover.
+  // Status filter matches middleware.ts's tenantServesSite() deny-list exactly
+  // (NOT an allow-list of active/live/setup) — a tenant in any OTHER status
+  // (pending, trial, paused, past_due, grace, onboarding, ...) still gets
+  // served live by middleware, so Fortress must still watch it. The old
+  // allow-list left every one of those served-but-uncommon statuses
+  // unmonitored (gap C-2, deploy-prep/fortress-health-coverage-audit.md).
   const { data: tenantRows, error: tErr } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, domain, status')
     .not('domain', 'is', null)
-    .in('status', ['active', 'live', 'setup'])
+    .not('status', 'in', '(suspended,cancelled,deleted)')
   if (tErr) {
     await alertOwner('Fortress cron DB error', tErr.message).catch(() => {})
     return NextResponse.json({ error: tErr.message }, { status: 500 })

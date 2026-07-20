@@ -31,7 +31,7 @@ vi.mock('@/lib/nycmaid/email-templates', () => ({ emailWrapper: (s: string) => s
 
 import type { FakeSupabase } from '@/test/fake-supabase'
 import { supabaseAdmin } from '@/lib/supabase'
-import { runTool } from '@/lib/selena/tools'
+import { handleTool } from '@/lib/selena/core'
 import type { YinezResult } from '@/lib/selena/agent'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
@@ -60,7 +60,7 @@ const bookingInput = (overrides: Record<string, unknown> = {}) => ({
 
 describe('create_booking (Yinez client tool) — recurring_type normalization', () => {
   it('stores null, not the literal string, when the model sends recurring_type: "one_time"', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'one_time' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleTool('create_booking', bookingInput({ recurring_type: 'one_time' }), 'convo-1', emptyResult(), TENANT_A)
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows.length).toBe(1)
@@ -68,7 +68,7 @@ describe('create_booking (Yinez client tool) — recurring_type normalization', 
   })
 
   it('normalizes bare "monthly" to monthly_date, not the raw string', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'monthly' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleTool('create_booking', bookingInput({ recurring_type: 'monthly' }), 'convo-1', emptyResult(), TENANT_A)
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows.length).toBe(1)
@@ -76,14 +76,14 @@ describe('create_booking (Yinez client tool) — recurring_type normalization', 
   })
 
   it('CONTROL: a real cadence (weekly) passes through unchanged', async () => {
-    const out = await runTool('create_booking', bookingInput({ recurring_type: 'weekly' }), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleTool('create_booking', bookingInput({ recurring_type: 'weekly' }), 'convo-1', emptyResult(), TENANT_A)
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows[0].recurring_type).toBe('weekly')
   })
 
   it('CONTROL: omitting recurring_type still defaults to null', async () => {
-    const out = await runTool('create_booking', bookingInput(), 'convo-1', '2125550001', emptyResult(), TENANT_A)
+    const out = await handleTool('create_booking', bookingInput(), 'convo-1', emptyResult(), TENANT_A)
     expect(JSON.parse(out).success).toBe(true)
     const rows = fake._store.get('bookings') || []
     expect(rows[0].recurring_type).toBeNull()
