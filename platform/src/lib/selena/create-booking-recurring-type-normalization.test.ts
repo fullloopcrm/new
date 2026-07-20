@@ -31,14 +31,14 @@ vi.mock('@/lib/nycmaid/email-templates', () => ({ emailWrapper: (s: string) => s
 
 import type { FakeSupabase } from '@/test/fake-supabase'
 import { supabaseAdmin } from '@/lib/supabase'
-import { handleTool } from '@/lib/selena/core'
-import type { YinezResult } from '@/lib/selena/agent'
+import { handleTool, EMPTY_CHECKLIST } from '@/lib/selena/core'
+import type { YinezResult } from '@/lib/selena/core'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
 
 const TENANT_A = 'tenant-a'
 
-const emptyResult = (): YinezResult => ({ text: '', toolsCalled: [] })
+const emptyResult = (): YinezResult => ({ text: '', checklist: EMPTY_CHECKLIST })
 
 beforeEach(() => {
   fake._store.clear()
