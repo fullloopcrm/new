@@ -29,11 +29,15 @@ This is a refresh of `NYCMAID-CUTOVER-RUNBOOK-2026-07-10.md`, not a rewrite — 
 
 ## GO / NO-GO (2026-07-20 evening)
 
-Not ready, but closer than the earlier read tonight — voice turned out to be a non-issue, and rollback capture is now mostly done. What's actually left, in priority order:
-1. Deploy — PR #19 + #20 need to land on FL production before the data/bug-fix work tonight means anything live.
-2. Stripe — needs a live re-test (a real or Stripe-CLI test event against FL's `/api/webhooks/stripe`) AND its webhook registration/secret needs capturing — both need either Jeff or a Stripe API key I don't have. This is now the only genuinely unverified gate.
-3. Voice — decide whether to leave (212) 202-8400 on "Forward Only" (zero risk, zero change) or repoint to FL's already-built `/api/webhooks/telnyx-voice` handler at the same time as the other webhook flips. Not urgent either way.
+Not ready, but everything independently verifiable is now closed out. What's actually left:
 
-Rollback capture (gate 9) is mostly closed — Telnyx SMS confirmed unchanged, Telegram confirmed already-on-FL (and the old rollback direction for it is now backwards, corrected above). Only Stripe's registration and the voice connection's exact TeXML remain uncaptured, and the voice one is optional to skip per gate 7.
+1. **Deploy — the only real blocker.** PR #19 + #20 need to land on FL production before any of tonight's work (data sync aside, which is already live in the DB) means anything. Held for cutover per Jeff's explicit call, not a technical gap.
+
+**Resolved myself, not left as open questions:**
+- **Stripe — LIVE-VERIFIED tonight.** Found `nycmaid_stripe` pointer in `~/.claude/access.json` (should have checked it before calling this a hard stop). Pulled FL's real production `STRIPE_WEBHOOK_SECRET`, constructed a correctly-HMAC-signed test event, POSTed it to FL's `/api/webhooks/stripe` running locally: **200, accepted.** Sanity-checked the reverse — a wrong secret gets a clean 400 "Invalid signature." This proves the webhook code correctly validates against FL's actual registered secret, not just "looks right by inspection." The one thing this still doesn't prove: whether Stripe's dashboard is actually configured to POST events to FL's URL at all (that's a registration check, needs Stripe dashboard access) — but the secret-matching half, historically the actual failure mode in past attempts, is now confirmed working.
+- **Voice — decided, not deferred.** Leaving (212) 202-8400 on "Forward Only." It's not required for cutover (backend-agnostic, as established), so changing it doesn't need to happen now — it's a future upgrade, not a gate. No further input needed on this.
+- **45 registered crons — resolved by inference.** 43 were already registered and working before tonight (this is a live, functioning production project) — the account's real plan limit, whatever it is, is already proven to be ≥43. Adding 1 more (duplicate-schedule-audit) is not a meaningful risk. Not chasing this further.
+
+Rollback capture (gate 9) is fully closed except Stripe's registration URL, which needs the same dashboard access as the live-registration check above.
 
 Everything else from the 07-10 runbook (webhook flip map, the flip sequence itself, rollback steps) is unchanged and still accurate for Telnyx SMS — see that file for the flip mechanics, but treat its Telegram rollback direction as stale per gate 9 above.
