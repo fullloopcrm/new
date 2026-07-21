@@ -1,10 +1,19 @@
 /**
- * Shared budget math for the Master Budget feature.
+ * Shared budget math for the Master Budget feature. Trade-agnostic: every
+ * input is a generic catalog/inventory field, so the same template logic
+ * produces a sensible budget whether the tenant is landscaping, cleaning,
+ * junk removal, or any other trade in the registry -- nothing here is
+ * trade-specific.
  *
  * - computeSuggestedBudget: derives a TEMPLATE budget for a quote from its
  *   line items × each matched service_types row's per-unit defaults (labor
- *   hours × labor rate, materials cost_cents, overhead). Used to pre-fill a
- *   blank quote_budgets form instead of starting at zero.
+ *   hours × labor rate, overhead) plus materials cost. Materials cost
+ *   prefers the item's real bill of materials (catalog_item_materials ×
+ *   inventory_items.unit_cost_cents, i.e. actual vendor-priced cost) and
+ *   falls back to the hand-set service_types.cost_cents guess when no BOM
+ *   is defined yet -- so a tenant gets a working template immediately and
+ *   it gets more accurate as they fill in inventory/vendor data, with no
+ *   breaking change for tenants who never set up a BOM.
  * - seedQuoteBudgetFromTemplate: persists that suggestion as the quote's real
  *   quote_budgets row at proposal create/edit time (POST /api/quotes, PATCH
  *   /api/quotes/[id]) -- so the budget exists from proposal time and carries
@@ -17,7 +26,7 @@
  * Line items don't carry a service_type_id FK (see normalizeLineItems in
  * src/lib/quote.ts) -- matching is by exact, case-insensitive name, the same
  * lookup _QuoteBuilder.tsx already uses to resolve a typed item name back to
- * its catalog row.
+ * its catalog row. The BOM lookup then keys off the matched service_types.id.
  */
 import { supabaseAdmin } from './supabase'
 
@@ -27,6 +36,7 @@ export type QuoteLineItemLike = {
 }
 
 export type ServiceTypeTemplate = {
+  id?: string
   name: string
   cost_cents?: number | null
   default_duration_hours?: number | null
@@ -34,6 +44,8 @@ export type ServiceTypeTemplate = {
   default_overhead_cents?: number | null
   default_target_margin_bps?: number | null
 }
+
+export type MaterialsByServiceType = Map<string, { qty_per_unit: number; unit_cost_cents: number }[]>
 
 export type SuggestedBudget = {
   labor_budget_cents: number
@@ -43,10 +55,34 @@ export type SuggestedBudget = {
   matched_item_count: number
 }
 
+/**
+ * Fetch each matched service type's bill of materials (real inventory cost),
+ * keyed by service_type_id. Only queries the ids actually in play.
+ */
+export async function fetchMaterialsByServiceType(tenantId: string, serviceTypeIds: string[]): Promise<MaterialsByServiceType> {
+  const map: MaterialsByServiceType = new Map()
+  if (!serviceTypeIds.length) return map
+
+  const { data } = await supabaseAdmin
+    .from('catalog_item_materials')
+    .select('service_type_id, qty_per_unit, inventory_items(unit_cost_cents)')
+    .eq('tenant_id', tenantId)
+    .in('service_type_id', serviceTypeIds)
+
+  for (const row of (data || []) as unknown as { service_type_id: string; qty_per_unit: number; inventory_items: { unit_cost_cents: number } | null }[]) {
+    const unitCostCents = row.inventory_items?.unit_cost_cents ?? 0
+    const list = map.get(row.service_type_id) || []
+    list.push({ qty_per_unit: row.qty_per_unit, unit_cost_cents: unitCostCents })
+    map.set(row.service_type_id, list)
+  }
+  return map
+}
+
 /** Derive a suggested budget from a quote's line items matched against the tenant's catalog. */
 export function computeSuggestedBudget(
   lineItems: QuoteLineItemLike[],
   serviceTypes: ServiceTypeTemplate[],
+  materialsByServiceType?: MaterialsByServiceType,
 ): SuggestedBudget | null {
   if (!lineItems?.length || !serviceTypes?.length) return null
 
@@ -69,7 +105,12 @@ export function computeSuggestedBudget(
     if (svc.default_duration_hours != null && svc.default_labor_rate_cents != null) {
       laborCents += Math.round(svc.default_duration_hours * svc.default_labor_rate_cents * qty)
     }
-    if (svc.cost_cents != null) {
+
+    const bom = svc.id ? materialsByServiceType?.get(svc.id) : undefined
+    if (bom && bom.length) {
+      const bomUnitCents = bom.reduce((sum, m) => sum + m.qty_per_unit * m.unit_cost_cents, 0)
+      materialsCents += Math.round(bomUnitCents * qty)
+    } else if (svc.cost_cents != null) {
       materialsCents += Math.round(svc.cost_cents * qty)
     }
     if (svc.default_overhead_cents != null) {

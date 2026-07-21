@@ -326,6 +326,12 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
           p.startsWith('/api/booking-notes') ||
           p.startsWith('/api/uploads') ||
+          // These were missing entirely -- /api/vendors has been unreachable
+          // for admin/impersonation sessions since it was added (same class
+          // of gap as the booking-notes fix above); /api/inventory and
+          // /api/categories are new this pass.
+          p.startsWith('/api/vendors') || p.startsWith('/api/inventory') || p.startsWith('/api/categories') ||
+          p.startsWith('/api/equipment') ||
           p.startsWith('/api/tenant/public')) {
         return
       }

@@ -1,8 +1,13 @@
 /**
  * Per-tenant Catalog CRUD (operator-side). One list of items in the
- * `service_types` table. Every item has a TYPE (service | project | product)
- * and is priced per hour or per job. No booking/sales mode on the item — that
- * fork lives on the deal (deals.mode).
+ * `service_types` table. Every item has a TYPE (service | project | product |
+ * equipment) and is priced per hour or per job. No booking/sales mode on the
+ * item — that fork lives on the deal (deals.mode).
+ *
+ * `equipment` is billed like a product (has a price, appears on quotes) but
+ * backed by real depreciable asset rows (see 2026_07_21_equipment.sql) rather
+ * than consumable stock -- a dumpster goes out and comes back, it isn't sold
+ * off like a bag of mulch.
  *
  * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals.
  */
@@ -11,7 +16,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
-const ITEM_TYPES = ['service', 'project', 'product']
+const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
 
 function num(v: unknown): number | null {

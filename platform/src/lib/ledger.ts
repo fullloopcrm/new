@@ -23,6 +23,8 @@ export const DEFAULT_CHART: Array<{
   { code: '1050', name: 'Undeposited Funds', type: 'asset', subtype: 'clearing' },
   { code: '1100', name: 'Accounts Receivable', type: 'asset', subtype: 'ar' },
   { code: '1500', name: 'Equipment', type: 'asset', subtype: 'fixed' },
+  // Contra-asset: reduces 1500 Equipment's book value over its useful life.
+  { code: '1510', name: 'Accumulated Depreciation', type: 'asset', subtype: 'contra_fixed' },
   // Liabilities
   { code: '2000', name: 'Accounts Payable', type: 'liability', subtype: 'ap' },
   { code: '2100', name: 'Credit Card Payable', type: 'liability', subtype: 'credit_card' },
@@ -37,12 +39,15 @@ export const DEFAULT_CHART: Array<{
   { code: '3900', name: 'Retained Earnings', type: 'equity' },
   // Income
   { code: '4000', name: 'Service Revenue', type: 'income', subtype: 'revenue' },
+  { code: '4010', name: 'Product Sales', type: 'income', subtype: 'revenue' },
+  { code: '4020', name: 'Rental Income', type: 'income', subtype: 'revenue' },
   { code: '4100', name: 'Tips', type: 'income', subtype: 'revenue' },
   { code: '4900', name: 'Other Income', type: 'income' },
   // Cost of services
   { code: '5000', name: 'Contractor Pay', type: 'expense', subtype: 'cogs' },
   { code: '5010', name: 'Wages (W-2)', type: 'expense', subtype: 'cogs' },
   { code: '5100', name: 'Materials & Supplies', type: 'expense', subtype: 'cogs' },
+  { code: '5110', name: 'Depreciation Expense', type: 'expense', subtype: 'cogs' },
   // Operating expenses
   { code: '6000', name: 'Rent', type: 'expense', subtype: 'operating' },
   { code: '6010', name: 'Insurance', type: 'expense', subtype: 'operating' },
