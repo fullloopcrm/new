@@ -33,7 +33,14 @@ type Item = {
   default_target_margin_bps: number | null
 }
 
-const TYPES = ['service', 'project', 'product'] as const
+type MaterialRow = {
+  id: string
+  inventory_item_id: string
+  qty_per_unit: number
+  inventory_items: { id: string; name: string; unit_label: string; unit_cost_cents: number } | null
+}
+
+const TYPES = ['service', 'project', 'product', 'equipment'] as const
 const UNITS: Array<{ v: string; l: string }> = [
   { v: 'hour', l: 'per hour' },
   { v: 'job', l: 'flat / per job' },
@@ -157,16 +164,39 @@ export default function CatalogTab() {
   const [editErr, setEditErr] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [query, setQuery] = useState('')
+  const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; unit_label: string; unit_cost_cents: number }[]>([])
+  const [materials, setMaterials] = useState<MaterialRow[]>([])
+  const [materialDraft, setMaterialDraft] = useState({ inventory_item_id: '', qty_per_unit: '1' })
 
   function load() {
     setLoading(true)
-    fetch('/api/catalog')
-      .then((r) => r.json())
-      .then((d) => setItems(d?.items || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch('/api/inventory').then((r) => r.json()).catch(() => ({ items: [] })),
+    ]).then(([c, i]) => {
+      setItems(c?.items || [])
+      setInventoryItems(i?.items || [])
+    }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  function loadMaterials(serviceTypeId: string) {
+    fetch(`/api/catalog/${serviceTypeId}/materials`).then((r) => r.json()).then((d) => setMaterials(d?.materials || [])).catch(() => setMaterials([]))
+  }
+  async function addMaterial(serviceTypeId: string) {
+    if (!materialDraft.inventory_item_id) return
+    const qty = Number(materialDraft.qty_per_unit)
+    if (!Number.isFinite(qty) || qty <= 0) return
+    const res = await fetch(`/api/catalog/${serviceTypeId}/materials`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inventory_item_id: materialDraft.inventory_item_id, qty_per_unit: qty }),
+    })
+    if (res.ok) { setMaterialDraft({ inventory_item_id: '', qty_per_unit: '1' }); loadMaterials(serviceTypeId) }
+  }
+  async function removeMaterial(serviceTypeId: string, materialId: string) {
+    await fetch(`/api/catalog/${serviceTypeId}/materials?id=${materialId}`, { method: 'DELETE' })
+    loadMaterials(serviceTypeId)
+  }
 
   const filteredItems = query.trim()
     ? items.filter((it) => {
@@ -250,11 +280,14 @@ export default function CatalogTab() {
     setEditingId(it.id)
     setEditForm(toEditForm(it))
     setEditErr('')
+    setMaterials([])
+    loadMaterials(it.id)
   }
   function cancelEdit() {
     setEditingId(null)
     setEditForm(null)
     setEditErr('')
+    setMaterials([])
   }
   async function saveEdit(id: string) {
     if (!editForm) return
@@ -433,6 +466,33 @@ export default function CatalogTab() {
                   <div><label style={lbl}>Labor rate $/hr</label><input style={inp} value={editForm.labor_rate} onChange={(e) => setEditForm({ ...editForm, labor_rate: e.target.value.replace(/[^\d.]/g, '') })} /></div>
                   <div><label style={lbl}>Overhead $</label><input style={inp} value={editForm.overhead} onChange={(e) => setEditForm({ ...editForm, overhead: e.target.value.replace(/[^\d.]/g, '') })} /></div>
                   <div><label style={lbl}>Target margin %</label><input style={inp} value={editForm.target_margin} onChange={(e) => setEditForm({ ...editForm, target_margin: e.target.value.replace(/[^\d.]/g, '') })} /></div>
+                </div>
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--sl-line,#eee)' }}>
+                  <label style={lbl}>Materials (bill of materials)</label>
+                  <p style={{ fontSize: 11, color: 'var(--sl-muted)', margin: '0 0 8px' }}>
+                    What this item consumes per {unitShort(editForm.per_unit, editForm.unit_label)}. Feeds the budget template with real inventory cost instead of the flat Cost $ above.
+                  </p>
+                  {materials.map((m) => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '4px 0' }}>
+                      <span>{m.inventory_items?.name || 'Unknown item'}</span>
+                      <span style={{ color: 'var(--sl-muted)' }}>
+                        {m.qty_per_unit} × {money(m.inventory_items?.unit_cost_cents || 0)} = {money(m.qty_per_unit * (m.inventory_items?.unit_cost_cents || 0))}
+                      </span>
+                      <button type="button" onClick={() => removeMaterial(it.id, m.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Remove</button>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'end' }}>
+                    <div style={{ flex: 1 }}>
+                      <select style={inp} value={materialDraft.inventory_item_id} onChange={(e) => setMaterialDraft({ ...materialDraft, inventory_item_id: e.target.value })}>
+                        <option value="">Select inventory item…</option>
+                        {inventoryItems.map((inv) => <option key={inv.id} value={inv.id}>{inv.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ width: 90 }}>
+                      <input style={inp} type="number" step="0.01" value={materialDraft.qty_per_unit} onChange={(e) => setMaterialDraft({ ...materialDraft, qty_per_unit: e.target.value })} placeholder="Qty" />
+                    </div>
+                    <button type="button" onClick={() => addMaterial(it.id)} style={{ fontSize: 12, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>+ Add</button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                   <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
