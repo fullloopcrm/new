@@ -35,6 +35,12 @@ type ReferralData = {
     paid_via: string | null
     created_at: string
   }[]
+  pendingBookings?: {
+    id: string
+    start_time: string
+    status: string
+    client_name: string | null
+  }[]
   linkStats?: {
     clicks: number
     uniqueVisitors: number
@@ -159,7 +165,7 @@ export default function ReferralDashboardPage() {
     )
   }
 
-  const { referrer, tenant, stats, commissions, linkStats, recentActivity } = data
+  const { referrer, tenant, stats, commissions, linkStats, recentActivity, pendingBookings } = data
   const color = tenant.primary_color || '#0d9488'
   const pendingAmount = referrer.total_earned - referrer.total_paid
 
@@ -329,6 +335,21 @@ export default function ReferralDashboardPage() {
 
         {tab === 'history' && (
           <div>
+            {(pendingBookings || []).length > 0 && (
+              <div className="mb-4 space-y-2">
+                {(pendingBookings || []).map((b) => (
+                  <div key={b.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <div>
+                      <p className="font-medium text-slate-800 text-sm">{b.client_name || 'Client'}</p>
+                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleDateString()}</p>
+                    </div>
+                    <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                      Scheduled — awaiting completion
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {commissions.length === 0 ? (
               <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
                 <p className="text-slate-400">No commissions yet</p>

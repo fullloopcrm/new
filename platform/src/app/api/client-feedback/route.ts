@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import { sendSMS } from '@/lib/nycmaid/sms'
 import { supabaseAdmin } from '@/lib/supabase'
-import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
+import { emailAdmins, smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { matchInboundPhone } from '@/lib/nycmaid/client-contacts'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { escapeHtml } from '@/lib/escape-html'
+import { trackError } from '@/lib/error-tracking'
 
 // Tenant-aware port from nycmaid (originally /api/feedback there — renamed
 // here because /api/feedback in FullLoop is already the unrelated
@@ -37,17 +38,25 @@ export async function POST(request: Request) {
   }
 
   const isAnonymous = !name && !phone
+  // Plain-text version (SMS, subject line) — no HTML escaping needed.
   const identityLine = isAnonymous
     ? 'Anonymous'
     : [name || null, phone || null].filter(Boolean).join(' · ') + (phone ? (sms_consent ? ' (SMS consent given)' : ' (no SMS consent)') : '')
 
+  // HTML-safe version for the email body — name/source are user-controlled
+  // and were previously interpolated unescaped (HTML-injectable into the
+  // admin alert email).
+  const identityLineHtml = isAnonymous
+    ? 'Anonymous'
+    : [name, phone].filter(Boolean).map(escapeHtml).join(' · ') + (phone ? (sms_consent ? ' (SMS consent given)' : ' (no SMS consent)') : '')
+
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
       <h2 style="color: #000; margin: 0 0 16px 0;">Feedback</h2>
-      <p style="color: #666; font-size: 14px; margin: 0 0 4px 0;">From: ${identityLine}</p>
-      <p style="color: #666; font-size: 14px; margin: 0 0 24px 0;">Source: ${source || 'Unknown'}</p>
+      <p style="color: #666; font-size: 14px; margin: 0 0 4px 0;">From: ${identityLineHtml}</p>
+      <p style="color: #666; font-size: 14px; margin: 0 0 24px 0;">Source: ${escapeHtml(source || 'Unknown')}</p>
       <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
-        <p style="color: #000; font-size: 15px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        <p style="color: #000; font-size: 15px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${escapeHtml(message)}</p>
       </div>
       <p style="color: #999; font-size: 12px; margin: 0;">Submitted ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</p>
     </div>
@@ -57,10 +66,10 @@ export async function POST(request: Request) {
     await emailAdmins(`Feedback: ${identityLine}`, html)
 
     const truncated = message.trim().length > 100 ? message.trim().slice(0, 100) + '...' : message.trim()
-    await sendSMS('+12122029220', `The NYC Maid Feedback (${identityLine}): ${truncated}`, {
-      skipConsent: true,
-      smsType: 'feedback_alert',
-    })
+    // Was hardcoded to Jeff's personal number — smsAdmins() pulls the
+    // tenant's own owner_phone (Telegram-first, SMS fallback), consistent
+    // with how emailAdmins() already resolves the recipient.
+    await smsAdmins(`The NYC Maid Feedback (${identityLine}): ${truncated}`)
 
     let linkedClientId: string | null = null
     let category: 'client' | 'anonymous' | 'unmatched' = 'unmatched'
@@ -71,17 +80,26 @@ export async function POST(request: Request) {
       if (match?.client_id) {
         linkedClientId = match.client_id
         category = 'client'
-        await supabaseAdmin.from('yinez_memory').insert({
+        const { error: memErr } = await supabaseAdmin.from('yinez_memory').insert({
           tenant_id: tenant.id,
           client_id: match.client_id,
           type: 'observation',
           content: message.trim().slice(0, 1000),
           source: 'feedback_form',
-        }).then(() => {}, () => {})
+        })
+        // Best-effort — Yinez memory is a nice-to-have enrichment, not the
+        // system-of-record. Log it so a real failure isn't invisible, but
+        // don't fail the request over it.
+        if (memErr) await trackError(memErr, { source: 'api/client-feedback:yinez_memory', tenantId: tenant.id, severity: 'low' })
       }
     }
 
-    await supabaseAdmin.from('client_feedback').insert({
+    // client_feedback IS the system-of-record for this submission — unlike
+    // the memory insert above, a failure here means the feedback is lost
+    // even though the admin alert already fired. Track it as high severity
+    // (not silently swallowed) but still return success to the submitter,
+    // since the alert genuinely did go out.
+    const { error: feedbackErr } = await supabaseAdmin.from('client_feedback').insert({
       tenant_id: tenant.id,
       client_id: linkedClientId,
       campaign_id: null,
@@ -92,7 +110,8 @@ export async function POST(request: Request) {
       category,
       submitted_name: category === 'unmatched' ? (name || null) : null,
       submitted_phone: category === 'unmatched' ? (phone || null) : null,
-    }).then(() => {}, () => {})
+    })
+    if (feedbackErr) await trackError(feedbackErr, { source: 'api/client-feedback:insert', tenantId: tenant.id, severity: 'high' })
 
     return NextResponse.json({ success: true })
   } catch (err) {

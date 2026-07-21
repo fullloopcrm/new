@@ -6,6 +6,9 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS, sendClientEmail } from '@/lib/nycmaid/client-contacts'
 import { generateRenurtureCode, getRenurtureCopy, IMMEDIATE_SAVE_TOUCH, type RenurtureTouch } from '@/lib/nycmaid/renurture'
+import { trackError } from '@/lib/error-tracking'
+
+const POSTGRES_UNIQUE_VIOLATION = '23505'
 
 export interface RenurtureClient {
   id: string
@@ -57,8 +60,11 @@ export async function sendRenurtureTouch(tenantId: string, client: RenurtureClie
   if (channelSent === 'none') return 'no_contact_method'
 
   // Unique constraint on (tenant_id, client_id, touch_key) is the real dedup
-  // guard — swallow a conflict here.
-  await supabaseAdmin.from('renurture_log').insert({
+  // guard — a conflict here is expected and fine to swallow. Any OTHER error
+  // means the touch was actually sent (real SMS/email already fired above)
+  // but the dedup log write failed — left unswallowed, that's a silent path
+  // to re-sending the same touch next run. Track it so it surfaces.
+  const { error: logErr } = await supabaseAdmin.from('renurture_log').insert({
     tenant_id: tenantId,
     client_id: client.id,
     touch_key: touch.key,
@@ -67,7 +73,15 @@ export async function sendRenurtureTouch(tenantId: string, client: RenurtureClie
     channel: channelSent,
     discount_pct: touch.discountPct,
     code,
-  }).then(() => {}, () => {})
+  })
+  if (logErr && logErr.code !== POSTGRES_UNIQUE_VIOLATION) {
+    await trackError(logErr, {
+      source: 'nycmaid/renurture:log_write_failed_after_send',
+      tenantId,
+      severity: 'high',
+      extra: `client=${client.id} touch=${touch.key} — message ALREADY SENT, dedup not recorded`,
+    })
+  }
 
   return 'sent'
 }
