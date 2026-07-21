@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import '../../sales/sales.css'
 
 // Inventory — physical stock (materials, supplies, consumables). Distinct
@@ -118,8 +117,6 @@ export default function InventoryPage() {
 
   return (
     <div className="sl-scope">
-      <Link href="/dashboard/jobs" className="text-xs text-slate-500 hover:underline">← Production</Link>
-
       <div className="sl-section-head" style={{ marginTop: 6 }}>
         <h2 className="sl-section-title">Inventory<em>.</em></h2>
         <span className="sl-section-meta">{items.length} item{items.length === 1 ? '' : 's'}</span>

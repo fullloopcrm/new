@@ -41,6 +41,9 @@ type MaterialRow = {
 }
 
 const TYPES = ['service', 'project', 'product', 'equipment'] as const
+// Display-only relabel: 'service' means labor you perform, so it reads as
+// "Labor" everywhere -- the underlying item_type value stays 'service'.
+const TYPE_LABELS: Record<string, string> = { service: 'Labor', project: 'Project', product: 'Product', equipment: 'Equipment' }
 const UNITS: Array<{ v: string; l: string }> = [
   { v: 'hour', l: 'per hour' },
   { v: 'job', l: 'flat / per job' },
@@ -344,8 +347,8 @@ export default function CatalogTab() {
       {/* ADD FORM */}
       <div style={{ background: 'var(--sl-canvas,#fff)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 12, padding: 14, marginBottom: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div><label style={lbl}>Type <HelpTip text="Service = labor you perform. Project = a larger, multi-visit job. Product = a physical thing you sell." /></label>
-            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select>
+          <div><label style={lbl}>Type <HelpTip text="Labor = work you perform. Project = a larger, multi-visit job. Product = a physical thing you sell. Equipment = a rental/depreciable asset." /></label>
+            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
           </div>
           <div><label style={lbl}>Name <HelpTip text="What shows on the proposal line. Keep it clear and customer-facing." /></label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Deep Clean / Kitchen Remodel / HEPA Filter" /></div>
           <div><label style={lbl}>Category <HelpTip text="Optional grouping (e.g. Add-ons, Materials) to organize the catalog picker." /></label><input style={inp} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Add-ons" /></div>
@@ -425,7 +428,7 @@ export default function CatalogTab() {
                 {editErr && <div style={{ background: '#fdecea', color: '#c0392b', padding: '6px 10px', borderRadius: 8, fontSize: 12, marginBottom: 10 }}>{editErr}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
                   <div><label style={lbl}>Type</label>
-                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select>
+                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
                   </div>
                   <div><label style={lbl}>Name</label><input style={inp} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
                   <div><label style={lbl}>Category</label><input style={inp} value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /></div>
@@ -518,7 +521,7 @@ export default function CatalogTab() {
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.id === dragId ? 0.4 : it.active ? 1 : 0.5, cursor: 'move' }}
             >
               <span title="Drag to reorder" style={{ color: 'var(--sl-muted)', fontSize: 13, letterSpacing: '-1px', cursor: 'grab', userSelect: 'none' }}>⠿</span>
-              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{it.item_type}</span>
+              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{TYPE_LABELS[it.item_type] || it.item_type}</span>
               {it.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', flexShrink: 0 }} />

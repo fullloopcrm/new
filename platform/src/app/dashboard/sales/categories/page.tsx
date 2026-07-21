@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import '../sales.css'
 
 // Categories — the shared tree used by Catalog, Vendors, and Inventory.
@@ -147,8 +146,6 @@ export default function CategoriesPage() {
 
   return (
     <div className="sl-scope">
-      <Link href="/dashboard/sales" className="text-xs text-slate-500 hover:underline">← Sales</Link>
-
       <div className="sl-section-head" style={{ marginTop: 6 }}>
         <h2 className="sl-section-title">Categories<em>.</em></h2>
         <span className="sl-section-meta">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</span>

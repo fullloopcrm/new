@@ -25,7 +25,7 @@ type LineItem = {
   id?: string
   category_id: string | null
   label: string
-  kind: 'labor' | 'materials' | 'other'
+  kind: 'labor' | 'materials' | 'equipment' | 'other'
   budgeted_cents: number
   actual_cents: number
 }
@@ -62,7 +62,7 @@ const STATUS_FILTERS = [
   { v: 'draft', l: 'Draft' },
 ]
 const HIDDEN_BY_DEFAULT = ['declined', 'expired']
-const KIND_LABELS: Record<string, string> = { labor: 'Labor', materials: 'Materials', other: 'Other' }
+const KIND_LABELS: Record<string, string> = { labor: 'Labor', materials: 'Materials', equipment: 'Equipment', other: 'Other' }
 
 function money(cents: number | null | undefined): string {
   return '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')

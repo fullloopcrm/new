@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import HelpTip from '../_components/HelpTip'
+import AddCatalogItemModal, { type NewCatalogItem } from './AddCatalogItemModal'
 
 // Budget Templates — standalone, named, reusable budget packages. Not tied
 // to a quote or customer: build "Basic Lawn Care Package" once (its own
@@ -9,15 +10,30 @@ import HelpTip from '../_components/HelpTip'
 // from the Budgets tab. Distinct from a per-quote budget, which has
 // actuals -- a template never does, it's a costing pattern, not a job.
 
-type LineItem = { id?: string; service_type_id: string | null; category_id: string | null; label: string; kind: 'labor' | 'materials' | 'other'; qty: number; budgeted_cents: number }
+type LineItem = {
+  id?: string
+  service_type_id: string | null
+  category_id: string | null
+  label: string
+  description: string
+  kind: 'labor' | 'materials' | 'equipment' | 'other'
+  labor_cents: number
+  supplies_cents: number
+  budgeted_cents: number
+  margin_bps: number | null
+}
 type Template = { id: string; name: string; description: string | null; target_margin_bps: number | null; active: boolean; budgeted_cents: number }
 type Category = { id: string; name: string }
-type CatalogItem = { id: string; name: string; item_type: string; category_id: string | null; cost_cents: number | null }
+type CatalogItem = { id: string; name: string; description: string | null; item_type: string; category_id: string | null; cost_cents: number | null }
 
-const KIND_LABELS: Record<string, string> = { labor: 'Labor', materials: 'Materials', other: 'Other' }
-// Catalog item_type -> budget line kind, so kind is derived, not hand-picked.
-const KIND_FROM_ITEM_TYPE: Record<string, LineItem['kind']> = { service: 'labor', project: 'labor', product: 'materials', equipment: 'other' }
+const KIND_LABELS: Record<string, string> = { labor: 'Labor', materials: 'Materials', equipment: 'Equipment', other: 'Other' }
+// Catalog item_type -> starting kind guess when a catalog item is picked.
+// A line's real cost split lives in labor_cents/supplies_cents now (a line
+// can carry both at once -- "Paint Living Room" is labor AND materials
+// under one scope) so kind is just a legacy/reporting tag, not hand-picked.
+const KIND_FROM_ITEM_TYPE: Record<string, LineItem['kind']> = { service: 'labor', project: 'labor', product: 'materials', equipment: 'equipment' }
 const ADD_NEW_VALUE = '__add_new__'
+const DEFAULT_MARGIN_BPS = 5000 // 50% -- a sane starting point per line, not zero
 
 function money(cents: number): string {
   return '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
@@ -27,7 +43,18 @@ function toCents(v: string): number {
   return Number.isFinite(n) ? Math.round(n * 100) : 0
 }
 function emptyLine(): LineItem {
-  return { service_type_id: null, category_id: null, label: '', kind: 'other', qty: 1, budgeted_cents: 0 }
+  return { service_type_id: null, category_id: null, label: '', description: '', kind: 'other', labor_cents: 0, supplies_cents: 0, budgeted_cents: 0, margin_bps: DEFAULT_MARGIN_BPS }
+}
+// Whichever cost component is larger drives the legacy kind tag.
+function deriveKind(laborCents: number, suppliesCents: number, fallback: LineItem['kind']): LineItem['kind'] {
+  if (laborCents === 0 && suppliesCents === 0) return fallback
+  return laborCents >= suppliesCents ? 'labor' : 'materials'
+}
+// Sale price = what to charge to hit the line's target gross margin:
+// margin% = (price - cost) / price  =>  price = cost / (1 - margin%).
+function salePriceCents(li: LineItem): number {
+  if (li.margin_bps == null || li.margin_bps >= 10000) return li.budgeted_cents
+  return Math.round(li.budgeted_cents / (1 - li.margin_bps / 10000))
 }
 
 export default function BudgetTemplatesTab() {
@@ -39,8 +66,9 @@ export default function BudgetTemplatesTab() {
   const [creating, setCreating] = useState(false)
   const [err, setErr] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
-  const [form, setForm] = useState<{ name: string; description: string; target_margin: string; line_items: LineItem[] }>({ name: '', description: '', target_margin: '', line_items: [] })
+  const [form, setForm] = useState<{ name: string; description: string; line_items: LineItem[] }>({ name: '', description: '', line_items: [] })
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [addCatalogForIdx, setAddCatalogForIdx] = useState<number | null>(null)
 
   function load() {
     setLoading(true)
@@ -58,27 +86,71 @@ export default function BudgetTemplatesTab() {
 
   function pickCatalogItem(idx: number, serviceTypeId: string) {
     if (serviceTypeId === ADD_NEW_VALUE) {
-      window.open('/dashboard/catalog', '_blank')
+      setAddCatalogForIdx(idx)
       return
     }
     const item = catalogItems.find((i) => i.id === serviceTypeId)
     if (!item) return
+    const li = form.line_items[idx]
+    const kind = KIND_FROM_ITEM_TYPE[item.item_type] || 'other'
+    // A catalog item is typed as either labor OR materials/equipment, never
+    // both -- its own cost only ever seeds a starting default for whichever
+    // field matches its type. The other field stays whatever was already
+    // typed on this line (a labor service can still ride alongside
+    // separately-entered supplies cost on the same scope line).
+    const laborCents = kind === 'labor' ? (item.cost_cents || 0) : li.labor_cents
+    const suppliesCents = kind !== 'labor' ? (item.cost_cents || 0) : li.supplies_cents
+    updateLine(idx, {
+      service_type_id: item.id,
+      label: item.name,
+      description: item.description || '',
+      category_id: item.category_id,
+      kind,
+      labor_cents: laborCents,
+      supplies_cents: suppliesCents,
+      budgeted_cents: laborCents + suppliesCents,
+      margin_bps: li.margin_bps ?? DEFAULT_MARGIN_BPS,
+    })
+  }
+
+  function onCatalogItemCreated(idx: number, item: NewCatalogItem) {
+    setCatalogItems((prev) => [...prev, { id: item.id, name: item.name, description: null, item_type: item.item_type, category_id: item.category_id, cost_cents: item.cost_cents }])
+    setAddCatalogForIdx(null)
+    const li = form.line_items[idx]
+    const kind = KIND_FROM_ITEM_TYPE[item.item_type] || 'other'
+    const laborCents = kind === 'labor' ? (item.cost_cents || 0) : li.labor_cents
+    const suppliesCents = kind !== 'labor' ? (item.cost_cents || 0) : li.supplies_cents
     updateLine(idx, {
       service_type_id: item.id,
       label: item.name,
       category_id: item.category_id,
-      kind: KIND_FROM_ITEM_TYPE[item.item_type] || 'other',
-      qty: 1,
-      budgeted_cents: item.cost_cents || 0,
+      kind,
+      labor_cents: laborCents,
+      supplies_cents: suppliesCents,
+      budgeted_cents: laborCents + suppliesCents,
+      margin_bps: li.margin_bps ?? DEFAULT_MARGIN_BPS,
     })
   }
 
-  function updateQty(idx: number, qtyStr: string) {
-    const qty = Number(qtyStr)
-    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+  function updateLaborRate(idx: number, priceStr: string) {
+    const laborCents = toCents(priceStr)
     const li = form.line_items[idx]
-    const item = li.service_type_id ? catalogItems.find((i) => i.id === li.service_type_id) : null
-    updateLine(idx, { qty: safeQty, budgeted_cents: item ? Math.round((item.cost_cents || 0) * safeQty) : li.budgeted_cents })
+    // Only re-derive kind for lines with no catalog link -- a catalog pick's
+    // kind (esp. equipment) is a real fact from the catalog, not a guess.
+    const kind = li.service_type_id ? li.kind : deriveKind(laborCents, li.supplies_cents, li.kind)
+    updateLine(idx, { labor_cents: laborCents, budgeted_cents: laborCents + li.supplies_cents, kind })
+  }
+
+  function updateSuppliesCost(idx: number, priceStr: string) {
+    const suppliesCents = toCents(priceStr)
+    const li = form.line_items[idx]
+    const kind = li.service_type_id ? li.kind : deriveKind(li.labor_cents, suppliesCents, li.kind)
+    updateLine(idx, { supplies_cents: suppliesCents, budgeted_cents: li.labor_cents + suppliesCents, kind })
+  }
+
+  function updateMargin(idx: number, marginStr: string) {
+    const cleaned = marginStr.replace(/[^\d.]/g, '')
+    updateLine(idx, { margin_bps: cleaned.trim() ? Math.round(Number(cleaned) * 100) : null })
   }
 
   async function createTemplate() {
@@ -110,9 +182,20 @@ export default function BudgetTemplatesTab() {
     setForm({
       name: t?.name || '',
       description: t?.description || '',
-      target_margin: t?.target_margin_bps != null ? String(t.target_margin_bps / 100) : '',
       line_items: t?.line_items?.length ? t.line_items : [emptyLine()],
     })
+  }
+
+  // Overall target margin isn't typed in separately anymore -- it's the
+  // budgeted-$-weighted average of each line's own "margin wanted", so
+  // materials-thin/labor-rich mixes roll up honestly instead of one
+  // guessed blanket number.
+  function weightedTargetMarginBps(lineItems: LineItem[]): number | null {
+    const withMargin = lineItems.filter((li) => li.margin_bps != null && li.budgeted_cents > 0)
+    const totalCost = withMargin.reduce((s, li) => s + li.budgeted_cents, 0)
+    if (!totalCost) return null
+    const weightedSum = withMargin.reduce((s, li) => s + (li.margin_bps as number) * li.budgeted_cents, 0)
+    return Math.round(weightedSum / totalCost)
   }
 
   useEffect(() => {
@@ -132,7 +215,7 @@ export default function BudgetTemplatesTab() {
         body: JSON.stringify({
           name: form.name,
           description: form.description || null,
-          target_margin_bps: form.target_margin.trim() ? Math.round(Number(form.target_margin) * 100) : null,
+          target_margin_bps: weightedTargetMarginBps(form.line_items),
           line_items: form.line_items.filter((li) => li.label.trim()),
         }),
       })
@@ -204,28 +287,37 @@ export default function BudgetTemplatesTab() {
                 </div>
 
                 <div style={{ fontSize: 11, color: 'var(--sl-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  Every line is a real Catalog item — its Kind and Category come from the catalog automatically, so nothing ends up an untracked &quot;Other&quot; a bookkeeper can&apos;t reconcile.
-                  <HelpTip text="Don't see the item you need? Pick '+ Add new item to catalog...' at the top of the list — it opens the Catalog page in a new tab. Add it there, then come back and pick it here." />
+                  Pick a real Catalog item for its Category (ties to your bookkeeping) — then split what this line actually costs you into Labor Rate and Supplies Cost, since one scope of work is often both.
+                  <HelpTip text="Don't see the item you need? Pick '+ Add new item to catalog...' at the top of the list — a popup lets you create it without leaving this page." />
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ flex: '2 1 0', ...label }}>Catalog Item</div>
-                  <div style={{ flex: '1 1 0', ...label }}>Kind</div>
-                  <div style={{ flex: '1.2 1 0', ...label }}>Category</div>
-                  <div style={{ width: 60, ...label }}>Qty</div>
-                  <div style={{ width: 100, ...label }}>Budgeted $</div>
+                  <div style={{ flex: '1.6 1 0', ...label }}>Line Item</div>
+                  <div style={{ flex: '1.3 1 0', ...label }}>Description</div>
+                  <div style={{ width: 90, ...label }}>Labor Rate</div>
+                  <div style={{ width: 90, ...label }}>Supplies Cost</div>
+                  <div style={{ width: 90, ...label }}>Total</div>
+                  <div style={{ width: 90, ...label }}>Margin Wanted</div>
+                  <div style={{ width: 90, ...label }}>Sale Price</div>
                   <div style={{ width: 24 }} />
                 </div>
                 {form.line_items.map((li, idx) => (
-                  <div key={li.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                    <select style={{ ...inp, flex: '2 1 0' }} value={li.service_type_id || ''} onChange={(e) => pickCatalogItem(idx, e.target.value)}>
-                      <option value="">{li.label || 'Select a catalog item…'}</option>
-                      <option value={ADD_NEW_VALUE}>+ Add new item to catalog…</option>
-                      {catalogItems.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <div style={{ ...inp, flex: '1 1 0', background: 'var(--sl-canvas,#fafaf8)', color: 'var(--sl-muted)' }}>{KIND_LABELS[li.kind]}</div>
-                    <div style={{ ...inp, flex: '1.2 1 0', background: 'var(--sl-canvas,#fafaf8)', color: 'var(--sl-muted)' }}>{categories.find((c) => c.id === li.category_id)?.name || 'No category'}</div>
-                    <input style={{ ...inp, width: 60 }} type="number" step="1" min="0" value={li.qty} onChange={(e) => updateQty(idx, e.target.value)} />
-                    <input style={{ ...inp, width: 100 }} value={(li.budgeted_cents / 100).toString()} onChange={(e) => updateLine(idx, { budgeted_cents: toCents(e.target.value) })} placeholder="0" />
+                  <div key={li.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div style={{ flex: '1.6 1 0' }}>
+                      <select style={inp} value={li.service_type_id || ''} onChange={(e) => pickCatalogItem(idx, e.target.value)}>
+                        <option value="">{li.label || 'Select a catalog item…'}</option>
+                        <option value={ADD_NEW_VALUE}>+ Add new item to catalog…</option>
+                        {catalogItems.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <div style={{ fontSize: 10.5, color: 'var(--sl-muted)', marginTop: 3, paddingLeft: 2 }}>
+                        {categories.find((c) => c.id === li.category_id)?.name || 'No category'}
+                      </div>
+                    </div>
+                    <input style={{ ...inp, flex: '1.3 1 0' }} value={li.description} onChange={(e) => updateLine(idx, { description: e.target.value })} placeholder="Optional detail for this line" />
+                    <input style={{ ...inp, width: 90 }} value={(li.labor_cents / 100).toString()} onChange={(e) => updateLaborRate(idx, e.target.value)} placeholder="0" title="What this line costs you in labor" />
+                    <input style={{ ...inp, width: 90 }} value={(li.supplies_cents / 100).toString()} onChange={(e) => updateSuppliesCost(idx, e.target.value)} placeholder="0" title="What this line costs you in materials/supplies/equipment" />
+                    <div style={{ ...inp, width: 90, background: 'var(--sl-canvas,#fafaf8)', color: 'var(--sl-ink)', fontWeight: 600 }}>{money(li.budgeted_cents)}</div>
+                    <input style={{ ...inp, width: 90 }} value={li.margin_bps != null ? (li.margin_bps / 100).toString() : ''} onChange={(e) => updateMargin(idx, e.target.value)} placeholder="%" />
+                    <div style={{ ...inp, width: 90, background: 'var(--sl-canvas,#fafaf8)', color: 'var(--sl-good,#1f4d2c)', fontWeight: 600 }} title="What to charge to hit the margin wanted">{money(salePriceCents(li))}</div>
                     <button type="button" onClick={() => removeLine(idx)} style={{ width: 24, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
                 ))}
@@ -235,8 +327,10 @@ export default function BudgetTemplatesTab() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <label style={label}>Target Gross Margin % <HelpTip text="Gross margin = revenue minus direct job costs (labor, materials, equipment) — not net profit, which also subtracts company overhead. This is the goal shown on the Budgets tab once this template is applied." /></label>
-                    <input style={{ ...inp, width: 140 }} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="e.g. 35" />
+                    <label style={label}>Target Gross Margin (avg) <HelpTip text="The $-weighted average of each line's Margin Wanted — not typed in separately, since a mixed labor/materials package doesn't have one honest blanket number." /></label>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--sl-ink)' }}>
+                      {(() => { const m = weightedTargetMarginBps(form.line_items); return m == null ? '—' : (m / 100).toFixed(1) + '%' })()}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 12, color: 'var(--sl-muted)', marginBottom: 4 }}>Total: <strong style={{ color: 'var(--sl-ink)' }}>{money(formTotal)}</strong></div>
@@ -251,6 +345,14 @@ export default function BudgetTemplatesTab() {
           </div>
         )
       })}
+
+      {addCatalogForIdx !== null && (
+        <AddCatalogItemModal
+          categories={categories}
+          onClose={() => setAddCatalogForIdx(null)}
+          onCreated={(item) => onCatalogItemCreated(addCatalogForIdx, item)}
+        />
+      )}
     </div>
   )
 }

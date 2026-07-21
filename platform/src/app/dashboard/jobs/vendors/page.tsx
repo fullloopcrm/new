@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import '../../sales/sales.css'
 
 // Vendors — a basic directory of suppliers/subcontractors the business orders
@@ -126,8 +125,6 @@ export default function VendorsPage() {
 
   return (
     <div className="sl-scope">
-      <Link href="/dashboard/jobs" className="text-xs text-slate-500 hover:underline">← Production</Link>
-
       <div className="sl-section-head" style={{ marginTop: 6 }}>
         <h2 className="sl-section-title">Vendors<em>.</em></h2>
         <span className="sl-section-meta">{vendors.length} vendor{vendors.length === 1 ? '' : 's'}</span>

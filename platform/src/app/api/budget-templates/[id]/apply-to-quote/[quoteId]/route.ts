@@ -26,7 +26,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: templateLines } = await tenantDb(tenantId)
       .from('budget_template_line_items')
-      .select('service_type_id, category_id, label, kind, qty, budgeted_cents')
+      .select('service_type_id, category_id, label, description, kind, labor_cents, supplies_cents, budgeted_cents, margin_bps')
       .eq('budget_template_id', id)
       .order('sort_order', { ascending: true })
 
@@ -47,10 +47,13 @@ export async function POST(_request: Request, { params }: Params) {
       service_type_id: li.service_type_id,
       category_id: li.category_id,
       label: li.label,
+      description: li.description,
       kind: li.kind,
-      qty: li.qty,
+      labor_cents: li.labor_cents,
+      supplies_cents: li.supplies_cents,
       budgeted_cents: li.budgeted_cents,
       actual_cents: 0,
+      margin_bps: li.margin_bps,
       sort_order: idx,
     }))
     if (rows.length) await tenantDb(tenantId).from('budget_line_items').insert(rows)

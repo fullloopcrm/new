@@ -9,9 +9,19 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 
 type Params = { params: Promise<{ id: string }> }
-type LineItemInput = { service_type_id?: string | null; category_id?: string | null; label?: string; kind?: string; qty?: number; budgeted_cents?: number }
+type LineItemInput = {
+  service_type_id?: string | null
+  category_id?: string | null
+  label?: string
+  description?: string | null
+  kind?: string
+  labor_cents?: number
+  supplies_cents?: number
+  budgeted_cents?: number
+  margin_bps?: number | null
+}
 
-const VALID_KINDS = ['labor', 'materials', 'other']
+const VALID_KINDS = ['labor', 'materials', 'equipment', 'other']
 function centsOrZero(v: unknown): number {
   const n = Number(v)
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0
@@ -33,7 +43,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data: lineItems } = await tenantDb(tenantId)
       .from('budget_template_line_items')
-      .select('id, service_type_id, category_id, label, kind, qty, budgeted_cents, sort_order')
+      .select('id, service_type_id, category_id, label, description, kind, labor_cents, supplies_cents, budgeted_cents, margin_bps, sort_order')
       .eq('budget_template_id', id)
       .order('sort_order', { ascending: true })
 
@@ -78,9 +88,12 @@ export async function PUT(request: Request, { params }: Params) {
         service_type_id: li.service_type_id || null,
         category_id: li.category_id || null,
         label: (li.label || 'Line item').slice(0, 200),
+        description: (li.description || '').slice(0, 500) || null,
         kind: VALID_KINDS.includes(li.kind || '') ? li.kind : 'other',
-        qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
+        labor_cents: centsOrZero(li.labor_cents),
+        supplies_cents: centsOrZero(li.supplies_cents),
         budgeted_cents: centsOrZero(li.budgeted_cents),
+        margin_bps: li.margin_bps != null && li.margin_bps !== ('' as unknown) ? Math.round(Number(li.margin_bps)) : null,
         sort_order: idx,
       }))
       if (rows.length) await tenantDb(tenantId).from('budget_template_line_items').insert(rows)
@@ -88,7 +101,7 @@ export async function PUT(request: Request, { params }: Params) {
 
     const { data: lineItems } = await tenantDb(tenantId)
       .from('budget_template_line_items')
-      .select('id, service_type_id, category_id, label, kind, qty, budgeted_cents, sort_order')
+      .select('id, service_type_id, category_id, label, description, kind, labor_cents, supplies_cents, budgeted_cents, margin_bps, sort_order')
       .eq('budget_template_id', id)
       .order('sort_order', { ascending: true })
 
