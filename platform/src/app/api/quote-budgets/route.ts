@@ -38,7 +38,19 @@ export async function GET(request: Request) {
       : { data: [], error: null }
     if (budgetsErr) throw budgetsErr
 
-    const budgetByQuote = new Map((budgets || []).map((b) => [b.quote_id, b]))
+    const budgetIds = (budgets || []).map((b) => b.id)
+    const { data: lineItems } = budgetIds.length
+      ? await supabaseAdmin.from('budget_line_items').select('quote_budget_id, budgeted_cents, actual_cents').in('quote_budget_id', budgetIds)
+      : { data: [] }
+    const totalsByBudget = new Map<string, { budgeted_cents: number; actual_cents: number }>()
+    for (const li of lineItems || []) {
+      const cur = totalsByBudget.get(li.quote_budget_id) || { budgeted_cents: 0, actual_cents: 0 }
+      totalsByBudget.set(li.quote_budget_id, { budgeted_cents: cur.budgeted_cents + li.budgeted_cents, actual_cents: cur.actual_cents + li.actual_cents })
+    }
+
+    const budgetByQuote = new Map(
+      (budgets || []).map((b) => [b.quote_id, { ...b, ...(totalsByBudget.get(b.id) || { budgeted_cents: 0, actual_cents: 0 }) }]),
+    )
     const rows = (quotes || []).map((qt) => ({ ...qt, budget: budgetByQuote.get(qt.id) || null }))
 
     return NextResponse.json({ quotes: rows })

@@ -138,6 +138,52 @@ export function computeSuggestedBudget(
   }
 }
 
+export type MatchedLineItem = {
+  service_type_id: string
+  labor_cents: number
+  overhead_cents: number
+  has_bom: boolean
+}
+
+/**
+ * Per-matched-item breakdown of the SUGGESTED (not user-edited) labor and
+ * overhead contribution, keyed by service_type_id. Used by "Save as
+ * Template" to figure out each matched catalog item's share of the
+ * aggregate quote_budgets total, so a user-edited aggregate can be scaled
+ * back down to a per-unit rate for each item individually.
+ *
+ * Materials are deliberately excluded here -- an item with a real BOM should
+ * never have its per-unit material cost overwritten by a template guess;
+ * only labor rate and overhead are template-worthy, since materials cost
+ * should always come from actual inventory/vendor pricing when a BOM exists.
+ */
+export function matchLineItemsToServiceTypes(
+  lineItems: QuoteLineItemLike[],
+  serviceTypes: ServiceTypeTemplate[],
+  materialsByServiceType?: MaterialsByServiceType,
+): MatchedLineItem[] {
+  const byName = new Map(serviceTypes.map((s) => [s.name.trim().toLowerCase(), s]))
+  const out: MatchedLineItem[] = []
+
+  for (const li of lineItems) {
+    const key = (li.name || '').trim().toLowerCase()
+    if (!key) continue
+    const svc = byName.get(key)
+    if (!svc || !svc.id) continue
+    const qty = Number(li.quantity) > 0 ? Number(li.quantity) : 1
+
+    const laborCents =
+      svc.default_duration_hours != null && svc.default_labor_rate_cents != null
+        ? Math.round(svc.default_duration_hours * svc.default_labor_rate_cents * qty)
+        : 0
+    const overheadCents = svc.default_overhead_cents != null ? Math.round(svc.default_overhead_cents * qty) : 0
+    const bom = materialsByServiceType?.get(svc.id)
+
+    out.push({ service_type_id: svc.id, labor_cents: laborCents, overhead_cents: overheadCents, has_bom: !!(bom && bom.length) })
+  }
+  return out
+}
+
 /**
  * Seed quote_budgets from the tenant's service_types templates the moment a
  * quote's line items exist -- proposal create (POST /api/quotes) and every
@@ -154,39 +200,38 @@ export async function seedQuoteBudgetFromTemplate(
 ): Promise<void> {
   if (!lineItems?.length) return
   try {
+    // Never clobber -- an existing budget (default or user-edited) is left alone.
+    const { data: existing } = await supabaseAdmin.from('quote_budgets').select('id').eq('tenant_id', tenantId).eq('quote_id', quoteId).maybeSingle()
+    if (existing) return
+
     const { data: serviceTypes } = await supabaseAdmin
       .from('service_types')
-      .select('name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
+      .select('id, name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
       .eq('tenant_id', tenantId)
-    const suggested = computeSuggestedBudget(lineItems, serviceTypes || [])
+    const materialsByServiceType = await fetchMaterialsByServiceType(tenantId, (serviceTypes || []).map((s) => s.id))
+    const suggested = computeSuggestedBudget(lineItems, serviceTypes || [], materialsByServiceType)
     if (!suggested) return
 
-    await supabaseAdmin.from('quote_budgets').upsert(
-      {
-        tenant_id: tenantId,
-        quote_id: quoteId,
-        labor_budget_cents: suggested.labor_budget_cents,
-        materials_budget_cents: suggested.materials_budget_cents,
-        other_budget_cents: suggested.other_budget_cents,
-        target_margin_bps: suggested.target_margin_bps,
-        labor_actual_cents: 0,
-        materials_actual_cents: 0,
-        other_actual_cents: 0,
-      },
-      { onConflict: 'quote_id', ignoreDuplicates: true },
-    )
+    const { data: budget, error } = await supabaseAdmin
+      .from('quote_budgets')
+      .insert({ tenant_id: tenantId, quote_id: quoteId, target_margin_bps: suggested.target_margin_bps })
+      .select('id')
+      .single()
+    if (error || !budget) return
+
+    await supabaseAdmin.from('budget_line_items').insert([
+      { tenant_id: tenantId, quote_budget_id: budget.id, label: 'Labor', kind: 'labor', budgeted_cents: suggested.labor_budget_cents, actual_cents: 0, sort_order: 0 },
+      { tenant_id: tenantId, quote_budget_id: budget.id, label: 'Materials & Supplies', kind: 'materials', budgeted_cents: suggested.materials_budget_cents, actual_cents: 0, sort_order: 1 },
+      { tenant_id: tenantId, quote_budget_id: budget.id, label: 'Other', kind: 'other', budgeted_cents: suggested.other_budget_cents, actual_cents: 0, sort_order: 2 },
+    ])
   } catch (err) {
     console.error('seedQuoteBudgetFromTemplate', err)
   }
 }
 
-export type BudgetTotalsLike = {
-  labor_budget_cents: number
-  materials_budget_cents: number
-  other_budget_cents: number
-  labor_actual_cents: number
-  materials_actual_cents: number
-  other_actual_cents: number
+export type BudgetLineItemLike = {
+  budgeted_cents: number
+  actual_cents: number
 }
 
 export type BudgetVariance = {
@@ -197,9 +242,9 @@ export type BudgetVariance = {
 }
 
 /** Same budgeted/actual/variance/margin math BudgetTab.tsx renders, centralized. */
-export function computeBudgetVariance(budget: BudgetTotalsLike, contractTotalCents: number): BudgetVariance {
-  const budgetedTotalCents = budget.labor_budget_cents + budget.materials_budget_cents + budget.other_budget_cents
-  const actualTotalCents = budget.labor_actual_cents + budget.materials_actual_cents + budget.other_actual_cents
+export function computeBudgetVariance(lineItems: BudgetLineItemLike[], contractTotalCents: number): BudgetVariance {
+  const budgetedTotalCents = lineItems.reduce((sum, li) => sum + li.budgeted_cents, 0)
+  const actualTotalCents = lineItems.reduce((sum, li) => sum + li.actual_cents, 0)
   const varianceCents = budgetedTotalCents - actualTotalCents
   const projectedMarginBps =
     contractTotalCents > 0 ? Math.round(((contractTotalCents - actualTotalCents) / contractTotalCents) * 10000) : null

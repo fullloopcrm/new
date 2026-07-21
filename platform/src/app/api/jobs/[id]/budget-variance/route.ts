@@ -17,15 +17,14 @@
  *     quote_id: string | null,          // null if this job has no source quote
  *     contract_total_cents: number,     // job.total_cents
  *     budget: {                         // null if quote has no saved budget yet
- *       labor_budget_cents, materials_budget_cents, other_budget_cents,
  *       target_margin_bps: number | null,
- *       labor_actual_cents, materials_actual_cents, other_actual_cents,
  *       notes: string | null,
+ *       line_items: [{ id, category_id, label, kind, budgeted_cents, actual_cents, sort_order }],
  *     } | null,
  *     suggested: {                      // template-derived starting point, only
- *       labor_budget_cents, materials_budget_cents, other_budget_cents,   // present when `budget` is null
- *       target_margin_bps: number | null,
+ *       target_margin_bps: number | null,          // present when `budget` is null
  *       matched_item_count: number,
+ *       line_items: [{ label, kind, budgeted_cents, actual_cents, category_id }],
  *     } | null,
  *     variance: {                       // null when there's no budget to compare
  *       budgeted_total_cents, actual_total_cents, variance_cents,
@@ -37,7 +36,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { computeSuggestedBudget, computeBudgetVariance } from '@/lib/budget-template'
+import { computeSuggestedBudget, computeBudgetVariance, fetchMaterialsByServiceType } from '@/lib/budget-template'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -76,27 +75,38 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data: budget } = await supabaseAdmin
       .from('quote_budgets')
-      .select('labor_budget_cents, materials_budget_cents, other_budget_cents, target_margin_bps, labor_actual_cents, materials_actual_cents, other_actual_cents, notes')
+      .select('id, target_margin_bps, notes')
       .eq('tenant_id', tenantId)
       .eq('quote_id', job.quote_id)
       .maybeSingle()
+
+    let lineItems: { budgeted_cents: number; actual_cents: number }[] = []
+    if (budget) {
+      const { data } = await supabaseAdmin
+        .from('budget_line_items')
+        .select('id, category_id, label, kind, budgeted_cents, actual_cents, sort_order')
+        .eq('quote_budget_id', budget.id)
+        .order('sort_order', { ascending: true })
+      lineItems = data || []
+    }
 
     let suggested = null
     if (!budget && quote) {
       const { data: serviceTypes } = await supabaseAdmin
         .from('service_types')
-        .select('name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
+        .select('id, name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
         .eq('tenant_id', tenantId)
-      suggested = computeSuggestedBudget((quote.line_items as { name?: string; quantity?: number }[]) || [], serviceTypes || [])
+      const materialsByServiceType = await fetchMaterialsByServiceType(tenantId, (serviceTypes || []).map((s) => s.id))
+      suggested = computeSuggestedBudget((quote.line_items as { name?: string; quantity?: number }[]) || [], serviceTypes || [], materialsByServiceType)
     }
 
-    const variance = budget ? computeBudgetVariance(budget, job.total_cents) : null
+    const variance = budget ? computeBudgetVariance(lineItems, job.total_cents) : null
 
     return NextResponse.json({
       job_id: job.id,
       quote_id: job.quote_id,
       contract_total_cents: job.total_cents,
-      budget: budget || null,
+      budget: budget ? { ...budget, line_items: lineItems } : null,
       suggested,
       variance,
     })
