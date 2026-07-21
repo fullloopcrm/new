@@ -619,7 +619,7 @@ function SalesPageInner() {
 
                       {/* Ongoing-notes composer — carries through every stage */}
                       <div className="sl-composer">
-                        <span className="sl-action-hint">Log a note, call, text, or email — it's saved to this deal's timeline.</span>
+                        <span className="sl-action-hint">Log a note, call, text, or email — it&apos;s saved to this deal&apos;s timeline.</span>
                         <div className="sl-composer-types">
                           {ACT_TYPES.map((a) => (
                             <button key={a.key} type="button" className={`sl-chan ${composer.type === a.key ? 'active' : ''}`} onClick={() => setComposer((c) => ({ ...c, type: a.key }))}>{a.label}</button>

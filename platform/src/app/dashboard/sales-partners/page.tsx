@@ -186,7 +186,7 @@ export default function SalesPartnersPage() {
               <>
                 <h3 className="font-semibold text-slate-900 mb-2">Partner added</h3>
                 <p className="text-sm text-slate-400 mb-3">
-                  {addResult.warning ? addResult.warning : `Their agreement was emailed to ${addForm.email}.`} They'll be activated automatically once they sign.
+                  {addResult.warning ? addResult.warning : `Their agreement was emailed to ${addForm.email}.`} They&apos;ll be activated automatically once they sign.
                 </p>
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
                   <p className="text-xs text-slate-400 mb-1">Signing link</p>
@@ -206,7 +206,7 @@ export default function SalesPartnersPage() {
                     {Object.entries(TIER_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
-                <p className="text-xs text-slate-400 mb-4">They'll be emailed a Commission Sales Partner Agreement to sign. Their portal login activates automatically once signed.</p>
+                <p className="text-xs text-slate-400 mb-4">They&apos;ll be emailed a Commission Sales Partner Agreement to sign. Their portal login activates automatically once signed.</p>
                 <div className="flex gap-2">
                   <button onClick={closeAddModal} className="flex-1 text-sm border border-slate-200 rounded-lg py-2 font-medium text-slate-400">Cancel</button>
                   <button disabled={addBusy || !addForm.name || !addForm.email} onClick={addPartner} className="flex-1 text-sm bg-teal-600 text-white rounded-lg py-2 font-medium disabled:opacity-50">
