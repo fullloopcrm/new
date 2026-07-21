@@ -450,14 +450,25 @@ function BookingsPage() {
 
   const loadBookings = async () => {
     try {
-      const res = await fetch('/api/bookings?limit=200')
-      if (res.ok) {
+      // API caps at 200/page unless a date range is present (then 1000/page).
+      // This view needs every booking for accurate stat cards and status tabs,
+      // so page through with a wide date range until the reported total is met.
+      const all: Booking[] = []
+      let page = 1
+      let total = Infinity
+      while (all.length < total) {
+        const res = await fetch(`/api/bookings?limit=1000&page=${page}&from=2000-01-01&to=2100-01-01`)
+        if (!res.ok) break
         const json = await res.json()
-        // API returns { bookings, total }; tolerate a bare array too.
         const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
-        list.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-        setBookings(list)
+        total = Array.isArray(json) ? list.length : (json.total ?? list.length)
+        if (list.length === 0) break
+        all.push(...list)
+        if (list.length < 1000) break
+        page += 1
       }
+      all.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+      setBookings(all)
     } catch (e) {
       console.error('loadBookings failed', e)
     } finally {
