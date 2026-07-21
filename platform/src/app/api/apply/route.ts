@@ -29,6 +29,9 @@ interface ApplyBody {
   experience?: string
   availability?: string
   message?: string
+  reference1?: string
+  reference2?: string
+  reference3?: string
   website?: string
   portfolioUrl?: string
   resumeUrl?: string | null
@@ -48,6 +51,9 @@ function buildNotes(body: ApplyBody): string {
   if (body.portfolioFileUrl) lines.push(`Portfolio file: ${body.portfolioFileUrl}`)
   if (body.resumeUrl) lines.push(`Resume: ${body.resumeUrl}`)
   if (body.videoUrl) lines.push(`Video selfie: ${body.videoUrl}`)
+  if (body.reference1) lines.push(`Reference 1: ${body.reference1}`)
+  if (body.reference2) lines.push(`Reference 2: ${body.reference2}`)
+  if (body.reference3) lines.push(`Reference 3: ${body.reference3}`)
   if (body.message) lines.push('', body.message.trim())
   return lines.join('\n').trim()
 }
