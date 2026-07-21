@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import './sales.css'
 import CalendarShell from '../calendar/CalendarShell'
+import CommissionsPanel from './CommissionsPanel'
 
 // The sales process IS the tabs, left→right. Deals move between them via the
 // stage dropdown on each card. Schedule is the calendar. (The Master Catalog is
 // its own page under Sales in the main menu — it lives in proposal creation.)
-type Tab = 'pipeline' | 'leads' | 'qualify' | 'quotes' | 'sales' | 'schedule'
+type Tab = 'pipeline' | 'leads' | 'qualify' | 'quotes' | 'sales' | 'schedule' | 'commissions'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'pipeline', letter: 'A', label: 'Pipeline' },
   { key: 'leads', letter: 'B', label: 'Leads' },
@@ -16,6 +17,7 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'quotes', letter: 'D', label: 'Quotes' },
   { key: 'sales', letter: 'E', label: 'Sales' },
   { key: 'schedule', letter: 'F', label: 'Schedule' },
+  { key: 'commissions', letter: 'G', label: 'Commissions' },
 ]
 // Tips teach the process. It all starts with a Lead and flows left → right.
 const TAB_TIPS: Record<Tab, string> = {
@@ -25,6 +27,7 @@ const TAB_TIPS: Record<Tab, string> = {
   quotes: 'Step 3 — the proposal. Build a real quote (line items + optional deposit) and send it by email + text. When the customer signs, it moves toward Sold.',
   sales: 'Step 4 — the close. Signed proposals land here: Pending (awaiting deposit) or Sold. Instant bookings auto-land here too.',
   schedule: 'Step 5 — put it on the calendar. A sold job opens the schedule window — pick the date and the visit lands on the calendar.',
+  commissions: 'Referral & sales partner payouts. Each commission traces back to the job it came from — expand a row for the same breakdown as booking checkout.',
 }
 
 // Locked stage spine (matches DB + pipeline.ts). Labels are operator-facing.
@@ -37,8 +40,9 @@ const STAGES: Array<{ key: Stage; label: string }> = [
   { key: 'sold', label: 'Sold' },
   { key: 'lost', label: 'Lost' },
 ]
-// Which stage(s) each deal tab shows.
-const TAB_STAGES: Record<Exclude<Tab, 'schedule'>, Stage[]> = {
+// Which stage(s) each deal tab shows. Schedule and Commissions aren't
+// deal-stage tabs — they render their own self-contained panels.
+const TAB_STAGES: Record<Exclude<Tab, 'schedule' | 'commissions'>, Stage[]> = {
   pipeline: ['new', 'qualifying', 'quoted', 'pending', 'sold', 'lost'],
   leads: ['new'],
   qualify: ['qualifying'],
@@ -405,7 +409,7 @@ function SalesPageInner() {
     return map
   }, [deals])
 
-  const stageDeals = tab === 'schedule' ? [] : TAB_STAGES[tab].flatMap((s) => byStage.get(s) || []).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+  const stageDeals = tab === 'schedule' || tab === 'commissions' ? [] : TAB_STAGES[tab].flatMap((s) => byStage.get(s) || []).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
   const stageTotal = stageDeals.reduce((sum, d) => sum + d.value_cents, 0)
   const activeLabel = TABS.find((t) => t.key === tab)?.label ?? ''
 
@@ -413,7 +417,7 @@ function SalesPageInner() {
     <div className="sl-scope">
       <div className="sl-tabs">
         {TABS.map((t) => {
-          const count = t.key === 'schedule' ? 0 : TAB_STAGES[t.key].flatMap((s) => byStage.get(s) || []).length
+          const count = t.key === 'schedule' || t.key === 'commissions' ? 0 : TAB_STAGES[t.key].flatMap((s) => byStage.get(s) || []).length
           return (
             <button key={t.key} className={`sl-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
               <span className="sl-tab-letter">{t.letter}</span>
@@ -430,8 +434,9 @@ function SalesPageInner() {
       </div>
 
       {tab === 'schedule' && <CalendarShell />}
+      {tab === 'commissions' && <CommissionsPanel />}
 
-      {tab !== 'schedule' && (
+      {tab !== 'schedule' && tab !== 'commissions' && (
         <>
           <div className="sl-section-head">
             <h2 className="sl-section-title">{activeLabel}<em>.</em></h2>
