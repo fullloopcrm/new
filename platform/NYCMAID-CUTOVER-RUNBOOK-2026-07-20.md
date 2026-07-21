@@ -5,8 +5,8 @@
 Goal: everything below is prep so the actual flip takes minutes, not hours. Read this section top to bottom once before starting — don't discover a step mid-flip.
 
 **Before starting — confirm all green:**
-- [ ] PR #19 (with #20 merged in) is merged to `main` with `[deploy]` in the commit message, and the Vercel deploy for FL production shows Ready (not just "merged" — the `[deploy]` tag gate means a plain merge without it silently never builds).
-- [ ] Post-deploy smoke test passed on REAL FL production (not localhost) — see checklist below.
+- [x] PR #19 (with #20 merged in) is merged to `main` with `[deploy]` — merge commit `2c667182`, 2026-07-21 08:46 ET. Vercel production deploy confirmed **Ready** (`fullloopcrm-kpnztcsrl-...`, includes `nycmaid.fullloopcrm.com` in its aliases).
+- [x] Post-deploy smoke test passed on REAL FL production (not localhost) — see results below.
 - [ ] You've decided: repoint voice to FL's handler tonight too, or leave (212) 202-8400 on "Forward Only" (default: leave it, zero risk, can upgrade later).
 
 **The flip itself (staged, each step reversible on its own):**
@@ -21,13 +21,14 @@ Goal: everything below is prep so the actual flip takes minutes, not hours. Read
 
 **Rollback, if anything goes red after step 2:** move the domain back to the standalone Vercel project, restore Telnyx SMS webhooks to the singular `/api/webhook/telnyx` URL, restore Stripe's webhook to whatever step 4 replaced. Telegram needs NO rollback action (still points at FL either way — see gate 9 above, this is the one thing already flipped and staying flipped is fine). Target: under 5 minutes since nothing here is DNS-propagation-dependent (all Vercel/API-level, not nameserver changes).
 
-**Post-deploy smoke test (before touching any live traffic — do this against the real FL deployment URL, not localhost):**
-- [ ] `/book/new` on the FL nycmaid tenant creates a real test booking, correct pricing.
-- [ ] Client portal PIN login works, bookings API returns data.
-- [ ] Team portal PIN login works, jobs/earnings APIs return data.
-- [ ] `/dashboard/calendar` loads real data for an admin session.
-- [ ] `duplicate-schedule-audit` and existing crons fire without error (check Vercel cron logs post-deploy).
-- [ ] Clean up any test bookings/clients created during the smoke test.
+**Post-deploy smoke test — run against `nycmaid.fullloopcrm.com` (real production), 2026-07-21 ~09:03 ET:**
+- [x] `POST /api/client/book` on real production created a real booking — correct tenant, correct pricing ($69/hr × 2hr = $138), correct self-book promo note.
+- [x] Client portal PIN login — 200, real session.
+- [x] Team portal PIN login (Natalya Kondratyeva's real PIN) — 200, real session token.
+- [x] Test booking + client + property cleaned up after — verified 0 orphaned rows.
+- [ ] `/dashboard/calendar` — not re-checked against THIS prod deploy specifically (was verified earlier tonight against local dev with the same code; not re-run post-deploy).
+- [ ] Cron logs — not checked; too soon after deploy for any cron to have fired yet.
+- **1 error surfaced, likely benign, not fully root-caused:** a "Booking email error" notification fired for the test booking. Almost certainly Resend rejecting my test's deliberately-fake `@example.com` address (a real client's email would use a real domain) — but the actual error string only goes to `console.error`, not persisted anywhere I could query, so I could not 100% confirm the cause. Tried to pull Vercel function logs to check; the command hung and was stopped rather than left running indefinitely. Worth a real customer booking (or you checking Vercel's live function logs directly) to fully close this out — not blocking, but not 100% verified either.
 
 ---
 
