@@ -54,6 +54,7 @@ export async function GET() {
     { path: '/reviews/submit', freq: 'monthly', pri: '0.7' },
     { path: '/available-nyc-maid-jobs', freq: 'daily', pri: '0.8' },
     { path: '/careers/operations-coordinator', freq: 'daily', pri: '0.8' },
+    { path: '/careers/commission-sales-partner', freq: 'daily', pri: '0.8' },
     { path: '/nyc-maid-service-blog', freq: 'weekly', pri: '0.7' },
     { path: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid', freq: 'weekly', pri: '0.7' },
     { path: '/service/nyc-emergency-cleaning-service', freq: 'monthly', pri: '0.7' },
@@ -125,6 +126,18 @@ export async function GET() {
       changefreq: 'daily',
       priority: '0.8',
       images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — hiring in ${n.name}`, caption: `Now hiring in ${n.name}` }],
+    })
+  }
+
+  // Neighborhood sales partner job pages
+  for (const n of ALL_NEIGHBORHOODS) {
+    const photo = pickTeamPhoto(n.slug)
+    urls.push({
+      loc: `${BASE_URL}/careers/commission-sales-partner/${n.slug}`,
+      lastmod: now,
+      changefreq: 'daily',
+      priority: '0.8',
+      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — sales jobs in ${n.name}`, caption: `Now hiring sales partners in ${n.name}` }],
     })
   }
 
