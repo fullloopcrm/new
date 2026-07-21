@@ -1,5 +1,36 @@
 # NYC Maid → FullLoop cutover runbook — 2026-07-20 (CURRENT, supersedes 2026-07-10 version)
 
+## ⚡ THE FLIP — execute-ready checklist for tonight (target: 12hr window from 8:30am 07-21)
+
+Goal: everything below is prep so the actual flip takes minutes, not hours. Read this section top to bottom once before starting — don't discover a step mid-flip.
+
+**Before starting — confirm all green:**
+- [ ] PR #19 (with #20 merged in) is merged to `main` with `[deploy]` in the commit message, and the Vercel deploy for FL production shows Ready (not just "merged" — the `[deploy]` tag gate means a plain merge without it silently never builds).
+- [ ] Post-deploy smoke test passed on REAL FL production (not localhost) — see checklist below.
+- [ ] You've decided: repoint voice to FL's handler tonight too, or leave (212) 202-8400 on "Forward Only" (default: leave it, zero risk, can upgrade later).
+
+**The flip itself (staged, each step reversible on its own):**
+1. **Me — final delta-sync.** Standalone → FL DB, same script/method used all night. Takes seconds; run it right before step 2 so the gap is as small as possible.
+2. **You — move the domain.** Vercel → add `thenycmaid.com` + `www` to the FL project. Add-to-new pattern — do NOT `domains rm` from the standalone project first (that's how you'd get real downtime if anything goes wrong).
+3. **You — repoint Telnyx SMS.** Both messaging profiles ("NYC Maid SMS" `40019c00-6cca-4d57-89a3-a5ec9169637b`, "The NYC Maid TF" `40019c00-a8a6-4e8f-adc1-eb4582f0de8a`) — webhook URL from `www.thenycmaid.com/api/webhook/telnyx` (singular) → `www.thenycmaid.com/api/webhooks/telnyx` (plural). Miss the singular/plural and SMS goes dark even after the domain flips.
+4. **You — repoint Stripe.** Stripe dashboard → webhook endpoint → same Stripe account, point it at `www.thenycmaid.com/api/webhooks/stripe`. (This is the one gate I couldn't pre-verify — the code-side signature check is confirmed working, but I never saw Stripe's actual dashboard registration.)
+5. **Telegram — NOTHING TO DO.** Already pointed at FL (`fullloopcrm.com/api/webhooks/telegram/nycmaid`), confirmed tonight. Skip this step — it's the one webhook that's already flipped.
+6. **You — disable standalone crons** (or Jeff pauses the standalone Vercel project's cron execution) so both systems don't double-fire SMS/reminders/payments during any overlap.
+7. **Me — live smoke test.** Real (or near-real) booking through the now-live domain, confirm Telnyx SMS round-trips, confirm portals load on the real domain.
+8. **Only once 1–7 are green — arm renurture + wire `sendImmediateSaveIfLapsed`** (add renurture's cron schedule back to `vercel.json`, redeploy `[deploy]`). Do this LAST and deliberately — it's the one step that starts sending real automated texts to real customers.
+
+**Rollback, if anything goes red after step 2:** move the domain back to the standalone Vercel project, restore Telnyx SMS webhooks to the singular `/api/webhook/telnyx` URL, restore Stripe's webhook to whatever step 4 replaced. Telegram needs NO rollback action (still points at FL either way — see gate 9 above, this is the one thing already flipped and staying flipped is fine). Target: under 5 minutes since nothing here is DNS-propagation-dependent (all Vercel/API-level, not nameserver changes).
+
+**Post-deploy smoke test (before touching any live traffic — do this against the real FL deployment URL, not localhost):**
+- [ ] `/book/new` on the FL nycmaid tenant creates a real test booking, correct pricing.
+- [ ] Client portal PIN login works, bookings API returns data.
+- [ ] Team portal PIN login works, jobs/earnings APIs return data.
+- [ ] `/dashboard/calendar` loads real data for an admin session.
+- [ ] `duplicate-schedule-audit` and existing crons fire without error (check Vercel cron logs post-deploy).
+- [ ] Clean up any test bookings/clients created during the smoke test.
+
+---
+
 **Constraint: ZERO downtime. NYC Maid is a live revenue business. We flip only on green gates, with instant rollback staged.**
 
 This is a refresh of `NYCMAID-CUTOVER-RUNBOOK-2026-07-10.md`, not a rewrite — the 07-10 gates were re-verified fresh tonight where possible, and two NEW blocking gates were found that the 07-10 version didn't know about (voice, deploy status). The cutover was paused 07-15 ("forget cutover, work in ind build only") and revived 07-20.
