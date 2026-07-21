@@ -63,6 +63,32 @@ export async function GET(request: Request) {
     .select('id, name, referral_code, total_earned, status')
     .eq('recruited_by_sales_partner_id', partner.id)
 
+  // Booked-but-not-yet-completed jobs — not commissions yet (those only fire
+  // on completion, see /api/team-portal/checkout), but real pipeline the
+  // partner should see instead of a silent gap. Keyed off the booking's own
+  // sales_partner_id/referrer_id snapshot, same as commission creation, so
+  // this always matches what will actually earn.
+  type PendingDirectBooking = { id: string; start_time: string; status: string; clients: { name: string | null } | null }
+  type PendingOverrideBooking = { id: string; start_time: string; status: string; clients: { name: string | null } | null; referrers: { name: string | null } | null }
+
+  const recruitedIds = (recruited || []).map((r) => r.id)
+  const [{ data: pendingDirect }, { data: pendingOverride }] = await Promise.all([
+    supabaseAdmin
+      .from('bookings')
+      .select('id, start_time, status, clients(name)')
+      .eq('sales_partner_id', partner.id)
+      .not('status', 'in', '(completed,cancelled)')
+      .order('start_time', { ascending: true }) as unknown as Promise<{ data: PendingDirectBooking[] | null }>,
+    recruitedIds.length > 0
+      ? (supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, status, clients(name), referrers(name)')
+          .in('referrer_id', recruitedIds)
+          .not('status', 'in', '(completed,cancelled)')
+          .order('start_time', { ascending: true }) as unknown as Promise<{ data: PendingOverrideBooking[] | null }>)
+      : Promise.resolve({ data: [] as PendingOverrideBooking[] }),
+  ])
+
   const rawRate = Number(partner.commission_rate) || 0
   const ratePercent = rawRate > 0 && rawRate <= 1 ? Math.round(rawRate * 100) : Math.round(rawRate)
 
@@ -103,6 +129,19 @@ export async function GET(request: Request) {
       created_at: c.created_at,
     })),
     recruited_referrers: recruited || [],
+    pendingDirectBookings: (pendingDirect || []).map((b) => ({
+      id: b.id,
+      start_time: b.start_time,
+      status: b.status,
+      client_name: b.clients?.name || null,
+    })),
+    pendingOverrideBookings: (pendingOverride || []).map((b) => ({
+      id: b.id,
+      start_time: b.start_time,
+      status: b.status,
+      client_name: b.clients?.name || null,
+      referrer_name: b.referrers?.name || null,
+    })),
   })
 }
 

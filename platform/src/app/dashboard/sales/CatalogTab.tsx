@@ -382,7 +382,7 @@ export default function CatalogTab() {
       <div>
         {loading && <div className="sl-empty">Loading…</div>}
         {!loading && items.length === 0 && <div className="sl-empty">No items yet — add your first above.</div>}
-        {!loading && items.length > 0 && filteredItems.length === 0 && <div className="sl-empty">No items match "{query}".</div>}
+        {!loading && items.length > 0 && filteredItems.length === 0 && <div className="sl-empty">No items match &quot;{query}&quot;.</div>}
         {filteredItems.map((it) => {
           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
 

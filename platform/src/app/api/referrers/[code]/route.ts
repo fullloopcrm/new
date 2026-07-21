@@ -79,6 +79,29 @@ export async function GET(
     commissions = []
   }
 
+  // Booked-but-not-yet-completed jobs — not a commission yet (that only fires
+  // on completion, see /api/team-portal/checkout), but real pipeline the
+  // referrer should see instead of a silent gap where a freshly booked job
+  // is invisible until the cleaning happens. Keyed off bookings.referrer_id,
+  // the same snapshot commission creation uses.
+  let pendingBookings: { id: string; start_time: string; status: string; client_name: string | null }[] = []
+  try {
+    const { data } = (await db
+      .from('bookings')
+      .select('id, start_time, status, clients(name)')
+      .eq('referrer_id', referrer.id)
+      .not('status', 'in', '(completed,cancelled)')
+      .order('start_time', { ascending: true })) as { data: { id: string; start_time: string; status: string; clients: { name: string | null } | null }[] | null }
+    pendingBookings = (data || []).map((b) => ({
+      id: b.id,
+      start_time: b.start_time,
+      status: b.status,
+      client_name: b.clients?.name || null,
+    }))
+  } catch {
+    pendingBookings = []
+  }
+
   // commission_rate is stored as a fraction (0.10); the UI shows a whole percent.
   const rawRate = Number(referrer.commission_rate) || 0
   const ratePercent = rawRate > 0 && rawRate <= 1 ? Math.round(rawRate * 100) : Math.round(rawRate)
@@ -109,5 +132,6 @@ export async function GET(
       total_pending: (referrer.total_earned || 0) - (referrer.total_paid || 0),
     },
     commissions,
+    pendingBookings,
   })
 }

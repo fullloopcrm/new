@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { notifyOwnerOnTelegram } from '@/lib/telegram'
 import { sendSMS } from '@/lib/nycmaid/sms'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 interface AdminContact {
   email: string
@@ -11,22 +12,24 @@ interface AdminContact {
 }
 
 /**
- * Get all active admin users, optionally filtered by role.
- * Default: returns owner + admin roles (the people who need ops notifications).
+ * Get all active admin (owner) contacts for the nycmaid tenant.
+ * FullLoop has no `admin_users` table (that was ind-build-only) — the
+ * equivalent here is the tenant row's own owner_email/owner_phone/owner_name
+ * columns. Only one "admin" in this model: the tenant owner.
  */
-export async function getAdminContacts(roles: string[] = ['owner', 'admin']): Promise<AdminContact[]> {
+export async function getAdminContacts(_roles: string[] = ['owner', 'admin']): Promise<AdminContact[]> {
   const { data, error } = await supabaseAdmin
-    .from('admin_users')
-    .select('email, phone, name, role')
-    .in('role', roles)
-    .eq('status', 'active')
+    .from('tenants')
+    .select('owner_email, owner_phone, owner_name')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
 
-  if (error) {
-    console.error('getAdminContacts error:', error)
+  if (error || !data?.owner_email) {
+    if (error) console.error('getAdminContacts error:', error)
     return []
   }
 
-  return data || []
+  return [{ email: data.owner_email, phone: data.owner_phone, name: data.owner_name || 'Owner', role: 'owner' }]
 }
 
 /**
