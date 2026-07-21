@@ -1,8 +1,14 @@
 /**
- * Master Budget for a single quote — get / upsert. One budget row per quote
+ * Budgets — get / upsert a single quote's budget. One budget row per quote
  * (quote_budgets.quote_id is unique); jobs.quote_id links a converted job
  * back to the same quote, so this budget carries forward once the quote
  * converts — no separate per-job row.
+ *
+ * A quote's budget is ALWAYS populated by applying a saved Budget Template
+ * (see /api/budget-templates/[id]/apply-to-quote/[quoteId]) -- there is no
+ * ad-hoc/blank creation and no auto-derived suggestion from catalog
+ * defaults here; this route only gets/saves whatever line items already
+ * exist on the budget.
  *
  * Budget line items (see 2026_07_21_budget_line_items.sql) are an open list
  * instead of 3 fixed labor/materials/other columns, each optionally tagged
@@ -14,14 +20,15 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { computeSuggestedBudget, fetchMaterialsByServiceType } from '@/lib/budget-template'
 
 type Params = { params: Promise<{ quoteId: string }> }
 
 type LineItemInput = {
+  service_type_id?: string | null
   category_id?: string | null
   label?: string
   kind?: string
+  qty?: number
   budgeted_cents?: number
   actual_cents?: number
 }
@@ -41,7 +48,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('id, quote_number, title, status, total_cents, line_items, client_id, clients(id, name)')
+      .select('id, quote_number, title, status, total_cents, client_id, clients(id, name)')
       .eq('tenant_id', tenantId)
       .eq('id', quoteId)
       .single()
@@ -58,39 +65,13 @@ export async function GET(_request: Request, { params }: Params) {
     if (budget) {
       const { data: lineItems } = await supabaseAdmin
         .from('budget_line_items')
-        .select('id, category_id, label, kind, budgeted_cents, actual_cents, sort_order')
+        .select('id, service_type_id, category_id, label, kind, qty, budgeted_cents, actual_cents, sort_order')
         .eq('quote_budget_id', budget.id)
         .order('sort_order', { ascending: true })
       budgetWithLines = { ...budget, line_items: lineItems || [] }
     }
 
-    // No budget set yet -- offer a suggested starting point derived from the
-    // tenant's per-service-type budget templates (see
-    // 2026_07_18_service_types_budget_defaults.sql), so the form pre-fills
-    // instead of starting blank. Only computed when there's nothing to
-    // override yet; an existing budget is never silently replaced.
-    let suggested = null
-    if (!budget) {
-      const { data: serviceTypes } = await supabaseAdmin
-        .from('service_types')
-        .select('id, name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
-        .eq('tenant_id', tenantId)
-      const materialsByServiceType = await fetchMaterialsByServiceType(tenantId, (serviceTypes || []).map((s) => s.id))
-      const s = computeSuggestedBudget((quote.line_items as { name?: string; quantity?: number }[]) || [], serviceTypes || [], materialsByServiceType)
-      if (s) {
-        suggested = {
-          target_margin_bps: s.target_margin_bps,
-          matched_item_count: s.matched_item_count,
-          line_items: [
-            { label: 'Labor', kind: 'labor', budgeted_cents: s.labor_budget_cents, actual_cents: 0, category_id: null },
-            { label: 'Materials & Supplies', kind: 'materials', budgeted_cents: s.materials_budget_cents, actual_cents: 0, category_id: null },
-            { label: 'Other', kind: 'other', budgeted_cents: s.other_budget_cents, actual_cents: 0, category_id: null },
-          ],
-        }
-      }
-    }
-
-    return NextResponse.json({ quote, budget: budgetWithLines, suggested })
+    return NextResponse.json({ quote, budget: budgetWithLines })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('GET /api/quote-budgets/[quoteId]', err)
@@ -141,9 +122,11 @@ export async function PUT(request: Request, { params }: Params) {
       const rows = inputLines.map((li, idx) => ({
         tenant_id: tenantId,
         quote_budget_id: budget.id,
+        service_type_id: li.service_type_id || null,
         category_id: li.category_id || null,
         label: (li.label || 'Line item').slice(0, 200),
         kind: VALID_KINDS.includes(li.kind || '') ? li.kind : 'other',
+        qty: Number(li.qty) > 0 ? Number(li.qty) : 1,
         budgeted_cents: centsOrZero(li.budgeted_cents),
         actual_cents: centsOrZero(li.actual_cents),
         sort_order: idx,
@@ -153,7 +136,7 @@ export async function PUT(request: Request, { params }: Params) {
 
     const { data: lineItems } = await supabaseAdmin
       .from('budget_line_items')
-      .select('id, category_id, label, kind, budgeted_cents, actual_cents, sort_order')
+      .select('id, service_type_id, category_id, label, kind, qty, budgeted_cents, actual_cents, sort_order')
       .eq('quote_budget_id', budget.id)
       .order('sort_order', { ascending: true })
 

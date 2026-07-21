@@ -390,7 +390,7 @@ export default function CatalogTab() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 10 }}>
           <div><label style={lbl}>Labor rate $/hr <HelpTip text="Internal labor cost per hour for this item. Combined with Est. hrs to suggest a labor budget on new quotes. Optional." /></label><input style={inp} value={form.labor_rate} onChange={(e) => setForm({ ...form, labor_rate: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
           <div><label style={lbl}>Overhead $ <HelpTip text="Flat per-unit overhead — equipment, permits, subcontractor markup, etc. Used to suggest a quote budget. Optional." /></label><input style={inp} value={form.overhead} onChange={(e) => setForm({ ...form, overhead: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
-          <div><label style={lbl}>Target margin % <HelpTip text="Usual target margin for this item, used to pre-fill Master Budget on new quotes built from it. Optional." /></label><input style={inp} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+          <div><label style={lbl}>Target margin % <HelpTip text="Usual target margin for this item, used to pre-fill the Budgets suggestion on new quotes built from it. Optional." /></label><input style={inp} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>

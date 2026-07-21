@@ -34,7 +34,7 @@ const TENANT_TABLES = new Set([
   // (auto-derived from the schema; keep in sync when tables are added).
   'accounting_periods','admin_tasks','ai_usage','audit_log','audit_logs',
   'bank_accounts','bank_import_batches','bank_statements','bank_transactions','blocked_referrers',
-  'booking_notes','booking_team_members','bookings','budget_line_items','campaign_recipients','campaigns',
+  'booking_notes','booking_team_members','bookings','budget_line_items','budget_template_line_items','budget_templates','campaign_recipients','campaigns',
   'catalog_item_materials','categories','categorization_patterns','chart_of_accounts','cleaner_applications','cleaner_broadcast_recipients','cleaner_broadcasts',
   'client_contacts','client_properties',
   'client_referral_stats','client_reviews','client_sms_messages','clients','comhub_active_calls',

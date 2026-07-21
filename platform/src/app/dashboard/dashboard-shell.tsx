@@ -50,7 +50,7 @@ const navMain: Array<{
   { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
   { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Services Catalog', href: '/dashboard/catalog' },
-    { letter: 'B', label: 'Master Budget', href: '/dashboard/sales/budget' },
+    { letter: 'B', label: 'Budgets', href: '/dashboard/sales/budget' },
     { letter: 'C', label: 'Categories', href: '/dashboard/sales/categories' },
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [

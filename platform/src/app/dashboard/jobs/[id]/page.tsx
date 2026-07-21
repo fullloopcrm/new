@@ -36,7 +36,7 @@ type Session = {
 }
 type EventRow = { id: string; event_type: string; created_at: string }
 type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
-/** From GET /api/jobs/[id]/budget-variance -- variance is null when the job's quote has no saved Master Budget yet. */
+/** From GET /api/jobs/[id]/budget-variance -- variance is null when the job's quote has no saved budget yet. */
 type BudgetVariance = {
   variance: { budgeted_total_cents: number; actual_total_cents: number; variance_cents: number; projected_margin_bps: number | null } | null
 }
@@ -634,7 +634,7 @@ export default function JobDetailPage() {
   }, [job])
   useEffect(() => {
     // sales.view-gated, and null (not an error) until the job's quote has a
-    // saved Master Budget -- section below hides itself in either case.
+    // saved budget -- section below hides itself in either case.
     fetch(`/api/jobs/${id}/budget-variance`).then(r => r.json()).then((d: BudgetVariance) => setBudgetVariance(d.variance || null)).catch(() => {})
   }, [id])
 
@@ -1119,7 +1119,7 @@ export default function JobDetailPage() {
             <h2 className="text-sm font-semibold text-slate-800 mb-3">Budget vs. actual</h2>
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-slate-500">Budgeted</span><span className="text-slate-800">{money(budgetVariance.budgeted_total_cents)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Actual (Master Budget)</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Actual (Budget)</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Receipts logged</span><span className="text-slate-800">{money(costCents)}</span></div>
               <div className="flex justify-between pt-1.5 border-t border-slate-100">
                 <span className="text-slate-500">Variance</span>

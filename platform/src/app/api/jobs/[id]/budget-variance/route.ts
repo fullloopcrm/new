@@ -1,10 +1,15 @@
 /**
- * Budget vs. actuals for a single job, via its source quote's Master Budget
- * (see quote_budgets / /api/quote-budgets). Read-only. Built for the job
- * detail page (W2's lane) to wire in without duplicating this schema or the
+ * Budget vs. actuals for a single job, via its source quote's budget (see
+ * quote_budgets / /api/quote-budgets). Read-only. Built for the job detail
+ * page (W2's lane) to wire in without duplicating this schema or the
  * variance math -- this route + src/lib/budget-template.ts are the shared
  * contract; the job detail page should call this endpoint rather than
- * querying quote_budgets/service_types itself.
+ * querying quote_budgets itself.
+ *
+ * A quote's budget is always populated by applying a saved Budget Template
+ * (see /api/budget-templates/[id]/apply-to-quote/[quoteId]) -- there is no
+ * catalog-derived suggestion here; `budget` is simply null until one has
+ * been applied.
  *
  * Gated on `sales.view` (matches /api/quote-budgets) since this surfaces
  * internal cost/margin data, not just scheduling info -- a caller without
@@ -21,11 +26,6 @@
  *       notes: string | null,
  *       line_items: [{ id, category_id, label, kind, budgeted_cents, actual_cents, sort_order }],
  *     } | null,
- *     suggested: {                      // template-derived starting point, only
- *       target_margin_bps: number | null,          // present when `budget` is null
- *       matched_item_count: number,
- *       line_items: [{ label, kind, budgeted_cents, actual_cents, category_id }],
- *     } | null,
  *     variance: {                       // null when there's no budget to compare
  *       budgeted_total_cents, actual_total_cents, variance_cents,
  *       projected_margin_bps: number | null,   // vs. contract_total_cents
@@ -36,7 +36,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { computeSuggestedBudget, computeBudgetVariance, fetchMaterialsByServiceType } from '@/lib/budget-template'
+import { computeBudgetVariance } from '@/lib/budget-template'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -61,17 +61,9 @@ export async function GET(_request: Request, { params }: Params) {
         quote_id: null,
         contract_total_cents: job.total_cents,
         budget: null,
-        suggested: null,
         variance: null,
       })
     }
-
-    const { data: quote } = await supabaseAdmin
-      .from('quotes')
-      .select('id, line_items')
-      .eq('tenant_id', tenantId)
-      .eq('id', job.quote_id)
-      .maybeSingle()
 
     const { data: budget } = await supabaseAdmin
       .from('quote_budgets')
@@ -90,16 +82,6 @@ export async function GET(_request: Request, { params }: Params) {
       lineItems = data || []
     }
 
-    let suggested = null
-    if (!budget && quote) {
-      const { data: serviceTypes } = await supabaseAdmin
-        .from('service_types')
-        .select('id, name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
-        .eq('tenant_id', tenantId)
-      const materialsByServiceType = await fetchMaterialsByServiceType(tenantId, (serviceTypes || []).map((s) => s.id))
-      suggested = computeSuggestedBudget((quote.line_items as { name?: string; quantity?: number }[]) || [], serviceTypes || [], materialsByServiceType)
-    }
-
     const variance = budget ? computeBudgetVariance(lineItems, job.total_cents) : null
 
     return NextResponse.json({
@@ -107,7 +89,6 @@ export async function GET(_request: Request, { params }: Params) {
       quote_id: job.quote_id,
       contract_total_cents: job.total_cents,
       budget: budget ? { ...budget, line_items: lineItems } : null,
-      suggested,
       variance,
     })
   } catch (err) {

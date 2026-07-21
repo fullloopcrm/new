@@ -335,7 +335,7 @@ export default async function middleware(req: NextRequest) {
           // /api/quote-budgets was never added here either -- Master Budget
           // has likely been unreachable for admin/impersonation sessions
           // since it was built (same gap class as vendors/booking-notes).
-          p.startsWith('/api/quote-budgets') ||
+          p.startsWith('/api/quote-budgets') || p.startsWith('/api/budget-templates') ||
           p.startsWith('/api/tenant/public')) {
         return
       }
