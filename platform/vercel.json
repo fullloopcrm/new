@@ -175,10 +175,6 @@
     {
       "path": "/api/cron/duplicate-schedule-audit",
       "schedule": "30 5 * * *"
-    },
-    {
-      "path": "/api/cron/renurture",
-      "schedule": "0 15 * * 2"
     }
   ]
 }
