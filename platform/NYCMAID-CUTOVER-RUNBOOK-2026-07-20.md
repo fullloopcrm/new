@@ -27,6 +27,14 @@ This is a refresh of `NYCMAID-CUTOVER-RUNBOOK-2026-07-10.md`, not a rewrite — 
 - `sendImmediateSaveIfLapsed()` — built, not wired into the pause/cancel routes. Same reasoning — new live client-SMS trigger, held for cutover.
 - Merging PR #20 into PR #19's branch — held for cutover per Jeff's explicit instruction, not a technical blocker.
 
+## Late-session additions (2026-07-20 night, post-"cutover tonight")
+
+- **PR #20's own CI now clean.** Fixed a tenant-scope false-positive (audit script matched a code-shaped string inside a comment, not real code — reworded, not suppressed) and 6 pre-existing eslint errors in 3 unrelated files (react/no-unescaped-entities) that were blocking the same gate. `origin/main` itself still has `verify: failure` from 6 pre-existing failing test files, unrelated to nycmaid (4 stale tests for an intentionally-removed feature, 1 intentional "RED until fixed" tracker, 3 real bugs affecting 4 OTHER live tenants — not fixed, flagged to Jeff, his call pending).
+- **Ported the 2 commits that landed on the ind build overnight** (bfabe5f8, ceeefe24): checked whether FL needed the commission-attribution snapshot fix — it didn't, FL's checkout route already used the correct pattern (built fresh, never had the bug). Ported the "show scheduled-but-not-completed bookings" feature to both the referrer and sales-partner portals (2 API routes + 2 frontend pages) — verified query logic directly against real DB with synthetic test bookings (cleaned up after), tsc clean. Could not do a full HTTP+session round-trip test — `TEAM_PORTAL_SECRET`/session-signing secrets weren't in the local dev env at the time.
+- **All 3 real portals now confirmed working end-to-end on FL for nycmaid** (real login + real data fetch, not just code review): client portal (PIN login → bookings API, 200), team/cleaner portal (PIN login → jobs + earnings API, 200), referrer/sales-partner portal (query logic verified against real DB).
+- **Public marketing site spot-checked**: homepage and pricing page both render correctly on FL — correct title, correct phone `(212) 202-8400`, correct pricing ($59/$69/$89 matches known policy).
+- Real live-log check on the ind build (the system actually serving customers right now): 3 comms_fail entries in the last ~10 hours, all explained as non-bugs (one client's own empty email field, one correctly-consent-gated SMS skip with a successful email fallback, one bot/test submission with a fake phone number).
+
 ## GO / NO-GO (2026-07-20 evening)
 
 Not ready, but everything independently verifiable is now closed out. What's actually left:
