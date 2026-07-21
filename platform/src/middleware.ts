@@ -188,6 +188,16 @@ const isPublicRoute = createRouteMatcher([
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
+  // --- fullloopcrm.com brand consolidation (308) ---
+  // The FullLoop brand's own domain no longer serves the app independently
+  // -- both bare and www now forward straight to the main marketing site.
+  // Checked before anything else (MAIN_HOSTS, tenant lookup, canonical-www
+  // below) so it can't be shadowed or looped by that logic.
+  const rawHost = hostname.split(':')[0].toLowerCase()
+  if (rawHost === 'fullloopcrm.com' || rawHost === 'www.fullloopcrm.com') {
+    return NextResponse.redirect(new URL(req.nextUrl.pathname + req.nextUrl.search, 'https://www.homeservicesbusinesscrm.com'), 308)
+  }
+
   // --- Canonical www redirect (301) ---
   // Every apex domain redirects to its www. equivalent so www is canonical
   // everywhere. Excludes: hosts already on www, localhost, raw IPs,
