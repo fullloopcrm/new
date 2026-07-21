@@ -7,6 +7,12 @@ Goal: everything below is prep so the actual flip takes minutes, not hours. Read
 **Before starting — confirm all green:**
 - [x] PR #19 (with #20 merged in) is merged to `main` with `[deploy]` — merge commit `2c667182`, 2026-07-21 08:46 ET. Vercel production deploy confirmed **Ready** (`fullloopcrm-kpnztcsrl-...`, includes `nycmaid.fullloopcrm.com` in its aliases).
 - [x] Post-deploy smoke test passed on REAL FL production (not localhost) — see results below.
+- [x] **Common-cutover-failure sweep, 2026-07-21 morning** (thought through the classic ways a domain/system cutover breaks, checked each against real data):
+  - Email deliverability (SPF/DKIM/DMARC) — SAFE. `resend._domainkey.thenycmaid.com` DKIM record already exists and is correctly configured; DMARC is permissive (`p=none`). FL already uses nycmaid's own Resend account (not the shared platform one — see the `getResend()` fix earlier tonight), so cutover doesn't change the sending infrastructure at all, just which app code calls it.
+  - File/video storage URLs surviving migration — N/A, ruled out. Zero bookings have `final_video_url`/`walkthrough_video_url` set on EITHER system (checked source too) — the feature exists in the schema but isn't actually used. Nothing to break.
+  - Photo storage — N/A. `bookings` has no photo-storing columns at all on the ind build.
+  - Payment double-processing during the webhook-repoint window — LOW RISK. Idempotency already covered by `UNIQUE(booking_id)` constraints + the payout-idempotency tests (34/34 passing, verified earlier tonight).
+  - Not deeply checked (lower-priority / lower-risk, flagging rather than chasing): SSL cert provisioning timing on the new domain add (Vercel auto-provisions, hasn't been an issue historically), analytics/tracking pixel continuity, rate-limit behavior under cold-start traffic on cutover day.
 - [ ] You've decided: repoint voice to FL's handler tonight too, or leave (212) 202-8400 on "Forward Only" (default: leave it, zero risk, can upgrade later).
 
 **The flip itself (staged, each step reversible on its own):**
