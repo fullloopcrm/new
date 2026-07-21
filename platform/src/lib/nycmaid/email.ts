@@ -1,7 +1,20 @@
 import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/secret-crypto'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 let _resend: Resend | null = null
+
+// thenycmaid.com is verified under nycmaid's OWN Resend account (tenants.resend_api_key),
+// not FullLoop's shared platform Resend account — using the platform key here 403s.
+async function getTenantResendKey(): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('resend_api_key')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
+  return data?.resend_api_key ? decryptSecret(data.resend_api_key) : null
+}
 
 async function logEmailFailure(to: string, subject: string, error: unknown) {
   try {
@@ -16,10 +29,11 @@ async function logEmailFailure(to: string, subject: string, error: unknown) {
     // never throw from the logger
   }
 }
-function getResend() {
+async function getResend(): Promise<Resend> {
   if (!_resend) {
-    const key = process.env.RESEND_API_KEY?.replace(/\s/g, '')
-    if (!key) throw new Error('RESEND_API_KEY not set')
+    const tenantKey = await getTenantResendKey()
+    const key = (tenantKey || process.env.RESEND_API_KEY)?.replace(/\s/g, '')
+    if (!key) throw new Error('No Resend API key available (tenant or platform)')
     _resend = new Resend(key)
   }
   return _resend
@@ -46,9 +60,10 @@ export async function sendEmail(to: string, subject: string, html: string, attac
     }
   }
 
+  const resend = await getResend()
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const { data, error } = await getResend().emails.send({
+      const { data, error } = await resend.emails.send({
         from: 'The NYC Maid <hi@thenycmaid.com>',
         to,
         subject,
