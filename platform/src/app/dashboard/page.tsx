@@ -113,7 +113,7 @@ export default async function DashboardPage() {
   const collectedMonth = collected(startOfMonth, endOfMonth)
   const collectedYear = collected(startOfYear, endOfYear)
 
-  const all2026 = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status))
+  const all2026 = allJobs.filter(j => SCHEDULED(j))
   const scheduled2026Total = sum(all2026)
   const scheduledWeek = scheduled(startOfWeek, endOfWeek)
   const scheduledMonth = scheduled(startOfMonth, endOfMonth)
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
   const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
     const mStart = new Date(now.getFullYear(), monthIdx, 1)
     const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
-    const jobs = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status) && inRange(j, mStart, mEnd))
+    const jobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, mStart, mEnd))
     return {
       label: mStart.toLocaleDateString('en-US', { month: 'short' }),
       count: jobs.length, revenue: sum(jobs),
