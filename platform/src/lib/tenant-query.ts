@@ -2,9 +2,8 @@ import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
-import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
+import { IMPERSONATE_COOKIE, signImpersonation, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
-import { resolveDescendantImpersonation } from './tenant-hierarchy'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
@@ -17,7 +16,7 @@ export type TenantContext = {
 }
 
 async function logImpersonationEvent(
-  actorKind: 'pin_admin' | 'clerk_super_admin' | 'head_tenant',
+  actorKind: 'pin_admin' | 'clerk_super_admin',
   actorId: string,
   tenantId: string,
 ): Promise<void> {
@@ -38,6 +37,32 @@ async function logImpersonationEvent(
   }
 }
 
+// fl_impersonate is set with a hard 1-hour maxAge (see admin/impersonate/route.ts)
+// and nothing renewed it, so a platform admin mid-session (e.g. building/
+// autosaving a proposal for 20+ minutes) would have the cookie silently expire
+// while admin_token (24h) was still valid -- every subsequent tenant-scoped
+// call then threw AuthError, surfaced as a generic 401 Unauthorized with no
+// visible cause. Sliding-window renewal on every authenticated hit keeps an
+// active session alive indefinitely. Only mutates cookies from a Route
+// Handler / Server Action context; called from a Server Component page this
+// throws, so it's a best-effort no-op there -- the next API call renews it.
+async function renewImpersonationCookie(
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+  tenantId: string,
+): Promise<void> {
+  try {
+    cookieStore.set(IMPERSONATE_COOKIE, signImpersonation(tenantId), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 3600,
+      path: '/',
+    })
+  } catch {
+    // Read-only cookies() context (Server Component) -- ignore.
+  }
+}
+
 // Auth + tenant lookup — used by every API route
 // Supports admin impersonation via cookie (PIN auth or Clerk super admin)
 export async function getTenantForRequest(): Promise<TenantContext> {
@@ -55,6 +80,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
         .single()
 
       if (tenant) {
+        await renewImpersonationCookie(cookieStore, tenant.id)
         await logImpersonationEvent('pin_admin', 'admin', tenant.id)
         return {
           userId: 'admin',
@@ -84,11 +110,6 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             .eq('id', headerTenantId)
             .single()
           if (tenant) {
-            const descendant = await resolveDescendantImpersonation(tenant.id)
-            if (descendant) {
-              await logImpersonationEvent('head_tenant', tenant.id, descendant.id)
-              return { userId: 'admin', tenantId: descendant.id, tenant: descendant, role: 'owner' }
-            }
             return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
           }
         }
@@ -114,17 +135,6 @@ export async function getTenantForRequest(): Promise<TenantContext> {
               .eq('id', headerTenantId)
               .single()
             if (tenant) {
-              // Descendant access is an owner-level capability on the head
-              // tenant — a regular team member's token should not reach a
-              // different (child) tenant's data just by holding a valid
-              // cookie for it.
-              const descendant = member.role === 'owner'
-                ? await resolveDescendantImpersonation(tenant.id)
-                : null
-              if (descendant) {
-                await logImpersonationEvent('head_tenant', ta.memberId, descendant.id)
-                return { userId: ta.memberId, tenantId: descendant.id, tenant: descendant, role: 'owner' }
-              }
               return { userId: ta.memberId, tenantId: tenant.id, tenant, role: member.role }
             }
           }

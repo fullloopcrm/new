@@ -18,9 +18,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { isCommEnabled } from '@/lib/comms-prefs'
 import { cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { signupPricing } from '@/lib/tier-prices'
@@ -387,7 +387,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -403,7 +403,12 @@ export async function POST(request: Request) {
 
       const amountCents = session.amount_total || 0
       const hours = booking.actual_hours || (booking.price && booking.hourly_rate ? booking.price / 100 / booking.hourly_rate : null)
-      const expectedCents = booking.price || (hours && booking.hourly_rate ? Math.round(hours * booking.hourly_rate * 100) : 0)
+      // booking.price already reflects whatever discount was baked in at
+      // creation (including the automatic recurring-type discount) and wins
+      // first below -- the raw hours×rate fallback only fires when price is
+      // unset, so the admin discount_percent + one_time_credit_cents (nycmaid
+      // 6ec48424 parity) apply there, not on top of an already-discounted price.
+      const expectedCents = booking.price || (hours && booking.hourly_rate ? applyCredit(applyDiscount(Math.round(hours * booking.hourly_rate * 100), booking.discount_percent as number | null), booking.one_time_credit_cents as number | null) : 0)
 
       // Tip = anything paid above expected (with 95% partial threshold)
       let tipCents = 0
@@ -496,7 +501,9 @@ export async function POST(request: Request) {
           // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
           // pay_rate. Tip passes through 100% on top.
           const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
-          const baseCleanerRate = (tm as { pay_rate?: number | null })?.pay_rate || (booking as { pay_rate?: number | null }).pay_rate || 25
+          // Booking-level pay_rate is an admin override and must win over the
+          // team member's own default rate (nycmaid 2428c8c4 precedence parity).
+          const baseCleanerRate = (booking as { pay_rate?: number | null }).pay_rate || (tm as { pay_rate?: number | null })?.pay_rate || 25
           // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY.
           const cleanerRate = isNycMaid(tenantId)
             ? effectiveCleanerRate(baseCleanerRate, client?.address ?? null)
@@ -601,8 +608,8 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[stripe] cleaner SMS failed:', err))
       }
 
-      // 6. SMS client a thank-you (payment_receipt:sms)
-      if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone && await isCommEnabled(tenantId, 'payment_receipt', 'sms')) {
+      // 6. SMS client a thank-you
+      if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const tipLine = tipCents > 0 ? ` and the ${(tipCents / 100).toFixed(0)} tip` : ''
         const body = `Thanks for the payment of $${(amountCents / 100).toFixed(0)}${tipLine}! 😊 — ${tenant.name || ''}`
         sendSMS({

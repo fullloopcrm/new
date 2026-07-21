@@ -1,0 +1,54 @@
+diff --git a/platform/src/lib/tenant-query.ts b/platform/src/lib/tenant-query.ts
+index ed1d6f3c..001cdc8a 100644
+--- a/platform/src/lib/tenant-query.ts
++++ b/platform/src/lib/tenant-query.ts
+@@ -2,7 +2,7 @@ import { getOwnerUserId } from '@/lib/owner-session'
+ import { cookies, headers } from 'next/headers'
+ import { supabaseAdmin } from './supabase'
+ import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
+-import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
++import { IMPERSONATE_COOKIE, IMPERSONATE_TTL_MS, signImpersonation, verifyImpersonationCookie } from './impersonation'
+ import { verifyTenantHeaderSig } from './tenant-header-sig'
+ import type { Tenant } from './tenant'
+ import { beginAuditActor, setAuditActor, type AuditActorKind } from './audit-context'
+@@ -54,6 +54,32 @@ async function recordAuditActor(
+   })
+ }
+ 
++// fl_impersonate embeds a hard 1-hour expiry (see impersonation.ts) and
++// nothing was resetting it, so a platform admin mid-way through a long task
++// (e.g. building a proposal, autosaving for 20+ minutes) would have the
++// cookie silently expire while admin_token (24h) was still valid — every
++// subsequent tenant-scoped call then throws AuthError with no visible cause.
++// Sliding-window renewal on every authenticated hit keeps an active session
++// alive indefinitely. Only mutates cookies from a Route Handler / Server
++// Action context; called from a Server Component page this throws, so it's
++// a best-effort no-op there — the next API call from the client renews it.
++async function renewImpersonationCookie(
++  cookieStore: Awaited<ReturnType<typeof cookies>>,
++  tenantId: string,
++): Promise<void> {
++  try {
++    cookieStore.set(IMPERSONATE_COOKIE, signImpersonation(tenantId), {
++      httpOnly: true,
++      secure: process.env.NODE_ENV === 'production',
++      sameSite: 'lax',
++      maxAge: IMPERSONATE_TTL_MS / 1000,
++      path: '/',
++    })
++  } catch {
++    // Read-only cookies() context (Server Component) — ignore.
++  }
++}
++
+ async function logImpersonationEvent(
+   actorKind: 'pin_admin' | 'clerk_super_admin',
+   actorId: string,
+@@ -96,6 +122,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
+         .single()
+ 
+       if (tenant) {
++        await renewImpersonationCookie(cookieStore, tenant.id)
+         await logImpersonationEvent('pin_admin', 'admin', tenant.id)
+         await recordAuditActor('pin_admin', 'admin', 'owner', tenant.id)
+         return {

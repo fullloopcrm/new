@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
 import LoopCamRecorder from '@/components/LoopCamRecorder'
+import PhotoCapture from '@/components/PhotoCapture'
+import TeamChecklist from '@/components/TeamChecklist'
 
 export default function CheckInPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -100,7 +102,11 @@ export default function CheckInPage() {
       {status === 'done' && (
         <div className="text-center space-y-4">
           <p className="text-green-600 font-bold text-lg">{t('Checked In!', '¡Registrado!')}</p>
-          <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} onComplete={() => {}} />
+          <div className="w-full max-w-sm mx-auto space-y-3">
+            <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} onComplete={() => {}} />
+            <PhotoCapture bookingId={bookingId} photoType="before" token={auth!.token} t={t} />
+            <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
+          </div>
           <button
             onClick={() => router.push('/team')}
             className="bg-slate-800 text-white px-8 py-3 rounded-xl font-medium"

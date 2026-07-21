@@ -1,0 +1,9 @@
+STATS 1806. Fleet: 6/6 lanes live, all refilled and busy after this tick's check (W2/W4/W5 had drained a real backlog and needed new orders). Gated queue: JEFF-MORNING-QUEUE.md is up to roughly a dozen tracked items now, still file-only, none pushed/merged/deployed.
+
+Biggest development since the last heartbeat: W4 traced the stripe-webhook double-payout race to its actual root cause - it is not webhook-specific. Every ledger-posting function (deposit, refund, chargeback, commission accrual, commission payment - 5 functions across 3 files) guards against double-posting in application code only, with zero DB-level constraint backing it. Any concurrent caller for the same tenant/source/source_id could double-post real accounting entries. Fixed with a proposed migration (unique index on journal_entries) plus updated code across all 7 call sites - this is the definitive fix, not applied, needs your approval before I run the DDL.
+
+Also caught and corrected a real misdiagnosis this tick: W1 reported what looked like a duplicate-driver / git-stash-collision bug with mid-edit data loss. I checked directly rather than relay it - only one driver process exists for that lane, and git stash list shows only old stashes from prior weeks, nothing from today. What W1 actually found was its own uncommitted work from earlier this session sitting in the worktree (a real, legitimate idempotency fix), not a live concurrency bug. Told it to verify and commit that work and corrected the misread.
+
+Also tracked since the last heartbeat: telnyx-voice inbound calls to NYC Maid possibly not being answered at all (found independently by two workers, fixed file-only, flagged for an early live check separate from the merge+deploy batch given the customer-facing impact).
+
+No blockers, no usage-tier change (holding steady 75pct weekly), no chat activity from you since boot.

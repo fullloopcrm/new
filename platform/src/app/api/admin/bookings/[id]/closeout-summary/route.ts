@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { applyDiscount, describeDiscount } from '@/lib/discount'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -25,7 +26,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { data: booking, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, clients(name, email, phone), team_members!bookings_team_member_id_fkey(id, name, phone)')
+    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, discount_percent, one_time_credit_cents, one_time_credit_reason, clients(name, email, phone), team_members!bookings_team_member_id_fkey(id, name, phone)')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
@@ -100,10 +101,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const hourlyRate = booking.hourly_rate || 79
   const grossCents = Math.round(billedHours * hourlyRate * teamSize * 100)
 
+  // Itemize discounts. Two independent mechanisms feed this list:
+  // (1) the admin-set discount stored on discount_percent -- the same column
+  //     applyDiscount() uses at payment-processor/Stripe-webhook/checkout time,
+  //     so this line always matches what the client is actually charged --
+  //     plus the one-time credit, a flat comp that stacks on top.
+  // (2) auto-promo text like "[Promo: $X foo discount applied]" written into
+  //     notes by SMS/self-booking flows. Self-booking auto-discount is $10
+  //     (was mislabeled $20 here -- see /api/team-portal/15min-alert's real
+  //     SELF_BOOKING_DISCOUNT constant, the actual amount collected at billing).
+  const discounts: Array<{ label: string; cents: number }> = []
+  const discountedGrossCents = applyDiscount(grossCents, booking.discount_percent as number | null)
+  const customDiscountCents = grossCents - discountedGrossCents
+  if (customDiscountCents > 0) {
+    discounts.push({ label: describeDiscount(booking.discount_percent as number | null) || 'Discount', cents: customDiscountCents })
+  }
+  const creditCents = (booking.one_time_credit_cents as number | null) || 0
+  if (creditCents > 0) {
+    discounts.push({ label: (booking.one_time_credit_reason as string | null) || 'One-time credit', cents: creditCents })
+  }
   const noteText = (booking.notes as string) || ''
   const isSelfBooked = /self-booking discount/i.test(noteText)
-  const discounts: Array<{ label: string; cents: number }> = []
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 2000 })
+  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 1000 })
   const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?applied\]/gi
   let m: RegExpExecArray | null
   while ((m = promoRe.exec(noteText)) !== null) {

@@ -1,0 +1,93 @@
+diff --git a/platform/src/app/dashboard/sales/CatalogTab.tsx b/platform/src/app/dashboard/sales/CatalogTab.tsx
+index 0631491f..5f720677 100644
+--- a/platform/src/app/dashboard/sales/CatalogTab.tsx
++++ b/platform/src/app/dashboard/sales/CatalogTab.tsx
+@@ -1,6 +1,6 @@
+ 'use client'
+ 
+-import { useEffect, useState } from 'react'
++import { useEffect, useRef, useState } from 'react'
+ import HelpTip from '../_components/HelpTip'
+ 
+ /**
+@@ -25,6 +25,7 @@ type Item = {
+   category: string | null
+   default_duration_hours: number | null
+   active: boolean
++  sort_order: number
+ }
+ 
+ const TYPES = ['service', 'project', 'product'] as const
+@@ -87,6 +88,9 @@ export default function CatalogTab() {
+   const [err, setErr] = useState('')
+   const [saving, setSaving] = useState(false)
+   const [editingId, setEditingId] = useState<string | null>(null)
++  const [dragId, setDragId] = useState<string | null>(null)
++  const itemsRef = useRef<Item[]>([])
++  useEffect(() => { itemsRef.current = items }, [items])
+ 
+   function load() {
+     setLoading(true)
+@@ -98,6 +102,44 @@ export default function CatalogTab() {
+   }
+   useEffect(() => { load() }, [])
+ 
++  function onRowDragStart(e: React.DragEvent, id: string) {
++    setDragId(id)
++    e.dataTransfer.effectAllowed = 'move'
++  }
++  function onRowDragOver(e: React.DragEvent, overId: string) {
++    e.preventDefault()
++    if (!dragId || dragId === overId) return
++    setItems((prev) => {
++      const fromIdx = prev.findIndex((i) => i.id === dragId)
++      const toIdx = prev.findIndex((i) => i.id === overId)
++      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev
++      const next = [...prev]
++      const [moved] = next.splice(fromIdx, 1)
++      next.splice(toIdx, 0, moved)
++      return next
++    })
++  }
++  async function onRowDragEnd() {
++    setDragId(null)
++    // Persist positions that actually moved — re-fetching sort_order here
++    // (via ref, not `items`) avoids acting on a stale closure from the drag start.
++    const current = itemsRef.current
++    const changed = current
++      .map((it, idx) => ({ it, idx }))
++      .filter(({ it, idx }) => it.sort_order !== idx)
++    if (!changed.length) return
++    setItems((prev) => prev.map((it, idx) => ({ ...it, sort_order: idx })))
++    await Promise.all(
++      changed.map(({ it, idx }) =>
++        fetch('/api/catalog', {
++          method: 'PATCH',
++          headers: { 'Content-Type': 'application/json' },
++          body: JSON.stringify({ id: it.id, sort_order: idx }),
++        })
++      )
++    )
++  }
++
+   async function saveItem() {
+     setErr('')
+     if (!form.name.trim()) { setErr('Name is required.'); return }
+@@ -208,7 +250,16 @@ export default function CatalogTab() {
+         {items.map((it) => {
+           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
+           return (
+-            <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.active ? 1 : 0.5 }}>
++            <div
++              key={it.id}
++              draggable
++              onDragStart={(e) => onRowDragStart(e, it.id)}
++              onDragOver={(e) => onRowDragOver(e, it.id)}
++              onDrop={(e) => e.preventDefault()}
++              onDragEnd={onRowDragEnd}
++              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.id === dragId ? 0.4 : it.active ? 1 : 0.5, cursor: 'move' }}
++            >
++              <span title="Drag to reorder" style={{ color: 'var(--sl-muted)', fontSize: 13, letterSpacing: '-1px', cursor: 'grab', userSelect: 'none' }}>⠿</span>
+               <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{cap(it.item_type)}</span>
+               <span style={{ flex: 1, minWidth: 0 }}>
+                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>

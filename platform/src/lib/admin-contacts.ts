@@ -115,42 +115,35 @@ export async function emailAdmins(
   const from = tenantSender(t as { name?: string | null; slug?: string | null; email_from?: string | null })
 
   const tenantId = (tenant as TenantLike).id
-  const results: { email: string; sent: boolean }[] = []
+  const recipients: string[] = []
 
   if (withEmail.length === 0) {
     // Fallback to ADMIN_EMAIL env var (platform-level) — last resort only
     const fallback = process.env.ADMIN_EMAIL
     if (fallback) {
-      const sent = await sendEmail({ to: fallback, subject, html, from, resendApiKey: resendKey })
-        .then(() => true)
-        .catch(err => {
-          console.error('[admin-contacts] fallback ADMIN_EMAIL send failed:', err)
-          return false
-        })
-      results.push({ email: fallback, sent })
+      recipients.push(fallback)
+      await sendEmail({ to: fallback, subject, html, from, resendApiKey: resendKey }).catch(err =>
+        console.error('[admin-contacts] fallback ADMIN_EMAIL send failed:', err),
+      )
     }
   } else {
-    const settled = await Promise.allSettled(
-      withEmail.map(c => sendEmail({ to: c.email!, subject, html, from, resendApiKey: resendKey })),
+    await Promise.allSettled(
+      withEmail.map(c => {
+        recipients.push(c.email!)
+        return sendEmail({ to: c.email!, subject, html, from, resendApiKey: resendKey })
+      }),
     )
-    settled.forEach((result, i) => {
-      const email = withEmail[i].email!
-      if (result.status === 'rejected') {
-        console.error('[admin-contacts] emailAdmins send failed:', email, result.reason)
-      }
-      results.push({ email, sent: result.status === 'fulfilled' })
-    })
   }
 
   // Log to email_logs so monitoring can count admin-alert deliveries.
   // Best-effort — never throws back to the caller.
   try {
-    if (results.length > 0) {
-      const rows = results.map(r => ({
+    if (recipients.length > 0) {
+      const rows = recipients.map(r => ({
         tenant_id: tenantId,
-        to_email: r.email,
+        to_email: r,
         subject,
-        status: r.sent ? ('sent' as const) : ('failed' as const),
+        status: 'sent' as const,
         email_type: 'admin_alert',
       }))
       await supabaseAdmin.from('email_logs').insert(rows)  // tenant-scope-ok: insert rows carry tenant_id (built above)

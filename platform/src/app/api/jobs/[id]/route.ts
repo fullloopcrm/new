@@ -1,14 +1,22 @@
 /**
- * A single job: read it with its payment plan, scheduled sessions, and timeline;
- * update its status. Tenant-scoped.
+ * A single job: read it with its payment plan, scheduled sessions, timeline,
+ * client contact info, and the deal/quote it originated from. Tenant-scoped.
  *
- * GET   → { job, payments, sessions, events }
+ * GET   → { job, client, quote, deal, payments, sessions, events }
+ *         Gated on `bookings.view` (matches the Production nav gate) so any
+ *         role that can see the jobs list can open a job. Financial fields
+ *         (job.total_cents, the full payments plan, deal.value_cents) are
+ *         additionally gated on `finance.view` and stripped/emptied for
+ *         viewers without it — same class of leak already fixed on the
+ *         sibling budget-variance route, split rather than blocking the
+ *         whole page for roles like `staff` that need job-core info.
  * PATCH → { status?: JobStatus, title?, notes?, starts_on?, ends_on? }
  *         status → 'completed' stamps completed_at and logs a timeline event.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { tenantDb } from '@/lib/tenant-db'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
 
@@ -18,7 +26,10 @@ const VALID_STATUS: JobStatus[] = ['unscheduled', 'scheduled', 'in_progress', 'c
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
+    const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
     const db = tenantDb(tenantId)
     const { id } = await params
 
@@ -30,7 +41,7 @@ export async function GET(_request: Request, { params }: Params) {
       .single()
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const [payments, sessions, events] = await Promise.all([
+    const [payments, sessions, events, client, quote] = await Promise.all([
       db.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
       db
         .from('bookings')
@@ -41,11 +52,29 @@ export async function GET(_request: Request, { params }: Params) {
         .eq('job_id', id)
         .order('start_time'),
       db.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
+      job.client_id
+        ? db.from('clients').select('id, name, email, phone, address, unit, notes').eq('id', job.client_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      job.quote_id
+        ? db.from('quotes').select('id, quote_number, deal_id').eq('id', job.quote_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
 
+    // The lead this job originated from: job → quote → deal. Fetched as a
+    // second hop since it's a 2-table chain and only needed when present.
+    const deal = quote.data?.deal_id
+      ? (await db.from('deals').select('id, title, stage, value_cents').eq('id', quote.data.deal_id).maybeSingle()).data
+      : null
+
+    const { total_cents: _totalCents, ...jobCore } = job as Record<string, unknown>
+    const dealCore = deal ? (({ value_cents: _valueCents, ...rest }) => rest)(deal as Record<string, unknown>) : null
+
     return NextResponse.json({
-      job,
-      payments: payments.data ?? [],
+      job: canViewFinance ? job : jobCore,
+      client: client.data ?? null,
+      quote: quote.data ?? null,
+      deal: canViewFinance ? deal : dealCore,
+      payments: canViewFinance ? payments.data ?? [] : [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
     })

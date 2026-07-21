@@ -1,0 +1,261 @@
+diff --git a/platform/src/app/dashboard/clients/client-drawer.tsx b/platform/src/app/dashboard/clients/client-drawer.tsx
+index 034fb7aa..efdf27a9 100644
+--- a/platform/src/app/dashboard/clients/client-drawer.tsx
++++ b/platform/src/app/dashboard/clients/client-drawer.tsx
+@@ -1,6 +1,7 @@
+ 'use client'
+ 
+ import { useEffect, useState } from 'react'
++import { useRouter } from 'next/navigation'
+ import { useWorkerLabel } from '../worker-label-context'
+ 
+ type EnrichedClient = {
+@@ -45,6 +46,7 @@ type Props = {
+   client: EnrichedClient | null
+   open: boolean
+   onClose: () => void
++  onClientUpdated?: () => void
+ }
+ 
+ function initials(name: string): string {
+@@ -95,11 +97,16 @@ type Activity = {
+   sentiment?: 'pos' | 'neu' | 'neg'
+ }
+ 
+-export default function ClientDrawer({ client, open, onClose }: Props) {
++export default function ClientDrawer({ client, open, onClose, onClientUpdated }: Props) {
++  const router = useRouter()
+   const worker = useWorkerLabel()
+   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
+   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
+   const [activity, setActivity] = useState<Activity[]>([])
++  const [editOpen, setEditOpen] = useState(false)
++  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', address: '' })
++  const [editSaving, setEditSaving] = useState(false)
++  const [editError, setEditError] = useState('')
+ 
+   useEffect(() => {
+     if (!client) return
+@@ -134,6 +141,46 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
+       .catch(() => {})
+   }, [client])
+ 
++  function openEdit() {
++    if (!client) return
++    setEditForm({
++      name: client.name || '',
++      phone: client.phone || '',
++      email: client.email || '',
++      address: client.address || '',
++    })
++    setEditError('')
++    setEditOpen(true)
++  }
++
++  async function saveEdit() {
++    if (!client) return
++    setEditSaving(true)
++    setEditError('')
++    try {
++      const res = await fetch(`/api/clients/${client.id}`, {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify(editForm),
++      })
++      if (!res.ok) {
++        const data = await res.json().catch(() => ({}))
++        throw new Error(data.error || 'Failed to save changes')
++      }
++      setEditOpen(false)
++      onClientUpdated?.()
++    } catch (e) {
++      setEditError(e instanceof Error ? e.message : 'Failed to save changes')
++    } finally {
++      setEditSaving(false)
++    }
++  }
++
++  function bookNext() {
++    if (!client) return
++    router.push(`/dashboard/bookings?new=1&client_id=${client.id}`)
++  }
++
+   if (!client) return null
+ 
+   const bColor = bandColor(client.health_band)
+@@ -183,7 +230,7 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
+               </div>
+               <div className="clients-next-action-row">
+                 <button className="clients-next-btn primary">Send via SMS</button>
+-                <button className="clients-next-btn ghost">Edit</button>
++                <button className="clients-next-btn ghost" onClick={openEdit}>Edit</button>
+                 <button className="clients-next-btn ghost">Try call instead</button>
+                 <button className="clients-next-btn dismiss">Dismiss</button>
+               </div>
+@@ -383,9 +430,61 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
+           <button className="clients-delete-btn">{client.dns_status ? 'Restore from DNS' : 'Move to DNS'}</button>
+           <div className="clients-drawer-foot-spacer" />
+           <button className="clients-btn clients-btn-ghost" onClick={onClose}>Close</button>
+-          <button className="clients-btn clients-btn-primary">Book Next</button>
++          <button className="clients-btn clients-btn-primary" onClick={bookNext}>Book Next</button>
+         </div>
+       </aside>
++
++      {editOpen && (
++        <div className="clients-edit-scrim" onClick={() => setEditOpen(false)}>
++          <div className="clients-edit-modal" onClick={(e) => e.stopPropagation()}>
++            <div className="clients-edit-modal-title">Edit Client</div>
++            <div className="clients-edit-field">
++              <label className="clients-edit-label" htmlFor="client-edit-name">Name</label>
++              <input
++                id="client-edit-name"
++                className="clients-edit-input"
++                value={editForm.name}
++                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
++              />
++            </div>
++            <div className="clients-edit-field">
++              <label className="clients-edit-label" htmlFor="client-edit-phone">Phone</label>
++              <input
++                id="client-edit-phone"
++                className="clients-edit-input"
++                value={editForm.phone}
++                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
++              />
++            </div>
++            <div className="clients-edit-field">
++              <label className="clients-edit-label" htmlFor="client-edit-email">Email</label>
++              <input
++                id="client-edit-email"
++                className="clients-edit-input"
++                type="email"
++                value={editForm.email}
++                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
++              />
++            </div>
++            <div className="clients-edit-field">
++              <label className="clients-edit-label" htmlFor="client-edit-address">Address</label>
++              <input
++                id="client-edit-address"
++                className="clients-edit-input"
++                value={editForm.address}
++                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
++              />
++            </div>
++            {editError && <div className="clients-edit-error">{editError}</div>}
++            <div className="clients-edit-actions">
++              <button className="clients-btn clients-btn-ghost" onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</button>
++              <button className="clients-btn clients-btn-primary" onClick={saveEdit} disabled={editSaving}>
++                {editSaving ? 'Saving…' : 'Save'}
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
+     </>
+   )
+ }
+diff --git a/platform/src/app/dashboard/clients/clients.css b/platform/src/app/dashboard/clients/clients.css
+index 6a36a642..8010409e 100644
+--- a/platform/src/app/dashboard/clients/clients.css
++++ b/platform/src/app/dashboard/clients/clients.css
+@@ -1062,6 +1062,67 @@
+ }
+ .clients-delete-btn:hover { text-decoration: underline; }
+ 
++/* EDIT CLIENT MODAL */
++.clients-edit-scrim {
++  position: fixed;
++  inset: 0;
++  background: rgba(28,28,28,0.32);
++  backdrop-filter: blur(2px);
++  z-index: 70;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++}
++.clients-edit-modal {
++  width: 420px;
++  max-width: 92vw;
++  background: var(--clients-canvas);
++  border: 1px solid var(--clients-ink);
++  border-radius: 4px;
++  padding: 22px 24px;
++  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.28);
++  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
++}
++.clients-edit-modal-title {
++  font-family: var(--clients-display);
++  font-size: 19px;
++  color: var(--clients-ink);
++  margin-bottom: 16px;
++}
++.clients-edit-field { margin-bottom: 12px; }
++.clients-edit-label {
++  display: block;
++  font-size: 11px;
++  text-transform: uppercase;
++  letter-spacing: 0.04em;
++  color: var(--clients-muted);
++  margin-bottom: 4px;
++}
++.clients-edit-input {
++  width: 100%;
++  border: 1px solid var(--clients-line);
++  background: var(--clients-canvas);
++  padding: 8px 10px;
++  border-radius: 4px;
++  font-family: inherit;
++  font-size: 13px;
++  color: var(--clients-ink);
++  outline: none;
++  box-sizing: border-box;
++}
++.clients-edit-input:focus { border-color: var(--clients-ink); }
++.clients-edit-error {
++  font-size: 12.5px;
++  color: var(--clients-danger);
++  margin-bottom: 10px;
++}
++.clients-edit-actions {
++  display: flex;
++  justify-content: flex-end;
++  gap: 8px;
++  margin-top: 6px;
++}
++
+ @media (max-width: 1100px) {
+   .clients-outlook { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+   .clients-stat { border-right: none !important; padding: 0 !important; }
+diff --git a/platform/src/app/dashboard/clients/page.tsx b/platform/src/app/dashboard/clients/page.tsx
+index 44eee9a5..3eafeb28 100644
+--- a/platform/src/app/dashboard/clients/page.tsx
++++ b/platform/src/app/dashboard/clients/page.tsx
+@@ -103,7 +103,7 @@ export default function ClientsPage() {
+   const [selected, setSelected] = useState<Set<string>>(new Set())
+   const [drawerId, setDrawerId] = useState<string | null>(null)
+ 
+-  useEffect(() => {
++  function loadClients() {
+     setLoading(true)
+     fetch('/api/clients/enriched')
+       .then((r) => r.json())
+@@ -115,6 +115,10 @@ export default function ClientsPage() {
+       })
+       .catch(() => {})
+       .finally(() => setLoading(false))
++  }
++
++  useEffect(() => {
++    loadClients()
+   }, [])
+ 
+   const cohortOptions = useMemo(() => {
+@@ -449,6 +453,7 @@ export default function ClientsPage() {
+         client={drawerClient}
+         open={!!drawerId}
+         onClose={() => setDrawerId(null)}
++        onClientUpdated={loadClients}
+       />
+     </div>
+   )

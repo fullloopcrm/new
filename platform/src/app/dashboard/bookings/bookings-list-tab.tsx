@@ -28,7 +28,7 @@ const STATUS_FILTERS: Array<{ key: StatusKey; label: string; dot?: string }> = [
   { key: 'scheduled', label: 'Scheduled', dot: 'scheduled' },
   { key: 'in_progress', label: 'In Progress', dot: 'progress' },
   { key: 'completed', label: 'Completed', dot: 'completed' },
-  { key: 'cancelled', label: 'Cancelled', dot: 'cancelled' },
+  { key: 'cancelled', label: 'Canceled', dot: 'cancelled' },
 ]
 
 type SmartKey = 'high_risk' | 'low_margin' | 'late' | 'unassigned' | 'overdue_pay' | 'no_review'

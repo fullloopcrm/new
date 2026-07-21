@@ -7,19 +7,13 @@ interface ServiceType {
   active: boolean
 }
 
-let cached: ServiceType[] | null = null
-
 export function useServiceTypes() {
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>(cached || [])
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([])
 
   useEffect(() => {
-    if (cached) return
     fetch('/api/service-types')
       .then(r => r.json())
-      .then(data => {
-        cached = data
-        setServiceTypes(data)
-      })
+      .then(data => setServiceTypes(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
 

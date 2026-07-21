@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, Suspense } from 'react'
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import './sales.css'
 import CalendarShell from '../calendar/CalendarShell'
@@ -79,10 +79,11 @@ type Deal = {
   notes: string | null
   status: string | null
   lost_reason: string | null
+  pinned: boolean
   last_activity_at: string | null
   last_contacted_at: string | null
   created_at: string
-  clients: { name: string | null; address: string | null } | null
+  clients: { name: string | null; email: string | null; phone: string | null; address: string | null } | null
 }
 
 type Activity = {
@@ -91,6 +92,19 @@ type Activity = {
   description: string
   metadata: Record<string, unknown> | null
   created_at: string
+}
+
+type TeamMember = {
+  id: string
+  name: string
+}
+
+type QuoteLineItem = {
+  quantity: number
+  unit_price_cents: number
+  optional?: boolean
+  selected?: boolean
+  duration_hours?: number
 }
 
 type Quote = {
@@ -104,6 +118,7 @@ type Quote = {
   sent_at: string | null
   accepted_at: string | null
   declined_at: string | null
+  line_items: QuoteLineItem[] | null
 }
 
 function fmtMoney(cents: number): string {
@@ -131,6 +146,66 @@ const ACT_ICON: Record<string, string> = {
   auto_created: '✨',
 }
 
+interface StageDropdownProps {
+  stage: string
+  onSelect: (stage: string) => void
+}
+// Custom-styled replacement for a native <select> — same trigger/position, no OS chrome.
+function StageDropdown({ stage, onSelect }: StageDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDocMouseDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const current = STAGES.find((s) => s.key === stage)
+
+  return (
+    <div className="sl-row-move" ref={rootRef} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="sl-row-move-btn"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="sl-row-move-label">{current?.label ?? stage}</span>
+        <span className="sl-row-move-caret">▾</span>
+      </button>
+      {open && (
+        <ul className="sl-row-move-list" role="listbox">
+          {STAGES.map((s) => (
+            <li key={s.key} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={s.key === stage}
+                className={`sl-row-move-opt ${s.key === stage ? 'active' : ''}`}
+                onClick={() => { setOpen(false); onSelect(s.key) }}
+              >
+                {s.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function SalesPageInner() {
   const sp = useSearchParams()
   const [tab, setTab] = useState<Tab>('pipeline')
@@ -155,6 +230,9 @@ function SalesPageInner() {
   const [schedTime, setSchedTime] = useState('09:00')
   const [schedDuration, setSchedDuration] = useState('2')
   const [schedCrew, setSchedCrew] = useState('')
+  const [schedShowEnd, setSchedShowEnd] = useState(false)
+  const [schedEndDate, setSchedEndDate] = useState('')
+  const [schedEndTime, setSchedEndTime] = useState('17:00')
   const [crews, setCrews] = useState<Array<{ id: string; name: string }>>([])
 
   const loadDeals = () => {
@@ -224,23 +302,40 @@ function SalesPageInner() {
     setBusyId(null)
   }
 
+  async function togglePin(e: React.MouseEvent, id: string, pinned: boolean) {
+    e.stopPropagation()
+    setDeals((ds) => ds.map((d) => (d.id === id ? { ...d, pinned: !pinned } : d)))
+    try {
+      await fetch(`/api/deals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned: !pinned }),
+      })
+    } catch { /* ignore */ }
+  }
+
   async function scheduleSession(dealId: string, jobId: string) {
     if (!schedDate) return
     setBusyId(dealId)
     try {
       const startIso = new Date(`${schedDate}T${schedTime || '09:00'}`).toISOString()
+      const endIso = schedShowEnd && schedEndDate
+        ? new Date(`${schedEndDate}T${schedEndTime || '17:00'}`).toISOString()
+        : null
       const res = await fetch(`/api/jobs/${jobId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           start_time: startIso,
-          duration_hours: Number(schedDuration) || 2,
+          ...(endIso ? { end_time: endIso } : { duration_hours: Number(schedDuration) || 2 }),
           ...(schedCrew ? { crew_id: schedCrew } : {}),
         }),
       })
       if (res.ok) {
         setSchedFor(null)
         setSchedDate('')
+        setSchedShowEnd(false)
+        setSchedEndDate('')
         await loadActivities(dealId)
       }
     } catch { /* ignore */ }
@@ -310,7 +405,7 @@ function SalesPageInner() {
     return map
   }, [deals])
 
-  const stageDeals = tab === 'schedule' ? [] : TAB_STAGES[tab].flatMap((s) => byStage.get(s) || [])
+  const stageDeals = tab === 'schedule' ? [] : TAB_STAGES[tab].flatMap((s) => byStage.get(s) || []).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
   const stageTotal = stageDeals.reduce((sum, d) => sum + d.value_cents, 0)
   const activeLabel = TABS.find((t) => t.key === tab)?.label ?? ''
 
@@ -347,9 +442,10 @@ function SalesPageInner() {
             {!loading && stageDeals.length > 0 && (
               <div className="sl-thead">
                 <span />
+                <span />
                 <span>Name</span>
                 <span>Detail</span>
-                <span>Source</span>
+                <span />
                 <span>Value</span>
                 <span>Date</span>
                 <span>Age</span>
@@ -371,6 +467,16 @@ function SalesPageInner() {
                 <div key={d.id} className={`sl-deal ${dealClass} ${isOpen ? 'open' : ''}`}>
                   <div className="sl-row" onClick={() => toggleExpand(d.id)}>
                     <span className="sl-row-caret">{isOpen ? '▾' : '▸'}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => togglePin(e, d.id, d.pinned)}
+                      title={d.pinned ? 'Unpin' : 'Pin to top'}
+                      className={`sl-pin-star ${d.pinned ? 'pinned' : ''}`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill={d.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2.5l2.9 6.13 6.6.79-4.9 4.6 1.28 6.6L12 17.3l-5.88 3.32 1.28-6.6-4.9-4.6 6.6-.79L12 2.5Z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                     <span className="sl-row-name">{d.clients?.name || d.title || 'Untitled'}</span>
                     <span className="sl-row-ctx">{d.title || (d.clients?.address ?? '—')}</span>
                     <span className="sl-row-chip">
@@ -383,17 +489,40 @@ function SalesPageInner() {
                     <span className="sl-row-value">{fmtMoney(d.value_cents)}</span>
                     <span className="sl-row-date">{new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     <span className={`sl-row-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
-                    <select className="sl-row-move" value={d.stage} onClick={(e) => e.stopPropagation()} onChange={(e) => moveDeal(d.id, e.target.value)}>
-                      {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                    </select>
+                    <StageDropdown stage={d.stage} onSelect={(stage) => moveDeal(d.id, stage)} />
                   </div>
 
                   {isOpen && (
                     <div className="sl-deal-panel">
+                      {/* Contact info + deal notes */}
+                      {(d.clients?.phone || d.clients?.email || d.clients?.address || d.notes) && (
+                        <div className="sl-proposal">
+                          {(d.clients?.phone || d.clients?.email || d.clients?.address) && (
+                            <>
+                              <div className="sl-proposal-head">Contact</div>
+                              <div className="sl-contact-line">
+                                {d.clients?.phone && <a href={`tel:${d.clients.phone}`} className="sl-contact-item">{d.clients.phone}</a>}
+                                {d.clients?.email && <a href={`mailto:${d.clients.email}`} className="sl-contact-item">{d.clients.email}</a>}
+                                {d.clients?.address && <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.clients.address)}`} target="_blank" rel="noopener noreferrer" className="sl-contact-item">{d.clients.address}</a>}
+                              </div>
+                            </>
+                          )}
+                          {d.notes && (
+                            <>
+                              <div className="sl-proposal-head">Notes</div>
+                              <div className="sl-contact-notes">{d.notes}</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       {/* Stage-driven primary actions */}
                       <div className="sl-actions">
                         {d.stage === 'new' && (
-                          <span className="sl-action-hint">Log a call/text/email below to move this into Qualify.</span>
+                          <>
+                            <button type="button" className="sl-act-btn go" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'qualifying')}>Move to Qualify</button>
+                            <span className="sl-action-hint">Or log a call/text/email below to move this into Qualify.</span>
+                          </>
                         )}
                         {d.stage === 'qualifying' && reasonFor !== d.id && (
                           <>
@@ -426,28 +555,61 @@ function SalesPageInner() {
                           <a href={`/dashboard/sales/quotes/new?deal=${d.id}`} className="sl-act-btn go">
                             {(quotesByDeal[d.id]?.length ?? 0) > 0 ? '+ New proposal' : 'Build Proposal →'}
                           </a>
+                          <span className="sl-action-hint">Send pricing to the client — they can view and accept it online.</span>
                         </div>
                       )}
 
                       {/* Schedule — once the sale is a Job, drop visits on the calendar */}
                       {(() => {
-                        const jobId = (quotesByDeal[d.id] || []).map((q) => q.converted_job_id).find(Boolean) || null
+                        const acceptedQuote = (quotesByDeal[d.id] || []).find((q) => q.converted_job_id) || null
+                        const jobId = acceptedQuote?.converted_job_id || null
                         if (!jobId) return null
+                        const budgetedHours = (acceptedQuote?.line_items || [])
+                          .filter((li) => !li.optional || li.selected)
+                          .reduce((sum, li) => sum + (Number(li.duration_hours) || 0), 0)
                         return (
                           <div className="sl-proposal">
                             <div className="sl-proposal-head">Schedule</div>
                             {schedFor === d.id ? (
-                              <div className="sl-reason">
-                                <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
-                                <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
-                                <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
-                                <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
-                                  <option value="">No crew</option>
-                                  {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                                <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
-                                <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
-                              </div>
+                              <>
+                                <div className="sl-reason">
+                                  <div className="sl-sched-field">
+                                    <label>Date</label>
+                                    <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
+                                  </div>
+                                  <div className="sl-sched-field">
+                                    <label>Start Time</label>
+                                    <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+                                  </div>
+                                  {!schedShowEnd && (
+                                    <div className="sl-sched-field">
+                                      <label>Proposal Budgeted Hours</label>
+                                      <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Proposal Budgeted Hours" />
+                                      <button type="button" className="sl-act-btn ghost" title="Add an end date for multi-day jobs" onClick={() => setSchedShowEnd(true)}>+ End date</button>
+                                    </div>
+                                  )}
+                                  {schedShowEnd && (
+                                    <div className="sl-sched-field">
+                                      <label>End Date / Time</label>
+                                      <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                        <input type="date" className="sl-sched-input" min={schedDate || undefined} value={schedEndDate} onChange={(e) => setSchedEndDate(e.target.value)} />
+                                        <input type="time" className="sl-sched-input" value={schedEndTime} onChange={(e) => setSchedEndTime(e.target.value)} />
+                                        <button type="button" className="sl-act-btn ghost" title="Use a duration instead" onClick={() => { setSchedShowEnd(false); setSchedEndDate('') }}>✕</button>
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="sl-sched-field">
+                                    <label>Crew</label>
+                                    <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
+                                      <option value="">No crew</option>
+                                      {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                  </div>
+                                  <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate || (schedShowEnd && !schedEndDate)} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
+                                  <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
+                                </div>
+                                <span className="sl-action-hint">Pick a date + crew, or leave crew unassigned for now.</span>
+                              </>
                             ) : (
                               <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
                             )}
@@ -457,6 +619,7 @@ function SalesPageInner() {
 
                       {/* Ongoing-notes composer — carries through every stage */}
                       <div className="sl-composer">
+                        <span className="sl-action-hint">Log a note, call, text, or email — it&apos;s saved to this deal&apos;s timeline.</span>
                         <div className="sl-composer-types">
                           {ACT_TYPES.map((a) => (
                             <button key={a.key} type="button" className={`sl-chan ${composer.type === a.key ? 'active' : ''}`} onClick={() => setComposer((c) => ({ ...c, type: a.key }))}>{a.label}</button>

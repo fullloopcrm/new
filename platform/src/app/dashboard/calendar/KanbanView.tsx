@@ -28,7 +28,6 @@ const COLUMNS: { key: string; label: string; accent: string }[] = [
   { key: 'scheduled', label: 'Scheduled', accent: 'border-t-teal-500' },
   { key: 'in_progress', label: 'In Progress', accent: 'border-t-blue-500' },
   { key: 'completed', label: 'Completed', accent: 'border-t-slate-400' },
-  { key: 'no_show', label: 'No-show', accent: 'border-t-orange-400' },
 ]
 
 const CLASS_BADGE: Record<string, string> = {
@@ -161,7 +160,7 @@ export default function KanbanView() {
       {(() => {
         const hidden = bookings.filter((b) => !COLUMNS.some((c) => c.key === b.status)).length
         return hidden > 0 ? (
-          <p className="mt-3 text-xs text-slate-400">{hidden} cancelled / other status not shown on the board.</p>
+          <p className="mt-3 text-xs text-slate-400">{hidden} canceled / other status not shown on the board.</p>
         ) : null
       })()}
     </div>

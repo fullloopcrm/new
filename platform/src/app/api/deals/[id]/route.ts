@@ -52,7 +52,7 @@ export async function PATCH(request: Request, { params }: Params) {
       'title', 'value_cents', 'probability',
       'expected_close_date', 'source', 'notes',
       'follow_up_at', 'follow_up_note',
-      'client_id', 'owner_id',
+      'client_id', 'owner_id', 'pinned',
     ] as const
     for (const k of assignables) {
       if (k in body) updates[k] = body[k]

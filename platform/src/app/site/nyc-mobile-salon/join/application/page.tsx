@@ -66,7 +66,7 @@ export default function ApplicationPage() {
                 Text Us
               </a>
             </div>
-            <p className="mt-3 text-xs text-white/40">Text us anytime</p>
+            <p className="mt-3 text-xs text-white/40">Text us anytime: 212.202.9075</p>
           </div>
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
@@ -65,6 +66,9 @@ export async function POST(request: Request) {
       address: { type: 'string', max: 500 },
       source: { type: 'string', max: 100 },
       status: { type: 'string', max: 50 },
+      sales_partner_id: { type: 'uuid' },
+      referrer_id: { type: 'uuid' },
+      notes: { type: 'string', max: 2000 },
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
@@ -78,6 +82,39 @@ export async function POST(request: Request) {
     }
     if (fields && !fields.status) {
       fields.status = settings.default_client_status || 'active'
+    }
+
+    // sales_partner_id is a plain uuid per the validate() schema above --
+    // confirm it actually belongs to this tenant before it's attributed,
+    // same tenant-ownership check every other FK-by-id write in this route
+    // family enforces (a cross-tenant id here would misattribute commission
+    // earnings to the wrong tenant's partner).
+    if (fields?.sales_partner_id) {
+      const { data: partnerRow } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id')
+        .eq('id', fields.sales_partner_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!partnerRow) {
+        return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
+      }
+    }
+
+    // Same tenant-ownership check as sales_partner_id above -- referrer_id
+    // drives the sticky commission attribution read on every completed
+    // cleaning (see 2026_07_18_sales_partners.sql), so a cross-tenant id here
+    // would misattribute commission earnings to the wrong tenant's referrer.
+    if (fields?.referrer_id) {
+      const { data: referrerRow } = await supabaseAdmin
+        .from('referrers')
+        .select('id')
+        .eq('id', fields.referrer_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!referrerRow) {
+        return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
+      }
     }
 
     // Check for potential duplicates

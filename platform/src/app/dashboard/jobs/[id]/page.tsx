@@ -42,6 +42,38 @@ type BudgetVariance = {
 }
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
+type Annotation =
+  | { type: 'arrow'; x1: number; y1: number; x2: number; y2: number }
+  | { type: 'text'; x: number; y: number; text: string }
+  | { type: 'circle'; x: number; y: number; r: number }
+type JobPhoto = {
+  id: string; url: string; photo_type: 'before' | 'after' | 'progress'
+  source: 'crew' | 'client'; caption: string | null; uploaded_by: string | null; taken_at: string
+  tags: string[]; pair_id: string | null; annotations: Annotation[]
+}
+type PhotoComment = { id: string; body: string | null; author: string; created_at: string }
+
+/** Renders stored shapes over an image. viewBox is 0-100 on both axes — the
+ * image must fill its container edge-to-edge (no letterboxing) for
+ * percentage coords to align, so callers use w-full h-auto, not object-contain. */
+function AnnotationOverlay({ annotations }: { annotations: Annotation[] }) {
+  if (annotations.length === 0) return null
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+      <defs>
+        <marker id="arrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
+          <path d="M0,0 L4,2 L0,4 Z" fill="#ef4444" />
+        </marker>
+      </defs>
+      {annotations.map((a, i) => {
+        if (a.type === 'arrow') return <line key={i} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke="#ef4444" strokeWidth="0.6" markerEnd="url(#arrowhead)" vectorEffect="non-scaling-stroke" />
+        if (a.type === 'circle') return <circle key={i} cx={a.x} cy={a.y} r={a.r} fill="none" stroke="#ef4444" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
+        return <text key={i} x={a.x} y={a.y} fontSize="4" fill="#ef4444" fontWeight="bold" style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 0.8 }}>{a.text}</text>
+      })}
+    </svg>
+  )
+}
+type ChecklistItem = { id: string; label: string; done: boolean; done_at: string | null }
 
 const EXPENSE_CATEGORIES = ['Materials', 'Supplies', 'Equipment rental', 'Fuel', 'Permits', 'Subcontractor', 'Other']
 
@@ -162,6 +194,397 @@ function SessionEditor({
         {onCancel && <button onClick={onCancel} disabled={saving} className="px-3 py-1 text-xs rounded border border-slate-300 text-slate-500 hover:bg-white">Cancel</button>}
       </div>
     </div>
+  )
+}
+
+const PHOTO_TYPE_LABEL: Record<string, string> = { before: 'Before', after: 'After', progress: 'Progress' }
+const PHOTO_TYPE_STYLE: Record<string, string> = {
+  before: 'bg-amber-50 text-amber-700', after: 'bg-green-50 text-green-600', progress: 'bg-slate-100 text-slate-500',
+}
+
+function PhotoLightbox({
+  photo, jobId, allPhotos, onClose, onChanged,
+}: { photo: JobPhoto; jobId: string; allPhotos: JobPhoto[]; onClose: () => void; onChanged: () => void }) {
+  const [comments, setComments] = useState<PhotoComment[]>([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [pairing, setPairing] = useState(false)
+  const [tool, setTool] = useState<'none' | 'arrow' | 'text' | 'circle'>('none')
+  const [arrowStart, setArrowStart] = useState<{ x: number; y: number } | null>(null)
+
+  const loadComments = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`).then(r => r.json())
+      .then(d => setComments(d.comments || [])).catch(() => {})
+  }, [jobId, photo.id])
+  useEffect(() => { loadComments() }, [loadComments])
+
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    try {
+      await fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text }),
+      })
+      setText('')
+      loadComments()
+    } finally { setSending(false) }
+  }
+
+  const patchPhoto = async (patch: Record<string, unknown>) => {
+    await fetch(`/api/jobs/${jobId}/photos/${photo.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    })
+    onChanged()
+  }
+
+  const addTag = async () => {
+    const t = tagInput.trim()
+    if (!t || photo.tags.includes(t.toLowerCase())) { setTagInput(''); return }
+    await patchPhoto({ tags: [...photo.tags, t] })
+    setTagInput('')
+  }
+  const removeTag = (t: string) => patchPhoto({ tags: photo.tags.filter((x) => x !== t) })
+
+  const addAnnotation = (a: Annotation) => patchPhoto({ annotations: [...photo.annotations, a] })
+  const clearAnnotations = () => patchPhoto({ annotations: [] })
+
+  const onImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (tool === 'none') return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (tool === 'text') {
+      const t = window.prompt('Label text:')
+      if (t?.trim()) addAnnotation({ type: 'text', x, y, text: t.trim() })
+      return
+    }
+    if (tool === 'circle') {
+      addAnnotation({ type: 'circle', x, y, r: 5 })
+      return
+    }
+    // arrow: first click sets the start point, second click completes it
+    if (!arrowStart) { setArrowStart({ x, y }); return }
+    addAnnotation({ type: 'arrow', x1: arrowStart.x, y1: arrowStart.y, x2: x, y2: y })
+    setArrowStart(null)
+  }
+
+  const pair = photo.pair_id ? allPhotos.find((p) => p.id === photo.pair_id) : null
+  const pairCandidates = allPhotos.filter((p) =>
+    p.id !== photo.id && !p.pair_id &&
+    ((photo.photo_type === 'before' && p.photo_type === 'after') || (photo.photo_type === 'after' && p.photo_type === 'before')))
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {pair ? (
+          <div className="grid grid-cols-2 gap-px bg-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={(photo.photo_type === 'before' ? photo : pair).url} alt="Before" className="w-full max-h-[50vh] object-contain bg-slate-900" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={(photo.photo_type === 'before' ? pair : photo).url} alt="After" className="w-full max-h-[50vh] object-contain bg-slate-900" />
+          </div>
+        ) : (
+          <div className="relative bg-slate-900 cursor-crosshair" onClick={onImageClick}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo.url} alt={photo.caption || 'Job photo'} className="w-full h-auto block" />
+            <AnnotationOverlay annotations={photo.annotations} />
+            {arrowStart && (
+              <span className="absolute w-2 h-2 rounded-full bg-red-500 -translate-x-1/2 -translate-y-1/2" style={{ left: `${arrowStart.x}%`, top: `${arrowStart.y}%` }} />
+            )}
+          </div>
+        )}
+        {!pair && (
+          <div className="flex items-center gap-1.5 px-3 pt-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+            {(['arrow', 'text', 'circle'] as const).map((tl) => (
+              <button key={tl} onClick={() => { setTool(tool === tl ? 'none' : tl); setArrowStart(null) }}
+                className={`text-[10px] px-2 py-0.5 rounded capitalize ${tool === tl ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {tl}
+              </button>
+            ))}
+            {photo.annotations.length > 0 && <button onClick={clearAnnotations} className="text-[10px] text-slate-400 hover:underline">clear annotations</button>}
+            {tool === 'arrow' && <span className="text-[10px] text-slate-400">{arrowStart ? 'click end point' : 'click start point'}</span>}
+          </div>
+        )}
+        <div className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[photo.photo_type]}`}>{PHOTO_TYPE_LABEL[photo.photo_type]}</span>
+            <span className="text-[10px] text-slate-400">{photo.source === 'client' ? 'From client' : (photo.uploaded_by || 'Crew')}</span>
+            <span className="text-[10px] text-slate-400">{when(photo.taken_at)}</span>
+          </div>
+          {photo.caption && <p className="text-sm text-slate-700 mb-2">{photo.caption}</p>}
+
+          <div className="flex flex-wrap items-center gap-1 mb-2">
+            {photo.tags.map((t) => (
+              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 flex items-center gap-1">
+                {t}
+                <button onClick={() => removeTag(t)} className="text-slate-400 hover:text-red-600">✕</button>
+              </span>
+            ))}
+            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addTag() }}
+              placeholder="+ tag" className="text-[10px] w-16 px-1 py-0.5 rounded border border-slate-200" />
+          </div>
+
+          {(photo.photo_type === 'before' || photo.photo_type === 'after') && (
+            <div className="mb-2">
+              {pair
+                ? <button onClick={() => patchPhoto({ pair_id: null })} className="text-[11px] text-slate-400 hover:underline">Unpair from {PHOTO_TYPE_LABEL[pair.photo_type]}</button>
+                : pairing
+                  ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {pairCandidates.length === 0 && <span className="text-[11px] text-slate-400">No unpaired {photo.photo_type === 'before' ? 'after' : 'before'} photos.</span>}
+                      {pairCandidates.map((c) => (
+                        <button key={c.id} onClick={() => { patchPhoto({ pair_id: c.id }); setPairing(false) }}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-300 hover:bg-slate-50">{when(c.taken_at)}</button>
+                      ))}
+                      <button onClick={() => setPairing(false)} className="text-[10px] text-slate-400">cancel</button>
+                    </div>
+                  )
+                  : <button onClick={() => setPairing(true)} className="text-[11px] text-slate-500 hover:underline">Pair with {photo.photo_type === 'before' ? 'an after' : 'a before'} photo</button>}
+            </div>
+          )}
+
+          <div className="space-y-1.5 mb-2">
+            {comments.map(c => (
+              <div key={c.id} className="text-xs bg-slate-50 rounded p-1.5">
+                <span className="font-medium text-slate-700">{c.author}</span>
+                <span className="text-slate-400 ml-1.5">{when(c.created_at)}</span>
+                <p className="text-slate-600 mt-0.5">{c.body}</p>
+              </div>
+            ))}
+            {comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
+          </div>
+
+          <div className="flex gap-1.5">
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a comment…"
+              className="flex-1 px-2 py-1 text-xs rounded border border-slate-300"
+              onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
+            <button onClick={send} disabled={sending || !text.trim()} className="text-xs px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">Send</button>
+          </div>
+          <button onClick={onClose} className="mt-2 text-[11px] text-slate-400 hover:underline">Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PhotoGallery({ jobId }: { jobId: string }) {
+  const [photos, setPhotos] = useState<JobPhoto[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [photoType, setPhotoType] = useState<'before' | 'after' | 'progress'>('progress')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const [shareLink, setShareLink] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [selecting, setSelecting] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [generating, setGenerating] = useState(false)
+
+  const load = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos`).then(r => r.json()).then(d => setPhotos(d.photos || [])).catch(() => {})
+  }, [jobId])
+  useEffect(() => { load() }, [load])
+
+  const allTags = Array.from(new Set(photos.flatMap((p) => p.tags))).sort()
+  const visible = activeTag ? photos.filter((p) => p.tags.includes(activeTag)) : photos
+  const selected = selectedId ? photos.find((p) => p.id === selectedId) || null : null
+
+  const onUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true); setErr('')
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('photo_type', photoType)
+        const res = await fetch(`/api/jobs/${jobId}/photos`, { method: 'POST', body: form })
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Upload failed') }
+      }
+      load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Upload failed')
+    } finally { setUploading(false) }
+  }
+
+  const share = async () => {
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/share`, { method: 'POST' })
+      const d = await res.json()
+      if (res.ok) {
+        const url = `${window.location.origin}${d.path}`
+        setShareLink(url)
+        navigator.clipboard?.writeText(url).catch(() => {})
+      }
+    } finally { setSharing(false) }
+  }
+
+  const togglePick = (id: string) => {
+    const next = new Set(picked)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    setPicked(next)
+  }
+
+  const generateReport = async () => {
+    setGenerating(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_ids: picked.size > 0 ? Array.from(picked) : undefined }),
+      })
+      if (!res.ok) throw new Error('Report generation failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'job-report.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+      setSelecting(false); setPicked(new Set())
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Report generation failed')
+    } finally { setGenerating(false) }
+  }
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-sm font-semibold text-slate-800">Job photos</h2>
+        <div className="flex items-center gap-1.5">
+          <button onClick={share} disabled={sharing} className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            {sharing ? 'Creating link…' : 'Share with client'}
+          </button>
+          <button onClick={() => { setSelecting(!selecting); setPicked(new Set()) }}
+            className={`text-[11px] px-2 py-1 rounded border ${selecting ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+            {selecting ? 'Cancel' : 'Report'}
+          </button>
+          <select value={photoType} onChange={(e) => setPhotoType(e.target.value as typeof photoType)}
+            className="text-[11px] px-1.5 py-1 rounded border border-slate-300">
+            <option value="progress">Progress</option>
+            <option value="before">Before</option>
+            <option value="after">After</option>
+          </select>
+          <label className={`text-[11px] px-2 py-1 rounded bg-slate-800 text-white cursor-pointer ${uploading ? 'opacity-50' : 'hover:bg-slate-900'}`}>
+            {uploading ? 'Uploading…' : '+ Add photos'}
+            <input type="file" accept="image/*" multiple className="hidden" disabled={uploading}
+              onChange={(e) => onUpload(e.target.files)} />
+          </label>
+        </div>
+      </div>
+
+      {shareLink && (
+        <p className="text-[11px] text-green-600 mb-2">Link copied: <span className="text-slate-500">{shareLink}</span></p>
+      )}
+      {selecting && (
+        <div className="flex items-center gap-2 mb-2 text-[11px] text-slate-500">
+          <span>{picked.size > 0 ? `${picked.size} selected` : 'None selected — report will include all photos'}</span>
+          <button onClick={generateReport} disabled={generating} className="px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">
+            {generating ? 'Generating…' : 'Download PDF'}
+          </button>
+        </div>
+      )}
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {allTags.map((t) => (
+            <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)}
+              className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTag === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0
+        ? <p className="text-sm text-slate-400">{photos.length === 0 ? 'No photos yet.' : 'No photos with this tag.'}</p>
+        : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {visible.map(p => (
+              <button key={p.id} onClick={() => selecting ? togglePick(p.id) : setSelectedId(p.id)}
+                className={`relative aspect-square rounded-lg overflow-hidden border group ${selecting && picked.has(p.id) ? 'border-slate-800 ring-2 ring-slate-800' : 'border-slate-200'}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt={p.caption || 'Job photo'} className="w-full h-full object-cover group-hover:opacity-90" />
+                <span className={`absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[p.photo_type]}`}>{PHOTO_TYPE_LABEL[p.photo_type]}</span>
+                {p.source === 'client' && <span className="absolute top-1 right-1 text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Client</span>}
+                {p.pair_id && <span className="absolute bottom-1 right-1 text-[9px] px-1 py-0.5 rounded bg-white/90 text-slate-600 font-medium">Paired</span>}
+                {selecting && (
+                  <span className={`absolute bottom-1 left-1 w-4 h-4 rounded-full border-2 ${picked.has(p.id) ? 'bg-slate-800 border-slate-800' : 'bg-white/80 border-slate-400'}`} />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+      {selected && (
+        <PhotoLightbox photo={selected} jobId={jobId} allPhotos={photos} onClose={() => setSelectedId(null)} onChanged={load} />
+      )}
+    </section>
+  )
+}
+
+function Checklist({ jobId }: { jobId: string }) {
+  const [items, setItems] = useState<ChecklistItem[]>([])
+  const [newLabel, setNewLabel] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const load = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/checklist`).then(r => r.json()).then(d => setItems(d.items || [])).catch(() => {})
+  }, [jobId])
+  useEffect(() => { load() }, [load])
+
+  const toggle = async (item: ChecklistItem) => {
+    setItems(items.map(i => i.id === item.id ? { ...i, done: !i.done } : i))
+    await fetch(`/api/jobs/${jobId}/checklist/${item.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: !item.done }),
+    })
+  }
+
+  const remove = async (id: string) => {
+    setItems(items.filter(i => i.id !== id))
+    await fetch(`/api/jobs/${jobId}/checklist/${id}`, { method: 'DELETE' })
+  }
+
+  const add = async () => {
+    if (!newLabel.trim()) return
+    setAdding(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/checklist`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: newLabel }),
+      })
+      if (res.ok) { setNewLabel(''); load() }
+    } finally { setAdding(false) }
+  }
+
+  const doneCount = items.filter(i => i.done).length
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-slate-800">Checklist</h2>
+        {items.length > 0 && <span className="text-[11px] text-slate-400">{doneCount} of {items.length} done</span>}
+      </div>
+
+      <div className="space-y-1 mb-2">
+        {items.map(i => (
+          <div key={i.id} className="flex items-center gap-2 p-1.5 rounded border border-slate-200 bg-white group">
+            <input type="checkbox" checked={i.done} onChange={() => toggle(i)} className="shrink-0" />
+            <span className={`flex-1 text-sm ${i.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{i.label}</span>
+            <button onClick={() => remove(i.id)} className="text-slate-300 hover:text-red-600 opacity-0 group-hover:opacity-100 text-xs">✕</button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-slate-400">No checklist items yet.</p>}
+      </div>
+
+      <div className="flex gap-1.5">
+        <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Add a checklist item…"
+          onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+          className="flex-1 px-2 py-1 text-xs rounded border border-slate-300" />
+        <button onClick={add} disabled={adding || !newLabel.trim()} className="text-xs px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">Add</button>
+      </div>
+    </section>
   )
 }
 
@@ -617,6 +1040,9 @@ export default function JobDetailPage() {
           ))}
         </div>
       </section>
+
+      <Checklist jobId={id} />
+      <PhotoGallery jobId={id} />
 
       {/* Activity log */}
       <section>

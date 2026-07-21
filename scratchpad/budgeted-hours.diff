@@ -1,0 +1,125 @@
+diff --git a/platform/src/app/dashboard/sales/page.tsx b/platform/src/app/dashboard/sales/page.tsx
+index 4ec2079f..958daace 100644
+--- a/platform/src/app/dashboard/sales/page.tsx
++++ b/platform/src/app/dashboard/sales/page.tsx
+@@ -93,6 +93,14 @@ type Activity = {
+   created_at: string
+ }
+ 
++type QuoteLineItem = {
++  quantity: number
++  unit_price_cents: number
++  optional?: boolean
++  selected?: boolean
++  duration_hours?: number
++}
++
+ type Quote = {
+   id: string
+   quote_number: string | null
+@@ -104,6 +112,7 @@ type Quote = {
+   sent_at: string | null
+   accepted_at: string | null
+   declined_at: string | null
++  line_items: QuoteLineItem[] | null
+ }
+ 
+ function fmtMoney(cents: number): string {
+@@ -435,8 +444,12 @@ function SalesPageInner() {
+ 
+                       {/* Schedule — once the sale is a Job, drop visits on the calendar */}
+                       {(() => {
+-                        const jobId = (quotesByDeal[d.id] || []).map((q) => q.converted_job_id).find(Boolean) || null
++                        const acceptedQuote = (quotesByDeal[d.id] || []).find((q) => q.converted_job_id) || null
++                        const jobId = acceptedQuote?.converted_job_id || null
+                         if (!jobId) return null
++                        const budgetedHours = (acceptedQuote?.line_items || [])
++                          .filter((li) => !li.optional || li.selected)
++                          .reduce((sum, li) => sum + (Number(li.duration_hours) || 0), 0)
+                         return (
+                           <div className="sl-proposal">
+                             <div className="sl-proposal-head">Schedule</div>
+@@ -452,8 +465,8 @@ function SalesPageInner() {
+                                     <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+                                   </div>
+                                   <div className="sl-sched-field">
+-                                    <label>Hours</label>
+-                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
++                                    <label>Proposal Budgeted Hours</label>
++                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Proposal Budgeted Hours" />
+                                   </div>
+                                   <div className="sl-sched-field">
+                                     <label>Crew</label>
+@@ -468,7 +481,7 @@ function SalesPageInner() {
+                                 <span className="sl-action-hint">Pick a date + crew, or leave crew unassigned for now.</span>
+                               </>
+                             ) : (
+-                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
++                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate(''); setSchedDuration(budgetedHours > 0 ? String(budgetedHours) : '2') }}>+ Schedule a visit</button>
+                             )}
+                           </div>
+                         )
+diff --git a/platform/src/app/dashboard/sales/quotes/_QuoteBuilder.tsx b/platform/src/app/dashboard/sales/quotes/_QuoteBuilder.tsx
+index 0f13c921..184adacd 100644
+--- a/platform/src/app/dashboard/sales/quotes/_QuoteBuilder.tsx
++++ b/platform/src/app/dashboard/sales/quotes/_QuoteBuilder.tsx
+@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
+ import HelpTip from '../../_components/HelpTip'
+ 
+ type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
+-type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
++type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null; default_duration_hours: number | null }
+ 
+ type LineItem = {
+   id: string
+@@ -23,6 +23,10 @@ type LineItem = {
+   unit_price_cents: number
+   optional: boolean
+   selected: boolean
++  /** Estimated hours for this line, seeded from the catalog item's Est.
++   * hrs at add-time. Summed across accepted lines to prefill the Schedule
++   * panel's Proposal Budgeted Hours. */
++  duration_hours?: number
+ }
+ 
+ function blankLine(): LineItem {
+@@ -136,7 +140,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
+     if (!it) return
+     setItems(prev => [
+       ...prev.filter(li => li.name.trim() || li.unit_price_cents),
+-      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
++      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents, duration_hours: it.default_duration_hours ?? undefined },
+     ])
+   }
+   function updateItem(id: string, patch: Partial<LineItem>) { setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li))) }
+@@ -175,6 +179,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
+         id: li.id, name: li.name, description: li.description || undefined,
+         quantity: li.quantity, unit_price_cents: li.unit_price_cents,
+         optional: li.optional, selected: li.optional ? li.selected : true,
++        duration_hours: li.duration_hours,
+       })),
+       tax_rate_bps: taxRateBps,
+       discount_cents: discountCents,
+diff --git a/platform/src/lib/quote.ts b/platform/src/lib/quote.ts
+index bd8e78d7..a1d12561 100644
+--- a/platform/src/lib/quote.ts
++++ b/platform/src/lib/quote.ts
+@@ -19,6 +19,10 @@ export interface QuoteLineItem {
+   subtotal_cents: number
+   optional?: boolean
+   selected?: boolean
++  /** Estimated hours for this line, carried from the catalog item's
++   * default_duration_hours at quote-build time. Used to prefill the
++   * schedule window's duration once the quote is accepted. */
++  duration_hours?: number
+ }
+ 
+ export interface QuoteTier {
+@@ -57,6 +61,7 @@ export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineIt
+         subtotal_cents,
+         optional: !!li.optional,
+         selected: li.optional ? !!li.selected : true,
++        duration_hours: li.duration_hours != null && Number(li.duration_hours) > 0 ? Number(li.duration_hours) : undefined,
+       }
+     })
+ }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import Link from 'next/link'
 import './finance.css'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Tab = 'overview'
 // The finance PROCESS, left→right — one connected hub. Overview lives on this
@@ -54,6 +55,8 @@ function fmt(cents: number): string {
 
 export default function FinancePage() {
   const worker = useWorkerLabel()
+  const { tenant } = useTenantSettings()
+  const agentName = (tenant?.agent_name as string) || 'Selena'
   const [tab] = useState<Tab>('overview')
   const [range, setRange] = useState<DateRange>('month')
   const [summary, setSummary] = useState<Summary>({})
@@ -332,7 +335,7 @@ export default function FinancePage() {
                 <span className="fin-aging-foot-value">${fmt(outstanding)}</span>
               </div>
               {outstanding > 0 && (
-                <div className="fin-aging-action">Send batch reminder via Selena →</div>
+                <div className="fin-aging-action">Send batch reminder via {agentName} →</div>
               )}
             </div>
           </div>

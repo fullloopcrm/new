@@ -71,7 +71,7 @@ export default function ScheduleDetailPage() {
   }
 
   async function cancelSchedule() {
-    if (!confirm('Cancel this schedule? Future bookings will also be cancelled.')) return
+    if (!confirm('Cancel this schedule? Future bookings will also be canceled.')) return
     await fetch(`/api/schedules/${id}`, { method: 'DELETE' })
     router.push('/dashboard/schedules')
   }

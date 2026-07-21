@@ -129,6 +129,7 @@ const isPublicRoute = createRouteMatcher([
   '/portal(.*)',            // Client portal uses phone/email auth, not Clerk
   '/join(.*)',              // Invite acceptance page
   '/referral(.*)',          // Public referral pages
+  '/sales(.*)',             // Sales partner portal (email+PIN auth, not Clerk)
   '/api/portal(.*)',        // Portal API routes
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/leads',             // Lead capture from onboarding
@@ -168,6 +169,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/invoices/public(.*)', // Public invoice API (token-auth)
   '/sign/(.*)',               // Public document signer view (token-auth)
   '/api/documents/public(.*)', // Public document signer API (token-auth)
+  '/photos/(.*)',              // Public job-photo timeline view (token-auth)
+  '/api/jobs/public(.*)',      // Public job-photo timeline API (token-auth)
   '/api/cpa/(.*)',             // CPA read-only access (token-auth)
   '/qualify',                  // Public prospect application form
   '/qualify(.*)',              // e.g. /qualify?cancelled=1
@@ -311,6 +314,7 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
           p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
           p.startsWith('/api/referral-commissions') ||
+          p.startsWith('/api/sales-partners') || p.startsWith('/api/sales-partner-commissions') ||
           // H-01: these owner APIs were missing, so super-admin impersonation
           // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
           // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
@@ -321,6 +325,7 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
           p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
           p.startsWith('/api/booking-notes') ||
+          p.startsWith('/api/uploads') ||
           p.startsWith('/api/tenant/public')) {
         return
       }

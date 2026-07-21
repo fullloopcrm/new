@@ -334,7 +334,7 @@
 /* One deal = one row. Columns line up table-style across the list. */
 .sl-row {
   display: grid;
-  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 88px 46px 104px;
+  grid-template-columns: 14px 28px minmax(120px, 1.4fr) minmax(0, 1.8fr) 64px 84px 88px 46px 104px;
   align-items: center;
   gap: 12px;
   padding: 9px 12px;
@@ -342,7 +342,7 @@
 }
 .sl-thead {
   display: grid;
-  grid-template-columns: 14px minmax(120px, 1.4fr) minmax(0, 1.8fr) auto 84px 88px 46px 104px;
+  grid-template-columns: 14px 28px minmax(120px, 1.4fr) minmax(0, 1.8fr) 64px 84px 88px 46px 104px;
   align-items: center;
   gap: 12px;
   padding: 0 12px 8px;
@@ -355,6 +355,10 @@
 }
 .sl-row-date { font-family: var(--sl-mono); font-size: 10px; color: var(--sl-muted); text-align: right; white-space: nowrap; }
 .sl-row-caret { font-size: 10px; color: var(--sl-muted-2); }
+.sl-pin-star { display: flex; align-items: center; justify-content: center; padding: 2px; border: none; background: none; cursor: pointer; color: var(--sl-muted-2); flex-shrink: 0; }
+.sl-pin-star:hover { color: var(--sl-muted); }
+.sl-pin-star.pinned { color: #d4a017; }
+.sl-pin-star svg { width: 26px; height: 26px; }
 .sl-row-name {
   font-family: var(--sl-display); font-size: 14px; font-weight: 500; color: var(--sl-ink);
   letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -371,10 +375,28 @@
 .sl-row-age { font-family: var(--sl-mono); font-size: 10px; color: var(--sl-muted); text-align: right; }
 .sl-row-age.warn { color: var(--sl-warn); font-weight: 600; }
 .sl-row-age.danger { color: var(--sl-danger); font-weight: 600; }
-.sl-row-move {
+.sl-row-move { position: relative; width: 100%; }
+.sl-row-move-btn {
   font-size: 11px; padding: 4px 6px; border: 1px solid var(--sl-line); border-radius: 6px;
   color: var(--sl-ink); background: #fff; cursor: pointer; width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  font-family: inherit;
 }
+.sl-row-move-btn:hover { border-color: var(--sl-ink); }
+.sl-row-move-caret { font-size: 9px; color: var(--sl-muted-2); }
+.sl-row-move-list {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 20;
+  background: #fff; border: 1px solid var(--sl-line); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14); min-width: 120px; padding: 4px; margin: 0;
+  list-style: none;
+}
+.sl-row-move-opt {
+  display: block; width: 100%; text-align: left; font-size: 11px; padding: 5px 8px;
+  border: none; background: transparent; color: var(--sl-ink); border-radius: 4px;
+  cursor: pointer; font-family: inherit;
+}
+.sl-row-move-opt:hover { background: var(--sl-bg); }
+.sl-row-move-opt.active { font-weight: 600; background: rgba(28,28,28,0.06); }
 .sl-deal-panel { margin: 0 12px; padding: 10px 0 12px; }
 @media (max-width: 720px) {
   .sl-row { grid-template-columns: 14px 1fr auto 84px; }
@@ -675,7 +697,16 @@ a.sl-act-btn { display: inline-block; text-decoration: none; text-align: center;
 .sl-proposal-status.accepted { background: rgba(31,77,44,0.12); color: var(--sl-good); }
 .sl-proposal-status.declined { background: rgba(192,57,43,0.1); color: #c0392b; }
 .sl-proposal-status.expired { background: rgba(192,57,43,0.08); color: #c0392b; }
+.sl-contact-line { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.sl-contact-item { color: var(--sl-ink); text-decoration: none; }
+a.sl-contact-item:hover { text-decoration: underline; }
+.sl-contact-notes { font-size: 12px; color: var(--sl-ink); line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
 .sl-sched-input {
   font-size: 12px; padding: 5px 8px; border: 1px solid var(--sl-line);
   border-radius: 7px; background: #fff; color: var(--sl-ink); font-family: inherit;
+}
+.sl-sched-field { display: flex; flex-direction: column; gap: 2px; }
+.sl-sched-field label {
+  font-family: var(--sl-mono); font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--sl-muted); font-weight: 600;
 }

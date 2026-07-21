@@ -16,6 +16,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { activateSalesPartnerForDocument } from '@/lib/sales-partner-agreement'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -191,6 +192,10 @@ export async function POST(request: Request, { params }: Params) {
       // Both parties get a receipt + the fully-signed copy attached.
       await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[]).catch(err =>
         console.error('completion copies failed:', err)
+      )
+      // No-op unless this document is a Sales Partner onboarding agreement.
+      await activateSalesPartnerForDocument(doc.id).catch(err =>
+        console.error('sales partner activation failed:', err)
       )
     } else {
       // Partial progress

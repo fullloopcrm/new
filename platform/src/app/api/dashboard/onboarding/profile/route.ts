@@ -135,10 +135,15 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const { tenantId } = await getTenantForRequest()
-    const body = (await request.json().catch(() => ({}))) as { draft?: Json }
+    const body = (await request.json().catch(() => ({}))) as { draft?: Json; step?: number }
+    // __step piggybacks on the same jsonb blob as the form draft — it's how
+    // the sidebar's progress badge (GET .../progress) knows how far the
+    // tenant has gotten without a dedicated column.
+    const draft: Json = { ...(body.draft ?? {}) }
+    if (typeof body.step === 'number') draft.__step = body.step
     const { error } = await supabaseAdmin
       .from('tenants')
-      .update({ onboarding_draft: body.draft ?? {} })
+      .update({ onboarding_draft: draft })
       .eq('id', tenantId)
     if (error) throw error
     return NextResponse.json({ saved: true })

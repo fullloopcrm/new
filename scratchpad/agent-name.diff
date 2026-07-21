@@ -1,0 +1,494 @@
+diff --git a/platform/src/app/dashboard/bookings/page.tsx b/platform/src/app/dashboard/bookings/page.tsx
+index 3a505abe..5267f20d 100644
+--- a/platform/src/app/dashboard/bookings/page.tsx
++++ b/platform/src/app/dashboard/bookings/page.tsx
+@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
+ import { useWorkerLabel } from '../worker-label-context'
+ import './schedule.css'
+ import BookingsAdmin from './BookingsAdmin'
++import { useTenantSettings } from '@/lib/use-tenant-settings'
+ 
+ const TEAM_COLORS = [
+   'var(--sched-team-1)', 'var(--sched-team-2)', 'var(--sched-team-3)',
+@@ -101,6 +102,8 @@ function monthLabel(month: string): { name: string; year: string } {
+ 
+ export default function SchedulePage() {
+   const worker = useWorkerLabel()
++  const { tenant } = useTenantSettings()
++  const agentName = (tenant?.agent_name as string) || 'Selena'
+   const [data, setData] = useState<CalendarData | null>(null)
+   const [loading, setLoading] = useState(true)
+   const [tab, setTab] = useState<Tab>('bookings')
+@@ -240,7 +243,7 @@ export default function SchedulePage() {
+ 
+       {/* SELENA QUERY */}
+       <div className="sched-selena-query">
+-        <span className="sched-selena-query-icon">Selena · Schedule</span>
++        <span className="sched-selena-query-icon">{agentName} · Schedule</span>
+         <input className="sched-selena-query-input" placeholder="find me a 3hr deep clean slot in UWS this week with Jeff…" />
+         <span className="sched-selena-suggest-pill">Reassign overloaded</span>
+         <span className="sched-selena-suggest-pill">Fill idle days</span>
+diff --git a/platform/src/app/dashboard/campaigns/page.tsx b/platform/src/app/dashboard/campaigns/page.tsx
+index 0cf41400..d258ea2b 100644
+--- a/platform/src/app/dashboard/campaigns/page.tsx
++++ b/platform/src/app/dashboard/campaigns/page.tsx
+@@ -295,7 +295,7 @@ export default function CampaignsPage() {
+           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-5">
+             <div className="flex items-center gap-2 mb-2">
+               <span className="text-sm">✧</span>
+-              <h4 className="text-xs font-semibold text-slate-400 uppercase">Selenas AI — Write Assist</h4>
++              <h4 className="text-xs font-semibold text-slate-400 uppercase">{(tenantSettings.tenant?.agent_name as string) || 'Selena'} AI — Write Assist</h4>
+             </div>
+             <div className="flex gap-2">
+               <input value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
+diff --git a/platform/src/app/dashboard/clients/client-drawer.tsx b/platform/src/app/dashboard/clients/client-drawer.tsx
+index efdf27a9..447e1dcc 100644
+--- a/platform/src/app/dashboard/clients/client-drawer.tsx
++++ b/platform/src/app/dashboard/clients/client-drawer.tsx
+@@ -47,6 +47,7 @@ type Props = {
+   open: boolean
+   onClose: () => void
+   onClientUpdated?: () => void
++  agentName?: string
+ }
+ 
+ function initials(name: string): string {
+@@ -97,7 +98,7 @@ type Activity = {
+   sentiment?: 'pos' | 'neu' | 'neg'
+ }
+ 
+-export default function ClientDrawer({ client, open, onClose, onClientUpdated }: Props) {
++export default function ClientDrawer({ client, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
+   const router = useRouter()
+   const worker = useWorkerLabel()
+   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
+@@ -221,7 +222,7 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated }:
+           {/* Selena Next Action */}
+           {client.last_booking?.overdue && (
+             <div className="clients-next-action">
+-              <div className="clients-next-action-head">Selena · Suggested Next Action</div>
++              <div className="clients-next-action-head">{agentName} · Suggested Next Action</div>
+               <div className="clients-next-action-suggest">
+                 Payment is overdue — recommend a soft check-in before sending a formal reminder.
+               </div>
+@@ -413,7 +414,7 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated }:
+                   className={`clients-notes-tab ${notesTab === t ? 'active' : ''}`}
+                   onClick={() => setNotesTab(t)}
+                 >
+-                  {t === 'cleaner' ? '⚒ Cleaner' : t === 'operator' ? '⊡ Operator' : '✦ Selena'}
++                  {t === 'cleaner' ? '⚒ Cleaner' : t === 'operator' ? '⊡ Operator' : `✦ ${agentName}`}
+                 </span>
+               ))}
+             </div>
+diff --git a/platform/src/app/dashboard/clients/page.tsx b/platform/src/app/dashboard/clients/page.tsx
+index 3eafeb28..02757e8a 100644
+--- a/platform/src/app/dashboard/clients/page.tsx
++++ b/platform/src/app/dashboard/clients/page.tsx
+@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
+ import dynamic from 'next/dynamic'
+ import './clients.css'
+ import ClientDrawer from './client-drawer'
++import { useTenantSettings } from '@/lib/use-tenant-settings'
+ 
+ const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
+ 
+@@ -92,6 +93,8 @@ function stageLabel(stage: Stage): string {
+ }
+ 
+ export default function ClientsPage() {
++  const { tenant } = useTenantSettings()
++  const agentName = tenant?.agent_name as string || 'Selena'
+   const [clients, setClients] = useState<EnrichedClient[]>([])
+   const [totals, setTotals] = useState<Totals | null>(null)
+   const [loading, setLoading] = useState(true)
+@@ -199,7 +202,7 @@ export default function ClientsPage() {
+         <div className="clients-stat">
+           <div className="clients-stat-label">At-Risk <span className="clients-stat-tag warn">churn</span></div>
+           <div className="clients-stat-value">{totals?.at_risk ?? 0}</div>
+-          <div className="clients-stat-sub warn">Selena drafted nudges</div>
++          <div className="clients-stat-sub warn">{agentName} drafted nudges</div>
+         </div>
+         <div className="clients-stat">
+           <div className="clients-stat-label">Avg Health</div>
+@@ -234,7 +237,7 @@ export default function ClientsPage() {
+       {/* TOOLBAR */}
+       <div className="clients-toolbar">
+         <div className="clients-ai-search">
+-          <span className="clients-ai-search-icon">Ask Selena</span>
++          <span className="clients-ai-search-icon">Ask {agentName}</span>
+           <input
+             type="text"
+             placeholder="biweekly clients in Murray Hill who haven't reviewed yet…"
+@@ -454,6 +457,7 @@ export default function ClientsPage() {
+         open={!!drawerId}
+         onClose={() => setDrawerId(null)}
+         onClientUpdated={loadClients}
++        agentName={agentName}
+       />
+     </div>
+   )
+diff --git a/platform/src/app/dashboard/dashboard-shell.tsx b/platform/src/app/dashboard/dashboard-shell.tsx
+index c7edd784..c6135411 100644
+--- a/platform/src/app/dashboard/dashboard-shell.tsx
++++ b/platform/src/app/dashboard/dashboard-shell.tsx
+@@ -415,7 +415,7 @@ export default function DashboardShell({
+                 }}
+               >
+                 <span style={{ width: '18px', flexShrink: 0 }} />
+-                <span>{item.label}</span>
++                <span>{item.href === '/dashboard/selena' ? agentName : item.label}</span>
+               </Link>
+             )
+           })}
+diff --git a/platform/src/app/dashboard/docs/page.tsx b/platform/src/app/dashboard/docs/page.tsx
+index 4cb9a7f3..781d564e 100644
+--- a/platform/src/app/dashboard/docs/page.tsx
++++ b/platform/src/app/dashboard/docs/page.tsx
+@@ -1,4 +1,10 @@
++'use client'
++
++import { useTenantSettings } from '@/lib/use-tenant-settings'
++
+ export default function DocsPage() {
++  const { tenant } = useTenantSettings()
++  const agentName = (tenant?.agent_name as string) || 'Selena'
+   return (
+     <div className="max-w-3xl">
+       <h2 className="text-2xl font-bold text-slate-900 mb-1">Documentation</h2>
+@@ -17,8 +23,8 @@ export default function DocsPage() {
+               <li><strong>Add your clients</strong> &mdash; Navigate to Clients to add your existing customers. You can add them one by one or import them later.</li>
+               <li><strong>Create bookings</strong> &mdash; Go to Bookings to schedule jobs. Select a client, service, date/time, and team member.</li>
+               <li><strong>Add your team</strong> &mdash; Go to Team to add members. Each team member gets a 4-digit PIN for the mobile team portal (see Team Members section below).</li>
+-              <li><strong>Turn on Selena AI</strong> &mdash; Visit the Selena page to activate your AI booking agent. Selena handles incoming SMS messages and web chat conversations, so new clients can book 24/7 without you lifting a finger.</li>
+-              <li><strong>Set up your web chat</strong> &mdash; Go to Connect to grab the chat widget code for your website. This lets visitors start a conversation with Selena directly from your site.</li>
++              <li><strong>Turn on {agentName} AI</strong> &mdash; Visit the {agentName} page to activate your AI booking agent. {agentName} handles incoming SMS messages and web chat conversations, so new clients can book 24/7 without you lifting a finger.</li>
++              <li><strong>Set up your web chat</strong> &mdash; Go to Connect to grab the chat widget code for your website. This lets visitors start a conversation with {agentName} directly from your site.</li>
+               <li><strong>Set up billing info</strong> &mdash; Confirm your payment method in Settings so your account stays active.</li>
+             </ol>
+           </div>
+@@ -46,23 +52,23 @@ export default function DocsPage() {
+           </div>
+         </section>
+ 
+-        {/* Selena AI */}
++        {/* AI concierge */}
+         <section>
+-          <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Selena AI</h3>
++          <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">{agentName} AI</h3>
+           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
+-            <p>Selena is your AI-powered booking agent. She handles incoming SMS messages and web chat conversations automatically, booking new clients and managing requests around the clock.</p>
++            <p>{agentName} is your AI-powered booking agent. She handles incoming SMS messages and web chat conversations automatically, booking new clients and managing requests around the clock.</p>
+ 
+-            <p><strong>How it works:</strong> When someone texts your business number or starts a web chat, Selena takes over the conversation. She introduces herself, collects the information needed to book an appointment, and creates the booking in your system &mdash; all without you needing to respond.</p>
++            <p><strong>How it works:</strong> When someone texts your business number or starts a web chat, {agentName} takes over the conversation. She introduces herself, collects the information needed to book an appointment, and creates the booking in your system &mdash; all without you needing to respond.</p>
+ 
+-            <p><strong>Booking checklist:</strong> Selena walks through a checklist to gather everything she needs: the client&apos;s name, the service they want, their preferred date and time, and their address. She only creates the booking once she has all the details confirmed.</p>
++            <p><strong>Booking checklist:</strong> {agentName} walks through a checklist to gather everything she needs: the client&apos;s name, the service they want, their preferred date and time, and their address. She only creates the booking once she has all the details confirmed.</p>
+ 
+-            <p><strong>Returning client recognition:</strong> When a returning client texts in, Selena recognizes their phone number and greets them by name. She already knows their address and service preferences, so the booking process is faster.</p>
++            <p><strong>Returning client recognition:</strong> When a returning client texts in, {agentName} recognizes their phone number and greets them by name. She already knows their address and service preferences, so the booking process is faster.</p>
+ 
+-            <p><strong>Escalation:</strong> If Selena encounters a question she can&apos;t handle &mdash; like a custom pricing request or a complaint &mdash; she lets the client know that someone from your team will follow up, and sends you a notification so nothing falls through the cracks.</p>
++            <p><strong>Escalation:</strong> If {agentName} encounters a question she can&apos;t handle &mdash; like a custom pricing request or a complaint &mdash; she lets the client know that someone from your team will follow up, and sends you a notification so nothing falls through the cracks.</p>
+ 
+-            <p><strong>Conversation reset:</strong> After a conversation is complete (booking confirmed or escalated), the conversation resets so the next time that person texts, Selena starts fresh and doesn&apos;t get confused by old context.</p>
++            <p><strong>Conversation reset:</strong> After a conversation is complete (booking confirmed or escalated), the conversation resets so the next time that person texts, {agentName} starts fresh and doesn&apos;t get confused by old context.</p>
+ 
+-            <p><strong>Admin dashboard:</strong> Visit the Selena page in your dashboard to see conversation stats, filter by date range, and review recent conversations. You can see how many bookings Selena has handled, how many were escalated, and how your conversion rate is trending.</p>
++            <p><strong>Admin dashboard:</strong> Visit the {agentName} page in your dashboard to see conversation stats, filter by date range, and review recent conversations. You can see how many bookings {agentName} has handled, how many were escalated, and how your conversion rate is trending.</p>
+           </div>
+         </section>
+ 
+@@ -148,7 +154,7 @@ export default function DocsPage() {
+           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
+             <p>Full Loop handles client and team communication through SMS and email, all integrated into your dashboard.</p>
+ 
+-            <p><strong>SMS via Telnyx:</strong> Your business gets a dedicated phone number for text messaging. All incoming and outgoing SMS messages are handled through Telnyx and logged in your dashboard. This is the same number Selena uses to handle booking conversations.</p>
++            <p><strong>SMS via Telnyx:</strong> Your business gets a dedicated phone number for text messaging. All incoming and outgoing SMS messages are handled through Telnyx and logged in your dashboard. This is the same number {agentName} uses to handle booking conversations.</p>
+ 
+             <p><strong>Email via Resend:</strong> Transactional emails (booking confirmations, reminders, review requests) are sent through Resend using your connected API key. Configure this in Settings &rarr; Integrations.</p>
+ 
+@@ -177,15 +183,15 @@ export default function DocsPage() {
+         <section>
+           <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Web Chat</h3>
+           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
+-            <p>The web chat widget lets visitors on your website start a conversation with Selena AI directly from any page. It&apos;s a small chat bubble in the corner that opens into a full conversation window.</p>
++            <p>The web chat widget lets visitors on your website start a conversation with {agentName} AI directly from any page. It&apos;s a small chat bubble in the corner that opens into a full conversation window.</p>
+ 
+             <p><strong>Setup:</strong> Go to Connect in your dashboard to get the embed code. Add it to your website and the chat widget appears automatically. No coding knowledge needed &mdash; just paste the snippet before the closing body tag.</p>
+ 
+-            <p><strong>New client flow:</strong> When a new visitor starts a chat, Selena greets them, asks what service they need, and walks them through booking &mdash; collecting their name, phone number, address, preferred date and time. The booking is created in your system automatically.</p>
++            <p><strong>New client flow:</strong> When a new visitor starts a chat, {agentName} greets them, asks what service they need, and walks them through booking &mdash; collecting their name, phone number, address, preferred date and time. The booking is created in your system automatically.</p>
+ 
+-            <p><strong>Returning client flow:</strong> If a visitor enters a phone number that matches an existing client, Selena recognizes them and greets them by name. She already has their address and history on file, making repeat bookings faster.</p>
++            <p><strong>Returning client flow:</strong> If a visitor enters a phone number that matches an existing client, {agentName} recognizes them and greets them by name. She already has their address and history on file, making repeat bookings faster.</p>
+ 
+-            <p><strong>Quick reply buttons:</strong> During the conversation, Selena offers quick reply buttons (like service options or available time slots) so visitors can tap instead of typing. This speeds up the booking process and reduces drop-off.</p>
++            <p><strong>Quick reply buttons:</strong> During the conversation, {agentName} offers quick reply buttons (like service options or available time slots) so visitors can tap instead of typing. This speeds up the booking process and reduces drop-off.</p>
+           </div>
+         </section>
+ 
+@@ -197,11 +203,11 @@ export default function DocsPage() {
+ 
+             <p><strong>What you&apos;ll get notified about:</strong></p>
+             <ul className="list-disc list-inside space-y-1 pl-1">
+-              <li>New bookings created (by you, Selena, or through the client portal)</li>
++              <li>New bookings created (by you, {agentName}, or through the client portal)</li>
+               <li>Team member check-ins and check-outs</li>
+               <li>15-minute heads up alerts from your team</li>
+               <li>Walkthrough videos uploaded (before and after)</li>
+-              <li>Selena escalations (conversations she needs your help with)</li>
++              <li>{agentName} escalations (conversations she needs your help with)</li>
+               <li>New client sign-ups</li>
+               <li>Booking cancellations or changes</li>
+               <li>Payment updates</li>
+@@ -225,7 +231,7 @@ export default function DocsPage() {
+               <li><strong>Services</strong> &mdash; Add, edit, reorder, and toggle your service types. Set pricing, estimated duration, and descriptions for each service. These are what clients see when booking.</li>
+               <li><strong>Integrations</strong> &mdash; Connect the tools that power your communications and payments:
+                 <ul className="list-disc list-inside space-y-1 pl-4 mt-1">
+-                  <li><strong>Telnyx</strong> &mdash; SMS messaging and Selena AI conversations</li>
++                  <li><strong>Telnyx</strong> &mdash; SMS messaging and {agentName} AI conversations</li>
+                   <li><strong>Resend</strong> &mdash; Email confirmations, reminders, and campaigns</li>
+                   <li><strong>Stripe</strong> &mdash; Online payments and invoicing</li>
+                   <li><strong>Google</strong> &mdash; Review requests and Google Business Profile</li>
+diff --git a/platform/src/app/dashboard/finance/page.tsx b/platform/src/app/dashboard/finance/page.tsx
+index 36a939b0..0426dc5a 100644
+--- a/platform/src/app/dashboard/finance/page.tsx
++++ b/platform/src/app/dashboard/finance/page.tsx
+@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
+ import { useWorkerLabel } from '../worker-label-context'
+ import Link from 'next/link'
+ import './finance.css'
++import { useTenantSettings } from '@/lib/use-tenant-settings'
+ 
+ type Tab = 'overview'
+ // The finance PROCESS, left→right — one connected hub. Overview lives on this
+@@ -54,6 +55,8 @@ function fmt(cents: number): string {
+ 
+ export default function FinancePage() {
+   const worker = useWorkerLabel()
++  const { tenant } = useTenantSettings()
++  const agentName = (tenant?.agent_name as string) || 'Selena'
+   const [tab] = useState<Tab>('overview')
+   const [range, setRange] = useState<DateRange>('month')
+   const [summary, setSummary] = useState<Summary>({})
+@@ -332,7 +335,7 @@ export default function FinancePage() {
+                 <span className="fin-aging-foot-value">${fmt(outstanding)}</span>
+               </div>
+               {outstanding > 0 && (
+-                <div className="fin-aging-action">Send batch reminder via Selena →</div>
++                <div className="fin-aging-action">Send batch reminder via {agentName} →</div>
+               )}
+             </div>
+           </div>
+diff --git a/platform/src/app/dashboard/selena/page.tsx b/platform/src/app/dashboard/selena/page.tsx
+index 9568c3ee..86b81be4 100644
+--- a/platform/src/app/dashboard/selena/page.tsx
++++ b/platform/src/app/dashboard/selena/page.tsx
+@@ -30,7 +30,6 @@ interface Stats {
+ const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
+ 
+ export default function SelenaPage() {
+-  useEffect(() => { document.title = 'Selena — AI Concierge' }, [])
+   const [convos, setConvos] = useState<Conversation[]>([])
+   const [stats, setStats] = useState<Stats | null>(null)
+   const [errorLog, setErrorLog] = useState<Array<{ id: string; type: string; title: string; message: string; created_at: string }>>([])
+@@ -44,20 +43,53 @@ export default function SelenaPage() {
+   // Inline settings
+   const [showSettings, setShowSettings] = useState(false)
+   const [selenaConfig, setSelenaConfig] = useState<Record<string, unknown>>({})
++  const [agentName, setAgentName] = useState('Selena')
+   const [settingsLoaded, setSettingsLoaded] = useState(false)
+   const [settingsSaving, setSettingsSaving] = useState(false)
+   const [settingsMsg, setSettingsMsg] = useState('')
+ 
++  useEffect(() => { document.title = `${agentName} — AI Concierge` }, [agentName])
++
+   useEffect(() => {
+     fetch('/api/settings')
+       .then(r => r.json())
+       .then(data => {
+         if (data.tenant?.selena_config) setSelenaConfig(data.tenant.selena_config)
++        // tenants.agent_name is the single source of truth for the AI's display
++        // name (see selena-legacy.ts buildSystemPrompt); selena_config.ai_name is
++        // a legacy fallback only, kept here for tenants that never set the column.
++        setAgentName(data.tenant?.agent_name || data.tenant?.selena_config?.ai_name || 'Selena')
+         setSettingsLoaded(true)
+       })
+       .catch(() => setSettingsLoaded(true))
+   }, [])
+ 
++  async function saveAgentName(name: string) {
++    setSettingsSaving(true)
++    setSettingsMsg('')
++    try {
++      const res = await fetch('/api/settings', {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ agent_name: name }),
++      })
++      if (res.ok) {
++        setSettingsMsg('Saved!')
++        setTimeout(() => setSettingsMsg(''), 2000)
++      } else {
++        setSettingsMsg('Failed to save')
++      }
++    } catch {
++      setSettingsMsg('Network error')
++    }
++    setSettingsSaving(false)
++  }
++
++  function updateAgentName(name: string) {
++    setAgentName(name)
++    saveAgentName(name)
++  }
++
+   async function saveSelenaConfig(updated: Record<string, unknown>) {
+     setSettingsSaving(true)
+     setSettingsMsg('')
+@@ -161,11 +193,11 @@ export default function SelenaPage() {
+   return (
+     <div className="p-4 md:p-6 space-y-6">
+       <div className="flex items-center justify-between">
+-        <h1 className="text-2xl font-bold text-gray-900">Selena — AI Concierge</h1>
++        <h1 className="text-2xl font-bold text-gray-900">{agentName} — AI Concierge</h1>
+         <button
+           onClick={() => setShowSettings(!showSettings)}
+           className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`}
+-          title="Selena Settings"
++          title={`${agentName} Settings`}
+         >
+           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+@@ -178,7 +210,7 @@ export default function SelenaPage() {
+       {showSettings && settingsLoaded && (
+         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+-            <h3 className="font-semibold text-white">Selena Quick Settings</h3>
++            <h3 className="font-semibold text-white">{agentName} Quick Settings</h3>
+             <div className="flex items-center gap-3">
+               {settingsMsg && <span className={`text-xs ${settingsMsg === 'Saved!' ? 'text-green-400' : 'text-red-400'}`}>{settingsMsg}</span>}
+               {settingsSaving && <span className="text-xs text-gray-500">Saving...</span>}
+@@ -202,8 +234,8 @@ export default function SelenaPage() {
+             <div>
+               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">AI Name</label>
+               <input
+-                value={(selenaConfig.ai_name as string) || 'Selena'}
+-                onChange={(e) => updateSelena('ai_name', e.target.value)}
++                value={agentName}
++                onChange={(e) => updateAgentName(e.target.value)}
+                 className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm w-full max-w-xs text-slate-900"
+               />
+             </div>
+@@ -253,7 +285,7 @@ export default function SelenaPage() {
+ 
+             {/* Link to full settings */}
+             <a href="/dashboard/settings" className="inline-flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300 transition-colors">
+-              Full Selena Settings
++              Full {agentName} Settings
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+             </a>
+           </div>
+diff --git a/platform/src/app/dashboard/settings/page.tsx b/platform/src/app/dashboard/settings/page.tsx
+index cad010d5..1d00aae5 100644
+--- a/platform/src/app/dashboard/settings/page.tsx
++++ b/platform/src/app/dashboard/settings/page.tsx
+@@ -539,7 +539,7 @@ export default function SettingsPage() {
+               tab === t ? 'border-white text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-400'
+             }`}
+           >
+-            {t}
++            {t === 'Selena' ? (form.agent_name || 'Selena') : t}
+           </button>
+         ))}
+       </div>
+@@ -1115,7 +1115,7 @@ export default function SettingsPage() {
+           {/* Anthropic — Selena AI brain */}
+           <div className="space-y-3 pb-5 border-b border-slate-100">
+             <div className="flex items-center justify-between">
+-              <h3 className="text-sm font-semibold text-slate-700">Selena AI (Anthropic)</h3>
++              <h3 className="text-sm font-semibold text-slate-700">{form.agent_name || 'Selena'} AI (Anthropic)</h3>
+               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.anthropic_api_key ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                 {form.anthropic_api_key ? 'Using your key' : 'Using platform key'}
+               </span>
+@@ -1314,7 +1314,7 @@ export default function SettingsPage() {
+             <div className="space-y-4">
+               <div>
+                 <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Pricing Display</label>
+-                <p className="text-xs text-slate-400 mb-2">Rows of label + price that Selena can reference</p>
++                <p className="text-xs text-slate-400 mb-2">Rows of label + price that {form.agent_name || 'Selena'} can reference</p>
+                 {((selenaConfig.pricing_rows as { label: string; price: string }[]) || [{ label: '', price: '' }]).map((row, i) => (
+                   <div key={i} className="flex gap-2 mb-2">
+                     <input
+@@ -1594,7 +1594,7 @@ export default function SettingsPage() {
+           {/* Section 6: Common Questions */}
+           <div className="border border-slate-200 rounded-lg p-6">
+             <h3 className="text-lg font-semibold text-slate-900 mb-4">Common Questions</h3>
+-            <p className="text-xs text-slate-400 mb-3">Preset Q&A pairs Selena uses to answer common questions</p>
++            <p className="text-xs text-slate-400 mb-3">Preset Q&A pairs {form.agent_name || 'Selena'} uses to answer common questions</p>
+             <div className="space-y-3">
+               {((selenaConfig.common_questions as { question: string; answer: string }[]) || [
+                 { question: 'Can I leave during the service?', answer: '' },
+@@ -1625,7 +1625,7 @@ export default function SettingsPage() {
+                   />
+                   <input
+                     type="text"
+-                    placeholder="Selena's response"
++                    placeholder={`${form.agent_name || 'Selena'}'s response`}
+                     value={qa.answer}
+                     onChange={(e) => {
+                       const rows = [...((selenaConfig.common_questions as { question: string; answer: string }[]) || [
+@@ -1819,7 +1819,7 @@ export default function SettingsPage() {
+           {/* Section 9: Checklist Fields */}
+           <div className="border border-slate-200 rounded-lg p-6">
+             <h3 className="text-lg font-semibold text-slate-900 mb-4">Checklist Fields</h3>
+-            <p className="text-xs text-slate-400 mb-4">Define what Selena collects during intake and in what order</p>
++            <p className="text-xs text-slate-400 mb-4">Define what {form.agent_name || 'Selena'} collects during intake and in what order</p>
+             <div className="space-y-4">
+               {((selenaConfig.checklist_fields as { key: string; enabled: boolean; required: boolean; question: string; quick_replies: string }[]) || [
+                 { key: 'service_type', enabled: true, required: true, question: 'What type of cleaning do you need?', quick_replies: 'Regular, Deep, Move-in/out, Airbnb, Emergency' },
+@@ -1880,7 +1880,7 @@ export default function SettingsPage() {
+                       </div>
+                     </div>
+                     <div>
+-                      <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Question Selena Asks</label>
++                      <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Question {form.agent_name || 'Selena'} Asks</label>
+                       <input
+                         type="text"
+                         value={field.question}
+diff --git a/platform/src/app/dashboard/users/page.tsx b/platform/src/app/dashboard/users/page.tsx
+index 02a9aed5..9bc45053 100644
+--- a/platform/src/app/dashboard/users/page.tsx
++++ b/platform/src/app/dashboard/users/page.tsx
+@@ -1,5 +1,6 @@
+ 'use client'
+ import { useState, useEffect, useCallback } from 'react'
++import { useTenantSettings } from '@/lib/use-tenant-settings'
+ 
+ interface Member {
+   id: string
+@@ -21,14 +22,18 @@ const ROLE_COLORS: Record<string, string> = {
+   staff: 'bg-gray-100 text-gray-800',
+ }
+ 
+-const ROLE_DESCRIPTIONS: Record<string, string> = {
+-  owner: 'Full access including billing, settings, and member management',
+-  admin: 'Full operational access; no billing/settings edits',
+-  manager: 'Bookings, clients, calendar, campaigns, Selena',
+-  staff: 'Read-only access to dashboard + assigned bookings',
++function roleDescriptions(agentName: string): Record<string, string> {
++  return {
++    owner: 'Full access including billing, settings, and member management',
++    admin: 'Full operational access; no billing/settings edits',
++    manager: `Bookings, clients, calendar, campaigns, ${agentName}`,
++    staff: 'Read-only access to dashboard + assigned bookings',
++  }
+ }
+ 
+ export default function UsersPage() {
++  const { tenant } = useTenantSettings()
++  const ROLE_DESCRIPTIONS = roleDescriptions((tenant?.agent_name as string) || 'Selena')
+   const [users, setUsers] = useState<Member[]>([])
+   const [loading, setLoading] = useState(true)
+   const [editingId, setEditingId] = useState<string | null>(null)
