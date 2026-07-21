@@ -309,7 +309,7 @@ export default function ReferralDashboardPage() {
               tab === 'history' ? 'bg-white shadow-sm font-medium' : 'text-slate-400'
             }`}
           >
-            Commissions ({commissions.length})
+            Commissions ({commissions.length + (pendingBookings || []).length})
           </button>
         </div>
 
