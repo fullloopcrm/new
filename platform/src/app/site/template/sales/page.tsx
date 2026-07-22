@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import PayoutSettings from './PayoutSettings'
 
 interface Partner {
   id: string
@@ -15,6 +16,8 @@ interface Partner {
   zelle_email: string | null
   zelle_phone: string | null
   apple_cash_phone: string | null
+  stripe_connect_account_id: string | null
+  monthly_goal_cents: number | null
 }
 
 interface Commission {
@@ -50,10 +53,22 @@ export default function SalesPartnerPortalPage() {
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null
-    if (stored) {
-      setToken(stored)
-      loadPortal(stored)
-    }
+    if (!stored) return
+    setToken(stored)
+    loadPortal(stored).then(() => {
+      if (typeof window === 'undefined') return
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('stripe') !== 'connected') return
+      let partnerId: string | null = null
+      try {
+        const payload = JSON.parse(atob(stored.split('.')[0] || ''))
+        partnerId = payload?.pid || null
+      } catch { /* token shape not decodable client-side, skip refresh */ }
+      if (!partnerId) return
+      fetch(`/api/sales-partners/${partnerId}/stripe-status`, { method: 'POST', headers: { Authorization: `Bearer ${stored}` } })
+        .then(() => loadPortal(stored))
+        .catch(() => {})
+    })
   }, [])
 
   async function loadPortal(t: string) {
@@ -165,6 +180,18 @@ export default function SalesPartnerPortalPage() {
             <p className="text-xl font-bold text-gray-900">{stats.recruited_referrer_count}</p>
           </div>
         </div>
+
+        <PayoutSettings
+          salesPartnerId={partner.id}
+          token={token}
+          preferredPayout={partner.preferred_payout}
+          zelleEmail={partner.zelle_email}
+          zellePhone={partner.zelle_phone}
+          appleCashPhone={partner.apple_cash_phone}
+          stripeConnectAccountId={partner.stripe_connect_account_id}
+          monthlyGoalCents={partner.monthly_goal_cents}
+          onSaved={(updates) => setData((cur) => cur ? { ...cur, partner: { ...cur.partner, ...updates } } : cur)}
+        />
 
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 space-y-3">
           <div>

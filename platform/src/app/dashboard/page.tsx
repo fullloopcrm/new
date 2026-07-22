@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 
@@ -62,6 +63,58 @@ const inDateRange = (iso: string, a: Date, b: Date) => { const d = new Date(iso)
 
 const PENDING_QUOTE_STATUSES = ['sent', 'viewed']
 
+// A "lead" is a real external site visit, not a CRM deal row — ported from nycmaid's
+// V1 /api/leads definition (Total Leads / Leads·Week / Leads·Today on its Sales tile).
+// Pages that are NOT potential clients — job seekers, team, existing clients, legal, admin.
+const NON_LEAD_PREFIXES = [
+  '/careers', '/available-nyc-maid-jobs', '/apply',
+  '/team', '/admin',
+  '/book/collect', '/book/dashboard',
+  '/privacy-policy', '/terms-conditions', '/refund-policy',
+  '/unsubscribe',
+]
+const isLeadPage = (page: string | null) => {
+  if (!page) return true // no page recorded = assume lead
+  const p = page.toLowerCase()
+  return !NON_LEAD_PREFIXES.some(prefix => p.startsWith(prefix))
+}
+
+async function fetchLeadVisits(tenantId: string): Promise<{ created_at: string }[]> {
+  const [domainsRes, blockedRes] = await Promise.all([
+    supabaseAdmin.from('tenant_domains').select('domain').eq('tenant_id', tenantId).eq('active', true),
+    supabaseAdmin.from('blocked_referrers').select('domain').eq('tenant_id', tenantId),
+  ])
+  const ownedSet = new Set((domainsRes.data || []).map(d => (d.domain as string).toLowerCase()))
+  const blockedSet = new Set((blockedRes.data || []).map(d => (d.domain as string).toLowerCase()))
+  const isCleanVisit = (ref: string | null) => {
+    if (!ref || ref === 'direct') return false
+    const r = ref.toLowerCase()
+    for (const d of ownedSet) { if (r.includes(d)) return false }
+    for (const d of blockedSet) { if (r.includes(d)) return false }
+    return true
+  }
+
+  const { data } = await supabaseAdmin
+    .from('lead_clicks')
+    .select('session_id, referrer, page, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('action', 'visit')
+    .order('created_at', { ascending: false })
+    .limit(50000)
+
+  // One session = one lead. feed is newest-first, so first hit per session wins.
+  const seenSessions = new Set<string>()
+  const leadVisits: { created_at: string }[] = []
+  for (const e of (data || []) as { session_id: string | null; referrer: string | null; page: string | null; created_at: string }[]) {
+    if (!isCleanVisit(e.referrer) || !isLeadPage(e.page)) continue
+    const sid = e.session_id || e.created_at
+    if (seenSessions.has(sid)) continue
+    seenSessions.add(sid)
+    leadVisits.push({ created_at: e.created_at })
+  }
+  return leadVisits
+}
+
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
@@ -78,16 +131,15 @@ export default async function DashboardPage() {
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' })
   const yearStr = String(now.getFullYear())
 
-  const [allJobs, rosterRes, newClientsRes, leadsRes, quotesRes] = await Promise.all([
+  const [allJobs, rosterRes, newClientsRes, leads, quotesRes] = await Promise.all([
     fetchYearBookings(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', startOfMonth.toISOString()),
-    supabaseAdmin.from('deals').select('id,created_at').eq('tenant_id', tenant.id).eq('stage', 'new').limit(2000),
+    fetchLeadVisits(tenant.id),
     supabaseAdmin.from('quotes').select('id,status,created_at,accepted_at').eq('tenant_id', tenant.id).in('status', [...PENDING_QUOTE_STATUSES, 'accepted']).limit(2000),
   ])
   const roster = rosterRes.count || 0
   const newThisMonth = newClientsRes.count || 0
-  const leads = (leadsRes.data || []) as { id: string; created_at: string }[]
   const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
 
   // Map jobs — this month, with client address for geocoding.
@@ -113,7 +165,7 @@ export default async function DashboardPage() {
   const collectedMonth = collected(startOfMonth, endOfMonth)
   const collectedYear = collected(startOfYear, endOfYear)
 
-  const all2026 = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status))
+  const all2026 = allJobs.filter(j => SCHEDULED(j))
   const scheduled2026Total = sum(all2026)
   const scheduledWeek = scheduled(startOfWeek, endOfWeek)
   const scheduledMonth = scheduled(startOfMonth, endOfMonth)
@@ -133,12 +185,20 @@ export default async function DashboardPage() {
   const recurringPct = scheduled2026Total > 0 ? Math.round((sum(recurringJobs) / scheduled2026Total) * 100) : 0
   const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
 
+  // nycmaid's V1 build includes a one-off January-actual adjustment (pre-migration
+  // revenue not present in `bookings`) in its Projected total. Not a general formula —
+  // gated to that tenant only, same pattern as other nycmaid-specific adjustments.
+  const NYCMAID_JANUARY_ACTUAL_CENTS = 600000
+  const projectedRevenue = tenant.id === NYCMAID_TENANT_ID
+    ? NYCMAID_JANUARY_ACTUAL_CENTS + scheduled2026Total
+    : scheduled2026Total
+
   const revenueLadder = [
     { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
     { label: 'Week', val: sum(collectedWeek), jobs: collectedWeek.length, emphasize: false },
     { label: monthShort, val: sum(collectedMonth), jobs: collectedMonth.length, emphasize: false },
     { label: `${yearStr} · Actual`, val: sum(collectedYear), jobs: collectedYear.length, emphasize: true },
-    { label: `${yearStr} · Projected`, val: scheduled2026Total, jobs: all2026.length, emphasize: true },
+    { label: `${yearStr} · Projected`, val: projectedRevenue, jobs: all2026.length, emphasize: true },
   ]
   const volumeLadder = [
     { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
@@ -168,7 +228,7 @@ export default async function DashboardPage() {
   const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
     const mStart = new Date(now.getFullYear(), monthIdx, 1)
     const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
-    const jobs = allJobs.filter(j => ['completed', 'scheduled', 'confirmed', 'in_progress'].includes(j.status) && inRange(j, mStart, mEnd))
+    const jobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, mStart, mEnd))
     return {
       label: mStart.toLocaleDateString('en-US', { month: 'short' }),
       count: jobs.length, revenue: sum(jobs),
@@ -182,10 +242,10 @@ export default async function DashboardPage() {
     { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },
   ]
 
-  const todayJobs = allJobs.filter(j => inRange(j, startOfDay, endOfDay)).sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const todayJobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, startOfDay, endOfDay)).sort((a, b) => a.start_time.localeCompare(b.start_time))
   const tomorrowStart = new Date(startOfDay.getTime() + 86400000)
   const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
-  const tomorrowJobs = allJobs.filter(j => { const d = new Date(j.start_time); return d >= tomorrowStart && d < tomorrowEnd }).sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const tomorrowJobs = allJobs.filter(j => { const d = new Date(j.start_time); return SCHEDULED(j) && d >= tomorrowStart && d < tomorrowEnd }).sort((a, b) => a.start_time.localeCompare(b.start_time))
 
   const Bar = ({ children }: { children: React.ReactNode }) => (
     <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>

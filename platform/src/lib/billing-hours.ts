@@ -30,3 +30,13 @@ export function clientBilledHours(rawMinutes: number): number {
 export function cleanerPaidHours(rawMinutes: number): number {
   return roundHalfHour(rawMinutes, CLEANER_GRACE_MIN)
 }
+
+const MULTI_CLEANER_MIN_HOURS = 4
+
+/**
+ * A 2+ cleaner team is billed/paid at least 4 hours even if the job
+ * finishes early. Single-cleaner bookings have no such floor.
+ */
+export function applyTeamMinimum(hours: number, teamSize: number): number {
+  return teamSize >= 2 ? Math.max(hours, MULTI_CLEANER_MIN_HOURS) : hours
+}

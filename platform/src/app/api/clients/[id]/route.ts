@@ -43,7 +43,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'special_instructions', 'preferred_team_member_id', 'sms_consent'])
+    const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason'])
 
     // preferred_team_member_id is a caller-supplied FK — verify it's tenant-owned
     // before writing it, matching the same guard the client-portal twin

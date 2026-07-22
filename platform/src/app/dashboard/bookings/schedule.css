@@ -308,10 +308,20 @@
 }
 
 /* CALENDAR LAYOUT */
-.sched-grid { display: grid; grid-template-columns: 1fr 320px; gap: 22px; }
+.sched-grid { display: grid; grid-template-columns: 1fr 240px; gap: 18px; }
+.sched-grid-main { min-width: 0; }
 @media (max-width: 1200px) {
   .sched-grid { grid-template-columns: 1fr; }
 }
+
+/* Calendar font-size zoom (controlled by --sched-cal-scale, set inline via JS) */
+.sched-cal-zoom { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+.sched-cal-zoom-btn {
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--sched-line); border-radius: 4px; background: var(--sched-canvas);
+  color: var(--sched-ink); font-size: 13px; line-height: 1; cursor: pointer;
+}
+.sched-cal-zoom-btn:hover { background: var(--sched-bg); }
 
 .sched-cal-toolbar {
   display: flex;
@@ -503,7 +513,7 @@
 .sched-cal-head-cell {
   padding: 9px 12px;
   font-family: var(--sched-mono);
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--sched-muted);
@@ -537,7 +547,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: calc(11px * var(--sched-cal-scale, 1));
 }
 .sched-cal-day.heat-low { background: rgba(31,77,44,0.05); }
 .sched-cal-day.heat-mid { background: rgba(31,77,44,0.12); }
@@ -551,7 +561,7 @@
 }
 .sched-cal-date {
   font-family: var(--sched-mono);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--sched-cal-scale, 1));
   color: var(--sched-ink);
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -559,7 +569,7 @@
 .sched-cal-day-stats { display: flex; gap: 4px; align-items: center; }
 .sched-cal-day-stat {
   font-family: var(--sched-mono);
-  font-size: 9px;
+  font-size: calc(9px * var(--sched-cal-scale, 1));
   color: var(--sched-muted);
   padding: 1px 4px;
   background: rgba(255,255,255,0.6);
@@ -570,7 +580,7 @@
 .sched-cal-day-stat.idle { color: var(--sched-good); background: rgba(31,77,44,0.08); }
 .sched-cal-events { display: flex; flex-direction: column; gap: 2px; }
 .sched-cal-event {
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--sched-cal-scale, 1));
   padding: 2px 6px;
   border-radius: 2px;
   color: #FFFFFF;
@@ -598,7 +608,7 @@
   height: 11px;
   border-radius: 50%;
   font-family: var(--sched-display);
-  font-size: 9px;
+  font-size: calc(9px * var(--sched-cal-scale, 1));
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -607,13 +617,13 @@
 .sched-cal-event.tight { box-shadow: inset 0 0 0 1.5px var(--sched-canvas); }
 .sched-cal-event-time {
   font-family: var(--sched-mono);
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
   opacity: 0.85;
   flex-shrink: 0;
 }
 .sched-cal-event-more {
   font-family: var(--sched-mono);
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
   color: var(--sched-muted);
   padding: 1px 6px;
   cursor: pointer;
@@ -623,7 +633,7 @@
 .sched-cal-idle-banner {
   margin-top: 3px;
   font-family: var(--sched-mono);
-  font-size: 9px;
+  font-size: calc(9px * var(--sched-cal-scale, 1));
   color: var(--sched-good);
   padding: 2px 6px;
   background: rgba(31,77,44,0.08);

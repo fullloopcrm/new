@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
+import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
@@ -39,19 +40,32 @@ export async function POST(req: NextRequest) {
     // it was previously UNAUTHENTICATED, so anyone who knew a bookingId (any
     // tenant) could spam payment texts and drive charges. Gate on a verified,
     // active member; scope the booking to that member's tenant + visibility.
-    const { auth, error: authErr } = await requirePortalPermission(req, 'jobs.view_own')
-    if (authErr) return authErr
+    // Two legitimate callers: a cleaner from their own team-portal session
+    // (jobs.view_own, tenant+visibility scoped below), or an admin triggering
+    // it manually from the booking edit panel (bookings.edit, sees every
+    // booking in their tenant already — visibility check doesn't apply).
+    const portalAuth = await requirePortalPermission(req, 'jobs.view_own')
+    let tenantId: string
+    let isAdminCaller = false
+    if (!portalAuth.error) {
+      tenantId = portalAuth.auth.tid
+    } else {
+      const adminAuth = await requirePermission('bookings.edit')
+      if (adminAuth.error) return portalAuth.error
+      tenantId = adminAuth.tenant.tenantId
+      isAdminCaller = true
+    }
 
     const { bookingId, force } = await req.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast to the shape actually selected.
-    const { data: booking } = (await tenantDb(auth.tid)
+    const { data: booking } = (await tenantDb(tenantId)
       .from('bookings')
       .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, team_member_id, client_id, payment_status, fifteen_min_alert_time, discount_percent, one_time_credit_cents, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
-      .eq('tenant_id', auth.tid)
+      .eq('tenant_id', tenantId)
       .single()) as { data: {
         id: string; tenant_id: string; team_member_id: string | null; start_time: string; end_time: string | null
         check_in_time: string | null; check_out_time: string | null; service_type: string | null
@@ -63,23 +77,27 @@ export async function POST(req: NextRequest) {
       } | null }
 
     // Cross-tenant: never confirm a foreign booking even exists.
-    if (!booking || booking.tenant_id !== auth.tid) {
+    if (!booking || booking.tenant_id !== tenantId) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    // Ownership within the tenant: the caller must have visibility of this
-    // booking's assignee (worker=self, lead=crew, manager=all). Managers may
-    // also act on an as-yet-unassigned job.
-    const allowed = new Set(await scopedMemberIds(auth))
-    const bookingMemberIds: string[] = booking.team_member_id ? [booking.team_member_id as string] : []
-    const { data: extraMembers } = await tenantDb(auth.tid)
-      .from('booking_team_members') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
-      .select('team_member_id')
-      .eq('booking_id', bookingId)
-    for (const m of extraMembers || []) bookingMemberIds.push(m.team_member_id as string)
-    const hasVisibility = bookingMemberIds.some((id) => allowed.has(id))
-    if (!hasVisibility && !(bookingMemberIds.length === 0 && auth.role === 'manager')) {
-      return NextResponse.json({ error: 'Not authorized for this booking' }, { status: 403 })
+    // Ownership within the tenant: a cleaner caller must have visibility of
+    // this booking's assignee (worker=self, lead=crew, manager=all) — managers
+    // may also act on an as-yet-unassigned job. An admin caller already has
+    // full visibility across their own tenant, so this check doesn't apply.
+    if (!isAdminCaller && portalAuth.auth) {
+      const auth = portalAuth.auth
+      const allowed = new Set(await scopedMemberIds(auth))
+      const bookingMemberIds: string[] = booking.team_member_id ? [booking.team_member_id as string] : []
+      const { data: extraMembers } = await tenantDb(tenantId)
+        .from('booking_team_members') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+        .select('team_member_id')
+        .eq('booking_id', bookingId)
+      for (const m of extraMembers || []) bookingMemberIds.push(m.team_member_id as string)
+      const hasVisibility = bookingMemberIds.some((id) => allowed.has(id))
+      if (!hasVisibility && !(bookingMemberIds.length === 0 && auth.role === 'manager')) {
+        return NextResponse.json({ error: 'Not authorized for this booking' }, { status: 403 })
+      }
     }
 
     // Idempotency — if alert already fired in last 30 min and force not set, skip
@@ -102,7 +120,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, skipped: 'already paid' })
     }
 
-    const tenantId = booking.tenant_id as string
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name, telnyx_api_key, telnyx_phone, payment_link')
@@ -212,7 +229,7 @@ export async function POST(req: NextRequest) {
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
-      .eq('tenant_id', auth.tid)
+      .eq('tenant_id', tenantId)
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]

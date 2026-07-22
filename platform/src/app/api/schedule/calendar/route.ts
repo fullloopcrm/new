@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
 
     const team = (teamRes.data || []) as Array<{ id: string; name: string; status: string | null }>
     const teamById = new Map(team.map((t) => [t.id, t]))
-    const bookings = (bookingsRes.data || []) as Array<Record<string, unknown>>
+    const bookings = ((bookingsRes.data || []) as Array<Record<string, unknown>>)
+      .filter((b) => (b.status as string) !== 'cancelled')
 
     // Compute conflicts: same team_member overlapping windows.
     type Window = { id: string; start: number; end: number; tm: string }

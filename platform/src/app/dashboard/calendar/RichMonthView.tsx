@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import '../bookings/schedule.css'
@@ -99,6 +100,7 @@ function monthLabel(month: string): { name: string; year: string } {
 }
 
 export default function RichMonthView() {
+  const router = useRouter()
   const worker = useWorkerLabel()
   const { tenant } = useTenantSettings()
   const agentName = (tenant?.agent_name as string) || 'Selena'
@@ -113,6 +115,7 @@ export default function RichMonthView() {
     new Set(['pending', 'scheduled', 'in_progress', 'completed']),
   )
   const [overlays, setOverlays] = useState({ conflicts: true, travel: true, recurring: false, idle: true })
+  const [calScale, setCalScale] = useState(1)
 
   useEffect(() => {
     setLoading(true)
@@ -217,15 +220,6 @@ export default function RichMonthView() {
         </div>
       </div>
 
-      {/* SELENA QUERY */}
-      <div className="sched-selena-query">
-        <span className="sched-selena-query-icon">{agentName} · Schedule</span>
-        <input className="sched-selena-query-input" placeholder="find me a 3hr deep clean slot in UWS this week with Jeff…" />
-        <span className="sched-selena-suggest-pill">Reassign overloaded</span>
-        <span className="sched-selena-suggest-pill">Fill idle days</span>
-        <span className="sched-selena-suggest-pill">Optimize routes</span>
-      </div>
-
       {/* CONFLICT BANNER */}
       {(stats?.conflicts ?? 0) > 0 && (
         <div className="sched-conflict-banner">
@@ -240,41 +234,8 @@ export default function RichMonthView() {
         </div>
       )}
 
-      {/* LOAD BAR */}
-      {data && data.load.length > 0 && (
-        <div className="sched-load-bar">
-          <span className="sched-load-label">Team Load · This Week</span>
-          <div className="sched-load-strip">
-            {data.load.map((l) => {
-              const idle = l.jobs <= 2
-              const color = idle ? undefined : teamColorById.get(l.id) || 'var(--sched-team-1)'
-              return (
-                <div
-                  key={l.id}
-                  className={`sched-load-cell ${idle ? 'idle' : ''} ${l.over ? 'over' : ''}`}
-                  style={idle ? undefined : { background: color }}
-                  title={`${l.name} · ${l.jobs} jobs${l.over ? ' · OVER' : idle ? ' · idle' : ''}`}
-                >
-                  <span className="sched-load-name">{l.name.split(' ')[0]}</span>
-                  <span className="sched-load-num">{l.jobs}</span>
-                </div>
-              )
-            })}
-          </div>
-          <div>
-            <div className="sched-load-summary">
-              {data.load.reduce((s, l) => s + l.jobs, 0)}
-              <span style={{ fontFamily: 'var(--sched-mono)', fontSize: 13, color: 'var(--sched-muted)', fontWeight: 400 }}>
-                {' / '}{data.load.length}
-              </span>
-            </div>
-            <div className="sched-load-summary-label">Jobs / Cleaners</div>
-          </div>
-        </div>
-      )}
-
       <div className="sched-grid">
-        <div>
+        <div className="sched-grid-main">
           {/* CALENDAR TOOLBAR */}
           <div className="sched-cal-toolbar">
             <div className="sched-cal-nav">
@@ -296,10 +257,14 @@ export default function RichMonthView() {
             </div>
             <div className="sched-view-toggle">
               <button className="sched-view-btn active" type="button">Month</button>
-              <button className="sched-view-btn" type="button" disabled>Week</button>
-              <button className="sched-view-btn" type="button" disabled>Day</button>
-              <button className="sched-view-btn" type="button" disabled>{worker.singular}</button>
-              <button className="sched-view-btn" type="button" disabled>Zone</button>
+              <button className="sched-view-btn" type="button" disabled title="Not built yet">Week</button>
+              <button className="sched-view-btn" type="button" disabled title="Not built yet">Day</button>
+              <button className="sched-view-btn" type="button" disabled title="Not built yet">{worker.singular}</button>
+              <button className="sched-view-btn" type="button" disabled title="Not built yet">Zone</button>
+            </div>
+            <div className="sched-cal-zoom">
+              <button className="sched-cal-zoom-btn" type="button" onClick={() => setCalScale(s => Math.max(0.75, +(s - 0.1).toFixed(2)))} aria-label="Decrease calendar font size">−</button>
+              <button className="sched-cal-zoom-btn" type="button" onClick={() => setCalScale(s => Math.min(1.5, +(s + 0.1).toFixed(2)))} aria-label="Increase calendar font size">+</button>
             </div>
           </div>
 
@@ -362,7 +327,7 @@ export default function RichMonthView() {
           </div>
 
           {/* CALENDAR */}
-          <div className="sched-calendar">
+          <div className="sched-calendar" style={{ '--sched-cal-scale': calScale } as CSSProperties}>
             <div className="sched-cal-head">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
                 <div key={d} className="sched-cal-head-cell">{d}</div>
@@ -407,7 +372,12 @@ export default function RichMonthView() {
                           ev.tight && overlays.travel ? 'tight' : '',
                         ].filter(Boolean).join(' ')
                         return (
-                          <div key={ev.id} className={cls} style={{ background: color }}>
+                          <div
+                            key={ev.id}
+                            className={cls}
+                            style={{ background: color, cursor: 'pointer' }}
+                            onClick={() => router.push(`/dashboard/bookings/${ev.id}`)}
+                          >
                             <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {ev.client}{ev.team_member_id ? '' : ' · ?'}

@@ -13,17 +13,17 @@ export async function PATCH(
     if (permError) return permError
     const { tenantId } = tenant
     const { id } = await params
-    const { payment_status, payment_method, tip_amount, team_paid, team_pay, actual_hours } = await request.json()
+    const { payment_status, payment_method, tip_amount, team_member_paid, team_member_pay, actual_hours } = await request.json()
 
     const update: Record<string, unknown> = {}
     if (payment_status) update.payment_status = payment_status
     if (payment_method) update.payment_method = payment_method
     if (tip_amount !== undefined) update.tip_amount = tip_amount
     if (actual_hours !== undefined) update.actual_hours = actual_hours
-    if (team_pay !== undefined) update.team_pay = team_pay
-    if (team_paid !== undefined) {
-      update.team_paid = team_paid
-      if (team_paid) update.team_paid_at = new Date().toISOString()
+    if (team_member_pay !== undefined) update.team_member_pay = team_member_pay
+    if (team_member_paid !== undefined) {
+      update.team_member_paid = team_member_paid
+      if (team_member_paid) update.team_member_paid_at = new Date().toISOString()
     }
     if (payment_status === 'paid') {
       update.payment_date = new Date().toISOString()

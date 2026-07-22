@@ -3,6 +3,9 @@
 // All messages end with opt-out info per TCPA
 // ============================================
 
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES } from './time-window'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+
 const STOP_TEXT = '\nReply STOP to opt out.'
 const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 
@@ -12,12 +15,13 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 
 export function smsBookingReceived(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  const rate = booking.hourly_rate || 79
+  const time = clientArrivalWindow(booking.start_time)
+  const rate = booking.hourly_rate || 69
   const maxLine = booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''
   const teamLine = (booking.team_size || 1) > 1 ? ` for our team of ${booking.team_size} cleaners` : ''
+  const minLine = (booking.team_size || 1) > 1 ? ' This is a 2+ cleaner booking — 4-hour minimum, and no discounts apply.' : ' A 2-hour minimum applies (first-time cleanings included).'
   const tapLink = booking.client_confirm_token ? `\n\nTap to confirm: https://www.thenycmaid.com/c/${booking.client_confirm_token}` : ''
-  return `The NYC Maid: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date} @ ${time} (allow for up to 60 additional minutes due to traffic) at the rate of $${rate}/hr${maxLine} paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}\n\nQuestions? (646) 490-0130${STOP_TEXT}`
+  return `The NYC Maid: We received your booking request — please review and reply CONFIRM (or use the link below) to lock it in.\n\nTo recap: we are scheduling you${teamLine} for ${date}, arrival window ${time} (${ARRIVAL_WINDOW_NOTE_SMS} The cleaning itself runs the booked hours.) at the rate of $${rate}/hr${maxLine} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion.${minLine} You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)${tapLink}\n\nQuestions? (212) 202-8400${STOP_TEXT}`
 }
 
 // Sent when the client already confirmed the recap on the form (no SMS CONFIRM
@@ -25,16 +29,17 @@ export function smsBookingReceived(booking: any): string {
 // step. Replaces the smsBookingReceived nag for form-confirmed bookings.
 export function smsBookingConfirmed(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  const rate = booking.hourly_rate || 79
+  const time = clientArrivalWindow(booking.start_time)
+  const rate = booking.hourly_rate || 69
   const teamLine = (booking.team_size || 1) > 1 ? ` for our team of ${booking.team_size} cleaners` : ''
-  return `The NYC Maid: You're booked${teamLine} for ${date} @ ${time} at $${rate}/hr. We're assigning your cleaner now and will text you their name shortly. Questions? (646) 490-0130${STOP_TEXT}`
+  const minLine = (booking.team_size || 1) > 1 ? ' (2+ cleaners: 4-hour minimum, no discounts.)' : ' (2-hour minimum applies.)'
+  return `The NYC Maid: Your booking request${teamLine} for ${date}, arrival window ${time}, at $${rate}/hr is IN REVIEW.${minLine} ${ARRIVAL_WINDOW_NOTE_SMS} The owner confirms within the hour, then you'll get a second text from us locking in the date/time/cleaner. NOT FINALIZED until that confirmation lands — please don't plan around this slot until then. Questions? (212) 202-8400${STOP_TEXT}`
 }
 
 export function smsConfirmationReminder(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  return `The NYC Maid: We still need a CONFIRM reply for your booking on ${date} @ ${time}. If we don't receive your confirmation, we'll have to cancel the request and offer the time slot to another client.\n\nReply CONFIRM to lock it in. Questions? (646) 490-0130${STOP_TEXT}`
+  const time = clientArrivalWindow(booking.start_time)
+  return `The NYC Maid: We still need a CONFIRM reply for your booking on ${date}, arrival window ${time}. If we don't receive your confirmation, we'll have to cancel the request and offer the time slot to another client.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\nReply CONFIRM to lock it in. Questions? (212) 202-8400${STOP_TEXT}`
 }
 
 // Q1 — first ask. Keep it simple, one question. If no reply, we stop.
@@ -68,21 +73,21 @@ export function smsReviewRequest(cleanerName: string): string {
 
 export function smsBookingConfirmation(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your cleaner'
   const isRecurring = !!booking.recurring_type
   const cancelPolicy = isRecurring
-    ? 'Recurring services require 7 days notice to reschedule. No cancellations unless discontinuing service with 7 days notice.'
-    : 'First-time/one-time services cannot be cancelled or rescheduled.'
+    ? '⚠️ POLICY: Recurring service — 7 DAYS notice required to reschedule or cancel. No exceptions.'
+    : '⚠️ POLICY: First-time/one-time bookings CANNOT be cancelled or rescheduled. No exceptions.'
   const teamSize = booking.team_size || 1
   const cleanerLine = teamSize > 1
     ? `with a team of ${teamSize} cleaners (${cleanerName} leading)`
     : `with ${cleanerName}`
-  return `The NYC Maid: Confirmed — ${date} at ${time} ${cleanerLine}.\n\nPayment: secure Stripe link (card, Apple Pay, or Cash App), collected 30 min before end. If payment is not received, the cleaner will wait and the time is billable. Time billed in 30-min increments.\n\n${cancelPolicy} We hold your spot without payment upfront, turning away other clients — late changes affect our team members who depend on this income.\n\nPortal: thenycmaid.com/book${STOP_TEXT}`
+  return `The NYC Maid: Confirmed — ${date}, arrival window ${time}, ${cleanerLine}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${cancelPolicy} We hold your spot, turn other clients away, and our team plans around it.\n\nPayment: a secure link (Apple Pay, card, or Cash App) we text you ~30 min before end. If payment isn't received the cleaner waits — billable time. Billed in 30-min increments.\n\nPortal: thenycmaid.com/book\nFeedback | Suggestions? thenycmaid.com/feedback${STOP_TEXT}`
 }
 
 export function smsReminder(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your cleaner'
   const teamSize = booking.team_size || 1
   const subject = teamSize > 1 ? `your team of ${teamSize} (${cleanerName} leading)` : cleanerName
@@ -91,9 +96,9 @@ export function smsReminder(booking: any, timeframe: string): string {
     ? 'Recurring services require 7 days notice to reschedule. No cancellations unless discontinuing with 7 days notice.'
     : 'This service cannot be cancelled or rescheduled.'
   if (timeframe === 'in 2 hours') {
-    return `The NYC Maid: Reminder — ${subject} ${teamSize > 1 ? 'arrive' : 'arrives'} at ${time}. Almost time!\n\n${policy}${STOP_TEXT}`
+    return `The NYC Maid: Reminder — ${subject} ${teamSize > 1 ? 'arrive' : 'arrives'} within your ${time} window. Almost time!\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
   }
-  return `The NYC Maid: Reminder — cleaning ${timeframe} at ${time} with ${subject}.\n\n${policy}${STOP_TEXT}`
+  return `The NYC Maid: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
 }
 
 export function smsCancellation(booking: any): string {
@@ -103,8 +108,8 @@ export function smsCancellation(booking: any): string {
 
 export function smsReschedule(booking: any): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  return `The NYC Maid: Your cleaning has been rescheduled to ${newDate} at ${newTime}. Details: thenycmaid.com/book${STOP_TEXT}`
+  const newTime = clientArrivalWindow(booking.start_time)
+  return `The NYC Maid: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}. ${ARRIVAL_WINDOW_NOTE_SMS} Details: thenycmaid.com/book${STOP_TEXT}`
 }
 
 export function smsThankYou(clientName: string): string {
@@ -122,13 +127,13 @@ export function smsVerificationCode(code: string): string {
 
 export function smsBookingConfirmationES(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu limpiador/a'
-  return `The NYC Maid: Tu limpieza está confirmada para ${date} a las ${time} con ${cleanerName}. Detalles: thenycmaid.com/book${STOP_TEXT_ES}`
+  return `The NYC Maid: Tu limpieza está confirmada para ${date}, ventana de llegada ${time}, con ${cleanerName}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: thenycmaid.com/book${STOP_TEXT_ES}`
 }
 
 export function smsReminderES(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu limpiador/a'
   const tfMap: Record<string, string> = {
     'in 2 hours': 'en 2 horas',
@@ -137,9 +142,9 @@ export function smsReminderES(booking: any, timeframe: string): string {
   }
   const tfES = tfMap[timeframe] || timeframe
   if (timeframe === 'in 2 hours') {
-    return `The NYC Maid: Recordatorio — ${cleanerName} llega a las ${time}. ¡Ya casi!${STOP_TEXT_ES}`
+    return `The NYC Maid: Recordatorio — ${cleanerName} llega dentro de tu ventana de ${time}. ¡Ya casi!\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
   }
-  return `The NYC Maid: Recordatorio — limpieza ${tfES} a las ${time} con ${cleanerName}.${STOP_TEXT_ES}`
+  return `The NYC Maid: Recordatorio — limpieza ${tfES}, ventana de llegada ${time}, con ${cleanerName}.\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
 }
 
 export function smsCancellationES(booking: any): string {
@@ -149,8 +154,8 @@ export function smsCancellationES(booking: any): string {
 
 export function smsRescheduleES(booking: any): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  return `The NYC Maid: Tu limpieza ha sido reprogramada para ${newDate} a las ${newTime}. Detalles: thenycmaid.com/book${STOP_TEXT_ES}`
+  const newTime = clientArrivalWindow(booking.start_time)
+  return `The NYC Maid: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: thenycmaid.com/book${STOP_TEXT_ES}`
 }
 
 export function smsThankYouES(clientName: string): string {
@@ -212,7 +217,7 @@ export function smsJobRescheduled(booking: any): string {
 export function smsUrgentBroadcast(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  const payRate = booking.cleaner_pay_rate || 40
+  const payRate = effectiveCleanerRate(booking.cleaner_pay_rate || 40, booking.clients?.address)
   return `The NYC Maid URGENT: $${payRate}/hr job available ${date} ${time}. Claim now: thenycmaid.com/team\nURGENTE: Trabajo $${payRate}/hr ${date} ${time}. Reclamar: thenycmaid.com/team${STOP_TEXT}`
 }
 
@@ -222,12 +227,12 @@ export function smsUrgentBroadcast(booking: any): string {
 
 export function smsPaymentDue(clientName: string, amount: string): string {
   const firstName = clientName?.split(' ')[0] || 'there'
-  return `The NYC Maid: Hi ${firstName}, your cleaning is wrapping up soon! Payment of $${amount} is due via the secure Stripe link we text you (card, Apple Pay, or Cash App). Our team can't leave until payment is processed — thank you!${STOP_TEXT}`
+  return `The NYC Maid: Hi ${firstName}, your cleaning is wrapping up soon! Payment of $${amount} is due via the secure payment link we text you (Apple Pay, card, or Cash App). Our team can't leave until payment is processed — thank you!${STOP_TEXT}`
 }
 
 export function smsPaymentDueES(clientName: string, amount: string): string {
   const firstName = clientName?.split(' ')[0] || ''
-  return `The NYC Maid: Hola ${firstName}, tu limpieza está por terminar. El pago de $${amount} se puede hacer con el enlace seguro de Stripe que te enviamos (tarjeta, Apple Pay o Cash App). Nuestro equipo no puede irse hasta que se procese el pago — ¡gracias!${STOP_TEXT_ES}`
+  return `The NYC Maid: Hola ${firstName}, tu limpieza está por terminar. El pago de $${amount} se hace por el enlace de pago seguro que te enviamos por mensaje (Apple Pay, tarjeta, o Cash App). Nuestro equipo no puede irse hasta que se procese el pago — ¡gracias!${STOP_TEXT_ES}`
 }
 
 // ============================================
@@ -235,7 +240,7 @@ export function smsPaymentDueES(clientName: string, amount: string): string {
 // ============================================
 
 export function smsPaymentDueAdmin(clientName: string, cleanerName: string, amount: string): string {
-  return `The NYC Maid: 30 min left — ${clientName} with ${cleanerName}. Collect $${amount} via Stripe link`
+  return `The NYC Maid: 30 min left — ${clientName} with ${cleanerName}. Collect $${amount} via the secure payment link`
 }
 
 export function smsNewClient(name: string): string {

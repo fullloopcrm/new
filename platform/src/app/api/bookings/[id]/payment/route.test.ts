@@ -4,15 +4,15 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 /**
  * PATCH /api/bookings/:id/payment — permission gate.
  *
- * This route mutates payment_status, tip_amount, team_pay, actual_hours, and
- * team_paid -- the same class of financial write that cleaner-payout
+ * This route mutates payment_status, tip_amount, team_member_pay, actual_hours, and
+ * team_member_paid -- the same class of financial write that cleaner-payout
  * (bookings.edit) and record-payment/jobs-payments (finance.expenses)
  * already gate behind requirePermission. This route used only
  * getTenantForRequest(), which succeeds for ANY tenant_members row
  * regardless of role -- so a 'staff' role user (rbac.ts grants staff only
  * bookings.view/bookings.create, no bookings.edit and no finance.*) could
- * call it directly and mark any booking paid, set an arbitrary tip/team_pay,
- * or flip team_paid to hide an unpaid payout.
+ * call it directly and mark any booking paid, set an arbitrary tip/team_member_pay,
+ * or flip team_member_paid to hide an unpaid payout.
  *
  * FIX: requirePermission('bookings.edit') before the update. Real
  * requirePermission + real rbac run against a mocked tenant-query, so a

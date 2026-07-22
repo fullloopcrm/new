@@ -12,7 +12,7 @@ import { pick } from '@/lib/validate'
 const UPDATABLE_FIELDS = [
   'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
   'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
-  'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
+  'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'price',
 ] as const
 
 /**

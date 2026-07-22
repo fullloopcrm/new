@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
+import { DnsReasonPicker } from './dns-reason-picker'
 
 type EnrichedClient = {
   id: string
@@ -103,11 +104,15 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
   const worker = useWorkerLabel()
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
+  const [notesSaving, setNotesSaving] = useState(false)
+  const [notesMsg, setNotesMsg] = useState('')
   const [activity, setActivity] = useState<Activity[]>([])
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', address: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
+  const [showDnsPicker, setShowDnsPicker] = useState(false)
+  const [dnsSaving, setDnsSaving] = useState(false)
 
   useEffect(() => {
     if (!client) return
@@ -134,9 +139,9 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
       .then((data) => {
         const c = (data.client || data) as Record<string, unknown>
         setNotes({
-          cleaner: (c.cleaner_notes as string) || '',
+          cleaner: (c.notes_private as string) || '',
           operator: (c.notes as string) || '',
-          selena: (c.selena_notes as string) || '',
+          selena: (c.notes_public as string) || '',
         })
       })
       .catch(() => {})
@@ -174,6 +179,43 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
       setEditError(e instanceof Error ? e.message : 'Failed to save changes')
     } finally {
       setEditSaving(false)
+    }
+  }
+
+  async function confirmMoveToDns(reason: string) {
+    if (!client) return
+    setDnsSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ do_not_service: true, dns_reason: reason }),
+      })
+      if (!res.ok) throw new Error('Failed to move to DNS')
+      setShowDnsPicker(false)
+      onClientUpdated?.()
+    } catch {
+      // surfaced via the picker staying open; button remains actionable to retry
+    } finally {
+      setDnsSaving(false)
+    }
+  }
+
+  async function restoreFromDns() {
+    if (!client) return
+    setDnsSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ do_not_service: false, dns_reason: null }),
+      })
+      if (!res.ok) throw new Error('Failed to restore client')
+      onClientUpdated?.()
+    } catch {
+      // no-op — button remains actionable to retry
+    } finally {
+      setDnsSaving(false)
     }
   }
 
@@ -406,6 +448,38 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Notes</span>
+              <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {notesMsg && <span style={{ fontSize: 12, color: notesMsg.startsWith('Saved') ? '#059669' : '#dc2626' }}>{notesMsg}</span>}
+                <span
+                  className="clients-section-action"
+                  style={{ cursor: notesSaving ? 'wait' : 'pointer' }}
+                  onClick={async () => {
+                    if (!client || notesSaving) return
+                    setNotesSaving(true)
+                    setNotesMsg('')
+                    const res = await fetch(`/api/clients/${client.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        notes: notes.operator || null,
+                        notes_private: notes.cleaner || null,
+                        notes_public: notes.selena || null,
+                      }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    setNotesSaving(false)
+                    if (!res.ok) {
+                      setNotesMsg(data.error || 'Save failed')
+                    } else {
+                      setNotesMsg('Saved')
+                      setTimeout(() => setNotesMsg(''), 2000)
+                      onClientUpdated?.()
+                    }
+                  }}
+                >
+                  {notesSaving ? 'Saving…' : 'Save'}
+                </span>
+              </span>
             </div>
             <div className="clients-notes-tabs">
               {(['cleaner', 'operator', 'selena'] as const).map((t) => (
@@ -428,12 +502,22 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
         </div>
 
         <div className="clients-drawer-foot">
-          <button className="clients-delete-btn">{client.dns_status ? 'Restore from DNS' : 'Move to DNS'}</button>
+          <button
+            className="clients-delete-btn"
+            disabled={dnsSaving}
+            onClick={() => client.dns_status ? restoreFromDns() : setShowDnsPicker(true)}
+          >
+            {client.dns_status ? 'Restore from DNS' : 'Move to DNS'}
+          </button>
           <div className="clients-drawer-foot-spacer" />
           <button className="clients-btn clients-btn-ghost" onClick={onClose}>Close</button>
           <button className="clients-btn clients-btn-primary" onClick={bookNext}>Book Next</button>
         </div>
       </aside>
+
+      {showDnsPicker && (
+        <DnsReasonPicker onConfirm={confirmMoveToDns} onCancel={() => setShowDnsPicker(false)} />
+      )}
 
       {editOpen && (
         <div className="clients-edit-scrim" onClick={() => setEditOpen(false)}>

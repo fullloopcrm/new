@@ -134,13 +134,13 @@ export async function handleNycMaidReview(
         service_rating: num,
         cleaner_rating: num, // single-question flow: one rating reflects both
       })
-      if (num === 5) {
+      if (num >= 4) {
         await sendSMS(from, smsReviewRequest(cleanerName), {
           skipConsent: true,
           smsType: 'review_request',
           bookingId: booking.id,
         }).catch(() => {})
-        await smsAdmins(`★ 5/5 ${cleanerFirst} — review link sent`).catch(() => {})
+        await smsAdmins(`★ ${num}/5 ${cleanerFirst} — review link sent`).catch(() => {})
       } else {
         await sendSMS(
           from,

@@ -406,7 +406,7 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('status', 'completed')
           .lt('end_time', twoDaysAgo.toISOString())
-          .or('team_paid.is.null,team_paid.eq.false')
+          .or('team_member_paid.is.null,team_member_paid.eq.false')
           .limit(500) // Don't process more than 500 per tenant per run
 
         if (unpaidBookings && unpaidBookings.length > 0) {

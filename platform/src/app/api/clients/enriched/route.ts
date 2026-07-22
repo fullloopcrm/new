@@ -16,6 +16,8 @@ type EnrichedClient = {
   source: string | null
   created_at: string
   dns_status: boolean
+  active: boolean
+  referrer_id: string | null
   health: number
   health_band: HealthBand
   health_factors: {
@@ -124,11 +126,12 @@ export async function GET(_request: NextRequest) {
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([
       db
         .from('clients')
-        .select('id, name, email, phone, address, status, source, created_at')
+        .select('id, name, email, phone, address, status, source, created_at, do_not_service, active, referrer_id')
         .order('created_at', { ascending: false }),
       db
         .from('bookings')
         .select('id, client_id, team_member_id, price, start_time, status, payment_status')
+        .neq('status', 'cancelled')
         .order('start_time', { ascending: false }),
       db
         .from('recurring_schedules')
@@ -207,7 +210,7 @@ export async function GET(_request: NextRequest) {
         overdueCount: 0,
       }
       const sched = scheduleByClient.get(id)
-      const dnsStatus = ((c.status as string) || '') === 'do_not_contact'
+      const dnsStatus = !!c.do_not_service
 
       const daysSinceLast = agg.lastDate ? Math.floor((Date.now() - new Date(agg.lastDate).getTime()) / 86_400_000) : null
       const recurringFrequency = ((sched?.recurring_type as string | null) || '').toLowerCase() || null
@@ -292,6 +295,8 @@ export async function GET(_request: NextRequest) {
         source: (c.source as string | null) || null,
         created_at: createdAt,
         dns_status: dnsStatus,
+        active: c.active !== false,
+        referrer_id: (c.referrer_id as string | null) || null,
         health,
         health_band: band(health, stage),
         health_factors: {

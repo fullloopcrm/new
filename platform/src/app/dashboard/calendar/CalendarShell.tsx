@@ -23,7 +23,6 @@ const VIEWS: { key: View; label: string; hint: string; ready: boolean }[] = [
 
 const SCALE_MIN = 0.7
 const SCALE_MAX = 1.4
-const SCALE_STEP = 0.1
 const SCALE_STORAGE_KEY = 'fl-cal-view-scales'
 
 function clampScale(n: number): number {
@@ -60,14 +59,6 @@ export default function CalendarShell() {
     } catch { /* ignore bad storage */ }
   }, [])
 
-  function adjust(delta: number) {
-    setScales((cur) => {
-      const next = { ...cur, [view]: clampScale(cur[view] + delta) }
-      try { localStorage.setItem(SCALE_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-      return next
-    })
-  }
-
   const scale = scales[view]
 
   return (
@@ -98,22 +89,6 @@ export default function CalendarShell() {
           })}
         </div>
 
-        {/* Per-view size adjuster */}
-        <div className="flex items-center gap-1 pb-1.5" title="Adjust this view's size">
-          <button
-            onClick={() => adjust(-SCALE_STEP)}
-            disabled={scale <= SCALE_MIN}
-            aria-label="Decrease size"
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-          >−</button>
-          <span className="w-10 text-center text-[11px] tabular-nums text-slate-500">{Math.round(scale * 100)}%</span>
-          <button
-            onClick={() => adjust(SCALE_STEP)}
-            disabled={scale >= SCALE_MAX}
-            aria-label="Increase size"
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-          >+</button>
-        </div>
       </div>
 
       {/* Font-only scaling: the size control adjusts the TEXT inside event chips,

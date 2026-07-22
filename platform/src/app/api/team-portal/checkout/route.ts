@@ -8,7 +8,7 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 import { applyDiscount, applyCredit } from '@/lib/discount'
-import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
 import { sendPushToClient } from '@/lib/push'
@@ -288,7 +288,9 @@ export async function POST(request: Request) {
 
   // ── NYC Maid parity (tenant-scoped): cleaner-reported payment → shared
   // payment pipeline, client "complete" push, and a loud UNPAID-checkout alert
-  // when the cleaner leaves without payment collected. ──
+  // when the cleaner leaves without payment collected.
+  // NYC Maid-only for now — other tenants need their own per-tenant settings
+  // (Stripe link, Google review link, etc.) before this can go global. ──
   if (isNycMaid(auth.tid)) {
     const ALLOWED_METHODS = new Set(['credit_card', 'cashapp', 'apple_pay', 'cash'])
     const reportedMethod = typeof payment_method === 'string' && ALLOWED_METHODS.has(payment_method)
@@ -320,7 +322,7 @@ export async function POST(request: Request) {
     // Checked out without payment confirmed → loud admin warning immediately.
     if (!reportedMethod && data.payment_status !== 'paid') {
       const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
-      nmSmsAdmins(`UNPAID CHECKOUT: ${clientName} just checked out ($${clientTotal}) — payment NOT collected. Follow up NOW.`).catch(() => {})
+      smsAdmins(auth.tid,`UNPAID CHECKOUT: ${clientName} just checked out ($${clientTotal}) — payment NOT collected. Follow up NOW.`).catch(() => {})
     }
 
     // GPS distance flag on checkout — flag (don't block) a check-out far from the address.
@@ -337,7 +339,7 @@ export async function POST(request: Request) {
               .update({ notes: ((data as { notes?: string | null }).notes || '') + `\n\n[GPS check-out flagged: ${dist.toFixed(2)} mi from address]` })
               .eq('id', data.id)
               .then(() => {}, () => {})
-            nmSmsAdmins(`GPS MISMATCH on checkout: ${clientName} — ${dist.toFixed(2)} mi from the job address.`).catch(() => {})
+            smsAdmins(auth.tid,`GPS MISMATCH on checkout: ${clientName} — ${dist.toFixed(2)} mi from the job address.`).catch(() => {})
           }
         }
       }

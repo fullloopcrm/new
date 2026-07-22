@@ -18,7 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { cleanerPaidHours } from '@/lib/billing-hours'
+import { cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
@@ -387,7 +387,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_size, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -508,7 +508,8 @@ export async function POST(request: Request) {
           const cleanerRate = isNycMaid(tenantId)
             ? effectiveCleanerRate(baseCleanerRate, client?.address ?? null)
             : baseCleanerRate
-          const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
+          const teamSize = Math.max(1, (booking as { team_size?: number | null }).team_size || 1)
+          const cleanerHours = applyTeamMinimum(Math.max(0.5, cleanerPaidHours((hours || 0) * 60)), teamSize)
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
 

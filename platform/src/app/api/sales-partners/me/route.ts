@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   const { data: partner, error: partnerError } = await supabaseAdmin
     .from('sales_partners')
-    .select('id, tenant_id, name, email, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone')
+    .select('id, tenant_id, name, email, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, stripe_connect_account_id, monthly_goal_cents')
     .eq('id', auth.pid)
     .eq('tenant_id', auth.tid)
     .maybeSingle()
@@ -80,6 +80,8 @@ export async function GET(request: Request) {
       zelle_email: partner.zelle_email,
       zelle_phone: partner.zelle_phone,
       apple_cash_phone: partner.apple_cash_phone,
+      stripe_connect_account_id: (partner as { stripe_connect_account_id?: string | null }).stripe_connect_account_id || null,
+      monthly_goal_cents: (partner as { monthly_goal_cents?: number | null }).monthly_goal_cents ?? null,
     },
     tenant: {
       name: tenant.name,
@@ -115,7 +117,7 @@ export async function PUT(request: Request) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const allowed = ['preferred_payout', 'zelle_email', 'zelle_phone', 'apple_cash_phone'] as const
+  const allowed = ['preferred_payout', 'zelle_email', 'zelle_phone', 'apple_cash_phone', 'monthly_goal_cents'] as const
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
@@ -129,7 +131,7 @@ export async function PUT(request: Request) {
     .update(updates)
     .eq('id', auth.pid)
     .eq('tenant_id', auth.tid)
-    .select('id, preferred_payout, zelle_email, zelle_phone, apple_cash_phone')
+    .select('id, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, monthly_goal_cents')
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })

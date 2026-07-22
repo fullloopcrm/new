@@ -14,9 +14,9 @@ type Booking = {
   hourly_rate: number | null
   pay_rate: number | null
   actual_hours: number | null
-  team_pay: number | null
-  team_paid: boolean | null
-  team_paid_at: string | null
+  team_member_pay: number | null
+  team_member_paid: boolean | null
+  team_member_paid_at: string | null
   discount_enabled: boolean | null
   notes: string | null
   special_instructions: string | null
@@ -364,7 +364,7 @@ export default function BookingDetailPage() {
                     const teamPayCalc = hrs && booking.pay_rate ? hrs * booking.pay_rate * 100 : null
                     updatePayment({
                       actual_hours: hrs,
-                      team_pay: teamPayCalc,
+                      team_member_pay: teamPayCalc,
                     })
                   }}
                   className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm"
@@ -495,18 +495,18 @@ export default function BookingDetailPage() {
               <div className="border-t border-slate-200 my-2" />
               <div className="flex justify-between">
                 <dt className="text-slate-400">Team Pay</dt>
-                <dd className="font-medium">{booking.team_pay != null ? `$${(booking.team_pay / 100).toFixed(0)}` : autoTeamPay ? `~$${autoTeamPay.toFixed(0)}` : '—'}</dd>
+                <dd className="font-medium">{booking.team_member_pay != null ? `$${(booking.team_member_pay / 100).toFixed(0)}` : autoTeamPay ? `~$${autoTeamPay.toFixed(0)}` : '—'}</dd>
               </div>
               <div className="flex justify-between items-center">
                 <dt className="text-slate-400">Team Paid</dt>
                 <dd>
-                  {booking.team_paid ? (
+                  {booking.team_member_paid ? (
                     <span className="text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-700 font-medium">
-                      Paid {booking.team_paid_at && `on ${new Date(booking.team_paid_at).toLocaleDateString()}`}
+                      Paid {booking.team_member_paid_at && `on ${new Date(booking.team_member_paid_at).toLocaleDateString()}`}
                     </span>
                   ) : (
                     <button
-                      onClick={() => updatePayment({ team_paid: true })}
+                      onClick={() => updatePayment({ team_member_paid: true })}
                       className="text-xs px-3 py-1 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700"
                     >
                       Mark Team Paid
@@ -648,15 +648,15 @@ export default function BookingDetailPage() {
                     ))}
                   </div>
                 )}
-                {booking.payment_status === 'paid' && !booking.team_paid && (
+                {booking.payment_status === 'paid' && !booking.team_member_paid && (
                   <button
-                    onClick={() => updatePayment({ team_paid: true })}
+                    onClick={() => updatePayment({ team_member_paid: true })}
                     className="w-full text-sm bg-teal-600 text-white py-2 rounded-lg font-medium hover:bg-teal-700"
                   >
                     Mark Team Paid
                   </button>
                 )}
-                {booking.payment_status === 'paid' && booking.team_paid && (
+                {booking.payment_status === 'paid' && booking.team_member_paid && (
                   <p className="text-sm text-green-700 font-medium text-center">Fully closed out</p>
                 )}
               </div>

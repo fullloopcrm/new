@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
+import { applyTeamMinimum } from '@/lib/billing-hours'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -92,12 +93,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const halfBlocks = Math.floor(rawMinutes / 30)
   const remainder = rawMinutes - halfBlocks * 30
   const billedBlocks = remainder >= 5 ? halfBlocks + 1 : halfBlocks
-  let computedHours = ci ? Math.max(0.5, billedBlocks * 0.5) : (booking.actual_hours || 0)
+  const teamSize = Math.max(1, booking.team_size || 1)
+  let computedHours = ci ? applyTeamMinimum(Math.max(0.5, billedBlocks * 0.5), teamSize) : (booking.actual_hours || 0)
   const cap = null as number | null
   const billedHours = (ci && co) ? computedHours : (booking.actual_hours ?? computedHours)
 
   // Bill math
-  const teamSize = Math.max(1, booking.team_size || 1)
   const hourlyRate = booking.hourly_rate || 79
   const grossCents = Math.round(billedHours * hourlyRate * teamSize * 100)
 

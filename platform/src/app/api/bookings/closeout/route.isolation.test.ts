@@ -39,11 +39,11 @@ function seed() {
   return {
     bookings: [
       // needs-closeout candidates (status in set, not fully paid)
-      { id: 'bk-a-open', tenant_id: A, status: 'completed', payment_status: 'unpaid', team_paid: false },
-      { id: 'bk-b-open', tenant_id: B, status: 'completed', payment_status: 'unpaid', team_paid: false },
-      // recently-closed candidates (paid + team_paid + recent checkout)
-      { id: 'bk-a-closed', tenant_id: A, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentClose },
-      { id: 'bk-b-closed', tenant_id: B, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentClose },
+      { id: 'bk-a-open', tenant_id: A, status: 'completed', payment_status: 'unpaid', team_member_paid: false },
+      { id: 'bk-b-open', tenant_id: B, status: 'completed', payment_status: 'unpaid', team_member_paid: false },
+      // recently-closed candidates (paid + team_member_paid + recent checkout)
+      { id: 'bk-a-closed', tenant_id: A, status: 'paid', payment_status: 'paid', team_member_paid: true, check_out_time: recentClose },
+      { id: 'bk-b-closed', tenant_id: B, status: 'paid', payment_status: 'paid', team_member_paid: true, check_out_time: recentClose },
     ],
   }
 }
