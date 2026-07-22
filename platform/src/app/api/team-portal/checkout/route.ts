@@ -3,7 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
-import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
+import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -80,7 +80,18 @@ export async function POST(request: Request) {
     const cap = typeof booking.max_hours === 'number' && booking.max_hours > 0 ? (booking.max_hours as number) : null
     const billableClient = cap != null ? Math.min(clientHours, cap) : clientHours
     const billableCleaner = cap != null ? Math.min(cleanerHours, cap) : cleanerHours
+    // actual_hours (stored below) stays the true elapsed/capped time for
+    // reporting — the team minimum only feeds the price/pay math, same split
+    // BookingsAdmin.tsx's admin check-out uses (actualHours vs billableHours).
     actualHours = billableClient
+    const teamSize = Math.max(1, (booking.team_size as number) || 1)
+    // A 2+ cleaner team is billed/paid at least 4 hours even if the job
+    // finishes early (billing-hours.ts applyTeamMinimum) — this recompute was
+    // missing it entirely, unlike the desktop admin check-out flow, so an
+    // early-finishing multi-cleaner job checked out from the mobile app
+    // underbilled the client and underpaid the crew below the 4hr floor.
+    const billableClientForPrice = applyTeamMinimum(billableClient, teamSize)
+    const billableCleanerForPay = applyTeamMinimum(billableCleaner, teamSize)
     const member = booking.team_members as unknown as { pay_rate?: number | null } | null
     // Booking-level pay_rate is an admin override and must win over the team
     // member's own default rate (nycmaid 2428c8c4 precedence parity).
@@ -91,8 +102,7 @@ export async function POST(request: Request) {
       ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
       : baseCleanerRate
     const clientRate = (booking.hourly_rate as number) || 69
-    const teamSize = Math.max(1, (booking.team_size as number) || 1)
-    teamMemberPayCents = Math.round(billableCleaner * cleanerRate * 100)
+    teamMemberPayCents = Math.round(billableCleanerForPay * cleanerRate * 100)
     if (pricingModel === 'hourly') {
       // Time-and-materials: actual hours × rate × crew (NYC Maid path, unchanged).
       // The recurring-service discount (20% weekly / 10% biweekly-monthly, see
@@ -108,7 +118,7 @@ export async function POST(request: Request) {
       updatedPriceCents = applyCredit(
         applyDiscount(
           applyRecurringDiscount(
-            Math.round(billableClient * clientRate * teamSize * 100),
+            Math.round(billableClientForPrice * clientRate * teamSize * 100),
             booking.recurring_type as string | null,
           ),
           booking.discount_percent as number | null,
