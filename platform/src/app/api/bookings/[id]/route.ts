@@ -274,12 +274,14 @@ export async function DELETE(
       await supabaseAdmin.from('notifications').insert({
         tenant_id: tenantId,
         type: 'comms_fail',
-        title: 'DIAG: entered booking block',
-        message: JSON.stringify({ client_id: booking.client_id, isNycMaid: isNycMaid(tenantId), clientEmail: booking.clients?.email }),
+        title: 'DIAG2: bare minimal',
+        message: 'no computed fields',
         channel: 'email',
-        booking_id: id,
         status: 'failed',
-      }).then(() => {}, () => {})
+      }).then(
+        () => { console.log('DIAG2 insert resolved ok') },
+        (e) => { console.error('DIAG2 insert rejected', e) }
+      )
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
