@@ -56,8 +56,8 @@ export async function POST(request: Request) {
       referral_source, references, notes, position, resume_url, photo_url, video_url,
     } = body
 
-    if (!name || !email || !phone || !location || !resume_url || !photo_url || !video_url) {
-      return NextResponse.json({ error: 'Name, email, phone, location, resume, photo, and selfie video are required.' }, { status: 400 })
+    if (!name || !email || !phone || !location || !photo_url || !video_url) {
+      return NextResponse.json({ error: 'Name, email, phone, location, photo, and selfie video are required.' }, { status: 400 })
     }
 
     const normalizedEmail = String(email).toLowerCase().trim()

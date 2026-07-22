@@ -64,7 +64,6 @@ const nextConfig: NextConfig = {
       // /team/earnings, …) pass through to their real pages instead of being
       // swallowed by this legacy check-in redirect.
       { source: '/team/:token([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})', destination: '/team/checkin/:token', permanent: true },
-      { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
       // Waitlist-only era — partnership form route renamed.
       { source: '/crm-partnership-request-form', destination: '/waitlist', permanent: true },
       // Clean marketing URLs are handled via afterFiles rewrites above
