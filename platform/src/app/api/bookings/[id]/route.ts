@@ -317,6 +317,15 @@ export async function DELETE(
         }
       } catch (notifErr) {
         console.error('Cancellation notification error:', notifErr)
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'Cancellation notification failed',
+          message: notifErr instanceof Error ? `${notifErr.message}\n${notifErr.stack}` : String(notifErr),
+          channel: 'email',
+          booking_id: id,
+          status: 'failed',
+        }).then(() => {}, () => {})
       }
     }
 
