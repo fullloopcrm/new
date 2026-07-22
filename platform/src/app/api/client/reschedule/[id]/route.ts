@@ -9,6 +9,7 @@ import { smsJobRescheduled } from '@/lib/sms-templates'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -83,20 +84,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newDate = body.start_time ? fmtDate(body.start_time, tz) : ''
     const newTime = body.start_time ? fmtTime(body.start_time, tz) : ''
 
-    // 1. Client confirmation email
+    // 1. Client confirmation email — nycmaid gets the rich branded template
     if (updated.clients?.email && tenant.resend_api_key && (await isCommEnabled(tenant.id, 'reschedule', 'email'))) {
-      const html = `<div style="font-family:system-ui;-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-        <h2>Your booking has been rescheduled</h2>
-        <p><strong>${tenant.name}</strong> moved your appointment.</p>
-        <p><strong>From:</strong> ${oldDate} at ${oldTime}<br/><strong>To:</strong> ${newDate} at ${newTime}</p>
-      </div>`
-      await sendEmail({
-        to: updated.clients.email,
-        subject: `Booking rescheduled — ${tenant.name}`,
-        html,
-        resendApiKey: tenant.resend_api_key,
-        from: tenant.email_from || undefined,
-      }).catch(() => {})
+      if (isNycMaid(tenant.id)) {
+        const { clientRescheduleEmail } = await import('@/lib/nycmaid/email-templates')
+        const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+        const email = clientRescheduleEmail(updated, oldDate, oldTime)
+        await sendClientEmail(updated.client_id, email.subject, email.html).catch(() => {})
+      } else {
+        const html = `<div style="font-family:system-ui;-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+          <h2>Your booking has been rescheduled</h2>
+          <p><strong>${tenant.name}</strong> moved your appointment.</p>
+          <p><strong>From:</strong> ${oldDate} at ${oldTime}<br/><strong>To:</strong> ${newDate} at ${newTime}</p>
+        </div>`
+        await sendEmail({
+          to: updated.clients.email,
+          subject: `Booking rescheduled — ${tenant.name}`,
+          html,
+          resendApiKey: tenant.resend_api_key,
+          from: tenant.email_from || undefined,
+        }).catch(() => {})
+      }
       await db.from('email_logs').insert({
         booking_id: id,
         email_type: 'client_reschedule',

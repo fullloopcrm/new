@@ -398,17 +398,36 @@ export async function GET(request: Request) {
             .lt('end_time', threeDaysAgo.toISOString())
 
           if ((count || 0) === 0) {
-            await notify({
-              tenantId,
-              type: 'follow_up',
-              title: `Thank you from ${tenant.name}!`,
-              message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
-              channel: 'email',
-              recipientType: 'client',
-              recipientId: booking.client_id,
-              bookingId: booking.id,
-              metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
-            })
+            if (isNycMaid(tenantId)) {
+              const { clientThankYouEmail } = await import('@/lib/nycmaid/email-templates')
+              const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+              const email = clientThankYouEmail(client.name || '')
+              await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
+              await supabaseAdmin.from('notifications').insert({
+                tenant_id: tenantId,
+                type: 'follow_up',
+                title: email.subject,
+                message: `Thank-you email sent to ${client.email}`,
+                channel: 'email',
+                recipient_type: 'client',
+                recipient_id: booking.client_id,
+                booking_id: booking.id,
+                status: 'sent',
+                metadata: { clientName: client.name, serviceName: booking.service_type },
+              }).then(() => {}, () => {})
+            } else {
+              await notify({
+                tenantId,
+                type: 'follow_up',
+                title: `Thank you from ${tenant.name}!`,
+                message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
+                channel: 'email',
+                recipientType: 'client',
+                recipientId: booking.client_id,
+                bookingId: booking.id,
+                metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
+              })
+            }
             results.push({ type: 'thank_you', booking_id: booking.id, tenant_id: tenantId })
             sent++
           }
