@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { sendEmail } from '@/lib/email'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
@@ -193,6 +194,35 @@ export async function POST(request: NextRequest) {
     title: 'New Referrer Signup',
     message: `${name} (${referralCode}) — ${email}${phone ? ` · ${phone}` : ''}`,
   }).catch(() => {})
+
+  // Referrers go active immediately on signup (no separate approval step, unlike
+  // team members/sales partners) -- so signup IS the moment to auto-surface the
+  // Connect invite, same "don't make them go hunting for it" requirement W1/W2
+  // are wiring for their approval-gated lanes. Points at the normal email-OTP
+  // login (/referral), not a direct dashboard link -- a long-lived bearer token
+  // has no business sitting in an email inbox.
+  const brand = tenant.name || 'Referral Portal'
+  const color = tenant.primary_color || '#0d9488'
+  const from = tenant.resend_domain ? `${brand} <noreply@${tenant.resend_domain}>` : undefined
+  const loginUrl = `${tenantSiteUrl(tenant) || ''}/referral`
+  const inviteHtml = `
+    <div style="font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px">
+      <h2 style="color:${color};margin:0 0 8px">Welcome to the ${brand} referral program!</h2>
+      <p style="color:#475569;font-size:14px;margin:0 0 16px">Your referral code is <strong>${referralCode}</strong>. You'll earn a commission on every booking you refer.</p>
+      <p style="color:#475569;font-size:14px;margin:0 0 20px">Want commissions sent straight to your bank instead of Zelle or Apple Cash? Log in and connect Stripe for instant pay.</p>
+      <a href="${loginUrl}" style="display:inline-block;background:${color};color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px">Log In &amp; Set Up Instant Pay</a>
+    </div>`
+
+  sendEmail({
+    to: email,
+    subject: `Welcome to the ${brand} referral program`,
+    html: inviteHtml,
+    from,
+    resendApiKey: tenant.resend_api_key || undefined,
+  }).catch(() => {
+    // Best-effort -- signup itself already succeeded (data returned below);
+    // a failed welcome/invite email shouldn't fail the signup response.
+  })
 
   return NextResponse.json({ referral: data }, { status: 201 })
 }

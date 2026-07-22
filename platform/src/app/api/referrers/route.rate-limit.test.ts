@@ -51,7 +51,9 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: 'tenant_1' }),
+  tenantSiteUrl: () => '',
 }))
+vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
 
 vi.mock('@/lib/rate-limit-db', () => ({
   rateLimitDb: async (

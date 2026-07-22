@@ -48,8 +48,10 @@ vi.mock('@/lib/supabase', () => {
 
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: TENANT, name: 'Canary', slug: 'canary' }),
+  tenantSiteUrl: () => '',
 }))
 vi.mock('@/lib/notify', () => ({ notify: async () => ({ success: true }) }))
+vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
 
 import { NextRequest } from 'next/server'
 import { GET, POST } from '@/app/api/referrers/route'
