@@ -363,13 +363,13 @@ export default function DashboardShell({
                   className="px-[22px] py-1.5 flex items-center gap-3 transition-colors group"
                   style={{
                     fontSize: '13.5px',
-                    color: isActive ? '#F4F4F1' : '#A8A8A4',
+                    color: isActive ? '#FFD60A' : '#FFFFFF',
                     borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
                     background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
                     fontWeight: isActive ? 500 : 400,
                   }}
                 >
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: isActive ? '#FFD60A' : '#FFFFFF', width: '18px', flexShrink: 0 }}>
                     {item.num}
                   </span>
                   <span>{item.label}</span>
@@ -390,13 +390,13 @@ export default function DashboardShell({
                       style={{
                         padding: '4px 22px 4px 44px',
                         fontSize: '12.5px',
-                        color: subActive ? '#C8C5BC' : '#888',
+                        color: subActive ? '#FFD60A' : '#FFFFFF',
                       }}
                     >
                       <span style={{
                         fontFamily: 'var(--mono)',
                         fontSize: '9.5px',
-                        color: subActive ? '#888' : '#555',
+                        color: subActive ? '#FFD60A' : '#FFFFFF',
                         width: '12px',
                         flexShrink: 0,
                         letterSpacing: '0.04em',
@@ -425,7 +425,7 @@ export default function DashboardShell({
                 className="px-[22px] py-1.5 flex items-center gap-3"
                 style={{
                   fontSize: '13.5px',
-                  color: isActive ? '#F4F4F1' : '#A8A8A4',
+                  color: isActive ? '#FFD60A' : '#FFFFFF',
                   borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
                   background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
                 }}
