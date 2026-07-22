@@ -28,11 +28,36 @@ import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
+import { decryptSecret } from '@/lib/secret-crypto'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+}
+
+// Each tenant runs its own Stripe account acting as its own Connect platform
+// for its team members/sales partners/referrers — so a tenant's
+// account.updated deliveries arrive signed with THAT tenant's own Connect
+// webhook secret (tenants.stripe_connect_webhook_secret), never the shared
+// platform STRIPE_WEBHOOK_SECRET used for checkout/refund/etc. The delivery
+// URL is always this same platform-registered endpoint regardless of which
+// tenant's Stripe account sent it (Stripe fires Connect webhooks to the
+// destination's configured URL, not the tenant's own domain) — so the tenant
+// can't be resolved from the request, only from the event payload itself.
+// The tenant_id read here (from the UNVERIFIED body, before any signature
+// check succeeds) is only ever used to pick which secret to attempt
+// verification with — it grants no trust; the event is discarded unless
+// constructEvent() below cryptographically verifies against that tenant's
+// real secret.
+function peekConnectAccountTenantId(rawBody: string): string | null {
+  try {
+    const parsed = JSON.parse(rawBody) as { type?: string; data?: { object?: { metadata?: Record<string, string> | null } } }
+    if (parsed.type !== 'account.updated') return null
+    return parsed.data?.object?.metadata?.tenant_id || null
+  } catch {
+    return null
+  }
 }
 
 export async function POST(request: Request) {
@@ -50,8 +75,36 @@ export async function POST(request: Request) {
     stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, sig!, webhookSecret)
   } catch (err) {
-    console.error('Stripe webhook signature failed:', err)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    // Not verifiable against the shared platform secret — try the
+    // per-tenant Connect webhook secret for an account.updated delivery
+    // before giving up. Any failure along this path (no tenant hint, no
+    // tenant found, no secret configured, signature still doesn't verify)
+    // falls through to the same 400 as before — never silently accepted.
+    const tenantId = peekConnectAccountTenantId(body)
+    if (!tenantId) {
+      console.error('Stripe webhook signature failed:', err)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    const { data: tenantRow } = await supabaseAdmin
+      .from('tenants')
+      .select('stripe_connect_webhook_secret')
+      .eq('id', tenantId)
+      .maybeSingle()
+    const connectSecret = (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+
+    if (!connectSecret) {
+      console.error('Stripe webhook signature failed:', err)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    try {
+      stripe = getStripe()
+      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(connectSecret))
+    } catch (connectErr) {
+      console.error('Stripe Connect webhook signature failed:', connectErr)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
   }
 
   switch (event.type) {
