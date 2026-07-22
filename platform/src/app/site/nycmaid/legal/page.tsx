@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Legal Information | The NYC Maid',
-  description: 'Legal information for The NYC Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (646) 490-0130',
+  description: 'Legal information for The NYC Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (212) 202-8400',
   alternates: { canonical: 'https://www.thenycmaid.com/legal' },
 }
 
@@ -64,7 +64,7 @@ export default function LegalPage() {
 
         <div className="mt-8 text-center">
           <p className="text-gray-500 text-sm">
-            Questions? Contact us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> or text <a href="sms:6464900130" className="text-[#1E2A4A] underline underline-offset-2">(646) 490-0130</a>.
+            Questions? Contact us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> or text <a href="sms:2122028400" className="text-[#1E2A4A] underline underline-offset-2">(212) 202-8400</a>.
           </p>
         </div>
       </div>

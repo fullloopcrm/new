@@ -196,7 +196,7 @@ export default function AboutPage() {
                   'Same cleaner assigned to your home every visit',
                   'They learn your preferences and priorities',
                   'Set schedule — same day, same time each week/month',
-                  'We text when the cleaner is on the way',
+                  'Reminder texts before each scheduled visit',
                   'Pay after each cleaning — no auto-billing',
                 ].map((step, i) => (
                   <div key={step} className="flex items-start gap-3">

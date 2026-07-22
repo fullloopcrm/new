@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/nycmaid/_components/CTABlock'
 const pricingFAQs = [
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our standard rate is $59/hr when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
   { question: 'Do you charge a flat rate or hourly?', answer: 'We charge by the hour. The rate is the same regardless of service type or neighborhood — $59/hr with your supplies, $69/hr when we bring everything, $89/hr for same-day emergency service. No hidden fees, no surge pricing.' },
-  { question: 'Is there a minimum charge?', answer: 'Our minimum is 2 hours per visit (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr). Most apartments take 2–4 hours depending on size and condition.' },
+  { question: 'Is there a minimum charge?', answer: 'Our minimum is 2 hours per visit (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts. Most apartments take 2–4 hours depending on size and condition.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'Payment is collected about 30 minutes before the cleaner finishes. If payment is not received by then, the cleaner will wait until it is — and the wait time is billable. No deposits, no pre-charges, no money upfront.' },
   { question: 'How is time calculated?', answer: 'We bill in 30-minute increments — not by the minute or quarter hour. Once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes. For example, 2 hours and 10 minutes would be billed as 2.5 hours.' },
   { question: 'What payment methods do you accept?', answer: 'We accept credit card, debit card, Apple Pay, and Cash App through our secure online payment link, plus cash. You choose what works best for you.' },
@@ -116,7 +116,7 @@ export default function FAQPage() {
             Frequently Asked Questions About NYC House Cleaning Services
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
-            Everything you need to know about pricing, services, scheduling, and how we work — answered by our team. Can&apos;t find your question? Text <a href="sms:6464900130" className="text-[#A8F0DC] underline underline-offset-2">(646) 490-0130</a>.
+            Everything you need to know about pricing, services, scheduling, and how we work — answered by our team. Can&apos;t find your question? Text <a href="sms:2122028400" className="text-[#A8F0DC] underline underline-offset-2">(212) 202-8400</a>.
           </p>
 
           {/* Quick nav */}
@@ -190,10 +190,7 @@ export default function FAQPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Sales: (212) 202-8400
-            </a>
-            <a href="sms:6464900130" className="text-blue-200/70 font-medium text-lg hover:text-white transition-colors underline underline-offset-4">
-              Support: (646) 490-0130
+              Sales &amp; Customer Service: (212) 202-8400
             </a>
           </div>
         </div>

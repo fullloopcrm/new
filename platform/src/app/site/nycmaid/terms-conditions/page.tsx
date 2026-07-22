@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions | The NYC Maid',
-  description: 'Terms & conditions for The NYC Maid — cancellation policy, payment terms, scheduling & service agreement. Cleaning from $59/hr. (646) 490-0130',
+  description: 'Terms & conditions for The NYC Maid — cancellation policy, payment terms, scheduling & service agreement. Cleaning from $59/hr. (212) 202-8400',
   alternates: { canonical: 'https://www.thenycmaid.com/terms-conditions' },
 }
 
@@ -151,7 +151,7 @@ export default function TermsPage() {
           <div className="border-t border-gray-200 pt-8">
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Contact Us</h2>
             <p className="text-gray-600 leading-relaxed">
-              Questions about these terms? Contact us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> or text <a href="sms:6464900130" className="text-[#1E2A4A] underline underline-offset-2">(646) 490-0130</a>.
+              Questions about these terms? Contact us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> or text <a href="sms:2122028400" className="text-[#1E2A4A] underline underline-offset-2">(212) 202-8400</a>.
             </p>
             <p className="text-gray-500 text-sm mt-4">
               See also: <Link href="/privacy-policy" className="text-[#1E2A4A] underline underline-offset-2">Privacy Policy</Link> &middot; <Link href="/refund-policy" className="text-[#1E2A4A] underline underline-offset-2">Refund Policy</Link> &middot; <Link href="/do-not-share-policy" className="text-[#1E2A4A] underline underline-offset-2">Do Not Share Policy</Link>

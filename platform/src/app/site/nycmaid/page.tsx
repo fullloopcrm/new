@@ -50,7 +50,7 @@ const homepageFAQs = [
   // Pricing & Booking
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour. Final cost depends on home size and service type.' },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
-  { question: 'Is there a minimum number of hours?', answer: 'Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts; a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
+  { question: 'Is there a minimum number of hours?', answer: 'Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.' },
   { question: 'How do I book a cleaning?', answer: 'Text (212) 202-8400. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
   { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.' },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Apple Pay, and Cash App through our secure online payment link, plus cash. You can also pay securely online through our payment portal.' },
@@ -168,6 +168,9 @@ export default function HomePage() {
             <a href="sms:2122028400" className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
               Text 212.202.8400
             </a>
+            <Link href="/feedback" className="inline-flex items-center gap-2 bg-red-600 text-yellow-300 px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-red-700 transition-colors">
+              Feedback | Suggestions?
+            </Link>
           </div>
 
           {/* Referral hook */}
@@ -198,7 +201,7 @@ export default function HomePage() {
             </div>
           </div>
           <p className="text-blue-200/50 text-xs mt-5 max-w-3xl leading-relaxed">
-            2-hour minimum on all bookings (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at emergency pricing ($89/hr).
+            2-hour minimum on all bookings (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.
           </p>
         </div>
       </section>

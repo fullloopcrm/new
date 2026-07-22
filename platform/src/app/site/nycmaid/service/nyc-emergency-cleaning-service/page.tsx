@@ -224,7 +224,7 @@ export default function EmergencyCleaningPage() {
     },
     availableChannel: {
       '@type': 'ServiceChannel',
-      servicePhone: { '@type': 'ContactPoint', telephone: '+16464900130', contactType: 'customer service', availableLanguage: ['English', 'Spanish'] },
+      servicePhone: { '@type': 'ContactPoint', telephone: '+12122028400', contactType: 'customer service', availableLanguage: ['English', 'Spanish'] },
     },
     hoursAvailable: {
       '@type': 'OpeningHoursSpecification',

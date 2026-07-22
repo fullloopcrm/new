@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The NYC Maid',
-  description: 'The NYC Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (646) 490-0130',
+  description: 'The NYC Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (212) 202-8400',
   alternates: { canonical: 'https://www.thenycmaid.com/do-not-share-policy' },
 }
 
@@ -76,7 +76,7 @@ export default function DoNotSharePage() {
             </p>
             <div className="bg-gray-50 rounded-xl p-5 mt-4 space-y-2">
               <p className="text-gray-600 text-sm">Email us at <a href="mailto:hi@thenycmaid.com" className="text-[#1E2A4A] underline underline-offset-2">hi@thenycmaid.com</a> with the subject &ldquo;Do Not Share&rdquo;</p>
-              <p className="text-gray-600 text-sm">Or text <a href="sms:6464900130" className="text-[#1E2A4A] underline underline-offset-2">(646) 490-0130</a></p>
+              <p className="text-gray-600 text-sm">Or text <a href="sms:2122028400" className="text-[#1E2A4A] underline underline-offset-2">(212) 202-8400</a></p>
             </div>
             <p className="text-gray-500 text-sm mt-4">
               We will acknowledge your request within 15 business days.

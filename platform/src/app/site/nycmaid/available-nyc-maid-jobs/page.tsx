@@ -540,15 +540,15 @@ export default function CareersPage() {
           </div>
         </section>
 
-        {/* Operations Coordinator CTA */}
+        {/* Commission Sales Partner CTA */}
         <section className="mb-16">
           <div className="border-2 border-[#1E2A4A] rounded-2xl p-8 md:p-10 flex flex-col lg:flex-row items-center justify-between gap-6">
             <div>
               <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">Also Hiring</p>
-              <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#1E2A4A] tracking-wide">Operations Coordinator — Part-Time, 10% Per Job, $40+/hr Effective</p>
-              <p className="text-gray-500 text-sm mt-2 max-w-xl">1-2 hours/day. Handle client texts, coordinate cleaners, confirm payments. 10% of every completed job — $1,700+/mo right now and growing. Perfect second job. Bilingual preferred.</p>
+              <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#1E2A4A] tracking-wide">Commission Sales Partner — 10% Recurring, Paid Daily</p>
+              <p className="text-gray-500 text-sm mt-2 max-w-xl">Our first sales role. Sign clients or referrers and earn 10% recurring on every cleaning — forever. Paid daily via Stripe Connect. 1099, no cap, path to Sales Manager.</p>
             </div>
-            <Link href="/careers/operations-coordinator" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors whitespace-nowrap flex-shrink-0">
+            <Link href="/careers/commission-sales-partner" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors whitespace-nowrap flex-shrink-0">
               View Role
             </Link>
           </div>

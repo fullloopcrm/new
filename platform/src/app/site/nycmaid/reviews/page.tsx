@@ -23,7 +23,7 @@ export default function ReviewsPage() {
     <>
       <JsonLd data={[
         reviewsPageSchema(),
-        localBusinessSchema(undefined, undefined),
+        localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thenycmaid.com' },
           { name: 'Reviews', url: 'https://www.thenycmaid.com/reviews' },

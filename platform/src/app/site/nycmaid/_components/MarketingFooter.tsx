@@ -97,7 +97,6 @@ export default function MarketingFooter() {
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
             <ul className="space-y-2.5">
               <li><Link href="/about-the-nyc-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/contact-the-nyc-maid-service-today" className="text-sm hover:text-white transition-colors">Contact</Link></li>
               <li><Link href="/updated-nyc-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
               <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
               <li><Link href="/available-nyc-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
@@ -109,14 +108,13 @@ export default function MarketingFooter() {
               <li><a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors">Make a Payment</a></li>
               <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book a Cleaning</Link></li>
-              <li><a href="sms:2122028400" className="text-sm hover:text-white transition-colors">Text Sales: (212) 202-8400</a></li>
-              <li><a href="sms:6464900130" className="text-sm hover:text-white transition-colors">Text Support: (646) 490-0130</a></li>
+              <li><a href="sms:2122028400" className="text-sm hover:text-white transition-colors">Text Sales &amp; Customer Service: (212) 202-8400</a></li>
               <li><Link href="/nyc-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
               <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
               <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
               <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
               <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
-              <li><Link href="/feedback" className="text-sm hover:text-white transition-colors">Leave Feedback</Link></li>
+              <li><Link href="/feedback" className="inline-block bg-red-600 text-yellow-300 px-3 py-1.5 rounded font-bold text-xs uppercase tracking-wide hover:bg-red-700 transition-colors">Feedback | Suggestions?</Link></li>
             </ul>
           </div>
         </div>
@@ -131,8 +129,9 @@ export default function MarketingFooter() {
             <Link href="/refund-policy" className="hover:text-gray-300 transition-colors">Refunds</Link>
             <Link href="/legal" className="hover:text-gray-300 transition-colors">Legal</Link>
             <Link href="/do-not-share-policy" className="hover:text-gray-300 transition-colors">Do Not Share</Link>
+            <Link href="/feedback" className="inline-block bg-red-600 text-yellow-300 px-3 py-1.5 rounded font-bold text-xs uppercase tracking-wide hover:bg-red-700 transition-colors">Feedback | Suggestions?</Link>
           </div>
-          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} The NYC Maid &middot; Sales: <a href="sms:2122028400" className="text-[#A8F0DC]/70 hover:text-[#A8F0DC]">(212) 202-8400</a> &middot; Support: <a href="sms:6464900130" className="text-[#A8F0DC]/70 hover:text-[#A8F0DC]">(646) 490-0130</a> &middot; NYC Web Design by{' '}<a href="https://www.consortiumnyc.com/" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold hover:text-white underline underline-offset-2 decoration-[#A8F0DC]/50">Consortium NYC</a></p>
+          <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} The NYC Maid &middot; Sales &amp; Customer Service: <a href="sms:2122028400" className="text-[#A8F0DC]/70 hover:text-[#A8F0DC]">(212) 202-8400</a> &middot; NYC Web Design by{' '}<a href="https://www.consortiumnyc.com/" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold hover:text-white underline underline-offset-2 decoration-[#A8F0DC]/50">Consortium NYC</a></p>
         </div>
       </div>
 
