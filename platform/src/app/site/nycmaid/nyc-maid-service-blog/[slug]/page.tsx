@@ -9,9 +9,11 @@ import JsonLd from '@/app/site/nycmaid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/nycmaid/_components/CTABlock'
 
-export const dynamicParams = true
+export const dynamicParams = false
 
-export function generateStaticParams() { return [] }
+export function generateStaticParams() {
+  return getAllBlogSlugs().map(slug => ({ slug }))
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

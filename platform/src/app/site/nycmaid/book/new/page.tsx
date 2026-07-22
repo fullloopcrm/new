@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import AddressAutocomplete from '@/components/AddressAutocomplete'
-import { validateEmail } from '@/lib/validate-email'
+import AddressAutocomplete from '@/app/site/nycmaid/_components/AddressAutocomplete'
+import { validateEmail } from '@/app/site/nycmaid/_lib/validate-email'
 import { formatPhone } from '@/lib/format'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {

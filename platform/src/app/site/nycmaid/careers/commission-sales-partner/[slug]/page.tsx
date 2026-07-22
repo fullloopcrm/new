@@ -9,10 +9,12 @@ import { jobDates } from '@/app/site/nycmaid/_lib/seo/job-dates'
 import JsonLd from '@/app/site/nycmaid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 
-export const dynamicParams = true
+export const dynamicParams = false
 export const revalidate = 259200 // 3 days — must be a literal for Next segment config
 
-export function generateStaticParams() { return [] }
+export function generateStaticParams() {
+  return ALL_NEIGHBORHOODS.map((n) => ({ slug: n.slug }))
+}
 
 function getNeighborhood(slug: string): Neighborhood | undefined {
   return ALL_NEIGHBORHOODS.find((n) => n.slug === slug)

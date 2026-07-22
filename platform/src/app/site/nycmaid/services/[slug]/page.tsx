@@ -30,9 +30,11 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-export const dynamicParams = true
+export const dynamicParams = false
 
-export async function generateStaticParams() { return [] }
+export async function generateStaticParams() {
+  return SERVICES.map(s => ({ slug: s.urlSlug }))
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
