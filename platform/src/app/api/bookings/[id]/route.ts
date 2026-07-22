@@ -272,11 +272,12 @@ export async function DELETE(
     // Send cancellation notifications
     if (booking) {
       try {
+        const nyc = isNycMaid(tenantId)
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'comms_fail',
-          title: 'DIAG3: client_id access',
-          message: `client_id=${booking.client_id}`,
+          title: 'DIAG4: isNycMaid ok',
+          message: `isNycMaid=${nyc}`,
           channel: 'email',
           status: 'failed',
         }).then(() => {}, () => {})
@@ -284,7 +285,27 @@ export async function DELETE(
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'comms_fail',
-          title: 'DIAG3: THREW',
+          title: 'DIAG4: isNycMaid THREW',
+          message: diagErr instanceof Error ? `${diagErr.message}\n${diagErr.stack}` : String(diagErr),
+          channel: 'email',
+          status: 'failed',
+        }).then(() => {}, () => {})
+      }
+      try {
+        const em = booking.clients?.email
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'DIAG5: clients.email ok',
+          message: `email=${em}`,
+          channel: 'email',
+          status: 'failed',
+        }).then(() => {}, () => {})
+      } catch (diagErr) {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'DIAG5: clients.email THREW',
           message: diagErr instanceof Error ? `${diagErr.message}\n${diagErr.stack}` : String(diagErr),
           channel: 'email',
           status: 'failed',
