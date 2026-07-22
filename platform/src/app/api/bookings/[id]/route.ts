@@ -260,8 +260,26 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'comms_fail',
+      title: 'DIAG: post-delete',
+      message: JSON.stringify({ bookingIsTruthy: !!booking, tenantId }),
+      channel: 'email',
+      status: 'failed',
+    }).then(() => {}, () => {})
+
     // Send cancellation notifications
     if (booking) {
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: tenantId,
+        type: 'comms_fail',
+        title: 'DIAG: entered booking block',
+        message: JSON.stringify({ client_id: booking.client_id, isNycMaid: isNycMaid(tenantId), clientEmail: booking.clients?.email }),
+        channel: 'email',
+        booking_id: id,
+        status: 'failed',
+      }).then(() => {}, () => {})
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
