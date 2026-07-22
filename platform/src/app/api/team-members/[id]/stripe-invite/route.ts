@@ -7,18 +7,22 @@
  * doesn't have to hand a phone/laptop to the new hire on the spot.
  *
  * Tenant-generic: works identically for every tenant via requirePermission()
- * + getTenantForRequest(), same as stripe-onboard.
+ * + getTenantForRequest(), same as stripe-onboard. Each tenant owns its own
+ * Stripe account (tenants.stripe_api_key) — the Connect account is created
+ * under THAT account, never a shared platform-wide fallback.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { decryptSecret } from '@/lib/secret-crypto'
 import Stripe from 'stripe'
 
-function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
-  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+function getStripe(key: string | null | undefined): Stripe {
+  const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
+  if (!apiKey) throw new Error('Stripe not configured')
+  return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +45,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Team member has no phone or email on file' }, { status: 400 })
     }
 
-    const stripe = getStripe()
+    const { data: tenantRow } = await supabaseAdmin
+      .from('tenants')
+      .select('stripe_api_key')
+      .eq('id', tenantId)
+      .single()
+
+    const stripe = getStripe((tenantRow as { stripe_api_key?: string | null } | null)?.stripe_api_key)
     let accountId = tm.stripe_account_id as string | null
 
     if (!accountId) {
