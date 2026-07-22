@@ -79,12 +79,55 @@ export async function PUT(request: Request) {
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    const updates: Record<string, unknown> = { status }
     const markingPaid = status === 'paid'
-    const viaStripe = markingPaid && paid_via === 'stripe_connect'
+    let effectivePaidVia: string | undefined
+    let viaStripe = false
+
+    if (markingPaid) {
+      // Stripe Connect is now the MANDATORY payout method once a partner is
+      // ready -- Jeff's product decision (CHANNEL.md 16:35): manual Zelle/Apple
+      // Cash is no longer offered as a live option once a partner can connect.
+      // Historical manual payouts and the zelle_email/apple_cash_phone columns
+      // stay untouched -- this only governs which method a NEW payout can use.
+      // A partner who hasn't (or can't) complete onboarding still has manual as
+      // their only option, since there's no Connect account to pay out to.
+      const { data: commissionRow } = await supabaseAdmin
+        .from('sales_partner_commissions')
+        .select('sales_partner_id')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!commissionRow) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+      const { data: partnerForRouting } = await supabaseAdmin
+        .from('sales_partners')
+        .select('stripe_ready_at')
+        .eq('id', commissionRow.sales_partner_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      const partnerReady = !!partnerForRouting?.stripe_ready_at
+
+      if (partnerReady) {
+        if (paid_via && paid_via !== 'stripe_connect') {
+          return NextResponse.json(
+            { error: 'This partner is Stripe Connect ready -- manual payout is no longer offered, payouts must go through Connect.' },
+            { status: 400 },
+          )
+        }
+        effectivePaidVia = 'stripe_connect'
+        viaStripe = true
+      } else {
+        if (paid_via === 'stripe_connect') {
+          return NextResponse.json({ error: 'Sales partner has not completed Stripe Connect onboarding' }, { status: 400 })
+        }
+        effectivePaidVia = paid_via || 'zelle'
+      }
+    }
+
+    const updates: Record<string, unknown> = { status }
     if (markingPaid) {
       updates.paid_at = new Date().toISOString()
-      updates.paid_via = paid_via || 'zelle'
+      updates.paid_via = effectivePaidVia
     }
 
     // `.neq('status', 'paid')` — DB-level compare-and-swap so a double-click

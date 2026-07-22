@@ -2,11 +2,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
- * PUT /api/sales-partner-commissions with paid_via:'stripe_connect' — the
- * Connect-transfer payout path (mirrors lib/finance/cleaner-payout.ts's
- * claim-before-transfer design: the atomic status update IS the claim, a
- * failed transfer reverts it). Manual (Zelle/Apple Cash) payouts are
- * regression-covered to prove they still skip Stripe entirely.
+ * PUT /api/sales-partner-commissions — the Connect-transfer payout path
+ * (mirrors lib/finance/cleaner-payout.ts's claim-before-transfer design: the
+ * atomic status update IS the claim, a failed transfer reverts it).
+ *
+ * Stripe Connect is MANDATORY once a partner is ready (CHANNEL.md 16:35,
+ * Jeff-confirmed product decision): manual Zelle/Apple Cash is no longer
+ * offered as a live payout method once a partner can connect. A partner who
+ * hasn't (or can't) complete onboarding keeps manual as their only path,
+ * since there's nowhere for Stripe to send money yet.
  */
 
 const h = vi.hoisted(() => ({
@@ -66,9 +70,9 @@ beforeEach(() => {
   }
 })
 
-describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () => {
-  it('transfers the commission via Stripe when the partner is Connect-ready', async () => {
-    const res = await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'stripe_connect' }))
+describe('PUT /api/sales-partner-commissions — Stripe Connect transfer (mandatory once ready)', () => {
+  it('transfers via Stripe automatically for a ready partner even with no paid_via specified', async () => {
+    const res = await PUT(putReq({ id: 'comm-1', status: 'paid' }))
     const body = await res.json()
 
     expect(res.status).toBe(200)
@@ -78,6 +82,7 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () =>
       expect.objectContaining({ idempotencyKey: 'sales-partner-commission:comm-1' }),
     )
     expect(body.status).toBe('paid')
+    expect(body.paid_via).toBe('stripe_connect')
     expect(body.stripe_transfer_id).toBe('tr_sp_1')
 
     const partner = h.store.sales_partners.find((p) => p.id === 'partner-1')
@@ -85,11 +90,39 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () =>
     expect(postPaymentSpy).toHaveBeenCalledWith({ tenantId: 'tenant-A', commissionId: 'comm-1' })
   })
 
-  it('rejects a Stripe payout for a partner who has not completed onboarding, without bumping total_paid', async () => {
+  it('transfers via Stripe when explicitly requested for a ready partner', async () => {
+    const res = await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'stripe_connect' }))
+    expect(res.status).toBe(200)
+    expect(transfersCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an explicit manual paid_via for a ready partner -- manual is no longer offered', async () => {
+    const res = await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'zelle' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/manual payout is no longer offered/i)
+    expect(transfersCreate).not.toHaveBeenCalled()
+    const commission = h.store.sales_partner_commissions.find((c) => c.id === 'comm-1')
+    expect(commission?.status).toBe('pending')
+  })
+
+  it('a not-yet-connected partner still gets a manual payout with no paid_via specified', async () => {
+    const res = await PUT(putReq({ id: 'comm-2', status: 'paid' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.paid_via).toBe('zelle')
+    expect(transfersCreate).not.toHaveBeenCalled()
+    const partner = h.store.sales_partners.find((p) => p.id === 'partner-2')
+    expect(partner?.total_paid).toBe(3000)
+  })
+
+  it('rejects a Stripe payout requested for a partner who has not completed onboarding', async () => {
     const res = await PUT(putReq({ id: 'comm-2', status: 'paid', paid_via: 'stripe_connect' }))
     const body = await res.json()
 
-    expect(res.status).toBe(502)
+    expect(res.status).toBe(400)
     expect(body.error).toMatch(/not completed/i)
     expect(transfersCreate).not.toHaveBeenCalled()
 
@@ -101,7 +134,7 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () =>
 
   it('reverts the claim (status back to pending) when the Stripe transfer itself throws', async () => {
     transfersCreate.mockRejectedValueOnce(new Error('card_declined'))
-    const res = await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'stripe_connect' }))
+    const res = await PUT(putReq({ id: 'comm-1', status: 'paid' }))
     const body = await res.json()
 
     expect(res.status).toBe(502)
@@ -114,11 +147,11 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () =>
   })
 
   it('a second PUT after a successful Stripe payout does not double-transfer (CAS blocks re-claim)', async () => {
-    await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'stripe_connect' }))
+    await PUT(putReq({ id: 'comm-1', status: 'paid' }))
     transfersCreate.mockClear()
     postPaymentSpy.mockClear()
 
-    const res2 = await PUT(putReq({ id: 'comm-1', status: 'paid', paid_via: 'stripe_connect' }))
+    const res2 = await PUT(putReq({ id: 'comm-1', status: 'paid' }))
     const body2 = await res2.json()
 
     expect(transfersCreate).not.toHaveBeenCalled()
@@ -127,14 +160,8 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer', () =>
     expect(partner?.total_paid).toBe(5000)
   })
 
-  it('manual payout (no paid_via, or zelle) never touches Stripe', async () => {
-    const res = await PUT(putReq({ id: 'comm-1', status: 'paid' }))
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(body.paid_via).toBe('zelle')
-    expect(transfersCreate).not.toHaveBeenCalled()
-    const partner = h.store.sales_partners.find((p) => p.id === 'partner-1')
-    expect(partner?.total_paid).toBe(5000)
+  it('returns 404 for an unknown commission id', async () => {
+    const res = await PUT(putReq({ id: 'does-not-exist', status: 'paid' }))
+    expect(res.status).toBe(404)
   })
 })

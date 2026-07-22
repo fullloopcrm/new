@@ -62,7 +62,11 @@ export async function sendSalesPartnerStripeInvite(
       const account = await stripe.accounts.create({
         type: 'express',
         email: partner.email || undefined,
-        capabilities: { transfers: { requested: true } },
+        // card_payments requested alongside transfers -- see CHANNEL.md 16:20
+        // LEADER->W1: a transfers-only capability request is rejected live on this
+        // platform ("needs approval for transfers without card_payments"). Matches
+        // the same fix in stripe-onboard/route.ts.
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
         business_type: 'individual',
         metadata: { sales_partner_id: partnerId, tenant_id: tenantId },
       }, { idempotencyKey: `connect-account-sp-${tenantId}-${partnerId}` })
