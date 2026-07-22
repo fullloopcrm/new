@@ -9,10 +9,16 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * per leader/Jeff's 2026-07-22 product decision (CHANNEL.md 16:35): manual
  * Zelle/Apple Cash is no longer a live payout method once a referrer CAN
  * connect Stripe, matching cleaners (no manual fallback). A caller-supplied
- * paid_via no longer overrides this for a Connect-ready referrer; it's only
- * honored as the fallback for a referrer who hasn't connected. If the Stripe
- * transfer itself fails, the commission must revert to its prior status
- * rather than being recorded "paid" with no funds actually sent.
+ * paid_via no longer overrides this for a Connect-ready referrer.
+ *
+ * The one escape hatch (CHANNEL.md 16:55): a referrer explicitly flagged
+ * stripe_ineligible_at (admin-only, PATCH /api/referrers/[id]) can still be
+ * paid manually. A referrer who simply hasn't connected YET — and isn't
+ * flagged ineligible — can no longer be marked paid at all; the PUT is
+ * rejected so the admin has to actually resolve one of the two states.
+ *
+ * If the Stripe transfer itself fails, the commission must revert to its
+ * prior status rather than being recorded "paid" with no funds actually sent.
  */
 
 const transfersCreate = vi.fn(async (_params: Record<string, unknown>, _opts: Record<string, unknown>) => ({ id: 'tr_1' }))
@@ -72,7 +78,8 @@ import { PUT } from './route'
 const TENANT_ID = 'tenant-1'
 const COMMISSION_ID = 'comm-1'
 const CONNECTED_REFERRER_ID = 'ref-connected'
-const MANUAL_REFERRER_ID = 'ref-manual'
+const UNCONNECTED_REFERRER_ID = 'ref-unconnected'
+const INELIGIBLE_REFERRER_ID = 'ref-ineligible'
 const COMMISSION_CENTS = 7_500
 const fake = supabaseAdmin as unknown as FakeSupabase
 
@@ -98,15 +105,27 @@ function seed() {
       total_earned: COMMISSION_CENTS,
       stripe_connect_account_id: 'acct_ready',
       stripe_ready_at: '2026-01-01T00:00:00.000Z',
+      stripe_ineligible_at: null,
     },
     {
-      id: MANUAL_REFERRER_ID,
+      id: UNCONNECTED_REFERRER_ID,
       tenant_id: TENANT_ID,
-      name: 'Manny Manual',
+      name: 'Uma Unconnected',
       total_paid: 0,
       total_earned: COMMISSION_CENTS,
       stripe_connect_account_id: null,
       stripe_ready_at: null,
+      stripe_ineligible_at: null,
+    },
+    {
+      id: INELIGIBLE_REFERRER_ID,
+      tenant_id: TENANT_ID,
+      name: 'Ivan Ineligible',
+      total_paid: 0,
+      total_earned: COMMISSION_CENTS,
+      stripe_connect_account_id: null,
+      stripe_ready_at: null,
+      stripe_ineligible_at: '2026-01-01T00:00:00.000Z',
     },
   ])
 }
@@ -169,13 +188,13 @@ describe('referral-commissions PUT — Connect transfer for a stripe-ready refer
   })
 })
 
-describe('referral-commissions PUT — manual fallback for a non-connected referrer', () => {
-  it('records the manual payout without attempting a Stripe transfer', async () => {
+describe('referral-commissions PUT — an unconnected, un-flagged referrer cannot be marked paid at all', () => {
+  it('rejects with 409 instead of silently falling back to manual', async () => {
     fake._seed('referral_commissions', [
       {
-        id: 'comm-manual',
+        id: 'comm-unconnected',
         tenant_id: TENANT_ID,
-        referrer_id: MANUAL_REFERRER_ID,
+        referrer_id: UNCONNECTED_REFERRER_ID,
         commission_cents: COMMISSION_CENTS,
         status: 'pending',
         paid_at: null,
@@ -183,11 +202,57 @@ describe('referral-commissions PUT — manual fallback for a non-connected refer
       },
     ])
 
-    const res = await putPaid({ id: 'comm-manual', status: 'paid' })
+    const res = await putPaid({ id: 'comm-unconnected', status: 'paid' })
+    expect(res.status).toBe(409)
+    expect(transfersCreate).not.toHaveBeenCalled()
+
+    const commission = fake._all('referral_commissions').find((r) => r.id === 'comm-unconnected')!
+    expect(commission.status).toBe('pending')
+    const ref = fake._all('referrers').find((r) => r.id === UNCONNECTED_REFERRER_ID)!
+    expect(ref.total_paid).toBe(0)
+  })
+
+  it('an explicit paid_via does not bypass the block either', async () => {
+    fake._seed('referral_commissions', [
+      {
+        id: 'comm-unconnected-2',
+        tenant_id: TENANT_ID,
+        referrer_id: UNCONNECTED_REFERRER_ID,
+        commission_cents: COMMISSION_CENTS,
+        status: 'pending',
+        paid_at: null,
+        paid_via: null,
+      },
+    ])
+
+    const res = await putPaid({ id: 'comm-unconnected-2', status: 'paid', paid_via: 'zelle' })
+    expect(res.status).toBe(409)
+    expect(transfersCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('referral-commissions PUT — admin-flagged Stripe-ineligible referrer keeps the manual escape hatch', () => {
+  it('records the manual payout without attempting a Stripe transfer', async () => {
+    fake._seed('referral_commissions', [
+      {
+        id: 'comm-ineligible',
+        tenant_id: TENANT_ID,
+        referrer_id: INELIGIBLE_REFERRER_ID,
+        commission_cents: COMMISSION_CENTS,
+        status: 'pending',
+        paid_at: null,
+        paid_via: null,
+      },
+    ])
+
+    const res = await putPaid({ id: 'comm-ineligible', status: 'paid' })
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(transfersCreate).not.toHaveBeenCalled()
     expect(json.paid_via).toBe('zelle')
+
+    const ref = fake._all('referrers').find((r) => r.id === INELIGIBLE_REFERRER_ID)!
+    expect(ref.total_paid).toBe(COMMISSION_CENTS)
   })
 })

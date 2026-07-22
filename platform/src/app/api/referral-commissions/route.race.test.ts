@@ -65,7 +65,11 @@ import { POST, PUT } from './route'
 
 function seed() {
   return {
-    referrers: [{ id: REF, tenant_id: TENANT, name: 'Ref One', email: null, commission_rate: 0.1, total_earned: 1000, total_paid: 0 }],
+    // stripe_ineligible_at set: this suite is about the total_paid
+    // lost-update race, not payout-method policy -- an un-ineligible,
+    // un-connected referrer can no longer be marked paid at all since
+    // 2026-07-22 (CHANNEL.md 16:35/16:55).
+    referrers: [{ id: REF, tenant_id: TENANT, name: 'Ref One', email: null, commission_rate: 0.1, total_earned: 1000, total_paid: 0, stripe_ineligible_at: '2026-01-01T00:00:00.000Z' }],
     bookings: [
       { id: 'bk-1', tenant_id: TENANT, price: 10000, referrer_id: REF, clients: { name: 'Client One' } },
       { id: 'bk-2', tenant_id: TENANT, price: 20000, referrer_id: REF, clients: { name: 'Client Two' } },

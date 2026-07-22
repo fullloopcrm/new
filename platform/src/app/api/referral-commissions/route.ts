@@ -199,13 +199,16 @@ export async function PUT(request: Request) {
 
     const markingPaid = status === 'paid'
 
-    // Product decision (leader/Jeff, 2026-07-22): manual Zelle/Apple Cash is
-    // no longer a live payout method once a referrer CAN connect Stripe --
-    // Connect is mandatory then, matching cleaners (which never had a manual
-    // fallback). A caller-supplied paid_via no longer overrides this for a
-    // Connect-ready referrer; it's only honored below as the fallback for a
-    // referrer who hasn't connected yet (open question on that edge case
-    // flagged in CHANNEL.md, not resolved unilaterally here).
+    // Product decision (leader/Jeff, 2026-07-22, CHANNEL.md 16:35 + 16:55):
+    // manual Zelle/Apple Cash is no longer a live payout method once a
+    // referrer CAN connect Stripe -- Connect is mandatory then, matching
+    // cleaners. The ONLY escape hatch is an admin-flagged exception
+    // (referrers.stripe_ineligible_at, set via PATCH /api/referrers/[id])
+    // for a referrer who genuinely can't onboard -- never a default choice.
+    // A caller-supplied paid_via no longer overrides Connect for a ready
+    // referrer, and is rejected outright for a referrer who's neither ready
+    // nor flagged ineligible (forces the admin to actually resolve one of
+    // the two states instead of drifting into an unintended manual payout).
     let referrerForTransfer: { id: string; name: string; commission_cents: number; stripe_connect_account_id: string } | null = null
     if (markingPaid) {
       const { data: existing } = await supabaseAdmin
@@ -217,7 +220,7 @@ export async function PUT(request: Request) {
       if (existing && existing.status !== 'paid') {
         const { data: ref } = await supabaseAdmin
           .from('referrers')
-          .select('id, name, stripe_connect_account_id, stripe_ready_at')
+          .select('id, name, stripe_connect_account_id, stripe_ready_at, stripe_ineligible_at')
           .eq('id', existing.referrer_id)
           .eq('tenant_id', tenantId)
           .maybeSingle()
@@ -228,6 +231,10 @@ export async function PUT(request: Request) {
             commission_cents: existing.commission_cents,
             stripe_connect_account_id: ref.stripe_connect_account_id,
           }
+        } else if (ref && !ref.stripe_ineligible_at) {
+          return NextResponse.json({
+            error: 'This referrer has not connected Stripe and is not flagged Stripe-ineligible. Connect is required to pay them — if they genuinely cannot onboard, mark them Stripe-ineligible first (PATCH /api/referrers/[id]) to unlock manual payout.',
+          }, { status: 409 })
         }
       }
     }
