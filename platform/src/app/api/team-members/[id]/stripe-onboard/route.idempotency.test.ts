@@ -64,8 +64,26 @@ function teamMembersBuilder() {
   return chain
 }
 
+// No own Stripe key configured for this tenant — getStripe() falls back to
+// the STRIPE_SECRET_KEY set in beforeEach, matching this test's mocked
+// Stripe client regardless of which key value is actually passed in.
+function tenantsBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    eq: () => chain,
+    single: async () => ({ data: { stripe_api_key: null }, error: null }),
+  }
+  return chain
+}
+
 vi.mock('@/lib/supabase', () => ({
-  supabaseAdmin: { from: (table: string) => (table === 'team_members' ? teamMembersBuilder() : { select: () => ({}), eq: () => ({}) }) },
+  supabaseAdmin: {
+    from: (table: string) => {
+      if (table === 'team_members') return teamMembersBuilder()
+      if (table === 'tenants') return tenantsBuilder()
+      return { select: () => ({}), eq: () => ({}) }
+    },
+  },
 }))
 
 import { POST } from './route'

@@ -14,12 +14,16 @@ const accountsCreate = vi.fn(async (_params: unknown, options?: { idempotencyKey
   return account
 })
 const accountLinksCreate = vi.fn(async () => ({ url: 'https://connect.stripe.com/onboard/invite' }))
+const stripeConstructorKeys: (string | undefined)[] = []
 
 vi.mock('stripe', () => {
   class MockStripe {
     accounts = { create: accountsCreate, retrieve: vi.fn(async () => ({})) }
     accountLinks = { create: accountLinksCreate }
     static LatestApiVersion = '2025-04-30.basil'
+    constructor(apiKey: string) {
+      stripeConstructorKeys.push(apiKey)
+    }
   }
   return { default: MockStripe }
 })
@@ -60,8 +64,25 @@ function teamMembersBuilder() {
   return chain
 }
 
+let tenantStripeApiKey: string | null = null
+
+function tenantsBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    eq: () => chain,
+    single: async () => ({ data: { stripe_api_key: tenantStripeApiKey }, error: null }),
+  }
+  return chain
+}
+
 vi.mock('@/lib/supabase', () => ({
-  supabaseAdmin: { from: (table: string) => (table === 'team_members' ? teamMembersBuilder() : { select: () => ({}), eq: () => ({}) }) },
+  supabaseAdmin: {
+    from: (table: string) => {
+      if (table === 'team_members') return teamMembersBuilder()
+      if (table === 'tenants') return tenantsBuilder()
+      return { select: () => ({}), eq: () => ({}) }
+    },
+  },
 }))
 
 type NotifyArgs = {
@@ -86,6 +107,8 @@ beforeEach(() => {
   notifyMock.mockClear()
   idempotencyStore.clear()
   realAccountCount = 0
+  stripeConstructorKeys.length = 0
+  tenantStripeApiKey = null
   memberRow = {
     id: TEAM_MEMBER_ID,
     name: 'Jane Cleaner',
@@ -153,6 +176,28 @@ describe('POST /api/team-members/[id]/stripe-invite', () => {
     const res = await POST(req, { params })
     expect(res.status).toBe(400)
     expect(accountsCreate).not.toHaveBeenCalled()
+  })
+
+  it('creates the Connect account under the TENANT\'s own Stripe key, not the platform fallback', async () => {
+    tenantStripeApiKey = 'sk_test_tenant_own_key'
+    const req = {} as unknown as Parameters<typeof POST>[0]
+    const params = Promise.resolve({ id: TEAM_MEMBER_ID })
+
+    const res = await POST(req, { params })
+    expect(res.status).toBe(200)
+
+    expect(stripeConstructorKeys).toEqual(['sk_test_tenant_own_key'])
+    expect(stripeConstructorKeys).not.toContain('sk_test_x')
+  })
+
+  it('falls back to the platform key only when the tenant has no own Stripe key', async () => {
+    tenantStripeApiKey = null
+    const req = {} as unknown as Parameters<typeof POST>[0]
+    const params = Promise.resolve({ id: TEAM_MEMBER_ID })
+
+    const res = await POST(req, { params })
+    expect(res.status).toBe(200)
+    expect(stripeConstructorKeys).toEqual(['sk_test_x'])
   })
 
   it('surfaces a 502 when notify() cannot deliver the invite', async () => {
