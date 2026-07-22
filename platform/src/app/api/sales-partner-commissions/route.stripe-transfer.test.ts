@@ -8,9 +8,10 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
  *
  * Stripe Connect is MANDATORY once a partner is ready (CHANNEL.md 16:35,
  * Jeff-confirmed product decision): manual Zelle/Apple Cash is no longer
- * offered as a live payout method once a partner can connect. A partner who
- * hasn't (or can't) complete onboarding keeps manual as their only path,
- * since there's nowhere for Stripe to send money yet.
+ * offered by default. Per the 16:55 follow-up answer, manual is ONLY
+ * reachable for a partner an admin has explicitly flagged
+ * `stripe_ineligible` -- a partner who simply hasn't connected yet gets
+ * rejected outright, not silently defaulted to manual.
  */
 
 const h = vi.hoisted(() => ({
@@ -60,12 +61,14 @@ beforeEach(() => {
   h.store = {
     tenants: [{ id: 'tenant-A', stripe_api_key: null }],
     sales_partners: [
-      { id: 'partner-1', tenant_id: 'tenant-A', name: 'Jane Doe', total_paid: 0, stripe_connect_account_id: 'acct_1', stripe_ready_at: '2026-07-01T00:00:00Z' },
-      { id: 'partner-2', tenant_id: 'tenant-A', name: 'Not Ready', total_paid: 0, stripe_connect_account_id: null, stripe_ready_at: null },
+      { id: 'partner-1', tenant_id: 'tenant-A', name: 'Jane Doe', total_paid: 0, stripe_connect_account_id: 'acct_1', stripe_ready_at: '2026-07-01T00:00:00Z', stripe_ineligible: false },
+      { id: 'partner-2', tenant_id: 'tenant-A', name: 'Never Connected', total_paid: 0, stripe_connect_account_id: null, stripe_ready_at: null, stripe_ineligible: false },
+      { id: 'partner-3', tenant_id: 'tenant-A', name: 'Flagged Ineligible', total_paid: 0, stripe_connect_account_id: null, stripe_ready_at: null, stripe_ineligible: true },
     ],
     sales_partner_commissions: [
       { id: 'comm-1', tenant_id: 'tenant-A', sales_partner_id: 'partner-1', commission_cents: 5000, status: 'pending' },
       { id: 'comm-2', tenant_id: 'tenant-A', sales_partner_id: 'partner-2', commission_cents: 3000, status: 'pending' },
+      { id: 'comm-3', tenant_id: 'tenant-A', sales_partner_id: 'partner-3', commission_cents: 2000, status: 'pending' },
     ],
   }
 })
@@ -107,29 +110,43 @@ describe('PUT /api/sales-partner-commissions — Stripe Connect transfer (mandat
     expect(commission?.status).toBe('pending')
   })
 
-  it('a not-yet-connected partner still gets a manual payout with no paid_via specified', async () => {
+  it('rejects a payout for a partner who has neither connected Stripe nor been flagged ineligible -- no implicit manual default', async () => {
     const res = await PUT(putReq({ id: 'comm-2', status: 'paid' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/has not connected Stripe/i)
+    expect(transfersCreate).not.toHaveBeenCalled()
+    const commission = h.store.sales_partner_commissions.find((c) => c.id === 'comm-2')
+    expect(commission?.status).toBe('pending')
+    const partner = h.store.sales_partners.find((p) => p.id === 'partner-2')
+    expect(partner?.total_paid).toBe(0)
+  })
+
+  it('also rejects an explicit stripe_connect request for a partner who has not completed onboarding', async () => {
+    const res = await PUT(putReq({ id: 'comm-2', status: 'paid', paid_via: 'stripe_connect' }))
+    expect(res.status).toBe(400)
+    expect(transfersCreate).not.toHaveBeenCalled()
+  })
+
+  it('an admin-flagged Stripe-ineligible partner still gets a manual payout', async () => {
+    const res = await PUT(putReq({ id: 'comm-3', status: 'paid' }))
     const body = await res.json()
 
     expect(res.status).toBe(200)
     expect(body.paid_via).toBe('zelle')
     expect(transfersCreate).not.toHaveBeenCalled()
-    const partner = h.store.sales_partners.find((p) => p.id === 'partner-2')
-    expect(partner?.total_paid).toBe(3000)
+    const partner = h.store.sales_partners.find((p) => p.id === 'partner-3')
+    expect(partner?.total_paid).toBe(2000)
   })
 
-  it('rejects a Stripe payout requested for a partner who has not completed onboarding', async () => {
-    const res = await PUT(putReq({ id: 'comm-2', status: 'paid', paid_via: 'stripe_connect' }))
+  it('rejects a Stripe payout requested for an ineligible-flagged partner (they have no Connect account)', async () => {
+    const res = await PUT(putReq({ id: 'comm-3', status: 'paid', paid_via: 'stripe_connect' }))
     const body = await res.json()
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/not completed/i)
     expect(transfersCreate).not.toHaveBeenCalled()
-
-    const commission = h.store.sales_partner_commissions.find((c) => c.id === 'comm-2')
-    expect(commission?.status).toBe('pending')
-    const partner = h.store.sales_partners.find((p) => p.id === 'partner-2')
-    expect(partner?.total_paid).toBe(0)
   })
 
   it('reverts the claim (status back to pending) when the Stripe transfer itself throws', async () => {

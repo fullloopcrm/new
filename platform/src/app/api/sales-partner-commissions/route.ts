@@ -101,11 +101,12 @@ export async function PUT(request: Request) {
 
       const { data: partnerForRouting } = await supabaseAdmin
         .from('sales_partners')
-        .select('stripe_ready_at')
+        .select('stripe_ready_at, stripe_ineligible')
         .eq('id', commissionRow.sales_partner_id as string)
         .eq('tenant_id', tenantId)
         .maybeSingle()
       const partnerReady = !!partnerForRouting?.stripe_ready_at
+      const partnerIneligible = !!partnerForRouting?.stripe_ineligible
 
       if (partnerReady) {
         if (paid_via && paid_via !== 'stripe_connect') {
@@ -116,11 +117,23 @@ export async function PUT(request: Request) {
         }
         effectivePaidVia = 'stripe_connect'
         viaStripe = true
-      } else {
+      } else if (partnerIneligible) {
+        // Admin-flagged escape hatch (CHANNEL.md 16:55) -- manual payout is
+        // ONLY reachable here because an admin explicitly marked this partner
+        // unable to complete Connect onboarding, not because they simply
+        // haven't gotten to it yet.
         if (paid_via === 'stripe_connect') {
           return NextResponse.json({ error: 'Sales partner has not completed Stripe Connect onboarding' }, { status: 400 })
         }
         effectivePaidVia = paid_via || 'zelle'
+      } else {
+        // Not ready AND not flagged ineligible -- manual is no longer offered
+        // as an implicit default. The partner must connect Stripe, or an
+        // admin must explicitly mark them Stripe-ineligible first.
+        return NextResponse.json(
+          { error: 'This partner has not connected Stripe Connect. Either send them a Connect invite, or mark them Stripe-ineligible to pay them manually.' },
+          { status: 400 },
+        )
       }
     }
 

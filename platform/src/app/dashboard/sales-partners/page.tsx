@@ -21,6 +21,7 @@ type SalesPartner = {
   documents: { status: string } | null
   stripe_connect_account_id: string | null
   stripe_ready_at: string | null
+  stripe_ineligible: boolean
 }
 
 type Commission = {
@@ -108,6 +109,17 @@ export default function SalesPartnersPage() {
     } else {
       setPayoutError(data.error || 'Payout failed')
     }
+    setBusyId('')
+  }
+
+  async function toggleStripeIneligible(p: SalesPartner) {
+    setBusyId(p.id)
+    const res = await fetch('/api/sales-partners', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, stripe_ineligible: !p.stripe_ineligible }),
+    })
+    if (res.ok) setPartners((prev) => prev.map((x) => (x.id === p.id ? { ...x, stripe_ineligible: !x.stripe_ineligible } : x)))
     setBusyId('')
   }
 
@@ -340,22 +352,42 @@ export default function SalesPartnersPage() {
                   <td className="px-4 py-3">
                     {p.stripe_ready_at ? (
                       <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">Instant pay ready</span>
-                    ) : p.stripe_connect_account_id ? (
-                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">Onboarding started</span>
+                    ) : p.stripe_ineligible ? (
+                      <div>
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">Stripe-ineligible (manual)</span>
+                        <button
+                          disabled={busyId === p.id}
+                          onClick={() => toggleStripeIneligible(p)}
+                          className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                        >
+                          Unmark
+                        </button>
+                      </div>
                     ) : !p.active ? (
                       <span className="text-xs text-slate-300">—</span>
                     ) : (
                       <div>
-                        <button
-                          disabled={busyId === p.id}
-                          onClick={() => sendStripeInvite(p)}
-                          className="text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 px-2.5 py-1 rounded-lg font-medium disabled:opacity-50"
-                        >
-                          Send Connect invite
-                        </button>
+                        {p.stripe_connect_account_id ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">Onboarding started</span>
+                        ) : (
+                          <button
+                            disabled={busyId === p.id}
+                            onClick={() => sendStripeInvite(p)}
+                            className="text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 px-2.5 py-1 rounded-lg font-medium disabled:opacity-50"
+                          >
+                            Send Connect invite
+                          </button>
+                        )}
                         {inviteResult[p.id] && (
                           <p className={`text-[11px] mt-1 ${inviteResult[p.id]?.ok ? 'text-green-600' : 'text-red-600'}`}>{inviteResult[p.id]?.message}</p>
                         )}
+                        <button
+                          disabled={busyId === p.id}
+                          onClick={() => toggleStripeIneligible(p)}
+                          className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                        >
+                          Mark Stripe-ineligible
+                        </button>
                       </div>
                     )}
                   </td>
@@ -392,6 +424,10 @@ export default function SalesPartnersPage() {
               {pendingCommissions.map((c) => {
                 const partner = partners.find((p) => p.id === c.sales_partner_id)
                 const stripeReady = !!partner?.stripe_ready_at
+                // Manual is only reachable for an admin-flagged Stripe-ineligible
+                // partner (CHANNEL.md 16:55) -- not an implicit default for anyone
+                // who simply hasn't connected yet.
+                const manualAllowed = !!partner?.stripe_ineligible
                 return (
                   <div key={c.id} className="flex items-center justify-between px-5 py-3">
                     <div>
@@ -403,8 +439,6 @@ export default function SalesPartnersPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-slate-900">{fmt(c.commission_cents)}</span>
                       {stripeReady ? (
-                        // Stripe Connect is mandatory once a partner is ready -- manual
-                        // payout is no longer offered (CHANNEL.md 16:35, Jeff-confirmed).
                         <button
                           disabled={busyId === c.id}
                           onClick={() => markPaid(c, 'stripe_connect')}
@@ -412,7 +446,7 @@ export default function SalesPartnersPage() {
                         >
                           Pay via Stripe
                         </button>
-                      ) : (
+                      ) : manualAllowed ? (
                         <button
                           disabled={busyId === c.id}
                           onClick={() => markPaid(c)}
@@ -420,6 +454,10 @@ export default function SalesPartnersPage() {
                         >
                           Pay Out
                         </button>
+                      ) : (
+                        <span className="text-xs text-slate-400" title="Send them a Connect invite, or mark them Stripe-ineligible on the Partners tab">
+                          Needs Stripe or ineligible flag
+                        </span>
                       )}
                     </div>
                   </div>
