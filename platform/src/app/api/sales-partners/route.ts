@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('sales_partners')
-    .select('id, name, email, phone, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, active, approved_at, created_at, agreement_document_id, documents:agreement_document_id(status), stripe_connect_account_id, stripe_ready_at')
+    .select('id, name, email, phone, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, active, approved_at, created_at, agreement_document_id, documents:agreement_document_id(status), stripe_connect_account_id, stripe_ready_at, stripe_ineligible')
     .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Failed to fetch sales partners' }, { status: 500 })
@@ -242,13 +242,18 @@ export async function PUT(request: Request) {
     const { tenantId } = tenant
 
     const body = await request.json()
-    const { id, active, tier, commission_rate } = body
+    const { id, active, tier, commission_rate, stripe_ineligible } = body
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
     const updates: Record<string, unknown> = {}
     if (typeof active === 'boolean') updates.active = active
     if (typeof tier === 'string' && ['standard', 'tier2', 'tier3'].includes(tier)) updates.tier = tier
     if (typeof commission_rate === 'number' && commission_rate >= 0 && commission_rate <= 1) updates.commission_rate = commission_rate
+    // Admin-only escape hatch for the mandatory-Stripe-Connect payout rule
+    // (CHANNEL.md 16:55) -- flips a partner who genuinely can't complete
+    // Connect onboarding back onto manual Zelle/Apple Cash payout. Never
+    // offered as a default; must be an explicit admin action.
+    if (typeof stripe_ineligible === 'boolean') updates.stripe_ineligible = stripe_ineligible
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
