@@ -146,6 +146,16 @@ export default function RichMonthView() {
     }))
   }, [data, teamFilter, statusFilter])
 
+  // Flat, chronological list of this month's jobs for the list view under the
+  // calendar grid — same filtered data as the day cells (team/status filters
+  // apply to both), just re-projected as rows instead of a grid.
+  const monthJobsList = useMemo(() => {
+    return filteredDays
+      .filter((d) => d.date.startsWith(month))
+      .flatMap((d) => d.events.map((e) => ({ ...e, date: d.date })))
+      .sort((a, b) => a.start.localeCompare(b.start))
+  }, [filteredDays, month])
+
   function toggleStatus(s: string) {
     const next = new Set(statusFilter)
     if (next.has(s)) next.delete(s)
@@ -392,6 +402,47 @@ export default function RichMonthView() {
                 )
               })}
             </div>
+          </div>
+
+          {/* MONTH JOBS — LIST VIEW */}
+          <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">{ml.name} {ml.year} — Jobs</h3>
+              <span className="text-xs text-slate-400">{monthJobsList.length} {monthJobsList.length === 1 ? 'job' : 'jobs'}</span>
+            </div>
+            {monthJobsList.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-400">No jobs match the current filters.</div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
+                {monthJobsList.map((ev) => {
+                  const color = ev.team_member_id
+                    ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)'
+                    : 'var(--sched-ink)'
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={() => router.push(`/dashboard/bookings/${ev.id}`)}
+                      className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50"
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                      <span className="text-xs text-slate-400 w-24 flex-shrink-0">
+                        {new Date(ev.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="text-xs font-mono text-slate-500 w-14 flex-shrink-0">{fmtTime(ev.start)}</span>
+                      <span className="text-sm text-slate-900 flex-1 truncate">{ev.client}</span>
+                      <span className="text-xs text-slate-400 hidden sm:inline">{ev.team_member_name || 'Unassigned'}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        ev.status === 'completed' ? 'bg-green-50 text-green-700' :
+                        ev.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :
+                        ev.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+                        'bg-slate-100 text-slate-500'
+                      }`}>{ev.status}</span>
+                      <span className="text-sm font-medium text-slate-900 w-16 text-right flex-shrink-0">{fmtMoney(ev.price_cents)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 
