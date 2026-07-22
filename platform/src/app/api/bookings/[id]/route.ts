@@ -260,57 +260,8 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
-      type: 'comms_fail',
-      title: 'DIAG: post-delete',
-      message: JSON.stringify({ bookingIsTruthy: !!booking, tenantId }),
-      channel: 'email',
-      status: 'failed',
-    }).then(() => {}, () => {})
-
     // Send cancellation notifications
     if (booking) {
-      try {
-        const nyc = isNycMaid(tenantId)
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'comms_fail',
-          title: 'DIAG4: isNycMaid ok',
-          message: `isNycMaid=${nyc}`,
-          channel: 'email',
-          status: 'failed',
-        }).then(() => {}, () => {})
-      } catch (diagErr) {
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'comms_fail',
-          title: 'DIAG4: isNycMaid THREW',
-          message: diagErr instanceof Error ? `${diagErr.message}\n${diagErr.stack}` : String(diagErr),
-          channel: 'email',
-          status: 'failed',
-        }).then(() => {}, () => {})
-      }
-      try {
-        const em = booking.clients?.email
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'comms_fail',
-          title: 'DIAG5: clients.email ok',
-          message: `email=${em}`,
-          channel: 'email',
-          status: 'failed',
-        }).then(() => {}, () => {})
-      } catch (diagErr) {
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'comms_fail',
-          title: 'DIAG5: clients.email THREW',
-          message: diagErr instanceof Error ? `${diagErr.message}\n${diagErr.stack}` : String(diagErr),
-          channel: 'email',
-          status: 'failed',
-        }).then(() => {}, () => {})
-      }
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
@@ -324,15 +275,10 @@ export async function DELETE(
         if (booking.client_id) {
           const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
           if (isNycMaid(tenantId) && booking.clients?.email) {
-            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG6: entered nycmaid branch', message: 'about to import', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
-            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG7: imported email-templates', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG8: imported client-contacts', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const email = clientCancellationEmail(booking)
-            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG9: built email template', message: email.subject, channel: 'email', status: 'failed' }).then(() => {}, () => {})
             await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
-            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG10: sendClientEmail done', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'booking_cancelled',
@@ -341,7 +287,10 @@ export async function DELETE(
               channel: 'email',
               recipient_type: 'client',
               recipient_id: booking.client_id,
-              booking_id: id,
+              // No booking_id — the booking row is already deleted by this point
+              // (DELETE runs before this notification), so any booking_id here
+              // would violate notifications_booking_id_fkey on INSERT and get
+              // silently swallowed by the .then() no-op handlers below.
               status: 'sent',
               metadata: { clientName: booking.clients?.name },
             }).then(() => {}, () => {})
@@ -354,7 +303,7 @@ export async function DELETE(
               channel: 'email',
               recipientType: 'client',
               recipientId: booking.client_id,
-              bookingId: id,
+              // No bookingId — same dangling-FK reason as above.
               metadata: { clientName: booking.clients?.name },
             })
           }
@@ -377,7 +326,6 @@ export async function DELETE(
           title: 'Cancellation notification failed',
           message: notifErr instanceof Error ? `${notifErr.message}\n${notifErr.stack}` : String(notifErr),
           channel: 'email',
-          booking_id: id,
           status: 'failed',
         }).then(() => {}, () => {})
       }
