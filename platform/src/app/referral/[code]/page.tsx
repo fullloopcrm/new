@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type ReferralData = {
@@ -13,6 +13,8 @@ type ReferralData = {
     commission_rate: number
     total_earned: number
     total_paid: number
+    stripe_connected: boolean
+    stripe_ready: boolean
   }
   tenant: {
     name: string
@@ -83,21 +85,35 @@ function timeAgo(d: string): string {
   return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+function getReferrerToken(): string {
+  try {
+    const stored = localStorage.getItem('referrer_auth')
+    if (stored) return JSON.parse(stored).token || ''
+  } catch { /* ignore */ }
+  return ''
+}
+
 export default function ReferralDashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-slate-400">Loading...</p></div>}>
+      <ReferralDashboard />
+    </Suspense>
+  )
+}
+
+function ReferralDashboard() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [data, setData] = useState<ReferralData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'overview' | 'history'>('overview')
+  const [stripeBusy, setStripeBusy] = useState(false)
 
   useEffect(() => {
-    let token = ''
-    try {
-      const stored = localStorage.getItem('referrer_auth')
-      if (stored) token = JSON.parse(stored).token || ''
-    } catch { /* ignore */ }
+    const token = getReferrerToken()
     if (!token) { router.replace('/referral'); return }
 
     fetch(`/api/referrers/${code}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -117,6 +133,46 @@ export default function ReferralDashboardPage() {
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false))
   }, [code, router])
+
+  // Returning from the Stripe-hosted onboarding flow (?stripe=connected) —
+  // do a live status check so "ready" reflects reality immediately instead
+  // of waiting for the referrer to reload later. Runs once data (and the
+  // referrer id it carries) is available.
+  useEffect(() => {
+    if (searchParams.get('stripe') !== 'connected' || !data?.referrer.id) return
+    const token = getReferrerToken()
+    if (!token) return
+    fetch(`/api/referrers/${data.referrer.id}/stripe-status`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((s) => {
+        if (s?.ready) {
+          setData((prev) => prev ? { ...prev, referrer: { ...prev.referrer, stripe_connected: true, stripe_ready: true } } : prev)
+        }
+      })
+      .catch(() => {})
+    router.replace(`/referral/${code}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.referrer.id])
+
+  async function startStripeOnboarding() {
+    if (!data?.referrer.id) return
+    setStripeBusy(true)
+    const token = getReferrerToken()
+    try {
+      const res = await fetch(`/api/referrers/${data.referrer.id}/stripe-onboard`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json()
+      if (!res.ok || !json.url) throw new Error(json.error || 'Could not start instant pay setup')
+      window.location.href = json.url
+    } catch {
+      setStripeBusy(false)
+    }
+  }
 
   // The link a referrer shares is the tenant's BOOKING page with ?ref=CODE —
   // the URL that actually attributes a booking. It is NOT this dashboard URL
@@ -217,6 +273,37 @@ export default function ReferralDashboardPage() {
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-2">Share this link. You earn {referrer.commission_rate}% of every booking!</p>
+        </div>
+
+        {/* Instant Pay / Stripe Connect */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          {referrer.stripe_ready ? (
+            <div className="flex items-center gap-2">
+              <span className="text-green-600 text-lg">✓</span>
+              <div>
+                <p className="text-sm font-medium text-slate-800">Instant pay connected</p>
+                <p className="text-xs text-slate-400">Commissions are sent straight to your bank via Stripe.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-slate-800 mb-1">
+                {referrer.stripe_connected ? 'Finish setting up instant pay' : 'Get paid instantly'}
+              </p>
+              <p className="text-xs text-slate-400 mb-3">
+                {referrer.stripe_connected
+                  ? 'You started Stripe setup but haven’t finished. Pick up where you left off.'
+                  : 'Connect Stripe so your commissions land in your bank automatically instead of waiting on Zelle or Apple Cash.'}
+              </p>
+              <button
+                onClick={startStripeOnboarding}
+                disabled={stripeBusy}
+                className="w-full bg-teal-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {stripeBusy ? 'Opening…' : referrer.stripe_connected ? 'Finish Stripe Setup' : 'Set Up Instant Pay'}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Link Performance Stats */}

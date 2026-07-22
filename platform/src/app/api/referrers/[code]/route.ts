@@ -21,7 +21,7 @@ export async function GET(
   // Load the authenticated referrer and confirm the URL code is theirs.
   const { data: referrer } = await supabaseAdmin
     .from('referrers')
-    .select('id, tenant_id, name, email, referral_code, commission_rate, total_earned, total_paid')
+    .select('id, tenant_id, name, email, referral_code, commission_rate, total_earned, total_paid, stripe_connect_account_id, stripe_ready_at')
     .eq('id', auth.rid)
     .single()
 
@@ -117,6 +117,8 @@ export async function GET(
       commission_rate: ratePercent,
       total_earned: referrer.total_earned || 0,
       total_paid: referrer.total_paid || 0,
+      stripe_connected: Boolean(referrer.stripe_connect_account_id),
+      stripe_ready: Boolean(referrer.stripe_ready_at),
     },
     tenant: {
       name: tenant.name,
