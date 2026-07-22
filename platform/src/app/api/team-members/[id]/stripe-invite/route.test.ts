@@ -132,8 +132,14 @@ describe('POST /api/team-members/[id]/stripe-invite', () => {
     expect(json.url).toBe('https://connect.stripe.com/onboard/invite')
 
     expect(accountsCreate).toHaveBeenCalledTimes(1)
-    const [, createOpts] = accountsCreate.mock.calls[0]
+    const [createParams, createOpts] = accountsCreate.mock.calls[0] as [{ capabilities?: Record<string, { requested: boolean }> }, { idempotencyKey?: string }]
     expect(createOpts).toEqual({ idempotencyKey: `connect-account-${TENANT_ID}-${TEAM_MEMBER_ID}` })
+    // transfers-only is rejected live ("needs approval for transfers without
+    // card_payments") — both capabilities must be requested together.
+    expect(createParams.capabilities).toEqual({
+      transfers: { requested: true },
+      card_payments: { requested: true },
+    })
 
     expect(notifyMock).toHaveBeenCalledTimes(1)
     const [notifyArgs] = notifyMock.mock.calls[0]
