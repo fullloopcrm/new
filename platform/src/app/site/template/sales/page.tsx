@@ -30,6 +30,14 @@ interface Commission {
   created_at: string
 }
 
+interface PendingBooking {
+  id: string
+  start_time: string
+  status: string
+  client_name: string | null
+  referrer_name?: string | null
+}
+
 interface PortalData {
   partner: Partner
   tenant: { name: string; primary_color: string }
@@ -38,6 +46,8 @@ interface PortalData {
   stats: { total_earned: number; total_pending: number; recruited_referrer_count: number }
   commissions: Commission[]
   recruited_referrers: { id: string; name: string; referral_code: string; total_earned: number; status: string }[]
+  pendingDirectBookings?: PendingBooking[]
+  pendingOverrideBookings?: PendingBooking[]
 }
 
 const TOKEN_KEY = 'sales_partner_token'
@@ -153,7 +163,8 @@ export default function SalesPartnerPortalPage() {
     )
   }
 
-  const { partner, stats, share_url, referrer_signup_url, commissions, recruited_referrers } = data
+  const { partner, stats, share_url, referrer_signup_url, commissions, recruited_referrers, pendingDirectBookings, pendingOverrideBookings } = data
+  const pendingBookings = [...(pendingDirectBookings || []), ...(pendingOverrideBookings || [])]
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -217,6 +228,27 @@ export default function SalesPartnerPortalPage() {
             </div>
           </div>
         </div>
+
+        {pendingBookings.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 text-sm">Scheduled — Awaiting Completion</h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {pendingBookings.map((b) => (
+                <div key={b.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{b.client_name || 'A client'}</p>
+                    <p className="text-xs text-gray-400">
+                      {b.referrer_name ? `Via ${b.referrer_name} · ` : ''}{new Date(b.start_time).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">Scheduled</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
           <div className="px-4 py-3 border-b border-gray-200">

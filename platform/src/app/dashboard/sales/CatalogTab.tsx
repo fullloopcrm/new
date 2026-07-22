@@ -33,7 +33,17 @@ type Item = {
   default_target_margin_bps: number | null
 }
 
-const TYPES = ['service', 'project', 'product'] as const
+type MaterialRow = {
+  id: string
+  inventory_item_id: string
+  qty_per_unit: number
+  inventory_items: { id: string; name: string; unit_label: string; unit_cost_cents: number } | null
+}
+
+const TYPES = ['service', 'project', 'product', 'equipment'] as const
+// Display-only relabel: 'service' means labor you perform, so it reads as
+// "Labor" everywhere -- the underlying item_type value stays 'service'.
+const TYPE_LABELS: Record<string, string> = { service: 'Labor', project: 'Project', product: 'Product', equipment: 'Equipment' }
 const UNITS: Array<{ v: string; l: string }> = [
   { v: 'hour', l: 'per hour' },
   { v: 'job', l: 'flat / per job' },
@@ -157,16 +167,39 @@ export default function CatalogTab() {
   const [editErr, setEditErr] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [query, setQuery] = useState('')
+  const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; unit_label: string; unit_cost_cents: number }[]>([])
+  const [materials, setMaterials] = useState<MaterialRow[]>([])
+  const [materialDraft, setMaterialDraft] = useState({ inventory_item_id: '', qty_per_unit: '1' })
 
   function load() {
     setLoading(true)
-    fetch('/api/catalog')
-      .then((r) => r.json())
-      .then((d) => setItems(d?.items || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch('/api/inventory').then((r) => r.json()).catch(() => ({ items: [] })),
+    ]).then(([c, i]) => {
+      setItems(c?.items || [])
+      setInventoryItems(i?.items || [])
+    }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  function loadMaterials(serviceTypeId: string) {
+    fetch(`/api/catalog/${serviceTypeId}/materials`).then((r) => r.json()).then((d) => setMaterials(d?.materials || [])).catch(() => setMaterials([]))
+  }
+  async function addMaterial(serviceTypeId: string) {
+    if (!materialDraft.inventory_item_id) return
+    const qty = Number(materialDraft.qty_per_unit)
+    if (!Number.isFinite(qty) || qty <= 0) return
+    const res = await fetch(`/api/catalog/${serviceTypeId}/materials`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inventory_item_id: materialDraft.inventory_item_id, qty_per_unit: qty }),
+    })
+    if (res.ok) { setMaterialDraft({ inventory_item_id: '', qty_per_unit: '1' }); loadMaterials(serviceTypeId) }
+  }
+  async function removeMaterial(serviceTypeId: string, materialId: string) {
+    await fetch(`/api/catalog/${serviceTypeId}/materials?id=${materialId}`, { method: 'DELETE' })
+    loadMaterials(serviceTypeId)
+  }
 
   const filteredItems = query.trim()
     ? items.filter((it) => {
@@ -250,11 +283,14 @@ export default function CatalogTab() {
     setEditingId(it.id)
     setEditForm(toEditForm(it))
     setEditErr('')
+    setMaterials([])
+    loadMaterials(it.id)
   }
   function cancelEdit() {
     setEditingId(null)
     setEditForm(null)
     setEditErr('')
+    setMaterials([])
   }
   async function saveEdit(id: string) {
     if (!editForm) return
@@ -311,8 +347,8 @@ export default function CatalogTab() {
       {/* ADD FORM */}
       <div style={{ background: 'var(--sl-canvas,#fff)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 12, padding: 14, marginBottom: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div><label style={lbl}>Type <HelpTip text="Service = labor you perform. Project = a larger, multi-visit job. Product = a physical thing you sell." /></label>
-            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select>
+          <div><label style={lbl}>Type <HelpTip text="Labor = work you perform. Project = a larger, multi-visit job. Product = a physical thing you sell. Equipment = a rental/depreciable asset." /></label>
+            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
           </div>
           <div><label style={lbl}>Name <HelpTip text="What shows on the proposal line. Keep it clear and customer-facing." /></label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Deep Clean / Kitchen Remodel / HEPA Filter" /></div>
           <div><label style={lbl}>Category <HelpTip text="Optional grouping (e.g. Add-ons, Materials) to organize the catalog picker." /></label><input style={inp} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Add-ons" /></div>
@@ -357,7 +393,7 @@ export default function CatalogTab() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 10 }}>
           <div><label style={lbl}>Labor rate $/hr <HelpTip text="Internal labor cost per hour for this item. Combined with Est. hrs to suggest a labor budget on new quotes. Optional." /></label><input style={inp} value={form.labor_rate} onChange={(e) => setForm({ ...form, labor_rate: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
           <div><label style={lbl}>Overhead $ <HelpTip text="Flat per-unit overhead — equipment, permits, subcontractor markup, etc. Used to suggest a quote budget. Optional." /></label><input style={inp} value={form.overhead} onChange={(e) => setForm({ ...form, overhead: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
-          <div><label style={lbl}>Target margin % <HelpTip text="Usual target margin for this item, used to pre-fill Master Budget on new quotes built from it. Optional." /></label><input style={inp} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+          <div><label style={lbl}>Target margin % <HelpTip text="Usual target margin for this item, used to pre-fill the Budgets suggestion on new quotes built from it. Optional." /></label><input style={inp} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
@@ -392,7 +428,7 @@ export default function CatalogTab() {
                 {editErr && <div style={{ background: '#fdecea', color: '#c0392b', padding: '6px 10px', borderRadius: 8, fontSize: 12, marginBottom: 10 }}>{editErr}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
                   <div><label style={lbl}>Type</label>
-                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select>
+                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
                   </div>
                   <div><label style={lbl}>Name</label><input style={inp} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
                   <div><label style={lbl}>Category</label><input style={inp} value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /></div>
@@ -434,6 +470,33 @@ export default function CatalogTab() {
                   <div><label style={lbl}>Overhead $</label><input style={inp} value={editForm.overhead} onChange={(e) => setEditForm({ ...editForm, overhead: e.target.value.replace(/[^\d.]/g, '') })} /></div>
                   <div><label style={lbl}>Target margin %</label><input style={inp} value={editForm.target_margin} onChange={(e) => setEditForm({ ...editForm, target_margin: e.target.value.replace(/[^\d.]/g, '') })} /></div>
                 </div>
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--sl-line,#eee)' }}>
+                  <label style={lbl}>Materials (bill of materials)</label>
+                  <p style={{ fontSize: 11, color: 'var(--sl-muted)', margin: '0 0 8px' }}>
+                    What this item consumes per {unitShort(editForm.per_unit, editForm.unit_label)}. Feeds the budget template with real inventory cost instead of the flat Cost $ above.
+                  </p>
+                  {materials.map((m) => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '4px 0' }}>
+                      <span>{m.inventory_items?.name || 'Unknown item'}</span>
+                      <span style={{ color: 'var(--sl-muted)' }}>
+                        {m.qty_per_unit} × {money(m.inventory_items?.unit_cost_cents || 0)} = {money(m.qty_per_unit * (m.inventory_items?.unit_cost_cents || 0))}
+                      </span>
+                      <button type="button" onClick={() => removeMaterial(it.id, m.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Remove</button>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'end' }}>
+                    <div style={{ flex: 1 }}>
+                      <select style={inp} value={materialDraft.inventory_item_id} onChange={(e) => setMaterialDraft({ ...materialDraft, inventory_item_id: e.target.value })}>
+                        <option value="">Select inventory item…</option>
+                        {inventoryItems.map((inv) => <option key={inv.id} value={inv.id}>{inv.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ width: 90 }}>
+                      <input style={inp} type="number" step="0.01" value={materialDraft.qty_per_unit} onChange={(e) => setMaterialDraft({ ...materialDraft, qty_per_unit: e.target.value })} placeholder="Qty" />
+                    </div>
+                    <button type="button" onClick={() => addMaterial(it.id)} style={{ fontSize: 12, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>+ Add</button>
+                  </div>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                   <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <input type="checkbox" checked={editForm.taxable} onChange={(e) => setEditForm({ ...editForm, taxable: e.target.checked })} /> Taxable
@@ -458,7 +521,7 @@ export default function CatalogTab() {
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.id === dragId ? 0.4 : it.active ? 1 : 0.5, cursor: 'move' }}
             >
               <span title="Drag to reorder" style={{ color: 'var(--sl-muted)', fontSize: 13, letterSpacing: '-1px', cursor: 'grab', userSelect: 'none' }}>⠿</span>
-              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{it.item_type}</span>
+              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{TYPE_LABELS[it.item_type] || it.item_type}</span>
               {it.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', flexShrink: 0 }} />

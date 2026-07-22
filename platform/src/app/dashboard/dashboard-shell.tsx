@@ -49,14 +49,13 @@ const navMain: Array<{
   ]},
   { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
   { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
-    { letter: 'A', label: 'Services Catalog', href: '/dashboard/catalog' },
-    { letter: 'B', label: 'Master Budget', href: '/dashboard/sales/budget' },
+    { letter: 'A', label: 'Catalog', href: '/dashboard/catalog' },
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Schedule', href: '/dashboard/calendar' },
-    { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
-    { letter: 'D', label: 'Vendors', href: '/dashboard/jobs/vendors' },
+    { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
+    { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
+    { letter: 'D', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
@@ -76,8 +75,8 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/calendar', '/dashboard/bookings'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
@@ -108,11 +107,15 @@ function activeFold(pathname: string): string | null {
 }
 
 // Path → masthead title overrides. Used when the URL segment doesn't match
-// the human label we want shown (e.g. /dashboard/bookings is the Schedule hub).
+// the human label we want shown, or when the default (first-segment-only)
+// derivation can't reach a nested route like /dashboard/jobs/projects.
 const TITLE_OVERRIDES: Record<string, string> = {
-  '/dashboard/bookings': 'Schedule',
   '/dashboard/connect': 'Loop Connect',
   '/dashboard/jobs': 'Production',
+  '/dashboard/jobs/projects': 'Projects',
+  '/dashboard/jobs/inventory': 'Inventory',
+  '/dashboard/jobs/equipment': 'Equipment',
+  '/dashboard/sales/categories': 'Categories',
 }
 
 function pageTitleFromPath(pathname: string): string {

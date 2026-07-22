@@ -1,8 +1,13 @@
 /**
  * Per-tenant Catalog CRUD (operator-side). One list of items in the
- * `service_types` table. Every item has a TYPE (service | project | product)
- * and is priced per hour or per job. No booking/sales mode on the item — that
- * fork lives on the deal (deals.mode).
+ * `service_types` table. Every item has a TYPE (service | project | product |
+ * equipment) and is priced per hour or per job. No booking/sales mode on the
+ * item — that fork lives on the deal (deals.mode).
+ *
+ * `equipment` is billed like a product (has a price, appears on quotes) but
+ * backed by real depreciable asset rows (see 2026_07_21_equipment.sql) rather
+ * than consumable stock -- a dumpster goes out and comes back, it isn't sold
+ * off like a bag of mulch.
  *
  * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals.
  */
@@ -11,7 +16,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
-const ITEM_TYPES = ['service', 'project', 'product']
+const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
 
 function num(v: unknown): number | null {
@@ -25,7 +30,7 @@ export async function GET() {
     const { tenantId } = await getTenantForRequest()
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .order('sort_order', { ascending: true })
     if (error) throw error
     // Legacy/seeded rows carry the hourly rate in the OLD booking column
@@ -75,6 +80,7 @@ export async function POST(request: Request) {
         cost_cents: num(body.cost_cents),
         taxable: body.taxable !== false,
         category: (body.category as string) || null,
+        category_id: (body.category_id as string) || null,
         default_duration_hours: num(body.default_duration_hours),
         default_labor_rate_cents: num(body.default_labor_rate_cents),
         default_overhead_cents: num(body.default_overhead_cents),
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
         sort_order: num(body.sort_order) ?? 0,
         active: body.active !== false,
       })
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -113,6 +119,7 @@ export async function PATCH(request: Request) {
     if ('cost_cents' in body) patch.cost_cents = num(body.cost_cents)
     if ('taxable' in body) patch.taxable = !!body.taxable
     if ('category' in body) patch.category = (body.category as string) || null
+    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
     if ('default_duration_hours' in body) patch.default_duration_hours = num(body.default_duration_hours)
     if ('default_labor_rate_cents' in body) patch.default_labor_rate_cents = num(body.default_labor_rate_cents)
     if ('default_overhead_cents' in body) patch.default_overhead_cents = num(body.default_overhead_cents)
@@ -128,7 +135,7 @@ export async function PATCH(request: Request) {
       .from('service_types')
       .update(patch)
       .eq('id', id)
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })

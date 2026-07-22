@@ -188,6 +188,16 @@ const isPublicRoute = createRouteMatcher([
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
+  // --- fullloopcrm.com brand consolidation (308) ---
+  // The FullLoop brand's own domain no longer serves the app independently
+  // -- both bare and www now forward straight to the main marketing site.
+  // Checked before anything else (MAIN_HOSTS, tenant lookup, canonical-www
+  // below) so it can't be shadowed or looped by that logic.
+  const rawHost = hostname.split(':')[0].toLowerCase()
+  if (rawHost === 'fullloopcrm.com' || rawHost === 'www.fullloopcrm.com') {
+    return NextResponse.redirect(new URL(req.nextUrl.pathname + req.nextUrl.search, 'https://www.homeservicesbusinesscrm.com'), 308)
+  }
+
   // --- Canonical www redirect (301) ---
   // Every apex domain redirects to its www. equivalent so www is canonical
   // everywhere. Excludes: hosts already on www, localhost, raw IPs,
@@ -324,7 +334,18 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
           p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
           p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
+          p.startsWith('/api/booking-notes') ||
           p.startsWith('/api/uploads') ||
+          // These were missing entirely -- /api/vendors has been unreachable
+          // for admin/impersonation sessions since it was added (same class
+          // of gap as the booking-notes fix above); /api/inventory and
+          // /api/categories are new this pass.
+          p.startsWith('/api/vendors') || p.startsWith('/api/inventory') || p.startsWith('/api/categories') ||
+          p.startsWith('/api/equipment') ||
+          // /api/quote-budgets was never added here either -- Master Budget
+          // has likely been unreachable for admin/impersonation sessions
+          // since it was built (same gap class as vendors/booking-notes).
+          p.startsWith('/api/quote-budgets') || p.startsWith('/api/budget-templates') ||
           p.startsWith('/api/tenant/public')) {
         return
       }

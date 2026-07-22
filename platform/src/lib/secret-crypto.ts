@@ -87,6 +87,7 @@ export const ENCRYPTED_TENANT_FIELDS = [
   'resend_api_key',
   'imap_pass',
   'anthropic_api_key',
+  'deepgram_api_key',
   'indexnow_key',
   'telegram_bot_token',
   'telegram_webhook_secret',

@@ -33,6 +33,9 @@ export default function ApplicationForm() {
     experience: '',
     availability: '',
     message: '',
+    reference1: '',
+    reference2: '',
+    reference3: '',
     website: '',
   })
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -86,7 +89,18 @@ export default function ApplicationForm() {
     e.preventDefault()
     setError('')
 
-    if (!form.name.trim() || !form.phone.trim() || !form.specialty) {
+    if (
+      !form.name.trim() ||
+      !form.phone.trim() ||
+      !form.specialty ||
+      !form.instagram.trim() ||
+      !form.experience ||
+      !form.availability ||
+      !form.message.trim() ||
+      !form.reference1.trim() ||
+      !form.reference2.trim() ||
+      !form.reference3.trim()
+    ) {
       setError('Please fill in all required fields.')
       return
     }
@@ -199,11 +213,12 @@ export default function ApplicationForm() {
 
       {/* Instagram */}
       <div>
-        <label className={labelClass}>Instagram Handle</label>
+        <label className={labelClass}>Instagram Handle *</label>
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">@</span>
           <input
             type="text"
+            required
             value={form.instagram}
             onChange={(e) => setForm({ ...form, instagram: e.target.value })}
             className={`${inputClass} pl-8`}
@@ -215,8 +230,9 @@ export default function ApplicationForm() {
       {/* Experience + Availability */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className={labelClass}>Years of Experience</label>
+          <label className={labelClass}>Years of Experience *</label>
           <select
+            required
             value={form.experience}
             onChange={(e) => setForm({ ...form, experience: e.target.value })}
             className={inputClass}
@@ -230,8 +246,9 @@ export default function ApplicationForm() {
           </select>
         </div>
         <div>
-          <label className={labelClass}>Availability</label>
+          <label className={labelClass}>Availability *</label>
           <select
+            required
             value={form.availability}
             onChange={(e) => setForm({ ...form, availability: e.target.value })}
             className={inputClass}
@@ -245,9 +262,41 @@ export default function ApplicationForm() {
         </div>
       </div>
 
+      {/* References */}
+      <div>
+        <label className={labelClass}>References *</label>
+        <p className="text-xs text-gray-400 mb-2">3 professional references — name and phone number for each.</p>
+        <div className="space-y-2">
+          <input
+            type="text"
+            required
+            value={form.reference1}
+            onChange={(e) => setForm({ ...form, reference1: e.target.value })}
+            className={inputClass}
+            placeholder="Reference 1 — name and phone number"
+          />
+          <input
+            type="text"
+            required
+            value={form.reference2}
+            onChange={(e) => setForm({ ...form, reference2: e.target.value })}
+            className={inputClass}
+            placeholder="Reference 2 — name and phone number"
+          />
+          <input
+            type="text"
+            required
+            value={form.reference3}
+            onChange={(e) => setForm({ ...form, reference3: e.target.value })}
+            className={inputClass}
+            placeholder="Reference 3 — name and phone number"
+          />
+        </div>
+      </div>
+
       {/* Video Selfie */}
       <div>
-        <label className={labelClass}>Video Selfie <span className="text-purple-500">(min 30 seconds)</span></label>
+        <label className={labelClass}>Video Selfie * <span className="text-purple-500">(min 30 seconds)</span></label>
         <p className="text-xs text-gray-400 mb-2">Tell us about yourself, your experience, and why you want to join. MP4, MOV, or WebM, under 100MB.</p>
         <div className="flex items-center gap-3">
           {videoFile ? (
@@ -275,8 +324,9 @@ export default function ApplicationForm() {
 
       {/* Message */}
       <div>
-        <label className={labelClass}>Anything else? <span className="text-gray-300">(optional)</span></label>
+        <label className={labelClass}>Anything else? *</label>
         <textarea
+          required
           value={form.message}
           onChange={(e) => setForm({ ...form, message: e.target.value })}
           className={inputClass}

@@ -91,7 +91,7 @@ export function generateRecurringDates(
 
 // Payload for PUT /api/bookings/batch-update's "pattern unchanged, apply to
 // all future occurrences" edit in BookingsAdmin.tsx. That route spreads this
-// object straight into a bookings update call with no
+// object straight into a tenant-scoped `bookings` table update with no
 // field allowlist/aliasing (unlike its single-booking, /regenerate, and
 // recurring-schedules PUT siblings, which all alias the nycmaid-era
 // `cleaner_id` body key to the real `bookings.team_member_id` column).

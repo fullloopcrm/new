@@ -12,6 +12,18 @@ import { audit } from '@/lib/audit'
 
 type Params = { params: Promise<{ id: string; expenseId: string }> }
 
+// Mirrors the recompute in POST /api/jobs/[id]/expenses -- removing a
+// receipt has to pull the linked budget line's actual_cents back down too.
+async function recomputeBudgetLineActual(tenantId: string, budgetLineItemId: string) {
+  const { data: rows } = await supabaseAdmin
+    .from('expenses')
+    .select('amount')
+    .eq('tenant_id', tenantId)
+    .eq('budget_line_item_id', budgetLineItemId)
+  const total = (rows || []).reduce((sum, r) => sum + (r.amount || 0), 0)
+  await supabaseAdmin.from('budget_line_items').update({ actual_cents: total }).eq('id', budgetLineItemId).eq('tenant_id', tenantId)
+}
+
 export async function DELETE(_request: Request, { params }: Params) {
   const { tenant, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
@@ -24,7 +36,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     // another job's (or a non-job) expense row by guessing its id.
     const { data: existing, error: readError } = await supabaseAdmin
       .from('expenses')
-      .select('id, category, amount')
+      .select('id, category, amount, budget_line_item_id')
       .eq('tenant_id', tenantId)
       .eq('job_id', id)
       .eq('id', expenseId)
@@ -37,6 +49,8 @@ export async function DELETE(_request: Request, { params }: Params) {
       .eq('tenant_id', tenantId)
       .eq('id', expenseId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (existing.budget_line_item_id) await recomputeBudgetLineActual(tenantId, existing.budget_line_item_id)
 
     await audit({ tenantId, action: 'expense.deleted', entityType: 'expense', entityId: expenseId, details: { job_id: id } })
     await logJobEvent({

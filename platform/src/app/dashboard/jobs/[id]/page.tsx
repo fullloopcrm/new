@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { stageMeta } from '@/lib/pipeline'
 import { CloseoutDetail } from '@/components/closeout-detail'
+import BookingNotes from '@/components/BookingNotes'
 
 type Assignee = { id: string; name: string }
 type Job = {
@@ -34,8 +35,24 @@ type Session = {
   assignees: Assignee[]
 }
 type EventRow = { id: string; event_type: string; created_at: string }
-type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
-/** From GET /api/jobs/[id]/budget-variance -- variance is null when the job's quote has no saved Master Budget yet. */
+type JobExpense = {
+  id: string
+  category: string
+  amount: number
+  vendor_name: string | null
+  vendor_id: string | null
+  service_type_id: string | null
+  budget_line_item_id: string | null
+  description: string | null
+  receipt_url: string | null
+  date: string
+  vendors: { id: string; name: string } | null
+  service_types: { id: string; name: string } | null
+}
+type VendorOption = { id: string; name: string }
+type CatalogOption = { id: string; name: string }
+type BudgetLineOption = { id: string; label: string; budgeted_cents: number; actual_cents: number }
+/** From GET /api/jobs/[id]/budget-variance -- variance is null when the job's quote has no saved budget yet. */
 type BudgetVariance = {
   variance: { budgeted_total_cents: number; actual_total_cents: number; variance_cents: number; projected_margin_bps: number | null } | null
 }
@@ -599,8 +616,11 @@ export default function JobDetailPage() {
   const [crews, setCrews] = useState<Crew[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
   const [expenses, setExpenses] = useState<JobExpense[]>([])
-  const [expenseForm, setExpenseForm] = useState({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+  const [expenseForm, setExpenseForm] = useState({ vendor: '', vendor_id: '', service_type_id: '', budget_line_item_id: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
   const [expenseFile, setExpenseFile] = useState<File | null>(null)
+  const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([])
+  const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([])
+  const [budgetLineOptions, setBudgetLineOptions] = useState<BudgetLineOption[]>([])
   const [uploadingExpense, setUploadingExpense] = useState(false)
   const [budgetVariance, setBudgetVariance] = useState<BudgetVariance['variance']>(null)
   const [details, setDetails] = useState({ notes: '', ends_on: '' })
@@ -627,13 +647,24 @@ export default function JobDetailPage() {
   useEffect(() => {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
+    fetch('/api/vendors').then(r => r.json()).then(d => setVendorOptions(d.vendors || [])).catch(() => {})
+    fetch('/api/catalog').then(r => r.json()).then(d => setCatalogOptions(d.items || [])).catch(() => {})
   }, [])
+  useEffect(() => {
+    // Budget line picker only makes sense once this job's quote has a
+    // saved budget -- pulls the same line items the Budget tab tracks.
+    if (!quote?.id) { setBudgetLineOptions([]); return }
+    fetch(`/api/quote-budgets/${quote.id}`).then(r => r.json()).then(d => {
+      const lines = (d?.budget?.line_items || []) as Array<{ id: string; label: string; budgeted_cents: number; actual_cents: number }>
+      setBudgetLineOptions(lines.map((l) => ({ id: l.id, label: l.label, budgeted_cents: l.budgeted_cents, actual_cents: l.actual_cents })))
+    }).catch(() => setBudgetLineOptions([]))
+  }, [quote?.id])
   useEffect(() => {
     if (job) setDetails({ notes: job.notes ?? '', ends_on: job.ends_on ?? '' })
   }, [job])
   useEffect(() => {
     // sales.view-gated, and null (not an error) until the job's quote has a
-    // saved Master Budget -- section below hides itself in either case.
+    // saved budget -- section below hides itself in either case.
     fetch(`/api/jobs/${id}/budget-variance`).then(r => r.json()).then((d: BudgetVariance) => setBudgetVariance(d.variance || null)).catch(() => {})
   }, [id])
 
@@ -678,13 +709,16 @@ export default function JobDetailPage() {
           category: expenseForm.category,
           amount,
           vendor_name: expenseForm.vendor.trim() || null,
+          vendor_id: expenseForm.vendor_id || null,
+          service_type_id: expenseForm.service_type_id || null,
+          budget_line_item_id: expenseForm.budget_line_item_id || null,
           description: expenseForm.note.trim() || null,
           receipt_url: receiptUrl,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to add receipt')
-      setExpenseForm({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+      setExpenseForm({ vendor: '', vendor_id: '', service_type_id: '', budget_line_item_id: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
       setExpenseFile(null)
       loadExpenses()
     } catch (e) {
@@ -889,9 +923,36 @@ export default function JobDetailPage() {
           <div className="flex flex-wrap gap-2 items-end">
             <label className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-400">Vendor</span>
-              <input type="text" value={expenseForm.vendor} onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
-                placeholder="e.g. Home Depot" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36" />
+              <select value={expenseForm.vendor_id} onChange={(e) => {
+                const v = vendorOptions.find((o) => o.id === e.target.value)
+                setExpenseForm({ ...expenseForm, vendor_id: e.target.value, vendor: v ? v.name : expenseForm.vendor })
+              }} className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36">
+                <option value="">Not listed…</option>
+                {vendorOptions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+              {!expenseForm.vendor_id && (
+                <input type="text" value={expenseForm.vendor} onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+                  placeholder="e.g. Home Depot" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36" />
+              )}
             </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Catalog item</span>
+              <select value={expenseForm.service_type_id} onChange={(e) => setExpenseForm({ ...expenseForm, service_type_id: e.target.value })}
+                className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36">
+                <option value="">Not linked</option>
+                {catalogOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            {budgetLineOptions.length > 0 && (
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-slate-400">Counts against</span>
+                <select value={expenseForm.budget_line_item_id} onChange={(e) => setExpenseForm({ ...expenseForm, budget_line_item_id: e.target.value })}
+                  className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-40" title="Adds to that budget line's Actual $ automatically">
+                  <option value="">No budget line</option>
+                  {budgetLineOptions.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                </select>
+              </label>
+            )}
             <label className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-400">Amount</span>
               <input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
@@ -1057,6 +1118,16 @@ export default function JobDetailPage() {
         </ul>
       </section>
 
+      {/* Notes — project-level thread (job_id anchor, no single booking).
+          Per-visit notes still live on each booking; this is the LoopCam
+          video/photo/text thread for the project as a whole. */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Notes</h2>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 h-[420px] min-h-[280px] resize-y overflow-auto">
+          <BookingNotes jobId={id} mode="admin" authorName="Admin" projectName={job.title || 'Job'} />
+        </div>
+      </section>
+
       </div>
 
       {/* Sidebar */}
@@ -1108,7 +1179,7 @@ export default function JobDetailPage() {
             <h2 className="text-sm font-semibold text-slate-800 mb-3">Budget vs. actual</h2>
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-slate-500">Budgeted</span><span className="text-slate-800">{money(budgetVariance.budgeted_total_cents)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Actual (Master Budget)</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Actual (Budget)</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Receipts logged</span><span className="text-slate-800">{money(costCents)}</span></div>
               <div className="flex justify-between pt-1.5 border-t border-slate-100">
                 <span className="text-slate-500">Variance</span>

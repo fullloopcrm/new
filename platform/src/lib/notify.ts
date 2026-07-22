@@ -58,6 +58,8 @@ export type NotificationType =
   | 'video_uploaded'
   | '15min_warning'
   | 'late_check_in'
+  | 'duplicate_recurring_schedule'
+  | 'comms_fail'
   | 'late_check_out'
   | 'quote_sent'
   | 'quote_viewed'

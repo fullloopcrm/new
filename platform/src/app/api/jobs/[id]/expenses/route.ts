@@ -6,8 +6,16 @@
  * expense tied to a job is still just an expense, same downstream
  * bank-reconciliation/ledger-posting path as any other.
  *
+ * vendor_id/service_type_id/budget_line_item_id (2026_07_21_expenses_fk_wiring.sql)
+ * link a receipt to a real vendor, a real catalog item, and the specific
+ * budget line it should count against -- when budget_line_item_id is set,
+ * that line's actual_cents is recomputed from the sum of every expense
+ * tied to it, so logging a receipt in the field is what moves the Budget
+ * tab's "Actual $" instead of someone re-typing the same number by hand.
+ *
  * GET  → { expenses: [...] }
- * POST → { category, amount, vendor_name?, description?, receipt_url?, date? }
+ * POST → { category, amount, vendor_name?, vendor_id?, service_type_id?,
+ *          budget_line_item_id?, description?, receipt_url?, date? }
  */
 import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
@@ -21,6 +29,18 @@ import { nowNaiveET } from '@/lib/recurring'
 
 type Params = { params: Promise<{ id: string }> }
 
+// Recomputes one budget line's actual_cents from the live sum of every
+// expense tied to it -- idempotent, safe to call after any insert/delete.
+async function recomputeBudgetLineActual(tenantId: string, budgetLineItemId: string) {
+  const { data: rows } = await supabaseAdmin
+    .from('expenses')
+    .select('amount')
+    .eq('tenant_id', tenantId)
+    .eq('budget_line_item_id', budgetLineItemId)
+  const total = (rows || []).reduce((sum, r) => sum + (r.amount || 0), 0)
+  await supabaseAdmin.from('budget_line_items').update({ actual_cents: total }).eq('id', budgetLineItemId).eq('tenant_id', tenantId)
+}
+
 export async function GET(_request: Request, { params }: Params) {
   const { tenant, error: authError } = await requirePermission('bookings.view')
   if (authError) return authError
@@ -31,7 +51,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data, error } = await supabaseAdmin
       .from('expenses')
-      .select('*')
+      .select('*, vendors(id, name), service_types(id, name), categories(id, name)')
       .eq('tenant_id', tenantId)
       .eq('job_id', id)
       .order('date', { ascending: false })
@@ -72,6 +92,9 @@ export async function POST(request: Request, { params }: Params) {
       category: { type: 'string', required: true, max: 100 },
       amount: { type: 'number', required: true, min: 0 },
       vendor_name: { type: 'string', max: 200 },
+      vendor_id: { type: 'uuid' },
+      service_type_id: { type: 'uuid' },
+      budget_line_item_id: { type: 'uuid' },
       description: { type: 'string', max: 1000 },
       receipt_url: { type: 'url' },
       date: { type: 'date' },
@@ -80,6 +103,19 @@ export async function POST(request: Request, { params }: Params) {
     const validated = fields!
 
     const entityId = await getDefaultEntityId(tenantId)
+
+    // A picked catalog item's own category tags the expense the same
+    // GL-linked way a budget line already is -- no re-typing the category.
+    let categoryId: string | null = null
+    if (validated.service_type_id) {
+      const { data: catalogItem } = await supabaseAdmin
+        .from('service_types')
+        .select('category_id')
+        .eq('tenant_id', tenantId)
+        .eq('id', validated.service_type_id as string)
+        .maybeSingle()
+      categoryId = catalogItem?.category_id || null
+    }
 
     const { data, error } = await supabaseAdmin
       .from('expenses')
@@ -90,6 +126,10 @@ export async function POST(request: Request, { params }: Params) {
         category: validated.category,
         amount: Math.round(Number(validated.amount) * 100),
         vendor_name: validated.vendor_name || null,
+        vendor_id: validated.vendor_id || null,
+        service_type_id: validated.service_type_id || null,
+        budget_line_item_id: validated.budget_line_item_id || null,
+        category_id: categoryId,
         description: validated.description || null,
         receipt_url: validated.receipt_url || null,
         date: validated.date || nowNaiveET().slice(0, 10),
@@ -97,6 +137,8 @@ export async function POST(request: Request, { params }: Params) {
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (data.budget_line_item_id) await recomputeBudgetLineActual(tenantId, data.budget_line_item_id)
 
     await audit({ tenantId, action: 'expense.created', entityType: 'expense', entityId: data.id, details: { job_id: id, category: data.category, amount: data.amount } })
     await logJobEvent({

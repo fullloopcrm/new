@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import '../../sales/sales.css'
 
 // Vendors — a basic directory of suppliers/subcontractors the business orders
@@ -21,6 +20,16 @@ type Vendor = {
 type Draft = { name: string; phone: string; email: string; category: string; address: string; notes: string }
 const EMPTY_DRAFT: Draft = { name: '', phone: '', email: '', category: '', address: '', notes: '' }
 
+type InventoryItem = { id: string; name: string; unit_label: string }
+type VendorItemLink = {
+  id: string; inventory_item_id: string; unit_cost_cents: number; lead_time_days: number | null
+  is_preferred: boolean; inventory_items: { id: string; name: string; unit_label: string } | null
+}
+
+function money(cents: number): string {
+  return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,16 +38,50 @@ export default function VendorsPage() {
   const [err, setErr] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY_DRAFT)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [vendorItems, setVendorItems] = useState<Record<string, VendorItemLink[]>>({})
+  const [linkDraft, setLinkDraft] = useState({ inventory_item_id: '', unit_cost: '' })
 
   function load() {
     setLoading(true)
-    fetch('/api/vendors')
-      .then((r) => r.json())
-      .then((d) => setVendors(d?.vendors || []))
-      .catch(() => setVendors([]))
+    Promise.all([
+      fetch('/api/vendors').then((r) => r.json()).catch(() => ({ vendors: [] })),
+      fetch('/api/inventory').then((r) => r.json()).catch(() => ({ items: [] })),
+    ])
+      .then(([v, i]) => {
+        setVendors(v?.vendors || [])
+        setInventoryItems(i?.items || [])
+      })
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  function toggleExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    fetch(`/api/vendors/${id}/items`).then((r) => r.json()).then((d) => setVendorItems((prev) => ({ ...prev, [id]: d?.items || [] })))
+  }
+
+  async function linkItem(vendorId: string) {
+    if (!linkDraft.inventory_item_id) return
+    const res = await fetch(`/api/vendors/${vendorId}/items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inventory_item_id: linkDraft.inventory_item_id,
+        unit_cost_cents: Math.round((Number(linkDraft.unit_cost) || 0) * 100),
+      }),
+    })
+    if (res.ok) {
+      setLinkDraft({ inventory_item_id: '', unit_cost: '' })
+      fetch(`/api/vendors/${vendorId}/items`).then((r) => r.json()).then((d) => setVendorItems((prev) => ({ ...prev, [vendorId]: d?.items || [] })))
+    }
+  }
+
+  async function unlinkItem(vendorId: string, linkId: string) {
+    await fetch(`/api/vendors/${vendorId}/items?id=${linkId}`, { method: 'DELETE' })
+    fetch(`/api/vendors/${vendorId}/items`).then((r) => r.json()).then((d) => setVendorItems((prev) => ({ ...prev, [vendorId]: d?.items || [] })))
+  }
 
   async function createVendor() {
     setErr('')
@@ -82,8 +125,6 @@ export default function VendorsPage() {
 
   return (
     <div className="sl-scope">
-      <Link href="/dashboard/jobs" className="text-xs text-slate-500 hover:underline">← Production</Link>
-
       <div className="sl-section-head" style={{ marginTop: 6 }}>
         <h2 className="sl-section-title">Vendors<em>.</em></h2>
         <span className="sl-section-meta">{vendors.length} vendor{vendors.length === 1 ? '' : 's'}</span>
@@ -149,14 +190,46 @@ export default function VendorsPage() {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontFamily: 'var(--sl-display)', fontSize: 16, fontWeight: 600, color: 'var(--sl-ink)', minWidth: 160 }}>{v.name}</span>
-              <span style={{ flex: 1, fontSize: 13, color: 'var(--sl-muted)' }}>
-                {[v.category, v.phone, v.email, v.address].filter(Boolean).join(' · ') || 'No details'}
-              </span>
-              <button type="button" onClick={() => startEdit(v)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-ink)', cursor: 'pointer' }}>Edit</button>
-              <button type="button" onClick={() => removeVendor(v.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
-            </div>
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'var(--sl-display)', fontSize: 16, fontWeight: 600, color: 'var(--sl-ink)', minWidth: 160 }}>{v.name}</span>
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--sl-muted)' }}>
+                  {[v.category, v.phone, v.email, v.address].filter(Boolean).join(' · ') || 'No details'}
+                </span>
+                <button type="button" onClick={() => toggleExpand(v.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-ink)', cursor: 'pointer' }}>
+                  {expandedId === v.id ? 'Hide items' : 'Items supplied'}
+                </button>
+                <button type="button" onClick={() => startEdit(v)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-ink)', cursor: 'pointer' }}>Edit</button>
+                <button type="button" onClick={() => removeVendor(v.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
+              </div>
+              {expandedId === v.id && (
+                <div style={{ marginTop: 12, paddingLeft: 16, borderLeft: '2px solid var(--sl-line,#eee)' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'end' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={label}>Inventory item</label>
+                      <select style={inp} value={linkDraft.inventory_item_id} onChange={(e) => setLinkDraft({ ...linkDraft, inventory_item_id: e.target.value })}>
+                        <option value="">Select item…</option>
+                        {inventoryItems.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={label}>Cost ($)</label>
+                      <input style={inp} type="number" step="0.01" value={linkDraft.unit_cost} onChange={(e) => setLinkDraft({ ...linkDraft, unit_cost: e.target.value })} placeholder="0.00" />
+                    </div>
+                    <button type="button" className="sl-newlead-btn" onClick={() => linkItem(v.id)}>Link</button>
+                  </div>
+                  {(vendorItems[v.id] || []).length === 0 && <div style={{ fontSize: 12, color: 'var(--sl-muted)' }}>No items linked yet.</div>}
+                  {(vendorItems[v.id] || []).map((link) => (
+                    <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 0' }}>
+                      <span>{link.inventory_items?.name || 'Unknown item'}</span>
+                      <span style={{ color: 'var(--sl-muted)' }}>{money(link.unit_cost_cents)}/{link.inventory_items?.unit_label || 'unit'}</span>
+                      {link.is_preferred && <span style={{ fontSize: 10, fontWeight: 700, color: '#15803d' }}>PREFERRED</span>}
+                      <button type="button" onClick={() => unlinkItem(v.id, link.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Unlink</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       ))}
