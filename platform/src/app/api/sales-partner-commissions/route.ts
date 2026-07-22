@@ -8,7 +8,11 @@
  * GET (bearer sales-partner token) — that partner's own commissions.
  * GET (admin session) — every commission for the tenant.
  * PUT (admin) — mark a commission paid; bumps sales_partners.total_paid and
- *               posts the payout to the finance ledger.
+ *               posts the payout to the finance ledger. paid_via:'stripe_connect'
+ *               moves real money via a Stripe Connect transfer (mirrors the
+ *               claim-before-transfer pattern in lib/finance/cleaner-payout.ts
+ *               + lib/payment-processor.ts) instead of just recording a manual
+ *               Zelle/Apple Cash payout.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -17,6 +21,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { postSalesPartnerCommissionPayment } from '@/lib/finance/post-adjustments'
+import { getStripe } from '@/lib/stripe'
 
 export async function GET(request: Request) {
   try {
@@ -76,6 +81,7 @@ export async function PUT(request: Request) {
 
     const updates: Record<string, unknown> = { status }
     const markingPaid = status === 'paid'
+    const viaStripe = markingPaid && paid_via === 'stripe_connect'
     if (markingPaid) {
       updates.paid_at = new Date().toISOString()
       updates.paid_via = paid_via || 'zelle'
@@ -83,7 +89,12 @@ export async function PUT(request: Request) {
 
     // `.neq('status', 'paid')` — DB-level compare-and-swap so a double-click
     // or retried request can't double-bump total_paid / double-post the
-    // ledger. Same pattern as PUT /api/referral-commissions.
+    // ledger. Same pattern as PUT /api/referral-commissions. For the Stripe
+    // path this update IS the claim (mirrors the insert-based claim in
+    // lib/finance/cleaner-payout.ts): the row flips to 'paid' first, then the
+    // transfer is attempted; a failed transfer reverts the row so a retry can
+    // re-claim it, instead of leaving a commission marked paid with no money
+    // moved.
     let query = supabaseAdmin.from('sales_partner_commissions').update(updates).eq('id', id).eq('tenant_id', tenantId)
     if (markingPaid) query = query.neq('status', 'paid')
     const { data, error } = await query.select().maybeSingle()
@@ -100,6 +111,25 @@ export async function PUT(request: Request) {
       return NextResponse.json(current)
     }
 
+    if (viaStripe) {
+      const transferResult = await transferCommissionViaStripe({ tenantId, commission: data })
+      if (!transferResult.ok) {
+        // Revert the claim -- no money moved, so this commission must not
+        // read as paid. Restores whatever status it was in before this PUT.
+        await supabaseAdmin
+          .from('sales_partner_commissions')
+          .update({ status: 'pending', paid_at: null, paid_via: null })
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+        return NextResponse.json({ error: transferResult.error }, { status: 502 })
+      }
+      await supabaseAdmin
+        .from('sales_partner_commissions')
+        .update({ stripe_transfer_id: transferResult.transferId })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+    }
+
     if (markingPaid) {
       await bumpSalesPartnerTotalOrFlag(tenantId, data.sales_partner_id as string, 'total_paid', data.commission_cents as number, {
         relatedType: 'sales_partner_commission',
@@ -114,5 +144,56 @@ export async function PUT(request: Request) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Sales partner commissions PUT error:', err)
     return NextResponse.json({ error: 'Failed to update commission' }, { status: 500 })
+  }
+}
+
+type StripeTransferResult = { ok: true; transferId: string } | { ok: false; error: string }
+
+/**
+ * Moves the actual money for a paid_via:'stripe_connect' commission. Requires
+ * the partner to have completed onboarding (stripe_ready_at set) -- a
+ * connect_account_id alone only means "started onboarding" (see
+ * stripe-status/route.ts), not "can receive a transfer".
+ */
+async function transferCommissionViaStripe(opts: {
+  tenantId: string
+  commission: Record<string, unknown>
+}): Promise<StripeTransferResult> {
+  const { tenantId, commission } = opts
+  const partnerId = commission.sales_partner_id as string
+  const commissionCents = commission.commission_cents as number
+  if (!commissionCents || commissionCents <= 0) {
+    return { ok: false, error: 'Commission amount must be positive to transfer' }
+  }
+
+  const { data: partner } = await supabaseAdmin
+    .from('sales_partners')
+    .select('id, name, stripe_connect_account_id, stripe_ready_at')
+    .eq('id', partnerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (!partner?.stripe_connect_account_id || !partner.stripe_ready_at) {
+    return { ok: false, error: 'Sales partner has not completed Stripe Connect onboarding' }
+  }
+
+  const { data: tenantRow } = await supabaseAdmin
+    .from('tenants')
+    .select('stripe_api_key')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  try {
+    const stripe = getStripe((tenantRow as { stripe_api_key?: string | null } | null)?.stripe_api_key || undefined)
+    const transfer = await stripe.transfers.create({
+      amount: commissionCents,
+      currency: 'usd',
+      destination: partner.stripe_connect_account_id,
+      description: `Sales partner commission for ${partner.name}`,
+      metadata: { commission_id: commission.id as string, sales_partner_id: partnerId, tenant_id: tenantId },
+    }, { idempotencyKey: `sales-partner-commission:${commission.id}` })
+    return { ok: true, transferId: transfer.id }
+  } catch (e) {
+    console.error('[sp-comm] stripe transfer failed:', e)
+    return { ok: false, error: e instanceof Error ? e.message : 'Stripe transfer failed' }
   }
 }

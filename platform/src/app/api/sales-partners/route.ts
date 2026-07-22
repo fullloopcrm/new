@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('sales_partners')
-    .select('id, name, email, phone, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, active, approved_at, created_at, agreement_document_id, documents:agreement_document_id(status)')
+    .select('id, name, email, phone, referral_code, tier, commission_rate, total_earned, total_paid, preferred_payout, zelle_email, zelle_phone, apple_cash_phone, active, approved_at, created_at, agreement_document_id, documents:agreement_document_id(status), stripe_connect_account_id, stripe_ready_at')
     .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Failed to fetch sales partners' }, { status: 500 })

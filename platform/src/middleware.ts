@@ -484,10 +484,20 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     'the-nyc-seo',
     'consortium-nyc',
   ])
+  // Sales-partner portal carve-out: /site/template/sales is tenant-agnostic
+  // (no config coupling, resolves everything through tenant-scoped APIs), so
+  // any BESPOKE_SITE_TENANTS tenant WITHOUT its own hand-built /sales subtree
+  // falls through to it instead of 404ing. nycmaid is excluded -- it has its
+  // own bespoke /site/nycmaid/sales and must keep routing there unchanged.
+  const BESPOKE_TENANTS_WITH_OWN_SALES_PORTAL = new Set<string>(['nycmaid'])
+  const wantsSharedSalesPortal =
+    (pathname === '/sales' || pathname.startsWith('/sales/')) &&
+    !BESPOKE_TENANTS_WITH_OWN_SALES_PORTAL.has(tenantSlug)
+
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'
     : BESPOKE_SITE_TENANTS.has(tenantSlug)
-      ? `/site/${tenantSlug}`
+      ? (wantsSharedSalesPortal ? '/site/template' : `/site/${tenantSlug}`)
       : '/site/template'
   const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
 
