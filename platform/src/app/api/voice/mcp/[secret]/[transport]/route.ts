@@ -1,17 +1,18 @@
-// MCP server for FullLoop's xAI Grok voice agent (prospect qualification line).
+// MCP server for xAI Grok voice agents — serves TWO distinct agents behind
+// this one URL shape (unchanged so already-configured xAI assistants never
+// need reconfiguring after a domain cutover):
+//   1. FullLoop's own prospect-qualification line (global VOICE_MCP_TOKEN).
+//   2. Any tenant's customer-facing voice agent (tenants.voice_agent_mcp_secret).
+// The secret in the URL determines which. Wrong/unmatched secret -> 404.
 //
-// Hand-rolled (not mcp-handler/SDK) — mirrors NYC Maid's nycmaid/src/app/api/voice/mcp
-// implementation, which exists because xAI's Custom MCP connector probes with a plain
-// POST and doesn't send the strict `Accept: application/json, text/event-stream` header
-// the mcp-handler/SDK requires (it 406s), and its SSE path needs Redis we don't run.
-// This endpoint speaks minimal MCP JSON-RPC over a single POST and always answers
+// Hand-rolled (not mcp-handler/SDK) because xAI's Custom MCP connector probes
+// with a plain POST and doesn't send the strict
+// `Accept: application/json, text/event-stream` header the mcp-handler/SDK
+// requires (it 406s), and its SSE path needs Redis we don't run. This
+// endpoint speaks minimal MCP JSON-RPC over a single POST and always answers
 // application/json, so the connector can reach it.
-//
-// AUTH: secret in the URL path (VOICE_MCP_TOKEN). xAI connects with NO auth to
-//   https://<domain>/api/voice/mcp/<VOICE_MCP_TOKEN>/mcp
-// Wrong/absent secret -> 404. Tools reuse the same createProspect() pipeline as
-// the public /qualify form (src/lib/voice-agent/tools.ts).
 
+import { supabaseAdmin } from '@/lib/supabase'
 import {
   getPricing,
   checkSlotAvailability,
@@ -19,6 +20,18 @@ import {
   logCallNote,
   type SubmitApplicationArgs,
 } from '@/lib/voice-agent/tools'
+import {
+  voiceLookupClient,
+  voiceLookupBookings,
+  voiceCheckAvailability,
+  voiceCreateBooking,
+  voiceCheckPayment,
+  voiceLogEscalation,
+  voiceGetQuote,
+  voiceSaveNote,
+  voiceSaveCaller,
+  voiceSendBookingLink,
+} from '@/lib/voice-agent/customer-tools'
 
 const SECRET = process.env.VOICE_MCP_TOKEN || ''
 const PROTOCOL_VERSION = '2025-06-18'
@@ -31,9 +44,10 @@ type ToolDef = {
 }
 
 const str = { type: 'string' }
+const num = { type: 'number' }
 const bool = { type: 'boolean' }
 
-const TOOLS: ToolDef[] = [
+const PROSPECT_TOOLS: ToolDef[] = [
   {
     name: 'get_pricing',
     description: 'Get Full Loop\'s real pricing (setup fee + per-seat monthly) to quote accurately. No args needed.',
@@ -43,11 +57,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'check_territory_availability',
     description: 'Check whether a trade × ZIP territory is already taken by another Full Loop tenant.',
-    inputSchema: {
-      type: 'object',
-      properties: { trade: str, zip: str },
-      required: ['trade', 'zip'],
-    },
+    inputSchema: { type: 'object', properties: { trade: str, zip: str }, required: ['trade', 'zip'] },
     run: (a) => checkSlotAvailability(String(a.trade ?? ''), String(a.zip ?? '')),
   },
   {
@@ -65,14 +75,14 @@ const TOOLS: ToolDef[] = [
         primary_city: str,
         primary_state: str,
         primary_zip: str,
-        annual_revenue: str, // under_250k | 250k_1m | 1m_3m | 3m_plus
-        revenue_trajectory: str, // up | flat | down
-        growth_goal: str, // scale_2x | steady | maintain | none
-        automation_comfort: str, // excited | open | cautious | skeptical
-        lead_gen_spend: str, // none | lt500 | 500_2k | 2k_5k | 5k_plus
-        pain_point: str, // admin | missing_leads | cant_scale | no_followup | booking_chaos | other
-        timeline: str, // asap | 30 | 90 | exploring
-        current_system: str, // nothing | spreadsheets | basic_crm | shopping
+        annual_revenue: str,
+        revenue_trajectory: str,
+        growth_goal: str,
+        automation_comfort: str,
+        lead_gen_spend: str,
+        pain_point: str,
+        timeline: str,
+        current_system: str,
         wants_automation: bool,
         wants_growth: bool,
         comparing_prices: bool,
@@ -85,14 +95,97 @@ const TOOLS: ToolDef[] = [
   {
     name: 'log_call_note',
     description: 'Append a free-text note to an already-submitted application, keyed by the caller\'s phone number.',
-    inputSchema: {
-      type: 'object',
-      properties: { owner_phone: str, note: str },
-      required: ['owner_phone', 'note'],
-    },
+    inputSchema: { type: 'object', properties: { owner_phone: str, note: str }, required: ['owner_phone', 'note'] },
     run: (a) => logCallNote(String(a.owner_phone ?? ''), String(a.note ?? '')),
   },
 ]
+
+function customerTools(tenantId: string): ToolDef[] {
+  return [
+    {
+      name: 'lookup_client',
+      description: 'Look up the caller by phone number — account, past bookings, saved notes. Call first for a returning client.',
+      inputSchema: { type: 'object', properties: { caller_phone: str }, required: ['caller_phone'] },
+      run: (a) => voiceLookupClient(tenantId, String(a.caller_phone ?? '')),
+    },
+    {
+      name: 'lookup_bookings',
+      description: "Look up the caller's upcoming and recent bookings by phone number.",
+      inputSchema: { type: 'object', properties: { caller_phone: str }, required: ['caller_phone'] },
+      run: (a) => voiceLookupBookings(tenantId, String(a.caller_phone ?? '')),
+    },
+    {
+      name: 'check_availability',
+      description: 'Check REAL open slots for a date (YYYY-MM-DD). Use before telling a caller a time is open.',
+      inputSchema: { type: 'object', properties: { date: str, duration_hours: num }, required: ['date'] },
+      run: (a) => voiceCheckAvailability(tenantId, String(a.date ?? ''), Number(a.duration_hours) || 2),
+    },
+    {
+      name: 'create_booking',
+      description: 'Create a booking once you have service type, date, time, name, phone, and address.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          service_type: str, date: str, time: str, hourly_rate: num, hours: num,
+          name: str, phone: str, address: str, email: str, notes: str,
+        },
+        required: ['date', 'time'],
+      },
+      run: (a) => voiceCreateBooking(tenantId, String(a.phone ?? ''), a),
+    },
+    {
+      name: 'check_payment',
+      description: "Check the caller's current payment/balance status by phone number.",
+      inputSchema: { type: 'object', properties: { caller_phone: str }, required: ['caller_phone'] },
+      run: (a) => voiceCheckPayment(tenantId, String(a.caller_phone ?? '')),
+    },
+    {
+      name: 'log_escalation',
+      description: 'Request a human callback/escalation for this caller.',
+      inputSchema: { type: 'object', properties: { caller_phone: str, reason: str, details: str }, required: ['caller_phone', 'reason'] },
+      run: (a) => voiceLogEscalation(tenantId, String(a.caller_phone ?? ''), a),
+    },
+    {
+      name: 'get_quote',
+      description: 'Get a price quote for a service type and duration.',
+      inputSchema: { type: 'object', properties: { service_type: str, hours: num }, required: ['service_type'] },
+      run: (a) => voiceGetQuote(a),
+    },
+    {
+      name: 'save_note',
+      description: 'Save a note on the caller\'s record (access instructions, gate code, allergies, preferences).',
+      inputSchema: { type: 'object', properties: { caller_phone: str, note: str, type: str }, required: ['caller_phone', 'note'] },
+      run: (a) => voiceSaveNote(tenantId, String(a.caller_phone ?? ''), String(a.note ?? ''), String(a.type || 'instruction')),
+    },
+    {
+      name: 'save_caller',
+      description: 'Save the caller as a lead/client once you have their name and phone number.',
+      inputSchema: { type: 'object', properties: { caller_phone: str, name: str, email: str }, required: ['caller_phone', 'name'] },
+      run: (a) => voiceSaveCaller(tenantId, String(a.caller_phone ?? ''), String(a.name ?? ''), a.email ? String(a.email) : undefined),
+    },
+    {
+      name: 'send_booking_link',
+      description: 'Text the caller a link to book online.',
+      inputSchema: { type: 'object', properties: { caller_phone: str }, required: ['caller_phone'] },
+      run: (a) => voiceSendBookingLink(tenantId, String(a.caller_phone ?? '')),
+    },
+  ]
+}
+
+type ResolvedContext = { kind: 'prospect' } | { kind: 'tenant'; tenantId: string } | null
+
+async function resolveContext(secret: string): Promise<ResolvedContext> {
+  if (!secret) return null
+  if (SECRET && secret === SECRET) return { kind: 'prospect' }
+  const { data } = await supabaseAdmin.from('tenants').select('id').eq('voice_agent_mcp_secret', secret).limit(2)
+  if (data && data.length === 1) return { kind: 'tenant', tenantId: data[0].id }
+  return null
+}
+
+function toolsFor(ctx: ResolvedContext): ToolDef[] {
+  if (!ctx) return []
+  return ctx.kind === 'prospect' ? PROSPECT_TOOLS : customerTools(ctx.tenantId)
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -109,12 +202,12 @@ function rpcError(id: unknown, code: number, message: string): Response {
   return json({ jsonrpc: '2.0', id: id ?? null, error: { code, message } })
 }
 
-async function handleRpc(msg: {
-  id?: unknown
-  method?: string
-  params?: Record<string, unknown>
-}): Promise<Response | null> {
+async function handleRpc(
+  ctx: ResolvedContext,
+  msg: { id?: unknown; method?: string; params?: Record<string, unknown> },
+): Promise<Response | null> {
   const { id, method, params } = msg
+  const tools = toolsFor(ctx)
   switch (method) {
     case 'initialize':
       return rpcResult(id, {
@@ -124,21 +217,15 @@ async function handleRpc(msg: {
       })
     case 'notifications/initialized':
     case 'notifications/cancelled':
-      return null // notification: no response body
+      return null
     case 'ping':
       return rpcResult(id, {})
     case 'tools/list':
-      return rpcResult(id, {
-        tools: TOOLS.map((t) => ({
-          name: t.name,
-          description: t.description,
-          inputSchema: t.inputSchema,
-        })),
-      })
+      return rpcResult(id, { tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) })
     case 'tools/call': {
       const name = params?.name as string
       const args = (params?.arguments as Record<string, unknown>) || {}
-      const tool = TOOLS.find((t) => t.name === name)
+      const tool = tools.find((t) => t.name === name)
       if (!tool) return rpcError(id, -32602, `Unknown tool: ${name}`)
       try {
         const text = await tool.run(args)
@@ -149,13 +236,9 @@ async function handleRpc(msg: {
       }
     }
     default:
-      if (id === undefined) return null // unknown notification
+      if (id === undefined) return null
       return rpcError(id, -32601, `Method not found: ${method}`)
   }
-}
-
-function checkSecret(secret: string): boolean {
-  return !!SECRET && secret === SECRET
 }
 
 export async function POST(
@@ -163,7 +246,8 @@ export async function POST(
   ctx: { params: Promise<{ secret: string; transport: string }> },
 ): Promise<Response> {
   const { secret } = await ctx.params
-  if (!checkSecret(secret)) return json({ error: 'not found' }, 404)
+  const resolved = await resolveContext(secret)
+  if (!resolved) return json({ error: 'not found' }, 404)
 
   let body: unknown
   try {
@@ -172,16 +256,15 @@ export async function POST(
     return rpcError(null, -32700, 'Parse error')
   }
 
-  // Support JSON-RPC batches and single messages.
   if (Array.isArray(body)) {
     const out: unknown[] = []
     for (const m of body) {
-      const r = await handleRpc(m as never)
+      const r = await handleRpc(resolved, m as never)
       if (r) out.push(await r.json())
     }
     return json(out)
   }
-  const res = await handleRpc(body as never)
+  const res = await handleRpc(resolved, body as never)
   return res ?? new Response(null, { status: 202 })
 }
 
@@ -192,7 +275,8 @@ export async function GET(
   ctx: { params: Promise<{ secret: string; transport: string }> },
 ): Promise<Response> {
   const { secret } = await ctx.params
-  if (!checkSecret(secret)) return json({ error: 'not found' }, 404)
+  const resolved = await resolveContext(secret)
+  if (!resolved) return json({ error: 'not found' }, 404)
   return json({ status: 'ok', server: 'fullloop-voice', protocolVersion: PROTOCOL_VERSION })
 }
 
