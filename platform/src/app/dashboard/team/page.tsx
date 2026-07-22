@@ -29,6 +29,8 @@ type TeamMember = {
   pay_rate: number | null
   notes: string | null
   preferred_language: string | null
+  stripe_account_id?: string | null
+  stripe_ready_at?: string | null
 }
 
 type EnrichedMember = TeamMember & {
@@ -104,6 +106,15 @@ export default function TeamPage() {
     loadApplications()
   }, [])
 
+  async function loadMembers() {
+    try {
+      const m = await fetch('/api/cleaners').then((r) => r.json())
+      setMembers(Array.isArray(m) ? m : [])
+    } catch {
+      // Leave the existing members list in place on a refresh failure.
+    }
+  }
+
   async function loadApplications() {
     setAppsLoading(true)
     try {
@@ -135,7 +146,7 @@ export default function TeamPage() {
         `Approved ${json.approved}. Emailed/provisioned ${json.provisioned}.` +
         (failed > 0 ? `\n${failed} applicant(s) approved but could not be emailed/provisioned — check their email/phone.` : '')
       )
-      await loadApplications()
+      await Promise.all([loadApplications(), loadMembers()])
     } catch (e) {
       alert(`Failed: ${e instanceof Error ? e.message : 'network error'}`)
     } finally {
@@ -156,6 +167,36 @@ export default function TeamPage() {
       return
     }
     loadApplications()
+    if (status === 'approved') loadMembers()
+  }
+
+  const [invitingAppId, setInvitingAppId] = useState<string | null>(null)
+  const [invitedAppIds, setInvitedAppIds] = useState<Set<string>>(new Set())
+
+  // The just-approved application has no direct FK to the team_members row
+  // provisionApprovedApplicant() created — it's matched the same way that
+  // provisioning function dedupes: by cleaned phone digits.
+  function matchedMemberFor(app: Application): TeamMember | undefined {
+    const appPhone = (app.phone || '').replace(/\D/g, '')
+    if (!appPhone) return undefined
+    return members.find((m) => (m.phone || '').replace(/\D/g, '') === appPhone)
+  }
+
+  async function sendConnectInvite(app: Application, member: TeamMember) {
+    setInvitingAppId(app.id)
+    try {
+      const res = await fetch(`/api/team-members/${member.id}/stripe-invite`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Could not send invite: ${json.error || res.statusText}`)
+        return
+      }
+      setInvitedAppIds((prev) => new Set(prev).add(app.id))
+    } catch (e) {
+      alert(`Could not send invite: ${e instanceof Error ? e.message : 'network error'}`)
+    } finally {
+      setInvitingAppId(null)
+    }
   }
 
   async function deleteApplication(id: string) {
@@ -441,26 +482,43 @@ export default function TeamPage() {
                   <div className="tm-apps-group-head">Past</div>
                   {applications
                     .filter((a) => a.status !== 'pending')
-                    .map((app) => (
-                      <div key={app.id} className="tm-app-row past">
-                        <div className="tm-app-photo">
-                          {app.photo_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={app.photo_url} alt={app.name} />
-                          ) : (
-                            <span className="tm-app-photo-fallback">{initials(app.name)}</span>
-                          )}
+                    .map((app) => {
+                      const matchedMember = app.status === 'approved' ? matchedMemberFor(app) : undefined
+                      const alreadyConnected = !!(matchedMember?.stripe_account_id && matchedMember?.stripe_ready_at)
+                      const justInvited = invitedAppIds.has(app.id)
+                      const showConnectInvite = app.status === 'approved' && matchedMember && !alreadyConnected
+                      return (
+                        <div key={app.id} className="tm-app-row past">
+                          <div className="tm-app-photo">
+                            {app.photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={app.photo_url} alt={app.name} />
+                            ) : (
+                              <span className="tm-app-photo-fallback">{initials(app.name)}</span>
+                            )}
+                          </div>
+                          <div className="tm-app-body">
+                            <div className="tm-app-name">{app.name}</div>
+                            <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                          </div>
+                          <div className="tm-app-actions">
+                            <span className={`tm-app-status ${app.status}`}>{app.status}</span>
+                            {showConnectInvite && (
+                              <button
+                                className="tm-action-btn"
+                                type="button"
+                                disabled={invitingAppId === app.id || justInvited}
+                                onClick={() => sendConnectInvite(app, matchedMember)}
+                                title="Text/email a Stripe Connect payout setup link to the new hire"
+                              >
+                                {justInvited ? 'Invite sent ✓' : invitingAppId === app.id ? 'Sending…' : 'Send Connect invite'}
+                              </button>
+                            )}
+                            <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
+                          </div>
                         </div>
-                        <div className="tm-app-body">
-                          <div className="tm-app-name">{app.name}</div>
-                          <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                        </div>
-                        <div className="tm-app-actions">
-                          <span className={`tm-app-status ${app.status}`}>{app.status}</span>
-                          <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                 </div>
               )}
             </div>

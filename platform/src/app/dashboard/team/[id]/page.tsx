@@ -58,6 +58,8 @@ type TeamApplication = {
   notes: string | null
   status: string
   created_at: string
+  stripe_account_id: string | null
+  stripe_ready_at: string | null
 }
 
 type Booking = {
@@ -142,6 +144,10 @@ export default function TeamMemberDetailPage() {
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Payouts (Stripe Connect) state
+  const [stripeBusy, setStripeBusy] = useState(false)
+  const [stripeMessage, setStripeMessage] = useState('')
 
   // Schedule & Availability state -- loaded from the real scheduler columns
   // (working_days/schedule), NOT from notes. Same canonical model the smart
@@ -264,6 +270,20 @@ export default function TeamMemberDetailPage() {
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Network error')
       setDeleting(false)
+    }
+  }
+
+  async function startStripe() {
+    setStripeBusy(true)
+    setStripeMessage('')
+    try {
+      const res = await fetch(`/api/team-members/${id}/stripe-onboard`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json.url) throw new Error(json.error || 'Could not start payout setup')
+      window.location.href = json.url
+    } catch (e) {
+      setStripeMessage(e instanceof Error ? e.message : 'Payout setup failed')
+      setStripeBusy(false)
     }
   }
 
@@ -901,6 +921,33 @@ export default function TeamMemberDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {/* Payouts (Stripe Connect) */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Payouts</h3>
+            {member.stripe_account_id && member.stripe_ready_at ? (
+              <div className="flex items-center gap-2 text-sm text-green-700">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                Connected — auto-paid after each completed job.
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-slate-400 mb-3">
+                  {member.stripe_account_id
+                    ? 'Onboarding started but not finished yet.'
+                    : `Not set up. Once connected, ${member.name.split(' ')[0]} is auto-paid after each job.`}
+                </p>
+                <button
+                  onClick={startStripe}
+                  disabled={stripeBusy}
+                  className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
+                >
+                  {stripeBusy ? 'Opening…' : 'Set up payouts'}
+                </button>
+                {stripeMessage && <p className="text-xs text-red-400 mt-2">{stripeMessage}</p>}
+              </div>
+            )}
+          </div>
+
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Earnings</h3>
             <div className="space-y-3">
