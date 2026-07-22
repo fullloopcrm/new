@@ -402,7 +402,9 @@ export default function SalesPartnersPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-bold text-slate-900">{fmt(c.commission_cents)}</span>
-                      {stripeReady && (
+                      {stripeReady ? (
+                        // Stripe Connect is mandatory once a partner is ready -- manual
+                        // payout is no longer offered (CHANNEL.md 16:35, Jeff-confirmed).
                         <button
                           disabled={busyId === c.id}
                           onClick={() => markPaid(c, 'stripe_connect')}
@@ -410,14 +412,15 @@ export default function SalesPartnersPage() {
                         >
                           Pay via Stripe
                         </button>
+                      ) : (
+                        <button
+                          disabled={busyId === c.id}
+                          onClick={() => markPaid(c)}
+                          className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30 disabled:opacity-50"
+                        >
+                          Pay Out
+                        </button>
                       )}
-                      <button
-                        disabled={busyId === c.id}
-                        onClick={() => markPaid(c)}
-                        className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30 disabled:opacity-50"
-                      >
-                        {stripeReady ? 'Mark Paid Manually' : 'Pay Out'}
-                      </button>
                     </div>
                   </div>
                 )

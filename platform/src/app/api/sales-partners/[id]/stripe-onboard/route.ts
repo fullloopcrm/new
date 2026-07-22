@@ -48,7 +48,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const account = await stripe.accounts.create({
         type: 'express',
         email: partner.email || undefined,
-        capabilities: { transfers: { requested: true } },
+        // card_payments requested alongside transfers -- platform-level restriction
+        // (confirmed live against nycmaid's real account, 2026-07-22, see CHANNEL.md
+        // 16:20 LEADER->W1): a transfers-only capability request is rejected
+        // ("needs approval for transfers without card_payments"). card_payments sits
+        // unused/unverified (sales partners never take card payments directly) --
+        // requesting it alongside transfers is what avoids the platform restriction.
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
         business_type: 'individual',
         metadata: { sales_partner_id: id, tenant_id: auth.tid },
       }, { idempotencyKey: `connect-account-sp-${auth.tid}-${id}` })
