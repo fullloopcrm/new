@@ -1,6 +1,8 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
+import { sendTelegram, notifyOwnerOnTelegram } from './telegram'
+import { decryptSecret } from './secret-crypto'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
@@ -71,6 +73,42 @@ export type NotificationType =
   | 'referral_lead'
   | 'cleaner_application'
 
+// Operational event types worth pushing to the tenant's Telegram, ported from
+// lib/nycmaid/notify.ts (2026-07-22) — that nycmaid-specific notify() had
+// working Telegram delivery, but the live client-booking route and most other
+// send paths call THIS global notify(), which never sent Telegram at all.
+// Per the platform's own global rule (one shared codebase, tenant differences
+// come from data), the fix belongs here so every tenant with a bot configured
+// benefits, not a nycmaid-only patch. Filtered to values that exist in
+// NotificationType above.
+const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
+  'new_lead',
+  'new_client',
+  'new_booking',
+  'referral_lead',
+  'payment_received',
+  'review_received',
+  'escalation',
+  'comms_fail',
+  'selena_error',
+  'error',
+])
+
+// Per-tenant Telegram: post to the tenant's own bot when configured, else
+// fall back to the platform owner bot (mirrors lib/nycmaid/notify.ts).
+async function sendTenantTelegram(
+  tenantId: string,
+  tenant: { telegram_bot_token?: string | null; telegram_chat_id?: string | null },
+  text: string,
+): Promise<void> {
+  if (tenant.telegram_bot_token && tenant.telegram_chat_id) {
+    const botToken = decryptSecret(tenant.telegram_bot_token)
+    await sendTelegram(tenant.telegram_chat_id, text, botToken)
+    return
+  }
+  await notifyOwnerOnTelegram(text)
+}
+
 export async function notify({
   tenantId,
   type,
@@ -131,11 +169,21 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id')
     .eq('id', tenantId)
     .single()
 
   if (!tenant) return { success: false, error: 'Tenant not found' }
+
+  // Telegram is orthogonal to the email/sms `channel` param below — it goes
+  // to the tenant's own ops chat regardless of recipientType, same as
+  // lib/nycmaid/notify.ts. Fire-and-forget: a Telegram failure must never
+  // block the DB notification record or the primary email/SMS send.
+  if (TELEGRAM_NOTIFY_TYPES.has(type)) {
+    sendTenantTelegram(tenantId, tenant, `${title}\n\n${message}`).catch((err) => {
+      console.error(`Notification telegram send error (${type}):`, err)
+    })
+  }
 
   // Get recipient contact info
   let email: string | null = null

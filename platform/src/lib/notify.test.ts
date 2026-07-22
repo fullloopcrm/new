@@ -62,6 +62,16 @@ vi.mock('./comms-prefs', () => ({
   isCommEnabled: (tenantId: string, key: string, channel: string) => isCommEnabledMock(tenantId, key, channel),
 }))
 
+const sendTelegramMock = vi.fn(async (_chatId: unknown, _text: string, _token?: string) => ({ ok: true, status: 200, body: '{}' }))
+const notifyOwnerOnTelegramMock = vi.fn(async (_text: string) => null)
+vi.mock('./telegram', () => ({
+  sendTelegram: (chatId: unknown, text: string, token?: string) => sendTelegramMock(chatId, text, token),
+  notifyOwnerOnTelegram: (text: string) => notifyOwnerOnTelegramMock(text),
+}))
+vi.mock('./secret-crypto', () => ({
+  decryptSecret: (v: string) => `decrypted:${v}`,
+}))
+
 vi.mock('./email-templates', () => ({
   bookingReminderEmail: () => '<p>reminder</p>',
   bookingConfirmationEmail: () => '<p>confirmed</p>',
@@ -72,6 +82,7 @@ vi.mock('./email-templates', () => ({
   notificationDigestEmail: () => '<p>digest</p>',
   reviewRequestEmail: () => '<p>review</p>',
   paymentReceiptEmail: () => '<p>receipt</p>',
+  genericNotificationEmail: () => '<p>generic</p>',
 }))
 
 import { notify } from './notify'
@@ -99,6 +110,8 @@ beforeEach(() => {
   sendEmailMock.mockClear().mockResolvedValue({ id: 'email-1' })
   sendSMSMock.mockClear().mockResolvedValue({ id: 'sms-1' })
   isCommEnabledMock.mockClear().mockResolvedValue(true)
+  sendTelegramMock.mockClear().mockResolvedValue({ ok: true, status: 200, body: '{}' })
+  notifyOwnerOnTelegramMock.mockClear().mockResolvedValue(null)
   seedTenant()
 })
 
@@ -269,5 +282,47 @@ describe('notify — email/SMS fallback', () => {
     const r = await notify({ tenantId: TENANT_ID, type: 'new_lead', title: 'New lead', message: 'hi' })
     expect(r).toEqual({ success: false, error: 'bounced' })
     expect(sendSMSMock).not.toHaveBeenCalled()
+  })
+})
+
+// 2026-07-22: the live client-booking route (and most other send paths) call
+// THIS notify(), not lib/nycmaid/notify.ts -- which had working Telegram
+// delivery this one lacked entirely. Real, reproduced production gap
+// (nycmaid's Telegram ops chat never got booking/lead alerts). Fixed by
+// porting Telegram support in here, globally, gated by TELEGRAM_NOTIFY_TYPES.
+describe('notify — Telegram delivery', () => {
+  it('sends to the tenant\'s own bot/chat for a type in TELEGRAM_NOTIFY_TYPES', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    await notify({ tenantId: TENANT_ID, type: 'new_booking', title: 'New Booking', message: 'Peter Martin booked' })
+    await vi.waitFor(() => expect(sendTelegramMock).toHaveBeenCalledTimes(1))
+    expect(sendTelegramMock).toHaveBeenCalledWith('-123456', 'New Booking\n\nPeter Martin booked', 'decrypted:encrypted-token')
+    expect(notifyOwnerOnTelegramMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the platform owner bot when the tenant has no bot configured', async () => {
+    seedTenant({ telegram_bot_token: null, telegram_chat_id: null })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    await notify({ tenantId: TENANT_ID, type: 'new_lead', title: 'New Lead', message: 'hi' })
+    await vi.waitFor(() => expect(notifyOwnerOnTelegramMock).toHaveBeenCalledTimes(1))
+    expect(sendTelegramMock).not.toHaveBeenCalled()
+  })
+
+  it('does not send Telegram for a type outside TELEGRAM_NOTIFY_TYPES', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    await notify({ tenantId: TENANT_ID, type: 'daily_summary', title: 'Summary', message: 'stuff happened' })
+    // Give any stray fire-and-forget call a tick to (not) land.
+    await new Promise((r) => setTimeout(r, 0))
+    expect(sendTelegramMock).not.toHaveBeenCalled()
+    expect(notifyOwnerOnTelegramMock).not.toHaveBeenCalled()
+  })
+
+  it('a Telegram failure does not affect the returned notify() result', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
+    sendTelegramMock.mockRejectedValue(new Error('telegram down'))
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    const r = await notify({ tenantId: TENANT_ID, type: 'new_booking', title: 'New Booking', message: 'hi' })
+    expect(r).toEqual({ success: true })
   })
 })
