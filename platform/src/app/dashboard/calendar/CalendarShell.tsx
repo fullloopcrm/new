@@ -4,6 +4,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import RichMonthView from './RichMonthView'
 import KanbanView from './KanbanView'
 import TimelineView from './TimelineView'
+import MobileDayListView from './MobileDayListView'
 
 // The multi-view scheduling surface. One job model, three projections; the switcher
 // picks the axis. Each view has its own persisted size (+/-) so an operator can
@@ -64,6 +65,14 @@ export default function CalendarShell() {
 
   return (
     <div>
+      {/* Mobile: a simple today-only list (scheduled/live/completed), scoped to
+          the ET calendar day — re-derived on load so it naturally rolls to the
+          new day at midnight ET without a separate clear job. */}
+      <div className="md:hidden">
+        <MobileDayListView />
+      </div>
+
+      <div className="hidden md:block">
       <div className="mb-4 flex items-center justify-between border-b border-slate-200">
         <div role="tablist" aria-label="Calendar view" className="flex flex-wrap gap-1">
           {VIEWS.map((v) => {
@@ -102,6 +111,7 @@ export default function CalendarShell() {
           .cal-scale .cal-chip-md { font-size: calc(14px * var(--cal-fs, 1)); }
         `}</style>
         {view === 'month' ? <RichMonthView /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : <Scaffold view={active} />}
+      </div>
       </div>
     </div>
   )
