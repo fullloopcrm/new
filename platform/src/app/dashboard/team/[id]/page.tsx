@@ -4,6 +4,17 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
+import { normalizeWorkingHours } from '@/lib/day-availability'
+import { SERVICE_ZONES } from '@/lib/service-zones'
+
+// Last-10-digits match so a formatted profile phone lines up with the
+// normalized application phone stored as digits.
+function samePhone(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false
+  const da = a.replace(/\D/g, '').slice(-10)
+  const db = b.replace(/\D/g, '').slice(-10)
+  return da.length === 10 && da === db
+}
 
 type TeamMember = {
   id: string
@@ -18,6 +29,34 @@ type TeamMember = {
   avatar_url: string | null
   notes: string | null
   preferred_language: string
+  // Fields the smart scheduler (src/lib/smart-schedule.ts) reads directly.
+  // These are already wired into scoring -- this page just has to surface
+  // and let admins edit the real columns instead of leaving them blank.
+  address: string | null
+  working_days: string[] | null
+  schedule: Record<string, unknown> | null
+  home_by_time: string | null
+  has_car: boolean | null
+  labor_only: boolean | null
+  service_zones: string[] | null
+  max_travel_minutes: number | null
+  created_at: string
+}
+
+// The team member's original application, matched by phone, so the profile
+// can reflect what they submitted (experience, availability, references).
+type TeamApplication = {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  address: string | null
+  experience: string | null
+  availability: string | null
+  referral_source: string | null
+  references: string | null
+  notes: string | null
+  status: string
   created_at: string
 }
 
@@ -37,22 +76,16 @@ type WorkingHours = Record<number, WorkingHourEntry>
 type TimeOffEntry = { start: string; end: string; reason?: string }
 
 type NotesData = {
-  working_hours?: WorkingHours
   time_off?: TimeOffEntry[]
+  notification_prefs?: Record<string, boolean>
   [key: string]: unknown
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-const DEFAULT_WORKING_HOURS: WorkingHours = {
-  0: null,
-  1: { start: '08:00', end: '17:00' },
-  2: { start: '08:00', end: '17:00' },
-  3: { start: '08:00', end: '17:00' },
-  4: { start: '08:00', end: '17:00' },
-  5: { start: '08:00', end: '17:00' },
-  6: null,
-}
+// Honest empty state: every day off. A member with no saved availability
+// shows ALL days off -- never a fake Mon-Fri default that was never saved.
+const ALL_OFF_HOURS: WorkingHours = { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null }
 
 function generateTimeOptions(): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = []
@@ -99,7 +132,10 @@ export default function TeamMemberDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [member, setMember] = useState<TeamMember | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [application, setApplication] = useState<TeamApplication | null>(null)
+  const [transportMsg, setTransportMsg] = useState('')
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Partial<TeamMember>>({})
   const [saving, setSaving] = useState(false)
@@ -107,10 +143,15 @@ export default function TeamMemberDetailPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  // Schedule & Availability state
-  const [workingHours, setWorkingHours] = useState<WorkingHours>(DEFAULT_WORKING_HOURS)
+  // Schedule & Availability state -- loaded from the real scheduler columns
+  // (working_days/schedule), NOT from notes. Same canonical model the smart
+  // scheduler and the ind-build editor both use (day-availability.ts).
+  const [workingHours, setWorkingHours] = useState<WorkingHours>(ALL_OFF_HOURS)
+  const [homeByTime, setHomeByTime] = useState('')
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [scheduleMessage, setScheduleMessage] = useState('')
+  const [sendingOnboard, setSendingOnboard] = useState(false)
+  const [onboardMsg, setOnboardMsg] = useState('')
 
   // Time Off state
   const [timeOff, setTimeOff] = useState<TimeOffEntry[]>([])
@@ -120,31 +161,76 @@ export default function TeamMemberDetailPage() {
   const [savingTimeOff, setSavingTimeOff] = useState(false)
   const [timeOffMessage, setTimeOffMessage] = useState('')
 
+  // Delete confirmation (type-the-name-to-confirm, replaces the plain
+  // window.confirm() that was easy to click through without reading).
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
   useEffect(() => {
+    setLoadError(null)
     fetch(`/api/team/${id}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`)
+        if (!data.member) throw new Error('No member data returned')
+        return data
+      })
       .then((data) => {
         setMember(data.member)
         setForm(data.member)
-        // Parse working hours and time off from notes
+        setWorkingHours(normalizeWorkingHours(data.member?.working_days, data.member?.schedule))
+        setHomeByTime(data.member?.home_by_time || '')
         const notesData = parseNotesData(data.member?.notes)
-        if (notesData.working_hours) {
-          setWorkingHours(notesData.working_hours)
-        }
-        if (notesData.time_off) {
-          setTimeOff(notesData.time_off)
-        }
+        if (notesData.time_off) setTimeOff(notesData.time_off)
       })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load')
+      })
+
     fetch(`/api/bookings?team_member_id=${id}`)
       .then((r) => r.json())
       .then((data) => setBookings(data.bookings || []))
       .catch(() => {})
   }, [id])
 
-  // Helper to build the notes JSON string
-  function buildNotesJson(wh: WorkingHours, to: TimeOffEntry[]): string {
+  // Once we know the member's phone, find their original application so the
+  // profile can fully reflect what they submitted.
+  useEffect(() => {
+    if (!member?.phone) return
+    fetch('/api/team-applications')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((apps: TeamApplication[]) => {
+        const list = Array.isArray(apps) ? apps : ((apps as unknown as { applications?: TeamApplication[] })?.applications || [])
+        const match = list.find((a) => samePhone(a.phone, member.phone))
+        if (match) setApplication(match)
+      })
+      .catch(() => {})
+  }, [member?.phone])
+
+  // Save a single transportation/service field immediately (toggle pattern).
+  async function saveTransport(partial: Partial<TeamMember>) {
+    setTransportMsg('')
+    try {
+      const res = await fetch(`/api/team/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partial),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setTransportMsg(`Save failed: ${data.error || res.status}`); return }
+      if (data.member) { setMember(data.member); setForm(data.member) }
+      setTransportMsg('Saved')
+      setTimeout(() => setTransportMsg(''), 2000)
+    } catch (e) {
+      setTransportMsg(`Save failed: ${e instanceof Error ? e.message : 'network'}`)
+    }
+  }
+
+  function buildNotesJson(to: TimeOffEntry[]): string {
     const existing = parseNotesData(member?.notes ?? null)
-    return JSON.stringify({ ...existing, working_hours: wh, time_off: to })
+    return JSON.stringify({ ...existing, time_off: to })
   }
 
   async function save() {
@@ -162,57 +248,96 @@ export default function TeamMemberDetailPage() {
     setSaving(false)
   }
 
-  async function deleteMember() {
-    if (!confirm('Remove this team member?')) return
-    await fetch(`/api/team/${id}`, { method: 'DELETE' })
-    router.push('/dashboard/team')
+  async function confirmDelete() {
+    if (!member || deleteConfirmText.trim() !== member.name.trim()) return
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const res = await fetch(`/api/team/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setDeleteError(data.error || `Delete failed (${res.status})`)
+        setDeleting(false)
+        return
+      }
+      router.push('/dashboard/team')
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Network error')
+      setDeleting(false)
+    }
   }
 
-  // Save working hours
+  // Save working hours. The smart scheduler reads team_members.working_days +
+  // team_members.schedule directly, so those are the source of truth and
+  // MUST persist -- one awaited request, failure surfaced (no fire-and-forget
+  // "Schedule saved" that lies).
   async function saveSchedule() {
     setSavingSchedule(true)
     setScheduleMessage('')
-    const notes = buildNotesJson(workingHours, timeOff)
-    const res = await fetch(`/api/team/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes }),
-    })
-    if (res.ok) {
-      const { member: updated } = await res.json()
-      setMember(updated)
+    const working_days = Object.entries(workingHours)
+      .filter(([, v]) => v !== null)
+      .map(([k]) => k)
+      .sort()
+    const schedule = workingHours
+    try {
+      const res = await fetch(`/api/team/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ working_days, schedule, home_by_time: homeByTime || null }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setScheduleMessage(`Save failed: ${payload.error || res.status}`)
+        setSavingSchedule(false)
+        return
+      }
+      if (payload.member) setMember(payload.member)
       setScheduleMessage('Schedule saved')
       setTimeout(() => setScheduleMessage(''), 2000)
+    } catch (e) {
+      setScheduleMessage(`Save failed: ${e instanceof Error ? e.message : 'network'}`)
     }
     setSavingSchedule(false)
   }
 
-  // Toggle a day on/off
+  async function sendOnboard() {
+    setSendingOnboard(true)
+    setOnboardMsg('')
+    try {
+      const res = await fetch(`/api/team-members/${id}/stripe-onboard`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setOnboardMsg(data.error || `Failed (${res.status})`); return }
+      if (data.url) {
+        navigator.clipboard.writeText(data.url).catch(() => {})
+        setOnboardMsg('Onboarding link copied — send it to them')
+      } else {
+        setOnboardMsg('Account ready')
+      }
+      setTimeout(() => setOnboardMsg(''), 5000)
+    } catch (e) {
+      setOnboardMsg(e instanceof Error ? e.message : 'network error')
+    } finally {
+      setSendingOnboard(false)
+    }
+  }
+
   function toggleDay(day: number) {
     setWorkingHours((prev) => {
       const copy = { ...prev }
-      if (copy[day]) {
-        copy[day] = null
-      } else {
-        copy[day] = { start: '08:00', end: '17:00' }
-      }
+      copy[day] = copy[day] ? null : { start: '08:00', end: '17:00' }
       return copy
     })
   }
 
-  // Update start or end time for a day
   function updateDayTime(day: number, field: 'start' | 'end', value: string) {
     setWorkingHours((prev) => {
       const copy = { ...prev }
       const entry = copy[day]
-      if (entry) {
-        copy[day] = { ...entry, [field]: value }
-      }
+      if (entry) copy[day] = { ...entry, [field]: value }
       return copy
     })
   }
 
-  // Add time off entry
   async function addTimeOff() {
     if (!timeOffStart || !timeOffEnd) return
     setSavingTimeOff(true)
@@ -223,7 +348,7 @@ export default function TeamMemberDetailPage() {
       ...(timeOffReason ? { reason: timeOffReason } : {}),
     }
     const updated = [...timeOff, newEntry]
-    const notes = buildNotesJson(workingHours, updated)
+    const notes = buildNotesJson(updated)
     const res = await fetch(`/api/team/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -242,11 +367,10 @@ export default function TeamMemberDetailPage() {
     setSavingTimeOff(false)
   }
 
-  // Delete a time off entry
   async function deleteTimeOff(index: number) {
     setSavingTimeOff(true)
     const updated = timeOff.filter((_, i) => i !== index)
-    const notes = buildNotesJson(workingHours, updated)
+    const notes = buildNotesJson(updated)
     const res = await fetch(`/api/team/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -287,7 +411,6 @@ export default function TeamMemberDetailPage() {
         ctx.drawImage(img, 0, 0, w, h)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
         setForm(f => ({ ...f, avatar_url: dataUrl }))
-        // Save immediately
         try {
           const saveRes = await fetch(`/api/team/${id}`, {
             method: 'PUT',
@@ -299,41 +422,47 @@ export default function TeamMemberDetailPage() {
             setMember(updated)
           }
         } catch {
-          // ignore save error — user can still save manually
+          // ignore save error -- user can still save manually
         }
         setUploadingPhoto(false)
       }
       img.src = reader.result as string
     }
-    reader.onerror = () => {
-      setUploadingPhoto(false)
-    }
+    reader.onerror = () => setUploadingPhoto(false)
     reader.readAsDataURL(file)
   }
 
-  // Display notes for the profile section — show original text if not JSON, or omit internal keys
   const displayNotes = useMemo(() => {
     if (!member?.notes) return null
     try {
       const parsed = JSON.parse(member.notes)
       if (typeof parsed === 'object' && parsed !== null) {
-        // It's our JSON structure, don't show raw JSON in profile
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { working_hours: _wh, time_off: _to, ...rest } = parsed
-        const remaining = Object.keys(rest)
-        if (remaining.length === 0) return null
+        const { time_off: _to, notification_prefs: _np, ...rest } = parsed
+        if (Object.keys(rest).length === 0) return null
         return JSON.stringify(rest, null, 2)
       }
     } catch {
-      // Plain text notes
       return member.notes
     }
     return null
   }, [member?.notes])
 
+  if (loadError) {
+    return (
+      <div className="p-6">
+        <Link href="/dashboard/team" className="text-sm text-slate-400 hover:text-slate-900 mb-4 inline-block">
+          &larr; All Team
+        </Link>
+        <div className="mt-4 p-4 border border-red-200 bg-red-50 rounded-lg text-sm text-red-700">
+          <p className="font-semibold mb-1">Couldn&apos;t load team member</p>
+          <p>{loadError}</p>
+        </div>
+      </div>
+    )
+  }
   if (!member) return <p className="text-slate-400">Loading...</p>
 
-  // Calculate earnings from completed bookings
   const completedBookings = bookings.filter((b) => b.status === 'completed' || b.status === 'paid')
   const totalEarnings = completedBookings.reduce((sum, b) => {
     if (b.check_in_time && b.check_out_time && member.pay_rate) {
@@ -350,16 +479,85 @@ export default function TeamMemberDetailPage() {
       </Link>
 
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">{member.name}</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-slate-900">{member.name}</h2>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+            {member.status === 'active' ? 'Active' : member.status === 'inactive' ? 'Inactive' : member.status}
+          </span>
+        </div>
         <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              const nowActive = member.status === 'active'
+              const verb = nowActive ? 'Deactivate' : 'Activate'
+              if (!confirm(`${verb} ${member.name}?${nowActive ? ' Future suggestions and recurring assignments will be cleared.' : ''}`)) return
+              const res = await fetch(`/api/team/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: nowActive ? 'inactive' : 'active' }),
+              })
+              if (res.ok) {
+                const { member: updated } = await res.json()
+                setMember(updated)
+                setForm(updated)
+              } else {
+                const d = await res.json().catch(() => ({}))
+                alert(d.error || 'Failed')
+              }
+            }}
+            className={`px-4 py-2 text-sm rounded-lg ${member.status === 'active' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-green-600 text-white hover:bg-green-700'}`}
+          >
+            {member.status === 'active' ? 'Deactivate' : 'Activate'}
+          </button>
           <button onClick={() => setEditing(!editing)} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50">
             {editing ? 'Cancel' : 'Edit'}
           </button>
-          <button onClick={deleteMember} className="px-4 py-2 text-sm text-red-400 border border-red-200 rounded-lg hover:bg-red-50">
-            Remove
+          <button
+            onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError('') }}
+            className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+          >
+            Delete
           </button>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="font-semibold text-slate-900 mb-2">Delete {member.name}?</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              This permanently removes their profile, schedule, and pay rate. Job history stays attached to past bookings. This cannot be undone.
+            </p>
+            <p className="text-sm text-slate-700 mb-2">
+              Type <span className="font-mono font-semibold">{member.name}</span> to confirm.
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={member.name}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3"
+              autoFocus
+            />
+            {deleteError && <p className="text-sm text-red-600 mb-3">{deleteError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 text-sm border border-slate-200 rounded-lg py-2 font-medium text-slate-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting || deleteConfirmText.trim() !== member.name.trim()}
+                className="flex-1 text-sm bg-red-600 text-white rounded-lg py-2 font-medium disabled:opacity-40"
+              >
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -373,7 +571,7 @@ export default function TeamMemberDetailPage() {
                   {(form.avatar_url || member.avatar_url) ? (
                     <img src={(form.avatar_url || member.avatar_url)!} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
-                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
+                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-white text-lg font-bold`}>
                       {initials(member.name)}
                     </div>
                   )}
@@ -385,6 +583,7 @@ export default function TeamMemberDetailPage() {
                 <input value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 <input value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="Phone" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <input value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Home address" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                 <select value={form.role || 'worker'} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                   <option value="worker">Worker</option>
                   <option value="lead">Lead</option>
@@ -396,7 +595,11 @@ export default function TeamMemberDetailPage() {
                   <option value="suspended">Suspended</option>
                 </select>
                 <input value={form.pay_rate || ''} onChange={(e) => setForm({ ...form, pay_rate: Number(e.target.value) })} placeholder="Pay Rate ($/hr)" type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                <button onClick={save} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
+                <select value={form.preferred_language || 'en'} onChange={(e) => setForm({ ...form, preferred_language: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                </select>
+                <button onClick={save} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
@@ -406,7 +609,7 @@ export default function TeamMemberDetailPage() {
                   {member.avatar_url ? (
                     <img src={member.avatar_url} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
-                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
+                    <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-white text-lg font-bold`}>
                       {initials(member.name)}
                     </div>
                   )}
@@ -429,24 +632,125 @@ export default function TeamMemberDetailPage() {
                       )}
                     </dd>
                   </div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Address</dt><dd>{member.address || '—'}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Role</dt><dd className="capitalize">{member.role}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{member.status}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Pay Rate</dt><dd>{member.pay_rate ? `$${member.pay_rate}/hr` : '—'}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Language</dt><dd className="uppercase">{member.preferred_language || 'en'}</dd></div>
-                  {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{displayNotes}</dd></div>}
+                  {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2 whitespace-pre-wrap">{displayNotes}</dd></div>}
                 </dl>
               </>
             )}
           </div>
 
+          {/* Transportation & Service Areas Section -- these fields feed the
+              smart scheduler directly (src/lib/smart-schedule.ts), so this is
+              the actual data-entry point that makes suggested assignments work. */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-slate-900">Transportation &amp; Service Areas</h3>
+              {transportMsg && <span className="text-xs text-green-600">{transportMsg}</span>}
+            </div>
+
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm font-medium text-slate-900">Has a car</span>
+                <p className="text-xs text-slate-500">Required for zones marked &quot;Car&quot; below.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => saveTransport({ has_car: !member.has_car })}
+                className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${member.has_car ? 'bg-green-500' : 'bg-slate-300'}`}
+                aria-pressed={!!member.has_car}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${member.has_car ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-t border-slate-100">
+              <div>
+                <span className="text-sm font-medium text-slate-900">Labor only (no supplies)</span>
+                <p className="text-xs text-slate-500">On = can&apos;t be matched to jobs that need supplies brought.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => saveTransport({ labor_only: !member.labor_only })}
+                className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${member.labor_only ? 'bg-amber-500' : 'bg-slate-300'}`}
+                aria-pressed={!!member.labor_only}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${member.labor_only ? 'left-5' : 'left-0.5'}`} />
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100">
+              <p className="text-sm font-medium text-slate-900 mb-2">Service areas</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SERVICE_ZONES.map((zone) => {
+                  const selected = (member.service_zones || []).includes(zone.id)
+                  return (
+                    <label key={zone.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) => {
+                          const current = member.service_zones || []
+                          const next = e.target.checked
+                            ? [...current, zone.id]
+                            : current.filter((z) => z !== zone.id)
+                          saveTransport({ service_zones: next })
+                        }}
+                        className="w-4 h-4 rounded border-slate-300"
+                      />
+                      <span>{zone.label}</span>
+                      {zone.car_required && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Car</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-900">Max travel</span>
+              <select
+                value={member.max_travel_minutes ?? ''}
+                onChange={(e) => saveTransport({ max_travel_minutes: e.target.value ? Number(e.target.value) : null })}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 bg-white"
+              >
+                <option value="">No limit</option>
+                <option value="30">Up to 30 min</option>
+                <option value="45">Up to 45 min</option>
+                <option value="60">Up to 1 hour</option>
+                <option value="90">Up to 1.5 hours</option>
+                <option value="120">Up to 2 hours</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Original Application Section (read-only) */}
+          {application && (
+            <div className="border border-slate-200 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">Original Application</h3>
+                <span className="text-xs text-slate-400">
+                  {new Date(application.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <dl className="space-y-3 text-sm">
+                <div className="flex justify-between"><dt className="text-slate-400">Experience</dt><dd>{application.experience || '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-400">Availability</dt><dd>{application.availability || '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-400">How they found us</dt><dd>{application.referral_source || '—'}</dd></div>
+                {application.references && <div><dt className="text-slate-400 mb-1">References</dt><dd className="bg-slate-50 rounded p-2 whitespace-pre-wrap">{application.references}</dd></div>}
+                {application.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2 whitespace-pre-wrap">{application.notes}</dd></div>}
+              </dl>
+            </div>
+          )}
+
           {/* Schedule & Availability Section */}
           <div className="border border-slate-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">Schedule &amp; Availability</h3>
-              {scheduleMessage && (
-                <span className="text-xs text-green-400">{scheduleMessage}</span>
-              )}
+              {scheduleMessage && <span className="text-xs text-green-600">{scheduleMessage}</span>}
             </div>
             <div className="space-y-2">
               {DAY_NAMES.map((dayName, i) => {
@@ -454,23 +758,14 @@ export default function TeamMemberDetailPage() {
                 const isOn = entry !== null && entry !== undefined
                 return (
                   <div key={i} className="flex items-center gap-3 py-2">
-                    {/* Toggle */}
                     <button
                       type="button"
                       onClick={() => toggleDay(i)}
-                      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
-                        isOn ? 'bg-green-500' : 'bg-slate-600'
-                      }`}
+                      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${isOn ? 'bg-green-500' : 'bg-slate-300'}`}
                     >
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        isOn ? 'left-5' : 'left-0.5'
-                      }`} />
+                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isOn ? 'left-5' : 'left-0.5'}`} />
                     </button>
-                    {/* Day label */}
-                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-slate-900' : 'text-slate-400'}`}>
-                      {dayName}
-                    </span>
-                    {/* Time selects */}
+                    <span className={`w-24 text-sm font-medium ${isOn ? 'text-slate-900' : 'text-slate-400'}`}>{dayName}</span>
                     {isOn ? (
                       <div className="flex items-center gap-2 flex-1">
                         <select
@@ -478,9 +773,7 @@ export default function TeamMemberDetailPage() {
                           onChange={(e) => updateDayTime(i, 'start', e.target.value)}
                           className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
                         >
-                          {TIME_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
+                          {TIME_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                         <span className="text-slate-400 text-xs">to</span>
                         <select
@@ -488,9 +781,7 @@ export default function TeamMemberDetailPage() {
                           onChange={(e) => updateDayTime(i, 'end', e.target.value)}
                           className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
                         >
-                          {TIME_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
+                          {TIME_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                       </div>
                     ) : (
@@ -501,13 +792,29 @@ export default function TeamMemberDetailPage() {
               })}
             </div>
             <div className="mt-4 pt-4 border-t border-slate-200">
-              <button
-                onClick={saveSchedule}
-                disabled={savingSchedule}
-                className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
+              <label className="block text-sm font-medium text-slate-900 mb-1">Home by</label>
+              <p className="text-xs text-slate-500 mb-2">Latest they can finish. Scheduler won&apos;t book them past this. Leave as <strong>Not applicable</strong> unless it&apos;s a real constraint.</p>
+              <select
+                value={homeByTime}
+                onChange={(e) => setHomeByTime(e.target.value)}
+                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 bg-white"
               >
+                <option value="">Not applicable (no limit)</option>
+                {TIME_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <button onClick={saveSchedule} disabled={savingSchedule} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                 {savingSchedule ? 'Saving...' : 'Save Schedule'}
               </button>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <label className="block text-sm font-medium text-slate-900 mb-1">Instant pay (Stripe)</label>
+              <p className="text-xs text-slate-500 mb-2">Generates a Stripe Connect onboarding link so they can add a bank account for automatic payouts.</p>
+              <button onClick={sendOnboard} disabled={sendingOnboard} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
+                {sendingOnboard ? 'Generating…' : 'Get onboarding link'}
+              </button>
+              {onboardMsg && <span className="ml-3 text-xs text-slate-600">{onboardMsg}</span>}
             </div>
           </div>
 
@@ -515,12 +822,9 @@ export default function TeamMemberDetailPage() {
           <div className="border border-slate-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-slate-900">Time Off</h3>
-              {timeOffMessage && (
-                <span className="text-xs text-green-400">{timeOffMessage}</span>
-              )}
+              {timeOffMessage && <span className="text-xs text-green-600">{timeOffMessage}</span>}
             </div>
 
-            {/* Existing time off entries */}
             {timeOff.length > 0 ? (
               <div className="space-y-2 mb-4">
                 {timeOff.map((entry, i) => {
@@ -528,29 +832,16 @@ export default function TeamMemberDetailPage() {
                   const endDate = new Date(entry.end + 'T00:00:00')
                   const isPast = endDate < new Date(new Date().toDateString())
                   return (
-                    <div
-                      key={i}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isPast ? 'border-slate-200 opacity-50' : 'border-slate-200'
-                      }`}
-                    >
+                    <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPast ? 'border-slate-200 opacity-50' : 'border-slate-200'}`}>
                       <div>
                         <p className="text-sm text-slate-900">
                           {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {entry.start !== entry.end && (
-                            <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
-                          )}
+                          {entry.start !== entry.end && <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>}
                           {isPast && <span className="text-xs text-slate-400 ml-2">(past)</span>}
                         </p>
-                        {entry.reason && (
-                          <p className="text-xs text-slate-400 mt-0.5">{entry.reason}</p>
-                        )}
+                        {entry.reason && <p className="text-xs text-slate-400 mt-0.5">{entry.reason}</p>}
                       </div>
-                      <button
-                        onClick={() => deleteTimeOff(i)}
-                        disabled={savingTimeOff}
-                        className="text-sm text-red-400 hover:text-red-300 px-2 py-1 disabled:opacity-50"
-                      >
+                      <button onClick={() => deleteTimeOff(i)} disabled={savingTimeOff} className="text-sm text-red-500 hover:text-red-600 px-2 py-1 disabled:opacity-50">
                         Remove
                       </button>
                     </div>
@@ -561,44 +852,23 @@ export default function TeamMemberDetailPage() {
               <p className="text-sm text-slate-400 mb-4">No time off scheduled</p>
             )}
 
-            {/* Add time off form */}
             <div className="border-t border-slate-200 pt-4">
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-2 block">Add Time Off</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase mb-1 block">Start Date</label>
-                  <input
-                    type="date"
-                    value={timeOffStart}
-                    onChange={(e) => setTimeOffStart(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
-                  />
+                  <input type="date" value={timeOffStart} onChange={(e) => setTimeOffStart(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase mb-1 block">End Date</label>
-                  <input
-                    type="date"
-                    value={timeOffEnd}
-                    onChange={(e) => setTimeOffEnd(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
-                  />
+                  <input type="date" value={timeOffEnd} onChange={(e) => setTimeOffEnd(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" />
                 </div>
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase mb-1 block">Reason (optional)</label>
-                  <input
-                    type="text"
-                    value={timeOffReason}
-                    onChange={(e) => setTimeOffReason(e.target.value)}
-                    placeholder="Vacation, sick day, etc."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
-                  />
+                  <input type="text" value={timeOffReason} onChange={(e) => setTimeOffReason(e.target.value)} placeholder="Vacation, sick day, etc." className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900" />
                 </div>
               </div>
-              <button
-                onClick={addTimeOff}
-                disabled={savingTimeOff || !timeOffStart || !timeOffEnd}
-                className="mt-3 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
-              >
+              <button onClick={addTimeOff} disabled={savingTimeOff || !timeOffStart || !timeOffEnd} className="mt-3 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
                 {savingTimeOff ? 'Saving...' : 'Add Time Off'}
               </button>
             </div>
@@ -653,18 +923,13 @@ export default function TeamMemberDetailPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
             <div className="space-y-2">
               {member.phone && (
                 <>
-                  <a href={`tel:${member.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">
-                    Call
-                  </a>
-                  <a href={`sms:${member.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">
-                    Text
-                  </a>
+                  <a href={`tel:${member.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">Call</a>
+                  <a href={`sms:${member.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">Text</a>
                 </>
               )}
               <button
@@ -681,9 +946,9 @@ export default function TeamMemberDetailPage() {
             </div>
           </div>
 
-          {/* Notification Preferences */}
+          {/* Notification Preferences (Settings) */}
           <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Notification Preferences</h3>
+            <h3 className="font-semibold text-slate-900 mb-4">Settings — Notifications</h3>
             <div className="space-y-3">
               {[
                 { key: 'notify_new_job', label: 'New job assigned' },
@@ -692,7 +957,7 @@ export default function TeamMemberDetailPage() {
                 { key: 'notify_payment', label: 'Payment confirmed' },
               ].map(({ key, label }) => {
                 const notesData = parseNotesData(member.notes)
-                const prefs = (notesData.notification_prefs || {}) as Record<string, boolean>
+                const prefs = notesData.notification_prefs || {}
                 const isOn = prefs[key] !== false // default on
                 return (
                   <div key={key} className="flex items-center justify-between">
@@ -700,7 +965,7 @@ export default function TeamMemberDetailPage() {
                     <button
                       onClick={async () => {
                         const existing = parseNotesData(member.notes)
-                        const currentPrefs = (existing.notification_prefs || {}) as Record<string, boolean>
+                        const currentPrefs = existing.notification_prefs || {}
                         currentPrefs[key] = !isOn
                         const notes = JSON.stringify({ ...existing, notification_prefs: currentPrefs })
                         const res = await fetch(`/api/team/${id}`, {
@@ -724,6 +989,32 @@ export default function TeamMemberDetailPage() {
                 Notifications sent via {member.phone ? 'SMS' : member.email ? 'email' : 'team portal'}
               </p>
             </div>
+          </div>
+
+          {/* Language settings surfaced here too since it's the other real
+              per-member "setting" beyond notification prefs. */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Settings — Language</h3>
+            <select
+              value={member.preferred_language || 'en'}
+              onChange={async (e) => {
+                const res = await fetch(`/api/team/${id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ preferred_language: e.target.value }),
+                })
+                if (res.ok) {
+                  const { member: updated } = await res.json()
+                  setMember(updated)
+                  setForm(updated)
+                }
+              }}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 bg-white"
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-2">Used for their portal, SMS, and job notifications.</p>
           </div>
         </div>
       </div>

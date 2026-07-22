@@ -169,6 +169,32 @@ export default function TeamPage() {
     loadApplications()
   }
 
+  const [deleteTarget, setDeleteTarget] = useState<EnrichedMember | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  async function confirmDeleteMember() {
+    if (!deleteTarget || deleteConfirmText.trim() !== deleteTarget.name.trim()) return
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const res = await fetch(`/api/team/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setDeleteError(err.error || `Failed (${res.status})`)
+        setDeleting(false)
+        return
+      }
+      setMembers((ms) => ms.filter((m) => m.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   async function setMemberRole(id: string, role: string) {
     // Optimistic — reflect immediately, roll back on failure.
     const prev = members
@@ -231,6 +257,43 @@ export default function TeamPage() {
 
   return (
     <div className="tm-scope">
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, maxWidth: 420, width: '100%', padding: 24 }}>
+            <h3 style={{ fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>Delete {deleteTarget.name}?</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+              This permanently removes their profile, schedule, and pay rate. Job history stays attached to past bookings. This cannot be undone.
+            </p>
+            <p style={{ fontSize: 13, color: '#334155', marginBottom: 8 }}>
+              Type <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{deleteTarget.name}</span> to confirm.
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteTarget.name}
+              autoFocus
+              style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 12 }}
+            />
+            {deleteError && <p style={{ fontSize: 13, color: '#dc2626', marginBottom: 12 }}>{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                style={{ flex: 1, fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 0', fontWeight: 500, color: '#64748b', background: '#fff' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteMember}
+                disabled={deleting || deleteConfirmText.trim() !== deleteTarget.name.trim()}
+                style={{ flex: 1, fontSize: 13, background: '#dc2626', color: '#fff', borderRadius: 8, padding: '8px 0', fontWeight: 500, border: 'none', opacity: (deleting || deleteConfirmText.trim() !== deleteTarget.name.trim()) ? 0.4 : 1 }}
+              >
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="tm-portals-bar">
         <div className="tm-portal-item">
           <span className="tm-portal-label">Team Portal</span>
@@ -495,6 +558,14 @@ export default function TeamPage() {
                     <button className="tm-action-btn" type="button">Schedule</button>
                     <button className="tm-action-btn" type="button">Pay</button>
                     <Link className="tm-action-btn" href={`/dashboard/team/${m.id}`}>Profile</Link>
+                    <button
+                      className="tm-action-btn"
+                      type="button"
+                      onClick={() => { setDeleteTarget(m); setDeleteConfirmText(''); setDeleteError('') }}
+                      style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               )

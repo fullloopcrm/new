@@ -44,7 +44,11 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['name', 'email', 'phone', 'role', 'hourly_rate', 'pay_rate', 'working_days', 'status', 'preferred_language', 'notes', 'avatar_url'])
+    const fields = pick(body, [
+      'name', 'email', 'phone', 'role', 'hourly_rate', 'pay_rate', 'working_days', 'status',
+      'preferred_language', 'notes', 'avatar_url', 'address', 'schedule', 'home_by_time',
+      'has_car', 'labor_only', 'service_zones', 'max_travel_minutes',
+    ])
 
     const { data, error } = await supabaseAdmin
       .from('team_members')
