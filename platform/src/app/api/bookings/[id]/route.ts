@@ -271,17 +271,25 @@ export async function DELETE(
 
     // Send cancellation notifications
     if (booking) {
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: tenantId,
-        type: 'comms_fail',
-        title: 'DIAG2: bare minimal',
-        message: 'no computed fields',
-        channel: 'email',
-        status: 'failed',
-      }).then(
-        () => { console.log('DIAG2 insert resolved ok') },
-        (e) => { console.error('DIAG2 insert rejected', e) }
-      )
+      try {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'DIAG3: client_id access',
+          message: `client_id=${booking.client_id}`,
+          channel: 'email',
+          status: 'failed',
+        }).then(() => {}, () => {})
+      } catch (diagErr) {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'DIAG3: THREW',
+          message: diagErr instanceof Error ? `${diagErr.message}\n${diagErr.stack}` : String(diagErr),
+          channel: 'email',
+          status: 'failed',
+        }).then(() => {}, () => {})
+      }
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
