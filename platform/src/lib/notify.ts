@@ -1,5 +1,4 @@
 import { supabaseAdmin } from './supabase'
-import { escapeHtml } from './escape-html'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
@@ -14,6 +13,7 @@ import {
   notificationDigestEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
+  genericNotificationEmail,
 } from './email-templates'
 
 export type NotificationType =
@@ -277,7 +277,7 @@ export async function notify({
       await sendEmail({
         to: email,
         subject: title,
-        html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+        html: htmlBody || genericNotificationEmail({ ...templateData, title, message }),
         from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
       })
@@ -324,7 +324,7 @@ export async function notify({
         await sendEmail({
           to: email,
           subject: title,
-          html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+          html: htmlBody || genericNotificationEmail({ ...templateData, title, message }),
           from: tenantSender(tenant),
           resendApiKey: tenant.resend_api_key,
         })

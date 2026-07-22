@@ -473,6 +473,18 @@ export function smsNewApplication(name: string): string {
   return `New cleaner application: ${name}. Review in admin.`
 }
 
+/**
+ * Generic branded fallback for any notify() type without a bespoke template
+ * (15min_warning, new_client, late_check_in, error, etc.) — every admin email
+ * gets the tenant-branded shell instead of a bare unstyled <p> tag.
+ */
+export function genericNotificationEmail(data: TemplateData & { title: string; message: string }): string {
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${escapeHtml(data.title)}</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(data.message)}</p>
+  `, data)
+}
+
 // Sent to an applicant when their team application is approved.
 // NYC-Maid-style: shows the team portal PIN + a portal button. Bilingual EN/ES.
 export function teamApplicationApprovedEmail(data: TemplateData & {
