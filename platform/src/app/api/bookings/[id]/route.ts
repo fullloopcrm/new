@@ -51,7 +51,17 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'video_dispute_hold'])
+    // discount_enabled and video_dispute_hold are NOT real bookings columns --
+    // discount_enabled is pure client-side form state (BookingsAdmin.tsx
+    // derives it from discount_percent, `hasDiscount = !!booking.discount_percent`,
+    // and never reads it back from the DB); video_dispute_hold has no reader
+    // or writer anywhere else in the codebase. Including either in the
+    // allowlist made PostgREST reject the ENTIRE update whenever the field
+    // was present in the body ("Could not find the 'discount_enabled' column
+    // ... in the schema cache") -- since BookingsAdmin.tsx spreads the whole
+    // form (which always sets discount_enabled) into every save, this broke
+    // saving ANY booking edit, not just discounted ones.
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm
