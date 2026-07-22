@@ -20,7 +20,7 @@ vi.mock('@/lib/supabase', async () => {
   return { supabaseAdmin: fake }
 })
 
-const lookupClientSpy = vi.fn(async (tenantId: string) => JSON.stringify({ tenantId }))
+const lookupClientSpy = vi.fn(async (tenantId: string, _phone: string) => JSON.stringify({ tenantId }))
 vi.mock('@/lib/voice-agent/customer-tools', () => ({
   voiceLookupClient: (tenantId: string, phone: string) => lookupClientSpy(tenantId, phone),
   voiceLookupBookings: vi.fn(),
