@@ -324,10 +324,15 @@ export async function DELETE(
         if (booking.client_id) {
           const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
           if (isNycMaid(tenantId) && booking.clients?.email) {
+            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG6: entered nycmaid branch', message: 'about to import', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
+            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG7: imported email-templates', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG8: imported client-contacts', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             const email = clientCancellationEmail(booking)
+            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG9: built email template', message: email.subject, channel: 'email', status: 'failed' }).then(() => {}, () => {})
             await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
+            await supabaseAdmin.from('notifications').insert({ tenant_id: tenantId, type: 'comms_fail', title: 'DIAG10: sendClientEmail done', message: 'ok', channel: 'email', status: 'failed' }).then(() => {}, () => {})
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'booking_cancelled',
