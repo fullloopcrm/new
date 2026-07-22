@@ -142,7 +142,7 @@ function ReferralDashboard() {
     if (searchParams.get('stripe') !== 'connected' || !data?.referrer.id) return
     const token = getReferrerToken()
     if (!token) return
-    fetch(`/api/referrers/${data.referrer.id}/stripe-status`, {
+    fetch(`/api/referrers/connect/${data.referrer.id}/stripe-status`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -162,7 +162,7 @@ function ReferralDashboard() {
     setStripeBusy(true)
     const token = getReferrerToken()
     try {
-      const res = await fetch(`/api/referrers/${data.referrer.id}/stripe-onboard`, {
+      const res = await fetch(`/api/referrers/connect/${data.referrer.id}/stripe-onboard`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })

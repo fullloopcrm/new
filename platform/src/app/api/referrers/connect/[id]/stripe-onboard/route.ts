@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const baseUrl = tenantSiteUrl(tenant) || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const link = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${baseUrl}/api/referrers/${id}/stripe-onboard?refresh=1`,
+      refresh_url: `${baseUrl}/api/referrers/connect/${id}/stripe-onboard?refresh=1`,
       return_url: `${baseUrl}/referral/${referrer.referral_code}?stripe=connected`,
       type: 'account_onboarding',
     })
@@ -109,7 +109,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const baseUrl = tenantSiteUrl(tenant) || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const link = await stripe.accountLinks.create({
       account: referrer.stripe_connect_account_id,
-      refresh_url: `${baseUrl}/api/referrers/${id}/stripe-onboard?refresh=1`,
+      refresh_url: `${baseUrl}/api/referrers/connect/${id}/stripe-onboard?refresh=1`,
       return_url: `${baseUrl}/referral/${referrer.referral_code}?stripe=connected`,
       type: 'account_onboarding',
     })
