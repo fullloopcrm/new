@@ -16,6 +16,10 @@ interface NotifyOptions {
 // Security/login chatter and unsubscribe noise stay dashboard-only.
 const TELEGRAM_NOTIFY_TYPES = new Set<string>([
   'new_lead',
+  'new_client',
+  'feedback',
+  'hot_lead',
+  'referral_lead',
   'new_booking',
   'sms_reply',
   'owner_sms',

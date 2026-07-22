@@ -4,6 +4,14 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { sendClientSMS, sendClientEmail } from '@/lib/nycmaid/client-contacts'
+import { sendEmail } from '@/lib/nycmaid/email'
+import { pinResetEmail } from '@/lib/nycmaid/email-templates'
+
+function generatePin(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
 
 export async function GET(
   _request: Request,
@@ -43,6 +51,36 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
+
+    // NYC Maid parity: send/reset a client's portal PIN via email/SMS.
+    // Gated to this tenant only — see src/lib/nycmaid/tenant.ts.
+    if (isNycMaid(tenantId) && body.send_pin) {
+      const { data: client } = await tenantDb(tenantId).from('clients').select('pin').eq('id', id).single()
+      if (!client?.pin) return NextResponse.json({ error: 'Client has no PIN' }, { status: 400 })
+
+      const pinMessage = `Your NYC Maid portal PIN is: ${client.pin}. Log in at thenycmaid.com/book with your email and this PIN.`
+      const emailResult = await sendClientEmail(id, 'Your NYC Maid Portal PIN', `<p>${pinMessage}</p>`)
+      const smsResult = await sendClientSMS(id, pinMessage, { smsType: 'pin_delivery' })
+
+      return NextResponse.json({ success: true, sent_to: { email: emailResult.sent > 0, sms: smsResult.sent > 0 } })
+    }
+
+    if (isNycMaid(tenantId) && body.reset_pin) {
+      const { data: client } = await tenantDb(tenantId).from('clients').select('id, name, email').eq('id', id).single()
+      if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      if (!client.email) return NextResponse.json({ error: 'Client has no email on file' }, { status: 400 })
+
+      const newPin = generatePin()
+      const { error: updateError } = await tenantDb(tenantId).from('clients').update({ pin: newPin }).eq('id', id)
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+      const tpl = pinResetEmail({ name: client.name, pin: newPin, portal: 'client' })
+      const emailResult = await sendEmail(client.email, tpl.subject, tpl.html)
+      await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { field: 'pin_reset' } })
+
+      return NextResponse.json({ success: true, pin: newPin, emailed: emailResult.success })
+    }
+
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason'])
 
     // preferred_team_member_id is a caller-supplied FK — verify it's tenant-owned
