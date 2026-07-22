@@ -41,6 +41,8 @@ type TeamMember = {
   service_zones: string[] | null
   max_travel_minutes: number | null
   created_at: string
+  stripe_account_id: string | null
+  stripe_ready_at: string | null
 }
 
 // The team member's original application, matched by phone, so the profile
@@ -58,8 +60,6 @@ type TeamApplication = {
   notes: string | null
   status: string
   created_at: string
-  stripe_account_id: string | null
-  stripe_ready_at: string | null
 }
 
 type Booking = {
