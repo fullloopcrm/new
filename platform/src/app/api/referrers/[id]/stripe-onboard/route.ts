@@ -48,7 +48,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const account = await stripe.accounts.create({
         type: 'express',
         email: referrer.email || undefined,
-        capabilities: { transfers: { requested: true } },
+        // transfers-only fails live with "needs approval for transfers
+        // without card_payments" (leader 16:20, confirmed against nycmaid's
+        // real account) -- requesting both together avoids the platform
+        // restriction. card_payments sits unused/unverified since referrers
+        // never take card payments directly.
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
         business_type: 'individual',
         metadata: { referrer_id: id, tenant_id: auth.tid },
       }, { idempotencyKey: `connect-account-ref-${auth.tid}-${id}` })

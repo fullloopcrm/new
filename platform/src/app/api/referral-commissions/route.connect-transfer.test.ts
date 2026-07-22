@@ -4,16 +4,18 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 /**
  * REFERRAL-COMMISSION CONNECT TRANSFER — PUT /api/referral-commissions.
  *
- * Marking a commission 'paid' should move real money via Stripe Connect when
- * the referrer has completed onboarding (stripe_ready_at set) AND the caller
- * didn't specify a manual paid_via (an explicit paid_via means "I already
- * paid this outside Stripe, just record it" and must never trigger a second,
- * real transfer). If the Stripe transfer itself fails, the commission must
- * revert to its prior status rather than being recorded "paid" with no funds
- * actually sent.
+ * Marking a commission 'paid' moves real money via Stripe Connect whenever
+ * the referrer has completed onboarding (stripe_ready_at set) — mandatory,
+ * per leader/Jeff's 2026-07-22 product decision (CHANNEL.md 16:35): manual
+ * Zelle/Apple Cash is no longer a live payout method once a referrer CAN
+ * connect Stripe, matching cleaners (no manual fallback). A caller-supplied
+ * paid_via no longer overrides this for a Connect-ready referrer; it's only
+ * honored as the fallback for a referrer who hasn't connected. If the Stripe
+ * transfer itself fails, the commission must revert to its prior status
+ * rather than being recorded "paid" with no funds actually sent.
  */
 
-const transfersCreate = vi.fn(async () => ({ id: 'tr_1' }))
+const transfersCreate = vi.fn(async (_params: Record<string, unknown>, _opts: Record<string, unknown>) => ({ id: 'tr_1' }))
 let transferShouldFail = false
 
 vi.mock('stripe', () => {
@@ -21,7 +23,7 @@ vi.mock('stripe', () => {
     transfers = {
       create: async (...args: unknown[]) => {
         if (transferShouldFail) throw new Error('Stripe: destination account not ready')
-        return transfersCreate(...(args as []))
+        return transfersCreate(...(args as [Record<string, unknown>, Record<string, unknown>]))
       },
     }
     static LatestApiVersion = '2025-04-30.basil'
@@ -157,13 +159,13 @@ describe('referral-commissions PUT — Connect transfer for a stripe-ready refer
     expect(ref.total_paid).toBe(0)
   })
 
-  it('an explicit manual paid_via (e.g. zelle) never triggers a Stripe transfer, even for a connected referrer', async () => {
+  it('an explicit manual paid_via (e.g. zelle) is IGNORED for a connected referrer -- Connect is mandatory, no manual override', async () => {
     const res = await putPaid({ id: COMMISSION_ID, status: 'paid', paid_via: 'zelle' })
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(transfersCreate).not.toHaveBeenCalled()
-    expect(json.paid_via).toBe('zelle')
+    expect(transfersCreate).toHaveBeenCalledTimes(1)
+    expect(json.paid_via).toBe('stripe_connect')
   })
 })
 

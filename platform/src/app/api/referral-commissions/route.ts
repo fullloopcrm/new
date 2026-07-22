@@ -199,14 +199,15 @@ export async function PUT(request: Request) {
 
     const markingPaid = status === 'paid'
 
-    // A caller-supplied paid_via (zelle/apple_cash/etc) means "I already paid
-    // this manually outside Stripe, just record it" -- never auto-transfer in
-    // that case even if the referrer is Connect-ready. Auto-transfer only
-    // fires when paid_via is omitted (or explicitly 'stripe_connect'), same
-    // "no method specified = use the automatic rail" convention as the
-    // cleaner/sales-partner Connect paths.
+    // Product decision (leader/Jeff, 2026-07-22): manual Zelle/Apple Cash is
+    // no longer a live payout method once a referrer CAN connect Stripe --
+    // Connect is mandatory then, matching cleaners (which never had a manual
+    // fallback). A caller-supplied paid_via no longer overrides this for a
+    // Connect-ready referrer; it's only honored below as the fallback for a
+    // referrer who hasn't connected yet (open question on that edge case
+    // flagged in CHANNEL.md, not resolved unilaterally here).
     let referrerForTransfer: { id: string; name: string; commission_cents: number; stripe_connect_account_id: string } | null = null
-    if (markingPaid && (!paid_via || paid_via === 'stripe_connect')) {
+    if (markingPaid) {
       const { data: existing } = await supabaseAdmin
         .from('referral_commissions')
         .select('id, referrer_id, commission_cents, status')

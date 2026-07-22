@@ -16,9 +16,9 @@ vi.mock('stripe', () => {
   return { default: MockStripe }
 })
 
-const notifySpy = vi.fn(async () => {})
+const notifySpy = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('@/lib/notify', () => ({ notify: (...args: unknown[]) => notifySpy(...args) }))
-const smsAdminsSpy = vi.fn(async () => {})
+const smsAdminsSpy = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: (...args: unknown[]) => smsAdminsSpy(...args) }))
 
 let referrerRow: Record<string, unknown> | null
