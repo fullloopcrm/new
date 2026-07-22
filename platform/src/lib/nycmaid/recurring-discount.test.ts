@@ -22,6 +22,15 @@ describe('recurringDiscountPct', () => {
     expect(recurringDiscountPct('monthly')).toBe(0.1)
   })
 
+  it('monthly_date / monthly_weekday (the real recurring_schedules.recurring_type values) → 10%', () => {
+    // recurring_schedules never actually stores the bare string 'monthly' --
+    // RecurringType is 'monthly_date' | 'monthly_weekday'. Before this fix
+    // neither matched any case here, so every monthly schedule silently got
+    // 0% instead of 10%.
+    expect(recurringDiscountPct('monthly_date')).toBe(0.1)
+    expect(recurringDiscountPct('monthly_weekday')).toBe(0.1)
+  })
+
   it('normalizes case and separators (WEEKLY, Weekly)', () => {
     expect(recurringDiscountPct('WEEKLY')).toBe(0.2)
     expect(recurringDiscountPct('Weekly')).toBe(0.2)

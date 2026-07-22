@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { generateRecurringDates, nextOccurrenceDates, type RecurringType } from '@/lib/recurring'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
@@ -56,18 +56,25 @@ export async function GET(request: Request) {
 
     if (lastDate >= fourWeeksOut) continue // Already generated enough
 
-    const startDate = new Date(lastDate)
-    startDate.setDate(startDate.getDate() + 1)
     if (schedule.preferred_time) {
       const [h, m] = schedule.preferred_time.split(':')
-      startDate.setHours(parseInt(h), parseInt(m), 0, 0)
+      lastDate.setHours(parseInt(h), parseInt(m), 0, 0)
     }
 
-    const dates = generateRecurringDates({
+    // nextOccurrenceDates anchors on lastOccurrence itself and drops its own
+    // echo of that date (see its docstring in lib/recurring.ts) -- anchoring
+    // on lastDate + 1 day here (the old code) made every refill's first
+    // generated date land exactly 1 day after the real last visit instead of
+    // a full interval after, and since every following date steps a fixed
+    // interval off THAT one, a weekly Monday visit's refill batch kept
+    // sliding one weekday later every single time the 4-week buffer topped
+    // up. This was written and tested but never actually wired into this
+    // cron -- fixing that now.
+    const dates = nextOccurrenceDates({
       recurringType: schedule.recurring_type as RecurringType,
-      startDate,
+      lastOccurrence: lastDate,
       dayOfWeek: schedule.day_of_week ?? undefined,
-      weeksToGenerate: 4,
+      count: 8, // generous upper bound; filtered below to the real 4-week horizon
     }).filter((d) => d <= fourWeeksOut)
 
     if (dates.length === 0) continue

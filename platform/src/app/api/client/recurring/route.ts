@@ -9,6 +9,8 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
+import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -131,9 +133,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // Pricing: weekly 20%, biweekly/monthly 10%
+  // Pricing: weekly 20%, biweekly/monthly 10% -- via the shared
+  // recurringDiscountPct() single source of truth (also used by the admin
+  // recurring-schedules creation path), not a duplicated inline ternary that
+  // could drift from it.
   const baseRate = supplies === 'client' ? 59 : 79
-  const discountPercent = frequency === 'weekly' ? 20 : 10
+  const discountPercent = Math.round(recurringDiscountPct(frequency) * 100)
   const basePriceCents = hours * baseRate * finalTeamSize * 100
   const price = Math.floor(basePriceCents * (1 - discountPercent / 100) / 500) * 500
 
@@ -145,21 +150,42 @@ export async function POST(request: Request) {
       .eq('tenant_id', tenantId)
   }
 
-  // Generate next 6 weeks of dates
-  const intervalDays = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 28
-  const dates: string[] = []
   const startDt = new Date(start_date + 'T12:00:00')
-  const horizon = new Date(startDt)
-  horizon.setDate(horizon.getDate() + 42)
-  for (let d = new Date(startDt); d <= horizon; d.setDate(d.getDate() + intervalDays)) {
-    dates.push(d.toISOString().split('T')[0])
-  }
+  const dayOfWeek = startDt.getDay()
+  // recurring_schedules.recurring_type must be a real RecurringType
+  // (lib/recurring.ts) -- 'weekly' and 'biweekly' pass through as-is, but
+  // 'monthly' is not one of the valid values (they're 'monthly_date' /
+  // 'monthly_weekday'). Storing the bare 'monthly' string here silently
+  // broke every self-booked monthly client's series once the cron tried to
+  // refill it: generateRecurringDates()'s switch has no case for 'monthly',
+  // so it matched nothing and returned zero dates -- the cron generated
+  // NOTHING after the initial 6-week batch this route creates directly,
+  // forever, with no error anywhere.
+  const recurringType: RecurringType = frequency === 'monthly' ? 'monthly_date' : (frequency as RecurringType)
+
+  // Single source of truth for date generation (lib/recurring.ts), same
+  // function every other creation/refill path uses -- this route used to
+  // hand-roll its own flat interval-day loop (7/14/28 days), which used a
+  // flat 28-day "month" for monthly clients instead of the real calendar
+  // month (drifting the visit date earlier every cycle) and had no holiday
+  // filtering. weeksToGenerate is an OCCURRENCE count, not a time window, so
+  // ask for a generous batch and filter down to the original "initial 6
+  // weeks" window -- otherwise a biweekly/monthly client would get months of
+  // bookings created upfront instead of the intended ~6-week starter batch.
+  const sixWeeksOut = new Date(startDt)
+  sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
+  const dates = generateRecurringDates({
+    recurringType,
+    startDate: startDt,
+    dayOfWeek,
+    weeksToGenerate: 6,
+  })
+    .filter((d) => d <= sixWeeksOut)
+    .map((d) => d.toISOString().slice(0, 10))
   if (dates.length === 0) {
     return NextResponse.json({ error: 'No dates generated' }, { status: 400 })
   }
 
-  const dayOfWeek = startDt.getDay()
-  const recurringType = frequency
   const lastInitialDate = dates[dates.length - 1]
 
   // No cleaner picked → suggest one via the same smart-matcher one-time

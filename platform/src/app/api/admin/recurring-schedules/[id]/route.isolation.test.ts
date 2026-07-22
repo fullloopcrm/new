@@ -67,8 +67,13 @@ describe('GET /api/admin/recurring-schedules/:id — tenant isolation', () => {
 
 describe('PUT /api/admin/recurring-schedules/:id — tenant isolation', () => {
   it("tenant A can never edit tenant B's schedule by guessing its id", async () => {
+    // PUT now fetches the current row first (to detect which fields change
+    // for the future-bookings sync) -- that fetch tenant-scopes cleanly to a
+    // 404 for a cross-tenant id instead of the old blind-update's generic
+    // 500. The actual isolation property (tenant B's row never gets
+    // touched) is what this test guards, not the specific status code.
     const res = await PUT(putReq({ team_member_id: 'tm-new' }), params('sched-B1'))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(404)
     const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-B1')
     expect(sched?.team_member_id).toBe('tm-old')
   })

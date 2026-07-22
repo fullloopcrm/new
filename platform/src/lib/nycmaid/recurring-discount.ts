@@ -11,6 +11,13 @@ export function recurringDiscountPct(recurringType: string | null | undefined): 
     case 'biweekly':
     case 'bi-weekly':
     case 'monthly':
+    // recurring_schedules.recurring_type actually stores 'monthly-date' /
+    // 'monthly-weekday' (RecurringType in lib/recurring.ts), never the bare
+    // string 'monthly' -- that case never matched anything real, so every
+    // monthly recurring schedule silently got 0% instead of the intended
+    // 10%. Fixed to match the real stored values.
+    case 'monthly-date':
+    case 'monthly-weekday':
       return 0.10
     default:
       return 0
