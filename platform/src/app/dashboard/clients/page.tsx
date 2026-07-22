@@ -105,6 +105,10 @@ export default function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'recurring' | 'one-time'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [drawerId, setDrawerId] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [addSaving, setAddSaving] = useState(false)
+  const [addError, setAddError] = useState('')
 
   function loadClients() {
     setLoading(true)
@@ -123,6 +127,40 @@ export default function ClientsPage() {
   useEffect(() => {
     loadClients()
   }, [])
+
+  async function handleAddClient() {
+    if (!addForm.name.trim()) {
+      setAddError('Name is required')
+      return
+    }
+    setAddSaving(true)
+    setAddError('')
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addForm.name,
+          phone: addForm.phone || undefined,
+          email: addForm.email || undefined,
+          address: addForm.address || undefined,
+          notes: addForm.notes || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAddError(data.error || 'Failed to add client')
+        return
+      }
+      setShowAddModal(false)
+      setAddForm({ name: '', phone: '', email: '', address: '', notes: '' })
+      loadClients()
+    } catch {
+      setAddError('Failed to add client')
+    } finally {
+      setAddSaving(false)
+    }
+  }
 
   const cohortOptions = useMemo(() => {
     const counts = new Map<string, number>()
@@ -256,7 +294,7 @@ export default function ClientsPage() {
           <button className="clients-btn clients-btn-ghost" type="button" disabled={selected.size === 0}>
             Bulk Actions{selected.size > 0 ? ` (${selected.size})` : ''}
           </button>
-          <button className="clients-btn clients-btn-primary" type="button">
+          <button className="clients-btn clients-btn-primary" type="button" onClick={() => setShowAddModal(true)}>
             <span className="clients-btn-icon">+</span>Add Client
           </button>
         </div>
@@ -459,6 +497,80 @@ export default function ClientsPage() {
         onClientUpdated={loadClients}
         agentName={agentName}
       />
+
+      {showAddModal && (
+        <div
+          className="fixed inset-0 bg-[rgba(28,28,28,0.5)] flex items-center justify-center z-[60]"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            style={{ background: 'var(--clients-canvas, #fff)', borderRadius: 8, padding: 24, width: 420, maxWidth: '90vw' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontFamily: 'var(--clients-display)', fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Add Client</div>
+            {addError && <div style={{ color: '#b91c1c', fontSize: 13, marginBottom: 12 }}>{addError}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Name *</label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="Jane Smith"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Phone</label>
+                <input
+                  type="tel"
+                  value={addForm.phone}
+                  onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="212-555-1234"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Email</label>
+                <input
+                  type="email"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="jane@email.com"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Address</label>
+                <input
+                  type="text"
+                  value={addForm.address}
+                  onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="123 Main St, New York, NY"
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Notes</label>
+                <textarea
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows={2}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button type="button" className="clients-btn clients-btn-ghost" onClick={() => setShowAddModal(false)}>
+                Cancel
+              </button>
+              <button type="button" className="clients-btn clients-btn-primary" onClick={handleAddClient} disabled={addSaving}>
+                {addSaving ? 'Adding...' : 'Add Client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
