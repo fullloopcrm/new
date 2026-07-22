@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -103,6 +104,50 @@ async function telnyxAction(
   } catch (err) {
     console.error(`[telnyx-voice] action ${action} threw`, err)
     return null
+  }
+}
+
+// Transfer the (already-answered) customer leg to the tenant's xAI Grok voice
+// agent over SIP. xAI answers as Yinez and bridges the audio. Digest auth
+// (xai_sip_username/password) must match what's set on the tenant's Direct
+// SIP number in xAI's console. Returns true on a successful transfer; false
+// lets the caller fall back to ring/voicemail — a down/unconfigured agent
+// never means dead air. Global + tenant-scoped: any tenant with both creds
+// set gets this hand-off, no separate feature flag or number list needed.
+async function transferToAgent(
+  callControlId: string,
+  toNumber: string,
+  fromPhone: string,
+  sipUsername: string,
+  sipPassword: string,
+): Promise<boolean> {
+  if (!TELNYX_API_KEY) return false
+  const d = toNumber.replace(/\D/g, '')
+  const e164 = d.length === 11 && d.startsWith('1') ? `+${d}` : d.length === 10 ? `+1${d}` : `+${d}`
+  const target = `sip:${e164}@sip.voice.x.ai;transport=tls`
+  try {
+    const res = await fetch(
+      `https://api.telnyx.com/v2/calls/${callControlId}/actions/transfer`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: target,
+          from: fromPhone,
+          from_display_name: 'Yinez',
+          sip_auth_username: sipUsername,
+          sip_auth_password: sipPassword,
+        }),
+      },
+    )
+    if (!res.ok) {
+      console.error('[telnyx-voice] agent transfer failed', await res.text().catch(() => ''))
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[telnyx-voice] agent transfer threw', err)
+    return false
   }
 }
 
@@ -564,6 +609,53 @@ export async function POST(req: NextRequest) {
     // silence while we dial admins. Required for PSTN target dialing;
     // harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
+
+    // ── Voice AI agent: route to Yinez over SIP if this tenant has it set up ──
+    // Tenant-gated (both creds present), not a global flag. On success the
+    // call is handed to xAI and we stop here. On failure/absence we fall
+    // through to the normal ring/voicemail below — built-in failover, a down
+    // or unconfigured agent never means dead air.
+    const { data: agentTenant } = await supabaseAdmin
+      .from('tenants')
+      .select('xai_sip_username, xai_sip_password')
+      .eq('id', tenantId)
+      .single()
+    const xaiUsername = agentTenant?.xai_sip_username || ''
+    const xaiPassword = agentTenant?.xai_sip_password ? decryptSecret(agentTenant.xai_sip_password) : ''
+    if (xaiUsername && xaiPassword) {
+      await startRecordingAndTranscription(callControlId)
+      const routed = await transferToAgent(callControlId, p.to || '', p.from, xaiUsername, xaiPassword)
+      if (routed) {
+        await supabaseAdmin
+          .from('comhub_active_calls')
+          .update({ status: 'bridged', answered_at: new Date().toISOString() })
+          .eq('customer_call_id', callControlId)
+          .eq('tenant_id', tenantId)
+        await logVoiceMessage({
+          tenantId,
+          threadId,
+          contactId,
+          direction: 'system',
+          author: 'yinez',
+          body: '🤖 Routed to Yinez (AI voice agent)',
+          fromAddress: p.from,
+          toAddress: p.to ?? null,
+          externalId: callControlId,
+        })
+        return NextResponse.json({ ok: true, routed: 'agent' })
+      }
+      await logVoiceMessage({
+        tenantId,
+        threadId,
+        contactId,
+        direction: 'system',
+        author: 'system',
+        body: '⚠️ Yinez unavailable — falling back to team/voicemail',
+        fromAddress: p.from,
+        toAddress: p.to ?? null,
+        externalId: callControlId,
+      })
+    }
 
     const ringTargets = await buildRingTargets(tenantId)
     if (ringTargets.length === 0) {
