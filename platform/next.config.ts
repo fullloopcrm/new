@@ -58,7 +58,7 @@ const nextConfig: NextConfig = {
       // tenant site), NOT the client portal — so it must NOT redirect to
       // /portal/book (which is auth-gated and bounces new leads to login).
       { source: '/book/collect', destination: '/portal/collect', permanent: true },
-      { source: '/book/reschedule/:id', destination: '/portal/reschedule/:id', permanent: true },
+      { source: '/book/reschedule/:id', destination: '/portal/bookings/:id', permanent: true },
       { source: '/book/dashboard', destination: '/portal', permanent: true },
       // Only match UUID check-in tokens so named portal routes (/team/login,
       // /team/earnings, …) pass through to their real pages instead of being
