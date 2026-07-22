@@ -49,8 +49,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       const account = await stripe.accounts.create({
         type: 'express',
         email: tm.email || undefined,
+        // transfers-only capability is rejected live ("needs approval for
+        // transfers without card_payments") — requesting both together avoids
+        // the platform restriction. card_payments sits unused/unverified since
+        // cleaners never take card payments directly (confirmed against a real
+        // nycmaid account by leader, 2026-07-22).
         capabilities: {
           transfers: { requested: true },
+          card_payments: { requested: true },
         },
         business_type: 'individual',
         metadata: { team_member_id: id, tenant_id: tenantId },

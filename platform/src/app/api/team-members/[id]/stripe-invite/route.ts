@@ -58,8 +58,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       const account = await stripe.accounts.create({
         type: 'express',
         email: tm.email || undefined,
+        // Same dual-capability workaround as stripe-onboard/route.ts — see
+        // that file's comment for why transfers-only is rejected live.
         capabilities: {
           transfers: { requested: true },
+          card_payments: { requested: true },
         },
         business_type: 'individual',
         metadata: { team_member_id: id, tenant_id: tenantId },
