@@ -271,11 +271,11 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingI
               {checkingIn === job.id ? t('Checking In...', 'Registrando...') : t('Check In', 'Registrar Entrada')}
             </button>
           )}
-          {/* 15-Min Heads Up — after check-in, before check-out */}
+          {/* 30-Min Heads Up — after check-in, before check-out */}
           {job.check_in_time && !job.check_out_time && (
             <button onClick={() => onHeadsUp(job)} disabled={sendingHeadsUp === job.id || !!job.fifteen_min_alert_time}
               className="w-full bg-yellow-500 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
-              {sendingHeadsUp === job.id ? t('Sending...', 'Enviando...') : job.fifteen_min_alert_time ? t('Alert Sent', 'Aviso Enviado') : t('15-Min Heads Up', 'Aviso de 15 Min')}
+              {sendingHeadsUp === job.id ? t('Sending...', 'Enviando...') : job.fifteen_min_alert_time ? t('Alert Sent', 'Aviso Enviado') : t('30-Min Heads Up', 'Aviso de 30 Min')}
             </button>
           )}
           {canCheckOut && (
@@ -563,8 +563,8 @@ export default function TeamHomePage() {
     const estimated = Math.round(hoursWorked * rate)
 
     const msg = t(
-      `Send 15-minute heads up to ${job.clients?.name || 'client'}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`,
-      `Enviar aviso de 15 minutos a ${job.clients?.name || 'cliente'}?\n\nTiempo trabajado: ${hoursWorked.toFixed(1)} hrs\nMonto estimado: $${estimated}`
+      `Send 30-minute heads up to ${job.clients?.name || 'client'}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`,
+      `Enviar aviso de 30 minutos a ${job.clients?.name || 'cliente'}?\n\nTiempo trabajado: ${hoursWorked.toFixed(1)} hrs\nMonto estimado: $${estimated}`
     )
     if (!confirm(msg)) return
 
@@ -573,7 +573,7 @@ export default function TeamHomePage() {
       // Fires the real 30-min alert: admin heads-up SMS + client pay-now text
       // with the tenant Stripe link, cleaner-pay calc, and undelivered escalation.
       // (Was POSTing /api/notifications, which only inserted a row.)
-      const res = await fetch('/api/team-portal/15min-alert', {
+      const res = await fetch('/api/team-portal/30min-alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
         body: JSON.stringify({ bookingId: job.id }),

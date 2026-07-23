@@ -97,7 +97,7 @@ export async function PUT(
     // Admin email
     await notify({
       tenantId: auth.tid,
-      type: 'booking_reminder',
+      type: 'booking_rescheduled',
       title: `Reschedule: ${clientName}`,
       message: `${clientName} rescheduled from ${oldDate} to ${newDate} at ${newTime}`,
       channel: 'email',
@@ -109,7 +109,7 @@ export async function PUT(
     if (oldBooking.team_member_id) {
       await notify({
         tenantId: auth.tid,
-        type: 'booking_reminder',
+        type: 'booking_rescheduled',
         title: 'Job Rescheduled',
         message: `${clientName} moved to ${newDate} at ${newTime}`,
         channel: 'sms',

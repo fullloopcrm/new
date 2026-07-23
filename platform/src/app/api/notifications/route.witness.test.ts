@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * POST /api/notifications (type: '15min_warning') — cross-tenant booking_id
+ * POST /api/notifications (type: '30min_warning') — cross-tenant booking_id
  * FK injection.
  *
  * `booking_id` is a caller-supplied FK into `bookings` with no cross-tenant
@@ -67,22 +67,22 @@ function req(body: Record<string, unknown>) {
   })
 }
 
-describe('POST /api/notifications (15min_warning) — booking_id FK-ownership guard', () => {
+describe('POST /api/notifications (30min_warning) — booking_id FK-ownership guard', () => {
   it('rejects a foreign-tenant booking_id, writes no notification, sends no SMS', async () => {
-    const res = await POST(req({ type: '15min_warning', booking_id: 'bk-b' }))
+    const res = await POST(req({ type: '30min_warning', booking_id: 'bk-b' }))
     expect(res.status).toBe(400)
     expect(h.seed.notifications.length).toBe(0)
     expect(notifyMock).not.toHaveBeenCalled()
   })
 
   it('rejects a nonexistent booking_id', async () => {
-    const res = await POST(req({ type: '15min_warning', booking_id: 'bk-nope' }))
+    const res = await POST(req({ type: '30min_warning', booking_id: 'bk-nope' }))
     expect(res.status).toBe(400)
     expect(h.seed.notifications.length).toBe(0)
   })
 
   it('CONTROL: own-tenant booking_id creates the notification and sends the SMS', async () => {
-    const res = await POST(req({ type: '15min_warning', booking_id: 'bk-a' }))
+    const res = await POST(req({ type: '30min_warning', booking_id: 'bk-a' }))
     expect(res.status).toBe(200)
     expect(h.seed.notifications.length).toBe(1)
     expect(h.seed.notifications[0].booking_id).toBe('bk-a')
@@ -91,7 +91,7 @@ describe('POST /api/notifications (15min_warning) — booking_id FK-ownership gu
   })
 
   it('CONTROL: omitted booking_id still creates the in-app notification, no SMS', async () => {
-    const res = await POST(req({ type: '15min_warning', message: 'heads up' }))
+    const res = await POST(req({ type: '30min_warning', message: 'heads up' }))
     expect(res.status).toBe(200)
     expect(h.seed.notifications.length).toBe(1)
     expect(h.seed.notifications[0].booking_id).toBeNull()

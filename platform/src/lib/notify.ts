@@ -1,9 +1,9 @@
 import { supabaseAdmin } from './supabase'
-import { escapeHtml } from './escape-html'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
+import { getTenantTimezone } from './tenant-time'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -14,6 +14,7 @@ import {
   notificationDigestEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
+  genericNotificationEmail,
 } from './email-templates'
 
 export type NotificationType =
@@ -56,7 +57,10 @@ export type NotificationType =
   | 'selena_error'
   | 'escalation'
   | 'video_uploaded'
-  | '15min_warning'
+  | '30min_warning'
+  | 'running_late'
+  | 'booking_rescheduled'
+  | 'recurring_expiring'
   | 'late_check_in'
   | 'duplicate_recurring_schedule'
   | 'comms_fail'
@@ -131,7 +135,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, timezone')
     .eq('id', tenantId)
     .single()
 
@@ -150,8 +154,14 @@ export async function notify({
     email = data?.email || null
     phone = data?.phone || null
   } else if (recipientType === 'admin') {
-    const { data } = await supabaseAdmin.from('tenant_members').select('email').eq('tenant_id', tenantId).eq('role', 'owner').single()
-    email = data?.email || null
+    const { data } = await supabaseAdmin.from('tenant_members').select('email, phone').eq('tenant_id', tenantId).eq('role', 'owner').maybeSingle()
+    // Fall back to the tenant's own contact info when no owner tenant_member row
+    // exists — matches admin-contacts.ts's getAdminContacts() fallback. Without
+    // this, tenants with no tenant_members rows silently skip every admin
+    // notification (found via nycmaid: zero tenant_members rows meant every
+    // payment_received/new_client/new_booking alert was marked 'skipped').
+    email = data?.email || (tenant as { email?: string | null }).email || null
+    phone = data?.phone || (tenant as { phone?: string | null }).phone || null
   }
 
   // Build branded HTML for email channel
@@ -207,7 +217,7 @@ export async function notify({
         clientName,
         serviceName,
         amount: (metadata?.amount as string) || '$0',
-        date: (metadata?.date as string) || new Date().toLocaleDateString(),
+        date: (metadata?.date as string) || new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) }),
         paymentMethod: (metadata?.paymentMethod as string) || 'Card',
       })
       break
@@ -271,7 +281,7 @@ export async function notify({
       await sendEmail({
         to: email,
         subject: title,
-        html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+        html: htmlBody || genericNotificationEmail({ ...templateData, title, message }),
         from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
       })
@@ -318,7 +328,7 @@ export async function notify({
         await sendEmail({
           to: email,
           subject: title,
-          html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+          html: htmlBody || genericNotificationEmail({ ...templateData, title, message }),
           from: tenantSender(tenant),
           resendApiKey: tenant.resend_api_key,
         })

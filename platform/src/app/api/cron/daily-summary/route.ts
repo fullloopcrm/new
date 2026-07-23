@@ -228,7 +228,7 @@ export async function GET(request: Request) {
 
           await notify({
             tenantId,
-            type: 'booking_reminder',
+            type: 'recurring_expiring',
             title: `Recurring ending: ${clientName}`,
             message: `${clientName}'s ${schedule.recurring_type} schedule ends ${lastDateStr}. Extend in the dashboard.`,
             channel: 'email',

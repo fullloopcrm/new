@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
-import { notify } from '@/lib/notify'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
 
 // POST - Broadcast urgent job to all active team members
@@ -119,17 +119,27 @@ export async function POST(request: Request) {
         </div>
       `
 
+      // Sent directly (not via notify()) — broadcastHtml is already a complete
+      // branded email, and notify() would re-wrap it as escaped plain text
+      // inside the client-facing "Appointment Reminder" template.
       try {
-        await notify({
-          tenantId,
-          type: 'booking_reminder',
-          title: `Urgent: $${payRate}/hr Job Available`,
-          message: broadcastHtml,
-          channel: 'email',
-          recipientType: 'team_member',
-          recipientId: member.id,
-          bookingId: booking_id,
+        await sendEmail({
+          to: member.email,
+          subject: `Urgent: $${payRate}/hr Job Available`,
+          html: broadcastHtml,
+          from: tenantSender(tenantConfig),
+          resendApiKey: tenantConfig.resend_api_key,
         })
+        await db.from('notifications').insert({
+          type: 'job_broadcast',
+          title: `Urgent: $${payRate}/hr Job Available`,
+          message: `Broadcast sent to ${member.name}`,
+          booking_id: booking_id,
+          channel: 'email',
+          recipient_type: 'team_member',
+          recipient_id: member.id,
+          status: 'sent',
+        }).then(() => {}, () => {})
         emailSent = true
       } catch { /* skip */ }
     }

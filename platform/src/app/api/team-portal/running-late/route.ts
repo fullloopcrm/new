@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     await tenantDb(tenantId).from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)
 
     // Notify admin
-    await notify({ tenantId, type: 'booking_reminder' as any, title: 'Running Late', message: `${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`, bookingId })
+    await notify({ tenantId, type: 'running_late', title: 'Running Late', message: `${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`, bookingId })
 
     // SMS to admin
     const adminPhone = tenant.owner_phone || tenant.phone

@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // LATE CHECK-OUT — 30+ min after 15-min alert, no check-out
+      // LATE CHECK-OUT — 30+ min after 30-min alert, no check-out
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
@@ -178,7 +178,7 @@ export async function GET(request: Request) {
           tenant_id: tenantId,
           type: 'late_check_out',
           title: 'Late Check-Out',
-          message: `${memberName} hasn't checked out for ${clientName} — 30+ min since 15-min alert`,
+          message: `${memberName} hasn't checked out for ${clientName} — 30+ min since 30-min alert`,
           booking_id: booking.id,
           channel: 'sms',
           status: 'sent',

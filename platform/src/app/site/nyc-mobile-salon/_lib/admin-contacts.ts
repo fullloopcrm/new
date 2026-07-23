@@ -55,7 +55,7 @@ export async function emailAdmins(subject: string, html: string, roles?: string[
 
 /**
  * SMS all active admin users who have a phone number (owner + admin role).
- * Used for 15-min alerts, inbound SMS forwarding, etc.
+ * Used for 30-min alerts, inbound SMS forwarding, etc.
  */
 export async function smsAdmins(message: string, roles?: string[]) {
   const contacts = await getAdminContacts(roles)

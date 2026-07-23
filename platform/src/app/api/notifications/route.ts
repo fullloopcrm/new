@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { type, booking_id, message } = body
 
-    if (type === '15min_warning') {
+    if (type === '30min_warning') {
       // booking_id is a caller-supplied FK — notifications has no cross-tenant
       // FK check of its own, so an unvalidated id would let this tenant attach
       // a notification row to another tenant's booking. Verify ownership
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
 
       // Insert in-app notification for admin (tenant_id stamped by tenantDb)
       await db.from('notifications').insert({
-        type: '15min_warning',
-        title: '15-Min Heads Up',
-        message: message || '15-minute warning sent',
+        type: '30min_warning',
+        title: '30-Min Heads Up',
+        message: message || '30-minute warning sent',
         booking_id: booking_id || null,
         channel: 'in_app',
         recipient_type: 'admin',
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         await notify({
           tenantId,
           type: 'check_out' as const,
-          title: '15-Min Heads Up',
+          title: '30-Min Heads Up',
           message: `Hi ${clientName}! Your team will be wrapping up in about 15 minutes${amountStr}. Thank you!`,
           channel: 'sms',
           recipientType: 'client',

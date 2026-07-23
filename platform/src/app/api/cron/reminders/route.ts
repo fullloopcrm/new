@@ -500,7 +500,7 @@ export async function GET(request: Request) {
           // Also send admin email
           await notify({
             tenantId,
-            type: 'booking_reminder',
+            type: 'pending_reminder',
             title: `${pendingBookings.length} Unassigned Booking${pendingBookings.length !== 1 ? 's' : ''}`,
             message: `${pendingBookings.length} booking${pendingBookings.length !== 1 ? 's' : ''} still need team assignment. Review and assign in the dashboard.`,
             channel: 'email',

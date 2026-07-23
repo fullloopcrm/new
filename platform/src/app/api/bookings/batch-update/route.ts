@@ -156,7 +156,7 @@ export async function PUT(request: Request) {
       if (notify_type === 'rescheduled' && first.team_member_id) {
         await notify({
           tenantId,
-          type: 'booking_reminder',
+          type: 'booking_rescheduled',
           title: 'Schedule Updated',
           message: `${clientName} — ${results.length} bookings rescheduled from ${bookingDate}`,
           channel: 'sms',

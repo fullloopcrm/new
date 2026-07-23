@@ -70,6 +70,19 @@ export function bookingReminderEmail(data: TemplateData & {
   `, data)
 }
 
+// Generic branded fallback for internal/admin alerts that don't have their own
+// template (reschedules, running-late, recurring-ending, etc.) — just title +
+// message, no fake client-facing "appointment reminder" framing.
+export function genericNotificationEmail(data: TemplateData & {
+  title: string
+  message: string
+}): string {
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${escapeHtml(data.title)}</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0;white-space:pre-line;">${escapeHtml(data.message)}</p>
+  `, data)
+}
+
 export function followUpEmail(data: TemplateData & {
   clientName: string
   serviceName: string

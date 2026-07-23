@@ -1150,7 +1150,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
 
     // $10 self-booking discount applies to Yinez chat bookings too (self-service channel),
     // but applies at BILLING (not at quote). booking.price stays at the un-discounted
-    // estimate; /api/team-portal/15min-alert subtracts $10 from clientOwes when the booking's
+    // estimate; /api/team-portal/30min-alert subtracts $10 from clientOwes when the booking's
     // notes include the self-booking promo flag.
     const basePriceCents = hourlyRate * estimatedHours * 100
     const finalPriceCents = basePriceCents

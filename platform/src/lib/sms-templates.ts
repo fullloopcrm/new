@@ -114,13 +114,13 @@ export function smsLateCheckInAdmin(bizName: string, booking: { start_time: stri
 export function smsLateCheckOutTeam(bizName: string, booking: { clients?: { name: string } | null }, portalUrl?: string): string {
   const clientName = booking.clients?.name || 'Client'
   const link = portalUrl ? ` Portal: ${portalUrl}` : ''
-  return `${bizName}: Please check out for your ${clientName} job. 15-min alert was sent 30+ min ago.${link}\n---\n${bizName}: Por favor registrate de salida para tu trabajo con ${clientName}. Salir ahora.${link}${STOP_TEXT}`
+  return `${bizName}: Please check out for your ${clientName} job. 30-min alert was sent 30+ min ago.${link}\n---\n${bizName}: Por favor registrate de salida para tu trabajo con ${clientName}. Salir ahora.${link}${STOP_TEXT}`
 }
 
 export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { name: string } | null; team_members?: { name?: string | null } | null }): string {
   const memberName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
+  return `${bizName}: Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 30-min alert.`
 }
 
 export function smsRunningLateClient(bizName: string, memberName: string, eta?: number): string {

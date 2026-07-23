@@ -196,13 +196,13 @@ export function smsLateCheckInAdmin(booking: any): string {
 export function smsLateCheckOutCleaner(booking: any): string {
   const clientName = booking.clients?.name || 'Client'
   const pin = booking.cleaners?.pin || ''
-  return `NYC Mobile Salon: Please check out for your ${clientName} job. 15-min alert was sent 30+ min ago. Check out now: thenycmobilesalon.com/team PIN: ${pin}\nPor favor regístrate de salida para tu trabajo con ${clientName}. Salir ahora: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
+  return `NYC Mobile Salon: Please check out for your ${clientName} job. 30-min alert was sent 30+ min ago. Check out now: thenycmobilesalon.com/team PIN: ${pin}\nPor favor regístrate de salida para tu trabajo con ${clientName}. Salir ahora: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsLateCheckOutAdmin(booking: any): string {
   const cleanerName = booking.cleaners?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `NYC Mobile Salon: Late check-out — ${cleanerName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
+  return `NYC Mobile Salon: Late check-out — ${cleanerName} hasn't checked out for ${clientName}. 30+ min since 30-min alert.`
 }
 
 export function smsNewBooking(booking: any): string {

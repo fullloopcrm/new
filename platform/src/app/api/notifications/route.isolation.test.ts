@@ -73,7 +73,7 @@ describe('GET /api/notifications — tenant isolation', () => {
 describe('POST /api/notifications — tenant isolation', () => {
   it("tenant A cannot trigger a client SMS by forging tenant B's booking_id (IDOR)", async () => {
     h.tenantId = 'tenant-A'
-    const res = await POST(postReq({ type: '15min_warning', booking_id: 'bkB', message: 'test' }))
+    const res = await POST(postReq({ type: '30min_warning', booking_id: 'bkB', message: 'test' }))
     // The scoped booking lookup finds nothing for a foreign booking_id -- ownership
     // is verified before any write, so a miss 400s the whole request (no notification
     // row, no SMS to B's client).
@@ -83,7 +83,7 @@ describe('POST /api/notifications — tenant isolation', () => {
 
   it("a valid same-tenant booking_id still triggers the client SMS", async () => {
     h.tenantId = 'tenant-A'
-    const res = await POST(postReq({ type: '15min_warning', booking_id: 'bkA', message: 'test' }))
+    const res = await POST(postReq({ type: '30min_warning', booking_id: 'bkA', message: 'test' }))
     expect(res.status).toBe(200)
     expect(notifyCalls).toHaveLength(1)
     expect((notifyCalls[0] as { recipientId: string }).recipientId).toBe('clA')
@@ -91,7 +91,7 @@ describe('POST /api/notifications — tenant isolation', () => {
 
   it("the inserted notification is stamped tenant-A and invisible to tenant B", async () => {
     h.tenantId = 'tenant-A'
-    await POST(postReq({ type: '15min_warning', booking_id: null, message: 'A heads up' }))
+    await POST(postReq({ type: '30min_warning', booking_id: null, message: 'A heads up' }))
     const inserted = h.store.notifications.find((n) => n.message === 'A heads up')
     expect(inserted?.tenant_id).toBe('tenant-A')
   })

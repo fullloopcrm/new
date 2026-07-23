@@ -17,7 +17,7 @@ type Booking = {
   team_member_pay: number | null
   team_member_paid: boolean | null
   team_member_paid_at: string | null
-  discount_enabled: boolean | null
+  discount_percent: number | null
   notes: string | null
   special_instructions: string | null
   check_in_time: string | null
@@ -170,7 +170,8 @@ export default function BookingDetailPage() {
   const actualHours = booking.actual_hours || clockedHours
   const estimatedPrice = booking.price != null ? booking.price / 100 : null
   const actualPrice = actualHours && booking.hourly_rate ? actualHours * booking.hourly_rate : null
-  const actualPriceWithDiscount = actualPrice && booking.discount_enabled ? actualPrice * 0.9 : actualPrice
+  const hasDiscount = !!(booking.discount_percent && booking.discount_percent > 0)
+  const actualPriceWithDiscount = actualPrice && hasDiscount ? actualPrice * (1 - booking.discount_percent! / 100) : actualPrice
   const autoTeamPay = actualHours && booking.pay_rate ? actualHours * booking.pay_rate : null
   const teamPortalLink = typeof window !== 'undefined' ? `${window.location.origin}/team/${id}` : `/team/${id}`
 
@@ -299,10 +300,10 @@ export default function BookingDetailPage() {
                 <dt className="text-slate-400">10% Discount</dt>
                 <dd>
                   <button
-                    onClick={() => updateBooking({ discount_enabled: !booking.discount_enabled })}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${booking.discount_enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                    onClick={() => updateBooking({ discount_percent: hasDiscount ? null : 10 })}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${hasDiscount ? 'bg-green-500' : 'bg-slate-300'}`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${booking.discount_enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${hasDiscount ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                   </button>
                 </dd>
               </div>
@@ -332,7 +333,7 @@ export default function BookingDetailPage() {
                 {actualPriceWithDiscount != null && (
                   <p className="text-sm text-teal-700">
                     ${actualPriceWithDiscount.toFixed(0)}
-                    {booking.discount_enabled && <span className="text-xs text-slate-400 ml-1">(10% off)</span>}
+                    {hasDiscount && <span className="text-xs text-slate-400 ml-1">({booking.discount_percent}% off)</span>}
                   </p>
                 )}
               </div>
@@ -414,7 +415,7 @@ export default function BookingDetailPage() {
                 </div>
               )}
             </dl>
-            {/* 15-Min Heads Up button — visible when checked in but not checked out */}
+            {/* 30-Min Heads Up button — visible when checked in but not checked out */}
             {booking.check_in_time && !booking.check_out_time && (
               <button
                 disabled={sendingHeadsUp}
@@ -426,7 +427,7 @@ export default function BookingDetailPage() {
                   const estimated = Math.round(hoursWorked * rate)
                   const clientName = booking.clients?.name || 'Client'
 
-                  if (!confirm(`Send 15-minute heads up to ${clientName}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`)) return
+                  if (!confirm(`Send 30-minute heads up to ${clientName}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`)) return
 
                   setSendingHeadsUp(true)
                   try {
@@ -434,7 +435,7 @@ export default function BookingDetailPage() {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        type: '15min_warning',
+                        type: '30min_warning',
                         booking_id: booking.id,
                         message: `15-min heads up for ${clientName} — ${hoursWorked.toFixed(1)} hrs, ~$${estimated}`,
                       }),
@@ -448,7 +449,7 @@ export default function BookingDetailPage() {
                 }}
                 className="mt-4 w-full bg-yellow-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 disabled:opacity-50"
               >
-                {sendingHeadsUp ? 'Sending...' : '15-Min Heads Up'}
+                {sendingHeadsUp ? 'Sending...' : '30-Min Heads Up'}
               </button>
             )}
           </div>

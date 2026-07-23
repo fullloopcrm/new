@@ -1,6 +1,6 @@
 /**
  * Payment reminder cron — ported from nycmaid (every 5 min).
- * Finds bookings where the 15-min alert was sent but no payment received,
+ * Finds bookings where the 30-min alert was sent but no payment received,
  * and re-pings the client. Escalates to admin after 30 min unpaid.
  */
 import { NextResponse } from 'next/server'
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
               type: 'payment_overdue',
               priority: 'high',
               title: `Overdue payment — ${client.name || 'client'}`,
-              description: `Booking ${b.id} unpaid ${minsSinceAlert} min past 15-min alert.`,
+              description: `Booking ${b.id} unpaid ${minsSinceAlert} min past 30-min alert.`,
               related_type: 'booking',
               related_id: b.id,
             })

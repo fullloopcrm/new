@@ -50,7 +50,7 @@ import { motion } from "framer-motion";
 /*    hot_lead=235 · cleaner_notified=221 · booking_cancelled=176       */
 /*    booking_rescheduled=129 · check_in=116 · new_client=107           */
 /*    job_complete=98 · sms_reply=97 · payment_received=81              */
-/*    check_out=73 · 15min_warning=65 · daily_summary=35                */
+/*    check_out=73 · 30min_warning=65 · daily_summary=35                */
 /*                                                                      */
 /*  Code-side verified (from /Users/jefftucker/Desktop/nycmaid/src):    */
 /*    98 EMD domains · 10 service zones · 17 Yinez intents             */
@@ -164,7 +164,7 @@ const platformActivity = [
   { value: "116", label: "GPS Check-Ins", sub: "528ft validation · production" },
   { value: "98", label: "Jobs Auto-Closed", sub: "GPS check-out → payroll calc → review trigger" },
   { value: "81", label: "Payments Auto-Matched", sub: "IMAP Zelle/Venmo/Apple/Cash" },
-  { value: "65", label: "15-Min Heads-Ups Used", sub: "owner SMS w/ amount due + crew take" },
+  { value: "65", label: "30-Min Heads-Ups Used", sub: "owner SMS w/ amount due + crew take" },
 ];
 
 // Real anonymized Yinez conversation from 2026-03-02 (Jordan, broken-buzzer client)

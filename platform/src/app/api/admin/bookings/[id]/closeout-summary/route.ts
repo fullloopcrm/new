@@ -109,7 +109,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   //     plus the one-time credit, a flat comp that stacks on top.
   // (2) auto-promo text like "[Promo: $X foo discount applied]" written into
   //     notes by SMS/self-booking flows. Self-booking auto-discount is $10
-  //     (was mislabeled $20 here -- see /api/team-portal/15min-alert's real
+  //     (was mislabeled $20 here -- see /api/team-portal/30min-alert's real
   //     SELF_BOOKING_DISCOUNT constant, the actual amount collected at billing).
   const discounts: Array<{ label: string; cents: number }> = []
   const discountedGrossCents = applyDiscount(grossCents, booking.discount_percent as number | null)

@@ -176,7 +176,7 @@ const sections: DocSection[] = [
 | \`/api/team-portal/checkin\` | POST | Check in with GPS coordinates |
 | \`/api/team-portal/checkout\` | POST | Check out, calculates hours + earnings |
 | \`/api/team-portal/video-upload\` | POST | Upload walkthrough/final videos |
-| \`/api/team-portal/15min-alert\` | POST | Send 15-minute remaining alert |
+| \`/api/team-portal/30min-alert\` | POST | Send 30-minute remaining alert |
 | \`/api/team-portal/earnings\` | GET | View earnings history |
 | \`/api/team-portal/availability\` | GET/PUT | Manage availability |
 | \`/api/team-portal/jobs\` | GET | View assigned jobs |
@@ -452,9 +452,9 @@ Located in \`src/lib/migrations/\`. Run via Supabase SQL editor.
 - URLs stored as \`walkthrough_video_url\` and \`final_video_url\` on the booking
 - Upload timestamps tracked for auto-cleanup
 
-**15-Minute Alert:**
-- Team member sends a 15-minute warning to the client via SMS
-- Triggered via \`/api/team-portal/15min-alert\`
+**30-Minute Alert:**
+- Team member sends a 30-minute warning to the client via SMS
+- Triggered via \`/api/team-portal/30min-alert\`
 - Useful for notifying clients the team is arriving soon
 
 **Earnings:**

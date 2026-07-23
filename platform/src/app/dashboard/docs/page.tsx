@@ -42,7 +42,7 @@ export default function DocsPage() {
 
             <p><strong>Check-in &amp; check-out:</strong> When a team member arrives at a job, they check in from the team portal. GPS location is recorded to verify they&apos;re at the right address. When the job is done, they check out the same way. This gives you verified start and end times for every job.</p>
 
-            <p><strong>15-minute heads up:</strong> Team members can tap the &quot;Heads Up&quot; button from their portal to let you know they&apos;re 15 minutes away from their next job. You&apos;ll get a notification in your dashboard so you always know where your team is.</p>
+            <p><strong>30-minute heads up:</strong> Team members can tap the &quot;Heads Up&quot; button from their portal to let you know they&apos;re 30 minutes away from their next job. You&apos;ll get a notification in your dashboard so you always know where your team is.</p>
 
             <p><strong>Half-hour rounding with 10-minute grace:</strong> Job durations are rounded to the nearest half hour for clean payroll calculation. There&apos;s a built-in 10-minute grace period &mdash; so if a 3-hour job takes 3 hours and 8 minutes, it&apos;s still billed as 3 hours. If it goes to 3 hours and 12 minutes, it rounds up to 3.5 hours.</p>
 
@@ -102,7 +102,7 @@ export default function DocsPage() {
 
             <p><strong>Check-in &amp; check-out with GPS:</strong> When arriving at a job, the team member taps &quot;Check In&quot; and their GPS location is recorded. Same for check-out when the job is done. This gives you verified arrival and departure times with location proof.</p>
 
-            <p><strong>15-minute heads up:</strong> On the way to a job, team members can tap the &quot;Heads Up&quot; button to let you know they&apos;ll be there in about 15 minutes. You get a notification in your dashboard, and the client can optionally be notified too.</p>
+            <p><strong>30-minute heads up:</strong> On the way to a job, team members can tap the &quot;Heads Up&quot; button to let you know they&apos;ll be there in about 30 minutes. You get a notification in your dashboard, and the client can optionally be notified too.</p>
 
             <p><strong>Video walkthrough uploads:</strong> Before starting a job, team members record a quick walkthrough video showing the current state. After finishing, they record another showing the completed work. Both videos are attached to the booking and visible to you and the client.</p>
 
@@ -205,7 +205,7 @@ export default function DocsPage() {
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>New bookings created (by you, {agentName}, or through the client portal)</li>
               <li>Team member check-ins and check-outs</li>
-              <li>15-minute heads up alerts from your team</li>
+              <li>30-minute heads up alerts from your team</li>
               <li>Walkthrough videos uploaded (before and after)</li>
               <li>{agentName} escalations (conversations she needs your help with)</li>
               <li>New client sign-ups</li>

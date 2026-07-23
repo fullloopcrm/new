@@ -2138,7 +2138,7 @@ function BookingsPage() {
                 {!editingBooking.check_out_time && (
                   <div className="flex gap-2">
                     {!editingBooking.fifteen_min_alert_time && (
-                      <button type="button" onClick={async () => { setSaving(true); try { const res = await fetch('/api/team-portal/15min-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: editingBooking.id }) }); if (!res.ok) { const err = await res.json().catch(() => ({})); alert(`Alert failed: ${err.error || res.statusText}`) } else { setEditingBooking({ ...editingBooking, fifteen_min_alert_time: new Date().toISOString() }) } } catch { alert('Alert failed: network error') } setSaving(false) }} className="flex-1 py-2 bg-yellow-500 text-white rounded-lg text-xs font-bold">30-Min Alert</button>
+                      <button type="button" onClick={async () => { setSaving(true); try { const res = await fetch('/api/team-portal/30min-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: editingBooking.id }) }); if (!res.ok) { const err = await res.json().catch(() => ({})); alert(`Alert failed: ${err.error || res.statusText}`) } else { setEditingBooking({ ...editingBooking, fifteen_min_alert_time: new Date().toISOString() }) } } catch { alert('Alert failed: network error') } setSaving(false) }} className="flex-1 py-2 bg-yellow-500 text-white rounded-lg text-xs font-bold">30-Min Alert</button>
                     )}
                     {!confirmCheckout ? (
                       <button type="button" onClick={() => setConfirmCheckout(true)} className="flex-1 py-2 bg-green-600 text-white rounded-lg text-xs font-medium">Check Out</button>

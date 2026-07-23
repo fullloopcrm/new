@@ -47,7 +47,7 @@ const notificationConfig: Record<string, { icon: string; iconBg: string; title: 
   error: { icon: '🚨', iconBg: 'bg-red-100', title: 'System Alert' },
   security: { icon: '🔒', iconBg: 'bg-gray-100', title: 'Security' },
   video_uploaded: { icon: '🎥', iconBg: 'bg-indigo-100', title: 'Video Uploaded' },
-  '15min_warning': { icon: '⏱️', iconBg: 'bg-yellow-100', title: '15-Min Heads Up' },
+  '30min_warning': { icon: '⏱️', iconBg: 'bg-yellow-100', title: '30-Min Heads Up' },
   'time_off_request': { icon: '🏖️', iconBg: 'bg-orange-100', title: 'Time Off Request' },
   'sales_follow_up': { icon: '📞', iconBg: 'bg-amber-100', title: 'Sales Follow-Up' }
 }

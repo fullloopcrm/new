@@ -1229,7 +1229,7 @@ function JobCard({ job, onUpdate, showDate }: { job: Booking; onUpdate: () => vo
                     }}
                     className="w-full py-3 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600"
                   >
-                    15-Min Heads Up / Aviso de 15 Min
+                    30-Min Heads Up / Aviso de 30 Min
                   </button>
                 )}
                 <button
