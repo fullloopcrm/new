@@ -118,6 +118,29 @@ export async function PUT(request: Request, { params }: Params) {
     if (error) throw error
 
     const inputLines = Array.isArray(body.line_items) ? (body.line_items as LineItemInput[]) : []
+
+    // service_type_id/category_id are plain uuid PKs with no per-tenant
+    // namespace and no cross-tenant FK constraint at the DB level -- verify
+    // every id a caller supplied actually belongs to this tenant before
+    // saving it onto a budget line (same class of gap as the job-expenses
+    // vendor_id/service_type_id/budget_line_item_id fix).
+    const serviceTypeIds = Array.from(new Set(inputLines.map((li) => li.service_type_id).filter((v): v is string => !!v)))
+    const categoryIds = Array.from(new Set(inputLines.map((li) => li.category_id).filter((v): v is string => !!v)))
+    if (serviceTypeIds.length > 0) {
+      const { data: owned } = await supabaseAdmin.from('service_types').select('id').eq('tenant_id', tenantId).in('id', serviceTypeIds)
+      const ownedIds = new Set((owned || []).map((r) => r.id))
+      if (serviceTypeIds.some((id) => !ownedIds.has(id))) {
+        return NextResponse.json({ error: 'One or more service_type_id values are invalid' }, { status: 400 })
+      }
+    }
+    if (categoryIds.length > 0) {
+      const { data: owned } = await supabaseAdmin.from('categories').select('id').eq('tenant_id', tenantId).in('id', categoryIds)
+      const ownedIds = new Set((owned || []).map((r) => r.id))
+      if (categoryIds.some((id) => !ownedIds.has(id))) {
+        return NextResponse.json({ error: 'One or more category_id values are invalid' }, { status: 400 })
+      }
+    }
+
     // Replace-all: simplest correct semantics for a full-form save. The
     // budget itself is the unit users edit as a whole, not per-line.
     await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', budget.id)
