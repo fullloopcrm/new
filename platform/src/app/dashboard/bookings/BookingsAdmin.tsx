@@ -307,18 +307,28 @@ function BookingsPage() {
   }, [])
   useEffect(() => { applyFilters() }, [bookings, filters, searchQuery])
 
+  // Searches the server instead of filtering the locally preloaded `clients`
+  // array — that array is capped at 200 by /api/clients (most recently
+  // created), so with a tenant's real client count in the thousands, a
+  // client-side filter here silently couldn't find anyone older than the
+  // 200 most recent, no matter what was typed.
   useEffect(() => {
-    if (clientSearch) {
-      const search = clientSearch.toLowerCase()
-      const filtered = clients
-        .filter(c => c.name.toLowerCase().includes(search) || c.phone.includes(search) || c.email?.toLowerCase().includes(search))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .slice(0, 8)
-      setFilteredClients(filtered)
-    } else {
+    if (!clientSearch) {
       setFilteredClients([])
+      return
     }
-  }, [clientSearch, clients])
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&limit=8`)
+        const json = await res.json()
+        if (!cancelled) setFilteredClients(Array.isArray(json.clients) ? json.clients : [])
+      } catch {
+        if (!cancelled) setFilteredClients([])
+      }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [clientSearch])
 
   // Auto-open create modal when linked from clients page with ?new=1&client_id=xxx
   useEffect(() => {
@@ -750,6 +760,10 @@ function BookingsPage() {
     setCreateForm({ ...createForm, client_id: client.id })
     setClientSearch(client.name + ' - ' + client.phone)
     setShowClientDropdown(false)
+    // Selected client may not be in the (capped) preloaded `clients` list —
+    // add it so downstream clients.find(...) lookups (e.g. the DO NOT
+    // SERVICE badge) work regardless of how the client was found.
+    setClients(prev => prev.some(c => c.id === client.id) ? prev : [...prev, client])
   }
 
   const handleClientSearchChange = (value: string) => {
