@@ -6,21 +6,48 @@
 
 const WINDOW_HOURS = 2
 
+// Pull the wall-clock hour/minute straight out of the naive ET string,
+// bypassing Date/Intl timezone conversion entirely. Reading it through
+// `new Date(startTime)` on a Vercel server (which runs in UTC) makes JS
+// treat these ET digits as UTC, and formatting with `timeZone:
+// 'America/New_York'` afterward then converts that (already wrong) UTC
+// instant back to ET, shifting the displayed time 4-5 hours earlier than
+// what was actually booked. See fl-confirm-email-investigate-2026-07-23.
+function extractWallClock(startTime: string | Date): { hour: number; minute: number } {
+  const iso = typeof startTime === 'string' ? startTime : startTime.toISOString()
+  const match = iso.match(/^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})/)
+  if (!match) throw new Error(`clientArrivalWindow: unrecognized start_time format: ${iso}`)
+  return { hour: Number(match[1]), minute: Number(match[2]) }
+}
+
+function formatMinutesOfDay(totalMinutes: number): string {
+  const h24 = Math.floor(totalMinutes / 60) % 24
+  const m = totalMinutes % 60
+  const period = h24 < 12 ? 'AM' : 'PM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+
 /**
  * Format a booking's exact start time as a 2-hour client arrival window.
  * Input is the stored start_time (naive ET wall-clock string or Date).
  * Output example: "1:00 PM–3:00 PM".
  */
 export function clientArrivalWindow(startTime: string | Date): string {
-  const start = new Date(startTime)
-  const end = new Date(start.getTime() + WINDOW_HOURS * 60 * 60 * 1000)
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString('en-US', {
-      timeZone: 'America/New_York',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  return `${fmt(start)}–${fmt(end)}`
+  const { hour, minute } = extractWallClock(startTime)
+  const startMinutes = hour * 60 + minute
+  const endMinutes = (startMinutes + WINDOW_HOURS * 60) % (24 * 60)
+  return `${formatMinutesOfDay(startMinutes)}–${formatMinutesOfDay(endMinutes)}`
+}
+
+/**
+ * Format a booking's exact start time as a wall-clock ET time (no window).
+ * Same naive-string handling as clientArrivalWindow — for cleaner-facing
+ * templates that show the exact time rather than a client arrival window.
+ */
+export function nycmaidWallClockTime(startTime: string | Date): string {
+  const { hour, minute } = extractWallClock(startTime)
+  return formatMinutesOfDay(hour * 60 + minute)
 }
 
 // Expectation-setting note that MUST accompany any client-facing arrival-window

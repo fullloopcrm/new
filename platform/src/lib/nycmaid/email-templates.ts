@@ -2,7 +2,7 @@
 // CLEAN EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
-import { clientArrivalWindow } from '../time-window'
+import { clientArrivalWindow, nycmaidWallClockTime } from '../time-window'
 import { escapeHtml, safeUrl } from '../escape-html'
 import { formatRecurringLabel } from '../recurring'
 import { applyDiscount } from '../discount'
@@ -505,7 +505,7 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
 export function cleanerAssignmentEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const startTime = nycmaidWallClockTime(booking.start_time)
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
   const hourlyRate = booking.hourly_rate || 69
