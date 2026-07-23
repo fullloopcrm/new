@@ -112,6 +112,8 @@ export default function TeamMemberDetailPage() {
   // Payouts (Stripe Connect) state
   const [stripeBusy, setStripeBusy] = useState(false)
   const [stripeMessage, setStripeMessage] = useState('')
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [inviteSent, setInviteSent] = useState(false)
 
   // Schedule & Availability state
   const [workingHours, setWorkingHours] = useState<WorkingHours>(DEFAULT_WORKING_HOURS)
@@ -185,6 +187,24 @@ export default function TeamMemberDetailPage() {
     } catch (e) {
       setStripeMessage(e instanceof Error ? e.message : 'Payout setup failed')
       setStripeBusy(false)
+    }
+  }
+
+  // Texts/emails the hosted onboarding link directly to this member — for an
+  // already-active member (not mid-approval-flow), same endpoint the "Send
+  // Connect invite" button on the applications list uses.
+  async function sendStripeInvite() {
+    setInviteBusy(true)
+    setStripeMessage('')
+    try {
+      const res = await fetch(`/api/team-members/${id}/stripe-invite`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Could not send invite')
+      setInviteSent(true)
+    } catch (e) {
+      setStripeMessage(e instanceof Error ? e.message : 'Could not send invite')
+    } finally {
+      setInviteBusy(false)
     }
   }
 
@@ -666,13 +686,24 @@ export default function TeamMemberDetailPage() {
                     ? 'Onboarding started but not finished yet.'
                     : `Not set up. Once connected, ${member.name.split(' ')[0]} is auto-paid after each job.`}
                 </p>
-                <button
-                  onClick={startStripe}
-                  disabled={stripeBusy}
-                  className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
-                >
-                  {stripeBusy ? 'Opening…' : 'Set up payouts'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={startStripe}
+                    disabled={stripeBusy}
+                    className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
+                    title="Opens Stripe's setup flow in this browser — use only if you're walking them through it in person"
+                  >
+                    {stripeBusy ? 'Opening…' : 'Set up payouts'}
+                  </button>
+                  <button
+                    onClick={sendStripeInvite}
+                    disabled={inviteBusy || inviteSent}
+                    className="border border-teal-600 text-teal-700 px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50"
+                    title={`Text/email ${member.name.split(' ')[0]} the setup link so they enter their own bank info`}
+                  >
+                    {inviteSent ? 'Invite sent ✓' : inviteBusy ? 'Sending…' : 'Send Connect invite'}
+                  </button>
+                </div>
                 {stripeMessage && <p className="text-xs text-red-400 mt-2">{stripeMessage}</p>}
               </div>
             )}
