@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { etToday, formatNaiveET } from '@/lib/recurring'
 
 /**
  * team-portal/jobs/claim — daily-cap TOCTOU race (flagged by W3).
@@ -38,10 +39,16 @@ const holder = vi.hoisted(() => ({
   rpcCalls: 0,
 }))
 
+// The real route computes its cap-check window as naive America/New_York
+// wall-clock text (etToday()/formatNaiveET(), matching how bookings.start_time
+// is actually stored) — NOT local-machine-timezone midnight. Seeding fixtures
+// with process-local midnight (the old `new Date().setHours(0,0,0,0)`) only
+// happens to line up when the test runner's TZ is America/New_York; on a
+// UTC-TZ CI runner it silently shifts the window and the cap check never
+// fires. Mirror the real route's helper instead so this is TZ-independent.
 function dayRange() {
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
-  return { dayStart, dayEnd }
+  const dayStart = `${formatNaiveET(etToday())}Z`
+  return { dayStart }
 }
 
 vi.mock('@/lib/supabase', () => ({
@@ -130,8 +137,8 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('two concurrent claims for different bookings cannot both exceed a cap of 1', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 1, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
 
     const [r1, r2] = await Promise.all([claimReq('bk-1'), claimReq('bk-2')])
     const [b1, b2] = await Promise.all([r1.json(), r2.json()])
@@ -152,9 +159,9 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('positive control: claim under cap succeeds and reports the honest cap message when exhausted next', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 2, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-3', { id: 'bk-3', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-3', { id: 'bk-3', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
 
     const r1 = await claimReq('bk-1')
     expect(r1.status).toBe(200)
@@ -169,7 +176,7 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('claiming an already-taken booking reports 409 without touching the cap count', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 5, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: 'someone-else', start_time: dayStart.toISOString(), status: 'confirmed', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: 'someone-else', start_time: dayStart, status: 'confirmed', pay_rate: null })
 
     const res = await claimReq('bk-1')
     expect(res.status).toBe(409)
