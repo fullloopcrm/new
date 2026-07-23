@@ -81,8 +81,35 @@ export async function PUT(request: Request, { params }: Params) {
     if (error || !template) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
 
     if (Array.isArray(body.line_items)) {
+      const lineItemsInput = body.line_items as LineItemInput[]
+
+      // service_type_id/category_id are plain uuid PKs with no per-tenant
+      // namespacing and no composite/cross-tenant FK constraint at the DB
+      // level -- a caller could tag a line item with another tenant's real
+      // id (same class as the job-expenses/quote-budgets/equipment-bookings
+      // fixes this session). This route's sibling, apply-to-quote, avoids
+      // the bug by re-deriving these ids server-side from an
+      // already-verified template; this direct-edit path takes them raw
+      // from the request body, so verify each belongs to this tenant before
+      // writing anything (batched, before the delete, so a rejected request
+      // never touches the existing line items either).
+      const serviceTypeIds = [...new Set(lineItemsInput.map(li => li.service_type_id).filter((v): v is string => !!v))]
+      const categoryIds = [...new Set(lineItemsInput.map(li => li.category_id).filter((v): v is string => !!v))]
+      if (serviceTypeIds.length) {
+        const { data: owned } = await tenantDb(tenantId).from('service_types').select('id').in('id', serviceTypeIds)
+        if ((owned || []).length !== serviceTypeIds.length) {
+          return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+        }
+      }
+      if (categoryIds.length) {
+        const { data: owned } = await tenantDb(tenantId).from('categories').select('id').in('id', categoryIds)
+        if ((owned || []).length !== categoryIds.length) {
+          return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+        }
+      }
+
       await tenantDb(tenantId).from('budget_template_line_items').delete().eq('budget_template_id', id)
-      const rows = (body.line_items as LineItemInput[]).map((li, idx) => ({
+      const rows = lineItemsInput.map((li, idx) => ({
         tenant_id: tenantId,
         budget_template_id: id,
         service_type_id: li.service_type_id || null,
