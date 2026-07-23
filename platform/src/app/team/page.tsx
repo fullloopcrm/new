@@ -395,6 +395,7 @@ export default function TeamHomePage() {
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
   const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
   const [sendingLate, setSendingLate] = useState<string | null>(null)
+  const [confirmHeadsUp, setConfirmHeadsUp] = useState<{ job: Job; message: string } | null>(null)
 
   // Trade-agnostic config: whether this tenant pays hourly, and the payout rails.
   const [cfg, setCfg] = useState<{ has_hourly: boolean; payment_label: string; funnel_mode: string } | null>(null)
@@ -563,7 +564,7 @@ export default function TeamHomePage() {
     }
   }
 
-  async function handleHeadsUp(job: Job) {
+  function handleHeadsUp(job: Job) {
     if (!auth) return
     const checkIn = parseTimestamp(job.check_in_time!) || new Date(job.check_in_time!)
     const now = new Date()
@@ -571,12 +572,21 @@ export default function TeamHomePage() {
     const rate = job.hourly_rate || payRate || 0
     const estimated = Math.round(hoursWorked * rate)
 
-    const msg = t(
+    // In-app confirm instead of window.confirm() — some team-portal webviews
+    // suppress or no-op the native confirm dialog, which silently dropped
+    // the whole action before the request ever fired (no network call, no
+    // server-side trace at all — confirmed 2026-07-23 via the notifications
+    // log once its own tenant_id bug was fixed and still showed nothing).
+    const message = t(
       `Send 30-minute heads up to ${job.clients?.name || 'client'}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`,
       `Enviar aviso de 30 minutos a ${job.clients?.name || 'cliente'}?\n\nTiempo trabajado: ${hoursWorked.toFixed(1)} hrs\nMonto estimado: $${estimated}`
     )
-    if (!confirm(msg)) return
+    setConfirmHeadsUp({ job, message })
+  }
 
+  async function sendHeadsUp(job: Job) {
+    if (!auth) return
+    setConfirmHeadsUp(null)
     setSendingHeadsUp(job.id)
     try {
       // Fires the real 30-min alert: admin heads-up SMS + client pay-now text
@@ -849,7 +859,31 @@ export default function TeamHomePage() {
         </div>
       )}
 
-      {/* ================ 5. MY JOBS MAP ================ */}
+      {/* ================ 5. TODAY'S JOBS ================ */}
+      <div>
+        <h2 className="font-bold text-slate-800 text-lg mb-1">
+          {t("Today's Jobs", 'Trabajos de Hoy')}{' '}
+          <span className="text-sm font-normal text-slate-400">({todayJobs.length})</span>
+        </h2>
+        <p className="text-sm text-slate-400 mb-3">
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+
+        {todayJobs.length === 0 ? (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
+            <p className="text-lg text-slate-400 mb-1">{t('No jobs today', 'Sin trabajos hoy')}</p>
+            <p className="text-sm text-slate-300">{t('Enjoy your day off!', '¡Disfruta tu día libre!')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todayJobs.map((job) => (
+              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ================ 6. MY JOBS MAP ================ */}
       <CollapsibleSection title={t('My Jobs Map', 'Mapa de Trabajos')}>
         <JobsMap jobs={allJobs} />
         <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
@@ -859,7 +893,7 @@ export default function TeamHomePage() {
         </div>
       </CollapsibleSection>
 
-      {/* ================ 6. MY AVAILABILITY (Inline) ================ */}
+      {/* ================ 7. MY AVAILABILITY (Inline) ================ */}
       <CollapsibleSection title={t('My Availability', 'Mi Disponibilidad')}>
         {/* Working Days */}
         <p className="text-xs text-slate-400 font-medium mb-2">{t('Working Days', 'Días de Trabajo')}</p>
@@ -921,7 +955,7 @@ export default function TeamHomePage() {
         </button>
       </CollapsibleSection>
 
-      {/* ================ 7. MY PHOTO ================ */}
+      {/* ================ 8. MY PHOTO ================ */}
       <CollapsibleSection title={t('My Photo', 'Mi Foto')}>
         <div className="flex items-center gap-4">
           {auth.member.avatar_url ? (
@@ -941,7 +975,7 @@ export default function TeamHomePage() {
         </div>
       </CollapsibleSection>
 
-      {/* ================ 8. NOTIFICATION PREFERENCES ================ */}
+      {/* ================ 9. NOTIFICATION PREFERENCES ================ */}
       <CollapsibleSection title={t('Notification Preferences', 'Preferencias de Notificaciones')}>
         {/* SMS Consent */}
         <div className="flex items-center justify-between mb-4">
@@ -1010,7 +1044,7 @@ export default function TeamHomePage() {
         </button>
       </CollapsibleSection>
 
-      {/* ================ 9. CALL / TEXT OFFICE ================ */}
+      {/* ================ 10. CALL / TEXT OFFICE ================ */}
       {tenantPhone && (
         <div className="grid grid-cols-2 gap-3">
           <a href={`tel:${tenantPhone}`} className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-slate-800 active:bg-gray-50">
@@ -1021,30 +1055,6 @@ export default function TeamHomePage() {
           </a>
         </div>
       )}
-
-      {/* ================ 10. TODAY'S JOBS ================ */}
-      <div>
-        <h2 className="font-bold text-slate-800 text-lg mb-1">
-          {t("Today's Jobs", 'Trabajos de Hoy')}{' '}
-          <span className="text-sm font-normal text-slate-400">({todayJobs.length})</span>
-        </h2>
-        <p className="text-sm text-slate-400 mb-3">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-
-        {todayJobs.length === 0 ? (
-          <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
-            <p className="text-lg text-slate-400 mb-1">{t('No jobs today', 'Sin trabajos hoy')}</p>
-            <p className="text-sm text-slate-300">{t('Enjoy your day off!', '¡Disfruta tu día libre!')}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {todayJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} />
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* ================ 11. UPCOMING JOBS ================ */}
       {upcomingJobs.length > 0 && (
@@ -1115,6 +1125,35 @@ export default function TeamHomePage() {
           <p className="text-slate-400 text-center py-8">{t('No guidelines set', 'Sin reglas establecidas')}</p>
         )}
       </SidePanel>
+
+      {/* 30-Min Heads Up confirm — in-app, not window.confirm() (see handleHeadsUp) */}
+      {confirmHeadsUp && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+          onClick={() => setConfirmHeadsUp(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-5 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm text-slate-700 whitespace-pre-line mb-5">{confirmHeadsUp.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmHeadsUp(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-slate-600"
+              >
+                {t('Cancel', 'Cancelar')}
+              </button>
+              <button
+                onClick={() => sendHeadsUp(confirmHeadsUp.job)}
+                className="flex-1 py-2.5 rounded-xl bg-yellow-500 text-white text-sm font-bold"
+              >
+                {t('Send', 'Enviar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
