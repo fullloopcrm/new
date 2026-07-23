@@ -52,6 +52,8 @@ const navMain: Array<{
   { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
   { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Catalog', href: '/dashboard/catalog' },
+    { letter: 'B', label: 'Sales Partners', href: '/dashboard/sales-partners' },
+    { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
@@ -65,12 +67,10 @@ const navMain: Array<{
   { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
-    { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
-    { letter: 'D', label: 'Sales Partners', href: '/dashboard/sales-partners' },
-    { letter: 'E', label: 'Social', href: '/dashboard/social' },
-    { letter: 'F', label: 'Google', href: '/dashboard/google' },
-    { letter: 'G', label: 'Websites', href: '/dashboard/websites' },
-    { letter: 'H', label: 'Analytics', href: '/dashboard/analytics' },
+    { letter: 'C', label: 'Social', href: '/dashboard/social' },
+    { letter: 'D', label: 'Google', href: '/dashboard/google' },
+    { letter: 'E', label: 'Websites', href: '/dashboard/websites' },
+    { letter: 'F', label: 'Analytics', href: '/dashboard/analytics' },
   ]},
 ]
 
@@ -78,13 +78,13 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories', '/dashboard/sales-partners', '/dashboard/referrals'],
   production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/find-cleaner'],
   clients: ['/dashboard/clients', '/dashboard/sms', '/dashboard/clients/feedback'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
-    '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals', '/dashboard/sales-partners',
+    '/dashboard/campaigns', '/dashboard/reviews',
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
     '/dashboard/analytics',
   ],
