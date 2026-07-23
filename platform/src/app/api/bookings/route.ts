@@ -25,7 +25,7 @@ function formatMin(min: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
     const db = tenantDb(tenantId)
     const url = request.nextUrl
     const status = url.searchParams.get('status')
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       row.duration_class = deriveDurationClass(row)
     }
 
-    return NextResponse.json({ bookings: data, total: count })
+    return NextResponse.json({ bookings: data, total: count, tenant_slug: tenant.slug })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

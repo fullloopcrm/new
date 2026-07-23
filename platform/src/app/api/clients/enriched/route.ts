@@ -119,7 +119,7 @@ function relativeLast(start: string, status: string | null, paymentStatus: strin
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
     const settings = await getSettings(tenantId)
     const db = tenantDb(tenantId)
 
@@ -341,7 +341,7 @@ export async function GET(_request: NextRequest) {
       recurring: enriched.filter((e) => e.recurring && e.recurring.status !== 'paused').length,
     }
 
-    return NextResponse.json({ clients: enriched, totals })
+    return NextResponse.json({ clients: enriched, totals, tenant_slug: tenant.slug })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

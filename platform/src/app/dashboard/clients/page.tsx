@@ -97,6 +97,7 @@ export default function ClientsPage() {
   const { tenant } = useTenantSettings()
   const agentName = tenant?.agent_name as string || 'Selena'
   const [clients, setClients] = useState<EnrichedClient[]>([])
+  const [tenantSlug, setTenantSlug] = useState('')
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('all')
@@ -119,6 +120,7 @@ export default function ClientsPage() {
         if (data && Array.isArray(data.clients)) {
           setClients(data.clients)
           setTotals(data.totals || null)
+          setTenantSlug(data.tenant_slug || '')
         }
       })
       .catch(() => {})
@@ -493,6 +495,7 @@ export default function ClientsPage() {
 
       <ClientDrawer
         client={drawerClient}
+        tenantSlug={tenantSlug}
         open={!!drawerId}
         onClose={() => setDrawerId(null)}
         onClientUpdated={loadClients}

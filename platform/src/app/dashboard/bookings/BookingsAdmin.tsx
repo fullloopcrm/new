@@ -188,6 +188,7 @@ function BookingsPage() {
   }
 
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [tenantSlug, setTenantSlug] = useState('')
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
@@ -465,6 +466,7 @@ function BookingsPage() {
         const json = await res.json()
         const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
         total = Array.isArray(json) ? list.length : (json.total ?? list.length)
+        if (!Array.isArray(json) && json.tenant_slug) setTenantSlug(json.tenant_slug)
         if (list.length === 0) break
         all.push(...list)
         if (list.length < 1000) break
@@ -2033,8 +2035,8 @@ function BookingsPage() {
         <SidePanel open={showModal} onClose={() => { setShowModal(false); setEditingBooking(null) }} title={editingBooking.clients?.name || 'Booking'} width="max-w-lg">
           <form onSubmit={handleSubmit}>
             {/* ── CLIENT HEADER ── */}
-            {editingBooking.job_seq != null && editingBooking.clients?.customer_number != null && (
-              <p className="text-xs font-mono text-gray-400 -mt-1 mb-2">Job #{formatJobNumber(editingBooking.clients.customer_number, editingBooking.job_seq)}</p>
+            {editingBooking.job_seq != null && editingBooking.clients?.customer_number != null && tenantSlug && (
+              <p className="text-xs font-mono text-gray-400 -mt-1 mb-2">Job #{formatJobNumber(tenantSlug, editingBooking.clients.customer_number, editingBooking.job_seq)}</p>
             )}
             {editingBooking.client_id && clients.find(c => c.id === editingBooking.client_id)?.do_not_service && (
               <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-3">

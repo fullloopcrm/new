@@ -59,6 +59,7 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [client, setClient] = useState<Client | null>(null)
+  const [tenantSlug, setTenantSlug] = useState('')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Partial<Client>>({})
@@ -74,6 +75,7 @@ export default function ClientDetailPage() {
       .then((data) => {
         setClient(data.client)
         setForm(data.client)
+        setTenantSlug(data.tenant_slug || '')
       })
     fetch(`/api/bookings?client_id=${id}`)
       .then((r) => r.json())
@@ -152,8 +154,8 @@ export default function ClientDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
-          {client.customer_number != null && (
-            <p className="text-xs font-mono text-slate-400">Customer #{formatCustomerNumber(client.customer_number)}</p>
+          {client.customer_number != null && tenantSlug && (
+            <p className="text-xs font-mono text-slate-400">Customer #{formatCustomerNumber(tenantSlug, client.customer_number)}</p>
           )}
           <p className="text-sm text-slate-400">
             {completedCount} jobs completed

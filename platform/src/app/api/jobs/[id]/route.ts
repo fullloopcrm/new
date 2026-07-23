@@ -77,6 +77,7 @@ export async function GET(_request: Request, { params }: Params) {
       payments: canViewFinance ? payments.data ?? [] : [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
+      tenant_slug: tenant.tenant.slug,
     })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

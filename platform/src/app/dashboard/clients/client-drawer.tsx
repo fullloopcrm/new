@@ -48,6 +48,7 @@ type EnrichedClient = {
 
 type Props = {
   client: EnrichedClient | null
+  tenantSlug: string
   open: boolean
   onClose: () => void
   onClientUpdated?: () => void
@@ -134,7 +135,7 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
-export default function ClientDrawer({ client, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
+export default function ClientDrawer({ client, tenantSlug, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
   const router = useRouter()
   const worker = useWorkerLabel()
   const [drawerTab, setDrawerTab] = useState<'overview' | 'activity' | 'service' | 'notes'>('overview')
@@ -398,8 +399,8 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
                   {client.name}
                   {client.stage === 'vip' && <span className="clients-drawer-name-vip">VIP</span>}
                 </div>
-                {client.customer_number != null && (
-                  <div className="clients-drawer-customer-number">Customer #{formatCustomerNumber(client.customer_number)}</div>
+                {client.customer_number != null && tenantSlug && (
+                  <div className="clients-drawer-customer-number">Customer #{formatCustomerNumber(tenantSlug, client.customer_number)}</div>
                 )}
                 <div className="clients-drawer-stage-row">
                   <span className={`clients-stage ${client.stage}`}>{stageLabel(client.stage)}</span>

@@ -610,6 +610,7 @@ export default function JobDetailPage() {
   const id = useParams<{ id: string }>().id
   const [job, setJob] = useState<Job | null>(null)
   const [client, setClient] = useState<Client | null>(null)
+  const [tenantSlug, setTenantSlug] = useState('')
   const [quote, setQuote] = useState<Quote | null>(null)
   const [deal, setDeal] = useState<Deal | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
@@ -638,6 +639,7 @@ export default function JobDetailPage() {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
       setJob(d.job || null); setClient(d.client || null); setQuote(d.quote || null); setDeal(d.deal || null)
       setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
+      setTenantSlug(d.tenant_slug || '')
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -807,8 +809,8 @@ export default function JobDetailPage() {
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
             {sessions.length > 0 && <span className="text-xs text-slate-400">{pct}% complete</span>}
           </div>
-          {job.job_seq != null && client?.customer_number != null && (
-            <p className="text-xs font-mono text-slate-400 mt-0.5">Job #{formatJobNumber(client.customer_number, job.job_seq)}</p>
+          {job.job_seq != null && client?.customer_number != null && tenantSlug && (
+            <p className="text-xs font-mono text-slate-400 mt-0.5">Job #{formatJobNumber(tenantSlug, client.customer_number, job.job_seq)}</p>
           )}
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
           {(job.starts_on || job.ends_on) && (
