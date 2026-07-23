@@ -6,6 +6,7 @@ import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requirePermission } from '@/lib/require-permission'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -73,7 +74,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
   }
 
-  return NextResponse.json({ error: 'Provide code or email' }, { status: 400 })
+  // Admin-session path -- no code/email means an authenticated dashboard
+  // caller listing every referrer for its own tenant (mirrors
+  // GET /api/sales-partners' no-code branch). Financial fields are fine
+  // here: requirePermission gates this to an actual tenant admin session,
+  // not the public lookup branches above.
+  const { tenant, error: authError } = await requirePermission('referrals.view')
+  if (authError) return authError
+
+  const { data, error } = await supabaseAdmin
+    .from('referrers')
+    .select('id, name, email, phone, referral_code, commission_rate, preferred_payout, total_earned, total_paid, status, stripe_connect_account_id, stripe_ready_at, stripe_ineligible_at, recruited_by_sales_partner_id, created_at')
+    .eq('tenant_id', tenant.tenantId)
+    .order('created_at', { ascending: false })
+  if (error) return NextResponse.json({ error: 'Failed to fetch referrers' }, { status: 500 })
+  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {

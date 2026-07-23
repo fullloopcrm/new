@@ -36,7 +36,36 @@ type Commission = {
   sales_partners?: { name: string; referral_code: string } | null
 }
 
-type Tab = 'partners' | 'payouts'
+type Referrer = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  referral_code: string
+  commission_rate: number
+  preferred_payout: string | null
+  total_earned: number
+  total_paid: number
+  status: string
+  stripe_connect_account_id: string | null
+  stripe_ready_at: string | null
+  stripe_ineligible_at: string | null
+  recruited_by_sales_partner_id: string | null
+  created_at: string
+}
+
+type ReferralCommission = {
+  id: string
+  referrer_id: string
+  commission_cents: number
+  status: 'pending' | 'paid' | 'void'
+  paid_via: string | null
+  created_at: string
+  referrers?: { name: string; email: string; referral_code: string } | null
+  bookings?: { start_time: string; price: number } | null
+}
+
+type Tab = 'partners' | 'payouts' | 'referrers' | 'referrer-payouts'
 
 const TIER_LABEL: Record<string, string> = { standard: 'Standard (10%)', tier2: 'Tier 2 (12%)', tier3: 'Tier 3 (15%)' }
 
@@ -56,19 +85,69 @@ export default function SalesPartnersPage() {
   const [payoutError, setPayoutError] = useState('')
   const [inviteResult, setInviteResult] = useState<Record<string, { ok: boolean; message: string } | null>>({})
 
+  const [referrers, setReferrers] = useState<Referrer[]>([])
+  const [referralCommissions, setReferralCommissions] = useState<ReferralCommission[]>([])
+  const [referrerSearch, setReferrerSearch] = useState('')
+  const [referrerBusyId, setReferrerBusyId] = useState('')
+  const [referrerCopied, setReferrerCopied] = useState('')
+  const [referrerPayoutError, setReferrerPayoutError] = useState('')
+
   useEffect(() => {
     load()
   }, [])
 
   async function load() {
     setLoading(true)
-    const [pRes, cRes] = await Promise.all([
+    const [pRes, cRes, rRes, rcRes] = await Promise.all([
       fetch('/api/sales-partners'),
       fetch('/api/sales-partner-commissions'),
+      fetch('/api/referrers'),
+      fetch('/api/referral-commissions'),
     ])
     if (pRes.ok) setPartners(await pRes.json())
     if (cRes.ok) setCommissions(await cRes.json())
+    if (rRes.ok) setReferrers(await rRes.json())
+    if (rcRes.ok) setReferralCommissions(await rcRes.json())
     setLoading(false)
+  }
+
+  async function markReferralPaid(c: ReferralCommission) {
+    setReferrerBusyId(c.id)
+    setReferrerPayoutError('')
+    const res = await fetch('/api/referral-commissions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: c.id, status: 'paid' }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setReferralCommissions((prev) => prev.map((x) => (x.id === c.id ? { ...x, status: 'paid' } : x)))
+      setReferrers((prev) => prev.map((r) => (r.id === c.referrer_id ? { ...r, total_paid: r.total_paid + c.commission_cents } : r)))
+    } else {
+      setReferrerPayoutError(data.error || 'Payout failed')
+    }
+    setReferrerBusyId('')
+  }
+
+  async function toggleReferrerStripeIneligible(r: Referrer) {
+    setReferrerBusyId(r.id)
+    const res = await fetch(`/api/referrers/connect/${r.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stripe_ineligible: !r.stripe_ineligible_at }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setReferrers((prev) => prev.map((x) => (x.id === r.id ? { ...x, stripe_ineligible_at: data.referrer.stripe_ineligible_at } : x)))
+    }
+    setReferrerBusyId('')
+  }
+
+  function copyReferrerLink(code: string) {
+    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/book/new?ref=${code}`
+    navigator.clipboard.writeText(link)
+    setReferrerCopied(code)
+    setTimeout(() => setReferrerCopied(''), 2000)
   }
 
   async function toggleActive(p: SalesPartner) {
@@ -187,14 +266,20 @@ export default function SalesPartnersPage() {
     ? partners.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.referral_code.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase()))
     : partners
 
+  const pendingReferralCommissions = referralCommissions.filter((c) => c.status === 'pending')
+  const paidReferralCommissions = referralCommissions.filter((c) => c.status === 'paid')
+  const referrerSearchFiltered = referrerSearch
+    ? referrers.filter((r) => r.name.toLowerCase().includes(referrerSearch.toLowerCase()) || r.referral_code.toLowerCase().includes(referrerSearch.toLowerCase()) || (r.email || '').toLowerCase().includes(referrerSearch.toLowerCase()))
+    : referrers
+
   if (loading) return <div className="p-8 text-slate-400 text-sm">Loading…</div>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Sales Partners</h2>
-          <p className="text-sm text-slate-400">{partners.length} total &middot; {activeCount} active</p>
+          <h2 className="text-2xl font-bold text-slate-900">Sales Partners &amp; Referrers</h2>
+          <p className="text-sm text-slate-400">{partners.length} partners ({activeCount} active) &middot; {referrers.length} referrers</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -282,6 +367,8 @@ export default function SalesPartnersPage() {
         {([
           { value: 'partners', label: 'Partners' },
           { value: 'payouts', label: 'Payout Queue', count: pendingCommissions.length },
+          { value: 'referrers', label: 'Referrers' },
+          { value: 'referrer-payouts', label: 'Referrer Payouts', count: pendingReferralCommissions.length },
         ] as const).map((tab) => (
           <button
             key={tab.value}
@@ -476,6 +563,154 @@ export default function SalesPartnersPage() {
                     <div>
                       <p className="text-sm text-slate-400">{c.sales_partners?.name || 'Unknown partner'}</p>
                       <p className="text-xs text-slate-400">{c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {c.client_name || '—'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-400">{fmt(c.commission_cents)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">Paid</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'referrers' && (
+        <div>
+          <input
+            placeholder="Search by name, email, or code..."
+            value={referrerSearch}
+            onChange={(e) => setReferrerSearch(e.target.value)}
+            className="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 placeholder-gray-500"
+          />
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-400">
+                  <th className="px-4 py-3 font-medium">Referrer</th>
+                  <th className="px-4 py-3 font-medium">Code</th>
+                  <th className="px-4 py-3 font-medium">Rate</th>
+                  <th className="px-4 py-3 font-medium">Earned</th>
+                  <th className="px-4 py-3 font-medium">Pending</th>
+                  <th className="px-4 py-3 font-medium">Recruited by</th>
+                  <th className="px-4 py-3 font-medium">Stripe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {referrerSearchFiltered.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-200/50 hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-900">{r.name}</p>
+                      <p className="text-xs text-slate-400">{r.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-medium text-slate-900">{r.referral_code}</span>
+                        <button
+                          onClick={() => copyReferrerLink(r.referral_code)}
+                          className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${referrerCopied === r.referral_code ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-400 hover:text-slate-400'}`}
+                        >
+                          {referrerCopied === r.referral_code ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">{Math.round(r.commission_rate * 100)}%</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{fmt(r.total_earned)}</td>
+                    <td className="px-4 py-3 text-slate-400">{fmt(r.total_earned - r.total_paid)}</td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {r.recruited_by_sales_partner_id ? (partners.find((p) => p.id === r.recruited_by_sales_partner_id)?.name || 'Sales partner') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {r.stripe_ready_at ? (
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">Instant pay ready</span>
+                      ) : r.stripe_ineligible_at ? (
+                        <div>
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">Stripe-ineligible (manual)</span>
+                          <button
+                            disabled={referrerBusyId === r.id}
+                            onClick={() => toggleReferrerStripeIneligible(r)}
+                            className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                          >
+                            Unmark
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">Not connected</span>
+                          <button
+                            disabled={referrerBusyId === r.id}
+                            onClick={() => toggleReferrerStripeIneligible(r)}
+                            className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                          >
+                            Mark Stripe-ineligible
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {referrerSearchFiltered.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">{referrerSearch ? 'No matching referrers' : 'No referrers yet — they sign up through the public referral program page'}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'referrer-payouts' && (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900 text-sm">Pending Referrer Payouts</h3>
+            <span className="text-xs text-slate-400">{fmt(pendingReferralCommissions.reduce((s, c) => s + c.commission_cents, 0))} pending</span>
+          </div>
+          {referrerPayoutError && <div className="px-5 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100">{referrerPayoutError}</div>}
+          {pendingReferralCommissions.length === 0 ? (
+            <div className="px-5 py-8 text-center text-slate-400 text-sm">No pending payouts</div>
+          ) : (
+            <div className="divide-y divide-slate-700/50">
+              {pendingReferralCommissions.map((c) => {
+                const referrer = referrers.find((r) => r.id === c.referrer_id)
+                const stripeReady = !!referrer?.stripe_ready_at
+                const manualAllowed = !!referrer?.stripe_ineligible_at
+                return (
+                  <div key={c.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{c.referrers?.name || 'Unknown referrer'}</p>
+                      <p className="text-xs text-slate-400">{new Date(c.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-900">{fmt(c.commission_cents)}</span>
+                      {stripeReady || manualAllowed ? (
+                        <button
+                          disabled={referrerBusyId === c.id}
+                          onClick={() => markReferralPaid(c)}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 ${stripeReady ? 'bg-teal-50 text-teal-700 hover:bg-teal-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-500/30'}`}
+                        >
+                          {stripeReady ? 'Pay via Stripe' : 'Pay Out'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400" title="They connect Stripe from their own portal, or mark them Stripe-ineligible on the Referrers tab">
+                          Needs Stripe or ineligible flag
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {paidReferralCommissions.length > 0 && (
+            <>
+              <div className="px-5 py-3 border-t border-slate-200 bg-slate-50">
+                <h4 className="text-xs font-semibold text-slate-400 uppercase">Recently Paid</h4>
+              </div>
+              <div className="divide-y divide-slate-700/50">
+                {paidReferralCommissions.slice(0, 10).map((c) => (
+                  <div key={c.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm text-slate-400">{c.referrers?.name || 'Unknown referrer'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-400">{fmt(c.commission_cents)}</span>

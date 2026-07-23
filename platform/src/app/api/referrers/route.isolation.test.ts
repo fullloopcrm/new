@@ -23,6 +23,15 @@ vi.mock('@/lib/tenant-site', () => ({
 }))
 vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
 
+let adminTenantId: string | null = null
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: async () => {
+    if (!adminTenantId) throw new (class AuthError extends Error { status = 401 })('Unauthorized')
+    return { tenantId: adminTenantId, role: 'owner' }
+  },
+  AuthError: class AuthError extends Error { status = 401 },
+}))
+
 import { supabaseAdmin } from '@/lib/supabase'
 import { GET, POST } from './route'
 
@@ -33,6 +42,7 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 beforeEach(() => {
   fake._store.clear()
   currentTenant = { id: A_ID }
+  adminTenantId = null
   fake._seed('referrers', [
     { id: 'ref-a', tenant_id: A_ID, name: 'Alice', email: 'shared@example.com', referral_code: 'SHARED1', total_earned: 0, total_paid: 0, preferred_payout: 'zelle', created_at: '2026-07-01' },
     { id: 'ref-b', tenant_id: B_ID, name: 'Bob', email: 'shared@example.com', referral_code: 'SHARED1', total_earned: 0, total_paid: 0, preferred_payout: 'zelle', created_at: '2026-07-02' },
@@ -61,6 +71,29 @@ describe('referrers GET — tenantDb isolation', () => {
     const res = await GET(getReq('code=SHARED1'))
     const body = await res.json()
     expect(body.id).toBe('ref-b')
+  })
+})
+
+describe('referrers GET (admin list) — auth + tenant isolation', () => {
+  it('an unauthenticated caller with no code/email and no admin session is rejected, not given the full list', async () => {
+    const res = await GET(getReq(''))
+    expect(res.status).toBe(401)
+  })
+
+  it("an admin session lists ONLY its own tenant's referrers, with financial fields included", async () => {
+    adminTenantId = A_ID
+    const res = await GET(getReq(''))
+    expect(res.status).toBe(200)
+    const body = await res.json() as Array<{ id: string; total_earned: number }>
+    expect(body.map((r) => r.id)).toEqual(['ref-a'])
+    expect(body[0]).toHaveProperty('total_earned')
+  })
+
+  it("tenant B's admin session never sees tenant A's referrers (symmetric proof)", async () => {
+    adminTenantId = B_ID
+    const res = await GET(getReq(''))
+    const body = await res.json() as Array<{ id: string }>
+    expect(body.map((r) => r.id)).toEqual(['ref-b'])
   })
 })
 
