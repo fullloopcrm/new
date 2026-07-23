@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: {
+    // Vercel deploy speed: a real build (2026-07-23, deployment ikzlmwpuf)
+    // measured "Running TypeScript ..." alone taking 1m55s out of a ~3min
+    // total build -- by far the single largest phase, ahead of compiling
+    // (19s) and generating all 2632 static pages (5s). Safe to skip here
+    // because .github/workflows/ci.yml already runs `tsc --noEmit` as a
+    // blocking, separate step on every push and PR to main -- this repo's
+    // real type-safety gate is CI, not the Vercel build, so disabling the
+    // redundant in-build check doesn't let a type error reach prod
+    // unreviewed, it just stops paying for the same check twice.
+    ignoreBuildErrors: true,
+  },
   images: {
     // Remote hosts used as next/image sources across tenant sites. Required now
     // that programmatic pages render on-demand (build-time prerender previously
