@@ -76,7 +76,7 @@ export async function geocodeClient(clientId: string, address: string): Promise<
 export async function geocodeCleaner(cleanerId: string, address: string): Promise<{ lat: number; lng: number } | null> {
   const coords = await geocodeAddress(address)
   if (coords) {
-    await supabaseAdmin.from('cleaners').update({ home_latitude: coords.lat, home_longitude: coords.lng }).eq('id', cleanerId)
+    await supabaseAdmin.from('team_members').update({ home_latitude: coords.lat, home_longitude: coords.lng }).eq('id', cleanerId)
   }
   return coords
 }

@@ -124,7 +124,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
             try {
               if (options?.recipientType && options?.recipientId) {
                 await supabaseAdmin
-                  .from(options.recipientType === 'client' ? 'clients' : 'cleaners')
+                  .from(options.recipientType === 'client' ? 'clients' : 'team_members')
                   .update({ sms_consent: false })
                   .eq('id', options.recipientId)
               } else {
@@ -141,7 +141,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
                 if (ownerTenant?.id) {
                   const last10 = cleanPhone.replace(/\D/g, '').slice(-10)
                   await supabaseAdmin.from('clients').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
-                  await supabaseAdmin.from('cleaners').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
+                  await supabaseAdmin.from('team_members').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
                 }
               }
             } catch (e) {

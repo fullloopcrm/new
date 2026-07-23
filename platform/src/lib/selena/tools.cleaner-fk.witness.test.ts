@@ -22,18 +22,17 @@ type Row = Record<string, unknown>
 
 function makeTables() {
   return {
-    cleaners: [
-      { id: 'cleaner_a', tenant_id: TENANT_A, name: 'Alice A' },
-      { id: 'cleaner_b', tenant_id: TENANT_B, name: 'Bob B' },
+    team_members: [
+      { id: 'cleaner_a', tenant_id: TENANT_A, name: 'Alice A', unavailable_dates: [] as string[] },
+      { id: 'cleaner_b', tenant_id: TENANT_B, name: 'Bob B', unavailable_dates: [] as string[] },
     ] as Row[],
     clients: [
       { id: 'client_a', tenant_id: TENANT_A, name: 'Client A' },
       { id: 'client_b', tenant_id: TENANT_B, name: 'Client B' },
     ] as Row[],
     bookings: [
-      { id: 'booking_a', tenant_id: TENANT_A, cleaner_id: null, client_id: 'client_a', status: 'pending' },
+      { id: 'booking_a', tenant_id: TENANT_A, team_member_id: null, client_id: 'client_a', status: 'pending' },
     ] as Row[],
-    cleaner_blocks: [] as Row[],
     deals: [] as Row[],
   }
 }
@@ -117,14 +116,14 @@ beforeEach(() => {
 })
 
 describe('assign_cleaner_to_booking — foreign cleaner_id rejected before write', () => {
-  it('LOCK: cleaner_b (tenant B) is rejected, booking.cleaner_id stays null', async () => {
+  it('LOCK: cleaner_b (tenant B) is rejected, booking.team_member_id stays null', async () => {
     const out = await runTool(
       'assign_cleaner_to_booking',
       { booking_id: 'booking_a', cleaner_id: 'cleaner_b' },
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect(tables.bookings[0].cleaner_id).toBeNull()
+    expect(tables.bookings[0].team_member_id).toBeNull()
   })
 
   it('CONTROL: cleaner_a (own tenant) succeeds and is stamped', async () => {
@@ -134,7 +133,7 @@ describe('assign_cleaner_to_booking — foreign cleaner_id rejected before write
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).ok).toBe(true)
-    expect(tables.bookings[0].cleaner_id).toBe('cleaner_a')
+    expect(tables.bookings[0].team_member_id).toBe('cleaner_a')
     expect(tables.bookings[0].status).toBe('scheduled')
   })
 })
@@ -173,43 +172,43 @@ describe('create_manual_booking — foreign client_id / cleaner_id rejected befo
     expect(tables.bookings.length).toBe(2)
     const created = tables.bookings.find((b) => b.id === parsed.booking_id)
     expect(created?.client_id).toBe('client_a')
-    expect(created?.suggested_cleaner_id).toBe('cleaner_a')
+    expect(created?.suggested_team_member_id).toBe('cleaner_a')
   })
 })
 
-describe('block_cleaner_dates — foreign cleaner_id rejected before insert', () => {
-  it('LOCK: cleaner_b (tenant B) is rejected, no cleaner_blocks row created', async () => {
+describe('block_cleaner_dates — foreign cleaner_id rejected before write', () => {
+  it('LOCK: cleaner_b (tenant B) is rejected, no unavailable_dates written', async () => {
     const out = await runTool(
       'block_cleaner_dates',
       { cleaner_id: 'cleaner_b', from_date: '2026-08-01', to_date: '2026-08-05' },
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect(tables.cleaner_blocks.length).toBe(0)
+    expect(tables.team_members.find((m) => m.id === 'cleaner_b')?.unavailable_dates).toEqual([])
   })
 
-  it('CONTROL: cleaner_a (own tenant) succeeds', async () => {
+  it('CONTROL: cleaner_a (own tenant) succeeds — unavailable_dates gets the range', async () => {
     const out = await runTool(
       'block_cleaner_dates',
-      { cleaner_id: 'cleaner_a', from_date: '2026-08-01', to_date: '2026-08-05' },
+      { cleaner_id: 'cleaner_a', from_date: '2026-08-01', to_date: '2026-08-03' },
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).ok).toBe(true)
-    expect(tables.cleaner_blocks.length).toBe(1)
-    expect(tables.cleaner_blocks[0].cleaner_id).toBe('cleaner_a')
-    expect(tables.cleaner_blocks[0].tenant_id).toBe(TENANT_A)
+    expect(tables.team_members.find((m) => m.id === 'cleaner_a')?.unavailable_dates).toEqual([
+      '2026-08-01', '2026-08-02', '2026-08-03',
+    ])
   })
 })
 
 describe('update_booking — foreign cleaner_id in fields rejected before write', () => {
-  it('LOCK: cleaner_b (tenant B) via fields.cleaner_id is rejected, booking.cleaner_id stays null', async () => {
+  it('LOCK: cleaner_b (tenant B) via fields.cleaner_id is rejected, booking.team_member_id stays null', async () => {
     const out = await runTool(
       'update_booking',
       { booking_id: 'booking_a', fields: { cleaner_id: 'cleaner_b' } },
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect(tables.bookings[0].cleaner_id).toBeNull()
+    expect(tables.bookings[0].team_member_id).toBeNull()
   })
 
   it('CONTROL: cleaner_a (own tenant) via fields.cleaner_id succeeds', async () => {
@@ -219,7 +218,7 @@ describe('update_booking — foreign cleaner_id in fields rejected before write'
       'conv_1', 'owner_phone', stubResult(), TENANT_A
     )
     expect(JSON.parse(out).ok).toBe(true)
-    expect(tables.bookings[0].cleaner_id).toBe('cleaner_a')
+    expect(tables.bookings[0].team_member_id).toBe('cleaner_a')
   })
 
   it('CONTROL: a field-only update with no cleaner_id still applies', async () => {
@@ -230,7 +229,7 @@ describe('update_booking — foreign cleaner_id in fields rejected before write'
     )
     expect(JSON.parse(out).ok).toBe(true)
     expect(tables.bookings[0].status).toBe('confirmed')
-    expect(tables.bookings[0].cleaner_id).toBeNull()
+    expect(tables.bookings[0].team_member_id).toBeNull()
   })
 })
 

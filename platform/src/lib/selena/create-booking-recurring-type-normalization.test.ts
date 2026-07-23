@@ -22,7 +22,7 @@ vi.mock('@/lib/supabase', async () => {
 })
 vi.mock('@anthropic-ai/sdk', () => ({ default: class {} }))
 vi.mock('@/lib/anthropic-client', () => ({ resolveAnthropic: vi.fn() }))
-vi.mock('@/lib/nycmaid/smart-schedule', () => ({ scoreCleanersForBooking: vi.fn().mockResolvedValue([]) }))
+vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: vi.fn().mockResolvedValue([]) }))
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: async () => {} }))
 vi.mock('@/lib/nycmaid/sms', () => ({ sendSMS: async () => {} }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ smsAdmins: async () => {} }))

@@ -31,7 +31,7 @@ vi.mock('@/lib/nycmaid/sms', () => ({ sendSMS: vi.fn().mockResolvedValue({ succe
 vi.mock('@/lib/nycmaid/email', () => ({ sendEmail: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/nycmaid/email-templates', () => ({ emailWrapper: (c: string) => c }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ smsAdmins: vi.fn().mockResolvedValue(undefined) }))
-vi.mock('@/lib/nycmaid/smart-schedule', () => ({ scoreCleanersForBooking: vi.fn() }))
+vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: vi.fn() }))
 vi.mock('@/lib/anthropic-client', () => ({ resolveAnthropic: vi.fn() }))
 
 import { supabaseAdmin } from '@/lib/supabase'

@@ -9,9 +9,9 @@ import { createPhoneFixupToken } from '@/lib/nycmaid/phone-fixup-token'
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
 //
-// Multi-tenant: iterates active tenants. Tenants without `cleaners` table
-// data (i.e. all fullloop tenants on `team_members` model) get empty queries
-// and are no-ops here. CAP enforced per tenant.
+// Multi-tenant: iterates active tenants against team_members (the canonical
+// FullLoop table — nycmaid included, it's tenant-scoped there too, not a
+// separate `cleaners` table). CAP enforced per tenant.
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 const TOKEN_EXPIRY_MS = SEVEN_DAYS_MS
@@ -48,10 +48,10 @@ export async function GET(request: Request) {
       'https://www.thenycmaid.com'
 
     const { data: cleaners } = await supabaseAdmin
-      .from('cleaners')
+      .from('team_members')
       .select('id, name, email, phone')
       .eq('tenant_id', tenantId)
-      .eq('active', true)
+      .eq('status', 'active')
 
     if (!cleaners || cleaners.length === 0) continue
 

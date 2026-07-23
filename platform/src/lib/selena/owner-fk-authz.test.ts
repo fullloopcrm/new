@@ -79,8 +79,8 @@ vi.mock('@/lib/nycmaid/notify', () => ({ notify: async () => {} }))
 // stub it so the ALLOW path never touches the real smart-schedule / DB, and so a
 // REJECT can be asserted to have skipped it entirely.
 const scoreMock = vi.hoisted(() => ({ calls: 0 }))
-vi.mock('@/lib/nycmaid/smart-schedule', () => ({
-  scoreCleanersForBooking: async () => {
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => {
     scoreMock.calls++
     return []
   },
@@ -111,9 +111,9 @@ function baseResolver(table: string, eqs: Eqs): Resolved {
       ? { data: { id: OWN_CLIENT }, error: null }
       : { data: null, error: null }
   }
-  if (table === 'cleaners') {
+  if (table === 'team_members') {
     return eqs.id === OWN_CLEANER && eqs.tenant_id === TENANT_A
-      ? { data: { id: OWN_CLEANER }, error: null }
+      ? { data: { id: OWN_CLEANER, unavailable_dates: [] }, error: null }
       : { data: null, error: null }
   }
   if (table === 'bookings') {
@@ -191,17 +191,18 @@ describe('create_deal — FK tenant-ownership', () => {
 describe('block_cleaner_dates — FK tenant-ownership', () => {
   const base = { from_date: '2099-03-01', to_date: '2099-03-05' }
 
-  it("REJECTS a cleaner_id from another tenant (no block inserted)", async () => {
+  it("REJECTS a cleaner_id from another tenant (no block written)", async () => {
     const out = await runTool('block_cleaner_dates', { ...base, cleaner_id: FOREIGN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect(insertCalls).toHaveLength(0)
+    expect(updateCalls).toHaveLength(0)
   })
 
-  it('ALLOWS an own-tenant cleaner (block inserted, tenant-scoped)', async () => {
+  it('ALLOWS an own-tenant cleaner (unavailable_dates updated, tenant-scoped)', async () => {
     const out = await runTool('block_cleaner_dates', { ...base, cleaner_id: OWN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).ok).toBe(true)
-    expect(insertCalls).toHaveLength(1)
-    expect((insertCalls[0].values as Record<string, unknown>).tenant_id).toBe(TENANT_A)
+    expect(updateCalls).toHaveLength(1)
+    expect(updateCalls[0].table).toBe('team_members')
+    expect(updateCalls[0].eqs.tenant_id).toBe(TENANT_A)
   })
 })
 
@@ -230,7 +231,7 @@ describe('assign_cleaner_to_booking — FK tenant-ownership', () => {
     // wouldn't catch it (the mock resolves every update as ok regardless).
     expect(updateCalls[0].eqs.id).toBe('bk-1')
     expect(updateCalls[0].eqs.tenant_id).toBe(TENANT_A)
-    expect(updateCalls[0].values.cleaner_id).toBe(OWN_CLEANER)
+    expect(updateCalls[0].values.team_member_id).toBe(OWN_CLEANER)
   })
 })
 
