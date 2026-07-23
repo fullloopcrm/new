@@ -27,6 +27,23 @@ import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 // the raw key except 'monthly_day', which _RecurringOptions.tsx uses for its
 // own dropdown value but which the shared RecurringType (lib/recurring.ts)
 // spells 'monthly_weekday'.
+// Multi-person bookings: prefer the full booking_team_members roster (lead +
+// extras) over the single team_member_id FK, which only ever reflects the lead.
+function assignedTeamNames(b: Booking): string[] {
+  if (b.booking_team_members && b.booking_team_members.length > 0) {
+    return b.booking_team_members
+      .slice()
+      .sort((a, c) => (a.is_lead === c.is_lead ? a.position - c.position : a.is_lead ? -1 : 1))
+      .map(m => m.team_members?.name)
+      .filter((n): n is string => Boolean(n))
+  }
+  return b.team_members?.name ? [b.team_members.name] : []
+}
+function assignedTeamLabel(b: Booking): string {
+  const names = assignedTeamNames(b)
+  return names.length > 0 ? names.join(', ') : ''
+}
+
 function rawRecurringType(repeatType: string): string {
   return repeatType === 'monthly_day' ? 'monthly_weekday' : repeatType
 }
@@ -65,6 +82,7 @@ interface Booking {
   job_seq: number | null
   clients: { id: string; name: string; phone: string; address: string; customer_number: number | null } | null
   team_members: { id: string; name: string } | null
+  booking_team_members: { is_lead: boolean; position: number; team_members: { name: string } | null }[] | null
   team_member_paid: boolean | null
   team_member_paid_at: string | null
   pay_rate: number | null
@@ -618,7 +636,7 @@ function BookingsPage() {
     if (filters.client_id) result = result.filter(b => b.client_id === filters.client_id)
     if (filters.date_from) result = result.filter(b => new Date(b.start_time) >= new Date(filters.date_from))
     if (filters.date_to) result = result.filter(b => new Date(b.start_time) <= new Date(filters.date_to + 'T23:59:59'))
-    if (searchQuery) { const q = searchQuery.toLowerCase(); result = result.filter(b => (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || (b.team_members?.name || '').toLowerCase().includes(q)) }
+    if (searchQuery) { const q = searchQuery.toLowerCase(); result = result.filter(b => (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || assignedTeamLabel(b).toLowerCase().includes(q)) }
     setFilteredBookings(result)
   }
 
@@ -1383,7 +1401,7 @@ function BookingsPage() {
               }
               const rows = filteredBookings.map(b => [
                 new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                b.clients?.name || '', b.team_members?.name || '', b.service_type || '', b.status,
+                b.clients?.name || '', assignedTeamLabel(b) || '', b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
               ].map(escCsv).join(','))
               const csv = 'Date,Time,Client,Cleaner,Service,Status,Rate,Price,Payment\n' + rows.join('\n')
@@ -1654,7 +1672,7 @@ function BookingsPage() {
                               <span className={'inline-block transition-transform ' + (isExpanded ? 'rotate-90' : '')}>▸</span>
                               {b.clients?.name || '-'}
                             </p>
-                            <p className="text-gray-500 text-xs mt-0.5 ml-4">{formatDate(b.start_time)} · {b.team_members?.name || 'Unassigned'}</p>
+                            <p className="text-gray-500 text-xs mt-0.5 ml-4">{formatDate(b.start_time)} · {assignedTeamLabel(b) || 'Unassigned'}</p>
                             <p className="text-gray-400 text-xs mt-0.5 ml-4">{b.service_type}</p>
                           </button>
                           <div className="text-right">
@@ -1773,7 +1791,7 @@ function BookingsPage() {
                                 <span className={'inline-block transition-transform ' + (isExpanded ? 'rotate-90' : '')}>▸</span>
                                 {b.clients?.name || '-'}
                               </p>
-                              <p className="text-xs text-gray-400 ml-4">{formatDate(b.start_time)} · {b.team_members?.name || '-'}</p>
+                              <p className="text-xs text-gray-400 ml-4">{formatDate(b.start_time)} · {assignedTeamLabel(b) || '-'}</p>
                             </div>
                           </div>
                           <div className="text-right flex items-center gap-3">
@@ -1850,7 +1868,7 @@ function BookingsPage() {
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--sched-ink)]')}>{formatDate(b.start_time)}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.team_members?.name || <span className="text-gray-300">--</span>}</span>
+                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{assignedTeamLabel(b) || <span className="text-gray-300">--</span>}</span>
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell">
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-500')}>${(() => { const hours = Math.max(1, Math.round((new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60))); return b.hourly_rate ? b.hourly_rate : b.price ? Math.round(b.price / 100 / hours) : 69 })()}/hr</span>
@@ -2011,7 +2029,7 @@ function BookingsPage() {
                   <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>{b.service_type}</span>
-                      {b.team_members?.name && <span className="text-gray-400">/ {b.team_members.name}</span>}
+                      {assignedTeamLabel(b) && <span className="text-gray-400">/ {assignedTeamLabel(b)}</span>}
                       {b.recurring_type && <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{b.recurring_type}</span>}
                     </div>
                     <span className={'text-sm font-bold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[var(--sched-ink)]')}>~${(b.price / 100).toFixed(0)}</span>
