@@ -160,6 +160,30 @@ describe('middleware — subdomain routing wiring', () => {
 
     expect(rewriteTarget(res)).toContain('/site/we-pay-you-junk/services')
   })
+
+  it('a BESPOKE_SITE_TENANTS slug WITHOUT its own referral pages falls through to the shared referral portal (/referral, /referral-program, and the signup slug)', async () => {
+    const wpyj = { id: 'tenant-wpyj', slug: 'we-pay-you-junk', name: 'We Pay You Junk', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'we-pay-you-junk' ? wpyj : null)
+    const { default: middleware } = await import('./middleware')
+
+    for (const path of ['/referral', '/referral-program', '/get-paid-for-cleaning-referrals-every-time-they-are-serviced']) {
+      const req = new NextRequest(`https://we-pay-you-junk.fullloopcrm.com${path}`, { headers: { host: 'we-pay-you-junk.fullloopcrm.com' } })
+      const res = await middleware(req)
+      expect(rewriteTarget(res)).toContain(`/site/template${path}`)
+    }
+  })
+
+  it('nycmaid keeps routing /referral to its own bespoke subtree, never the shared template', async () => {
+    const nycmaid = { id: 'tenant-nycmaid', slug: 'nycmaid', name: 'NYC Maid', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'nycmaid' ? nycmaid : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://nycmaid.fullloopcrm.com/referral', { headers: { host: 'nycmaid.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/nycmaid/referral')
+    expect(rewriteTarget(res)).not.toContain('/site/template')
+  })
 })
 
 describe('middleware — custom domain routing wiring', () => {

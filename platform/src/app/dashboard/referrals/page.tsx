@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
 import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Referral = {
   id: string
@@ -32,6 +33,15 @@ export default function ReferralsPage() {
   const [referralsPanelOpen, setReferralsPanelOpen] = useState(false)
   const refTenant = tenantSettings.tenant
   const refSelena = (refTenant?.selena_config as Record<string, unknown> | null) || {}
+  // The tenant's own public site — not window.location.origin, which is
+  // wherever this admin dashboard itself is hosted (a platform host, never
+  // the tenant's customer-facing domain a real referrer would visit).
+  const siteUrl = tenantSiteUrl({
+    domain: (refTenant?.domain as string | null) ?? null,
+    slug: (refTenant?.slug as string | null) ?? null,
+  })
+  const signupUrl = `${siteUrl}/get-paid-for-cleaning-referrals-every-time-they-are-serviced`
+  const referralLinkBase = `${siteUrl}/book?ref=`
   const referralsSettings = {
     open: referralsPanelOpen,
     setOpen: setReferralsPanelOpen,
@@ -128,9 +138,9 @@ export default function ReferralsPage() {
       <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Referral Signup Page:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/referral/signup` : '/referral/signup'}</code>
+          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{signupUrl || 'Set a domain in Settings to get a live link'}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/referral/signup`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
+        <button disabled={!siteUrl} onClick={() => navigator.clipboard.writeText(signupUrl)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-50">Copy Link</button>
       </div>
 
       <div className="flex items-center justify-between mb-6">
@@ -191,8 +201,8 @@ export default function ReferralsPage() {
             <div className="border-t border-slate-200" />
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Referral Link Base URL</label>
-              <p className="text-sm text-slate-300 font-mono">{typeof window !== 'undefined' ? `${window.location.origin}/referral/` : '/referral/'}</p>
-              <p className="text-xs text-slate-500 mt-1">Referral codes are appended to this URL</p>
+              <p className="text-sm text-slate-300 font-mono">{referralLinkBase || '(tenant site domain not set)'}</p>
+              <p className="text-xs text-slate-500 mt-1">Each referrer&apos;s code is appended to this URL</p>
             </div>
             <div className="border-t border-slate-200" />
             <div className="flex items-center justify-between max-w-sm">
