@@ -102,6 +102,25 @@ export async function POST(request: Request, { params }: Params) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // vendor_id/service_type_id/budget_line_item_id are plain uuid PKs with
+    // no per-tenant namespacing and no composite/cross-tenant FK constraint
+    // at the DB level -- a caller supplying another tenant's real id here
+    // would tag this expense with it, and GET's own select embeds
+    // vendors(name)/service_types(name) with no additional tenant filter
+    // (PostgREST resolves the FK join regardless of tenant), leaking that
+    // foreign vendor's/service's name onto this tenant's own job page.
+    // Verify each supplied id actually belongs to this tenant before using it.
+    const refChecks: Array<[string, string | undefined]> = [
+      ['vendors', validated.vendor_id as string | undefined],
+      ['service_types', validated.service_type_id as string | undefined],
+      ['budget_line_items', validated.budget_line_item_id as string | undefined],
+    ]
+    for (const [table, refId] of refChecks) {
+      if (!refId) continue
+      const { data: owned } = await supabaseAdmin.from(table).select('id').eq('id', refId).eq('tenant_id', tenantId).maybeSingle()
+      if (!owned) return NextResponse.json({ error: `Invalid ${table === 'vendors' ? 'vendor_id' : table === 'service_types' ? 'service_type_id' : 'budget_line_item_id'}` }, { status: 400 })
+    }
+
     const entityId = await getDefaultEntityId(tenantId)
 
     // A picked catalog item's own category tags the expense the same
