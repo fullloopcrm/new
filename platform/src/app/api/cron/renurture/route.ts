@@ -6,6 +6,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { pickNextTouch, RENURTURE_TOUCHES, type RenurtureTouch } from '@/lib/nycmaid/renurture'
 import { sendRenurtureTouch, type RenurtureClient } from '@/lib/nycmaid/renurture-send'
+import { parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -122,10 +123,17 @@ async function processTenant(tenantId: string): Promise<number> {
 
     const clientBookings = (bookings || []).filter(b => b.client_id === client.id)
     const completedCount = clientBookings.filter(b => b.status === 'completed').length
-    const hasUpcoming = clientBookings.some(b => (b.status === 'scheduled' || b.status === 'in_progress') && new Date(b.start_time).getTime() > now)
+    // bookings.start_time is naive-ET (no tz), not real UTC -- new Date(str)
+    // on a 'T'-formatted string with no offset parses as UTC per the JS spec,
+    // shifting every value 4-5h earlier than the real ET instant it represents
+    // (see parseNaiveET's doc comment). That made hasUpcoming silently false
+    // for a booking that had genuinely not started yet in ET but looked
+    // already-past once misread as UTC -- a client with a real upcoming
+    // booking could still get a "come back, we miss you" renurture touch.
+    const hasUpcoming = clientBookings.some(b => (b.status === 'scheduled' || b.status === 'in_progress') && parseNaiveET(b.start_time).getTime() > now)
     const lastServiceDate = clientBookings
       .filter(b => b.status === 'completed')
-      .map(b => new Date(b.start_time).getTime())
+      .map(b => parseNaiveET(b.start_time).getTime())
       .sort((a, b) => b - a)[0] ?? null
 
     const clientSchedules = (schedules || []).filter(s => s.client_id === client.id)
