@@ -11,7 +11,7 @@ import { buildSeriesUpdateData } from './_recurring'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
-import { formatPhone } from '@/lib/format'
+import { formatPhone, formatJobNumber } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
 import { applyDiscount, applyCredit } from '@/lib/discount'
@@ -62,7 +62,8 @@ interface Booking {
   check_out_time: string | null
   check_in_location: Record<string, unknown> | null
   check_out_location: Record<string, unknown> | null
-  clients: { id: string; name: string; phone: string; address: string } | null
+  job_seq: number | null
+  clients: { id: string; name: string; phone: string; address: string; customer_number: number | null } | null
   team_members: { id: string; name: string } | null
   team_member_paid: boolean | null
   team_member_paid_at: string | null
@@ -2032,6 +2033,9 @@ function BookingsPage() {
         <SidePanel open={showModal} onClose={() => { setShowModal(false); setEditingBooking(null) }} title={editingBooking.clients?.name || 'Booking'} width="max-w-lg">
           <form onSubmit={handleSubmit}>
             {/* ── CLIENT HEADER ── */}
+            {editingBooking.job_seq != null && editingBooking.clients?.customer_number != null && (
+              <p className="text-xs font-mono text-gray-400 -mt-1 mb-2">Job #{formatJobNumber(editingBooking.clients.customer_number, editingBooking.job_seq)}</p>
+            )}
             {editingBooking.client_id && clients.find(c => c.id === editingBooking.client_id)?.do_not_service && (
               <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-3">
                 <p className="text-red-700 font-bold text-sm">DO NOT SERVICE</p>

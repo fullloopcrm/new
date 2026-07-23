@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
+import { formatCustomerNumber } from '@/lib/format'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
 
@@ -26,6 +27,7 @@ type Client = {
   deletion_requested_at?: string | null
   deletion_purge_at?: string | null
   deleted_at?: string | null
+  customer_number: number | null
 }
 
 type TeamMemberOption = { id: string; name: string }
@@ -150,6 +152,9 @@ export default function ClientDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
+          {client.customer_number != null && (
+            <p className="text-xs font-mono text-slate-400">Customer #{formatCustomerNumber(client.customer_number)}</p>
+          )}
           <p className="text-sm text-slate-400">
             {completedCount} jobs completed
             {totalSpent > 0 && ` \u00b7 $${(totalSpent / 100).toFixed(0)} total spent`}

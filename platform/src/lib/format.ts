@@ -76,6 +76,18 @@ export function formatEmail(email: string): string {
   return email.toLowerCase().trim()
 }
 
+// ── Customer / job numbers ────────────────────────────────────────────
+
+// "007" — per-tenant client sequence, zero-padded to 3 digits (grows past that naturally)
+export function formatCustomerNumber(customerNumber: number): string {
+  return String(customerNumber).padStart(3, '0')
+}
+
+// "007-02" — per-client booking sequence appended to its customer number
+export function formatJobNumber(customerNumber: number, jobSeq: number): string {
+  return `${formatCustomerNumber(customerNumber)}-${String(jobSeq).padStart(2, '0')}`
+}
+
 // Format address - capitalize properly
 export function formatAddress(address: string): string {
   // Common abbreviations to keep uppercase
