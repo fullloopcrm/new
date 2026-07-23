@@ -17,7 +17,7 @@ const MEMBER_A = '11111111-0000-0000-0000-000000000001'
 const MEMBER_OTHER = '99999999-0000-0000-0000-000000000099'
 
 type Booking = { tenant_id: string; team_member_id: string | null }
-const state: { booking: Booking | null } = { booking: null }
+const state: { booking: Booking | null; claimFails: boolean } = { booking: null, claimFails: false }
 
 const calls = { adminSms: 0, clientSms: 0, notify: 0, bookingUpdates: 0 }
 
@@ -32,6 +32,7 @@ vi.mock('@/lib/supabase', () => {
       eq: () => c,
       in: () => c,
       not: () => c,
+      or: () => c,
       order: () => c,
       limit: async () => ({ data: [], error: null }),
       single: async () => {
@@ -43,6 +44,20 @@ vi.mock('@/lib/supabase', () => {
             ? { data: { id: 'bk', client_id: null, start_time: '2026-08-01T10:00:00', check_in_time: '2026-08-01T10:00:00', check_out_time: null, service_type: 'regular', hourly_rate: 69, pay_rate: 25, price: 0, notes: null, max_hours: null, team_size: 1, payment_status: 'unpaid', fifteen_min_alert_time: null, clients: null, team_members: { name: 'M', pay_rate: 25 }, ...state.booking }, error: null }
             : { data: null, error: null }
         }
+        return { data: null, error: null }
+      },
+      // The atomic idempotency-claim update chains .or(...).select(...).maybeSingle()
+      // instead of resolving via then() -- count it the same way then() used to,
+      // and return the booking (truthy) so the claim succeeds in these tests.
+      // state.claimFails simulates losing the atomic claim to a concurrent
+      // request (someone else's write landed first, or it's within its own
+      // 30-min window) -- the route must bail out with zero sends, not proceed.
+      maybeSingle: async () => {
+        if (isUpdate && table === 'bookings') {
+          calls.bookingUpdates++
+          if (state.claimFails) return { data: null, error: null }
+        }
+        if (table === 'bookings' && state.booking) return { data: { id: 'bk', ...state.booking }, error: null }
         return { data: null, error: null }
       },
       then: (res: (v: { data: unknown[]; error: null }) => unknown) => {
@@ -76,6 +91,7 @@ function req(bookingId: string, token?: string): NextRequest {
 beforeEach(() => {
   process.env.TEAM_PORTAL_SECRET = 'unit-test-team-portal-secret'
   state.booking = null
+  state.claimFails = false
   calls.adminSms = 0; calls.clientSms = 0; calls.notify = 0; calls.bookingUpdates = 0
 })
 
@@ -110,5 +126,24 @@ describe('15min-alert authz', () => {
     expect(res.status).toBe(200)
     expect(calls.adminSms).toBeGreaterThan(0)
     expect(calls.bookingUpdates).toBeGreaterThan(0)
+  })
+
+  it('LOSES a concurrent atomic claim → bails out with ZERO sends, does not text the client twice', async () => {
+    // Real gap closed 2026-07-23 (post-deploy review flag): a client-side
+    // fetch timeout advises the caller to retry ("check back in a minute"),
+    // but the FIRST request's server-side work keeps running after the
+    // client gives up on it. Without an atomic claim, a retry racing the
+    // still-in-flight original could pass the same idempotency read before
+    // either write lands, and BOTH send a real client-facing payment SMS.
+    // This proves the loser of that race sends nothing at all.
+    state.booking = { tenant_id: TENANT, team_member_id: MEMBER_A }
+    state.claimFails = true
+    const token = createToken(MEMBER_A, TENANT, 0, 'worker')
+    const res = await POST(req('bk', token))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.alreadySent).toBe(true)
+    expect(calls.clientSms).toBe(0)
+    expect(calls.adminSms).toBe(0)
   })
 })

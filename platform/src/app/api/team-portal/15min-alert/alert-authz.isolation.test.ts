@@ -51,6 +51,7 @@ vi.mock('@/lib/supabase', () => {
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       in: () => c,
       not: () => c,
+      or: () => c,
       order: () => c,
       limit: async () => ({ data: [], error: null }),
       single: async () => {
@@ -62,6 +63,14 @@ vi.mock('@/lib/supabase', () => {
             ? { data: { id: 'bk', client_id: null, start_time: '2026-08-01T10:00:00', check_in_time: '2026-08-01T10:00:00', check_out_time: null, service_type: 'regular', hourly_rate: 69, pay_rate: 25, price: 0, notes: null, max_hours: null, team_size: 1, payment_status: 'unpaid', fifteen_min_alert_time: null, clients: null, team_members: null, ...state.booking }, error: null }
             : { data: null, error: null }
         }
+        return { data: null, error: null }
+      },
+      // The atomic idempotency-claim update chains .or(...).select(...).maybeSingle()
+      // instead of resolving via then() -- count it the same way then() used to,
+      // and return the booking (truthy) so the claim succeeds in these tests.
+      maybeSingle: async () => {
+        if (isUpdate && table === 'bookings') calls.bookingUpdates++
+        if (table === 'bookings' && state.booking) return { data: { id: 'bk', ...state.booking }, error: null }
         return { data: null, error: null }
       },
       then: (res: (v: { data: unknown[]; error: null }) => unknown) => {
