@@ -2,12 +2,14 @@ import { supabaseAdmin } from './supabase'
 import { escapeHtml } from './escape-html'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
-import { isCommEnabled } from './comms-prefs'
+import { isCommEnabled, getCommPolicy, buildTemplateData } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
   bookingReceivedEmail,
+  clientCancellationEmail,
+  clientPaymentDueEmail,
   followUpEmail,
   dailySummaryEmail,
   dailyOpsRecapEmail,
@@ -131,7 +133,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, commission_rate')
     .eq('id', tenantId)
     .single()
 
@@ -154,11 +156,15 @@ export async function notify({
     email = data?.email || null
   }
 
-  // Build branded HTML for email channel
+  // Build branded HTML for email channel — tenant branding + this tenant's
+  // comm policy (support phone, review link, cancellation policy text, etc.)
+  // in one shot, so every template call site stays consistent.
+  const policy = tenantId ? await getCommPolicy(tenantId) : {}
   const templateData = {
-    tenantName: tenant.name || 'Your Business',
-    primaryColor: tenant.primary_color || '#111827',
-    logoUrl: tenant.logo_url || undefined,
+    ...buildTemplateData(
+      { name: tenant.name, primary_color: tenant.primary_color, logo_url: tenant.logo_url, commission_rate: (tenant as { commission_rate?: number | null }).commission_rate },
+      policy,
+    ),
     // CAN-SPAM: physical postal address in the shared email footer when on file.
     businessAddress: (tenant as { address?: string | null }).address || undefined,
   }
@@ -229,6 +235,23 @@ export async function notify({
         clientName,
         serviceName: serviceName || 'Appointment',
         dateTime: message,
+      })
+      break
+    case 'booking_cancelled':
+      htmlBody = clientCancellationEmail({
+        ...templateData,
+        clientName,
+        serviceName: serviceName || 'Appointment',
+        dateTime: message,
+      })
+      break
+    case 'payment_due':
+      htmlBody = clientPaymentDueEmail({
+        ...templateData,
+        clientName,
+        teamMemberName: metadata?.teamMemberName as string | undefined,
+        amount: (metadata?.amount as string) || '0',
+        paymentUrl: metadata?.paymentUrl as string | undefined,
       })
       break
   }
