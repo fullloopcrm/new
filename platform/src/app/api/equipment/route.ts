@@ -13,6 +13,17 @@ import { tenantDb } from '@/lib/tenant-db'
 const COLUMNS =
   'id, service_type_id, category_id, name, asset_tag, acquisition_cost_cents, acquisition_date, useful_life_months, salvage_value_cents, depreciation_method, accumulated_depreciation_cents, status, notes, active, created_at'
 
+// service_type_id/category_id are caller-supplied FKs -- both ON DELETE SET
+// NULL with no per-tenant composite constraint at the DB level, same class
+// as the checks already applied on jobs/[id]/expenses, quote-budgets,
+// vendors/[id]/items, and catalog. Without this, either id could reference
+// another tenant's real service/category row (cross-tenant reference
+// pollution).
+async function belongsToTenant(tenantId: string, table: 'service_types' | 'categories', id: string): Promise<boolean> {
+  const { data } = await tenantDb(tenantId).from(table).select('id').eq('id', id).maybeSingle()
+  return !!data
+}
+
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('bookings.view')
   if (authError) return authError
@@ -42,12 +53,21 @@ export async function POST(request: Request) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
+    const serviceTypeId = (body.service_type_id as string) || null
+    if (serviceTypeId && !(await belongsToTenant(tenantId, 'service_types', serviceTypeId))) {
+      return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+    }
+    const categoryId = (body.category_id as string) || null
+    if (categoryId && !(await belongsToTenant(tenantId, 'categories', categoryId))) {
+      return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+    }
+
     const { data, error } = await tenantDb(tenantId)
       .from('equipment')
       .insert({
         name,
-        service_type_id: (body.service_type_id as string) || null,
-        category_id: (body.category_id as string) || null,
+        service_type_id: serviceTypeId,
+        category_id: categoryId,
         asset_tag: (body.asset_tag as string) || null,
         acquisition_cost_cents: Number(body.acquisition_cost_cents) || 0,
         acquisition_date: (body.acquisition_date as string) || null,
@@ -79,8 +99,20 @@ export async function PATCH(request: Request) {
 
     const patch: Record<string, unknown> = {}
     if (typeof body.name === 'string') patch.name = body.name.trim()
-    if ('service_type_id' in body) patch.service_type_id = (body.service_type_id as string) || null
-    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
+    if ('service_type_id' in body) {
+      const serviceTypeId = (body.service_type_id as string) || null
+      if (serviceTypeId && !(await belongsToTenant(tenantId, 'service_types', serviceTypeId))) {
+        return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+      }
+      patch.service_type_id = serviceTypeId
+    }
+    if ('category_id' in body) {
+      const categoryId = (body.category_id as string) || null
+      if (categoryId && !(await belongsToTenant(tenantId, 'categories', categoryId))) {
+        return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+      }
+      patch.category_id = categoryId
+    }
     if ('asset_tag' in body) patch.asset_tag = (body.asset_tag as string) || null
     if ('acquisition_cost_cents' in body) patch.acquisition_cost_cents = Number(body.acquisition_cost_cents) || 0
     if ('acquisition_date' in body) patch.acquisition_date = (body.acquisition_date as string) || null
