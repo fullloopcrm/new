@@ -86,6 +86,16 @@ vi.mock('@/lib/supabase', () => ({
       if (fn !== 'claim_job_atomic') throw new Error(`unexpected rpc: ${fn}`)
       const member = holder.members.get(args.p_member_id as string)
       const cap = member?.max_jobs_per_day ?? null
+      // TEMP DIAGNOSTIC (2026-07-23 W2) -- hunting a CI-only flake in this
+      // exact assertion, unreproducible locally after 58+ runs. Remove once
+      // a real CI failure is captured with this attached; do not merge as-is.
+      if (process.env.CI) {
+        console.error('[claim-diag]', JSON.stringify({
+          node: process.version, member_id: args.p_member_id, booking_id: args.p_booking_id,
+          cap, day_start: args.p_day_start, day_end: args.p_day_end,
+          bookings: [...holder.bookings.values()].map((b) => ({ id: b.id, tm: b.team_member_id, st: b.start_time, status: b.status })),
+        }))
+      }
       if (cap && cap > 0) {
         const count = [...holder.bookings.values()].filter(
           (b) =>
@@ -95,6 +105,7 @@ vi.mock('@/lib/supabase', () => ({
             b.start_time < (args.p_day_end as string) &&
             b.status !== 'cancelled',
         ).length
+        if (process.env.CI) console.error('[claim-diag] count', count, 'cap', cap)
         if (count >= cap) {
           return { data: { claimed: false, reason: 'cap_reached', cap }, error: null }
         }
