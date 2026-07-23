@@ -65,6 +65,17 @@ export async function POST(request: Request) {
     const item_type = ITEM_TYPES.includes(body.item_type as string) ? (body.item_type as string) : 'service'
     const per_unit = PER_UNITS.includes(body.per_unit as string) ? (body.per_unit as string) : 'job'
 
+    // category_id is a plain uuid PK (shared categories table, see
+    // 2026_07_21_shared_categories.sql) with no cross-tenant FK constraint
+    // at the DB level -- verify it belongs to this tenant before tagging a
+    // catalog item with it (same cross-tenant-reference class already
+    // fixed on job-expenses/quote-budgets/equipment-bookings/catalog-materials).
+    const categoryId = (body.category_id as string) || null
+    if (categoryId) {
+      const { data: category } = await tenantDb(tenantId).from('categories').select('id').eq('id', categoryId).maybeSingle()
+      if (!category) return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+    }
+
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .insert({
@@ -80,7 +91,7 @@ export async function POST(request: Request) {
         cost_cents: num(body.cost_cents),
         taxable: body.taxable !== false,
         category: (body.category as string) || null,
-        category_id: (body.category_id as string) || null,
+        category_id: categoryId,
         default_duration_hours: num(body.default_duration_hours),
         default_labor_rate_cents: num(body.default_labor_rate_cents),
         default_overhead_cents: num(body.default_overhead_cents),
@@ -119,7 +130,14 @@ export async function PATCH(request: Request) {
     if ('cost_cents' in body) patch.cost_cents = num(body.cost_cents)
     if ('taxable' in body) patch.taxable = !!body.taxable
     if ('category' in body) patch.category = (body.category as string) || null
-    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
+    if ('category_id' in body) {
+      const categoryId = (body.category_id as string) || null
+      if (categoryId) {
+        const { data: category } = await tenantDb(tenantId).from('categories').select('id').eq('id', categoryId).maybeSingle()
+        if (!category) return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+      }
+      patch.category_id = categoryId
+    }
     if ('default_duration_hours' in body) patch.default_duration_hours = num(body.default_duration_hours)
     if ('default_labor_rate_cents' in body) patch.default_labor_rate_cents = num(body.default_labor_rate_cents)
     if ('default_overhead_cents' in body) patch.default_overhead_cents = num(body.default_overhead_cents)

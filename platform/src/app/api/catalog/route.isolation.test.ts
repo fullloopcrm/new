@@ -46,6 +46,10 @@ function seed() {
       { id: 'svc-a1', tenant_id: A, name: 'Standard Clean', item_type: 'service', per_unit: 'hour', price_cents: 5000, default_hourly_rate: null, sort_order: 1, active: true },
       { id: 'svc-b1', tenant_id: B, name: 'Foreign Deep Clean', item_type: 'service', per_unit: 'job', price_cents: 9900, default_hourly_rate: null, sort_order: 1, active: true },
     ],
+    categories: [
+      { id: 'cat-a1', tenant_id: A, name: 'Cleaning' },
+      { id: 'cat-b1', tenant_id: B, name: 'Foreign Category' },
+    ],
     audit_logs: [],
   }
 }
@@ -109,5 +113,37 @@ describe('catalog — tenant isolation', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(false)
+  })
+
+  it('POST rejects a category_id belonging to another tenant, no item created', async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Cross-tenant item', category_id: 'cat-b1' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.filter((i) => i.table === 'service_types')).toHaveLength(0)
+  })
+
+  it("POST accepts the acting tenant's own category_id", async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Same-tenant item', category_id: 'cat-a1' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const inserted = h.capture.inserts.find((i) => i.table === 'service_types')
+    expect(inserted!.rows[0].category_id).toBe('cat-a1')
+  })
+
+  it('PATCH rejects reassigning an item to a category_id belonging to another tenant', async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 'svc-a1', category_id: 'cat-b1' }),
+    })
+    const res = await PATCH(req)
+    expect(res.status).toBe(400)
+    const updates = h.capture.updates.filter((u) => u.table === 'service_types')
+    expect(updates).toHaveLength(0)
   })
 })

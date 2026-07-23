@@ -42,12 +42,28 @@ export async function POST(request: Request) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
+    // service_type_id/category_id are plain uuid PKs with no cross-tenant FK
+    // constraint at the DB level -- verify each belongs to this tenant
+    // before linking a physical asset to it (same cross-tenant-reference
+    // class already fixed on job-expenses/quote-budgets/equipment-bookings/
+    // catalog-materials/catalog).
+    const serviceTypeId = (body.service_type_id as string) || null
+    const categoryId = (body.category_id as string) || null
+    if (serviceTypeId) {
+      const { data: svc } = await tenantDb(tenantId).from('service_types').select('id').eq('id', serviceTypeId).maybeSingle()
+      if (!svc) return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+    }
+    if (categoryId) {
+      const { data: category } = await tenantDb(tenantId).from('categories').select('id').eq('id', categoryId).maybeSingle()
+      if (!category) return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+    }
+
     const { data, error } = await tenantDb(tenantId)
       .from('equipment')
       .insert({
         name,
-        service_type_id: (body.service_type_id as string) || null,
-        category_id: (body.category_id as string) || null,
+        service_type_id: serviceTypeId,
+        category_id: categoryId,
         asset_tag: (body.asset_tag as string) || null,
         acquisition_cost_cents: Number(body.acquisition_cost_cents) || 0,
         acquisition_date: (body.acquisition_date as string) || null,
@@ -79,8 +95,22 @@ export async function PATCH(request: Request) {
 
     const patch: Record<string, unknown> = {}
     if (typeof body.name === 'string') patch.name = body.name.trim()
-    if ('service_type_id' in body) patch.service_type_id = (body.service_type_id as string) || null
-    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
+    if ('service_type_id' in body) {
+      const serviceTypeId = (body.service_type_id as string) || null
+      if (serviceTypeId) {
+        const { data: svc } = await tenantDb(tenantId).from('service_types').select('id').eq('id', serviceTypeId).maybeSingle()
+        if (!svc) return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+      }
+      patch.service_type_id = serviceTypeId
+    }
+    if ('category_id' in body) {
+      const categoryId = (body.category_id as string) || null
+      if (categoryId) {
+        const { data: category } = await tenantDb(tenantId).from('categories').select('id').eq('id', categoryId).maybeSingle()
+        if (!category) return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+      }
+      patch.category_id = categoryId
+    }
     if ('asset_tag' in body) patch.asset_tag = (body.asset_tag as string) || null
     if ('acquisition_cost_cents' in body) patch.acquisition_cost_cents = Number(body.acquisition_cost_cents) || 0
     if ('acquisition_date' in body) patch.acquisition_date = (body.acquisition_date as string) || null
