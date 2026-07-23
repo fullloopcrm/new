@@ -9,8 +9,7 @@ import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { audit } from '@/lib/audit'
-import { sendEmail } from '@/lib/nycmaid/email'
-import { pinResetEmail } from '@/lib/nycmaid/email-templates'
+import { notify } from '@/lib/notify'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -34,11 +33,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { error: updateError } = await supabaseAdmin.from('team_members').update({ pin: newPin }).eq('id', id).eq('tenant_id', tenant.tenantId)
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-    const tpl = pinResetEmail({ name: member.name, pin: newPin, portal: 'team' })
-    const emailResult = await sendEmail(member.email, tpl.subject, tpl.html)
+    const result = await notify({
+      tenantId: tenant.tenantId,
+      type: 'portal_pin_reset',
+      title: `Your PIN was reset: ${newPin}`,
+      message: `Your new PIN is ${newPin}.`,
+      channel: 'email',
+      recipientType: 'team_member',
+      recipientId: id,
+      metadata: { recipientName: member.name, pin: newPin, portalUrl: tenant.tenant.website_url ? `${tenant.tenant.website_url}/team` : undefined },
+    })
     await audit({ tenantId: tenant.tenantId, action: 'team.updated', entityType: 'team_member', entityId: id, details: { field: 'pin_reset' } })
 
-    return NextResponse.json({ success: true, pin: newPin, emailed: emailResult.success })
+    return NextResponse.json({ success: true, pin: newPin, emailed: result.success })
   }
 
   const today = new Date().toISOString().split('T')[0]

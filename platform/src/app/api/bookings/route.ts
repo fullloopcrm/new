@@ -16,7 +16,6 @@ import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -340,40 +339,21 @@ export async function POST(request: Request) {
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
-      // Client confirmation email — nycmaid gets its own rich branded template
-      // (same pattern as bookings/batch and the cancellation email in
-      // bookings/[id]/route.ts); every other tenant keeps the generic one via
-      // notify(). Fetched here (not widening the main `data` select above,
-      // which flows straight into the API response) since the rich template
-      // needs client pin/email + cleaner photo/rating that route deliberately
-      // doesn't expose to the dashboard caller.
-      if (isNycMaid(tenantId) && data.client_id) {
-        const { data: nmBooking } = await supabaseAdmin
-          .from('bookings')
-          .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
-          .eq('id', data.id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (nmBooking?.clients?.email) {
-          const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
-          const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-          const email = clientConfirmationEmail(nmBooking)
-          await sendClientEmail(data.client_id, email.subject, email.html)
-            .catch(err => console.error('nycmaid client confirmation email error:', err))
-        }
-      } else if (data.clients?.phone || true) {
-        await notify({
-          tenantId,
-          type: 'booking_confirmed',
-          title: `Booking Confirmed — ${date}`,
-          message: `Your appointment on ${date} at ${time} with ${memberName} is confirmed.`,
-          channel: 'email',
-          recipientType: 'client',
-          recipientId: data.client_id,
-          bookingId: data.id,
-          metadata: { clientName: data.clients?.name, serviceName: data.service_type },
-        })
-      }
+      // Client confirmation email — same standard template for every tenant
+      // (see bookings/batch and the cancellation email in bookings/[id]/route.ts
+      // for the same fix; nycmaid used to get its own hardcoded legacy template
+      // here, inconsistent with every other transactional email it sends).
+      await notify({
+        tenantId,
+        type: 'booking_confirmed',
+        title: `Booking Confirmed — ${date}`,
+        message: `Your appointment on ${date} at ${time} with ${memberName} is confirmed.`,
+        channel: 'email',
+        recipientType: 'client',
+        recipientId: data.client_id,
+        bookingId: data.id,
+        metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+      })
 
       // Client confirmation SMS
       if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {

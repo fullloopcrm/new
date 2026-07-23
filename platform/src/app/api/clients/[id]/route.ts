@@ -6,8 +6,7 @@ import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendClientSMS, sendClientEmail } from '@/lib/nycmaid/client-contacts'
-import { sendEmail } from '@/lib/nycmaid/email'
-import { pinResetEmail } from '@/lib/nycmaid/email-templates'
+import { notify } from '@/lib/notify'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -74,11 +73,19 @@ export async function PUT(
       const { error: updateError } = await tenantDb(tenantId).from('clients').update({ pin: newPin }).eq('id', id)
       if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-      const tpl = pinResetEmail({ name: client.name, pin: newPin, portal: 'client' })
-      const emailResult = await sendEmail(client.email, tpl.subject, tpl.html)
+      const result = await notify({
+        tenantId,
+        type: 'portal_pin_reset',
+        title: `Your PIN was reset: ${newPin}`,
+        message: `Your new PIN is ${newPin}.`,
+        channel: 'email',
+        recipientType: 'client',
+        recipientId: id,
+        metadata: { recipientName: client.name, pin: newPin, portalUrl: tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined },
+      })
       await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { field: 'pin_reset' } })
 
-      return NextResponse.json({ success: true, pin: newPin, emailed: emailResult.success })
+      return NextResponse.json({ success: true, pin: newPin, emailed: result.success })
     }
 
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason'])

@@ -419,6 +419,7 @@ export const NOTIFY_COMM_MAP: Record<string, string> = {
   'booking_confirmed:client': 'booking_confirmed',
   'booking_received:client': 'booking_received',
   'booking_cancelled:client': 'cancellation',
+  'booking_rescheduled:client': 'reschedule',
   'job_assignment:team_member': 'team_assignment',
   'job_cancelled:team_member': 'team_schedule_change',
   'job_rescheduled:team_member': 'team_schedule_change',

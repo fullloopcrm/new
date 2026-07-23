@@ -189,6 +189,29 @@ export function bookingConfirmationEmail(data: TemplateData & {
   `, data)
 }
 
+export function bookingRescheduledEmail(data: TemplateData & {
+  clientName: string
+  oldDateTime: string
+  newDateTime: string
+}): string {
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Your booking has been rescheduled</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
+      Hi ${escapeHtml(data.clientName)}, ${escapeHtml(data.tenantName)} moved your appointment.
+    </p>
+    <table width="100%" style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
+    <tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">From</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.oldDateTime)}</p>
+    </td></tr>
+    <tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">To</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.newDateTime)}</p>
+    </td></tr>
+    </table>
+  `, data)
+}
+
 export function bookingReceivedEmail(data: TemplateData & {
   clientName: string
   serviceName: string
@@ -478,6 +501,32 @@ export function smsNewApplication(name: string): string {
  * (15min_warning, new_client, late_check_in, error, etc.) — every admin email
  * gets the tenant-branded shell instead of a bare unstyled <p> tag.
  */
+export function portalPinResetEmail(data: TemplateData & {
+  recipientName: string
+  pin: string
+  portalUrl?: string
+}): string {
+  const color = escapeHtml(data.primaryColor || '#111827')
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Your PIN was reset</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
+      Hi ${escapeHtml(data.recipientName.split(' ')[0] || data.recipientName)}, your portal PIN was just reset. Use the new PIN below to log in.
+    </p>
+    <div style="background:#f5f5f5;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Your new PIN</p>
+      <p style="margin:0;font-size:36px;font-weight:700;color:#111827;letter-spacing:6px;">${escapeHtml(data.pin)}</p>
+    </div>
+    ${data.portalUrl ? `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${safeUrl(data.portalUrl)}" style="display:inline-block;background:${color};color:#ffffff;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
+        Open Portal
+      </a>
+    </td></tr></table>` : ''}
+    <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;">
+      Didn't request this? Contact us right away.
+    </p>
+  `, data)
+}
+
 export function genericNotificationEmail(data: TemplateData & { title: string; message: string }): string {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${escapeHtml(data.title)}</h2>

@@ -8,6 +8,8 @@ import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
+  bookingRescheduledEmail,
+  portalPinResetEmail,
   bookingReceivedEmail,
   followUpEmail,
   dailySummaryEmail,
@@ -22,6 +24,8 @@ export type NotificationType =
   | 'booking_confirmed'
   | 'booking_reminder'
   | 'booking_cancelled'
+  | 'booking_rescheduled'
+  | 'portal_pin_reset'
   | 'booking_completed'
   | 'check_in'
   | 'check_out'
@@ -274,6 +278,22 @@ export async function notify({
         teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
         address: metadata?.address as string | undefined,
         price: metadata?.price as string | undefined,
+        portalUrl: metadata?.portalUrl as string | undefined,
+      })
+      break
+    case 'booking_rescheduled':
+      htmlBody = bookingRescheduledEmail({
+        ...templateData,
+        clientName,
+        oldDateTime: (metadata?.oldDateTime as string) || '',
+        newDateTime: (metadata?.newDateTime as string) || message,
+      })
+      break
+    case 'portal_pin_reset':
+      htmlBody = portalPinResetEmail({
+        ...templateData,
+        recipientName: (metadata?.recipientName as string) || clientName,
+        pin: (metadata?.pin as string) || '',
         portalUrl: metadata?.portalUrl as string | undefined,
       })
       break

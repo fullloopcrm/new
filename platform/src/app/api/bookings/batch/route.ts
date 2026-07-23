@@ -202,18 +202,12 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 
-      // Client email confirmation — nycmaid gets its own rich branded template
-      // (matches the cancellation-email pattern in bookings/[id]/route.ts);
-      // every other tenant gets the same generic branded template the single
-      // -booking route (bookings/route.ts) already sends, via the shared
-      // notify() dispatcher (handles comm-prefs gating + SMS fallback itself).
-      if (isNycMaid(tenantId) && client?.email) {
-        const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
-        const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-        const email = clientConfirmationEmail({ ...first, cleaners: cleaner })
-        await sendClientEmail(first.client_id as string, email.subject, email.html)
-          .catch(err => console.error('[batch] nycmaid client email error:', err))
-      } else if (client?.email) {
+      // Client email confirmation — same standard template for every tenant
+      // (matches the fix in bookings/route.ts and the cancellation email in
+      // bookings/[id]/route.ts; nycmaid used to get its own hardcoded legacy
+      // template here), via the shared notify() dispatcher (handles
+      // comm-prefs gating + SMS fallback itself).
+      if (client?.email) {
         await notify({
           tenantId,
           type: 'booking_confirmed',

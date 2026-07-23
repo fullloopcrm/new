@@ -95,41 +95,22 @@ export async function GET(request: Request) {
             const client = booking.clients
             const clientName = client?.name?.split(' ')[0] || 'there'
 
-            // Client email reminder — nycmaid gets the rich branded template
-            // (What to expect / Payment / Prep tips); other tenants keep the
-            // plain generic notify() email. The notifications row is still
-            // written either way since the dedup check above keys off it.
+            // Client email reminder — same standard template for every
+            // tenant (nycmaid used to get its own hardcoded legacy
+            // template here, inconsistent with every other transactional
+            // email it sends).
             if (client?.email) {
-              if (isNycMaid(tenantId) && booking.client_id) {
-                const { clientReminderEmail } = await import('@/lib/nycmaid/email-templates')
-                const { sendClientEmail } = await import('@/lib/client-contacts')
-                const email = clientReminderEmail(booking, label)
-                await sendClientEmail(tenant, booking.client_id, email.subject, email.html).catch(() => {})
-                await supabaseAdmin.from('notifications').insert({
-                  tenant_id: tenantId,
-                  type: emailType,
-                  title: email.subject,
-                  message: `Reminder email sent to ${client.email}`,
-                  channel: 'email',
-                  recipient_type: 'client',
-                  recipient_id: booking.client_id,
-                  booking_id: booking.id,
-                  status: 'sent',
-                  metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
-                }).then(() => {}, () => {})
-              } else {
-                await notify({
-                  tenantId,
-                  type: 'booking_reminder',
-                  title: `Reminder: Appointment ${label}`,
-                  message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
-                  channel: 'email',
-                  recipientType: 'client',
-                  recipientId: booking.client_id ?? undefined,
-                  bookingId: booking.id,
-                  metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
-                })
-              }
+              await notify({
+                tenantId,
+                type: 'booking_reminder',
+                title: `Reminder: Appointment ${label}`,
+                message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
+                channel: 'email',
+                recipientType: 'client',
+                recipientId: booking.client_id ?? undefined,
+                bookingId: booking.id,
+                metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
+              })
             }
 
             // Client SMS reminder (gated by the booking_reminder SMS toggle).
@@ -415,36 +396,19 @@ export async function GET(request: Request) {
             .lt('end_time', threeDaysAgoStartBound)
 
           if ((count || 0) === 0) {
-            if (isNycMaid(tenantId)) {
-              const { clientThankYouEmail } = await import('@/lib/nycmaid/email-templates')
-              const { sendClientEmail } = await import('@/lib/client-contacts')
-              const email = clientThankYouEmail(client.name || '')
-              await sendClientEmail(tenant, booking.client_id, email.subject, email.html).catch(() => {})
-              await supabaseAdmin.from('notifications').insert({
-                tenant_id: tenantId,
-                type: 'follow_up',
-                title: email.subject,
-                message: `Thank-you email sent to ${client.email}`,
-                channel: 'email',
-                recipient_type: 'client',
-                recipient_id: booking.client_id,
-                booking_id: booking.id,
-                status: 'sent',
-                metadata: { clientName: client.name, serviceName: booking.service_type },
-              }).then(() => {}, () => {})
-            } else {
-              await notify({
-                tenantId,
-                type: 'follow_up',
-                title: `Thank you from ${tenant.name}!`,
-                message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
-                channel: 'email',
-                recipientType: 'client',
-                recipientId: booking.client_id,
-                bookingId: booking.id,
-                metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
-              })
-            }
+            // Thank-you email — same standard template for every tenant
+            // (nycmaid used to get its own hardcoded legacy template here).
+            await notify({
+              tenantId,
+              type: 'follow_up',
+              title: `Thank you from ${tenant.name}!`,
+              message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
+              channel: 'email',
+              recipientType: 'client',
+              recipientId: booking.client_id,
+              bookingId: booking.id,
+              metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
+            })
             results.push({ type: 'thank_you', booking_id: booking.id, tenant_id: tenantId })
             sent++
           }
