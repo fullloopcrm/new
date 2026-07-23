@@ -49,7 +49,14 @@ beforeEach(() => {
 })
 
 describe("sendSMS — Telnyx fetch timeout (2026-07-23 silent-hang incident)", () => {
-  it('wires an AbortSignal onto every fetch attempt, so a real timeout can actually cut it off', async () => {
+  it('wires a real 12_000ms AbortSignal.timeout onto every fetch attempt, so a real timeout can actually cut it off', async () => {
+    // Asserting instanceof AbortSignal alone doesn't prove the actual
+    // duration -- a future accidental change (e.g. someone "simplifies" this
+    // to a bare `new AbortController().signal` with no timer, or changes the
+    // duration) wouldn't be caught by that alone. Spy the real
+    // AbortSignal.timeout static to assert both that it's really the source
+    // of this signal AND the exact 12_000ms value.
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
     const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => ({ ok: true, json: async () => ({ data: { id: 'msg-1' } }) }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -58,6 +65,8 @@ describe("sendSMS — Telnyx fetch timeout (2026-07-23 silent-hang incident)", (
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
+    expect(timeoutSpy).toHaveBeenCalledWith(12_000)
+    timeoutSpy.mockRestore()
   })
 
   it('a hung request that then aborts fails FAST with the same {success:false} shape as any other fetch failure — does not hang, does not throw', async () => {
