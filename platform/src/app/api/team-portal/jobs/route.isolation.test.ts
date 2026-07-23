@@ -76,6 +76,27 @@ describe('team-portal/jobs GET (today) — tenantDb isolation', () => {
   })
 })
 
+describe('team-portal/jobs GET (upcoming) — non-lead crew visibility', () => {
+  it('a crew member who is NOT the booking.team_member_id lead, but IS in booking_team_members, still sees the job', async () => {
+    const threeDaysOut = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString()
+    fake._seed('team_members', [{ id: 'tm-a-crew', tenant_id: A_ID, status: 'active' }])
+    fake._seed('bookings', [
+      { id: 'bk-a-crew-job', tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: threeDaysOut, end_time: threeDaysOut, service_type: 'Team Clean', price: 300, clients: { name: 'Crew Client', phone: '3', address: 'z', special_instructions: null } },
+    ])
+    fake._seed('booking_team_members', [
+      { id: 'btm-lead', tenant_id: A_ID, booking_id: 'bk-a-crew-job', team_member_id: 'tm-a', is_lead: true, position: 1 },
+      { id: 'btm-crew', tenant_id: A_ID, booking_id: 'bk-a-crew-job', team_member_id: 'tm-a-crew', is_lead: false, position: 2 },
+    ])
+
+    const token = createToken('tm-a-crew', A_ID)
+    const res = await GET(req(token, 'upcoming=true'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const ids = body.jobs.map((j: { id: string }) => j.id)
+    expect(ids).toContain('bk-a-crew-job')
+  })
+})
+
 describe('LEAK CONTROL', () => {
   it("selecting bookings by team_member_id ALONE (no tenant_id filter) WOULD still only match the requested worker's own rows, but selecting the open pool by status ALONE (no tenant_id filter) WOULD return both tenants' unassigned jobs — proves the route's tenantDb scoping on the pool query is load-bearing", async () => {
     const { data } = await supabaseAdmin

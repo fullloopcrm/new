@@ -44,6 +44,24 @@ export async function GET(request: NextRequest) {
   const today = `${todayYMD}T00:00:00`
   const tomorrow = `${addDaysYMD(todayYMD, 1)}T00:00:00`
 
+  // A booking's crew can include team members beyond the single `team_member_id`
+  // lead column on `bookings` — booking_team_members holds the full crew (lead +
+  // extras) when the multi-cleaner assignment UI was used to build the team.
+  // Older/simple single-assign bookings never get a booking_team_members row at
+  // all, so a non-lead crew member is only findable via that table while a lead
+  // (or a single-assignee booking) is only findable via `bookings.team_member_id`
+  // — match on either signal or extra crew members never see their own jobs.
+  const memberBookingFilter = async (): Promise<string> => {
+    const { data: crewRows } = await tenantDb(auth.tid)
+      .from('booking_team_members') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+      .select('booking_id')
+      .eq('team_member_id', auth.id)
+    const crewBookingIds = (crewRows || []).map((r) => r.booking_id as string)
+    return crewBookingIds.length > 0
+      ? `team_member_id.eq.${auth.id},id.in.(${crewBookingIds.join(',')})`
+      : `team_member_id.eq.${auth.id}`
+  }
+
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
     // tenant can restrict this to leads/managers via the portal permission matrix.
@@ -90,7 +108,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
-      .eq('team_member_id', auth.id)
+      .or(await memberBookingFilter())
       .gte('start_time', tomorrow)
       .lt('start_time', futureEnd)
       .not('status', 'eq', 'cancelled')
@@ -104,7 +122,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('*, clients(name, phone, address, special_instructions)')
-    .eq('team_member_id', auth.id)
+    .or(await memberBookingFilter())
     .gte('start_time', today)
     .lt('start_time', tomorrow)
     .not('status', 'eq', 'cancelled')
