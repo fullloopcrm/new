@@ -99,98 +99,98 @@ function ReferrerPortalContent() {
 
   if (!referrer && !loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+      <div className="min-h-screen bg-[var(--color-loop-bg)] flex items-center justify-center p-4">
+        <div className="bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line)] p-8 w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-[var(--brand)]">Referrer Portal</h1>
-            <p className="text-gray-500 mt-1">View your referral earnings</p>
+            <h1 className="font-display text-2xl text-[var(--brand)]">Referrer Portal</h1>
+            <p className="text-[var(--color-loop-muted)] mt-1">View your referral earnings</p>
           </div>
-          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+          {error && <div className="bg-[var(--color-loop-warn)]/10 text-[var(--color-loop-warn)] p-3 mb-4 text-sm border border-[var(--color-loop-warn)]/30">{error}</div>}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border rounded-lg text-[var(--brand)]" placeholder="Enter your email" />
+              <label className="block text-sm font-medium text-[var(--color-loop-graphite)] mb-1">Email Address</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border border-[var(--color-loop-line)] bg-[var(--color-loop-canvas)] text-[var(--brand)]" placeholder="Enter your email" />
             </div>
-            <button onClick={fetchByEmail} className="w-full py-3 bg-[var(--brand)] text-white rounded-lg font-medium hover:bg-[rgb(var(--brand-rgb)/0.9)]">View My Earnings</button>
+            <button onClick={fetchByEmail} className="w-full py-3 bg-[var(--brand)] text-white font-medium hover:bg-[rgb(var(--brand-rgb)/0.9)]">View My Earnings</button>
           </div>
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[var(--brand)] hover:underline">Join the program</Link></p>
+          <div className="mt-6 pt-6 border-t border-[var(--color-loop-line-soft)] text-center">
+            <p className="text-sm text-[var(--color-loop-muted)]">Not a referrer yet? <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="text-[var(--brand)] hover:underline">Join the program</Link></p>
           </div>
         </div>
       </div>
     )
   }
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>
+  if (loading) return <div className="min-h-screen bg-[var(--color-loop-bg)] flex items-center justify-center"><p className="text-[var(--color-loop-muted)]">Loading...</p></div>
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--color-loop-bg)]">
       <header className="bg-[var(--brand)] text-white py-4 px-6">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div><h1 className="text-xl font-bold">Your Business</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
-          <div className="text-right"><p className="font-medium">{referrer?.name}</p><p className="text-gray-400 text-sm">{referrer?.ref_code}</p></div>
+          <div><h1 className="font-display text-xl">Your Business</h1><p className="text-white/60 text-sm">Referral Portal</p></div>
+          <div className="text-right"><p className="font-medium">{referrer?.name}</p><p className="text-white/60 text-sm font-mono">{referrer?.ref_code}</p></div>
         </div>
       </header>
       <main className="max-w-4xl mx-auto p-6">
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Total Earned</p><p className="text-3xl font-bold text-[var(--brand)]">{formatMoney(referrer?.total_earned || 0)}</p></div>
-          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Paid Out</p><p className="text-3xl font-bold text-green-600">{formatMoney(referrer?.total_paid || 0)}</p></div>
-          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-sm text-gray-500">Pending</p><p className="text-3xl font-bold text-yellow-600">{formatMoney(pendingAmount)}</p></div>
+        <div className="grid grid-cols-3 gap-px bg-[var(--color-loop-line)] border border-[var(--color-loop-line)] mb-6">
+          <div className="bg-[var(--color-loop-canvas)] p-6 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Total Earned</p><p className="font-display text-3xl mt-1 text-[var(--brand)]">{formatMoney(referrer?.total_earned || 0)}</p></div>
+          <div className="bg-[var(--color-loop-canvas)] p-6 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Paid Out</p><p className="font-display text-3xl mt-1 text-[var(--color-loop-good)]">{formatMoney(referrer?.total_paid || 0)}</p></div>
+          <div className="bg-[var(--color-loop-canvas)] p-6 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Pending</p><p className="font-display text-3xl mt-1 text-[var(--color-loop-warn)]">{formatMoney(pendingAmount)}</p></div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="font-semibold text-[var(--brand)] mb-3">Your Referral Link</h2>
+        <div className="bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line)] p-6 mb-6">
+          <h2 className="font-display text-lg text-[var(--brand)] mb-3">Your Referral Link</h2>
           <div className="flex gap-3">
-            <input type="text" value={origin + '/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
-            <button onClick={copyLink} className="px-4 py-2 bg-[var(--brand)] text-white rounded-lg hover:bg-[rgb(var(--brand-rgb)/0.9)]">Copy</button>
+            <input type="text" value={origin + '/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-[var(--color-loop-bg)] border border-[var(--color-loop-line)] text-[var(--color-loop-graphite)] text-sm font-mono" />
+            <button onClick={copyLink} className="px-4 py-2 bg-[var(--brand)] text-white hover:bg-[rgb(var(--brand-rgb)/0.9)]">Copy</button>
           </div>
-          <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every cleaning!</p>
+          <p className="text-sm text-[var(--color-loop-muted)] mt-2">Share this link. You earn 10% of every cleaning!</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="font-semibold text-[var(--brand)] mb-4">📊 Link Performance</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Total Clicks</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.clicks}</p></div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Unique Visitors</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.uniqueVisitors}</p></div>
-            <div className="bg-[rgb(var(--accent-rgb)/0.2)] rounded-lg p-4 text-center"><p className="text-sm text-gray-500">This Week</p><p className="text-2xl font-bold text-[var(--brand)]">{linkStats.thisWeek}</p></div>
-            <div className="bg-purple-50 rounded-lg p-4 text-center"><p className="text-sm text-gray-500">Book Clicks</p><p className="text-2xl font-bold text-purple-600">{linkStats.bookClicks}</p></div>
+        <div className="bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line)] p-6 mb-6">
+          <h2 className="font-display text-lg text-[var(--brand)] mb-4">Link Performance</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--color-loop-line)] border border-[var(--color-loop-line)]">
+            <div className="bg-[var(--color-loop-bg)] p-4 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Total Clicks</p><p className="font-display text-2xl mt-1 text-[var(--brand)]">{linkStats.clicks}</p></div>
+            <div className="bg-[var(--color-loop-bg)] p-4 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Unique Visitors</p><p className="font-display text-2xl mt-1 text-[var(--brand)]">{linkStats.uniqueVisitors}</p></div>
+            <div className="bg-[var(--color-loop-bg)] p-4 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">This Week</p><p className="font-display text-2xl mt-1 text-[var(--brand)]">{linkStats.thisWeek}</p></div>
+            <div className="bg-[var(--color-loop-bg)] p-4 text-center"><p className="text-[10px] uppercase tracking-wide font-mono text-[var(--color-loop-muted)]">Book Clicks</p><p className="font-display text-2xl mt-1 text-[var(--brand)]">{linkStats.bookClicks}</p></div>
           </div>
         </div>
 
         {/* Activity Feed */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b"><h2 className="font-semibold text-[var(--brand)]">📈 Recent Activity</h2></div>
+        <div className="bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line)] mb-6">
+          <div className="p-4 border-b border-[var(--color-loop-line-soft)]"><h2 className="font-display text-lg text-[var(--brand)]">Recent Activity</h2></div>
           {recentActivity.length === 0 ? (
-            <div className="p-6 text-center text-gray-500"><p>No activity yet. Share your link!</p></div>
+            <div className="p-6 text-center text-[var(--color-loop-muted)]"><p>No activity yet. Share your link!</p></div>
           ) : (
-            <div className="divide-y max-h-64 overflow-y-auto">
+            <div className="divide-y divide-[var(--color-loop-line-soft)] max-h-64 overflow-y-auto">
               {recentActivity.map((a, i) => (
                 <div key={i} className="p-3 flex items-center justify-between text-sm">
                   <div className="flex items-center gap-3">
                     <span>{actionLabels[a.action] || a.action}</span>
-                    <span className="text-gray-400 text-xs">{a.device}</span>
+                    <span className="text-[var(--color-loop-muted-2)] text-xs">{a.device}</span>
                   </div>
-                  <span className="text-gray-400 text-xs">{formatTime(a.time)}</span>
+                  <span className="text-[var(--color-loop-muted-2)] text-xs font-mono">{formatTime(a.time)}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b"><h2 className="font-semibold text-[var(--brand)]">💰 Your Referrals ({commissions.length})</h2></div>
+        <div className="bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line)]">
+          <div className="p-4 border-b border-[var(--color-loop-line-soft)]"><h2 className="font-display text-lg text-[var(--brand)]">Your Referrals ({commissions.length})</h2></div>
           {commissions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500"><p>No referrals yet</p><p className="text-sm mt-1">Share your link to start earning!</p></div>
+            <div className="p-8 text-center text-[var(--color-loop-muted)]"><p>No referrals yet</p><p className="text-sm mt-1">Share your link to start earning!</p></div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-[var(--color-loop-line-soft)]">
               {commissions.map(c => (
                 <div key={c.id} className="p-4 flex items-center justify-between">
-                  <div><p className="font-medium text-[var(--brand)]">{c.client_name}</p><p className="text-sm text-gray-500">{formatDate(c.created_at)}</p></div>
-                  <div className="text-right"><p className="font-bold text-green-600">{formatMoney(c.commission_amount)}</p><p className={'text-xs ' + (c.status === 'paid' ? 'text-green-500' : 'text-yellow-500')}>{c.status === 'paid' ? 'Paid via ' + c.paid_via : 'Pending'}</p></div>
+                  <div><p className="font-medium text-[var(--brand)]">{c.client_name}</p><p className="text-sm text-[var(--color-loop-muted)]">{formatDate(c.created_at)}</p></div>
+                  <div className="text-right"><p className="font-bold text-[var(--color-loop-good)]">{formatMoney(c.commission_amount)}</p><p className={'text-xs ' + (c.status === 'paid' ? 'text-[var(--color-loop-good)]' : 'text-[var(--color-loop-warn)]')}>{c.status === 'paid' ? 'Paid via ' + c.paid_via : 'Pending'}</p></div>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="mt-8 text-center text-sm text-gray-500"><p>Questions? Reach out through the contact page on the main site.</p></div>
+        <div className="mt-8 text-center text-sm text-[var(--color-loop-muted)]"><p>Questions? Reach out through the contact page on the main site.</p></div>
       </main>
     </div>
   )
@@ -198,5 +198,5 @@ function ReferrerPortalContent() {
 
 export default function ReferrerPortalPage() {
   useEffect(() => { document.title = 'Referral Program | Your Business' }, []);
-  return <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}><ReferrerPortalContent /></Suspense>
+  return <Suspense fallback={<div className="min-h-screen bg-[var(--color-loop-bg)] flex items-center justify-center"><p className="text-[var(--color-loop-muted)]">Loading...</p></div>}><ReferrerPortalContent /></Suspense>
 }

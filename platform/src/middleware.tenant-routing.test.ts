@@ -184,6 +184,20 @@ describe('middleware — subdomain routing wiring', () => {
     expect(rewriteTarget(res)).toContain('/site/nycmaid/referral')
     expect(rewriteTarget(res)).not.toContain('/site/template')
   })
+
+  it('sunnyside-clean-nyc has its own signup page but no /referral portal -- portal path falls through to shared template, signup path stays on its own subtree', async () => {
+    const sunnyside = { id: 'tenant-sunnyside', slug: 'sunnyside-clean-nyc', name: 'Sunnyside Clean NYC', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'sunnyside-clean-nyc' ? sunnyside : null)
+    const { default: middleware } = await import('./middleware')
+
+    const portalReq = new NextRequest('https://sunnyside-clean-nyc.fullloopcrm.com/referral', { headers: { host: 'sunnyside-clean-nyc.fullloopcrm.com' } })
+    const portalRes = await middleware(portalReq)
+    expect(rewriteTarget(portalRes)).toContain('/site/template/referral')
+
+    const signupReq = new NextRequest('https://sunnyside-clean-nyc.fullloopcrm.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced', { headers: { host: 'sunnyside-clean-nyc.fullloopcrm.com' } })
+    const signupRes = await middleware(signupReq)
+    expect(rewriteTarget(signupRes)).toContain('/site/sunnyside-clean-nyc/get-paid-for-cleaning-referrals-every-time-they-are-serviced')
+  })
 })
 
 describe('middleware — custom domain routing wiring', () => {

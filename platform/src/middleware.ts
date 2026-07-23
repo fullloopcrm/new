@@ -497,22 +497,33 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // Referrer-portal carve-out (same shape as the sales one above): the
   // dashboard's "referrer portal" copy-link button advertises /referral(-program)
   // and the get-paid-for-cleaning-referrals signup slug to every tenant, but
-  // 16 of the 22 BESPOKE_SITE_TENANTS never got their own hand-built referral
-  // pages -- those paths 404 under /site/<tenant-slug> today. /site/template's
-  // referral pages are tenant-agnostic (resolve everything through
-  // tenant-scoped /api/referrers), so fall through to them instead of 404ing.
-  const BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL = new Set<string>([
+  // most BESPOKE_SITE_TENANTS never got their own hand-built referral pages --
+  // those paths 404 under /site/<tenant-slug> today. /site/template's referral
+  // pages are tenant-agnostic (resolve everything through tenant-scoped
+  // /api/referrers), so fall through to them instead of 404ing. The portal
+  // (/referral, login+dashboard) and the signup entry points are hand-built
+  // independently per tenant, so each gets its own exclusion set rather than
+  // one combined list -- e.g. sunnyside-clean-nyc has its own signup page but
+  // no /referral portal at all, and would otherwise stay 404 on the portal
+  // while unnecessarily losing its own working signup page to the fallback.
+  const BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL_PAGE = new Set<string>([
+    'nycmaid', 'the-florida-maid', 'wash-and-fold-nyc', 'wash-and-fold-hoboken',
+  ])
+  const BESPOKE_TENANTS_WITH_OWN_REFERRAL_SIGNUP_PAGE = new Set<string>([
     'nycmaid', 'the-florida-maid', 'sunnyside-clean-nyc', 'wash-and-fold-nyc', 'wash-and-fold-hoboken',
   ])
-  const REFERRAL_PATHS = ['/referral', '/referral-program', '/get-paid-for-cleaning-referrals-every-time-they-are-serviced']
   const wantsSharedReferralPortal =
-    REFERRAL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) &&
-    !BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL.has(tenantSlug)
+    (pathname === '/referral' || pathname.startsWith('/referral/')) &&
+    !BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL_PAGE.has(tenantSlug)
+  const SIGNUP_PATHS = ['/referral-program', '/get-paid-for-cleaning-referrals-every-time-they-are-serviced']
+  const wantsSharedReferralSignup =
+    SIGNUP_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) &&
+    !BESPOKE_TENANTS_WITH_OWN_REFERRAL_SIGNUP_PAGE.has(tenantSlug)
 
   const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
     ? '/site'
     : BESPOKE_SITE_TENANTS.has(tenantSlug)
-      ? (wantsSharedSalesPortal || wantsSharedReferralPortal ? '/site/template' : `/site/${tenantSlug}`)
+      ? (wantsSharedSalesPortal || wantsSharedReferralPortal || wantsSharedReferralSignup ? '/site/template' : `/site/${tenantSlug}`)
       : '/site/template'
   const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
 

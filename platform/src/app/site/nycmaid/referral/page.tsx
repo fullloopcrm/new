@@ -110,7 +110,7 @@ function ReferrerPortalContent() {
             <button onClick={fetchByEmail} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90">View My Earnings</button>
           </div>
           <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[#1E2A4A] hover:underline">Join the program</Link></p>
+            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="text-[#1E2A4A] hover:underline">Join the program</Link></p>
           </div>
         </div>
       </div>
