@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
 import { DnsReasonPicker } from './dns-reason-picker'
 import { formatCustomerNumber } from '@/lib/format'
+import ClientAddresses from './client-addresses'
 
 type EnrichedClient = {
   id: string
@@ -654,6 +655,11 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               </div>
             </div>
           </div>
+          )}
+
+          {/* All addresses (multi-property) + change history — Overview tab */}
+          {drawerTab === 'overview' && (
+            <ClientAddresses clientId={client.id} showHistory />
           )}
 
           {/* Worker affinity (trade-labeled) — Service tab */}
