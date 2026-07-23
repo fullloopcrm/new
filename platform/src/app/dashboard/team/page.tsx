@@ -589,7 +589,7 @@ export default function TeamPage() {
                     </div>
                     <div className="tm-metric">
                       <div className="tm-metric-label">Rate</div>
-                      <div className="tm-metric-value">{m.hourly_rate ? `$${Math.round(Number(m.hourly_rate))}` : '—'}</div>
+                      <div className="tm-metric-value">{m.pay_rate ? `$${Math.round(Number(m.pay_rate))}` : '—'}</div>
                       <div className="tm-metric-sub">per hour</div>
                     </div>
                     <div className="tm-metric">
