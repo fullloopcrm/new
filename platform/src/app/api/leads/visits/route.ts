@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etDayBoundaryUTC } from '@/lib/recurring'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -10,10 +11,14 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'
 
-    // Date filter
+    // Date filter. `website_visits.created_at` is a genuine timestamptz (real
+    // UTC instant), so week/month lookbacks are fine as plain elapsed-time
+    // math. "today" is the one case that needs a calendar boundary — and it
+    // must be ET midnight, not the server's local (UTC on Vercel) midnight,
+    // or the first ~4-5 hours of each ET day undercount as "yesterday."
     const now = new Date()
     let since = new Date()
-    if (period === 'today') since.setHours(0, 0, 0, 0)
+    if (period === 'today') since = etDayBoundaryUTC()
     else if (period === 'week') since.setDate(now.getDate() - 7)
     else if (period === 'month') since.setDate(now.getDate() - 30)
     else since.setDate(now.getDate() - 7)
