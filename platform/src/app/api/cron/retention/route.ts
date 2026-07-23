@@ -3,7 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
-import { nowNaiveET } from '@/lib/recurring'
+import { nowNaiveET, parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -61,7 +61,14 @@ export async function GET(request: Request) {
 
         if (!lastBooking?.end_time) { skipped++; continue }
 
-        const lastDate = new Date(lastBooking.end_time)
+        // end_time is naive ET, same as start_time above -- new Date(str)
+        // misparses it as UTC on the real server, reading 4-5h earlier than
+        // the true ET instant. This one spot was missed by this morning's
+        // platform-wide sweep (79f44df88), which fixed the upcoming-booking
+        // check just above but not this one -- a completed job right at the
+        // 30 or 90 day edge could be a few hours off which side of the
+        // window it falls on.
+        const lastDate = parseNaiveET(lastBooking.end_time)
         // Must be between 30-90 days ago
         if (lastDate > thirtyDaysAgo || lastDate < ninetyDaysAgo) { skipped++; continue }
 
