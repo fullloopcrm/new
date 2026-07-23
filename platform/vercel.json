@@ -105,10 +105,6 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/no-show-check",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/health-monitor",
       "schedule": "0 * * * *"
     },
