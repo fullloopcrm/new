@@ -19,6 +19,7 @@ type Deal = {
   last_activity_at: string | null
   created_at: string
   clients: { id: string; name: string; email: string | null; phone: string | null } | null
+  job_number?: string
 }
 
 type StageTotal = { stage: string; label: string; count: number; totalCents: number; weightedCents: number }
@@ -199,6 +200,9 @@ export default function PipelinePage() {
                       </p>
                       {deal.clients && deal.title && (
                         <p className="text-xs text-slate-500 truncate">{deal.clients.name}</p>
+                      )}
+                      {deal.job_number && (
+                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">#{deal.job_number}</p>
                       )}
                       <div className="flex items-center justify-between mt-1.5">
                         <p className="text-sm font-semibold text-slate-700">

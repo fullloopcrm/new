@@ -636,7 +636,13 @@ function BookingsPage() {
     if (filters.client_id) result = result.filter(b => b.client_id === filters.client_id)
     if (filters.date_from) result = result.filter(b => new Date(b.start_time) >= new Date(filters.date_from))
     if (filters.date_to) result = result.filter(b => new Date(b.start_time) <= new Date(filters.date_to + 'T23:59:59'))
-    if (searchQuery) { const q = searchQuery.toLowerCase(); result = result.filter(b => (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || assignedTeamLabel(b).toLowerCase().includes(q)) }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(b => {
+        const jobNumber = (b.job_seq != null && b.clients?.customer_number != null && tenantSlug) ? formatJobNumber(tenantSlug, b.clients.customer_number, b.job_seq) : ''
+        return (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || assignedTeamLabel(b).toLowerCase().includes(q) || jobNumber.toLowerCase().includes(q)
+      })
+    }
     setFilteredBookings(result)
   }
 
@@ -1400,11 +1406,12 @@ function BookingsPage() {
                 return `"${s.replace(/"/g, '""')}"`
               }
               const rows = filteredBookings.map(b => [
+                (b.job_seq != null && b.clients?.customer_number != null && tenantSlug) ? formatJobNumber(tenantSlug, b.clients.customer_number, b.job_seq) : '',
                 new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
                 b.clients?.name || '', assignedTeamLabel(b) || '', b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
               ].map(escCsv).join(','))
-              const csv = 'Date,Time,Client,Cleaner,Service,Status,Rate,Price,Payment\n' + rows.join('\n')
+              const csv = 'Job #,Date,Time,Client,Cleaner,Service,Status,Rate,Price,Payment\n' + rows.join('\n')
               const blob = new Blob([csv], { type: 'text/csv' })
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a'); a.href = url; a.download = `bookings-${new Date().toISOString().split('T')[0]}.csv`; a.click()
@@ -1859,6 +1866,9 @@ function BookingsPage() {
                       <div>
                         <p className={'text-sm font-medium ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--sched-ink)]')}>{b.clients?.name || '-'}</p>
                         <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{b.clients?.address || ''}</p>
+                        {b.job_seq != null && b.clients?.customer_number != null && tenantSlug && (
+                          <p className="text-[10px] font-mono text-gray-300 mt-0.5">#{formatJobNumber(tenantSlug, b.clients.customer_number, b.job_seq)}</p>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3.5">

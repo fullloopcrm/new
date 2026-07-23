@@ -7,6 +7,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, computeForecast, computeStageTotals } from '@/lib/pipeline'
 import { tenantDb } from '@/lib/tenant-db'
+import { formatJobNumber } from '@/lib/format'
 
 export async function GET(request: Request) {
   try {
@@ -25,6 +26,51 @@ export async function GET(request: Request) {
       .order('stage_changed_at', { ascending: false, nullsFirst: false })
       .limit(500)
     if (error) throw error
+
+    // Job numbers for sold deals — the deal's most-recently-converted quote
+    // points at the booking it created; look up job_seq + the client's
+    // customer_number to build the same NYCMAID-007-02 format the Bookings
+    // view uses. Scoped to 'sold' deals only, so this stays a couple of
+    // small batched queries, not N+1 per deal.
+    const soldDealIds = (deals || []).filter(d => (d.stage as string) === 'sold').map(d => d.id as string)
+    const jobNumberByDeal = new Map<string, string>()
+    if (soldDealIds.length > 0) {
+      const { data: convertedQuotes } = await db
+        .from('quotes')
+        .select('deal_id, converted_booking_id, created_at')
+        .in('deal_id', soldDealIds)
+        .not('converted_booking_id', 'is', null)
+        .order('created_at', { ascending: false })
+      const bookingIdByDeal = new Map<string, string>()
+      for (const q of (convertedQuotes || []) as { deal_id: string | null; converted_booking_id: string | null }[]) {
+        // Belt-and-suspenders: don't rely solely on the `.not(...is null)` filter
+        // reaching the database — guard client-side too.
+        if (q.deal_id && q.converted_booking_id && !bookingIdByDeal.has(q.deal_id)) {
+          bookingIdByDeal.set(q.deal_id, q.converted_booking_id)
+        }
+      }
+      const bookingIds = Array.from(new Set(bookingIdByDeal.values()))
+      if (bookingIds.length > 0) {
+        const { data: bookingRows } = await db
+          .from('bookings')
+          .select('id, job_seq, clients(customer_number)')
+          .in('id', bookingIds)
+        const jobInfoByBooking = new Map<string, { job_seq: number; customer_number: number }>()
+        for (const b of (bookingRows || []) as { id: string; job_seq: number | null; clients: { customer_number: number | null } | null }[]) {
+          if (b.job_seq != null && b.clients?.customer_number != null) {
+            jobInfoByBooking.set(b.id, { job_seq: b.job_seq, customer_number: b.clients.customer_number })
+          }
+        }
+        for (const [dealId, bookingId] of bookingIdByDeal.entries()) {
+          const info = jobInfoByBooking.get(bookingId)
+          if (info) jobNumberByDeal.set(dealId, formatJobNumber(_authTenant.tenant.slug, info.customer_number, info.job_seq))
+        }
+      }
+    }
+    for (const d of deals || []) {
+      const jobNumber = jobNumberByDeal.get(d.id as string)
+      if (jobNumber) (d as Record<string, unknown>).job_number = jobNumber
+    }
 
     const stageKeys = PIPELINE_STAGES.map(s => s.value)
     // First canonical stage (label "Lead") is the fallback bucket: orphan deals
