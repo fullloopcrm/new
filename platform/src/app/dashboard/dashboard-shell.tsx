@@ -43,7 +43,9 @@ const navMain: Array<{
   subs: Sub[]
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
-  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [] },
+  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [
+    { letter: 'A', label: 'Feedback', href: '/dashboard/clients/feedback' },
+  ]},
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [
     { letter: 'A', label: 'Loop Connect', href: '/dashboard/connect' },
   ]},
@@ -53,9 +55,10 @@ const navMain: Array<{
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
-    { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
-    { letter: 'D', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'B', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
+    { letter: 'C', label: 'Projects', href: '/dashboard/jobs/projects' },
+    { letter: 'D', label: 'Schedule', href: '/dashboard/calendar' },
+    { letter: 'E', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
@@ -76,8 +79,8 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings'],
-  clients: ['/dashboard/clients', '/dashboard/sms'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/find-cleaner'],
+  clients: ['/dashboard/clients', '/dashboard/sms', '/dashboard/clients/feedback'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
@@ -361,13 +364,13 @@ export default function DashboardShell({
                   className="px-[22px] py-1.5 flex items-center gap-3 transition-colors group"
                   style={{
                     fontSize: '13.5px',
-                    color: isActive ? '#F4F4F1' : '#A8A8A4',
+                    color: isActive ? '#FFD60A' : '#FFFFFF',
                     borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
                     background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
                     fontWeight: isActive ? 500 : 400,
                   }}
                 >
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: isActive ? '#F4F4F1' : '#5A5A5A', width: '18px', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: isActive ? '#FFD60A' : '#FFFFFF', width: '18px', flexShrink: 0 }}>
                     {item.num}
                   </span>
                   <span>{item.label}</span>
@@ -388,13 +391,13 @@ export default function DashboardShell({
                       style={{
                         padding: '4px 22px 4px 44px',
                         fontSize: '12.5px',
-                        color: subActive ? '#C8C5BC' : '#888',
+                        color: subActive ? '#FFD60A' : '#FFFFFF',
                       }}
                     >
                       <span style={{
                         fontFamily: 'var(--mono)',
                         fontSize: '9.5px',
-                        color: subActive ? '#888' : '#555',
+                        color: subActive ? '#FFD60A' : '#FFFFFF',
                         width: '12px',
                         flexShrink: 0,
                         letterSpacing: '0.04em',
@@ -423,7 +426,7 @@ export default function DashboardShell({
                 className="px-[22px] py-1.5 flex items-center gap-3"
                 style={{
                   fontSize: '13.5px',
-                  color: isActive ? '#F4F4F1' : '#A8A8A4',
+                  color: isActive ? '#FFD60A' : '#FFFFFF',
                   borderLeft: `2px solid ${isActive ? '#F4F4F1' : 'transparent'}`,
                   background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
                 }}
