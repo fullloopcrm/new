@@ -261,6 +261,7 @@ function BookingsPage() {
   }, [showCreateModal, createForm.client_id])
   const [copied, setCopied] = useState(false)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  const [resendingPaymentLink, setResendingPaymentLink] = useState(false)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
   const [editCheckOutVal, setEditCheckOutVal] = useState<string | null>(null)
   const [showCloseOut, setShowCloseOut] = useState(false)
@@ -2359,6 +2360,28 @@ function BookingsPage() {
                 </select>
               </div>
             </div>
+            {form.payment_status !== 'paid' && (
+              <button
+                type="button"
+                disabled={resendingPaymentLink}
+                onClick={async () => {
+                  setResendingPaymentLink(true)
+                  try {
+                    const res = await fetch(`/api/bookings/${editingBooking.id}/resend-payment-link`, { method: 'POST' })
+                    const d = await res.json().catch(() => ({}))
+                    if (!res.ok) alert(d.error || 'Failed to resend payment link')
+                    else if (d.sent) alert('Payment link sent to client!')
+                    else { alert(d.reason || 'Could not text the client — link copied instead.'); navigator.clipboard.writeText(d.url || '') }
+                  } catch {
+                    alert('Failed to resend payment link')
+                  }
+                  setResendingPaymentLink(false)
+                }}
+                className="w-full mb-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+              >
+                {resendingPaymentLink ? 'Sending…' : 'Resend Payment Link'}
+              </button>
+            )}
 
             {/* ── CLEANER / TEAM ── */}
             <div className="mb-3">
