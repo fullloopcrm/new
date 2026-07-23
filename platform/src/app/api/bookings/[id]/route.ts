@@ -11,6 +11,7 @@ import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export async function GET(
   _request: Request,
@@ -50,7 +51,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'video_dispute_hold'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'video_dispute_hold', 'payment_status', 'payment_method'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm
@@ -248,7 +249,7 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
     const { error } = await db
       .from('bookings')
@@ -270,20 +271,42 @@ export async function DELETE(
         const bizName = tenantData?.name || 'Your Business'
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
 
-        // Client cancellation email
+        // Client cancellation email — nycmaid gets the rich branded template
         if (booking.client_id) {
           const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          await notify({
-            tenantId,
-            type: 'booking_cancelled',
-            title: `Booking Cancelled — ${date}`,
-            message: `Your appointment on ${date} has been cancelled.`,
-            channel: 'email',
-            recipientType: 'client',
-            recipientId: booking.client_id,
-            bookingId: id,
-            metadata: { clientName: booking.clients?.name },
-          })
+          if (isNycMaid(tenantId) && booking.clients?.email) {
+            const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
+            const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+            const email = clientCancellationEmail(booking)
+            await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
+            await supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'booking_cancelled',
+              title: email.subject,
+              message: `Cancellation email sent to ${booking.clients.email}`,
+              channel: 'email',
+              recipient_type: 'client',
+              recipient_id: booking.client_id,
+              // No booking_id — the booking row is already deleted by this point
+              // (DELETE runs before this notification), so any booking_id here
+              // would violate notifications_booking_id_fkey on INSERT and get
+              // silently swallowed by the .then() no-op handlers below.
+              status: 'sent',
+              metadata: { clientName: booking.clients?.name },
+            }).then(() => {}, () => {})
+          } else {
+            await notify({
+              tenantId,
+              type: 'booking_cancelled',
+              title: `Booking Cancelled — ${date}`,
+              message: `Your appointment on ${date} has been cancelled.`,
+              channel: 'email',
+              recipientType: 'client',
+              recipientId: booking.client_id,
+              // No bookingId — same dangling-FK reason as above.
+              metadata: { clientName: booking.clients?.name },
+            })
+          }
         }
 
         // Client cancellation SMS
@@ -297,6 +320,14 @@ export async function DELETE(
         }
       } catch (notifErr) {
         console.error('Cancellation notification error:', notifErr)
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'comms_fail',
+          title: 'Cancellation notification failed',
+          message: notifErr instanceof Error ? `${notifErr.message}\n${notifErr.stack}` : String(notifErr),
+          channel: 'email',
+          status: 'failed',
+        }).then(() => {}, () => {})
       }
     }
 
