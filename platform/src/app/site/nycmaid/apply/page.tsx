@@ -91,7 +91,8 @@ export default function ApplyPage() {
       let photo_url = ''
       const uploadData = new FormData()
       uploadData.append('file', photoFile)
-      const uploadRes = await fetch('/api/cleaners/upload', { method: 'POST', body: uploadData })
+      uploadData.append('folder', 'applications')
+      const uploadRes = await fetch('/api/public-upload', { method: 'POST', body: uploadData })
       if (!uploadRes.ok) {
         const errData = await uploadRes.json().catch(() => ({}))
         setError(errData.error || 'Failed to upload photo / Error al subir la foto')
