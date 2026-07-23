@@ -582,18 +582,41 @@ export default function TeamHomePage() {
       // Fires the real 30-min alert: admin heads-up SMS + client pay-now text
       // with the tenant Stripe link, cleaner-pay calc, and undelivered escalation.
       // (Was POSTing /api/notifications, which only inserted a row.)
-      const res = await fetch('/api/team-portal/15min-alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ bookingId: job.id }),
-      })
+      //
+      // The backend route can (rarely) hang up to its own maxDuration if
+      // Telnyx is slow — before this fetch had a timeout, that left this
+      // button stuck on "sending" with the mobile page unresponsive and no
+      // way out (real Jeff report, 2026-07-23, same root cause as the
+      // backend's own missing fetch timeout in lib/nycmaid/sms.ts). Bail out
+      // client-side well before the backend's own ceiling so the cleaner
+      // always gets a clear message instead of a frozen screen.
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 20_000)
+      let res: Response
+      try {
+        res = await fetch('/api/team-portal/15min-alert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ bookingId: job.id }),
+          signal: controller.signal,
+        })
+      } finally {
+        clearTimeout(timeout)
+      }
       if (res.ok) {
         alert(t('Heads up sent!', 'Aviso enviado!'))
       } else {
         alert(t('Failed to send', 'Error al enviar'))
       }
-    } catch {
-      alert(t('Failed to send', 'Error al enviar'))
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        alert(t(
+          'Still sending — this is taking longer than usual. Check back in a minute before trying again.',
+          'Todavía enviando — esto está tardando más de lo normal. Vuelve a revisar en un minuto antes de intentar de nuevo.'
+        ))
+      } else {
+        alert(t('Failed to send', 'Error al enviar'))
+      }
     }
     setSendingHeadsUp(null)
   }

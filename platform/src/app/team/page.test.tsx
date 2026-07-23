@@ -143,4 +143,38 @@ describe('team/page — checkout and claim error handling', () => {
 
     await waitFor(() => expect(global.alert).not.toHaveBeenCalled())
   })
+
+  it('30-Min Heads Up shows a "still sending" message and re-enables the button on a hung/aborted fetch, instead of freezing forever', async () => {
+    // Real Jeff report, 2026-07-23: cleaners hitting this button on mobile
+    // saw the page "crash" (frozen on Sending...) when the backend hung —
+    // same root cause as the backend's own missing fetch timeout
+    // (lib/nycmaid/sms.ts). This proves the client-side timeout added here
+    // actually fires, surfaces a clear message, and clears sendingHeadsUp
+    // instead of leaving the button stuck forever.
+    const fetchMock = mockFetch()
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes('/api/team-portal/15min-alert')) {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')))
+        })
+      }
+      return mockFetch()(url)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('alert', vi.fn())
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
+
+    render(<TeamHomePage />)
+    fireEvent.click(await screen.findByText('Client A'))
+    const headsUpBtn = await screen.findByText('30-Min Heads Up')
+    fireEvent.click(headsUpBtn)
+
+    await waitFor(() => expect(screen.getByText('Sending...')).toBeInTheDocument())
+
+    await waitFor(
+      () => expect(global.alert).toHaveBeenCalledWith(expect.stringContaining('Still sending')),
+      { timeout: 25_000 }
+    )
+    await waitFor(() => expect(screen.getByText('30-Min Heads Up')).not.toBeDisabled())
+  }, 30_000)
 })

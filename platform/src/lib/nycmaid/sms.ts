@@ -92,6 +92,18 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      // This fetch had NO timeout — a slow (not even erroring) Telnyx
+      // response could hang indefinitely. Nested inside this function's own
+      // 3-attempt retry loop AND callers' own outer retry loops (e.g.
+      // team-portal/30min-alert's 2-attempt loop with a 60s sleep between),
+      // that compounds into a real production incident: the whole request
+      // silently exhausts its maxDuration budget and gets hard-killed by the
+      // platform mid-fetch, before any exception is thrown, any .catch()
+      // runs, or any log is written — a completely silent failure with zero
+      // trace anywhere (2026-07-23 nycmaid payment-text incident). 12s caps
+      // each individual attempt; a timeout throws AbortError, which the
+      // existing catch block below already retries/logs/returns exactly
+      // like any other fetch failure — same {success:false, error} shape.
       const res = await fetch('https://api.telnyx.com/v2/messages', {
         method: 'POST',
         headers: {
@@ -103,6 +115,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
           to: cleanPhone,
           text: message,
         }),
+        signal: AbortSignal.timeout(12_000),
       })
 
       const data = await res.json()
