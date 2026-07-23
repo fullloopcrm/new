@@ -134,6 +134,16 @@ export async function handleNycMaidReview(
         service_rating: num,
         cleaner_rating: num, // single-question flow: one rating reflects both
       })
+      // client_feedback is the system-of-record the /dashboard/clients/feedback
+      // page reads — the `ratings` insert above alone never surfaced here.
+      await supabaseAdmin.from('client_feedback').insert({
+        tenant_id: tenantId,
+        client_id: booking.client_id,
+        source: 'sms_rating',
+        category: 'client',
+        message: `Rating: ${num}/5 for ${cleanerFirst}`,
+        is_anonymous: false,
+      }).then(() => {}, () => {})
       if (num >= 4) {
         await sendSMS(from, smsReviewRequest(cleanerName), {
           skipConsent: true,
@@ -172,6 +182,14 @@ export async function handleNycMaidReview(
       team_member_id: booking.team_member_id,
       feedback: rawText.slice(0, 500) || null,
     })
+    await supabaseAdmin.from('client_feedback').insert({
+      tenant_id: tenantId,
+      client_id: booking.client_id,
+      source: 'sms_rating',
+      category: 'client',
+      message: rawText.slice(0, 2000),
+      is_anonymous: false,
+    }).then(() => {}, () => {})
     await smsAdmins(`Feedback for ${cleanerFirst} (no numeric rating) — "${rawText.slice(0, 200)}"`).catch(() => {})
     return NextResponse.json({ ok: true, action: 'feedback_captured' })
   }
@@ -180,6 +198,14 @@ export async function handleNycMaidReview(
   if (existing.service_rating != null && existing.service_rating < 5 && !existing.feedback) {
     const fb = rawText.slice(0, 500) || null
     await supabaseAdmin.from('ratings').update({ feedback: fb }).eq('booking_id', booking.id)
+    await supabaseAdmin.from('client_feedback').insert({
+      tenant_id: tenantId,
+      client_id: booking.client_id,
+      source: 'sms_rating',
+      category: 'client',
+      message: `Rating: ${existing.service_rating}/5 for ${cleanerFirst}${fb ? ` — "${fb}"` : ''}`,
+      is_anonymous: false,
+    }).then(() => {}, () => {})
     await sendSMS(from, `Thanks — recorded. We'll review and follow up if needed.`, {
       skipConsent: true,
       smsType: 'rating_thanks',

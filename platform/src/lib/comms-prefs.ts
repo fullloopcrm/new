@@ -41,9 +41,26 @@ export type CommTiming = {
   payment_reminder_hours: number
 }
 
+/**
+ * Content/policy values every email + SMS template reads at send time
+ * (lib/email-templates.ts, lib/sms-templates.ts). Global template code, per-
+ * tenant data — a tenant fills these in once here and every automated comm
+ * picks them up. All optional; a template degrades gracefully when unset.
+ */
+export interface CommPolicy {
+  supportPhone?: string
+  reviewUrl?: string
+  bookingUrl?: string
+  cancellationPolicyOneTime?: string
+  cancellationPolicyRecurring?: string
+  loyaltyDiscountPercent?: number
+  selfBookDiscountCents?: number
+}
+
 export interface CommPreferences {
   comms: Record<string, CommChannelPrefs>
   timing: CommTiming
+  policy: CommPolicy
 }
 
 export interface CommCapabilities {
@@ -65,12 +82,16 @@ export function defaultCommTiming(): CommTiming {
   }
 }
 
+export function defaultCommPolicy(): CommPolicy {
+  return {}
+}
+
 export function defaultCommPrefs(): CommPreferences {
   const comms: Record<string, CommChannelPrefs> = {}
   for (const def of COMMS) {
     comms[def.key] = { ...def.defaults }
   }
-  return { comms, timing: defaultCommTiming() }
+  return { comms, timing: defaultCommTiming(), policy: defaultCommPolicy() }
 }
 
 // ─── Normalize (merge stored over defaults, migrate legacy) ──────────────────
@@ -111,6 +132,18 @@ export function normalizePrefs(raw: unknown): CommPreferences {
     }
   }
 
+  const storedPolicy = (obj.policy as Record<string, unknown>) || {}
+  type StringPolicyKey = 'supportPhone' | 'reviewUrl' | 'bookingUrl' | 'cancellationPolicyOneTime' | 'cancellationPolicyRecurring'
+  const stringPolicyKeys: StringPolicyKey[] = [
+    'supportPhone', 'reviewUrl', 'bookingUrl', 'cancellationPolicyOneTime', 'cancellationPolicyRecurring',
+  ]
+  for (const key of stringPolicyKeys) {
+    const v = storedPolicy[key]
+    if (typeof v === 'string') base.policy[key] = v
+  }
+  if (typeof storedPolicy.loyaltyDiscountPercent === 'number') base.policy.loyaltyDiscountPercent = storedPolicy.loyaltyDiscountPercent
+  if (typeof storedPolicy.selfBookDiscountCents === 'number') base.policy.selfBookDiscountCents = storedPolicy.selfBookDiscountCents
+
   return base
 }
 
@@ -145,6 +178,39 @@ export async function isCommEnabled(
 
 export async function getCommTiming(tenantId: string): Promise<CommTiming> {
   return (await getCommPrefs(tenantId)).timing
+}
+
+export async function getCommPolicy(tenantId: string): Promise<CommPolicy> {
+  return (await getCommPrefs(tenantId)).policy
+}
+
+export interface TenantForTemplateData {
+  name: string
+  primary_color?: string | null
+  logo_url?: string | null
+  commission_rate?: number | null
+}
+
+/**
+ * Builds the shared `TemplateData` base every email-templates.ts /
+ * sms-templates.ts function expects — tenant branding + this tenant's comm
+ * policy in one shot. Every send path should call this instead of hand-rolling
+ * the object, so template content stays consistent everywhere it's used.
+ */
+export function buildTemplateData(tenant: TenantForTemplateData, policy: CommPolicy) {
+  return {
+    tenantName: tenant.name,
+    primaryColor: tenant.primary_color || undefined,
+    logoUrl: tenant.logo_url || undefined,
+    supportPhone: policy.supportPhone,
+    reviewUrl: policy.reviewUrl,
+    bookingUrl: policy.bookingUrl,
+    cancellationPolicyOneTime: policy.cancellationPolicyOneTime,
+    cancellationPolicyRecurring: policy.cancellationPolicyRecurring,
+    loyaltyDiscountPercent: policy.loyaltyDiscountPercent,
+    selfBookDiscountCents: policy.selfBookDiscountCents,
+    referralCommissionPercent: tenant.commission_rate ?? undefined,
+  }
 }
 
 export async function getCommTemplate(

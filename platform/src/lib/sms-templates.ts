@@ -210,6 +210,51 @@ export function smsPaymentDueES(bizName: string, amount: string): string {
 }
 
 // ============================================
+// PAYMENT DUE (EN) + ADMIN
+// ============================================
+
+export function smsPaymentDue(bizName: string, amount: string): string {
+  return `${bizName}: Your service is wrapping up! Payment of $${amount} is due via the secure payment link. Our team can't leave until payment is processed — thank you!${STOP_TEXT}`
+}
+
+export function smsPaymentDueAdmin(bizName: string, clientName: string, memberName: string, amount: string): string {
+  return `${bizName}: 30 min left — ${clientName} with ${memberName}. Collect $${amount} via the secure payment link.`
+}
+
+// ============================================
+// RATING FLOW — sequential SMS questions after a completed job
+// ============================================
+
+export function smsRatingQ1(bizName: string): string {
+  return `${bizName}: How was your service today? Reply 1-5 (5 = perfect).${STOP_TEXT}`
+}
+
+export function smsRatingQ2(memberFirstName: string): string {
+  return `Thanks! How was ${memberFirstName}? Reply 1-5.`
+}
+
+export function smsRatingQ3(): string {
+  return `Great, thank you! Last question — any feedback? It's private and not shared with the team member.`
+}
+
+export function smsRatingThanks(bizName: string, rating: { serviceRating: number; memberRating: number }): string {
+  return `${bizName}: Thanks for the feedback — ${rating.serviceRating}/5 service, ${rating.memberRating}/5 team member. We've recorded it.${STOP_TEXT}`
+}
+
+export function smsReviewRequest(bizName: string, memberFirstName: string, reviewUrl: string, incentiveNote?: string): string {
+  const incentive = incentiveNote ? ` ${incentiveNote}` : ''
+  return `${bizName}: 5 stars — thank you! Mind leaving a public review for ${memberFirstName}?${incentive}\n\nLeave it here: ${reviewUrl}${STOP_TEXT}`
+}
+
+// ============================================
+// REFERRAL
+// ============================================
+
+export function smsNewReferrer(bizName: string, name: string, code: string): string {
+  return `${bizName}: New referrer — ${name} (${code})`
+}
+
+// ============================================
 // BILINGUAL HELPER — returns EN + ES in one message
 // ============================================
 
