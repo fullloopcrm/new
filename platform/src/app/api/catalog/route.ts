@@ -16,6 +16,18 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
+// category_id is a caller-supplied FK -- categories carries its own tenant_id
+// with no cross-tenant constraint at the DB level, same class as the
+// vendor_id/service_type_id checks already applied on jobs/[id]/expenses,
+// quote-budgets, and vendors/[id]/items. Without this, a foreign category_id
+// written here later leaks that tenant's real category name through
+// jobs/[id]/expenses' own categories(id, name) embed (categoryId there is
+// derived server-side from this row's category_id).
+async function categoryBelongsToTenant(tenantId: string, categoryId: string): Promise<boolean> {
+  const { data } = await tenantDb(tenantId).from('categories').select('id').eq('id', categoryId).maybeSingle()
+  return !!data
+}
+
 const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
 
@@ -65,6 +77,11 @@ export async function POST(request: Request) {
     const item_type = ITEM_TYPES.includes(body.item_type as string) ? (body.item_type as string) : 'service'
     const per_unit = PER_UNITS.includes(body.per_unit as string) ? (body.per_unit as string) : 'job'
 
+    const categoryId = (body.category_id as string) || null
+    if (categoryId && !(await categoryBelongsToTenant(tenantId, categoryId))) {
+      return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+    }
+
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .insert({
@@ -80,7 +97,7 @@ export async function POST(request: Request) {
         cost_cents: num(body.cost_cents),
         taxable: body.taxable !== false,
         category: (body.category as string) || null,
-        category_id: (body.category_id as string) || null,
+        category_id: categoryId,
         default_duration_hours: num(body.default_duration_hours),
         default_labor_rate_cents: num(body.default_labor_rate_cents),
         default_overhead_cents: num(body.default_overhead_cents),
@@ -119,7 +136,13 @@ export async function PATCH(request: Request) {
     if ('cost_cents' in body) patch.cost_cents = num(body.cost_cents)
     if ('taxable' in body) patch.taxable = !!body.taxable
     if ('category' in body) patch.category = (body.category as string) || null
-    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
+    if ('category_id' in body) {
+      const categoryId = (body.category_id as string) || null
+      if (categoryId && !(await categoryBelongsToTenant(tenantId, categoryId))) {
+        return NextResponse.json({ error: 'Invalid category_id' }, { status: 400 })
+      }
+      patch.category_id = categoryId
+    }
     if ('default_duration_hours' in body) patch.default_duration_hours = num(body.default_duration_hours)
     if ('default_labor_rate_cents' in body) patch.default_labor_rate_cents = num(body.default_labor_rate_cents)
     if ('default_overhead_cents' in body) patch.default_overhead_cents = num(body.default_overhead_cents)

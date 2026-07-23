@@ -43,8 +43,12 @@ import { GET, POST, PATCH, DELETE } from './route'
 function seed() {
   return {
     service_types: [
-      { id: 'svc-a1', tenant_id: A, name: 'Standard Clean', item_type: 'service', per_unit: 'hour', price_cents: 5000, default_hourly_rate: null, sort_order: 1, active: true },
-      { id: 'svc-b1', tenant_id: B, name: 'Foreign Deep Clean', item_type: 'service', per_unit: 'job', price_cents: 9900, default_hourly_rate: null, sort_order: 1, active: true },
+      { id: 'svc-a1', tenant_id: A, name: 'Standard Clean', item_type: 'service', per_unit: 'hour', price_cents: 5000, default_hourly_rate: null, sort_order: 1, active: true, category_id: null },
+      { id: 'svc-b1', tenant_id: B, name: 'Foreign Deep Clean', item_type: 'service', per_unit: 'job', price_cents: 9900, default_hourly_rate: null, sort_order: 1, active: true, category_id: null },
+    ],
+    categories: [
+      { id: 'cat-a1', tenant_id: A, name: 'A Category' },
+      { id: 'cat-b1', tenant_id: B, name: 'B Category' },
     ],
     audit_logs: [],
   }
@@ -109,5 +113,36 @@ describe('catalog — tenant isolation', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(false)
+  })
+
+  it('POST rejects a category_id belonging to another tenant', async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'New Item', category_id: 'cat-b1' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'service_types')).toBeUndefined()
+  })
+
+  it('POST accepts a category_id belonging to the acting tenant (positive control)', async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'New Item', category_id: 'cat-a1' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const inserted = h.capture.inserts.find((i) => i.table === 'service_types')
+    expect(inserted!.rows[0].category_id).toBe('cat-a1')
+  })
+
+  it('PATCH rejects a category_id belonging to another tenant and leaves the item unchanged', async () => {
+    const req = new Request('http://t/api/catalog', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 'svc-a1', category_id: 'cat-b1' }),
+    })
+    const res = await PATCH(req)
+    expect(res.status).toBe(400)
+    expect(h.seed.service_types.find((r) => r.id === 'svc-a1')!.category_id).toBe(null)
   })
 })
