@@ -13,6 +13,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -327,7 +328,10 @@ export async function executeTool(
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
+      // before ET's does, so this fallback showed TOMORROW's schedule as
+      // "today" for evening ET admin queries.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
       const dateTo = (input.date_to as string) || date
       const { data, error } = await db
         .from('bookings')

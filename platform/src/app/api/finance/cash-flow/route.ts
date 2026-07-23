@@ -8,6 +8,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { nowNaiveET } from '@/lib/recurring'
 
 function weekKey(d: Date): string {
   const monday = new Date(d)
@@ -34,11 +35,13 @@ export async function GET(request: Request) {
     const endIso = endDate.toISOString().slice(0, 10)
     const endTs = `${endIso}T23:59:59Z`
 
-    // bookings is tenant-level (no entity_id); invoices + recurring_expenses take the filter.
+    // bookings.start_time is naive ET — a real-instant boundary here silently
+    // excluded this-morning bookings from the forecast (same bug as
+    // cron/no-show-check). Naive ET digits + a bare 'Z' instead.
     const bookingsQ = db
       .from('bookings')
       .select('id, price, start_time, payment_status')
-      .gte('start_time', now.toISOString())
+      .gte('start_time', `${nowNaiveET()}Z`)
       .lte('start_time', endTs)
       .not('status', 'in', '(cancelled,no_show)')
 

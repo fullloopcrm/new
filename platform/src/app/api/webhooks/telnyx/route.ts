@@ -16,6 +16,7 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 60
 
@@ -276,7 +277,11 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('client_id', client.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // start_time is naive ET — a real-instant boundary here made SMS
+          // auto-confirm silently fail to find this-morning's booking for
+          // hours after it had actually started (same bug as
+          // cron/no-show-check).
+          .gte('start_time', `${nowNaiveET()}Z`)
           .order('start_time', { ascending: true })
           .limit(1)
           .single()
@@ -335,7 +340,11 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('team_member_id', member.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // start_time is naive ET — a real-instant boundary here made SMS
+          // auto-confirm silently fail to find this-morning's booking for
+          // hours after it had actually started (same bug as
+          // cron/no-show-check).
+          .gte('start_time', `${nowNaiveET()}Z`)
           .order('start_time', { ascending: true })
           .limit(1)
           .single()

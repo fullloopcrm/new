@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { etToday, etDayBoundaryUTC, addCalendarDays, calendarDayOfWeek, daysInCalendarMonth, nowNaiveET } from '@/lib/recurring'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
 const roundToHalfHour = (hours: number) => {
@@ -37,9 +38,16 @@ export async function GET(request: NextRequest) {
       ? b.team_member_pay / 100
       : hours * (b.pay_rate || hourlyRate)
 
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+  // bookings.start_time is a naive ET wall-clock column — every boundary
+  // below was previously computed from the SERVER's local (UTC) clock via
+  // now.getFullYear()/getMonth()/getDate()/getDay(), then compared as a real
+  // instant against that naive column. Same bug as cron/no-show-check: this
+  // morning's jobs silently fell out of "today's earnings" for hours after
+  // they'd actually happened. Everything below is anchored to ET's own
+  // calendar instead.
+  const todayCal = etToday()
+  const todayStart = etDayBoundaryUTC(todayCal)
+  const todayEnd = etDayBoundaryUTC(addCalendarDays(todayCal, 1))
 
   // Today's potential earnings (scheduled hours for today)
   const { data: todayJobs } = await tenantDb(auth.tid)
@@ -61,12 +69,10 @@ export async function GET(request: NextRequest) {
   }
 
   // Weekly earnings (Mon-Sun)
-  const dayOfWeek = now.getDay()
+  const dayOfWeek = calendarDayOfWeek(todayCal)
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  const weekStart = new Date(todayStart)
-  weekStart.setDate(weekStart.getDate() + mondayOffset)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 7)
+  const weekStart = etDayBoundaryUTC(addCalendarDays(todayCal, mondayOffset))
+  const weekEnd = etDayBoundaryUTC(addCalendarDays(todayCal, mondayOffset + 7))
 
   const { data: weekJobs } = await tenantDb(auth.tid)
     .from('bookings')
@@ -94,8 +100,10 @@ export async function GET(request: NextRequest) {
   })
 
   // Monthly earnings
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const firstOfMonth = { ...todayCal, day: 1 }
+  const monthStart = etDayBoundaryUTC(firstOfMonth)
+  const nextMonthStart = etDayBoundaryUTC(addCalendarDays(firstOfMonth, daysInCalendarMonth(todayCal)))
+  const monthEnd = new Date(nextMonthStart.getTime() - 1)
 
   const { data: monthJobs } = await tenantDb(auth.tid)
     .from('bookings')
@@ -123,7 +131,7 @@ export async function GET(request: NextRequest) {
   })
 
   // Year-to-date earnings
-  const yearStart = new Date(now.getFullYear(), 0, 1)
+  const yearStart = etDayBoundaryUTC({ ...todayCal, month: 0, day: 1 })
 
   const { data: yearJobs } = await tenantDb(auth.tid)
     .from('bookings')
@@ -131,7 +139,7 @@ export async function GET(request: NextRequest) {
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
     .gte('start_time', yearStart.toISOString())
-    .lte('start_time', now.toISOString())
+    .lte('start_time', `${nowNaiveET()}Z`)
     .order('start_time', { ascending: false })
 
   let yearlyPay = 0

@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -71,7 +72,10 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .eq('client_id', client.id)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', now.toISOString())
+          // start_time is naive ET — a real-instant boundary here could miss
+          // an actual upcoming booking and wrongly send a "win-back" text
+          // (same bug as cron/no-show-check).
+          .gte('start_time', `${nowNaiveET()}Z`)
 
         if ((upcomingCount || 0) > 0) { skipped++; continue }
 

@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET(
   _request: Request,
@@ -88,12 +89,14 @@ export async function DELETE(
     const db = tenantDb(tenantId)
     const { id } = await params
 
-    // Cancel future bookings
+    // Cancel future bookings — start_time is naive ET; a real-instant boundary
+    // here left early-morning ET bookings uncancelled when their schedule was
+    // deleted, since they looked like they'd already happened.
     await db
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('schedule_id', id)
-      .gte('start_time', new Date().toISOString())
+      .gte('start_time', `${nowNaiveET()}Z`)
       .in('status', ['scheduled', 'confirmed'])
 
     // Cancel the schedule

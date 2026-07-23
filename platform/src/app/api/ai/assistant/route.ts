@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -305,7 +306,10 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
+      // before ET's does, so this fallback showed TOMORROW's schedule as
+      // "today" for evening ET queries.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
       const dateTo = (input.date_to as string) || date
 
       const { data, error } = await supabaseAdmin

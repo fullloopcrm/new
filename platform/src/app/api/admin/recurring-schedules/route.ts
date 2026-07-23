@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -61,7 +62,9 @@ export async function GET(request: Request) {
         .select('start_time')
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending'])
-        .gte('start_time', new Date().toISOString())
+        // start_time is naive ET — a real-instant boundary here excluded
+        // this-morning bookings hours before they'd actually happened.
+        .gte('start_time', `${nowNaiveET()}Z`)
         .order('start_time')
         .limit(1)
         .single()
