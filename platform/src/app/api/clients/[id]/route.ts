@@ -148,8 +148,37 @@ export async function DELETE(
   try {
     const { tenantId } = tenant
     const { id } = await params
+    const db = tenantDb(tenantId)
 
-    const { data, error } = await tenantDb(tenantId)
+    // A client with real booking history is never hard-deleted — that would
+    // silently cascade-remove/orphan every booking, payment, and message tied
+    // to them. Archive instead (active=false); only a client with zero
+    // bookings ever gets a real row delete.
+    const { count: bookingCount } = await db
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', id)
+
+    if ((bookingCount || 0) > 0) {
+      const { data, error } = await db
+        .from('clients')
+        .update({ active: false })
+        .eq('id', id)
+        .select('id')
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      if (!data || data.length === 0) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+
+      await audit({ tenantId, action: 'client.archived', entityType: 'client', entityId: id, details: { reason: 'has_booking_history', bookingCount } })
+
+      return NextResponse.json({ success: true, archived: true, bookingCount })
+    }
+
+    const { data, error } = await db
       .from('clients')
       .delete()
       .eq('id', id)
@@ -164,7 +193,7 @@ export async function DELETE(
 
     await audit({ tenantId, action: 'client.deleted', entityType: 'client', entityId: id })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, archived: false })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

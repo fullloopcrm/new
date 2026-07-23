@@ -419,6 +419,12 @@ export default function ClientsPage() {
                     {c.stage === 'vip' && <span className="clients-row-name-tag vip">VIP</span>}
                   </div>
                   {c.address && <div className="clients-row-addr">{c.address}</div>}
+                  {(c.phone || c.email) && (
+                    <div className="clients-row-contact" onClick={(e) => e.stopPropagation()}>
+                      {c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}
+                      {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="clients-recurring-cell">
@@ -471,6 +477,24 @@ export default function ClientsPage() {
                 )}
               </div>
               <div className="clients-row-actions" onClick={(e) => e.stopPropagation()}>
+                {c.phone && (
+                  <>
+                    <a
+                      className="clients-icon-btn"
+                      href={`tel:${c.phone}`}
+                      aria-label="Call client"
+                    >
+                      ☎
+                    </a>
+                    <a
+                      className="clients-icon-btn"
+                      href={`sms:${c.phone}`}
+                      aria-label="Text client"
+                    >
+                      💬
+                    </a>
+                  </>
+                )}
                 <button
                   className="clients-icon-btn"
                   onClick={() => {

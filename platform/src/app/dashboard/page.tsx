@@ -33,7 +33,7 @@ type Booking = {
   service_type: string | null
   schedule_id: string | null
   team_member_id: string | null
-  clients: { name: string | null } | null
+  clients: { name: string | null; phone: string | null; address: string | null } | null
   team_members: { name: string | null } | null
   booking_team_members: { is_lead: boolean; position: number; team_members: { name: string | null } | null }[] | null
 }
@@ -62,7 +62,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
   for (let from = 0; ; from += page) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members!bookings_team_member_id_fkey(name),booking_team_members(is_lead,position,team_members(name))')
+      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(is_lead,position,team_members(name))')
       .eq('tenant_id', tenantId)
       .gte('start_time', startISO)
       .lte('start_time', endISO)
@@ -378,6 +378,11 @@ export default async function DashboardPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
                   <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {assignedTeamLabel(job)}</p>
+                  {(job.clients?.address || job.clients?.phone) && (
+                    <p className="text-xs truncate" style={{ color: V.muted2, fontFamily: V.mono, fontSize: '10.5px' }}>
+                      {[job.clients?.address, job.clients?.phone].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p style={{ fontFamily: V.mono, fontSize: '12px', color: V.ink }}>{formatTime(job.start_time)}</p>

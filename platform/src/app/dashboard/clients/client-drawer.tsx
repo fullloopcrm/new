@@ -126,6 +126,7 @@ type ClientBooking = {
   payment_status: string | null
   team_member_id: string | null
   team_members: { id: string; name: string } | null
+  notes: string | null
 }
 
 function fmtDateShort(iso: string): string {
@@ -150,6 +151,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
   const [editError, setEditError] = useState('')
   const [showDnsPicker, setShowDnsPicker] = useState(false)
   const [dnsSaving, setDnsSaving] = useState(false)
+  const [deleteSaving, setDeleteSaving] = useState(false)
 
   // Bookings list — Activity tab
   const [bookings, setBookings] = useState<ClientBooking[]>([])
@@ -300,6 +302,24 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
       // no-op — button remains actionable to retry
     } finally {
       setDnsSaving(false)
+    }
+  }
+
+  async function deleteClient() {
+    if (!client) return
+    if (!confirm(`Delete ${client.name}? Clients with booking history are archived instead of deleted — nothing is lost.`)) return
+    setDeleteSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to delete client')
+      onClose()
+      onClientUpdated?.()
+      if (data.archived) alert(`${client.name} has booking history — archived instead of deleted.`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to delete client')
+    } finally {
+      setDeleteSaving(false)
     }
   }
 
@@ -836,11 +856,48 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
               onChange={(e) => setNotes({ ...notes, [notesTab]: e.target.value })}
               placeholder={`${notesTab[0].toUpperCase() + notesTab.slice(1)} notes…`}
             />
+
+            <div className="clients-section-head" style={{ marginTop: 20 }}>
+              <span className="clients-section-label">Service Notes History</span>
+            </div>
+            {(() => {
+              const withNotes = bookings.filter((b) => b.notes && b.notes.trim().length > 0)
+              if (withNotes.length === 0) {
+                return <p style={{ color: 'var(--clients-muted)', fontSize: 12.5 }}>No per-visit notes recorded yet.</p>
+              }
+              return (
+                <div className="clients-service-notes-list">
+                  {withNotes.map((b) => (
+                    <div key={b.id} className="clients-service-note-row">
+                      <div className="clients-service-note-meta">
+                        <span>{fmtDateShort(b.start_time)}</span>
+                        <span>·</span>
+                        <span>{b.service_type || 'Job'}</span>
+                        {b.team_members?.name && (
+                          <>
+                            <span>·</span>
+                            <span>{b.team_members.name}</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="clients-service-note-text">{b.notes}</p>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
           )}
         </div>
 
         <div className="clients-drawer-foot">
+          <button
+            className="clients-delete-btn"
+            disabled={deleteSaving}
+            onClick={deleteClient}
+          >
+            {deleteSaving ? 'Deleting…' : 'Delete'}
+          </button>
           <button
             className="clients-delete-btn"
             disabled={dnsSaving}
