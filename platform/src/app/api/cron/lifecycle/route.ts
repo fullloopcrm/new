@@ -5,12 +5,23 @@ import { trackError } from '@/lib/error-tracking'
 
 export const maxDuration = 120
 
-// Update client lifecycle: New→Active→At-Risk→Churned based on booking recency
-// Processes in batches of 500 to handle 1000+ tenants safely
+// DISABLED 2026-07-23 — this job silently mass-inactivated ~409 clients
+// platform-wide (e.g. Elie Bibliowicz) by flipping status='inactive' on
+// anyone with no booking in 90+ days, with no override for real-world reasons
+// a client goes quiet (seasonal, between jobs, etc). Removing it from
+// vercel.json's cron schedule didn't fully stop the damage — something still
+// reached this endpoint and re-inactivated already-reverted clients. Neutered
+// here as a hard stop: this route no longer touches any client no matter how
+// it's invoked (scheduled, re-added to vercel.json, or hit directly by URL).
+// Do not re-enable without an explicit opt-in per tenant and a real look-back
+// policy that accounts for seasonal/recurring clients.
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
+  return NextResponse.json({ success: true, disabled: true, updated: 0 })
+}
 
+async function _disabledLifecycleLogic() {
   const now = new Date()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 3600 * 1000).toISOString()
