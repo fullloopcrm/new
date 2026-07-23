@@ -5,11 +5,14 @@ import { notify } from '@/lib/notify'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { getTenantTimezone, getTenantDayBoundaries, isTenantLocalHour, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
 
-// Daily summary cron — runs at 8am
+const TARGET_LOCAL_HOUR = 8 // send when it's 8am in the tenant's own timezone
+
+// Daily summary cron — polls hourly, sends per-tenant when it's 8am in THAT tenant's timezone
 // 1. Admin summary (today's jobs, yesterday's revenue)
 // 2. Team member 3-day lookahead (SMS + email)
 // 3. Recurring expiration check (30-day warning)
@@ -18,30 +21,34 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const threeDaysEnd = new Date(today)
-  threeDaysEnd.setDate(threeDaysEnd.getDate() + 3)
-  threeDaysEnd.setHours(23, 59, 59, 999)
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
     .eq('status', 'active')
     .limit(1000)
 
   let totalSent = 0
-  const stats = { tenants_processed: 0, summaries_sent: 0, errors: 0 }
+  const stats = { tenants_processed: 0, summaries_sent: 0, errors: 0, skipped_wrong_hour: 0 }
   const errorMessages: string[] = []
   const allResults: { tenant: string; adminSent: boolean; teamSent: number; expiring: number }[] = []
 
   for (const tenant of tenants || []) {
+    const timezone = getTenantTimezone(tenant)
+    if (!isTenantLocalHour(timezone, TARGET_LOCAL_HOUR, now)) {
+      stats.skipped_wrong_hour++
+      continue
+    }
+
     stats.tenants_processed++
     const tenantId = tenant.id
+    // start_time/end_time are naive tenant-local wall-clock columns (no tz) —
+    // compare against naive strings. payment_date is real timestamptz — compare
+    // against real UTC instants.
+    const { todayStartNaive, tomorrowStartNaive, today: todayCal } = getTenantNaiveDayBoundaries(timezone, now)
+    const { todayStart: todayReal, yesterdayStart: yesterdayReal } = getTenantDayBoundaries(timezone, now)
+    const weekEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 7))
+    const threeDaysEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 3), 23, 59, 59)
 
     try {
     // ============================================
@@ -51,29 +58,27 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', tomorrow.toISOString())
+      .gte('start_time', todayStartNaive)
+      .lt('start_time', tomorrowStartNaive)
       .not('status', 'eq', 'cancelled')
 
     const { data: paidBookings } = await supabaseAdmin
       .from('bookings')
       .select('price')
       .eq('tenant_id', tenantId)
-      .gte('payment_date', yesterday.toISOString())
-      .lt('payment_date', today.toISOString())
+      .gte('payment_date', yesterdayReal.toISOString())
+      .lt('payment_date', todayReal.toISOString())
       .limit(500) // Don't process more than 500 per tenant per run
 
     const yesterdayRevenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
 
     // Count upcoming week
-    const weekEnd = new Date(today)
-    weekEnd.setDate(weekEnd.getDate() + 7)
     const { count: weekJobs } = await supabaseAdmin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', weekEnd.toISOString())
+      .gte('start_time', todayStartNaive)
+      .lt('start_time', weekEndNaive)
       .not('status', 'eq', 'cancelled')
 
     const message = [
@@ -112,8 +117,8 @@ export async function GET(request: Request) {
         .select('id, start_time, end_time, service_type, hourly_rate, clients(name, phone, address)')
         .eq('tenant_id', tenantId)
         .eq('team_member_id', member.id)
-        .gte('start_time', tomorrow.toISOString())
-        .lte('start_time', threeDaysEnd.toISOString())
+        .gte('start_time', tomorrowStartNaive)
+        .lte('start_time', threeDaysEndNaive)
         .in('status', ['scheduled', 'confirmed', 'pending'])
         .order('start_time')
         .returns<BookingTeamLookahead[]>()

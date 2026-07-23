@@ -1,5 +1,6 @@
 'use client'
 
+import './schedule.css'
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
@@ -15,6 +16,8 @@ import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { applyTeamMinimum } from '@/lib/billing-hours'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -177,6 +180,7 @@ function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSu
 function BookingsPage() {
   const searchParams = useSearchParams()
   const worker = useWorkerLabel()
+  const timezone = useTenantTimezone()
   useEffect(() => { document.title = 'Bookings' }, []);
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -469,13 +473,15 @@ function BookingsPage() {
         page += 1
       }
       // Matches ind's ordering: upcoming first (soonest first), then past (most recent first).
-      const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+      // start_time is naive tenant-local — compare the naive strings directly
+      // rather than parsing through Date (which reads the browser's own zone).
+      const { todayStartNaive } = getTenantNaiveDayBoundaries(timezone)
       const upcoming = all
-        .filter(b => new Date(b.start_time) >= startOfToday)
-        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+        .filter(b => b.start_time >= todayStartNaive)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
       const past = all
-        .filter(b => new Date(b.start_time) < startOfToday)
-        .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        .filter(b => b.start_time < todayStartNaive)
+        .sort((a, b) => b.start_time.localeCompare(a.start_time))
       setBookings([...upcoming, ...past])
     } catch (e) {
       console.error('loadBookings failed', e)
@@ -1335,7 +1341,7 @@ function BookingsPage() {
   const btnActiveStyle = { borderColor: 'var(--sched-ink)', color: 'var(--sched-canvas)', background: 'var(--sched-ink)' } as const
 
   return (
-    <>
+    <div className="sched-scope">
       <main className="p-3 md:p-6 max-w-[1400px] mx-auto">
         {/* Header — page title itself comes from the shared dashboard masthead
             ("Schedule."); this row is just the bar-label + actions. */}
@@ -3125,6 +3131,6 @@ function BookingsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

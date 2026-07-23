@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import type { FakeSupabase } from '@/test/fake-supabase'
+import { toTenantNaiveString } from '@/lib/tenant-time'
 
 /**
  * tenantDb conversion probe — team-portal/jobs/route.ts (docs/adr/0004).
@@ -42,8 +43,12 @@ beforeEach(() => {
   fake._seed('bookings', [
     { id: 'bk-a-open', tenant_id: A_ID, team_member_id: null, status: 'scheduled', start_time: '2099-01-01T10:00:00Z', end_time: '2099-01-01T12:00:00Z', service_type: 'Deep', price: 100, clients: { address: '10001 Main St' } },
     { id: 'bk-b-open', tenant_id: B_ID, team_member_id: null, status: 'scheduled', start_time: '2099-01-01T10:00:00Z', end_time: '2099-01-01T12:00:00Z', service_type: 'Deep', price: 200, clients: { address: '90210 Other St' } },
-    { id: 'bk-a-today', tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: new Date().toISOString(), end_time: new Date().toISOString(), service_type: 'Regular', price: 50, clients: { name: 'A Client', phone: '1', address: 'x', special_instructions: null } },
-    { id: 'bk-b-today', tenant_id: B_ID, team_member_id: 'tm-b', status: 'scheduled', start_time: new Date().toISOString(), end_time: new Date().toISOString(), service_type: 'Regular', price: 50, clients: { name: 'B Client', phone: '2', address: 'y', special_instructions: null } },
+    // start_time/end_time are naive tenant-local wall-clock strings (no
+    // timezone offset) in production, never a real UTC `Z` string — using
+    // toTenantNaiveString here (not toISOString) keeps the fixture faithful
+    // to that convention, matching what the route now correctly assumes.
+    { id: 'bk-a-today', tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: toTenantNaiveString('America/New_York'), end_time: toTenantNaiveString('America/New_York'), service_type: 'Regular', price: 50, clients: { name: 'A Client', phone: '1', address: 'x', special_instructions: null } },
+    { id: 'bk-b-today', tenant_id: B_ID, team_member_id: 'tm-b', status: 'scheduled', start_time: toTenantNaiveString('America/New_York'), end_time: toTenantNaiveString('America/New_York'), service_type: 'Regular', price: 50, clients: { name: 'B Client', phone: '2', address: 'y', special_instructions: null } },
   ])
 })
 

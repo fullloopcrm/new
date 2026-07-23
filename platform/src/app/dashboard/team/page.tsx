@@ -7,6 +7,8 @@ import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 import SalesAppsTab from './SalesAppsTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -79,6 +81,7 @@ function initials(name: string): string {
 }
 
 export default function TeamPage() {
+  const timezone = useTenantTimezone()
   const [tab, setTab] = useState<Tab>('team')
   const [members, setMembers] = useState<TeamMember[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -186,20 +189,22 @@ export default function TeamPage() {
   }
 
   const enriched: EnrichedMember[] = useMemo(() => {
-    const now = new Date()
-    const dayIdx = (now.getDay() + 6) % 7
-    const monday = new Date(now)
-    monday.setHours(0, 0, 0, 0)
-    monday.setDate(monday.getDate() - dayIdx)
-    const sunday = new Date(monday)
-    sunday.setDate(sunday.getDate() + 7)
+    // start_time is naive tenant-local — build the week window as naive
+    // strings and compare directly, rather than via Date (browser's own zone).
+    const { todayStartNaive } = getTenantNaiveDayBoundaries(timezone)
+    const todayDate = new Date(`${todayStartNaive}T00:00:00`)
+    const dayIdx = (todayDate.getDay() + 6) % 7
+    todayDate.setDate(todayDate.getDate() - dayIdx)
+    const mondayNaive = todayDate.toISOString().slice(0, 10) + 'T00:00:00'
+    const sundayDate = new Date(`${mondayNaive}`)
+    sundayDate.setDate(sundayDate.getDate() + 7)
+    const sundayNaive = sundayDate.toISOString().slice(0, 10) + 'T00:00:00'
     const targetHours = 40
 
     return members.map((m) => {
       const memberBookings = bookings.filter((b) => b.team_member_id === m.id)
       const weekBookings = memberBookings.filter((b) => {
-        const t = new Date(b.start_time).getTime()
-        return t >= monday.getTime() && t < sunday.getTime()
+        return b.start_time >= mondayNaive && b.start_time < sundayNaive
       })
       const hours = weekBookings.reduce((s, b) => {
         const start = new Date(b.start_time).getTime()
@@ -218,7 +223,7 @@ export default function TeamPage() {
         ltv_total_cents: ltv,
       }
     }).sort((a, b) => b.utilization_pct - a.utilization_pct)
-  }, [members, bookings])
+  }, [members, bookings, timezone])
 
   const stats = useMemo(() => {
     const active = enriched.filter((m) => (m.status || 'active') !== 'inactive').length

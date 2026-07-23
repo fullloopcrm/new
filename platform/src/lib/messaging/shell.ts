@@ -17,6 +17,7 @@ export type CommsBrand = {
   address?: string | null
   logoUrl?: string | null
   primaryColor?: string | null
+  timezone?: string | null
 }
 
 // Design tokens — Full Loop light editorial look: warm tan/cream ground, black
@@ -61,8 +62,9 @@ export function emailShell({ brand, kicker, heading, bodyHtml, cta, preheader }:
        </td></tr>`
     : ''
 
+  const timezone = brand.timezone || 'America/New_York'
   const year = new Date().getFullYear()
-  const stamp = `Proposal · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  const stamp = `Proposal · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone })}`
   return `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">

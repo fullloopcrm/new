@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * daily-summary cron — recurring-expiration dedup must be scoped per
@@ -119,6 +119,12 @@ function req() {
 }
 
 beforeEach(() => {
+  // The route now only processes a tenant when it's 8am in THAT tenant's own
+  // timezone (fixture has no `timezone`, so it defaults to America/New_York)
+  // — pin the clock so this test is deterministic regardless of real
+  // wall-clock time when the suite runs. 2026-07-22T12:00:00Z = 8am EDT.
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-22T12:00:00Z'))
   process.env.CRON_SECRET = 'test-secret'
   insertedNotifications.length = 0
   const soon = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString() // 10 days out, within 30-day window
@@ -131,6 +137,10 @@ beforeEach(() => {
     { schedule_id: 'sched-alice', tenant_id: NYCMAID_TENANT_ID, start_time: soon },
     { schedule_id: 'sched-bob', tenant_id: NYCMAID_TENANT_ID, start_time: soon },
   ]
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('daily-summary cron — recurring_expiring dedup scope', () => {

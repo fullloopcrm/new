@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
 import { sendPushToCleaner } from '@/app/site/wash-and-fold-hoboken/_lib/push'
 import { sendSMS } from '@/app/site/wash-and-fold-hoboken/_lib/sms'
 import { sendEmail } from '@/app/site/wash-and-fold-hoboken/_lib/email'
+import { getLocalMinuteOfDay } from '@/lib/tenant-time'
 
 export interface NotifyCleanerOptions {
   cleanerId: string
@@ -26,9 +27,10 @@ export interface DeliveryReport {
   quietHours: boolean
 }
 
+// Single-tenant legacy clone (no tenants.timezone lookup wired here) — ET,
+// the platform default, matches the rest of this app's fixed operating timezone.
 function isQuietHours(quietStart: string, quietEnd: string): boolean {
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const currentMinutes = getLocalMinuteOfDay('America/New_York')
 
   const [startH, startM] = quietStart.split(':').map(Number)
   const [endH, endM] = quietEnd.split(':').map(Number)

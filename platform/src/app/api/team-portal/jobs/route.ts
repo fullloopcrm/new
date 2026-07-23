@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantTimezone, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
 // decide if a job is worth claiming, not enough to identify/contact the client.
@@ -24,10 +26,11 @@ export async function GET(request: NextRequest) {
   const available = request.nextUrl.searchParams.get('available')
   const upcoming = request.nextUrl.searchParams.get('upcoming')
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  // start_time is naive tenant-local — every cutoff below is built as a
+  // naive string in that tenant's own timezone, not the server's (UTC).
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).maybeSingle()
+  const timezone = getTenantTimezone(tenantRow)
+  const { today: todayCal, todayStartNaive: today, tomorrowStartNaive: tomorrow } = getTenantNaiveDayBoundaries(timezone)
 
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
       .select('id, start_time, end_time, service_type, price, status, clients(address)')
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
-      .gte('start_time', today.toISOString())
+      .gte('start_time', today)
       .order('start_time')) as {
       data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
       error: { message: string } | null
@@ -70,15 +73,14 @@ export async function GET(request: NextRequest) {
 
   if (upcoming === 'true') {
     // Return next 14 days of jobs (excluding today)
-    const futureEnd = new Date(today)
-    futureEnd.setDate(futureEnd.getDate() + 14)
+    const futureEnd = formatCalendarNaive(addCalendarDays(todayCal, 14))
 
     const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
       .eq('team_member_id', auth.id)
-      .gte('start_time', tomorrow.toISOString())
-      .lt('start_time', futureEnd.toISOString())
+      .gte('start_time', tomorrow)
+      .lt('start_time', futureEnd)
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
@@ -91,8 +93,8 @@ export async function GET(request: NextRequest) {
     .from('bookings')
     .select('*, clients(name, phone, address, special_instructions)')
     .eq('team_member_id', auth.id)
-    .gte('start_time', today.toISOString())
-    .lt('start_time', tomorrow.toISOString())
+    .gte('start_time', today)
+    .lt('start_time', tomorrow)
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 

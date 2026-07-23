@@ -17,6 +17,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { activateSalesPartnerForDocument } from '@/lib/sales-partner-agreement'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -55,7 +56,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: doc } = await supabaseAdmin
       .from('documents')
-      .select('*, tenants(name, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from)')
+      .select('*, tenants(name, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from, timezone)')
       .eq('id', signer.document_id)
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
@@ -190,7 +191,8 @@ export async function POST(request: Request, { params }: Params) {
         event_type: 'completed',
       })
       // Both parties get a receipt + the fully-signed copy attached.
-      await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[]).catch(err =>
+      const docTenant = Array.isArray(doc.tenants) ? doc.tenants[0] : doc.tenants
+      await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[], getTenantTimezone(docTenant)).catch(err =>
         console.error('completion copies failed:', err)
       )
       // No-op unless this document is a Sales Partner onboarding agreement.
@@ -225,7 +227,8 @@ type CompletionSigner = { id: string; name: string; email: string | null; role?:
 // PDF attached. Best-effort; never throws into the signing response.
 async function sendCompletionCopies(
   doc: { id: string; tenant_id: string; title: string },
-  signers: CompletionSigner[]
+  signers: CompletionSigner[],
+  timezone: string
 ) {
   const recipients = signers.filter(s => s.email)
   if (recipients.length === 0) return
@@ -234,7 +237,7 @@ async function sendCompletionCopies(
   if (!blob) return
   const b64 = Buffer.from(await blob.arrayBuffer()).toString('base64')
   const filename = `${(doc.title || 'agreement').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60) || 'agreement'}-signed.pdf`
-  const completedAt = new Date().toLocaleString('en-US')
+  const completedAt = new Date().toLocaleString('en-US', { timeZone: timezone })
   const roster = signers.map(s => `${escapeHtml(s.name)}${s.email ? ` (${escapeHtml(s.email)})` : ''}`).join(', ')
   const safeTitle = escapeHtml(doc.title)
 

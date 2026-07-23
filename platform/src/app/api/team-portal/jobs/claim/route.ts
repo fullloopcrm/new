@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
+import { getTenantTimezone, getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 
 export async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.claim')
@@ -10,8 +11,12 @@ export async function POST(request: Request) {
   const { booking_id } = await request.json().catch(() => ({}))
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+  // claim_job_atomic compares these against bookings.start_time, a naive
+  // tenant-local column — pass the tenant's own naive day-boundary digits
+  // (with a Z suffix so Postgres's UTC-session cast echoes them back
+  // unchanged) instead of the server's (UTC) day boundary.
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).maybeSingle()
+  const { todayStartNaive, tomorrowStartNaive } = getTenantNaiveDayBoundaries(getTenantTimezone(tenantRow))
 
   // Atomic claim: the daily-cap count check and the claiming UPDATE run inside
   // one DB function that locks the member row first (migrations/2026_07_13_
@@ -22,8 +27,8 @@ export async function POST(request: Request) {
     p_tenant_id: auth.tid,
     p_member_id: auth.id,
     p_booking_id: booking_id,
-    p_day_start: dayStart.toISOString(),
-    p_day_end: dayEnd.toISOString(),
+    p_day_start: `${todayStartNaive}.000Z`,
+    p_day_end: `${tomorrowStartNaive}.000Z`,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

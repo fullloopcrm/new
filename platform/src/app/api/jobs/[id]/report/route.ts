@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant, error: authError } = await requirePermission('bookings.view')
     if (authError) return authError
     const { tenantId } = tenant
+    const timezone = getTenantTimezone(tenant.tenant)
     const { id: jobId } = await params
     const db = tenantDb(tenantId)
 
@@ -72,7 +74,7 @@ export async function POST(request: Request, { params }: Params) {
       const ext = extOf(p.url)
       const page = doc.addPage([PAGE_W, PAGE_H])
       let py = PAGE_H - MARGIN
-      page.drawText(`${p.photo_type.toUpperCase()} — ${new Date(p.taken_at).toLocaleDateString()}`, { x: MARGIN, y: py, size: 11, font: bold })
+      page.drawText(`${p.photo_type.toUpperCase()} — ${new Date(p.taken_at).toLocaleDateString('en-US', { timeZone: timezone })}`, { x: MARGIN, y: py, size: 11, font: bold })
       py -= 20
 
       if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') {

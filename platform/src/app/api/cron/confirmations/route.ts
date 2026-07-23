@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
+import { getTenantTimezone, getLocalHour, getTenantNaiveDayBoundaries, toTenantNaiveString } from '@/lib/tenant-time'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -22,13 +23,14 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, timezone')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
     const tenantId = tenant.id
+    const timezone = getTenantTimezone(tenant)
     // Client day-before confirmation is gated by the confirmation_reminder SMS
     // toggle. Team confirm-requests are operational and stay ungated.
     const confirmPrefs = await getCommPrefs(tenantId)
@@ -39,7 +41,9 @@ export async function GET(request: Request) {
       // TEAM MEMBER CONFIRMATION — Resend hourly until confirmed
       // For jobs in the next 48 hours with no team confirmation
       // ============================================
-      const twoDaysAhead = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+      // start_time is naive tenant-local — compare against naive strings.
+      const nowNaive = toTenantNaiveString(timezone, now)
+      const twoDaysAheadNaive = toTenantNaiveString(timezone, new Date(now.getTime() + 48 * 60 * 60 * 1000))
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
@@ -47,8 +51,8 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', twoDaysAhead.toISOString())
+        .gte('start_time', nowNaive)
+        .lte('start_time', twoDaysAheadNaive)
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
 
@@ -152,22 +156,18 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
+      // CLIENT DAY-BEFORE CONFIRMATION — 1pm tenant-local the day before
       // ============================================
-      if (now.getHours() === 13 && clientConfirmOn) {
-        const tomorrowStart = new Date(now)
-        tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-        tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart)
-        tomorrowEnd.setHours(23, 59, 59, 999)
+      if (getLocalHour(timezone, now) === 13 && clientConfirmOn) {
+        const { tomorrowStartNaive, tomorrowEndNaive } = getTenantNaiveDayBoundaries(timezone, now)
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStartNaive)
+          .lte('start_time', tomorrowEndNaive)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingTomorrowConfirm[]>()
 

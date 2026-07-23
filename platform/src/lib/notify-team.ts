@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail, tenantSender } from '@/lib/email'
+import { getTenantTimezone, getLocalMinuteOfDay } from '@/lib/tenant-time'
 
 export interface NotifyTeamMemberOptions {
   tenantId: string
@@ -24,9 +25,8 @@ export interface DeliveryReport {
   quietHours: boolean
 }
 
-function isQuietHours(quietStart: string, quietEnd: string): boolean {
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+function isQuietHours(quietStart: string, quietEnd: string, timezone: string): boolean {
+  const currentMinutes = getLocalMinuteOfDay(timezone)
 
   const [startH, startM] = quietStart.split(':').map(Number)
   const [endH, endM] = quietEnd.split(':').map(Number)
@@ -79,17 +79,18 @@ export async function notifyTeamMember(opts: NotifyTeamMemberOptions): Promise<D
   const typePrefs = prefs[opts.type] || { email: true, sms: true }
   const quietStart = prefs.quiet_start || '22:00'
   const quietEnd = prefs.quiet_end || '07:00'
-  const quiet = isQuietHours(quietStart, quietEnd)
-  report.quietHours = quiet
 
-  // 3. Get tenant for API keys
+  // 3. Get tenant for API keys + timezone
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone, resend_api_key, name, slug, email_from')
+    .select('telnyx_api_key, telnyx_phone, resend_api_key, name, slug, email_from, timezone')
     .eq('id', opts.tenantId)
     .single()
 
   if (!tenant) return report
+
+  const quiet = isQuietHours(quietStart, quietEnd, getTenantTimezone(tenant))
+  report.quietHours = quiet
 
   // 4. SMS (still delivered during quiet hours for urgent notifications)
   if (!opts.skipSms && typePrefs.sms && member.phone && member.sms_consent !== false && opts.smsMessage) {

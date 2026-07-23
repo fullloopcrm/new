@@ -10,7 +10,12 @@
  * 4000 on job completion is a follow-up (needs the deposit→final-invoice link).
  */
 import { supabaseAdmin } from '../supabase'
-import { nowNaiveET } from '../recurring'
+import { getTenantTimezone, toTenantNaiveString } from '../tenant-time'
+
+async function tenantEntryDate(tenantId: string): Promise<string> {
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  return toTenantNaiveString(getTenantTimezone(tenantRow)).slice(0, 10)
+}
 import {
   postJournalEntry,
   ensureChartAccounts,
@@ -56,7 +61,7 @@ export async function postDepositToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: opts.memo || 'Customer deposit',
     source: 'deposit',
     source_id: sourceId,
@@ -86,7 +91,7 @@ export async function postRefundToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: opts.memo || 'Refund',
     source: 'refund',
     source_id: sourceId,
@@ -116,7 +121,7 @@ export async function postChargebackToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: opts.memo || 'Chargeback',
     source: 'chargeback',
     source_id: sourceId,
@@ -153,7 +158,7 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: 'Referral commission',
     source: 'commission',
     source_id: commissionId,
@@ -190,7 +195,7 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: 'Referral commission paid',
     source: 'commission_paid',
     source_id: commissionId,
@@ -229,7 +234,7 @@ export async function postSalesPartnerCommissionAccrual(opts: { tenantId: string
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: nowNaiveET().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: 'Sales partner commission',
     source: 'sales_partner_commission',
     source_id: commissionId,
@@ -262,7 +267,7 @@ export async function postSalesPartnerCommissionPayment(opts: { tenantId: string
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: nowNaiveET().slice(0, 10),
+    entry_date: await tenantEntryDate(tenantId),
     memo: 'Sales partner commission paid',
     source: 'sales_partner_commission_paid',
     source_id: commissionId,

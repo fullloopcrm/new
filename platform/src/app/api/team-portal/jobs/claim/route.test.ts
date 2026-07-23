@@ -26,6 +26,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * guarantee.
  */
 
+import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+
 const TENANT = 'tid-a'
 const MEMBER = 'member-a'
 
@@ -38,10 +40,13 @@ const holder = vi.hoisted(() => ({
   rpcCalls: 0,
 }))
 
+// start_time is naive tenant-local (no fixture timezone set -> route defaults
+// to America/New_York, same as getTenantNaiveDayBoundaries's default here).
+// Booking fixtures must use the naive wall-clock string, not a real UTC `Z`
+// string, to match what the route actually sends the RPC.
 function dayRange() {
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
-  return { dayStart, dayEnd }
+  const { todayStartNaive } = getTenantNaiveDayBoundaries('America/New_York')
+  return { dayStart: todayStartNaive }
 }
 
 vi.mock('@/lib/supabase', () => ({
@@ -66,6 +71,7 @@ vi.mock('@/lib/supabase', () => ({
           select: () => ({
             eq: () => ({
               single: async () => ({ data: { selena_config: holder.tenants.get(TENANT)?.selena_config ?? null }, error: null }),
+              maybeSingle: async () => ({ data: { timezone: null }, error: null }),
             }),
           }),
         }
@@ -77,6 +83,14 @@ vi.mock('@/lib/supabase', () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       holder.rpcCalls++
       if (fn !== 'claim_job_atomic') throw new Error(`unexpected rpc: ${fn}`)
+      // start_time is naive (no Z); the route sends p_day_start/p_day_end as
+      // naive-digits-plus-Z, relying on Postgres's UTC-session cast to strip
+      // the Z back off before comparing against the naive column. This mock
+      // doesn't run through Postgres, so strip it here to match that same
+      // real-world equivalence instead of comparing mismatched string shapes.
+      const stripZ = (s: string) => s.replace(/\.\d{3}Z$/, '')
+      const dayStart = stripZ(args.p_day_start as string)
+      const dayEnd = stripZ(args.p_day_end as string)
       const member = holder.members.get(args.p_member_id as string)
       const cap = member?.max_jobs_per_day ?? null
       if (cap && cap > 0) {
@@ -84,8 +98,8 @@ vi.mock('@/lib/supabase', () => ({
           (b) =>
             b.tenant_id === args.p_tenant_id &&
             b.team_member_id === args.p_member_id &&
-            b.start_time >= (args.p_day_start as string) &&
-            b.start_time < (args.p_day_end as string) &&
+            b.start_time >= dayStart &&
+            b.start_time < dayEnd &&
             b.status !== 'cancelled',
         ).length
         if (count >= cap) {
@@ -130,8 +144,8 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('two concurrent claims for different bookings cannot both exceed a cap of 1', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 1, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
 
     const [r1, r2] = await Promise.all([claimReq('bk-1'), claimReq('bk-2')])
     const [b1, b2] = await Promise.all([r1.json(), r2.json()])
@@ -152,9 +166,9 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('positive control: claim under cap succeeds and reports the honest cap message when exhausted next', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 2, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
-    holder.bookings.set('bk-3', { id: 'bk-3', tenant_id: TENANT, team_member_id: null, start_time: dayStart.toISOString(), status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-2', { id: 'bk-2', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.bookings.set('bk-3', { id: 'bk-3', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
 
     const r1 = await claimReq('bk-1')
     expect(r1.status).toBe(200)
@@ -169,7 +183,7 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
   it('claiming an already-taken booking reports 409 without touching the cap count', async () => {
     const { dayStart } = dayRange()
     holder.members.set(MEMBER, { max_jobs_per_day: 5, pay_rate: 25, status: 'active' })
-    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: 'someone-else', start_time: dayStart.toISOString(), status: 'confirmed', pay_rate: null })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: 'someone-else', start_time: dayStart, status: 'confirmed', pay_rate: null })
 
     const res = await claimReq('bk-1')
     expect(res.status).toBe(409)

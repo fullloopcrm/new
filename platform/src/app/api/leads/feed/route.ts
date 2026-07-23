@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantTimezone, getTenantDayBoundaries } from '@/lib/tenant-time'
 
 type FeedRow = {
   id: string
@@ -54,12 +55,13 @@ function relTime(ts: string): { label: string; sub: string | null; isLive: boole
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
+    const timezone = getTenantTimezone(tenant)
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-    const todayStartIso = todayStart.toISOString()
+    // lead_clicks.created_at is real timestamptz — the "today" boundary must
+    // be the tenant's own calendar day, not the server's (UTC).
+    const todayStartIso = getTenantDayBoundaries(timezone).todayStart.toISOString()
     const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString()
 
     const [clicksRes, leadsRes, bookingsRes, clientsRes] = await Promise.all([

@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantTimezone, getTenantDayBoundaries } from '@/lib/tenant-time'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
   const { getTenantForRequest, AuthError } = await import('@/lib/tenant-query')
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
 
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'
 
-    // Date filter
+    // Date filter — website_visits.created_at is real timestamptz; "today"
+    // must be the tenant's own calendar day, not the server's (UTC).
     const now = new Date()
     let since = new Date()
-    if (period === 'today') since.setHours(0, 0, 0, 0)
+    if (period === 'today') since = getTenantDayBoundaries(getTenantTimezone(tenant), now).todayStart
     else if (period === 'week') since.setDate(now.getDate() - 7)
     else if (period === 'month') since.setDate(now.getDate() - 30)
     else since.setDate(now.getDate() - 7)

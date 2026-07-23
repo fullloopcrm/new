@@ -27,6 +27,7 @@ import { generatePin, generateSalesPartnerReferralCode, hashPin } from '@/lib/sa
 import { buildSalesPartnerAgreementPdf } from '@/lib/sales-partner-agreement-pdf'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, sha256Hex } from '@/lib/documents'
 import { sendEmail, tenantSender } from '@/lib/email'
+import { getTenantTimezone } from '@/lib/tenant-time'
 import { escapeHtml } from '@/lib/escape-html'
 
 const TIER_RATE: Record<string, number> = { standard: 0.10, tier2: 0.12, tier3: 0.15 }
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
 
     const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, resend_api_key, email_from')
+      .select('name, slug, domain, resend_api_key, email_from, timezone')
       .eq('id', tenantId)
       .single()
     if (!tenantRow) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: pErr?.message || 'Could not create sales partner' }, { status: 500 })
     }
 
-    const effectiveDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const effectiveDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: getTenantTimezone(tenantRow) })
     const pdf = await buildSalesPartnerAgreementPdf({
       tenantName: tenantRow.name,
       partnerName: name,

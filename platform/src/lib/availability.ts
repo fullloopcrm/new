@@ -3,6 +3,7 @@ import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { hourToLabel, slotStartHours } from '@/lib/time-slots'
+import { getTenantTimezone, toTenantNaiveString, getLocalMinuteOfDay } from '@/lib/tenant-time'
 
 export interface AvailabilitySlot {
   time: string
@@ -121,7 +122,9 @@ export async function checkAvailability(
   durationHours: number = 2
 ): Promise<AvailabilityResult> {
   const now = new Date()
-  const today = now.toLocaleDateString('en-CA')
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  const timezone = getTenantTimezone(tenantRow)
+  const today = toTenantNaiveString(timezone, now).slice(0, 10)
   const settings = await getSettings(tenantId)
   const { open_365, allow_same_day } = settings
 
@@ -155,7 +158,7 @@ export async function checkAvailability(
   // Previously hardcoded to 9-5 here regardless of what the tenant configured
   // (the business-hours half of F4's bug) — slotStartHours() below now reads
   // the tenant's actual business_hours_start/end.
-  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const nowMinutes = getLocalMinuteOfDay(timezone, now)
 
   const slots: AvailabilitySlot[] = []
 

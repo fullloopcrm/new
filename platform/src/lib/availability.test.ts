@@ -43,6 +43,9 @@ function builder(table: string) {
     gte: () => chain,
     lte: () => chain,
     neq: () => chain,
+    // Fixture has no timezone -> getTenantTimezone() defaults to America/New_York,
+    // matching every other assumption in this test file.
+    maybeSingle: async () => ({ data: { timezone: null }, error: null }),
     then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
       resolve({ data: tableData(table, f), error: null }),
   }
@@ -104,7 +107,11 @@ describe('checkAvailability — open_365 holiday gate', () => {
   })
 
   it('same-day requests short-circuit before the holiday gate', async () => {
-    const today = new Date().toLocaleDateString('en-CA')
+    // Pin to a known ET instant so "today" is deterministic regardless of
+    // the test machine's own system timezone (checkAvailability resolves
+    // "today" via the tenant's timezone, defaulting to America/New_York).
+    vi.setSystemTime(new Date('2026-08-10T19:00:00Z')) // 3pm EDT
+    const today = '2026-08-10'
     const res = await checkAvailability('tenant-1', today, 2)
     expect(res.sameDay).toBe(true)
     expect(res.message).toMatch(/Same-day/)
@@ -141,8 +148,11 @@ describe('checkAvailability — same-day (F4)', () => {
   })
 
   it('blocks same-day when allow_same_day is false (existing opt-in behavior preserved)', async () => {
-    vi.setSystemTime(new Date('2026-08-10T15:00:00'))
-    const today = new Date().toLocaleDateString('en-CA')
+    // Pin via an explicit UTC instant (3pm EDT), not a bare naive string —
+    // checkAvailability resolves "now" through the tenant's timezone
+    // (America/New_York default), not the test machine's own system zone.
+    vi.setSystemTime(new Date('2026-08-10T19:00:00Z')) // 3pm EDT
+    const today = '2026-08-10'
     settingsOverride = { allow_same_day: false }
 
     const result = await checkAvailability('tenant-1', today, 2)
@@ -151,8 +161,8 @@ describe('checkAvailability — same-day (F4)', () => {
   })
 
   it('allows same-day booking when the tenant has opted in via allow_same_day', async () => {
-    vi.setSystemTime(new Date('2026-08-10T09:00:00'))
-    const today = new Date().toLocaleDateString('en-CA')
+    vi.setSystemTime(new Date('2026-08-10T13:00:00Z')) // 9am EDT
+    const today = '2026-08-10'
     settingsOverride = { allow_same_day: true, business_hours_start: 8, business_hours_end: 20 }
 
     const result = await checkAvailability('tenant-1', today, 2)
@@ -161,8 +171,8 @@ describe('checkAvailability — same-day (F4)', () => {
   })
 
   it('excludes already-past hours on a same-day booking', async () => {
-    vi.setSystemTime(new Date('2026-08-10T14:30:00'))
-    const today = new Date().toLocaleDateString('en-CA')
+    vi.setSystemTime(new Date('2026-08-10T18:30:00Z')) // 2:30pm EDT
+    const today = '2026-08-10'
     settingsOverride = { allow_same_day: true, business_hours_start: 8, business_hours_end: 20 }
 
     const result = await checkAvailability('tenant-1', today, 2)

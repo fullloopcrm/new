@@ -16,6 +16,7 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 export const maxDuration = 60
 
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
     // Pick the first deterministically and log loudly if it's ambiguous.
     const { data: tenantMatches } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
+      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone')
       .eq('telnyx_phone', to)
       .order('id', { ascending: true })
       .limit(2)
@@ -288,7 +289,7 @@ export async function POST(request: Request) {
             .eq('id', nextBooking.id)
 
           // Add confirmation to client notes
-          const noteText = `[Auto] Confirmed via SMS on ${new Date().toLocaleDateString()}`
+          const noteText = `[Auto] Confirmed via SMS on ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}`
           const { data: existingClient } = await supabaseAdmin
             .from('clients')
             .select('notes')
@@ -348,7 +349,7 @@ export async function POST(request: Request) {
             .eq('id', nextJob.id)
             .single()
 
-          const confirmNote = `[Auto] Team confirmed by ${member.name} via SMS on ${new Date().toLocaleDateString()}`
+          const confirmNote = `[Auto] Team confirmed by ${member.name} via SMS on ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}`
           const updatedNotes = existingBooking?.notes
             ? `${existingBooking.notes}\n${confirmNote}`
             : confirmNote
@@ -417,7 +418,7 @@ export async function POST(request: Request) {
 
         if (recentBooking) {
           // Store rating in booking notes
-          const ratingNote = `[RATING:${rating}] by ${ratingClient.name} on ${new Date().toLocaleDateString()}`
+          const ratingNote = `[RATING:${rating}] by ${ratingClient.name} on ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}`
           const updatedNotes = recentBooking.notes
             ? `${recentBooking.notes}\n${ratingNote}`
             : ratingNote
@@ -529,7 +530,7 @@ export async function POST(request: Request) {
 
     // If from a client, add to their notes
     if (client) {
-      const noteText = `[SMS ${new Date().toLocaleDateString()}] ${text.slice(0, 200)}`
+      const noteText = `[SMS ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}] ${text.slice(0, 200)}`
       const { data: existingClient } = await supabaseAdmin
         .from('clients')
         .select('notes')

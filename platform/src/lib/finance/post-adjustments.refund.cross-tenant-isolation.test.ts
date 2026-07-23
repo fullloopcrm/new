@@ -66,8 +66,13 @@ vi.mock('@/lib/supabase', () => {
       insert: (rows: Row[]) => { mode = 'insert'; payload = { rows: Array.isArray(rows) ? rows : [rows] }; return builder },
       upsert: (rows: Row[]) => { mode = 'upsert'; payload = { rows: Array.isArray(rows) ? rows : [rows] }; return builder },
       maybeSingle: async () => {
-        touches.push({ op: 'maybeSingle', table, tenant: eqs.tenant_id })
-        return { data: rowsFor()[0] ?? null, error: null }
+        // The `tenants` table itself is scoped by its own primary key `id`
+        // (there is no separate `tenant_id` column on it) — tenantEntryDate's
+        // timezone lookup filters `.eq('id', tenantId)`, which IS tenant-scoped,
+        // just under a different column name than every other table here.
+        const tenant = table === 'tenants' ? eqs.id : eqs.tenant_id
+        touches.push({ op: 'maybeSingle', table, tenant })
+        return { data: table === 'tenants' ? { timezone: null } : (rowsFor()[0] ?? null), error: null }
       },
       // Awaiting the builder directly (array read / insert / upsert resolution).
       then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) => {

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { getTenantTimezone, getLocalMinuteOfDay } from '@/lib/tenant-time'
 
 export interface NotifyTeamMemberOptions {
   tenantId: string
@@ -54,9 +55,8 @@ const DEFAULT_PREFS: PerTypePrefs = { push: true, email: true, sms: true }
  * Check whether the current time falls within quiet hours.
  * Handles midnight-spanning ranges (e.g. 22:00 – 07:00).
  */
-function isQuietHours(quietStart: string, quietEnd: string): boolean {
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+function isQuietHours(quietStart: string, quietEnd: string, timezone: string): boolean {
+  const currentMinutes = getLocalMinuteOfDay(timezone)
 
   const [startH, startM] = quietStart.split(':').map(Number)
   const [endH, endM] = quietEnd.split(':').map(Number)
@@ -136,7 +136,8 @@ export async function notifyTeamMember(
   // 4. Check quiet hours
   const quietStart = prefs.quiet_start || '22:00'
   const quietEnd = prefs.quiet_end || '07:00'
-  const quiet = isQuietHours(quietStart, quietEnd)
+  const { data: quietTenant } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  const quiet = isQuietHours(quietStart, quietEnd, getTenantTimezone(quietTenant))
 
   let sentPush = false
   let sentEmail = false

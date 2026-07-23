@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -20,7 +21,7 @@ const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
   get_revenue_stats: 'finance.view',
 }
 
-function buildSystemPrompt(tenantName: string, industry: string) {
+function buildSystemPrompt(tenantName: string, industry: string, timezone: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
 You have tools to query and modify the database. Use them to answer questions and take actions.
 
@@ -28,7 +29,7 @@ Key rules:
 - Always confirm before destructive actions (cancelling, deleting)
 - When updating multiple bookings, state how many will be affected and ask for confirmation
 - Use short, direct responses — this is a chat widget, not an essay
-- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+- Dates are stored as naive ISO strings (no timezone) in this business's own local time (${timezone}). Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone })}
 - Prices are stored in cents. Display as dollars.
 - When you find results, format them concisely — use bullet points or short lists
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
@@ -412,7 +413,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
-    const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service')
+    const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service', getTenantTimezone(tenant))
 
     let currentMessages = [...messages]
     let maxIterations = 10

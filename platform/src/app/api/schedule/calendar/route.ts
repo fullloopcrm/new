@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantTimezone, toTenantNaiveString, parseTenantNaiveString } from '@/lib/tenant-time'
 
 type CalendarEvent = {
   id: string
@@ -75,12 +76,16 @@ function heatLevel(jobs: number, max: number): CalendarDay['heat'] {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
+    const timezone = getTenantTimezone(tenant)
     const url = request.nextUrl
     const monthParam = url.searchParams.get('month') // YYYY-MM
+    // Default (no ?month=) must be the tenant's OWN current calendar month —
+    // `new Date()` reads the server's (UTC) month, which flips a day+ early
+    // for US tenants near a month boundary.
     const focus = monthParam
       ? new Date(`${monthParam}-01T00:00:00`)
-      : new Date()
+      : new Date(`${toTenantNaiveString(timezone).slice(0, 7)}-01T00:00:00`)
 
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
@@ -185,16 +190,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Outlook stats — for the focused month + this-week view.
+    // start_time is naive tenant-local — every comparison below runs against
+    // naive strings (not real-instant Date math) so bookings land on the
+    // correct tenant-local day regardless of the server's own (UTC) clock.
     const now = new Date()
-    const monStart = (() => {
-      const d = new Date(now)
+    const nowNaive = toTenantNaiveString(timezone, now)
+    const todayKey = nowNaive.slice(0, 10)
+    const weekStartNaive = (() => {
+      const d = new Date(`${todayKey}T00:00:00`)
       const dayIdx = (d.getDay() + 6) % 7
-      d.setHours(0, 0, 0, 0)
       d.setDate(d.getDate() - dayIdx)
-      return d
+      return d.toISOString().slice(0, 10)
     })()
-    const monEnd = new Date(monStart)
-    monEnd.setDate(monEnd.getDate() + 7)
+    const weekEndNaive = (() => {
+      const d = new Date(`${weekStartNaive}T00:00:00`)
+      d.setDate(d.getDate() + 7)
+      return d.toISOString().slice(0, 10)
+    })()
 
     let weekJobs = 0
     let weekRevenueCents = 0
@@ -204,13 +216,12 @@ export async function GET(request: NextRequest) {
     let todayTotal = 0
     let firstUpcoming: { client: string; start: string; team_member: string | null } | null = null
     const weekHoursByTm = new Map<string, number>()
-    const todayKey = ymd(now)
 
     for (const b of bookings) {
       const startStr = b.start_time as string
       if (!startStr) continue
       const start = new Date(startStr)
-      const isWeek = start >= monStart && start < monEnd
+      const isWeek = startStr >= weekStartNaive && startStr < weekEndNaive
       const id = b.id as string
       if (isWeek) {
         weekJobs += 1
@@ -224,11 +235,11 @@ export async function GET(request: NextRequest) {
         const tmId = (b.team_member_id as string | null) || ''
         if (tmId) weekHoursByTm.set(tmId, (weekHoursByTm.get(tmId) || 0) + durHours)
       }
-      if (ymd(start) === todayKey) {
+      if (startStr.slice(0, 10) === todayKey) {
         todayTotal += 1
         if ((b.status as string) === 'in_progress') todayActive += 1
       }
-      if (start.getTime() > now.getTime() && !firstUpcoming) {
+      if (startStr > nowNaive && !firstUpcoming) {
         firstUpcoming = {
           client: ((b.clients as unknown as { name?: string } | null)?.name) || 'Unknown',
           start: startStr,
@@ -240,7 +251,7 @@ export async function GET(request: NextRequest) {
     // Cleaner load bar: jobs per team member this week.
     const loads: TeamLoad[] = team
       .map((t) => {
-        const jobs = bookings.filter((b) => b.team_member_id === t.id && new Date(b.start_time as string) >= monStart && new Date(b.start_time as string) < monEnd).length
+        const jobs = bookings.filter((b) => b.team_member_id === t.id && (b.start_time as string) >= weekStartNaive && (b.start_time as string) < weekEndNaive).length
         return { id: t.id, name: t.name, jobs, over: jobs >= 12 }
       })
       .sort((a, b) => b.jobs - a.jobs)
@@ -263,7 +274,7 @@ export async function GET(request: NextRequest) {
 
     // Live ops — today's bookings.
     const liveOps: LiveOpsRow[] = bookings
-      .filter((b) => ymd(new Date(b.start_time as string)) === todayKey)
+      .filter((b) => (b.start_time as string).slice(0, 10) === todayKey)
       .map((b) => {
         const start = new Date(b.start_time as string)
         const status = (b.status as string) || 'scheduled'
@@ -271,7 +282,10 @@ export async function GET(request: NextRequest) {
         let durationLabel = ''
         if (status === 'in_progress') {
           liveStatus = 'in-progress'
-          const hrs = (now.getTime() - start.getTime()) / 3_600_000
+          // Real elapsed time needs the TRUE instant start_time represents,
+          // not the naive-digits-parsed-as-UTC value `start` holds.
+          const realStart = parseTenantNaiveString(b.start_time as string, timezone)
+          const hrs = (now.getTime() - realStart.getTime()) / 3_600_000
           durationLabel = `${hrs.toFixed(1)}h in`
         } else if (status === 'completed') {
           liveStatus = 'done'

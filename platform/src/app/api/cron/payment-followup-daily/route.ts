@@ -4,45 +4,31 @@ import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { getTenantTimezone, getLocalHour, toTenantNaiveString } from '@/lib/tenant-time'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
 //
-// Cadence: 8am, 12pm, 6pm ET, every day, until the booking is marked paid.
-// Payment is link-based (Stripe), so the webhook flips payment_status to 'paid'
-// the moment the client pays — this self-terminates with no manual check-off.
+// Cadence: 8am, 12pm, 6pm in EACH TENANT'S OWN timezone, every day, until the
+// booking is marked paid. Payment is link-based (Stripe), so the webhook
+// flips payment_status to 'paid' the moment the client pays — this
+// self-terminates with no manual check-off.
 //
 // SCOPE: only tenants with BOTH a Telnyx key AND a payment_link set are chased.
-// Today that's nycmaid; every other tenant is skipped until it has a link, so
-// this is nycmaid-only to start and generalizes for free.
 //
-// DST-proof: vercel.json fires at the UTC hours covering EDT+EST (12,13,16,17,
-// 22,23); the handler only proceeds when the actual ET hour is a send slot.
+// vercel.json fires hourly; each tenant is only processed when it's actually
+// one of its own local send-slot hours (was previously a single ET-hardcoded
+// gate applied to every tenant regardless of their real timezone).
 //
 // Safety rails (no-mass-SMS rule):
 //   - 14-day recency floor: never chase ancient / migrated bookings.
 //   - per-slot idempotency via sms_logs: at most one text per booking per slot.
 //   - hard cap per tenant per run, with admin notify if exceeded.
-const SEND_SLOTS_ET = new Set([8, 12, 18])
+const SEND_SLOTS_LOCAL = new Set([8, 12, 18])
 const RECENCY_FLOOR_DAYS = 14
 const SLOT_IDEMPOTENCY_MS = 3.5 * 60 * 60 * 1000 // < 4h gap between slots
 const MAX_SENDS_PER_RUN = 100
 const SMS_TYPE = 'payment_followup_daily'
-
-function toNaive(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-function etHour(now: Date): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric',
-    hour12: false,
-  }).formatToParts(now)
-  const h = parts.find((p) => p.type === 'hour')?.value ?? '0'
-  return Number(h) % 24
-}
 
 export async function GET(request: Request) {
   // Fails closed through the shared helper — no spoofable Vercel-cron-header
@@ -52,31 +38,33 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const hour = etHour(now)
   const url = new URL(request.url)
   const force = url.searchParams.get('force') === '1'
   const dryRun = url.searchParams.get('dry') === '1'
-  if (!force && !dryRun && !SEND_SLOTS_ET.has(hour)) {
-    return NextResponse.json({ success: true, skipped: 'outside send slot', etHour: hour })
-  }
 
   // Only tenants that can send (Telnyx) AND have a pay link to send.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, payment_link, owner_phone, phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, payment_link, owner_phone, phone, timezone')
     .eq('status', 'active')
     .not('telnyx_api_key', 'is', null)
     .not('payment_link', 'is', null)
 
-  // bookings.end_time is naive local-ET → compare with a naive string.
-  const recencyFloor = toNaive(new Date(now.getTime() - RECENCY_FLOOR_DAYS * 24 * 60 * 60 * 1000))
   const idempotencyCutoff = new Date(now.getTime() - SLOT_IDEMPOTENCY_MS).toISOString()
 
   const perTenant: { tenant: string; sent: number; wouldText: number; capHit: boolean }[] = []
+  let skippedWrongHour = 0
 
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_phone || !tenant.payment_link) continue
+    const timezone = getTenantTimezone(tenant)
+    const localHour = getLocalHour(timezone, now)
+    if (!force && !dryRun && !SEND_SLOTS_LOCAL.has(localHour)) { skippedWrongHour++; continue }
     if (!(await isCommEnabled(tenant.id, 'payment_reminder', 'sms'))) continue
+
+    // end_time is naive tenant-local — compare against a naive string in
+    // THIS tenant's own timezone convention.
+    const recencyFloor = toTenantNaiveString(timezone, new Date(now.getTime() - RECENCY_FLOOR_DAYS * 24 * 60 * 60 * 1000))
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
@@ -144,5 +132,5 @@ export async function GET(request: Request) {
     perTenant.push({ tenant: tenant.name, sent, wouldText, capHit })
   }
 
-  return NextResponse.json({ success: true, etHour: hour, force, dryRun, tenants: perTenant })
+  return NextResponse.json({ success: true, force, dryRun, skippedWrongHour, tenants: perTenant })
 }

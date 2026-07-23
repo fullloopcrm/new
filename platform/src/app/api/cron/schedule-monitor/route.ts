@@ -6,8 +6,8 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { nowNaiveET, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 import { applyDiscount, applyCredit } from '@/lib/discount'
+import { getTenantTimezone, tenantCalendarToday, addCalendarDays, formatCalendarNaive, toTenantNaiveString } from '@/lib/tenant-time'
 
 export const maxDuration = 300
 
@@ -28,25 +28,28 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const endDate = new Date(now); endDate.setDate(endDate.getDate() + 14)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const toDateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  const todayStr = toDateStr(now)
   let totalIssues = 0
 
-  const { data: tenants } = await supabaseAdmin.from('tenants').select('id, name').eq('status', 'active').limit(1000)
+  const { data: tenants } = await supabaseAdmin.from('tenants').select('id, name, timezone').eq('status', 'active').limit(1000)
 
   for (const tenant of tenants || []) {
     try {
       const issues: Issue[] = []
       const tenantId = tenant.id
+      const timezone = getTenantTimezone(tenant)
+      // start_time/end_time are naive tenant-local wall-clock columns — the
+      // 14-day scan window and every "today" comparison below must be built
+      // from THIS tenant's own calendar day, not the server's (UTC).
+      const todayCal = tenantCalendarToday(timezone, now)
+      const endCal = addCalendarDays(todayCal, 14)
+      const todayStr = formatCalendarNaive(todayCal).slice(0, 10)
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
         .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, discount_percent, one_time_credit_cents, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', todayStr + 'T00:00:00')
-        .lte('start_time', toDateStr(endDate) + 'T23:59:59')
+        .gte('start_time', formatCalendarNaive(todayCal))
+        .lte('start_time', formatCalendarNaive(endCal, 23, 59, 59))
         .in('status', ['scheduled', 'pending', 'confirmed'])
         .limit(500)
 
@@ -178,14 +181,18 @@ export async function GET(request: Request) {
       // reconcile so the panel stays TRUE (issues clear when the condition does).
       if (isNycMaid(tenantId)) {
         const nowT = new Date()
-        const dayAgoIso = new Date(nowT.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        // end_time/start_time are naive tenant-local — need naive cutoffs.
+        // created_at is real timestamptz — real-UTC cutoff is correct there.
+        const nowTNaive = toTenantNaiveString(timezone, nowT)
+        const dayAgoReal = new Date(nowT.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        const dayAgoNaive = toTenantNaiveString(timezone, new Date(nowT.getTime() - 24 * 60 * 60 * 1000))
 
         // no_show — scheduled, past end_time, never checked in.
         const { data: noShows } = await supabaseAdmin
           .from('bookings')
           .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'scheduled')
-          .lte('end_time', nowT.toISOString()).gte('start_time', todayStr + 'T00:00:00').is('check_in_time', null)
+          .lte('end_time', nowTNaive).gte('start_time', formatCalendarNaive(todayCal)).is('check_in_time', null)
         for (const b of noShows || []) {
           issues.push({ type: 'no_show', severity: 'critical', message: `${(b.team_members as { name?: string } | null)?.name || 'Unassigned'} never checked in for ${(b.clients as { name?: string } | null)?.name || 'client'} — job should be done by now`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
         }
@@ -194,7 +201,7 @@ export async function GET(request: Request) {
         const { data: stuck } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, clients(name)')
-          .eq('tenant_id', tenantId).eq('status', 'pending').lt('created_at', dayAgoIso).gte('start_time', nowT.toISOString())
+          .eq('tenant_id', tenantId).eq('status', 'pending').lt('created_at', dayAgoReal).gte('start_time', nowTNaive)
         for (const b of stuck || []) {
           issues.push({ type: 'stuck_pending', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — pending 24h+, not yet scheduled`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
         }
@@ -203,18 +210,18 @@ export async function GET(request: Request) {
         const { data: overdue } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, price, end_time, clients(name)')
-          .eq('tenant_id', tenantId).eq('status', 'completed').neq('payment_status', 'paid').gt('price', 0).lte('end_time', dayAgoIso)
+          .eq('tenant_id', tenantId).eq('status', 'completed').neq('payment_status', 'paid').gt('price', 0).lte('end_time', dayAgoNaive)
         for (const b of overdue || []) {
           issues.push({ type: 'payment_overdue', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — $${(Number(b.price) / 100).toFixed(0)} unpaid (completed ${String(b.end_time).split('T')[0]})`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
         }
 
         // cleaner_unpaid — completed 48h+ ago, team member not paid.
-        const twoDayIso = new Date(nowT.getTime() - 48 * 60 * 60 * 1000).toISOString()
+        const twoDayNaive = toTenantNaiveString(timezone, new Date(nowT.getTime() - 48 * 60 * 60 * 1000))
         const { data: unpaidCleaner } = await supabaseAdmin
           .from('bookings')
           .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'completed').gt('price', 0)
-          .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayIso)
+          .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayNaive)
         for (const b of unpaidCleaner || []) {
           issues.push({ type: 'cleaner_unpaid', severity: 'warning', message: `${(b.team_members as { name?: string } | null)?.name || 'Team member'} not paid for ${(b.clients as { name?: string } | null)?.name || 'client'}`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
         }

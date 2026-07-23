@@ -81,15 +81,17 @@ export async function GET(request: NextRequest) {
   const { data: monthlyBookings } = await monthlyQuery
 
   const monthMap: Record<string, number> = {}
+  // Cross-tenant platform report — no single tenant to key off, so this
+  // renders in the platform's own default (ET), not the server's raw UTC.
   for (let i = 11; i >= 0; i--) {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
-    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/New_York' })
     monthMap[key] = 0
   }
   for (const b of monthlyBookings || []) {
     if (b.payment_date) {
-      const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+      const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/New_York' })
       if (key in monthMap) monthMap[key] += (b.price || 0) / 100
     }
   }

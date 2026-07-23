@@ -7,6 +7,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
+import { getTenantTimezone, getLocalHour, getTenantDayBoundaries, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive, toTenantNaiveString } from '@/lib/tenant-time'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -33,12 +34,14 @@ export async function GET(request: Request) {
   // Get all active tenants
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const timezone = getTenantTimezone(tenant)
+    const localHour = getLocalHour(timezone, now)
     const clientSms = await clientSmsTemplatesFor(tenantId)
     // Per-tenant communications prefs (loaded once — not per booking).
     // reminder_days drives which day-out reminders fire; the booking_reminder
@@ -50,16 +53,15 @@ export async function GET(request: Request) {
 
     try {
       // ============================================
-      // DAY-BASED REMINDERS — send at 8am (per server TZ)
+      // DAY-BASED REMINDERS — send at 8am tenant-local time
       // 3 days before + 1 day before
       // ============================================
-      if (now.getHours() === 8) {
+      if (localHour === 8) {
+        const { today: todayCal } = getTenantNaiveDayBoundaries(timezone, now)
         for (const daysOut of reminderDays) {
-          const target = new Date(now)
-          target.setDate(target.getDate() + daysOut)
-          target.setHours(0, 0, 0, 0)
-          const targetEnd = new Date(target)
-          targetEnd.setHours(23, 59, 59, 999)
+          const targetCal = addCalendarDays(todayCal, daysOut)
+          const targetNaive = formatCalendarNaive(targetCal)
+          const targetEndNaive = formatCalendarNaive(targetCal, 23, 59, 59)
           const label = daysOut === 1 ? 'tomorrow' : `in ${daysOut} days`
           const emailType = `reminder_${daysOut}day`
 
@@ -68,8 +70,8 @@ export async function GET(request: Request) {
             .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
-            .gte('start_time', target.toISOString())
-            .lte('start_time', targetEnd.toISOString())
+            .gte('start_time', targetNaive)
+            .lte('start_time', targetEndNaive)
             .limit(500)
             .returns<BookingWithClientAndTeam[]>()
 
@@ -87,19 +89,41 @@ export async function GET(request: Request) {
             const client = booking.clients
             const clientName = client?.name?.split(' ')[0] || 'there'
 
-            // Client email reminder
+            // Client email reminder — nycmaid gets the rich branded template
+            // (What to expect / Payment / Prep tips); other tenants keep the
+            // plain generic notify() email. The notifications row is still
+            // written either way since the dedup check above keys off it.
             if (client?.email) {
-              await notify({
-                tenantId,
-                type: 'booking_reminder',
-                title: `Reminder: Appointment ${label}`,
-                message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
-                channel: 'email',
-                recipientType: 'client',
-                recipientId: booking.client_id ?? undefined,
-                bookingId: booking.id,
-                metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
-              })
+              if (isNycMaid(tenantId) && booking.client_id) {
+                const { clientReminderEmail } = await import('@/lib/nycmaid/email-templates')
+                const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+                const email = clientReminderEmail(booking, label)
+                await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
+                await supabaseAdmin.from('notifications').insert({
+                  tenant_id: tenantId,
+                  type: emailType,
+                  title: email.subject,
+                  message: `Reminder email sent to ${client.email}`,
+                  channel: 'email',
+                  recipient_type: 'client',
+                  recipient_id: booking.client_id,
+                  booking_id: booking.id,
+                  status: 'sent',
+                  metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
+                }).then(() => {}, () => {})
+              } else {
+                await notify({
+                  tenantId,
+                  type: 'booking_reminder',
+                  title: `Reminder: Appointment ${label}`,
+                  message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
+                  channel: 'email',
+                  recipientType: 'client',
+                  recipientId: booking.client_id ?? undefined,
+                  bookingId: booking.id,
+                  metadata: { clientName: client?.name, timeUntil: label, dedup: emailType },
+                })
+              }
             }
 
             // Client SMS reminder (gated by the booking_reminder SMS toggle)
@@ -194,19 +218,20 @@ export async function GET(request: Request) {
       // HOUR-BASED REMINDERS — one pass per configured hours-before (default [2])
       // ============================================
       for (const hoursBefore of reminderHoursBefore) {
-      const twoHoursAhead = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000)
-      const hourWindowStart = new Date(twoHoursAhead)
-      hourWindowStart.setMinutes(0, 0, 0)
-      const hourWindowEnd = new Date(hourWindowStart)
-      hourWindowEnd.setMinutes(59, 59, 999)
+      // start_time is naive tenant-local — snap the target instant to its
+      // tenant-local hour window, not the server's (UTC) hour window.
+      const targetInstant = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000)
+      const targetHourPrefix = toTenantNaiveString(timezone, targetInstant).slice(0, 13) // 'YYYY-MM-DDTHH'
+      const hourWindowStartNaive = `${targetHourPrefix}:00:00`
+      const hourWindowEndNaive = `${targetHourPrefix}:59:59`
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
         .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
-        .gte('start_time', hourWindowStart.toISOString())
-        .lte('start_time', hourWindowEnd.toISOString())
+        .gte('start_time', hourWindowStartNaive)
+        .lte('start_time', hourWindowEndNaive)
         .limit(500)
         .returns<BookingWith2HourReminder[]>()
 
@@ -274,16 +299,18 @@ export async function GET(request: Request) {
       // ============================================
       // PAYMENT ALERT — 15 min before booking end_time
       // ============================================
-      const payWindowStart = new Date(now.getTime() + 10 * 60 * 1000)
-      const payWindowEnd = new Date(now.getTime() + 20 * 60 * 1000)
+      // end_time is naive tenant-local — convert the real-instant window to
+      // that convention before comparing.
+      const payWindowStartNaive = toTenantNaiveString(timezone, new Date(now.getTime() + 10 * 60 * 1000))
+      const payWindowEndNaive = toTenantNaiveString(timezone, new Date(now.getTime() + 20 * 60 * 1000))
 
       const { data: endingSoon } = await supabaseAdmin
         .from('bookings')
         .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
-        .gte('end_time', payWindowStart.toISOString())
-        .lte('end_time', payWindowEnd.toISOString())
+        .gte('end_time', payWindowStartNaive)
+        .lte('end_time', payWindowEndNaive)
         .limit(500)
         .returns<BookingWithPaymentAlert[]>()
 
@@ -330,22 +357,21 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // THANK YOU EMAIL — 3 days after first booking (8am only)
+      // THANK YOU EMAIL — 3 days after first booking (8am tenant-local only)
       // ============================================
-      if (now.getHours() === 8) {
-        const threeDaysAgo = new Date(now)
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-        threeDaysAgo.setHours(0, 0, 0, 0)
-        const threeDaysAgoEnd = new Date(threeDaysAgo)
-        threeDaysAgoEnd.setHours(23, 59, 59, 999)
+      if (localHour === 8) {
+        const { today: todayCal } = getTenantNaiveDayBoundaries(timezone, now)
+        const threeDaysAgoCal = addCalendarDays(todayCal, -3)
+        const threeDaysAgoNaive = formatCalendarNaive(threeDaysAgoCal)
+        const threeDaysAgoEndNaive = formatCalendarNaive(threeDaysAgoCal, 23, 59, 59)
 
         const { data: completedBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, service_type, clients(name, email)')
           .eq('tenant_id', tenantId)
           .in('status', ['completed', 'paid'])
-          .gte('end_time', threeDaysAgo.toISOString())
-          .lte('end_time', threeDaysAgoEnd.toISOString())
+          .gte('end_time', threeDaysAgoNaive)
+          .lte('end_time', threeDaysAgoEndNaive)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingWithThankYou[]>()
 
@@ -373,20 +399,39 @@ export async function GET(request: Request) {
             .eq('tenant_id', tenantId)
             .eq('client_id', booking.client_id)
             .in('status', ['completed', 'paid'])
-            .lt('end_time', threeDaysAgo.toISOString())
+            .lt('end_time', threeDaysAgoNaive)
 
           if ((count || 0) === 0) {
-            await notify({
-              tenantId,
-              type: 'follow_up',
-              title: `Thank you from ${tenant.name}!`,
-              message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
-              channel: 'email',
-              recipientType: 'client',
-              recipientId: booking.client_id,
-              bookingId: booking.id,
-              metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
-            })
+            if (isNycMaid(tenantId)) {
+              const { clientThankYouEmail } = await import('@/lib/nycmaid/email-templates')
+              const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+              const email = clientThankYouEmail(client.name || '')
+              await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
+              await supabaseAdmin.from('notifications').insert({
+                tenant_id: tenantId,
+                type: 'follow_up',
+                title: email.subject,
+                message: `Thank-you email sent to ${client.email}`,
+                channel: 'email',
+                recipient_type: 'client',
+                recipient_id: booking.client_id,
+                booking_id: booking.id,
+                status: 'sent',
+                metadata: { clientName: client.name, serviceName: booking.service_type },
+              }).then(() => {}, () => {})
+            } else {
+              await notify({
+                tenantId,
+                type: 'follow_up',
+                title: `Thank you from ${tenant.name}!`,
+                message: `Hi ${client.name?.split(' ')[0] || 'there'}, thank you for choosing ${tenant.name}! We hope you enjoyed your ${booking.service_type || 'service'}. Book again and mention THANKYOU for 10% off.`,
+                channel: 'email',
+                recipientType: 'client',
+                recipientId: booking.client_id,
+                bookingId: booking.id,
+                metadata: { clientName: client.name, serviceName: booking.service_type, discountCode: 'THANKYOU' },
+              })
+            }
             results.push({ type: 'thank_you', booking_id: booking.id, tenant_id: tenantId })
             sent++
           }
@@ -394,18 +439,17 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // UNPAID TEAM ALERTS — 8am, completed 2+ days ago with unpaid team
+      // UNPAID TEAM ALERTS — 8am tenant-local, completed 2+ days ago with unpaid team
       // ============================================
-      if (now.getHours() === 8) {
-        const twoDaysAgo = new Date(now)
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      if (localHour === 8) {
+        const twoDaysAgoNaive = toTenantNaiveString(timezone, new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000))
 
         const { data: unpaidBookings } = await supabaseAdmin
           .from('bookings')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('status', 'completed')
-          .lt('end_time', twoDaysAgo.toISOString())
+          .lt('end_time', twoDaysAgoNaive)
           .or('team_member_paid.is.null,team_member_paid.eq.false')
           .limit(500) // Don't process more than 500 per tenant per run
 
@@ -424,9 +468,9 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // PENDING BOOKING ALERTS — 8am and 2pm, unassigned bookings
+      // PENDING BOOKING ALERTS — 8am and 2pm tenant-local, unassigned bookings
       // ============================================
-      if (now.getHours() === 8 || now.getHours() === 14) {
+      if (localHour === 8 || localHour === 14) {
         const { data: pendingBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, clients(name)')
@@ -468,20 +512,17 @@ export async function GET(request: Request) {
         }
       }
       // ============================================
-      // 8PM DAILY OPS RECAP — today's jobs + financials + tomorrow preview
+      // 8PM DAILY OPS RECAP — today's jobs + financials + tomorrow preview (tenant-local)
       // ============================================
-      if (now.getHours() === 20) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
-        const tomorrowStart = new Date(now); tomorrowStart.setDate(tomorrowStart.getDate() + 1); tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart); tomorrowEnd.setHours(23, 59, 59, 999)
+      if (localHour === 20) {
+        const { todayStartNaive, todayEndNaive, tomorrowStartNaive, tomorrowEndNaive, today: todayCal, tomorrow: tomorrowCal } = getTenantNaiveDayBoundaries(timezone, now)
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', todayStart.toISOString())
-          .lte('start_time', todayEnd.toISOString())
+          .gte('start_time', todayStartNaive)
+          .lte('start_time', todayEndNaive)
           .neq('status', 'cancelled')
           .order('start_time')
           .limit(500)
@@ -490,8 +531,8 @@ export async function GET(request: Request) {
           .from('bookings')
           .select('id, start_time, end_time, price, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStartNaive)
+          .lte('start_time', tomorrowEndNaive)
           .in('status', ['scheduled', 'confirmed'])
           .order('start_time')
           .limit(500)
@@ -501,9 +542,8 @@ export async function GET(request: Request) {
         const todayPaid = (todayBookings || []).filter((b: { payment_status?: string }) => b.payment_status === 'paid').length
         const todayUnpaid = (todayBookings || []).length - todayPaid
 
-        const todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-        const tomorrowDateObj = new Date(now); tomorrowDateObj.setDate(tomorrowDateObj.getDate() + 1)
-        const tomorrowDateStr = tomorrowDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const todayDateStr = new Date(Date.UTC(todayCal.year, todayCal.month, todayCal.day)).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
+        const tomorrowDateStr = new Date(Date.UTC(tomorrowCal.year, tomorrowCal.month, tomorrowCal.day)).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
 
         const todayJobsList = (todayBookings || []).map((b: any) => ({
           clientName: b.clients?.name || 'Unknown',
@@ -540,11 +580,10 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // 9PM NIGHTLY DIGEST — summary of all notifications sent today
+      // 9PM NIGHTLY DIGEST — summary of all notifications sent today (tenant-local)
       // ============================================
-      if (now.getHours() === 21) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+      if (localHour === 21) {
+        const { todayStart, todayEnd } = getTenantDayBoundaries(timezone, now)
 
         const { data: todayNotifs } = await supabaseAdmin
           .from('notifications')
@@ -563,11 +602,11 @@ export async function GET(request: Request) {
         const entries = (todayNotifs || []).map((n: any) => ({
           type: n.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
           recipient: n.recipient_type || 'unknown',
-          time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }),
           channel: n.channel || 'email',
         }))
 
-        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const dateStr = todayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: timezone })
 
         await notify({
           tenantId,

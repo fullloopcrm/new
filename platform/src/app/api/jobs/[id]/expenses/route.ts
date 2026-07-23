@@ -25,7 +25,7 @@ import { validate } from '@/lib/validate'
 import { getDefaultEntityId } from '@/lib/entity'
 import { logJobEvent } from '@/lib/jobs'
 import { audit } from '@/lib/audit'
-import { nowNaiveET } from '@/lib/recurring'
+import { getTenantTimezone, toTenantNaiveString } from '@/lib/tenant-time'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -103,6 +103,8 @@ export async function POST(request: Request, { params }: Params) {
     const validated = fields!
 
     const entityId = await getDefaultEntityId(tenantId)
+    const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+    const tenantTimezone = getTenantTimezone(tenantRow)
 
     // A picked catalog item's own category tags the expense the same
     // GL-linked way a budget line already is -- no re-typing the category.
@@ -132,7 +134,7 @@ export async function POST(request: Request, { params }: Params) {
         category_id: categoryId,
         description: validated.description || null,
         receipt_url: validated.receipt_url || null,
-        date: validated.date || nowNaiveET().slice(0, 10),
+        date: validated.date || toTenantNaiveString(tenantTimezone).slice(0, 10),
       })
       .select()
       .single()

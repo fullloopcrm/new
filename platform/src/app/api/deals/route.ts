@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 export async function GET() {
   try {
@@ -126,7 +127,7 @@ export async function PUT(request: Request) {
       updates.follow_up_note = follow_up_note || null
       if (follow_up_at) {
         const when = new Date(follow_up_at).toLocaleString('en-US', {
-          timeZone: 'America/New_York',
+          timeZone: getTenantTimezone(_authTenant.tenant),
           month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
         })
         activities.push({

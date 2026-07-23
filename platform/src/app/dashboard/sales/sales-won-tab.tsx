@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+import { tenantCalendarToday, formatCalendarNaive, parseTenantNaiveString } from '@/lib/tenant-time'
 
 type Deal = {
   id: string
@@ -27,6 +29,7 @@ function initials(name: string | null): string {
 }
 
 export default function SalesWonTab({ view = 'won' }: { view?: View }) {
+  const timezone = useTenantTimezone()
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -45,9 +48,10 @@ export default function SalesWonTab({ view = 'won' }: { view?: View }) {
   }, [deals, view])
 
   const totalValue = filtered.reduce((s, d) => s + d.value_cents, 0)
-  const monthStart = new Date()
-  monthStart.setDate(1)
-  monthStart.setHours(0, 0, 0, 0)
+  // closed_at/last_activity_at/created_at are real timestamptz — build "this
+  // month" from the tenant's own calendar month, not the browser's.
+  const todayCal = tenantCalendarToday(timezone)
+  const monthStart = parseTenantNaiveString(formatCalendarNaive({ ...todayCal, day: 1 }), timezone)
   const thisMonth = filtered.filter((d) => new Date(d.closed_at || d.last_activity_at || d.created_at) >= monthStart)
   const monthValue = thisMonth.reduce((s, d) => s + d.value_cents, 0)
 

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -85,6 +86,7 @@ export async function PATCH(request: Request, { params }: Params) {
     // Log follow-up scheduling as activity
     if ('follow_up_at' in body && body.follow_up_at) {
       const when = new Date(body.follow_up_at as string).toLocaleString('en-US', {
+        timeZone: getTenantTimezone(_authTenant.tenant),
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       })
       await supabaseAdmin.from('deal_activities').insert({

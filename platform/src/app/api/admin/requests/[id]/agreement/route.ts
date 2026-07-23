@@ -37,7 +37,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const monthly = lead.proposal_monthly ?? computeMonthly(admins, teamMembers)
 
   // Effective date — passed in so this stays deterministic and server-stamped.
-  const effectiveDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  // Platform-level agreement (no tenant yet, this IS the onboarding step) — ET,
+  // the platform's own default.
+  const effectiveDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/New_York' })
 
   let territoryName: string | null = null
   if (lead.territory_id) {
