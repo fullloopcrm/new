@@ -295,6 +295,7 @@ export async function notify({
         recipientName: (metadata?.recipientName as string) || clientName,
         pin: (metadata?.pin as string) || '',
         portalUrl: metadata?.portalUrl as string | undefined,
+        wasReset: metadata?.wasReset as boolean | undefined,
       })
       break
     case 'booking_received':

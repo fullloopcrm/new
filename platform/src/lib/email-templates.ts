@@ -505,15 +505,17 @@ export function portalPinResetEmail(data: TemplateData & {
   recipientName: string
   pin: string
   portalUrl?: string
+  wasReset?: boolean
 }): string {
   const color = escapeHtml(data.primaryColor || '#111827')
+  const wasReset = data.wasReset !== false
   return baseTemplate(`
-    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Your PIN was reset</h2>
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${wasReset ? 'Your PIN was reset' : 'Your Portal PIN'}</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
-      Hi ${escapeHtml(data.recipientName.split(' ')[0] || data.recipientName)}, your portal PIN was just reset. Use the new PIN below to log in.
+      Hi ${escapeHtml(data.recipientName.split(' ')[0] || data.recipientName)}, ${wasReset ? 'your portal PIN was just reset. Use the new PIN below to log in.' : 'here is your portal PIN.'}
     </p>
     <div style="background:#f5f5f5;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
-      <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Your new PIN</p>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Your PIN</p>
       <p style="margin:0;font-size:36px;font-weight:700;color:#111827;letter-spacing:6px;">${escapeHtml(data.pin)}</p>
     </div>
     ${data.portalUrl ? `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">

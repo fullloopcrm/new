@@ -5,7 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { sendClientSMS, sendClientEmail } from '@/lib/nycmaid/client-contacts'
+import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { notify } from '@/lib/notify'
 
 function generatePin(): string {
@@ -54,14 +54,26 @@ export async function PUT(
     // NYC Maid parity: send/reset a client's portal PIN via email/SMS.
     // Gated to this tenant only — see src/lib/nycmaid/tenant.ts.
     if (isNycMaid(tenantId) && body.send_pin) {
-      const { data: client } = await tenantDb(tenantId).from('clients').select('pin').eq('id', id).single()
+      const { data: client } = await tenantDb(tenantId).from('clients').select('name, pin').eq('id', id).single()
       if (!client?.pin) return NextResponse.json({ error: 'Client has no PIN' }, { status: 400 })
 
-      const pinMessage = `Your NYC Maid portal PIN is: ${client.pin}. Log in at thenycmaid.com/book with your email and this PIN.`
-      const emailResult = await sendClientEmail(id, 'Your NYC Maid Portal PIN', `<p>${pinMessage}</p>`)
+      const portalUrl = tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined
+      const pinMessage = `Your ${tenant.tenant.name} portal PIN is: ${client.pin}.${portalUrl ? ` Log in at ${portalUrl} with your email and this PIN.` : ''}`
+      // Same standard branded template as the reset flow just below — this
+      // used to send a raw unstyled <p> tag with the tenant name hardcoded.
+      const emailResult = await notify({
+        tenantId,
+        type: 'portal_pin_reset',
+        title: 'Your Portal PIN',
+        message: pinMessage,
+        channel: 'email',
+        recipientType: 'client',
+        recipientId: id,
+        metadata: { recipientName: client.name, pin: client.pin, portalUrl, wasReset: false },
+      })
       const smsResult = await sendClientSMS(id, pinMessage, { smsType: 'pin_delivery' })
 
-      return NextResponse.json({ success: true, sent_to: { email: emailResult.sent > 0, sms: smsResult.sent > 0 } })
+      return NextResponse.json({ success: true, sent_to: { email: emailResult.success, sms: smsResult.sent > 0 } })
     }
 
     if (isNycMaid(tenantId) && body.reset_pin) {
