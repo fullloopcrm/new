@@ -352,6 +352,7 @@ export async function POST(request: Request) {
           .from('bookings')
           .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
           .eq('id', data.id)
+          .eq('tenant_id', tenantId)
           .single()
         if (nmBooking?.clients?.email) {
           const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')

@@ -227,7 +227,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
         <li><strong style={{ color: 'var(--sl-ink)' }}>Log actuals</strong> by hand as the job runs <HelpTip text="There's no automated time tracking or job-scoped expense feed yet, so actual costs are entered here manually." /> — Actual vs. Target Gross Margin shows on each row</li>
       </ol>
       <p style={{ fontSize: 11, color: 'var(--sl-muted)', margin: '0 0 14px' }}>
-        This controls <strong>Gross Margin</strong> — revenue minus the direct job costs (COGS) you enter here. It does not cover <strong>Net Margin</strong>, which also subtracts company-wide overhead (rent, insurance, admin) — that's not tracked per-job.
+        This controls <strong>Gross Margin</strong> — revenue minus the direct job costs (COGS) you enter here. It does not cover <strong>Net Margin</strong>, which also subtracts company-wide overhead (rent, insurance, admin) — that&apos;s not tracked per-job.
       </p>
       <button type="button" onClick={onSwitchToTemplates} style={{ fontSize: 12, background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0, marginBottom: 14, display: 'block' }}>Manage templates →</button>
 

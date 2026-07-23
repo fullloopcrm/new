@@ -274,8 +274,11 @@ describe('middleware — main-host / subdomain Host-header case sensitivity', ()
     byDomain = domainSpy
     const { default: middleware } = await import('./middleware')
 
-    const req = new NextRequest('https://WWW.FULLLOOPCRM.COM/dashboard', {
-      headers: { host: 'WWW.FULLLOOPCRM.COM' },
+    // Uses homeservicesbusinesscrm.com, not fullloopcrm.com: the latter now hits
+    // the brand-consolidation 308 (see middleware.ts) before ever reaching this
+    // gate, which would shadow the case-sensitivity behavior this test targets.
+    const req = new NextRequest('https://WWW.HOMESERVICESBUSINESSCRM.COM/dashboard', {
+      headers: { host: 'WWW.HOMESERVICESBUSINESSCRM.COM' },
     })
     const res = await middleware(req)
 

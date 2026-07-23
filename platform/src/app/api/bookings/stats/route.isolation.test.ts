@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
+import { nowNaiveET } from '@/lib/recurring'
 
 /**
  * Tenant isolation — GET /api/bookings/stats (converted to tenantDb).
@@ -33,9 +34,14 @@ vi.mock('@/lib/tenant-query', () => {
 import { GET } from './route'
 
 function seed() {
-  const now = Date.now()
-  const future = new Date(now + 2 * 24 * 60 * 60 * 1000).toISOString() // +2d → in this-week window
-  const earlierToday = new Date(now - 2 * 60 * 60 * 1000).toISOString() // -2h → same month, before now
+  // bookings.start_time is a naive America/New_York wall-clock column (no real
+  // UTC offset) — the route's thisWeek/completed windows are computed the same
+  // way via nowNaiveET(). Seeding with genuine .toISOString() (true UTC) instead
+  // would desync by ET's ~4-5h offset against those bounds, silently pulling
+  // out-of-window rows into thisWeek's count (the same class of bug already
+  // called out in stats/route.ts's own comment re: cron/no-show-check).
+  const future = `${nowNaiveET(2 * 24 * 60 * 60 * 1000)}Z` // +2d → in this-week window
+  const earlierToday = `${nowNaiveET(-2 * 60 * 60 * 1000)}Z` // -2h → same month, before now
   return {
     bookings: [
       // A: upcoming + thisWeek (scheduled, in-window start)

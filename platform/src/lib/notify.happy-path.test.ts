@@ -48,22 +48,24 @@ vi.mock('@/lib/supabase', () => {
     const eqs: Row = {}
     let kind: 'read' | 'insert' | 'update' = 'read'
     let payload: Row = {}
+    const resolveSingle = () => {
+      if (kind === 'insert') {
+        inserts.push({ table, payload })
+        if (table === 'notifications') return { data: { id: NOTIF_ID }, error: null }
+        return { data: { id: NOTIF_ID, ...payload }, error: null }
+      }
+      reads.push({ table, eqs: { ...eqs } })
+      if (table === 'tenants') return { data: tenantRow, error: null }
+      if (table === 'tenant_members') return { data: { email: ownerEmail }, error: null }
+      return { data: null, error: null }
+    }
     const c: Record<string, unknown> = {
       select: () => c,
       insert: (p: Row) => { kind = 'insert'; payload = p; return c },
       update: (p: Row) => { kind = 'update'; payload = p; return c },
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
-      single: async () => {
-        if (kind === 'insert') {
-          inserts.push({ table, payload })
-          if (table === 'notifications') return { data: { id: NOTIF_ID }, error: null }
-          return { data: { id: NOTIF_ID, ...payload }, error: null }
-        }
-        reads.push({ table, eqs: { ...eqs } })
-        if (table === 'tenants') return { data: tenantRow, error: null }
-        if (table === 'tenant_members') return { data: { email: ownerEmail }, error: null }
-        return { data: null, error: null }
-      },
+      single: async () => resolveSingle(),
+      maybeSingle: async () => resolveSingle(),
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (kind === 'update') updates.push({ table, payload, eqs: { ...eqs } })
         else reads.push({ table, eqs: { ...eqs } })
@@ -98,6 +100,7 @@ vi.mock('@/lib/email-templates', () => ({
   notificationDigestEmail: () => '<p>x</p>',
   reviewRequestEmail: () => '<p>x</p>',
   paymentReceiptEmail: () => '<p>x</p>',
+  genericNotificationEmail: () => '<p>x</p>',
 }))
 
 import { notify } from '@/lib/notify'

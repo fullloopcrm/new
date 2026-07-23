@@ -216,7 +216,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: { slug: h.tenantId } }))
   h.requirePermission.mockReset()
   h.requirePermission.mockImplementation(async () => ({ tenant: { tenantId: h.tenantId }, error: null }))
   h.getSettings.mockReset()

@@ -30,6 +30,7 @@ type VoiceTenantResolution =
 async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenantResolution> {
   const did = (toDid || '').trim()
   if (!did) return { ok: false, status: 422, reason: 'missing called number' }
+  const safeDid = sanitizePostgrestValue(did)
 
   // tenants.telnyx_phone doubles as the SMS "from" address across ~50 call
   // sites — never repurpose it for a voice-only DID. voice_did is a separate,
@@ -39,7 +40,7 @@ async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenan
   const { data: matches } = await supabaseAdmin
     .from('tenants')
     .select('id, name')
-    .or(`telnyx_phone.eq.${did},voice_did.eq.${did}`)
+    .or(`telnyx_phone.eq.${safeDid},voice_did.eq.${safeDid}`)
     .order('id', { ascending: true })
     .limit(2)
 

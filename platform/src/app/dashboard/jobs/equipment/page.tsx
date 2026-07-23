@@ -169,7 +169,7 @@ export default function EquipmentPage() {
         <span className="sl-section-meta">{equipment.length} unit{equipment.length === 1 ? '' : 's'}</span>
       </div>
       <p style={{ fontSize: 12, color: 'var(--sl-muted)', margin: '0 0 16px' }}>
-        Depreciable assets that get checked out and returned — dumpsters, generators, equipment rentals. Optionally tied to a Services Catalog item (item type "equipment") for billing. Depreciation posts to Finance separately.
+        Depreciable assets that get checked out and returned — dumpsters, generators, equipment rentals. Optionally tied to a Services Catalog item (item type &quot;equipment&quot;) for billing. Depreciation posts to Finance separately.
       </p>
 
       {/* CREATE */}
