@@ -109,12 +109,12 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     <AuthContext value={{ auth, setAuth, lang, setLang, t }}>
       <head>
         <link rel="manifest" href="/team-manifest.json" />
-        <meta name="theme-color" content="#16a34a" />
+        <meta name="theme-color" content="#1C1C1C" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Team Portal" />
       </head>
-      <div className="min-h-screen bg-gray-50">
+      <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
         {auth && (
           <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
             <div className="max-w-lg mx-auto flex items-center justify-between">

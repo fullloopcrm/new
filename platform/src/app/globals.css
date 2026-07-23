@@ -209,6 +209,30 @@
 .loop-scope .focus\:ring-teal-500:focus,
 .loop-scope .focus\:ring-emerald-500:focus { --tw-ring-color: var(--color-loop-ink); }
 
+/* Client/team portal gap-fill: these two surfaces use `gray-*` (not `slate-*`)
+   for neutral surfaces and `slate-800`/`blue-600` (not `teal`/`emerald`) as
+   their primary CTA color. Same remap intent as above, different source
+   classes. */
+.loop-scope .bg-gray-50 { background-color: var(--color-loop-canvas); }
+.loop-scope .hover\:bg-gray-50:hover { background-color: var(--color-loop-canvas); }
+/* gray-100/200 are chip/pill backgrounds (language toggle, filter tags) sitting
+   on top of white headers/cards — map to the tinted surface, not plain canvas,
+   or the pill disappears against a white header. */
+.loop-scope .bg-gray-100,
+.loop-scope .bg-gray-200 { background-color: var(--color-loop-line-soft); }
+.loop-scope .bg-slate-800,
+.loop-scope .bg-blue-500,
+.loop-scope .bg-blue-600 { background-color: var(--color-loop-ink); color: var(--color-loop-canvas); }
+.loop-scope .border-slate-800,
+.loop-scope .border-blue-500 { border-color: var(--color-loop-ink); }
+.loop-scope .border-blue-300 { border-color: var(--color-loop-line); }
+/* Bright gradient stat-card banners (e.g. team pay-rate card) -> the same
+   ink/graphite gradient treatment loop-marketing already uses for hero CTAs. */
+.loop-scope .from-green-500,
+.loop-scope .from-green-600,
+.loop-scope .to-green-500,
+.loop-scope .to-green-600 { --tw-gradient-from: var(--color-loop-ink); --tw-gradient-to: var(--color-loop-graphite); }
+
 @keyframes loop-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 @keyframes loop-pulse-dot {
   0% { box-shadow: 0 0 0 0 rgba(31,77,44,0.5); }
