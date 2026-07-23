@@ -61,7 +61,7 @@ export async function PUT(
     // ... in the schema cache") -- since BookingsAdmin.tsx spreads the whole
     // form (which always sets discount_enabled) into every save, this broke
     // saving ANY booking edit, not just discounted ones.
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm

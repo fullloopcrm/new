@@ -3,7 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
-import { applyTeamMinimum } from '@/lib/billing-hours'
+import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
+import { effectiveCleanerRate } from '@/lib/cleaner-pay'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -27,7 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { data: booking, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, discount_percent, one_time_credit_cents, one_time_credit_reason, clients(name, email, phone), team_members!bookings_team_member_id_fkey(id, name, phone)')
+    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, discount_percent, one_time_credit_cents, one_time_credit_reason, clients(name, email, phone, address), team_members!bookings_team_member_id_fkey(id, name, phone)')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
@@ -42,23 +44,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // booking_id alone (a UUID) already uniquely identifies the right rows.
   const db = tenantDb(booking.tenant_id)
 
-  // Team (booking_team_members)
+  // Team (booking_team_members) — pay_rate here is a per-booking override for
+  // this specific member; team_members.pay_rate is their standing rate (the
+  // field the admin team-profile page actually edits — hourly_rate is not
+  // maintained anywhere and must not be used for pay math).
   const { data: teamRows } = await db
     .from('booking_team_members')
-    .select('team_member_id, is_lead, position, team_members(id, name, phone, hourly_rate)')
+    .select('team_member_id, is_lead, position, pay_rate, team_members(id, name, phone, pay_rate)')
     .eq('booking_id', id)
     .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
 
-  const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; hourly_rate: number | null }> = []
+  const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; pay_rate: number | null }> = []
   if (teamRows && teamRows.length > 0) {
     for (const r of teamRows) {
-      const c = r.team_members as unknown as { id: string; name: string; phone: string | null; hourly_rate: number | null } | null
-      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, hourly_rate: c.hourly_rate ?? null })
+      const c = r.team_members as unknown as { id: string; name: string; phone: string | null; pay_rate: number | null } | null
+      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: (r.pay_rate as number | null) ?? c.pay_rate ?? null })
     }
   } else if (booking.team_member_id) {
     const c = booking.team_members as unknown as { id: string; name: string; phone: string | null } | null
-    if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone, is_lead: true, hourly_rate: null })
+    if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone, is_lead: true, pay_rate: null })
   }
 
   const { data: payments } = await db
@@ -92,11 +97,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const rawMinutes = ci ? Math.max(0, ((co || new Date()).getTime() - ci.getTime()) / 60000) : 0
   const halfBlocks = Math.floor(rawMinutes / 30)
   const remainder = rawMinutes - halfBlocks * 30
-  const billedBlocks = remainder >= 5 ? halfBlocks + 1 : halfBlocks
+  const billedBlocks = remainder > 10 ? halfBlocks + 1 : halfBlocks
   const teamSize = Math.max(1, booking.team_size || 1)
-  let computedHours = ci ? applyTeamMinimum(Math.max(0.5, billedBlocks * 0.5), teamSize) : (booking.actual_hours || 0)
+  // Client billing rounds up past 10 min; cleaner pay only past 15 min — the
+  // same canonical helpers checkout/webhook/30min-alert use, so this summary
+  // never drifts from what the client was actually charged or the cleaner
+  // actually paid (billing-hours.ts's whole reason for existing).
+  const computedHours = ci ? applyTeamMinimum(Math.max(0.5, clientBilledHours(rawMinutes)), teamSize) : (booking.actual_hours || 0)
+  const cleanerComputedHours = ci ? applyTeamMinimum(Math.max(0.5, cleanerPaidHours(rawMinutes)), teamSize) : (booking.actual_hours || 0)
   const cap = null as number | null
   const billedHours = (ci && co) ? computedHours : (booking.actual_hours ?? computedHours)
+  const cleanerBilledHours = (ci && co) ? cleanerComputedHours : (booking.actual_hours ?? cleanerComputedHours)
 
   // Bill math
   const hourlyRate = booking.hourly_rate || 79
@@ -142,17 +153,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const isUnderpaid = overpaymentCents < 0
   const tipCents = isOverpaid ? overpaymentCents : 0
 
-  // Per-member payout shares
-  const perMemberBase = booking.team_member_pay || (() => {
-    const payRate = (teamMembers.find(t => t.is_lead)?.hourly_rate) || booking.pay_rate || (hourlyRate <= 60 ? 25 : 30)
-    return Math.round(billedHours * payRate * 100)
-  })()
+  // Per-member payout shares — each team member is paid on THEIR OWN rate,
+  // not the lead's. A single stored booking.team_member_pay (from the
+  // single-cleaner checkout path) only ever reflects the primary member's
+  // rate, so it's used as a fallback for that one member, never copied onto
+  // teammates who were never priced against it.
+  const clientAddress = (booking.clients as unknown as { address?: string | null } | null)?.address ?? null
+  const defaultRate = hourlyRate <= 60 ? 25 : 30
+  const applyFloor = isNycMaid(tenantId)
   const tipShareCents = teamSize > 0 ? Math.floor(tipCents / teamSize) : 0
   const tipShareRemainder = tipCents - tipShareCents * teamSize
 
   const cleanerSummaries = teamMembers.map(member => {
+    const rawRate = member.pay_rate ?? (booking.pay_rate as number | null) ?? defaultRate
+    const effectiveRate = applyFloor ? effectiveCleanerRate(rawRate, clientAddress) : rawRate
+    const base =
+      (member.is_lead && teamSize === 1 && booking.team_member_pay)
+        ? (booking.team_member_pay as number)
+        : Math.round(cleanerBilledHours * effectiveRate * 100)
     const tip = tipShareCents + (member.is_lead ? tipShareRemainder : 0)
-    const totalDue = perMemberBase + tip
+    const totalDue = base + tip
     const paidRows = (payouts || []).filter(p => p.team_member_id === member.team_member_id)
     const totalPaid = paidRows.reduce((s, p) => s + (p.amount_cents || 0), 0)
     return {
@@ -160,7 +180,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       name: member.name,
       phone: member.phone,
       is_lead: member.is_lead,
-      base_cents: perMemberBase,
+      pay_rate: effectiveRate,
+      billed_hours: cleanerBilledHours,
+      base_cents: base,
       tip_cents: tip,
       total_due_cents: totalDue,
       total_paid_cents: totalPaid,
