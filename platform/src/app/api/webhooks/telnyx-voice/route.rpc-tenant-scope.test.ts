@@ -18,7 +18,7 @@ const CALLED_DID = '+18883164019'
 
 function chainable(matches: unknown[] = []): unknown {
   const node: Record<string, unknown> = {}
-  const methods = ['select', 'eq', 'gte', 'order', 'limit', 'update', 'insert', 'upsert']
+  const methods = ['select', 'eq', 'or', 'gte', 'order', 'limit', 'update', 'insert', 'upsert']
   for (const m of methods) node[m] = () => node
   node.single = () => Promise.resolve({ data: { id: 'msg-1' }, error: null })
   node.maybeSingle = () => Promise.resolve({ data: null, error: null })

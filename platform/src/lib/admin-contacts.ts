@@ -22,25 +22,19 @@ export interface AdminContact {
   role: string
 }
 
-type TenantLike = Pick<Tenant, 'id' | 'name' | 'slug' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'email_from'> | { id: string }
+type TenantLike = Pick<Tenant, 'id' | 'name' | 'slug' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'email_from' | 'sms_from_number'> | { id: string }
+
+const TENANT_SELECT = 'id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from, sms_from_number'
 
 async function loadTenant(input: TenantLike | string): Promise<TenantLike | null> {
   if (typeof input === 'string') {
-    const { data } = await supabaseAdmin
-      .from('tenants')
-      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
-      .eq('id', input)
-      .single()
+    const { data } = await supabaseAdmin.from('tenants').select(TENANT_SELECT).eq('id', input).single()
     return data
   }
   // If caller passed a partial tenant with just id, hydrate it
   const anyT = input as Record<string, unknown>
   if (anyT.email === undefined || anyT.phone === undefined || anyT.telnyx_api_key === undefined) {
-    const { data } = await supabaseAdmin
-      .from('tenants')
-      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
-      .eq('id', anyT.id as string)
-      .single()
+    const { data } = await supabaseAdmin.from('tenants').select(TENANT_SELECT).eq('id', anyT.id as string).single()
     return data
   }
   return input as TenantLike
@@ -164,9 +158,13 @@ export async function smsAdmins(
   const tenant = await loadTenant(tenantOrId)
   if (!tenant) return
 
-  const t = tenant as TenantLike & { telnyx_api_key?: string | null; telnyx_phone?: string | null }
+  const t = tenant as TenantLike & { telnyx_api_key?: string | null; telnyx_phone?: string | null; sms_from_number?: string | null }
   const telnyxKey = t.telnyx_api_key || null
-  const telnyxPhone = t.telnyx_phone || null
+  // sms_from_number is an optional override for tenants whose voice DID
+  // (tenants.telnyx_phone) isn't SMS-messaging-enabled — e.g. a dedicated
+  // toll-free voice line with no messaging profile attached. Falls back to
+  // telnyx_phone for every tenant that doesn't need the split.
+  const telnyxPhone = t.sms_from_number || t.telnyx_phone || null
   if (!telnyxKey || !telnyxPhone) {
     console.warn('[admin-contacts] smsAdmins: tenant missing Telnyx config, skipping')
     return

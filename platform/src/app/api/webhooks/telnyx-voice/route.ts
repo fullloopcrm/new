@@ -31,10 +31,15 @@ async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenan
   const did = (toDid || '').trim()
   if (!did) return { ok: false, status: 422, reason: 'missing called number' }
 
+  // tenants.telnyx_phone doubles as the SMS "from" address across ~50 call
+  // sites — never repurpose it for a voice-only DID. voice_did is a separate,
+  // optional column for a tenant whose inbound call line isn't the same
+  // number as their SMS-sending number (e.g. a toll-free voice line with no
+  // messaging profile). Matches either column.
   const { data: matches } = await supabaseAdmin
     .from('tenants')
     .select('id, name')
-    .eq('telnyx_phone', did)
+    .or(`telnyx_phone.eq.${did},voice_did.eq.${did}`)
     .order('id', { ascending: true })
     .limit(2)
 

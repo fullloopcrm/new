@@ -42,6 +42,7 @@ export type Tenant = {
   resend_api_key: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  sms_from_number: string | null
   stripe_api_key: string | null
   stripe_account_id: string | null
   anthropic_api_key: string | null
