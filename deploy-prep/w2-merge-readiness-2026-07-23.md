@@ -1,8 +1,23 @@
 # W2 merge-readiness — p1-w2-2026-07-23-w2
 
-4 commits ahead of origin/main. No merge performed, no push to main.
+5 commits ahead of origin/main (4 original + 1 added during today's P0
+financial-bug response). No merge performed, no push to main.
 
 ## Commits (oldest first)
+
+**748261419** — `fix: closeout payment rows showed $0.00 for real payments`
+Files: `platform/src/components/closeout-detail.tsx`,
+`platform/src/components/closeout-detail.test.tsx` (new). TOP-PRIORITY P0 fix
+from today's live incident (Jeff screenshot: real $128 Stripe payment shown
+as $0.00 on the individual row while the aggregate total was correct).
+`PaymentRow` interface/render read `p.amount`; the API returns `amount_cents`
+— renamed the interface fields to match the real API shape and fixed both
+render call sites (payment rows + cleaner payout rows, same mismatch).
+Root cause independently corroborated by W1 (found the same thing via a
+nycmaid-build diff, same minute). Standalone-safe — no other branch touches
+`closeout-detail.tsx` or `closeout-summary/route.ts` as far as the channel
+shows. **Gated on Jeff's explicit deploy go, same as every other fix today —
+do not ship ahead of that regardless of merge order.**
 
 **a98d5fb1f** — `fix: show cleaner star rating on the team roster card (nycmaid-gated)`
 File: `platform/src/app/dashboard/team/page.tsx`. Adds a Rating metric tile to the
@@ -34,18 +49,19 @@ I'm aware of.
 
 ## Cross-branch overlap check
 
-Diffed my 4 commits' file list against every file mentioned in the channel by
+Diffed all 5 commits' file list against every file mentioned in the channel by
 W1/W3/W4 (BookingsAdmin.tsx, dashboard/page.tsx, catalog/route.ts,
 equipment/route.ts, budget-templates, quote-budgets, jobs/[id]/expenses,
-crews.ts, vendors/[id]/items). **Zero file overlap** — none of my 4 commits
-touch any file another branch has also modified. No merge conflicts expected
-from my branch specifically.
+crews.ts, vendors/[id]/items, closeout-summary/route.ts). **Zero file
+overlap** — none of my 5 commits touch any file another branch has also
+modified. No merge conflicts expected from my branch specifically.
 
 ## Recommended merge order
 
-Squash or drop 277548166 (net-zero diagnostic commit), then the remaining 3
+Squash or drop 277548166 (net-zero diagnostic commit), then the remaining 4
 are independent and can land in any order or as one squashed commit — none
-depend on each other or on another branch's commits.
+depend on each other or on another branch's commits. 748261419 (payment-row
+fix) is the highest-priority of the 4 given it's an active P0.
 
 ## Investigated-but-not-fixed (informational, not blocking)
 
