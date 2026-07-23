@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { smsReviewRequest } from '@/lib/nycmaid/sms-templates'
+import { sendClientEmail } from '@/lib/nycmaid/client-contacts'
+import { clientReviewIncentiveEmail } from '@/lib/email-templates'
+import { getCommPolicy, buildTemplateData } from '@/lib/comms-prefs'
 
 // NYC Maid review engine — tenant-scoped parity port (gated by isNycMaid in the
 // telnyx webhook; see feedback_nycmaid_copyover_tenant_scoped). Ported from the
@@ -150,6 +153,31 @@ export async function handleNycMaidReview(
           smsType: 'review_request',
           bookingId: booking.id,
         }).catch(() => {})
+        // Branded email version of the same review-incentive ask, same 4-5
+        // star gate as the SMS above — only fires on a good rating.
+        if (booking.client_id) {
+          try {
+            const [{ data: tenantRow }, policy] = await Promise.all([
+              supabaseAdmin.from('tenants').select('name, primary_color, logo_url, commission_rate').eq('id', tenantId).single(),
+              getCommPolicy(tenantId),
+            ])
+            if (tenantRow) {
+              const base = buildTemplateData(tenantRow, policy)
+              await sendClientEmail(
+                booking.client_id,
+                `5 stars + a thank-you from ${tenantRow.name}`,
+                (contact) => clientReviewIncentiveEmail({
+                  ...base,
+                  clientName: contact.name?.split(' ')[0] || 'there',
+                  teamMemberName: cleanerName,
+                  incentiveAmount: '10',
+                }),
+              )
+            }
+          } catch (emailErr) {
+            console.error('Review incentive email error:', emailErr)
+          }
+        }
         await smsAdmins(`★ ${num}/5 ${cleanerFirst} — review link sent`).catch(() => {})
       } else {
         await sendSMS(
