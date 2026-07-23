@@ -1,16 +1,16 @@
 # Master merge plan — all 4 worker branches (2026-07-23)
 
-Consolidates `MERGE-READINESS-W3.md` (this branch), `deploy-prep/w2-merge-readiness-2026-07-23.md`, `deploy-prep/w4-merge-readiness-2026-07-23.md`, and W1's actual commit log (**W1 never produced a written doc** — pulled directly via `git log origin/main..HEAD --oneline` + per-commit `git show --stat` on `/Users/jefftucker/flwork-p1-w1`, so this section is sourced from git, not a self-report).
+**UPDATE ~17:56, second pass.** W1 has since written its own `deploy-prep/w1-merge-readiness-2026-07-23.md` (wasn't available at first pass). Since first pass: the BookingsAdmin.tsx conflict (Conflict C below) was actually merge-tested in a scratch worktree — resolved cleanly, no longer just a risk assessment. A TOP-PRIORITY financial-bug sweep landed 3 new fixes (W1 SMS timeout, W2 payment-row display, my checkout-price recompute) plus a 4th real cross-branch conflict W1 found (`jobs/[id]/expenses/route.ts` vs W4's earlier fix on the same file).
 
 No merge performed. No push to main. No prod writes. This is a plan only.
 
-**Total: 35 commits across 4 branches** (W1: 15, W2: 4, W3: 8, W4: 10).
+**Total: 39 commits across 4 branches** (W1: 17, W2: 5, W3: 9, W4: 10).
 
 ---
 
 ## 1. Cross-branch conflicts — one decision each
 
-Three real file-level conflicts exist across all 35 commits. Everything else is either standalone or a same-branch sequential dependency (see §2).
+Four real file-level conflicts exist across all 39 commits. Everything else is either standalone or a same-branch sequential dependency (see §2).
 
 ### Conflict A — `catalog/[id]/materials/route.ts`: W1 vs W4
 
@@ -37,7 +37,17 @@ What I verified directly (hunk line ranges against the common `origin/main` ance
 
 W1's ~638 and W3's ~618/636 region are close enough (20-line window) that a clean auto-merge is not guaranteed — both are editing inside the same `function BookingsPage()` body near the booking-action-button area. W4's edits (~261, ~2359-2365) look far enough from W1/W3's ~618-680 cluster to probably merge cleanly, but W3's own hunks run all the way out to ~2011-2029, which is close to W4's ~2359 region once line-number drift from earlier patches is accounted for — **too close to call without actually running the merge.**
 
-**Decision: whoever performs the real merge must apply these 4 commits one at a time (not squashed, not parallel), resolving each conflict as it appears, and run the full test suite after each application** — not attempt to pre-resolve this file from static diffs. Suggested apply order: W1's `f8bb7b804` first (smallest diff, isolated mark-paid logic), then W3's `25858b159` → `09b6f6c83` (same-branch sequential pair, must stay together and in order), then W4's `086251861` → `078b9df24` (same-branch sequential pair, must stay together and in order — `086251861` also gates on its migration, see §3).
+**UPDATE 17:48 — actually tested, not just planned.** Per leader's 17:12 dispatch, ran the real 3-way merge in an isolated scratch worktree (`scratchpad/scratch-merge-test`, off `origin/main`, never pushed anywhere) covering the W1+W3 portion (`f8bb7b804` → `25858b159` → `09b6f6c83`): **all 3 applied via a clean git auto-merge, zero conflict markers, zero manual resolution.** Full suite after: tsc clean, 803 files / 4425 tests passing, 0 failed. The 20-line hunk-proximity concern below was a real risk to flag beforehand but turned out to be a false alarm once tested — the actual line-level changes didn't overlap enough to conflict.
+
+**Not yet tested: W4's 2 commits** (`086251861`, `078b9df24`) against this same file — out of scope of the 17:12 dispatch (W1+W3 only). Given W4's hunks (~261, ~2359-2365) sit far from the W1/W3 cluster (~618-680), a clean merge is likely but **not verified** — recommend the same real-merge-test treatment before assuming it, not a repeat of the static-diff mistake.
+
+**Decision:** apply W1's `f8bb7b804` → W3's `25858b159` → `09b6f6c83` as a pre-tested-clean group (confirmed above). Then attempt W4's `086251861` → `078b9df24` on top with the same real-worktree-test method before trusting it — `086251861` also gates on its migration, see §3.
+
+### Conflict D — `jobs/[id]/expenses/route.ts`: W1 vs W4 (found 17:09/per W1's 17:5x doc, not caught in first pass)
+
+- W1's `1e655c962` and W4's `dbbb7e185` (already landed earlier in this plan's Phase 1, see below) independently fixed the identical gap on the identical file — same 3 fields (`vendor_id`/`service_type_id`/`budget_line_item_id`), same active-read-leak class (GET's unfiltered `vendors(name)`/`service_types(name)` embed), both RED/GREEN-verified, comparable diff size (W1: 67 lines incl. test; W4: 59 lines incl. test). Objectively equivalent again — same shape as Conflict B.
+- **Decision: take W4's `dbbb7e185` since it's already in Phase 1 of this plan and W2 independently confirmed it clean/non-duplicated at 17:01. Drop W1's `1e655c962`.** Reason: minimizes churn to an already-resolved phase rather than re-sequencing Phase 1. Functionally interchangeable — override if preferred.
+- **Correction to Phase 1 below:** the line crediting `dbbb7e185` to W4 needs a footnote that W1 independently re-fixed the same thing on their own branch — not a new problem, just documenting it here so it's not rediscovered a third time.
 
 ---
 
@@ -53,6 +63,11 @@ W1's ~638 and W3's ~618/636 region are close enough (20-line window) that a clea
 - W3: `ffa0fc9af` (vendor-items) — solo, zero overlap anywhere
 - W4: `953ad637a` (referrer commission tracking), `dbbb7e185` (job-expenses — W2 independently confirmed already-fixed, not duplicated), `5d3685abf` (quote-budgets — same, W2-confirmed no duplicate), `675dc456f` (equipment-bookings sub-route, distinct file from equipment.ts base)
 - W4: `c1ebff6e1` → `44e77b82f` (referral-portal 404 fix, same-branch sequential pair on `middleware.ts` — must land together in order, no cross-branch collision on `middleware.ts`)
+- **NEW (TOP-PRIORITY financial-bug sweep, ~17:37-17:52):**
+  - W1 `68745041d` — Telnyx SMS fetch had no timeout, could silently exhaust maxDuration and drop client texts with zero trace. Touches `lib/nycmaid/sms.ts`, `src/app/team/page.tsx` (client-side timeout on the mobile Heads-Up button). No known file overlap with W2/W3/W4.
+  - W2 `748261419` — closeout payment rows showed $0.00 for real payments (`closeout-detail.tsx` read `p.amount`, API returned `p.amount_cents`; aggregate total was unaffected, only the row display). No known overlap.
+  - W3 `770577c0f` (this branch) — `dashboard/bookings/[id]/page.tsx`'s "Complete" button called a bare status-only PATCH that never recomputed `price`/`actual_hours`/`team_member_pay`, unlike the two other checkout paths (mobile `team-portal/checkout`, desktop `BookingsAdmin.tsx`) which already did. Fixed to match.
+  - **CONFLICT E, CONFIRMED (not speculative — checked directly): `770577c0f` vs W1's `e376fbfca`.** W1's calendar-panel refactor (Phase 1 above) DELETES `STATUS_ACTIONS`, `updateStatus()`, and the "Complete" button entirely from `bookings/[id]/page.tsx`, moving them into a new `BookingDetailContent.tsx` — the exact code my fix edited. `git show e376fbfca -- .../page.tsx` confirms `updateStatus`/`STATUS_ACTIONS`/the `onClick={() => updateStatus('completed')}` button all appear only on the delete side of that diff (664 lines removed). **This is not a textual merge conflict that resolves itself — if W1's commit lands, my pricing-recompute fix has nothing left to attach to in this file and will be silently dropped unless someone manually ports the same `computeCheckoutPricing()` logic into the new `BookingDetailContent.tsx`.** Decision: whoever merges must apply W1's `e376fbfca` FIRST, then manually re-implement my `770577c0f` fix against `BookingDetailContent.tsx`'s copy of the Complete button (same fix, new location) — not a drop-in cherry-pick. Flagging to the channel separately, this is too important to leave buried in this doc alone.
 
 ### Phase 2 — Resolved conflicts (apply per §1 decisions)
 
@@ -84,12 +99,12 @@ W1's ~638 and W3's ~618/636 region are close enough (20-line window) that a clea
 
 ## 4. Verification status per branch (self-reported by each worker, not independently re-run by me for W1/W2/W4)
 
-- **W1:** not yet reported as of this doc's writing (leader dispatched W2/W4 for a final health check at 17:06; no equivalent explicit re-check dispatch to W1 seen in the channel as of 17:2x — worth confirming W1 also runs one before Jeff's merge decision).
-- **W2:** health check dispatched 17:06, ack'd 17:06, result not yet posted to channel as of this doc.
-- **W3 (this branch):** tsc clean, full suite 805 files / 4436 tests passing as of last commit (`bf6e3e42d`, ~16:54) — not re-run since (only a docs commit landed after).
-- **W4:** tsc clean, 807 files / 4451 tests passing per their own doc (as of ~16:48); health check re-dispatched 17:06, ack'd 17:17, result not yet posted to channel as of this doc.
+- **W1:** tsc clean, 818 files / 4467 tests passing per their own doc (as of `68745041d`, the SMS fix, ~17:37).
+- **W2:** tsc clean, eslint clean per their own report (as of `748261419`, the payment-row fix, ~17:48) — no full vitest count given for that specific commit, but their 17:06-dispatched health check (an earlier commit) reported 802/802 files, 4422/4422 tests, 0 failed.
+- **W3 (this branch):** tsc clean, full suite 806 files / 4437 tests passing as of `770577c0f` (the checkout-price fix, ~17:52) — current as of this doc.
+- **W4:** tsc clean, 807 files / 4451 tests passing per their own doc (as of ~16:48) — no update since; their 17:06-dispatched final health check was ack'd 17:17, result not yet posted to channel as of this doc.
 
-**Caveat:** none of these numbers reflect a merged tree — each is a single-branch suite run. A real pre-merge health check has to run after Phase 1-3 are actually applied together, not before.
+**Caveat:** none of these numbers reflect a merged tree — each is a single-branch suite run. A real pre-merge health check has to run after Phase 1-3 are actually applied together, not before. Conflict C (partial) is the one exception — that specific 3-commit subset (W1+W3 on BookingsAdmin.tsx) WAS tested merged together, see §1.
 
 ---
 
