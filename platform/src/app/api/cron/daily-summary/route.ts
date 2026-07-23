@@ -6,6 +6,7 @@ import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
+import { etDayBoundaryUTC } from '@/lib/recurring'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -18,15 +19,22 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
+  // bookings.start_time is a naive America/New_York wall-clock column.
+  // `new Date().setHours(0,0,0,0)` computes midnight in the SERVER's local
+  // timezone (UTC on Vercel), not ET — the same bug that flipped a 10am ET
+  // booking to no-show at 6:45am ET (cron/no-show-check). etDayBoundaryUTC()
+  // returns the real UTC instant of ET midnight, which is what start_time
+  // (naive digits cast as UTC by Postgres) actually needs to be compared against.
+  const today = etDayBoundaryUTC()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
+  // Last millisecond of (today + 3 days), same boundary the original
+  // setHours(23,59,59,999) computed — just anchored to real ET midnight now.
   const threeDaysEnd = new Date(today)
-  threeDaysEnd.setDate(threeDaysEnd.getDate() + 3)
-  threeDaysEnd.setHours(23, 59, 59, 999)
+  threeDaysEnd.setDate(threeDaysEnd.getDate() + 4)
+  threeDaysEnd.setMilliseconds(threeDaysEnd.getMilliseconds() - 1)
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
