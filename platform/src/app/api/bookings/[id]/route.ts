@@ -342,42 +342,26 @@ export async function DELETE(
         const bizName = tenantData?.name || 'Your Business'
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
 
-        // Client cancellation email — nycmaid gets the rich branded template
+        // Client cancellation email — same standard template for every tenant,
+        // nycmaid included. It used to get an nycmaid-only hardcoded template
+        // (its own logo/phone/link baked in) that looked inconsistent with
+        // every other transactional email, which itself uses this same
+        // notify()/genericNotificationEmail path with tenant branding injected.
         if (booking.client_id) {
           const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          if (isNycMaid(tenantId) && booking.clients?.email) {
-            const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
-            const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-            const email = clientCancellationEmail(booking)
-            await sendClientEmail(booking.client_id, email.subject, email.html).catch(() => {})
-            await supabaseAdmin.from('notifications').insert({
-              tenant_id: tenantId,
-              type: 'booking_cancelled',
-              title: email.subject,
-              message: `Cancellation email sent to ${booking.clients.email}`,
-              channel: 'email',
-              recipient_type: 'client',
-              recipient_id: booking.client_id,
-              // No booking_id — the booking row is already deleted by this point
-              // (DELETE runs before this notification), so any booking_id here
-              // would violate notifications_booking_id_fkey on INSERT and get
-              // silently swallowed by the .then() no-op handlers below.
-              status: 'sent',
-              metadata: { clientName: booking.clients?.name },
-            }).then(() => {}, () => {})
-          } else {
-            await notify({
-              tenantId,
-              type: 'booking_cancelled',
-              title: `Booking Cancelled — ${date}`,
-              message: `Your appointment on ${date} has been cancelled.`,
-              channel: 'email',
-              recipientType: 'client',
-              recipientId: booking.client_id,
-              // No bookingId — same dangling-FK reason as above.
-              metadata: { clientName: booking.clients?.name },
-            })
-          }
+          await notify({
+            tenantId,
+            type: 'booking_cancelled',
+            title: `Booking Cancelled — ${date}`,
+            message: `Your appointment on ${date} has been cancelled.`,
+            channel: 'email',
+            recipientType: 'client',
+            recipientId: booking.client_id,
+            // No bookingId — the booking row is already deleted by this point
+            // (DELETE runs before this notification), so any bookingId here
+            // would violate notifications_booking_id_fkey on INSERT.
+            metadata: { clientName: booking.clients?.name },
+          })
         }
 
         // Client cancellation SMS
