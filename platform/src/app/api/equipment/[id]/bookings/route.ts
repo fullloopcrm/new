@@ -45,6 +45,24 @@ export async function POST(request: Request, { params }: Params) {
     const startDate = body.start_date as string | undefined
     if (!startDate) return NextResponse.json({ error: 'start_date is required' }, { status: 400 })
     const endDate = (body.end_date as string) || null
+    const jobId = (body.job_id as string) || null
+    const quoteId = (body.quote_id as string) || null
+
+    // job_id/quote_id are plain uuid PKs with no per-tenant namespace and no
+    // cross-tenant FK constraint at the DB level -- verify each belongs to
+    // this tenant before tying an equipment booking to it (same class of
+    // gap already fixed on job-expenses/quote-budgets: no active read-leak
+    // through this route today, but nothing stops a future job-detail view
+    // from joining equipment_bookings by job_id and rendering a
+    // cross-tenant row it never should have matched).
+    if (jobId) {
+      const { data: job } = await tenantDb(tenantId).from('jobs').select('id').eq('id', jobId).maybeSingle()
+      if (!job) return NextResponse.json({ error: 'Invalid job_id' }, { status: 400 })
+    }
+    if (quoteId) {
+      const { data: quote } = await tenantDb(tenantId).from('quotes').select('id').eq('id', quoteId).maybeSingle()
+      if (!quote) return NextResponse.json({ error: 'Invalid quote_id' }, { status: 400 })
+    }
 
     // Prevent double-booking the same physical unit for an overlapping
     // window -- an open-ended booking (no end_date) blocks anything after
@@ -65,8 +83,8 @@ export async function POST(request: Request, { params }: Params) {
       .from('equipment_bookings')
       .insert({
         equipment_id: id,
-        job_id: (body.job_id as string) || null,
-        quote_id: (body.quote_id as string) || null,
+        job_id: jobId,
+        quote_id: quoteId,
         start_date: startDate,
         end_date: endDate,
         status: (body.status as string) || 'scheduled',
