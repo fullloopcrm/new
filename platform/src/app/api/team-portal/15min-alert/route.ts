@@ -224,12 +224,42 @@ export async function POST(req: NextRequest) {
 
     const smsMessage = smsLines.join('\n')
 
-    // Record the 30-min alert timestamp on the booking
-    await tenantDb(tenantId)
-      .from('bookings')
-      .update({ fifteen_min_alert_time: now.toISOString() })
-      .eq('id', bookingId)
-      .eq('tenant_id', tenantId)
+    // Atomic claim, not a plain write. The early idempotency check above
+    // (line ~104) is a read-then-later-write gap -- fine for the common
+    // case, but two requests for the SAME booking close together (e.g. a
+    // client whose 20s abort-timeout led them to retry while the FIRST
+    // request is still deep in its own Telnyx retry loop below) could both
+    // pass that early read before either one's write lands, and both text
+    // the client. Same class of race already closed elsewhere this session
+    // (bank-transactions/match's atomic claim). force=true bypasses the
+    // claim gate entirely (existing manual-override behavior, unchanged).
+    if (!force) {
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const { data: claimed } = await tenantDb(tenantId)
+        .from('bookings')
+        .update({ fifteen_min_alert_time: now.toISOString() })
+        .eq('id', bookingId)
+        .eq('tenant_id', tenantId)
+        .or(`fifteen_min_alert_time.is.null,fifteen_min_alert_time.lt.${thirtyMinAgo}`)
+        .select('id, fifteen_min_alert_time')
+        .maybeSingle()
+      if (!claimed) {
+        // Another request already claimed this alert (or it's within its
+        // own 30-min window) -- bail out before sending anything, don't
+        // just silently proceed.
+        return NextResponse.json({
+          success: true,
+          alreadySent: true,
+          message: 'Alert already in progress or recently sent — skipping duplicate',
+        })
+      }
+    } else {
+      await tenantDb(tenantId)
+        .from('bookings')
+        .update({ fifteen_min_alert_time: now.toISOString() })
+        .eq('id', bookingId)
+        .eq('tenant_id', tenantId)
+    }
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]
