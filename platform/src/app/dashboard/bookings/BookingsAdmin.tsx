@@ -2088,7 +2088,7 @@ function BookingsPage() {
                 </div>
               )
             })()}
-            {editingBooking.status === 'scheduled' && !editingBooking.check_in_time && (
+            {form.status === 'scheduled' && !editingBooking.check_in_time && (
               <button type="button" onClick={async () => { setSaving(true); const now = new Date().toISOString(); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress', check_in_time: now, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'in_progress', check_in_time: now }); setForm({ ...form, status: 'in_progress' }); loadBookings(); setSaving(false) }} className="w-full mb-3 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium">Check In (Admin)</button>
             )}
             {editingBooking.check_in_time && (
