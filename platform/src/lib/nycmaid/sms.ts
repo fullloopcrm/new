@@ -231,7 +231,7 @@ function normalizePhone(phone: string): string | null {
 }
 
 async function checkSMSConsent(type: 'client' | 'cleaner', id: string): Promise<boolean> {
-  const table = type === 'client' ? 'clients' : 'cleaners'
+  const table = type === 'client' ? 'clients' : 'team_members'
   const { data } = await supabaseAdmin
     .from(table)
     .select('sms_consent')
