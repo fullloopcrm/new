@@ -14,6 +14,7 @@ import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
+import { notify } from '@/lib/nycmaid/notify'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await db
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(name, pay_rate)')
     .eq('id', booking_id)
     .single()
 
@@ -327,6 +328,35 @@ export async function POST(request: Request) {
 
     if (data.client_id) {
       sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
+    }
+
+    // Owner Telegram alert — dropped during the FL port (this route never
+    // called notify() at all); restores the pre-cutover "Job Done" ping with
+    // the collect/pay amounts so Jeff sees checkout + money owed in one line.
+    {
+      const cleanerName = (booking.team_members as unknown as { name?: string | null } | null)?.name || 'Cleaner'
+      const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
+      const cleanerPayAmount = teamMemberPayCents != null ? (teamMemberPayCents / 100).toFixed(2) : '0'
+      let checkoutDistanceInfo = ''
+      let checkoutFlagged = false
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        const addr = (booking.clients as unknown as { address?: string | null } | null)?.address
+        if (addr) {
+          const { geocodeAddress, calculateDistance, MAX_DISTANCE_MILES } = await import('@/lib/nycmaid/geo')
+          const coords = await geocodeAddress(addr).catch(() => null)
+          if (coords) {
+            const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
+            checkoutFlagged = dist > MAX_DISTANCE_MILES
+            checkoutDistanceInfo = ` • ${dist.toFixed(2)} mi from address${checkoutFlagged ? ' ⚠️' : ''}`
+          }
+        }
+      }
+      notify({
+        type: 'job_complete',
+        title: checkoutFlagged ? `Job Done (GPS Mismatch): ${clientName}` : `Job Done: ${clientName}`,
+        message: `${actualHours ?? '?'}hrs by ${cleanerName} • Collect $${clientTotal} → Pay ${cleanerName} $${cleanerPayAmount}${checkoutDistanceInfo}`,
+        booking_id: data.id,
+      }).catch((err) => console.error('nycmaid checkout notify error:', err))
     }
 
     // Checked out without payment confirmed → loud admin warning immediately.
