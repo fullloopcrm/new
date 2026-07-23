@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useWorkerLabel } from '../worker-label-context'
 
 type Eligible = {
@@ -22,6 +24,14 @@ type PreviewResp = {
   error?: string
 }
 
+type Recipient = {
+  id: string
+  cleaner_id: string | null
+  phone: string | null
+  status: string
+  team_members?: { name: string } | null
+}
+
 type Broadcast = {
   id: string
   job_date: string
@@ -30,7 +40,18 @@ type Broadcast = {
   status: string
   test_mode: boolean
   sent_at: string
-  recipients: { id: string; phone: string | null; status: string }[]
+  booking_id: string | null
+  clients?: { name: string } | null
+  recipients: Recipient[]
+}
+
+type BookingContext = {
+  id: string
+  service_type: string | null
+  start_time: string
+  end_time: string | null
+  hourly_rate: number | null
+  clients: { name: string; address: string | null } | null
 }
 
 const input: React.CSSProperties = { padding: '8px 10px', border: '1px solid #d4cfc4', borderRadius: 8, fontSize: 14, width: '100%' }
@@ -38,12 +59,17 @@ const card: React.CSSProperties = { background: '#fff', border: '1px solid #e7e2
 
 export default function FindCleanerPage() {
   const worker = useWorkerLabel()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get('booking_id')
+
   const [form, setForm] = useState({ job_date: '', start_time: '09:00', duration_hours: 3, qty_needed: 1, job_address: '', hourly_rate_override: '', service_type: '', notes: '' })
+  const [bookingContext, setBookingContext] = useState<BookingContext | null>(null)
   const [preview, setPreview] = useState<PreviewResp | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [sendMsg, setSendMsg] = useState<string | null>(null)
   const [recent, setRecent] = useState<Broadcast[]>([])
+  const [assigning, setAssigning] = useState<string | null>(null)
 
   const loadRecent = async () => {
     const r = await fetch('/api/admin/find-cleaner/recent')
@@ -51,6 +77,31 @@ export default function FindCleanerPage() {
     setRecent(d.broadcasts || [])
   }
   useEffect(() => { loadRecent() }, [])
+
+  // Prefill from a real booking when launched via "Find a team member" on a booking.
+  useEffect(() => {
+    if (!bookingId) return
+    fetch(`/api/bookings/${bookingId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const b: BookingContext | undefined = d.booking
+        if (!b) return
+        setBookingContext(b)
+        const start = new Date(b.start_time)
+        const end = b.end_time ? new Date(b.end_time) : null
+        const durationHours = end ? Math.max(0.5, Math.round(((end.getTime() - start.getTime()) / 3600000) * 2) / 2) : 3
+        setForm((f) => ({
+          ...f,
+          job_date: start.toISOString().slice(0, 10),
+          start_time: start.toISOString().slice(11, 16),
+          duration_hours: durationHours,
+          job_address: b.clients?.address || '',
+          service_type: b.service_type || '',
+          hourly_rate_override: b.hourly_rate ? String(b.hourly_rate) : '',
+        }))
+      })
+      .catch(() => {})
+  }, [bookingId])
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -77,11 +128,24 @@ export default function FindCleanerPage() {
         ...form, duration_hours: Number(form.duration_hours), qty_needed: Number(form.qty_needed),
         hourly_rate_override: form.hourly_rate_override ? Number(form.hourly_rate_override) : null,
         cleaner_ids: [...selected], confirmed: true,
+        booking_id: bookingId || null,
       }),
     })
     const d = await r.json().catch(() => ({}))
     setSendMsg(d.error ? `Error: ${d.error}` : `Sent ${d.sent} · failed ${d.failed}${d.test_mode ? ' · TEST MODE' : ''}`)
     setLoading(false); loadRecent()
+  }
+
+  const assign = async (broadcastBookingId: string, recipient: Recipient) => {
+    if (!recipient.cleaner_id) return
+    setAssigning(recipient.id)
+    const res = await fetch(`/api/bookings/${broadcastBookingId}/team`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead_id: recipient.cleaner_id, extra_team_member_ids: [], team_size: 1 }),
+    })
+    if (res.ok) alert(`Assigned ${recipient.team_members?.name || 'team member'} to the booking.`)
+    else alert('Failed to assign — try from the booking directly.')
+    setAssigning(null)
   }
 
   return (
@@ -90,6 +154,15 @@ export default function FindCleanerPage() {
         <h1 style={{ fontSize: 24, margin: 0 }}>Find a {worker.singular}</h1>
         <p style={{ color: '#7a7468', margin: '4px 0 0' }}>Broadcast a job to eligible team members by zone + availability.</p>
       </div>
+
+      {bookingId && (
+        <div style={{ ...card, background: '#eef6ff', borderColor: '#cfe3f7', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>
+            For booking{bookingContext?.clients?.name ? ` — ${bookingContext.clients.name}` : ''}. Fields below are prefilled from it; edit as needed before previewing.
+          </span>
+          <Link href={`/dashboard/bookings`} style={{ color: '#1a5fb4', fontSize: 12 }}>Back to bookings</Link>
+        </div>
+      )}
 
       <div style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
         <label>Date<input type="date" style={input} value={form.job_date} onChange={(e) => set('job_date', e.target.value)} /></label>
@@ -135,8 +208,33 @@ export default function FindCleanerPage() {
         <strong>Recent broadcasts</strong>
         {recent.length === 0 && <p style={{ color: '#7a7468' }}>None yet.</p>}
         {recent.map((b) => (
-          <div key={b.id} style={{ fontSize: 13, padding: '6px 0', borderTop: '1px solid #f0ece3' }}>
-            {b.job_date} {b.start_time} · {b.job_zone || 'no zone'} · {b.recipients.length} sent · {b.status}{b.test_mode ? ' · TEST' : ''}
+          <div key={b.id} style={{ fontSize: 13, padding: '8px 0', borderTop: '1px solid #f0ece3' }}>
+            <div>
+              {b.job_date} {b.start_time} · {b.job_zone || 'no zone'} · {b.recipients.length} sent · {b.status}{b.test_mode ? ' · TEST' : ''}
+              {b.booking_id && (
+                <>
+                  {' · '}
+                  <Link href={`/dashboard/bookings?edit=${b.booking_id}`} style={{ color: '#1a5fb4' }}>
+                    for {b.clients?.name || 'booking'}
+                  </Link>
+                </>
+              )}
+            </div>
+            {b.booking_id && b.recipients.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {b.recipients.map((r) => (
+                  <button
+                    key={r.id}
+                    disabled={assigning === r.id || !r.cleaner_id}
+                    onClick={() => assign(b.booking_id!, r)}
+                    style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, border: '1px solid #d4cfc4', background: '#faf8f4', cursor: 'pointer' }}
+                    title="Assign this person to the booking"
+                  >
+                    {assigning === r.id ? 'Assigning…' : `Assign ${r.team_members?.name || r.phone || 'responder'}`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

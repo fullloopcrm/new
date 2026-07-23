@@ -2365,6 +2365,15 @@ function BookingsPage() {
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[10px] text-gray-400 uppercase">{form.team_size > 1 ? worker.plural : worker.singular}</label>
                 <div className="flex items-center gap-2">
+                  <a
+                    href={`/dashboard/find-cleaner?booking_id=${editingBooking.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] px-2 py-0.5 border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                    title={`Broadcast this job to eligible ${worker.plural}`}
+                  >
+                    Find a {worker.singular}
+                  </a>
                   <label className="text-[10px] text-gray-500">Rate</label>
                   <div className="flex items-center">
                     <span className="text-[var(--sched-ink)] text-xs mr-0.5">$</span>

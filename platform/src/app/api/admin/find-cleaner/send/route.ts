@@ -81,11 +81,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const {
     job_date, start_time, duration_hours, qty_needed, job_address,
-    hourly_rate_override, service_type, notes, cleaner_ids, confirmed,
+    hourly_rate_override, service_type, notes, cleaner_ids, confirmed, booking_id,
   } = body as {
     job_date?: string; start_time?: string; duration_hours?: number; qty_needed?: number
     job_address?: string; hourly_rate_override?: number | null; service_type?: string
-    notes?: string; cleaner_ids?: string[]; confirmed?: boolean
+    notes?: string; cleaner_ids?: string[]; confirmed?: boolean; booking_id?: string | null
   }
 
   if (!job_date || !start_time || !duration_hours || !cleaner_ids || cleaner_ids.length === 0) {
@@ -128,6 +128,21 @@ export async function POST(request: Request) {
     }, { status: 400 })
   }
 
+  // Optional link back to the booking this broadcast is actually for — tenantDb
+  // scopes the lookup so a booking_id can't be used to probe another tenant's rows.
+  let linkedBookingId: string | null = null
+  let linkedClientId: string | null = null
+  if (booking_id) {
+    const { data: linkedBooking } = await tenantDb(tenantId)
+      .from('bookings')
+      .select('id, client_id')
+      .eq('id', booking_id)
+      .single()
+    const found = linkedBooking as { id: string; client_id: string | null } | null
+    linkedBookingId = found?.id || null
+    linkedClientId = found?.client_id || null
+  }
+
   const zone = job_address ? guessZoneFromAddress(job_address) : null
   const effectiveRate = hourly_rate_override ?? null
 
@@ -156,6 +171,8 @@ export async function POST(request: Request) {
       notes: notes || null,
       status: 'open',
       test_mode: TEST_MODE,
+      booking_id: linkedBookingId,
+      client_id: linkedClientId,
     })
     .select()
     .single()

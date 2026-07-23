@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: broadcasts, error } = await tenantDb(tenantId)
     .from('cleaner_broadcasts')
-    .select('*')
+    .select('*, clients(name)')
     .order('sent_at', { ascending: false })
     .limit(10)
   if (error) return NextResponse.json({ broadcasts: [], error: error.message }, { status: 500 })
@@ -24,7 +24,7 @@ export async function GET() {
 
   const { data: recipients } = await tenantDb(tenantId)
     .from('cleaner_broadcast_recipients')
-    .select('id, broadcast_id, cleaner_id, phone, sent_at, replied_at, reply_text, status')
+    .select('id, broadcast_id, cleaner_id, phone, sent_at, replied_at, reply_text, status, team_members(name)')
     .in('broadcast_id', ids)
 
   const recipsByBroadcast = new Map<string, unknown[]>()
