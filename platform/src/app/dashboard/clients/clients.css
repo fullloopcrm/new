@@ -659,6 +659,9 @@
 }
 .clients-drawer-body { flex: 1; overflow-y: auto; padding-bottom: 24px; }
 
+.clients-drawer-tabs { padding: 0 20px; margin-bottom: 0; border-bottom: 1px solid var(--clients-line); }
+.clients-drawer-tabs .clients-tabs { border-bottom: 0; margin-bottom: 0; }
+
 .clients-next-action {
   margin: 16px 26px;
   padding: 14px 16px;

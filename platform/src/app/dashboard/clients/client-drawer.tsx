@@ -99,9 +99,42 @@ type Activity = {
   sentiment?: 'pos' | 'neu' | 'neg'
 }
 
+type RecurringSchedule = {
+  id: string
+  recurring_type: string
+  day_of_week: number | null
+  preferred_time: string | null
+  duration_hours: number | null
+  hourly_rate: number | null
+  status: string
+  paused_until: string | null
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+type ClientBooking = {
+  id: string
+  start_time: string
+  end_time: string | null
+  service_type: string | null
+  status: string
+  price: number | null
+  payment_status: string | null
+  team_member_id: string | null
+  team_members: { id: string; name: string } | null
+}
+
+function fmtDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
 export default function ClientDrawer({ client, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
   const router = useRouter()
   const worker = useWorkerLabel()
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'activity' | 'service' | 'notes'>('overview')
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
   const [notesSaving, setNotesSaving] = useState(false)
@@ -114,9 +147,56 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
   const [showDnsPicker, setShowDnsPicker] = useState(false)
   const [dnsSaving, setDnsSaving] = useState(false)
 
+  // Bookings list — Activity tab
+  const [bookings, setBookings] = useState<ClientBooking[]>([])
+
+  // Recurring schedule edit/pause — Service tab
+  const [schedule, setSchedule] = useState<RecurringSchedule | null>(null)
+  const [recMode, setRecMode] = useState<'view' | 'edit' | 'pause'>('view')
+  const [recForm, setRecForm] = useState({ recurring_type: 'weekly', day_of_week: 1, preferred_time: '09:00' })
+  const [pauseDate, setPauseDate] = useState('')
+  const [recSaving, setRecSaving] = useState(false)
+  const [recMsg, setRecMsg] = useState('')
+
+  // Selena next-action message edit — Activity tab
+  const [nextActionEditing, setNextActionEditing] = useState(false)
+  const [nextActionMessage, setNextActionMessage] = useState('')
+  const [nextActionSending, setNextActionSending] = useState(false)
+  const [nextActionMsg, setNextActionMsg] = useState('')
+
   useEffect(() => {
     if (!client) return
+    setDrawerTab('overview')
     setNotesTab('cleaner')
+    setNextActionEditing(false)
+    setNextActionMsg('')
+    setNextActionMessage(`Hey ${client.name.split(' ')[0]}! Quick heads up — your invoice is still showing as outstanding. Want me to resend the link?`)
+    setRecMode('view')
+    setSchedule(null)
+    setRecMsg('')
+    setPauseDate('')
+
+    fetch(`/api/bookings?client_id=${client.id}`)
+      .then((r) => r.json())
+      .then((data) => setBookings((data.bookings || []) as ClientBooking[]))
+      .catch(() => setBookings([]))
+
+    fetch(`/api/admin/recurring-schedules?client_id=${client.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const list: RecurringSchedule[] = Array.isArray(data) ? data : (data.schedules || [])
+        const active = list.find((s) => s.status === 'active') || list[0] || null
+        setSchedule(active || null)
+        if (active) {
+          setRecForm({
+            recurring_type: active.recurring_type || 'weekly',
+            day_of_week: active.day_of_week ?? 1,
+            preferred_time: active.preferred_time || '09:00',
+          })
+        }
+      })
+      .catch(() => setSchedule(null))
+
     fetch(`/api/clients/${client.id}/activity?limit=8`)
       .then((r) => r.json())
       .then((data) => {
@@ -224,6 +304,74 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
     router.push(`/dashboard/bookings?new=1&client_id=${client.id}`)
   }
 
+  async function sendNextActionSms() {
+    if (!client?.phone || nextActionSending) return
+    setNextActionSending(true)
+    setNextActionMsg('')
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: client.phone, message: nextActionMessage }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        setNextActionMsg(data.error || 'Failed to send')
+      } else {
+        setNextActionMsg('SMS sent')
+        setTimeout(() => setNextActionMsg(''), 2000)
+      }
+    } catch {
+      setNextActionMsg('Failed to send')
+    } finally {
+      setNextActionSending(false)
+    }
+  }
+
+  async function saveRecurringEdit() {
+    if (!schedule) return
+    setRecSaving(true)
+    setRecMsg('')
+    const res = await fetch(`/api/admin/recurring-schedules/${schedule.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(recForm),
+    })
+    const data = await res.json().catch(() => ({}))
+    setRecSaving(false)
+    if (!res.ok) {
+      setRecMsg(data.error || 'Save failed')
+      return
+    }
+    setSchedule({ ...schedule, ...recForm })
+    setRecMode('view')
+    setRecMsg('Saved')
+    setTimeout(() => setRecMsg(''), 2000)
+    onClientUpdated?.()
+  }
+
+  async function pauseRecurring() {
+    if (!schedule || !pauseDate) return
+    setRecSaving(true)
+    setRecMsg('')
+    const res = await fetch(`/api/admin/recurring-schedules/${schedule.id}/pause`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paused_until: pauseDate }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setRecSaving(false)
+    if (!res.ok) {
+      setRecMsg(data.error || 'Pause failed')
+      return
+    }
+    setSchedule({ ...schedule, status: 'paused', paused_until: pauseDate })
+    setRecMode('view')
+    setRecMsg('Paused')
+    setTimeout(() => setRecMsg(''), 2000)
+    onClientUpdated?.()
+  }
+
   if (!client) return null
 
   const bColor = bandColor(client.health_band)
@@ -260,27 +408,61 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
           </div>
         </div>
 
+        <div className="clients-drawer-tabs">
+          <div className="clients-tabs">
+            {([
+              ['overview', 'Overview'],
+              ['activity', `Activity${bookings.length ? ` · ${bookings.length}` : ''}`],
+              ['service', 'Service'],
+              ['notes', 'Notes'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={`clients-tab ${drawerTab === key ? 'active' : ''}`}
+                onClick={() => setDrawerTab(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="clients-drawer-body">
-          {/* Selena Next Action */}
-          {client.last_booking?.overdue && (
+          {/* Selena Next Action — Activity tab */}
+          {drawerTab === 'activity' && client.last_booking?.overdue && (
             <div className="clients-next-action">
               <div className="clients-next-action-head">{agentName} · Suggested Next Action</div>
               <div className="clients-next-action-suggest">
                 Payment is overdue — recommend a soft check-in before sending a formal reminder.
               </div>
-              <div className="clients-next-action-message">
-                Hey {client.name.split(' ')[0]}! Quick heads up — your invoice is still showing as outstanding. Want me to resend the link?
-              </div>
+              {nextActionEditing ? (
+                <textarea
+                  className="clients-notes-textarea"
+                  value={nextActionMessage}
+                  onChange={(e) => setNextActionMessage(e.target.value)}
+                  rows={3}
+                  style={{ marginBottom: 8 }}
+                />
+              ) : (
+                <div className="clients-next-action-message">{nextActionMessage}</div>
+              )}
               <div className="clients-next-action-row">
-                <button className="clients-next-btn primary">Send via SMS</button>
-                <button className="clients-next-btn ghost" onClick={openEdit}>Edit</button>
-                <button className="clients-next-btn ghost">Try call instead</button>
-                <button className="clients-next-btn dismiss">Dismiss</button>
+                <span style={{ display: 'flex', gap: 10, alignItems: 'center', width: '100%' }}>
+                  <button className="clients-next-btn primary" disabled={nextActionSending || !client.phone} onClick={sendNextActionSms}>
+                    {nextActionSending ? 'Sending…' : 'Send via SMS'}
+                  </button>
+                  <button className="clients-next-btn ghost" onClick={() => setNextActionEditing((v) => !v)}>{nextActionEditing ? 'Done' : 'Edit'}</button>
+                  <button className="clients-next-btn ghost" onClick={() => { if (client.phone) window.location.href = `tel:${client.phone}` }}>Try call instead</button>
+                  <button className="clients-next-btn dismiss" onClick={() => setNextActionMessage('')}>Dismiss</button>
+                  {nextActionMsg && <span style={{ fontSize: 12, color: nextActionMsg === 'SMS sent' ? '#059669' : '#dc2626' }}>{nextActionMsg}</span>}
+                </span>
               </div>
             </div>
           )}
 
-          {/* Health Module */}
+          {/* Health Module — Overview tab */}
+          {drawerTab === 'overview' && (
           <div className="clients-health-module">
             <div className="clients-health-row">
               <div className="clients-health-big" style={{ color: bColor }}>{client.health}</div>
@@ -310,30 +492,113 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               })}
             </div>
           </div>
+          )}
 
-          {/* Recurring Slot */}
-          {client.recurring && (
+          {/* Recurring Slot — Service tab */}
+          {drawerTab === 'service' && client.recurring && (
             <div className="clients-section">
               <div className="clients-section-head">
                 <span className="clients-section-label">Recurring Slot</span>
-                <span className="clients-section-action">Edit / Pause</span>
+                <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {recMsg && <span style={{ fontSize: 12, color: '#059669' }}>{recMsg}</span>}
+                  {recMode !== 'view' ? (
+                    <span className="clients-section-action" onClick={() => { setRecMode('view'); setRecMsg('') }}>Cancel</span>
+                  ) : (
+                    <>
+                      <span
+                        className="clients-section-action"
+                        style={{ cursor: schedule ? 'pointer' : 'not-allowed', opacity: schedule ? 1 : 0.4 }}
+                        onClick={() => { if (schedule) setRecMode('edit') }}
+                      >Edit</span>
+                      <span
+                        className="clients-section-action"
+                        style={{ cursor: schedule ? 'pointer' : 'not-allowed', opacity: schedule ? 1 : 0.4 }}
+                        onClick={() => { if (schedule) setRecMode('pause') }}
+                      >Pause</span>
+                    </>
+                  )}
+                </span>
               </div>
-              <div className="clients-slot-hero">
-                <div className="clients-slot-hero-label">↻ Locked Standing Appointment</div>
-                <div className="clients-slot-hero-when">
-                  {client.recurring.day ? `${client.recurring.day}s` : 'Recurring'}
-                  {client.recurring.time ? ` · ${client.recurring.time}` : ''}
+              {recMode === 'view' && (
+                <div className="clients-slot-hero">
+                  <div className="clients-slot-hero-label">↻ Locked Standing Appointment</div>
+                  <div className="clients-slot-hero-when">
+                    {client.recurring.day ? `${client.recurring.day}s` : 'Recurring'}
+                    {client.recurring.time ? ` · ${client.recurring.time}` : ''}
+                  </div>
+                  <div className="clients-slot-hero-meta">
+                    {client.recurring.frequency} cadence
+                    {client.preferred_cleaner ? ` · with ${client.preferred_cleaner.name}` : ''}
+                    {client.recurring.discount_pct > 0 ? ` · ${client.recurring.discount_pct}% loyalty discount` : ''}
+                  </div>
                 </div>
-                <div className="clients-slot-hero-meta">
-                  {client.recurring.frequency} cadence
-                  {client.preferred_cleaner ? ` · with ${client.preferred_cleaner.name}` : ''}
-                  {client.recurring.discount_pct > 0 ? ` · ${client.recurring.discount_pct}% loyalty discount` : ''}
+              )}
+              {recMode === 'edit' && schedule && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--clients-muted)' }}>Cadence</span>
+                    <select
+                      value={recForm.recurring_type}
+                      onChange={(e) => setRecForm({ ...recForm, recurring_type: e.target.value })}
+                      style={{ padding: '10px 12px', border: '1px solid var(--clients-line)', borderRadius: 4, fontSize: 14 }}
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Biweekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--clients-muted)' }}>Day of Week</span>
+                    <select
+                      value={recForm.day_of_week}
+                      onChange={(e) => setRecForm({ ...recForm, day_of_week: parseInt(e.target.value) })}
+                      style={{ padding: '10px 12px', border: '1px solid var(--clients-line)', borderRadius: 4, fontSize: 14 }}
+                    >
+                      {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--clients-muted)' }}>Time</span>
+                    <input
+                      type="time"
+                      value={recForm.preferred_time}
+                      onChange={(e) => setRecForm({ ...recForm, preferred_time: e.target.value })}
+                      style={{ padding: '10px 12px', border: '1px solid var(--clients-line)', borderRadius: 4, fontSize: 14 }}
+                    />
+                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="button" disabled={recSaving} className="clients-btn clients-btn-primary" onClick={saveRecurringEdit}>
+                      {recSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+              {recMode === 'pause' && schedule && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--clients-muted)' }}>Pause until</span>
+                    <input
+                      type="date"
+                      value={pauseDate}
+                      onChange={(e) => setPauseDate(e.target.value)}
+                      style={{ padding: '10px 12px', border: '1px solid var(--clients-line)', borderRadius: 4, fontSize: 14 }}
+                    />
+                  </label>
+                  <p style={{ fontSize: 12, color: 'var(--clients-muted)' }}>
+                    Cancels scheduled bookings in this series through the pause date. Series resumes automatically after.
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="button" disabled={recSaving || !pauseDate} className="clients-btn clients-btn-primary" onClick={pauseRecurring}>
+                      {recSaving ? 'Pausing…' : 'Pause Series'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Lifetime Value */}
+          {/* Lifetime Value — Overview tab */}
+          {drawerTab === 'overview' && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Lifetime Value</span>
@@ -356,8 +621,10 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               </div>
             </div>
           </div>
+          )}
 
-          {/* Property */}
+          {/* Property — Overview tab */}
+          {drawerTab === 'overview' && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Property</span>
@@ -382,9 +649,10 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               </div>
             </div>
           </div>
+          )}
 
-          {/* Worker affinity (trade-labeled) */}
-          {client.preferred_cleaner && (
+          {/* Worker affinity (trade-labeled) — Service tab */}
+          {drawerTab === 'service' && client.preferred_cleaner && (
             <div className="clients-section">
               <div className="clients-section-head">
                 <span className="clients-section-label">{worker.singular} Affinity</span>
@@ -411,7 +679,63 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
             </div>
           )}
 
-          {/* Conversations */}
+          {/* Bookings — Activity tab */}
+          {drawerTab === 'activity' && (
+          <div className="clients-section">
+            <div className="clients-section-head">
+              <span className="clients-section-label">Bookings · {bookings.length}</span>
+              <span className="clients-section-action" role="button" tabIndex={0} onClick={() => router.push(`/dashboard/bookings?new=1&client_id=${client.id}`)}>+ New</span>
+            </div>
+            {bookings.length === 0 ? (
+              <div className="clients-empty">No bookings yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {bookings.map((b) => (
+                  <div key={b.id} style={{ border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, color: 'var(--clients-ink)', fontWeight: 500 }}>
+                          {fmtDateShort(b.start_time)} · {fmtTime(b.start_time)}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--clients-muted)', marginTop: 2 }}>
+                          {b.service_type || 'Cleaning'}
+                          {b.team_members?.name ? ` · ${b.team_members.name}` : ' · Unassigned'}
+                          {b.price != null ? ` · $${(b.price / 100).toFixed(0)}` : ''}
+                        </div>
+                        <div style={{ marginTop: 6, display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{
+                            fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 6px',
+                            borderRadius: 3,
+                            background: b.status === 'completed' || b.status === 'paid' ? '#dcfce7' :
+                                        b.status === 'in_progress' ? '#dbeafe' :
+                                        b.status === 'cancelled' || b.status === 'no_show' ? '#fee2e2' :
+                                        b.status === 'pending' ? '#fef3c7' : '#f3f4f6',
+                            color: b.status === 'completed' || b.status === 'paid' ? '#166534' :
+                                   b.status === 'in_progress' ? '#1e40af' :
+                                   b.status === 'cancelled' || b.status === 'no_show' ? '#991b1b' :
+                                   b.status === 'pending' ? '#92400e' : '#374151',
+                          }}>{b.status.replace('_', ' ')}</span>
+                          {b.payment_status && b.payment_status !== 'pending' && (
+                            <span style={{ fontSize: 10, color: 'var(--clients-muted)' }}>· {b.payment_status}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="clients-btn clients-btn-ghost"
+                        style={{ fontSize: 12, padding: '4px 10px' }}
+                        onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
+                      >Edit</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* Conversations — Activity tab */}
+          {drawerTab === 'activity' && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Conversations</span>
@@ -443,8 +767,10 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               </div>
             )}
           </div>
+          )}
 
-          {/* Notes */}
+          {/* Notes — Notes tab */}
+          {drawerTab === 'notes' && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Notes</span>
@@ -499,6 +825,7 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
               placeholder={`${notesTab[0].toUpperCase() + notesTab.slice(1)} notes…`}
             />
           </div>
+          )}
         </div>
 
         <div className="clients-drawer-foot">
