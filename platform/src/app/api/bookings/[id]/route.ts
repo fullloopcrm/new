@@ -180,9 +180,28 @@ export async function PUT(
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
       const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
-      // Booking confirmed (status changed to scheduled)
+      // Booking confirmed (status changed to scheduled) — nycmaid gets its own
+      // rich branded template (same pattern as its cancellation email just
+      // below, and bookings/route.ts + bookings/batch); everyone else keeps
+      // the generic one via notify(). Fetched separately (not widening the
+      // main `data` select above, which flows into the API response) since
+      // the rich template needs client pin/email + cleaner photo/rating this
+      // route deliberately doesn't expose to the dashboard caller.
       if (statusChanged && fields.status === 'scheduled') {
-        if (data.client_id) {
+        if (isNycMaid(tenantId) && data.client_id) {
+          const { data: nmBooking } = await supabaseAdmin
+            .from('bookings')
+            .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
+            .eq('id', id)
+            .single()
+          if (nmBooking?.clients?.email) {
+            const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
+            const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+            const email = clientConfirmationEmail(nmBooking)
+            await sendClientEmail(data.client_id, email.subject, email.html)
+              .catch(err => console.error('nycmaid client confirmation email error:', err))
+          }
+        } else if (data.client_id) {
           await notify({
             tenantId,
             type: 'booking_confirmed',
