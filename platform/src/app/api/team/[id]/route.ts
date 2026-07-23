@@ -29,15 +29,18 @@ export async function GET(
     // from the (capped at 50) bookings list the page also fetches, so a
     // long-tenured member's lifetime totals aren't silently undercounted.
     const yearStart = etDayBoundaryUTC({ ...etToday(), month: 0, day: 1 }).toISOString()
-    const [{ count: jobsCompleted }, { count: noShowCount }, { data: ytdBookings }] = await Promise.all([
+    const [{ count: jobsCompleted }, { count: noShowCount }, { data: ytdBookings }, { data: lifetimeBookings }] = await Promise.all([
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('team_member_id', id).in('status', ['completed', 'paid']),
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('team_member_id', id).eq('status', 'no_show'),
       supabaseAdmin.from('bookings').select('team_member_pay')
         .eq('team_member_id', id).in('status', ['completed', 'paid']).gte('start_time', yearStart),
+      supabaseAdmin.from('bookings').select('team_member_pay')
+        .eq('team_member_id', id).in('status', ['completed', 'paid']),
     ])
     const ytdEarningsCents = (ytdBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
+    const lifetimeEarningsCents = (lifetimeBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
 
     return NextResponse.json({
       member: data,
@@ -47,6 +50,7 @@ export async function GET(
         avg_rating: data.avg_rating != null ? Number(data.avg_rating) : null,
         rating_count: data.rating_count || 0,
         ytd_earnings_cents: ytdEarningsCents,
+        lifetime_earnings_cents: lifetimeEarningsCents,
       },
     })
   } catch (e) {

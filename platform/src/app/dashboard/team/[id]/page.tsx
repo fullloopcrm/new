@@ -142,6 +142,7 @@ export default function TeamMemberDetailPage() {
     avg_rating: number | null
     rating_count: number
     ytd_earnings_cents: number
+    lifetime_earnings_cents: number
   } | null>(null)
   const [application, setApplication] = useState<TeamApplication | null>(null)
   const [transportMsg, setTransportMsg] = useState('')
@@ -493,15 +494,6 @@ export default function TeamMemberDetailPage() {
     )
   }
   if (!member) return <p className="text-slate-400">Loading...</p>
-
-  const completedBookings = bookings.filter((b) => b.status === 'completed' || b.status === 'paid')
-  const totalEarnings = completedBookings.reduce((sum, b) => {
-    if (b.check_in_time && b.check_out_time && member.pay_rate) {
-      const hours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
-      return sum + hours * member.pay_rate
-    }
-    return sum
-  }, 0)
 
   return (
     <div>
@@ -995,20 +987,25 @@ export default function TeamMemberDetailPage() {
 
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Earnings</h3>
+            {/* Server-computed from the full booking history (GET /api/team/[id]),
+                not the capped 50-row `bookings` list above -- that list is sorted
+                most-recent-first, so filtering it for "completed" silently showed
+                0 for anyone whose most recent 50 jobs happened to still be
+                upcoming, even with a real lifetime total in the dozens. */}
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-slate-400">Total Earned</p>
-                <p className="text-2xl font-bold text-slate-900">${totalEarnings.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-slate-900">${stats ? (stats.lifetime_earnings_cents / 100).toFixed(2) : '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Jobs Completed</p>
-                <p className="text-lg font-semibold text-slate-900">{completedBookings.length}</p>
+                <p className="text-lg font-semibold text-slate-900">{stats ? stats.jobs_completed : '—'}</p>
               </div>
               {member.pay_rate && (
                 <div>
                   <p className="text-sm text-slate-400">Avg Per Job</p>
                   <p className="text-lg font-semibold text-slate-900">
-                    {completedBookings.length > 0 ? `$${(totalEarnings / completedBookings.length).toFixed(0)}` : '—'}
+                    {stats && stats.jobs_completed > 0 ? `$${(stats.lifetime_earnings_cents / 100 / stats.jobs_completed).toFixed(0)}` : '—'}
                   </p>
                 </div>
               )}
