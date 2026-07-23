@@ -117,15 +117,24 @@ export async function DELETE(
     // didn't, deleting the row would blow away payout/audit history tied to
     // real completed jobs. booking_team_members (crew, not lead) is WORSE:
     // its FK is ON DELETE CASCADE, so a hard delete would silently wipe a
-    // former crew member's job-history rows with no error at all. Deactivate
-    // instead in both cases: same practical effect (gone from the active
-    // roster, unassignable to new jobs) without destroying data.
-    const [{ count: bookingCount }, { count: crewCount }] = await Promise.all([
+    // former crew member's job-history rows with no error at all.
+    // team_member_payouts and payroll_payments are NOT NULL/RESTRICT FKs with
+    // no ON DELETE clause at all — a member can have payout/payroll rows with
+    // zero bookings (a manual bonus payout, a payroll run after their last
+    // booking was reassigned elsewhere), so those FKs can still reject a hard
+    // delete even when bookingCount/crewCount are both 0 — this was the actual
+    // remaining reproduction of "can't delete a team member, FK error" after
+    // the bookings/crew guard already landed. Deactivate instead in every
+    // case: same practical effect (gone from the active roster, unassignable
+    // to new jobs) without destroying data or crashing on the FK.
+    const [{ count: bookingCount }, { count: crewCount }, { count: payoutCount }, { count: payrollCount }] = await Promise.all([
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
       supabaseAdmin.from('booking_team_members').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
+      supabaseAdmin.from('team_member_payouts').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
+      supabaseAdmin.from('payroll_payments').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
     ])
 
-    if ((bookingCount || 0) > 0 || (crewCount || 0) > 0) {
+    if ((bookingCount || 0) > 0 || (crewCount || 0) > 0 || (payoutCount || 0) > 0 || (payrollCount || 0) > 0) {
       const { data, error } = await supabaseAdmin
         .from('team_members')
         .update({ status: 'inactive' })
@@ -138,7 +147,19 @@ export async function DELETE(
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      await audit({ tenantId, action: 'team.deactivated', entityType: 'team_member', entityId: id, details: { reason: 'has_booking_history', booking_count: bookingCount, crew_count: crewCount } })
+      await audit({
+        tenantId,
+        action: 'team.deactivated',
+        entityType: 'team_member',
+        entityId: id,
+        details: {
+          reason: 'has_booking_or_payment_history',
+          booking_count: bookingCount,
+          crew_count: crewCount,
+          payout_count: payoutCount,
+          payroll_count: payrollCount,
+        },
+      })
 
       return NextResponse.json({ success: true, deactivated: true, member: data })
     }
