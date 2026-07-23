@@ -14,6 +14,7 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { nowNaiveET } from '@/lib/recurring'
+import { audit } from '@/lib/audit'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -368,6 +369,9 @@ export async function executeTool(
         .from('clients')
         .update(updates)
         .eq('id', input.client_id as string)
+      if (!error) {
+        await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: input.client_id as string, details: { fields: Object.keys(updates), via: 'ai_chat' } })
+      }
       return JSON.stringify(error ? { error: error.message } : { success: true })
     }
 
