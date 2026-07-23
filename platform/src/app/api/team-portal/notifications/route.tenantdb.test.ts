@@ -15,20 +15,46 @@ const NOTIF_ID = 'shared-notif-id'
 type Row = Record<string, unknown>
 const DB: Record<string, Row[]> = {}
 
+// Splits a PostgREST filter string on top-level commas only, so a nested
+// `and(a.eq.1,b.eq.2)` group isn't torn apart.
+function splitTopLevel(expr: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (const ch of expr) {
+    if (ch === '(') depth++
+    if (ch === ')') depth--
+    if (ch === ',' && depth === 0) {
+      parts.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  if (current) parts.push(current)
+  return parts.map((p) => p.trim())
+}
+
+function matchesClause(clause: string, r: Row): boolean {
+  if (clause.startsWith('and(')) {
+    return splitTopLevel(clause.slice(4, -1)).every((c) => matchesClause(c, r))
+  }
+  const [col, op, val] = clause.split('.')
+  if (op === 'eq') return String(r[col]) === val
+  if (op === 'is' && val === 'null') return r[col] === null || r[col] === undefined
+  return false
+}
+
+function orMatcher(expr: string) {
+  const parts = splitTopLevel(expr)
+  return (r: Row) => parts.some((p) => matchesClause(p, r))
+}
+
 function updateChain(rows: Row[], values: Row) {
   const filters: Array<(r: Row) => boolean> = []
   const uc: Record<string, unknown> = {
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return uc },
-    or: (expr: string) => {
-      const parts = expr.split(',').map((p) => p.trim())
-      filters.push((r) => parts.some((p) => {
-        const [col, op, val] = p.split('.')
-        if (op === 'eq') return String(r[col]) === val
-        if (op === 'is' && val === 'null') return r[col] === null || r[col] === undefined
-        return false
-      }))
-      return uc
-    },
+    or: (expr: string) => { filters.push(orMatcher(expr)); return uc },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => {
       rows.filter((r) => filters.every((f) => f(r))).forEach((r) => Object.assign(r, values))
       resolve({ data: null, error: null })
@@ -44,16 +70,7 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
-    or: (expr: string) => {
-      const parts = expr.split(',').map((p) => p.trim())
-      filters.push((r) => parts.some((p) => {
-        const [col, op, val] = p.split('.')
-        if (op === 'eq') return String(r[col]) === val
-        if (op === 'is' && val === 'null') return r[col] === null || r[col] === undefined
-        return false
-      }))
-      return c
-    },
+    or: (expr: string) => { filters.push(orMatcher(expr)); return c },
     order: () => c,
     limit: () => Promise.resolve({ data: matched(), error: null }),
     update: (values: Row) => updateChain(rowsOf(), values),
@@ -71,8 +88,13 @@ import { GET, PUT } from './route'
 
 beforeEach(() => {
   DB.notifications = [
-    { id: NOTIF_ID, tenant_id: TENANT_A, recipient_id: MEMBER_ID, title: 'A notif', message: 'a', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },
-    { id: NOTIF_ID, tenant_id: TENANT_B, recipient_id: MEMBER_ID, title: 'B notif', message: 'b', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },
+    { id: NOTIF_ID, tenant_id: TENANT_A, recipient_id: MEMBER_ID, recipient_type: 'team_member', title: 'A notif', message: 'a', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },
+    { id: NOTIF_ID, tenant_id: TENANT_B, recipient_id: MEMBER_ID, recipient_type: 'team_member', title: 'B notif', message: 'b', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },
+    // Company-wide admin/audit rows: recipient_id unset, same as a genuine
+    // team broadcast — but recipient_type is 'admin' (or absent, for older
+    // untyped audit inserts), so they must NOT leak into a cleaner's feed.
+    { id: 'admin-summary', tenant_id: TENANT_A, recipient_id: null, recipient_type: 'admin', title: 'Job Broadcast Sent', message: 'admin summary', type: 'job_broadcast', read: false, booking_id: null, created_at: new Date().toISOString() },
+    { id: 'untyped-audit', tenant_id: TENANT_A, recipient_id: null, title: 'Team Member Notified', message: 'audit log', type: 'team_member_notified', read: false, booking_id: null, created_at: new Date().toISOString() },
   ]
 })
 
@@ -88,6 +110,18 @@ describe('GET /api/team-portal/notifications — tenantDb scoping', () => {
     const titles = (body.notifications as Row[]).map((n) => n.title)
     expect(titles).toContain('A notif')
     expect(titles).not.toContain('B notif')
+  })
+
+  it('WITNESS: does not leak company-wide admin/audit notifications into a cleaner\'s feed', async () => {
+    const token = createToken(MEMBER_ID, TENANT_A, 0, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/notifications', {
+      headers: { authorization: `Bearer ${token}` },
+    })
+    const res = await GET(req)
+    const body = await res.json()
+    const titles = (body.notifications as Row[]).map((n) => n.title)
+    expect(titles).not.toContain('Job Broadcast Sent')
+    expect(titles).not.toContain('Team Member Notified')
   })
 })
 
