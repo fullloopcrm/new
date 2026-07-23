@@ -126,7 +126,7 @@ export async function GET(_request: NextRequest) {
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([
       db
         .from('clients')
-        .select('id, name, email, phone, address, status, source, created_at, do_not_service, active, referrer_id')
+        .select('id, name, email, phone, address, status, source, created_at, do_not_service, active, referrer_id, customer_number')
         .order('created_at', { ascending: false }),
       db
         .from('bookings')
@@ -291,6 +291,7 @@ export async function GET(_request: NextRequest) {
         email: (c.email as string | null) || null,
         phone: (c.phone as string | null) || null,
         address: (c.address as string | null) || null,
+        customer_number: (c.customer_number as number | null) ?? null,
         status: (c.status as string) || 'active',
         source: (c.source as string | null) || null,
         created_at: createdAt,

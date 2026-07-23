@@ -17,6 +17,7 @@ type EnrichedClient = {
   email: string | null
   phone: string | null
   address: string | null
+  customer_number: number | null
   status: string
   source: string | null
   created_at: string

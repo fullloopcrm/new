@@ -627,6 +627,13 @@
   background: rgba(107,79,174,0.1);
   color: var(--clients-vip);
 }
+.clients-drawer-customer-number {
+  font-family: var(--clients-mono);
+  font-size: 11px;
+  color: var(--clients-muted);
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
 .clients-drawer-stage-row {
   display: flex;
   align-items: center;

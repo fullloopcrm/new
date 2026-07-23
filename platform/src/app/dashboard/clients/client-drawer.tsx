@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
 import { DnsReasonPicker } from './dns-reason-picker'
+import { formatCustomerNumber } from '@/lib/format'
 
 type EnrichedClient = {
   id: string
@@ -11,6 +12,7 @@ type EnrichedClient = {
   email: string | null
   phone: string | null
   address: string | null
+  customer_number: number | null
   status: string
   source: string | null
   created_at: string
@@ -395,6 +397,9 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated, a
                   {client.name}
                   {client.stage === 'vip' && <span className="clients-drawer-name-vip">VIP</span>}
                 </div>
+                {client.customer_number != null && (
+                  <div className="clients-drawer-customer-number">Customer #{formatCustomerNumber(client.customer_number)}</div>
+                )}
                 <div className="clients-drawer-stage-row">
                   <span className={`clients-stage ${client.stage}`}>{stageLabel(client.stage)}</span>
                   <span>·</span>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { stageMeta } from '@/lib/pipeline'
+import { formatJobNumber } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import BookingNotes from '@/components/BookingNotes'
 
@@ -17,8 +18,9 @@ type Job = {
   notes: string | null
   starts_on: string | null
   ends_on: string | null
+  job_seq: number | null
 }
-type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; unit: string | null; notes: string | null }
+type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; unit: string | null; notes: string | null; customer_number: number | null }
 type Quote = { id: string; quote_number: string | null; deal_id: string | null }
 type Deal = { id: string; title: string; stage: string; value_cents: number }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
@@ -805,6 +807,9 @@ export default function JobDetailPage() {
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
             {sessions.length > 0 && <span className="text-xs text-slate-400">{pct}% complete</span>}
           </div>
+          {job.job_seq != null && client?.customer_number != null && (
+            <p className="text-xs font-mono text-slate-400 mt-0.5">Job #{formatJobNumber(client.customer_number, job.job_seq)}</p>
+          )}
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
           {(job.starts_on || job.ends_on) && (
             <p className="text-xs text-slate-400 mt-1">
