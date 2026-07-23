@@ -41,6 +41,16 @@ export async function POST(request: Request, { params }: Params) {
     const qty = Number(body.qty_per_unit)
     if (!Number.isFinite(qty) || qty <= 0) return NextResponse.json({ error: 'qty_per_unit must be a positive number' }, { status: 400 })
 
+    // inventory_item_id is a plain uuid PK with no per-tenant namespace and
+    // no cross-tenant FK constraint at the DB level. This route's own
+    // COLUMNS embeds inventory_items(name, unit_label, unit_cost_cents) with
+    // no additional tenant filter on the join -- a caller supplying another
+    // tenant's real inventory_item_id would leak that tenant's item name and
+    // cost onto this tenant's own catalog item's BOM (same class already
+    // fixed on job-expenses' vendor_id/service_type_id).
+    const { data: owned } = await tenantDb(tenantId).from('inventory_items').select('id').eq('id', inventoryItemId).maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Invalid inventory_item_id' }, { status: 400 })
+
     const { data, error } = await tenantDb(tenantId)
       .from('catalog_item_materials')
       .upsert(
