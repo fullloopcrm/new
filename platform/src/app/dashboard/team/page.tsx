@@ -8,6 +8,7 @@ import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 import SalesAppsTab from './SalesAppsTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -21,6 +22,7 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
 
 type TeamMember = {
   id: string
+  tenant_id: string
   name: string
   email: string | null
   phone: string | null
@@ -33,6 +35,8 @@ type TeamMember = {
   stripe_account_id?: string | null
   stripe_ready_at?: string | null
   avatar_url?: string | null
+  avg_rating?: number | null
+  rating_count?: number | null
   jobs_this_week?: number
   hours_this_week?: number
   ltv_total_cents?: number
@@ -596,6 +600,15 @@ export default function TeamPage() {
                       <div className="tm-metric-label">LTV Earned</div>
                       <div className="tm-metric-value">${Math.round(m.ltv_total_cents / 100).toLocaleString('en-US')}</div>
                     </div>
+                    {isNycMaid(m.tenant_id) && (
+                      <div className="tm-metric">
+                        <div className="tm-metric-label">Rating</div>
+                        <div className="tm-metric-value">
+                          {m.rating_count ? `★ ${Number(m.avg_rating).toFixed(2)}` : '—'}
+                        </div>
+                        <div className="tm-metric-sub">{m.rating_count ? `${m.rating_count} rated` : 'no ratings'}</div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="tm-actions" onClick={(e) => e.stopPropagation()}>
