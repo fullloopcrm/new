@@ -100,7 +100,7 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
 
 // Per-tenant Telegram: post to the tenant's own bot when configured, else
 // fall back to the platform owner bot (mirrors lib/nycmaid/notify.ts).
-async function sendTenantTelegram(
+export async function sendTenantTelegram(
   tenantId: string,
   tenant: { telegram_bot_token?: string | null; telegram_chat_id?: string | null },
   text: string,

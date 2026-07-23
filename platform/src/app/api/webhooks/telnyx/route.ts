@@ -17,6 +17,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { nowNaiveET } from '@/lib/recurring'
+import { sendTenantTelegram } from '@/lib/notify'
 
 export const maxDuration = 60
 
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     // Pick the first deterministically and log loudly if it's ambiguous.
     const { data: tenantMatches } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
+      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, telegram_bot_token, telegram_chat_id')
       .eq('telnyx_phone', to)
       .order('id', { ascending: true })
       .limit(2)
@@ -151,6 +152,10 @@ export async function POST(request: Request) {
         tenant_id: tenantId, type: 'owner_message', title: `Owner reply — ${tenant.name}`,
         message: text.slice(0, 200), channel: 'system', recipient_type: 'admin',
       })
+      // Telegram echo — dropped in the FL port (this webhook never called
+      // notify()/sendTenantTelegram at all, only wrote the in-app row above).
+      sendTenantTelegram(tenantId, tenant, `Jeff texted: ${text}`).catch((err) =>
+        console.error('[telnyx webhook] owner-text telegram send failed:', err))
       return NextResponse.json({ received: true, routed: 'owner_chat' })
     }
 
@@ -454,16 +459,23 @@ export async function POST(request: Request) {
             replyMsg = `We're sorry to hear that, ${ratingClient.name?.split(' ')[0]}. Your feedback has been shared with our team and we'll work to do better.`
 
             // Notify admin about low rating
+            const lowRatingTitle = `Low Rating: ${ratingClient.name} (${rating}/5)`
+            const lowRatingMsg = `${ratingClient.name} rated their experience ${rating}/5. Follow up recommended.`
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'review_received',
-              title: `Low Rating: ${ratingClient.name} (${rating}/5)`,
-              message: `${ratingClient.name} rated their experience ${rating}/5. Follow up recommended.`,
+              title: lowRatingTitle,
+              message: lowRatingMsg,
               channel: 'in_app',
               booking_id: recentBooking.id,
               metadata: { client_id: ratingClient.id, rating, phone: from },
               status: 'sent',
             })
+            // Telegram alert — dropped in the FL port (direct DB insert above
+            // never called notify()/sendTenantTelegram, so low ratings never
+            // reached Telegram despite 'review_received' being a wired type).
+            sendTenantTelegram(tenantId, tenant, `${lowRatingTitle}\n\n${lowRatingMsg}`).catch((err) =>
+              console.error('[telnyx webhook] low-rating telegram send failed:', err))
           }
 
           if (replyMsg && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -520,11 +532,13 @@ export async function POST(request: Request) {
     const senderName = client?.name || member?.name || from
 
     // Create notification for inbound SMS
+    const inboundSmsTitle = `SMS from ${senderName}`
+    const inboundSmsMsg = text.slice(0, 500)
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
       type: 'sms_received',
-      title: `SMS from ${senderName}`,
-      message: text.slice(0, 500),
+      title: inboundSmsTitle,
+      message: inboundSmsMsg,
       channel: 'in_app',
       metadata: {
         from_phone: from,
@@ -535,6 +549,15 @@ export async function POST(request: Request) {
       },
       status: 'sent',
     })
+    // Telegram alert — dropped in the FL port. nycmaid-only for now (matches
+    // its pre-cutover behavior); other tenants would fall back to the shared
+    // platform owner chat here since most don't have their own bot configured
+    // yet, flooding it with every tenant's routine client texts — needs its
+    // own review before going global.
+    if (isNycMaid(tenantId)) {
+      sendTenantTelegram(tenantId, tenant, `${inboundSmsTitle}\n\n${inboundSmsMsg}`).catch((err) =>
+        console.error('[telnyx webhook] inbound-sms telegram send failed:', err))
+    }
 
     // If from a client, add to their notes
     if (client) {
@@ -741,14 +764,20 @@ export async function POST(request: Request) {
                 .eq('id', convo.id)
 
               const bookingClientName = clientName || 'New client'
+              const smsBookingTitle = `New SMS Booking: ${bookingClientName}`
+              const smsBookingMsg = `${bookingClientName} booked via AI chatbot`
               await supabaseAdmin.from('notifications').insert({
                 tenant_id: tenantId,
                 type: 'booking_created',
-                title: `New SMS Booking: ${bookingClientName}`,
-                message: `${bookingClientName} booked via AI chatbot`,
+                title: smsBookingTitle,
+                message: smsBookingMsg,
                 channel: 'in_app',
                 status: 'sent',
               })
+              // Telegram alert — dropped in the FL port (direct DB insert
+              // above never called notify()/sendTenantTelegram).
+              sendTenantTelegram(tenantId, tenant, `${smsBookingTitle}\n\n${smsBookingMsg}`).catch((err) =>
+                console.error('[telnyx webhook] sms-booking telegram send failed:', err))
             }
           }
 
