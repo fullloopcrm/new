@@ -10,7 +10,7 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 export const TEST_MODE = true
 export const TEST_CLEANER_NAME_SUBSTRING = 'jeff tucker'
 export const BROADCAST_CAP = 50
-export const BUFFER_HOURS = 1.5
+export const BUFFER_HOURS = 1
 
 type CleanerRow = {
   id: string

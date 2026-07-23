@@ -55,9 +55,10 @@ const navMain: Array<{
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
-    { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
-    { letter: 'D', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'B', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
+    { letter: 'C', label: 'Projects', href: '/dashboard/jobs/projects' },
+    { letter: 'D', label: 'Schedule', href: '/dashboard/calendar' },
+    { letter: 'E', label: 'Crews', href: '/dashboard/jobs/crews' },
   ]},
   { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
@@ -78,7 +79,7 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/find-cleaner'],
   clients: ['/dashboard/clients', '/dashboard/sms', '/dashboard/clients/feedback'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
