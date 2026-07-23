@@ -7,7 +7,7 @@ import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
-import { nowNaiveET, etDayBoundaryUTC } from '@/lib/recurring'
+import { nowNaiveET, etToday, formatNaiveET, parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -21,11 +21,15 @@ export async function GET(request: Request) {
   // UTC instant's .toISOString() compares its DIGITS literally against that
   // naive column, so "10 min ago" and "midnight" were both read 4-5 hours
   // later than actual ET time — the exact bug that flipped a 10am ET booking
-  // to no-show at 6:45am ET (see cron/no-show-check). Same fix here: naive ET
-  // digits with a bare 'Z' so Postgres's UTC-session cast echoes them back
-  // unchanged, plus the real ET midnight instant for the day-floor.
+  // to no-show at 6:45am ET (see cron/no-show-check). Fix: naive ET digits
+  // with a bare 'Z' so Postgres's UTC-session cast echoes them back
+  // unchanged (same convention for both bounds -- an earlier pass here fixed
+  // the 10-min bound this way but left the day-floor as etDayBoundaryUTC(),
+  // which is documented as the TIMESTAMPTZ-column helper, NOT for naive-ET
+  // columns like start_time -- comparing its real UTC-converted digits
+  // against the naive column reintroduced the same 4-5h skew for the floor).
   const tenMinAgoNaiveBound = `${nowNaiveET(-10 * 60 * 1000)}Z`
-  const todayStart = etDayBoundaryUTC()
+  const todayStartNaiveBound = `${formatNaiveET(etToday())}Z`
 
   let lateCheckIns = 0
   let lateCheckOuts = 0
@@ -55,7 +59,7 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgoNaiveBound)
-        .gte('start_time', todayStart.toISOString())
+        .gte('start_time', todayStartNaiveBound)
         .is('check_in_time', null)
         .limit(100)
 
@@ -70,7 +74,9 @@ export async function GET(request: Request) {
           .limit(1)
         if (existing && existing.length > 0) continue
 
-        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        // Display-only, but same naive-ET misparse as the gating bounds above
+        // would have shown the wrong clock time in the SMS/push/notification.
+        const time = parseNaiveET(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
