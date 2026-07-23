@@ -1,8 +1,8 @@
 # W1 merge-readiness — p1-w1 (pushed to origin/p1-w1-2026-07-23)
 
-16 commits ahead of origin/main. No merge performed, no push to main.
+17 commits ahead of origin/main. No merge performed, no push to main.
 Full suite green at HEAD: `npx tsc --noEmit` 0 errors, `npx vitest run`
-817/817 test files, 4464/4464 tests, 38 skipped, 0 failed.
+818/818 test files, 4467/4467 tests, 38 skipped, 0 failed.
 
 ## Commits (oldest first)
 
@@ -86,25 +86,57 @@ consistent with GET/PUT on the same route; only the stale assertions needed
 updating. No overlap — these files aren't touched by any other branch I'm
 aware of.
 
+**68745041d** — `fix: Telnyx SMS fetch had no timeout, could silently exhaust the whole route's maxDuration`
+Real live P0 today: a client's payment-request SMS silently never sent,
+zero trace anywhere (root-caused via DB archaeology, no logs existed).
+`lib/nycmaid/sms.ts` — `AbortSignal.timeout(12_000)` on the Telnyx fetch;
+a timeout now flows through the existing catch/retry/logSMSFailure path
+unchanged. `lib/sms.ts` (the "good" path) checked, already had a proper
+timeout, no gap. `src/app/team/page.tsx` `handleHeadsUp()` — added a 20s
+client-side `AbortController` with a clear "still sending" message
+instead of an indefinite mobile-browser freeze (separate real report,
+same root cause). New tests: `lib/nycmaid/sms.test.ts`,
+`app/team/page.test.tsx` (heads-up timeout case). **NOT included: the
+same missing-`maxDuration` fix for `resend-payment-link/route.ts`** —
+that file doesn't exist on p1-w1 at all (confirmed via `find`), it only
+exists on p1-w4 — needs the identical fix applied there directly. No
+other branch touched `lib/nycmaid/sms.ts`, `lib/sms.ts`, or
+`src/app/team/page.tsx` this session (checked the channel — W4
+independently traced the same root cause but explicitly did not
+implement, to avoid colliding with this fix).
+
 ## Cross-branch overlap summary
 
-- `BookingsAdmin.tsx` — 3-way conflict (W1/W3/W4), master plan flags it for a
-  real merge attempt, in progress by W3 as of this doc.
-- `catalog/[id]/materials/route.ts` — 2-way conflict (W1/W4), already
-  resolved in the master plan (take W1's).
-- `jobs/[id]/expenses/route.ts` — 2-way conflict (W1/W4), **not yet in the
-  master plan** — needs the same treatment as catalog-materials.
-- Everything else in my 16 commits (crons, calendar panel, team-delete,
+- `BookingsAdmin.tsx` — 3-way conflict (W1/W3/W4). RESOLVED: W3 ran a real
+  scratch-worktree 3-way merge test (all 3 commits touching this file)
+  and it applied cleanly via git's own auto-merge, zero manual conflict
+  resolution needed, full suite green after. W4's own 2 commits on this
+  file (find-team-member, resend-payment-link) were being folded into a
+  follow-up test as of the last channel update — check for that result
+  before treating this as fully closed.
+- `catalog/[id]/materials/route.ts` — 2-way conflict (W1/W4). RESOLVED in
+  the master plan: take W1's e0882efe5 (verified superset), drop W4's
+  b8f339ba2.
+- `jobs/[id]/expenses/route.ts` — 2-way conflict (W1/W4). RESOLVED: diffed
+  both fixes (W1's 1e655c962 vs W4's dbbb7e185) — functionally
+  equivalent, both verify all 3 fields before insert. W4 independently
+  confirmed the same read. Recommendation: take W1's (reuses the existing
+  category_id-derivation query as the service_type_id ownership check,
+  one fewer DB round-trip; W4's does a fully separate lookup for it).
+  Not a strong preference either way — pick is safe.
+- Everything else in my 17 commits (crons, calendar panel, team-delete,
   geocode-cache, deploy-speed, budget-templates/[id], job-photos pair_id,
-  the stale-test fix) has no known file overlap with W2/W3/W4's branches.
+  the stale-test fix, the SMS-timeout fix) has no known file overlap with
+  W2/W3/W4's branches.
 
 ## Recommended merge order
 
 The 6 cron fixes, calendar-panel fix, team-delete fix, geocode-cache fix,
-and deploy-speed perf fix are independent and can land in any order. The
-security fixes (budget-templates, catalog-materials, job-photos pair_id)
-are independent of each other but catalog-materials and job-expenses need
-cross-branch reconciliation with W4 first (see above). The bookings DELETE
+deploy-speed perf fix, and SMS-timeout fix are independent and can land in
+any order. The security fixes (budget-templates, catalog-materials,
+job-photos pair_id, job-expenses) are independent of each other; the two
+that had cross-branch duplicates (catalog-materials, job-expenses) both
+have a resolved pick-one-drop-one decision above. The bookings DELETE
 soft-cancel fix + its stale-test fix should land together (same logical
-change). BookingsAdmin.tsx mark-paid fix waits on the 3-way merge W3 is
-attempting.
+change). BookingsAdmin.tsx mark-paid fix is now merge-tested clean per
+W3's scratch test above — no longer blocking.
