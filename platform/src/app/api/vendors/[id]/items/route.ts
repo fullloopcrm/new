@@ -43,6 +43,18 @@ export async function POST(request: Request, { params }: Params) {
     const inventoryItemId = body.inventory_item_id as string | undefined
     if (!inventoryItemId) return NextResponse.json({ error: 'inventory_item_id is required' }, { status: 400 })
 
+    // vendor_id (URL) and inventory_item_id (body) are plain-uuid FKs with no
+    // per-tenant composite constraint at the DB level -- tenantDb() only
+    // stamps tenant_id on the vendor_items row itself, it doesn't validate
+    // the referenced rows. Without this check either id could reference
+    // another tenant's real vendor/catalog item (cross-tenant reference
+    // pollution, and a real read-leak via this GET's own inventory_items()
+    // embed, which has no tenant filter on the join).
+    const { data: vendorRow } = await tenantDb(tenantId).from('vendors').select('id').eq('id', id).maybeSingle()
+    if (!vendorRow) return NextResponse.json({ error: 'Vendor not found' }, { status: 400 })
+    const { data: itemRow } = await tenantDb(tenantId).from('inventory_items').select('id').eq('id', inventoryItemId).maybeSingle()
+    if (!itemRow) return NextResponse.json({ error: 'Inventory item not found' }, { status: 400 })
+
     if (body.is_preferred) {
       await tenantDb(tenantId).from('vendor_items').update({ is_preferred: false }).eq('inventory_item_id', inventoryItemId)
     }
