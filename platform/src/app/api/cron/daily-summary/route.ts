@@ -133,21 +133,26 @@ export async function GET(request: Request) {
 
       // Email with job details
       if (member.email) {
-        const jobDetails = upcomingJobs.map(j => {
+        const jobsForEmail = upcomingJobs.map(j => {
           const client = j.clients
           const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
           const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-          return `${date} ${time} — ${client?.name || 'Client'}${client?.address ? ` @ ${client.address}` : ''}`
-        }).join('<br>')
+          return {
+            clientName: client?.name || 'Client',
+            dateTime: `${date} ${time}`,
+            address: client?.address || undefined,
+          }
+        })
 
         await notify({
           tenantId,
           type: 'daily_summary',
           title: `Next 3 Days: ${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'}`,
-          message: `Hi ${member.name.split(' ')[0]}, here are your upcoming jobs:\n${jobDetails}`,
+          message: `Hi ${member.name.split(' ')[0]}, here are your upcoming jobs.`,
           channel: 'email',
           recipientType: 'team_member',
           recipientId: member.id,
+          metadata: { teamMemberName: member.name, jobs: jobsForEmail },
         })
       }
 

@@ -16,6 +16,7 @@ import {
   notificationDigestEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
+  teamDailyJobsEmail,
 } from './email-templates'
 
 export type NotificationType =
@@ -193,12 +194,22 @@ export async function notify({
       })
       break
     case 'daily_summary':
-      htmlBody = dailySummaryEmail({
-        ...templateData,
-        todaysJobs: (metadata?.todaysJobs as number) || 0,
-        yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
-        upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
-      })
+      // Same notify() type covers two different audiences: the admin metrics
+      // recap and a team member's own upcoming-jobs list. Metadata shape tells
+      // them apart — team-member calls pass `jobs`, admin calls don't.
+      htmlBody = (recipientType === 'team_member' && metadata?.jobs)
+        ? teamDailyJobsEmail({
+            ...templateData,
+            teamMemberName: (metadata?.teamMemberName as string) || clientName,
+            jobs: metadata?.jobs as never[],
+            portalUrl: metadata?.portalUrl as string | undefined,
+          })
+        : dailySummaryEmail({
+            ...templateData,
+            todaysJobs: (metadata?.todaysJobs as number) || 0,
+            yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
+            upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
+          })
       break
     case 'review_request':
       htmlBody = reviewRequestEmail({
@@ -252,6 +263,29 @@ export async function notify({
         teamMemberName: metadata?.teamMemberName as string | undefined,
         amount: (metadata?.amount as string) || '0',
         paymentUrl: metadata?.paymentUrl as string | undefined,
+      })
+      break
+    case 'daily_ops_recap':
+      htmlBody = dailyOpsRecapEmail({
+        ...templateData,
+        todayDate: (metadata?.todayDate as string) || '',
+        tomorrowDate: (metadata?.tomorrowDate as string) || '',
+        todayJobs: (metadata?.todayJobs as never[]) || [],
+        tomorrowJobs: (metadata?.tomorrowJobs as never[]) || [],
+        todayRevenue: (metadata?.todayRevenue as string) || '$0',
+        todayJobCount: (metadata?.todayJobCount as number) || 0,
+        tomorrowJobCount: (metadata?.tomorrowJobCount as number) || 0,
+        todayPaid: (metadata?.todayPaid as number) || 0,
+        todayUnpaid: (metadata?.todayUnpaid as number) || 0,
+      })
+      break
+    case 'daily_digest':
+      htmlBody = notificationDigestEmail({
+        ...templateData,
+        date: (metadata?.date as string) || '',
+        emailCount: (metadata?.emailCount as number) || 0,
+        smsCount: (metadata?.smsCount as number) || 0,
+        entries: (metadata?.entries as never[]) || [],
       })
       break
   }
