@@ -105,7 +105,7 @@ describe('sendClientSMS', () => {
     fake._seed('clients', [{ id: 'client-empty', tenant_id: TENANT_A.id, name: 'No Contacts', do_not_service: false }])
     const result = await sendClientSMS(TENANT_A, 'client-empty', 'Hello!')
     expect(result).toEqual({ sent: 0, skipped: 0 })
-    const { data } = await supabaseAdmin.from('notifications').select('*').eq('type', 'comms_fail')
+    const { data } = await supabaseAdmin.from('notifications').select('*').eq('type', 'comms_fail').eq('tenant_id', TENANT_A.id)
     expect((data || []).some((n: { message: string }) => n.message.includes('sms'))).toBe(true)
   })
 })
