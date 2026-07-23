@@ -16,6 +16,7 @@ import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
+import { closeOutUpdateRoute } from './closeout-update-route'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -638,14 +639,19 @@ function BookingsPage() {
   const handleCloseOutUpdate = async (bookingId: string, updates: Record<string, unknown>) => {
     setCloseOutSaving(bookingId)
     try {
-      const res = await fetch('/api/bookings/' + bookingId, {
-        method: 'PUT',
+      const { url, method } = closeOutUpdateRoute(bookingId, updates)
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       })
       if (res.ok) {
-        // Update local state
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updates } as Booking : b))
+        // The payment endpoint can derive fields beyond what was sent
+        // (status flips to 'paid', payment_date gets stamped) — merge its
+        // returned booking so local state reflects what actually persisted,
+        // not just the optimistic partial update.
+        const body = await res.json().catch(() => null)
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updates, ...(body?.booking || {}) } as Booking : b))
       }
     } catch (e) { console.error('Close out update failed:', e) }
     setCloseOutSaving(null)
