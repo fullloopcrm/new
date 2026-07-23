@@ -32,6 +32,9 @@ type TeamMember = {
   stripe_account_id?: string | null
   stripe_ready_at?: string | null
   avatar_url?: string | null
+  jobs_this_week?: number
+  hours_this_week?: number
+  ltv_total_cents?: number
 }
 
 type EnrichedMember = TeamMember & {
@@ -39,15 +42,6 @@ type EnrichedMember = TeamMember & {
   hours_this_week: number
   utilization_pct: number
   ltv_total_cents: number
-}
-
-type Booking = {
-  id: string
-  team_member_id: string | null
-  start_time: string
-  end_time: string | null
-  price: number | null
-  status: string
 }
 
 type Application = {
@@ -84,7 +78,6 @@ function initials(name: string): string {
 export default function TeamPage() {
   const [tab, setTab] = useState<Tab>('team')
   const [members, setMembers] = useState<TeamMember[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [appsLoading, setAppsLoading] = useState(true)
@@ -92,12 +85,8 @@ export default function TeamPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
-      fetch('/api/cleaners').then((r) => r.json()).catch(() => []),
-      fetch('/api/bookings?limit=500').then((r) => r.json()).catch(() => ({ bookings: [] })),
-    ]).then(([m, b]) => {
+    fetch('/api/cleaners').then((r) => r.json()).catch(() => []).then((m) => {
       setMembers(Array.isArray(m) ? m : [])
-      setBookings((b?.bookings || []) as Booking[])
       setLoading(false)
     })
     fetch('/api/service-area')
@@ -253,40 +242,25 @@ export default function TeamPage() {
     }
   }
 
+  // jobs_this_week/hours_this_week/ltv_total_cents now come pre-computed from
+  // GET /api/cleaners (scoped, bounded queries server-side) rather than being
+  // derived here from the old unbounded /api/bookings?limit=500 fetch, which
+  // on a tenant with thousands of bookings (recurring generation runs years
+  // ahead) returned only far-future rows sorted by start_time DESC —
+  // containing zero completed jobs, so every member showed 0 regardless of
+  // real activity.
   const enriched: EnrichedMember[] = useMemo(() => {
-    const now = new Date()
-    const dayIdx = (now.getDay() + 6) % 7
-    const monday = new Date(now)
-    monday.setHours(0, 0, 0, 0)
-    monday.setDate(monday.getDate() - dayIdx)
-    const sunday = new Date(monday)
-    sunday.setDate(sunday.getDate() + 7)
     const targetHours = 40
-
-    return members.map((m) => {
-      const memberBookings = bookings.filter((b) => b.team_member_id === m.id)
-      const weekBookings = memberBookings.filter((b) => {
-        const t = new Date(b.start_time).getTime()
-        return t >= monday.getTime() && t < sunday.getTime()
-      })
-      const hours = weekBookings.reduce((s, b) => {
-        const start = new Date(b.start_time).getTime()
-        const end = b.end_time ? new Date(b.end_time).getTime() : start + 3 * 3_600_000
-        return s + Math.max(0.5, (end - start) / 3_600_000)
-      }, 0)
-      const ltv = memberBookings
-        .filter((b) => b.status === 'completed')
-        .reduce((s, b) => s + Number(b.price || 0), 0)
-
-      return {
+    return members
+      .map((m) => ({
         ...m,
-        jobs_this_week: weekBookings.length,
-        hours_this_week: Math.round(hours * 10) / 10,
-        utilization_pct: Math.round((hours / targetHours) * 100),
-        ltv_total_cents: ltv,
-      }
-    }).sort((a, b) => b.utilization_pct - a.utilization_pct)
-  }, [members, bookings])
+        jobs_this_week: m.jobs_this_week ?? 0,
+        hours_this_week: m.hours_this_week ?? 0,
+        ltv_total_cents: m.ltv_total_cents ?? 0,
+        utilization_pct: Math.round(((m.hours_this_week ?? 0) / targetHours) * 100),
+      }))
+      .sort((a, b) => b.utilization_pct - a.utilization_pct)
+  }, [members])
 
   const stats = useMemo(() => {
     const active = enriched.filter((m) => (m.status || 'active') !== 'inactive').length
