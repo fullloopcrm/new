@@ -172,6 +172,7 @@ async function logZeroContactFanout(
       bookingId ? `booking=${bookingId}` : '',
     ].filter(Boolean).join(' | ')
     await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+      tenant_id: '00000000-0000-0000-0000-000000000001', // nycmaid — see src/lib/nycmaid/sms.ts NYCMAID_TENANT_ID note
       type: 'comms_fail',
       title: `Zero ${channel} contacts for client`,
       message: `${channel} fan-out found no contacts — ${ctx}`,
