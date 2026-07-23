@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { getCommPrefs } from '@/lib/comms-prefs'
+import { etHour, etToday, addCalendarDays, formatNaiveET, nowNaiveET } from '@/lib/recurring'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -39,7 +41,14 @@ export async function GET(request: Request) {
       // TEAM MEMBER CONFIRMATION — Resend hourly until confirmed
       // For jobs in the next 48 hours with no team confirmation
       // ============================================
-      const twoDaysAhead = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+      // bookings.start_time is a naive America/New_York wall-clock column.
+      // Postgres's session TimeZone is UTC, so a real-UTC-instant boundary
+      // like now.toISOString() gets its DIGITS compared literally against
+      // the naive column — silently reading "now" as up to 4-5h later than
+      // it really is in ET. nowNaiveET() produces the ET wall-clock digits
+      // the column actually uses, with 'Z' only to satisfy ISO parsing.
+      const nowNaiveBound = `${nowNaiveET()}Z`
+      const twoDaysAheadNaiveBound = `${nowNaiveET(48 * 60 * 60 * 1000)}Z`
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
@@ -47,8 +56,8 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', twoDaysAhead.toISOString())
+        .gte('start_time', nowNaiveBound)
+        .lte('start_time', twoDaysAheadNaiveBound)
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
 
@@ -152,28 +161,29 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
+      // CLIENT DAY-BEFORE CONFIRMATION — 1pm ET the day before
       // ============================================
-      if (now.getHours() === 13 && clientConfirmOn) {
-        const tomorrowStart = new Date(now)
-        tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-        tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart)
-        tomorrowEnd.setHours(23, 59, 59, 999)
+      // now.getHours() reads the SERVER's local hour (UTC on Vercel), so this
+      // gate used to fire at 1pm UTC (9am EDT / 8am EST), not 1pm ET as
+      // intended. etHour() reads the real ET wall-clock hour instead.
+      if (etHour(now) === 13 && clientConfirmOn) {
+        const tomorrowCal = addCalendarDays(etToday(), 1)
+        const tomorrowStartBound = `${formatNaiveET(tomorrowCal)}Z`
+        const tomorrowEndBound = `${formatNaiveET(tomorrowCal, 23, 59, 59)}Z`
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStartBound)
+          .lte('start_time', tomorrowEndBound)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingTomorrowConfirm[]>()
 
         for (const booking of tomorrowBookings || []) {
           const client = booking.clients
-          if (!client?.phone) continue
+          if (!client || !booking.client_id) continue
 
           // Check if already sent confirmation for this booking
           const { data: alreadySent } = await supabaseAdmin
@@ -193,13 +203,11 @@ export async function GET(request: Request) {
           const smsBody = `${tenant.name}: Hi ${firstName}, just confirming your appointment tomorrow at ${time} with ${memberFirst}. Reply YES to confirm or call us to reschedule.\nReply STOP to opt out.`
 
           try {
-            await sendSMS({
-              to: client.phone,
-              body: smsBody,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
-            })
-            sent++
+            // Fans out to every contact on this client with receives_sms=true
+            // (client_contacts), not just the single clients.phone value.
+            const result = await sendClientSMS(tenant, booking.client_id, smsBody)
+            sent += result.sent
+            if (result.sent === 0) failed++
           } catch (smsErr) {
             failed++
             errors.push(`Client confirm SMS to ${client.name} (${tenantId}): ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)

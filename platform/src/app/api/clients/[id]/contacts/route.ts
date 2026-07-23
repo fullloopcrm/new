@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
-import { normalizePhone } from '@/lib/nycmaid/client-contacts'
+import { normalizePhone } from '@/lib/client-contacts'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // FL auth (replaces legacy admin_session): authenticates the caller + scopes

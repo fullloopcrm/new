@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
-import { normalizePhone } from '@/lib/nycmaid/client-contacts'
+import { normalizePhone } from '@/lib/client-contacts'
 
 const ALLOWED = ['name', 'role', 'phone', 'email', 'is_primary', 'receives_sms', 'receives_email']
 
