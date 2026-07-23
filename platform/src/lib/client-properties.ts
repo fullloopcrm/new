@@ -207,7 +207,7 @@ export async function resolveProperty(
 export async function listProperties(clientId: string) {
   const { data } = await supabaseAdmin
     .from('client_properties')
-    .select('id, label, address, unit, is_primary, active, created_at')
+    .select('id, label, address, unit, is_primary, active, created_at, phone, sms_ok, email_ok, call_ok')
     .eq('client_id', clientId)
     .eq('active', true)
     .order('is_primary', { ascending: false })
@@ -219,11 +219,28 @@ export async function listProperties(clientId: string) {
 export async function addProperty(
   clientId: string,
   rawAddress: string,
-  opts: { unit?: string | null; label?: string | null; makePrimary?: boolean; actor?: ChangeActor } = {}
+  opts: {
+    unit?: string | null
+    label?: string | null
+    makePrimary?: boolean
+    actor?: ChangeActor
+    phone?: string | null
+    smsOk?: boolean
+    emailOk?: boolean
+    callOk?: boolean
+  } = {}
 ): Promise<PropertyRef | null> {
   const existing = await resolveProperty(clientId, rawAddress, opts.unit, opts.actor ?? { changedBy: 'client', source: 'portal' })
   if (existing && opts.label) {
     await supabaseAdmin.from('client_properties').update({ label: opts.label }).eq('id', existing.id)
+  }
+  if (existing && (opts.phone !== undefined || opts.smsOk !== undefined || opts.emailOk !== undefined || opts.callOk !== undefined)) {
+    const commPatch: Record<string, unknown> = {}
+    if (opts.phone !== undefined) commPatch.phone = opts.phone
+    if (opts.smsOk !== undefined) commPatch.sms_ok = opts.smsOk
+    if (opts.emailOk !== undefined) commPatch.email_ok = opts.emailOk
+    if (opts.callOk !== undefined) commPatch.call_ok = opts.callOk
+    await supabaseAdmin.from('client_properties').update(commPatch).eq('id', existing.id)
   }
   if (existing && opts.makePrimary) {
     await setPrimaryProperty(clientId, existing.id, opts.actor)
@@ -235,7 +252,15 @@ export async function addProperty(
 export async function updateProperty(
   clientId: string,
   propertyId: string,
-  patch: { address?: string; unit?: string | null; label?: string | null },
+  patch: {
+    address?: string
+    unit?: string | null
+    label?: string | null
+    phone?: string | null
+    sms_ok?: boolean
+    email_ok?: boolean
+    call_ok?: boolean
+  },
   actor?: ChangeActor
 ): Promise<PropertyRef | null> {
   const { data: before } = await supabaseAdmin
@@ -254,6 +279,10 @@ export async function updateProperty(
   if (patch.address != null) next.address = combine(patch.address, nextUnit)
   if (patch.unit !== undefined) next.unit = patch.unit
   if (patch.label !== undefined) next.label = patch.label
+  if (patch.phone !== undefined) next.phone = patch.phone
+  if (patch.sms_ok !== undefined) next.sms_ok = patch.sms_ok
+  if (patch.email_ok !== undefined) next.email_ok = patch.email_ok
+  if (patch.call_ok !== undefined) next.call_ok = patch.call_ok
   if (Object.keys(next).length === 0) return before as PropertyRef
 
   // Address changed → clear stale coords (re-geocoded on demand by the scheduler).

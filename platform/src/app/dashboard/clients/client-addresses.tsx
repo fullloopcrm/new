@@ -8,6 +8,10 @@ interface Property {
   address: string
   unit: string | null
   is_primary: boolean
+  phone: string | null
+  sms_ok: boolean
+  email_ok: boolean
+  call_ok: boolean
 }
 
 interface ChangeRow {
@@ -30,10 +34,12 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
   const [adding, setAdding] = useState(false)
   const [newAddress, setNewAddress] = useState('')
   const [newUnit, setNewUnit] = useState('')
+  const [newPhone, setNewPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAddress, setEditAddress] = useState('')
+  const [editPhone, setEditPhone] = useState('')
 
   const load = useCallback(async () => {
     if (!clientId) return
@@ -52,11 +58,11 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null }),
+      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null, phone: newPhone.trim() || null }),
     })
     setBusy(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
-    setNewAddress(''); setNewUnit(''); setAdding(false)
+    setNewAddress(''); setNewUnit(''); setNewPhone(''); setAdding(false)
     load()
   }
 
@@ -66,7 +72,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ property_id: id, address: editAddress.trim() }),
+      body: JSON.stringify({ property_id: id, address: editAddress.trim(), phone: editPhone.trim() || null }),
     })
     setBusy(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Failed to save'); return }
@@ -83,6 +89,17 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     })
     setBusy(false)
     load()
+  }
+
+  // Optimistic per-address comm toggle — flips locally so the checkbox
+  // doesn't visibly lag, then persists; a full reload confirms on the next load().
+  async function toggleComm(propertyId: string, field: 'sms_ok' | 'email_ok' | 'call_ok', value: boolean) {
+    setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, [field]: value } : p)))
+    await fetch(`/api/clients/${clientId}/properties`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ property_id: propertyId, [field]: value }),
+    })
   }
 
   if (loading) return null
@@ -112,6 +129,12 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                     style={fieldStyle}
                     placeholder="Street, city, state, ZIP, unit"
                   />
+                  <input
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    style={fieldStyle}
+                    placeholder="Phone for this address (optional)"
+                  />
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" disabled={busy} className="clients-btn clients-btn-primary" onClick={() => saveEdit(p.id)}>
                       {busy ? 'Saving…' : 'Save'}
@@ -120,32 +143,53 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <div style={{ fontSize: 13, color: 'var(--clients-ink)' }}>
-                    {p.address}
-                    {p.is_primary && (
-                      <span style={{ marginLeft: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 6px', borderRadius: 3, background: 'var(--clients-bg)', color: 'var(--clients-muted)' }}>
-                        Primary
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: 'var(--clients-ink)' }}>
+                      {p.address}
+                      {p.is_primary && (
+                        <span style={{ marginLeft: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 6px', borderRadius: 3, background: 'var(--clients-bg)', color: 'var(--clients-muted)' }}>
+                          Primary
+                        </span>
+                      )}
+                      {p.phone && (
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--clients-muted)', marginTop: 2 }}>{p.phone}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+                      {!p.is_primary && (
+                        <span className="clients-section-action" role="button" tabIndex={0} onClick={() => patch(p.id, 'set_primary')}>Make primary</span>
+                      )}
+                      <span
+                        className="clients-section-action"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setEditingId(p.id); setEditAddress(p.address); setEditPhone(p.phone || ''); setError('') }}
+                      >
+                        Edit
                       </span>
-                    )}
+                      {!p.is_primary && properties.length > 1 && (
+                        <span className="clients-section-action" style={{ color: 'var(--clients-danger)' }} role="button" tabIndex={0} onClick={() => patch(p.id, 'deactivate')}>
+                          Remove
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
-                    {!p.is_primary && (
-                      <span className="clients-section-action" role="button" tabIndex={0} onClick={() => patch(p.id, 'set_primary')}>Make primary</span>
-                    )}
-                    <span
-                      className="clients-section-action"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => { setEditingId(p.id); setEditAddress(p.address); setError('') }}
-                    >
-                      Edit
-                    </span>
-                    {!p.is_primary && properties.length > 1 && (
-                      <span className="clients-section-action" style={{ color: 'var(--clients-danger)' }} role="button" tabIndex={0} onClick={() => patch(p.id, 'deactivate')}>
-                        Remove
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+                    {([
+                      ['sms_ok', 'SMS'],
+                      ['email_ok', 'Email'],
+                      ['call_ok', 'Call'],
+                    ] as const).map(([field, fieldLabel]) => (
+                      <label key={field} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--clients-muted)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={p[field]}
+                          onChange={(e) => toggleComm(p.id, field, e.target.checked)}
+                        />
+                        {fieldLabel}
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
@@ -163,6 +207,10 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Apt / unit (optional)</span>
             <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} style={fieldStyle} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={labelStyle}>Phone for this address (optional)</span>
+            <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} style={fieldStyle} placeholder="Leave blank to use the client's main phone" />
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" disabled={busy} className="clients-btn clients-btn-primary" onClick={add}>{busy ? 'Adding…' : 'Add'}</button>

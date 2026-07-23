@@ -68,6 +68,10 @@ export async function POST(
     label: body.label || null,
     makePrimary: body.make_primary === true,
     actor: { changedBy: 'admin', actorId: 'admin', source: 'admin' },
+    phone: body.phone !== undefined ? (body.phone || null) : undefined,
+    smsOk: typeof body.sms_ok === 'boolean' ? body.sms_ok : undefined,
+    emailOk: typeof body.email_ok === 'boolean' ? body.email_ok : undefined,
+    callOk: typeof body.call_ok === 'boolean' ? body.call_ok : undefined,
   })
   if (!property) return NextResponse.json({ error: 'Failed to add address' }, { status: 500 })
   return NextResponse.json({ property })
@@ -102,7 +106,15 @@ export async function PATCH(
   const updated = await updateProperty(
     clientId,
     propertyId,
-    { address: body.address, unit: body.unit, label: body.label },
+    {
+      address: body.address,
+      unit: body.unit,
+      label: body.label,
+      phone: body.phone !== undefined ? (body.phone || null) : undefined,
+      sms_ok: typeof body.sms_ok === 'boolean' ? body.sms_ok : undefined,
+      email_ok: typeof body.email_ok === 'boolean' ? body.email_ok : undefined,
+      call_ok: typeof body.call_ok === 'boolean' ? body.call_ok : undefined,
+    },
     actor
   )
   if (!updated) return NextResponse.json({ error: 'Failed to update address' }, { status: 500 })

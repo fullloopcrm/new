@@ -95,4 +95,26 @@ describe('updateProperty', () => {
     expect(patchSent.address).toBe('456 New St, Apt 4B')
     expect(patchSent.unit).toBeUndefined()
   })
+
+  it('passes per-address phone + comm-pref toggles straight through to the update patch', async () => {
+    const before: Row = {
+      id: 'prop-1',
+      address: '123 Old St, Apt 4B',
+      unit: 'Apt 4B',
+      label: null,
+      latitude: 1,
+      longitude: 2,
+    }
+    const updateSpy = mockClientPropertiesFlow(before)
+
+    await updateProperty('client-1', 'prop-1', { phone: '212-555-0100', sms_ok: false, email_ok: true, call_ok: false })
+
+    const patchSent = updateSpy.mock.calls[0][0]
+    expect(patchSent.phone).toBe('212-555-0100')
+    expect(patchSent.sms_ok).toBe(false)
+    expect(patchSent.email_ok).toBe(true)
+    expect(patchSent.call_ok).toBe(false)
+    // address/unit untouched when not part of this patch
+    expect(patchSent.address).toBeUndefined()
+  })
 })
