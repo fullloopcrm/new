@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import '../bookings/schedule.css'
+import CalendarTimeGrid from './CalendarTimeGrid'
+import { BookingPopup, DayEventsPopup } from './CalendarPopups'
+import {
+  type CalendarEvent, type CalendarDay, fmtTime, fmtMoney, ymdToday,
+  addDays, addMonths, weekDatesFor, dayLabel,
+} from './calendar-shared'
 
 // Extracted from bookings/page.tsx's Calendar tab (the richer month view: stats
 // outlook, Selena query, conflict banner, team load bar, day grid, and the
@@ -20,28 +25,6 @@ const TEAM_COLORS = [
   'var(--sched-team-7)', 'var(--sched-team-8)', 'var(--sched-team-9)',
 ]
 
-type CalendarEvent = {
-  id: string
-  start: string
-  end: string | null
-  client: string
-  team_member_id: string | null
-  team_member_name: string | null
-  status: string
-  payment_status: string | null
-  service_type: string | null
-  price_cents: number
-  conflict: boolean
-  tight: boolean
-}
-type CalendarDay = {
-  date: string
-  events: CalendarEvent[]
-  jobs_count: number
-  has_conflict: boolean
-  is_idle: boolean
-  heat: 'none' | 'low' | 'mid' | 'high' | 'max'
-}
 type ApiTeam = { id: string; name: string; status: string | null }
 type CalendarData = {
   month: string
@@ -72,27 +55,6 @@ type CalendarData = {
   }
 }
 
-function fmtTime(iso: string): string {
-  const d = new Date(iso)
-  const h = d.getHours()
-  const m = d.getMinutes()
-  const period = h >= 12 ? 'p' : 'a'
-  const h12 = h % 12 || 12
-  if (m === 0) return `${h12}${period}`
-  return `${h12}:${String(m).padStart(2, '0')}${period}`
-}
-function fmtMoney(cents: number): string {
-  return '$' + Math.round(cents / 100).toLocaleString('en-US')
-}
-function ymdToday(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split('-').map((x) => parseInt(x, 10))
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
 function monthLabel(month: string): { name: string; year: string } {
   const [y, m] = month.split('-').map((x) => parseInt(x, 10))
   const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -100,22 +62,31 @@ function monthLabel(month: string): { name: string; year: string } {
 }
 
 export default function RichMonthView() {
-  const router = useRouter()
   const worker = useWorkerLabel()
   const { tenant } = useTenantSettings()
   const agentName = (tenant?.agent_name as string) || 'Selena'
   const [data, setData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [month, setMonth] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+  // Single source of truth for "what day is focused" — Month/Week/Day nav all
+  // move this one date (by month, by week, by day respectively) and the
+  // fetched month is always derived from it. A focused day's own calendar
+  // month always contains that day's whole Mon-Sun week (the API pads the
+  // grid to full weeks), so Week/Day never need a second fetch.
+  const [anchorDate, setAnchorDate] = useState(() => ymdToday())
+  const month = useMemo(() => anchorDate.slice(0, 7), [anchorDate])
+  const [innerView, setInnerView] = useState<'month' | 'week' | 'day'>('month')
   const [teamFilter, setTeamFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<Set<string>>(
     new Set(['pending', 'scheduled', 'in_progress', 'completed']),
   )
   const [overlays, setOverlays] = useState({ conflicts: true, travel: true, recurring: false, idle: true })
   const [calScale, setCalScale] = useState(1)
+  // How many jobs render side-by-side within a single day before the rest
+  // collapse into "+N more" — applies to Month's day cells and to each day
+  // column in Week/Day.
+  const [columns, setColumns] = useState<1 | 2>(1)
+  const [popupEvent, setPopupEvent] = useState<{ event: CalendarEvent; date: string } | null>(null)
+  const [dayPopupDate, setDayPopupDate] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -125,6 +96,12 @@ export default function RichMonthView() {
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [month])
+
+  function shiftFocus(delta: number) {
+    if (innerView === 'month') setAnchorDate((cur) => addMonths(cur, delta))
+    else if (innerView === 'week') setAnchorDate((cur) => addDays(cur, delta * 7))
+    else setAnchorDate((cur) => addDays(cur, delta))
+  }
 
   const teamColorById = useMemo(() => {
     const map = new Map<string, string>()
@@ -155,6 +132,21 @@ export default function RichMonthView() {
       .flatMap((d) => d.events.map((e) => ({ ...e, date: d.date })))
       .sort((a, b) => a.start.localeCompare(b.start))
   }, [filteredDays, month])
+
+  const dayByDate = useMemo(() => new Map(filteredDays.map((d) => [d.date, d])), [filteredDays])
+  const emptyDay = (date: string): CalendarDay => ({ date, events: [], jobs_count: 0, has_conflict: false, is_idle: false, heat: 'none' })
+  const weekDays = useMemo(
+    () => (innerView === 'week' ? weekDatesFor(anchorDate).map((date) => dayByDate.get(date) || emptyDay(date)) : []),
+    [innerView, anchorDate, dayByDate],
+  )
+  const dayViewDays = useMemo(
+    () => (innerView === 'day' ? [dayByDate.get(anchorDate) || emptyDay(anchorDate)] : []),
+    [innerView, anchorDate, dayByDate],
+  )
+  function colorForEvent(ev: CalendarEvent): string {
+    return ev.team_member_id ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)' : 'var(--sched-ink)'
+  }
+  const dayPopupDay = dayPopupDate ? dayByDate.get(dayPopupDate) || emptyDay(dayPopupDate) : null
 
   function toggleStatus(s: string) {
     const next = new Set(statusFilter)
@@ -249,28 +241,28 @@ export default function RichMonthView() {
           {/* CALENDAR TOOLBAR */}
           <div className="sched-cal-toolbar">
             <div className="sched-cal-nav">
-              <button className="sched-cal-nav-btn" type="button" onClick={() => setMonth(shiftMonth(month, -1))}>‹</button>
-              <button
-                className="sched-cal-nav-btn today"
-                type="button"
-                onClick={() => {
-                  const d = new Date()
-                  setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-                }}
-              >
-                Today
-              </button>
-              <button className="sched-cal-nav-btn" type="button" onClick={() => setMonth(shiftMonth(month, 1))}>›</button>
+              <button className="sched-cal-nav-btn" type="button" onClick={() => shiftFocus(-1)}>‹</button>
+              <button className="sched-cal-nav-btn today" type="button" onClick={() => setAnchorDate(ymdToday())}>Today</button>
+              <button className="sched-cal-nav-btn" type="button" onClick={() => shiftFocus(1)}>›</button>
             </div>
             <div className="sched-cal-month">
-              {ml.name} <em>{ml.year}</em>
+              {innerView === 'month' && <>{ml.name} <em>{ml.year}</em></>}
+              {innerView === 'week' && (() => {
+                const wd = weekDatesFor(anchorDate)
+                return <>{dayLabel(wd[0], { month: 'short', day: 'numeric' })} – {dayLabel(wd[6], { month: 'short', day: 'numeric' })} <em>{ml.year}</em></>
+              })()}
+              {innerView === 'day' && <>{dayLabel(anchorDate, { weekday: 'long', month: 'short', day: 'numeric' })} <em>{ml.year}</em></>}
             </div>
             <div className="sched-view-toggle">
-              <button className="sched-view-btn active" type="button">Month</button>
-              <button className="sched-view-btn" type="button" disabled title="Not built yet">Week</button>
-              <button className="sched-view-btn" type="button" disabled title="Not built yet">Day</button>
+              <button className={`sched-view-btn ${innerView === 'month' ? 'active' : ''}`} type="button" onClick={() => setInnerView('month')}>Month</button>
+              <button className={`sched-view-btn ${innerView === 'week' ? 'active' : ''}`} type="button" onClick={() => setInnerView('week')}>Week</button>
+              <button className={`sched-view-btn ${innerView === 'day' ? 'active' : ''}`} type="button" onClick={() => setInnerView('day')}>Day</button>
               <button className="sched-view-btn" type="button" disabled title="Not built yet">{worker.singular}</button>
               <button className="sched-view-btn" type="button" disabled title="Not built yet">Zone</button>
+            </div>
+            <div className="sched-cal-columns" role="group" aria-label="Jobs shown per day before summarizing">
+              <button className={`sched-cal-columns-btn ${columns === 1 ? 'active' : ''}`} type="button" onClick={() => setColumns(1)} title="1 column per day">1 col</button>
+              <button className={`sched-cal-columns-btn ${columns === 2 ? 'active' : ''}`} type="button" onClick={() => setColumns(2)} title="2 columns per day">2 col</button>
             </div>
             <div className="sched-cal-zoom">
               <button className="sched-cal-zoom-btn" type="button" onClick={() => setCalScale(s => Math.max(0.75, +(s - 0.1).toFixed(2)))} aria-label="Decrease calendar font size">−</button>
@@ -337,72 +329,94 @@ export default function RichMonthView() {
           </div>
 
           {/* CALENDAR */}
-          <div className="sched-calendar" style={{ '--sched-cal-scale': calScale } as CSSProperties}>
-            <div className="sched-cal-head">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                <div key={d} className="sched-cal-head-cell">{d}</div>
-              ))}
-            </div>
-            <div className="sched-cal-grid">
-              {loading && <div className="sched-empty" style={{ gridColumn: '1 / -1' }}>Loading…</div>}
-              {!loading && filteredDays.map((day) => {
-                const dt = new Date(day.date + 'T12:00:00')
-                const inMonth = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` === month
-                const isToday = day.date === todayStr
-                const dayClasses = [
-                  'sched-cal-day',
-                  !inMonth ? 'muted' : '',
-                  isToday ? 'today' : '',
-                  day.heat === 'low' ? 'heat-low' : '',
-                  day.heat === 'mid' ? 'heat-mid' : '',
-                  day.heat === 'high' ? 'heat-high' : '',
-                  day.heat === 'max' ? 'heat-max' : '',
-                ].filter(Boolean).join(' ')
-                const visible = day.events.slice(0, 3)
-                const more = day.events.length - visible.length
-                const showIdleBanner = overlays.idle && inMonth && day.is_idle && !isToday
-                return (
-                  <div key={day.date} className={dayClasses}>
-                    <div className="sched-cal-date-row">
-                      <span className="sched-cal-date">{dt.getDate()}</span>
-                      <div className="sched-cal-day-stats">
-                        {day.has_conflict && overlays.conflicts && <span className="sched-cal-day-stat warn">!</span>}
-                        {day.jobs_count > 0 && <span className="sched-cal-day-stat">{day.jobs_count}</span>}
-                        {day.is_idle && inMonth && <span className="sched-cal-day-stat idle">idle</span>}
+          {innerView === 'month' && (
+            <div className="sched-calendar" style={{ '--sched-cal-scale': calScale } as CSSProperties}>
+              <div className="sched-cal-head">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div key={d} className="sched-cal-head-cell">{d}</div>
+                ))}
+              </div>
+              <div className="sched-cal-grid">
+                {loading && <div className="sched-empty" style={{ gridColumn: '1 / -1' }}>Loading…</div>}
+                {!loading && filteredDays.map((day) => {
+                  const dt = new Date(day.date + 'T12:00:00')
+                  const inMonth = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` === month
+                  const isToday = day.date === todayStr
+                  const dayClasses = [
+                    'sched-cal-day',
+                    !inMonth ? 'muted' : '',
+                    isToday ? 'today' : '',
+                    day.heat === 'low' ? 'heat-low' : '',
+                    day.heat === 'mid' ? 'heat-mid' : '',
+                    day.heat === 'high' ? 'heat-high' : '',
+                    day.heat === 'max' ? 'heat-max' : '',
+                  ].filter(Boolean).join(' ')
+                  const maxVisible = columns * 3
+                  const visible = day.events.slice(0, maxVisible)
+                  const more = day.events.length - visible.length
+                  const showIdleBanner = overlays.idle && inMonth && day.is_idle && !isToday
+                  return (
+                    <div key={day.date} className={dayClasses}>
+                      <div className="sched-cal-date-row">
+                        <span className="sched-cal-date">{dt.getDate()}</span>
+                        <div className="sched-cal-day-stats">
+                          {day.has_conflict && overlays.conflicts && <span className="sched-cal-day-stat warn">!</span>}
+                          {day.jobs_count > 0 && <span className="sched-cal-day-stat">{day.jobs_count}</span>}
+                          {day.is_idle && inMonth && <span className="sched-cal-day-stat idle">idle</span>}
+                        </div>
                       </div>
-                    </div>
-                    <div className="sched-cal-events">
-                      {visible.map((ev) => {
-                        const color = ev.team_member_id
-                          ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)'
-                          : 'var(--sched-ink)'
-                        const cls = [
-                          'sched-cal-event',
-                          ev.conflict && overlays.conflicts ? 'conflict' : '',
-                          ev.tight && overlays.travel ? 'tight' : '',
-                        ].filter(Boolean).join(' ')
-                        return (
-                          <div
-                            key={ev.id}
-                            className={cls}
-                            style={{ background: color, cursor: 'pointer' }}
-                            onClick={() => router.push(`/dashboard/bookings/${ev.id}`)}
-                          >
-                            <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {ev.client}{ev.team_member_id ? '' : ' · ?'}
-                            </span>
+                      <div className={`sched-cal-events ${columns === 2 ? 'cols-2' : ''}`}>
+                        {visible.map((ev) => {
+                          const color = colorForEvent(ev)
+                          const cls = [
+                            'sched-cal-event',
+                            ev.conflict && overlays.conflicts ? 'conflict' : '',
+                            ev.tight && overlays.travel ? 'tight' : '',
+                          ].filter(Boolean).join(' ')
+                          return (
+                            <div
+                              key={ev.id}
+                              className={cls}
+                              style={{ background: color, cursor: 'pointer' }}
+                              onClick={() => setPopupEvent({ event: ev, date: day.date })}
+                            >
+                              <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {ev.client}{ev.team_member_id ? '' : ' · ?'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        {more > 0 && (
+                          <div className="sched-cal-event-more" onClick={() => setDayPopupDate(day.date)}>
+                            +{more} more
                           </div>
-                        )
-                      })}
-                      {more > 0 && <div className="sched-cal-event-more">+{more} more</div>}
+                        )}
+                      </div>
+                      {showIdleBanner && <div className="sched-cal-idle-banner">Open all day</div>}
                     </div>
-                    {showIdleBanner && <div className="sched-cal-idle-banner">Open all day</div>}
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
+
+          {(innerView === 'week' || innerView === 'day') && (
+            <div className="sched-calendar" style={{ '--sched-cal-scale': calScale } as CSSProperties}>
+              {loading ? (
+                <div className="sched-empty" style={{ padding: '24px 0', textAlign: 'center' }}>Loading…</div>
+              ) : (
+                <CalendarTimeGrid
+                  days={innerView === 'week' ? weekDays : dayViewDays}
+                  todayStr={todayStr}
+                  columns={columns}
+                  colorFor={colorForEvent}
+                  onSelectEvent={(event, date) => setPopupEvent({ event, date })}
+                  onOverflow={(date) => setDayPopupDate(date)}
+                />
+              )}
+            </div>
+          )}
 
           {/* MONTH JOBS — LIST VIEW */}
           <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
@@ -415,13 +429,11 @@ export default function RichMonthView() {
             ) : (
               <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
                 {monthJobsList.map((ev) => {
-                  const color = ev.team_member_id
-                    ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)'
-                    : 'var(--sched-ink)'
+                  const color = colorForEvent(ev)
                   return (
                     <div
                       key={ev.id}
-                      onClick={() => router.push(`/dashboard/bookings/${ev.id}`)}
+                      onClick={() => setPopupEvent({ event: ev, date: ev.date })}
                       className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50"
                     >
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -519,6 +531,27 @@ export default function RichMonthView() {
           </div>
         </aside>
       </div>
+
+      {popupEvent && (
+        <BookingPopup
+          event={popupEvent.event}
+          date={popupEvent.date}
+          color={colorForEvent(popupEvent.event)}
+          onClose={() => setPopupEvent(null)}
+        />
+      )}
+      {dayPopupDay && (
+        <DayEventsPopup
+          date={dayPopupDay.date}
+          events={dayPopupDay.events}
+          colorFor={colorForEvent}
+          onSelect={(event) => {
+            setPopupEvent({ event, date: dayPopupDay.date })
+            setDayPopupDate(null)
+          }}
+          onClose={() => setDayPopupDate(null)}
+        />
+      )}
     </div>
   )
 }

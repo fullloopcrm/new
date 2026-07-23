@@ -389,6 +389,30 @@
 .sched-view-btn.active { background: var(--sched-ink); color: var(--sched-canvas); }
 .sched-view-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* 1 vs 2 columns of jobs per day (Month's day cells, Week/Day's day columns) */
+.sched-cal-columns {
+  display: inline-flex;
+  border: 1px solid var(--sched-line);
+  border-radius: 4px;
+  background: var(--sched-canvas);
+  overflow: hidden;
+}
+.sched-cal-columns-btn {
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sched-mono);
+  font-size: 10.5px;
+  color: var(--sched-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-right: 1px solid var(--sched-line);
+}
+.sched-cal-columns-btn:last-child { border-right: none; }
+.sched-cal-columns-btn:hover { color: var(--sched-ink); }
+.sched-cal-columns-btn.active { background: var(--sched-ink); color: var(--sched-canvas); }
+
 .sched-overlay-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
 .sched-overlay-label {
   font-family: var(--sched-mono);
@@ -527,7 +551,12 @@
   border-right: 1px solid var(--sched-line-soft);
   border-bottom: 1px solid var(--sched-line-soft);
   padding: 6px 7px 5px;
-  min-height: 132px;
+  /* Fixed (not min-) height so the font-size zoom control (--sched-cal-scale)
+     never changes the grid's footprint — larger text clips inside the cell
+     instead of growing the row. Cap event chips (see cols-2 below) plus
+     overflow:hidden are what keeps that promise as scale increases. */
+  height: 132px;
+  overflow: hidden;
   position: relative;
   cursor: pointer;
   display: flex;
@@ -578,7 +607,9 @@
 }
 .sched-cal-day-stat.warn { color: var(--sched-warn); background: rgba(139,69,19,0.1); }
 .sched-cal-day-stat.idle { color: var(--sched-good); background: rgba(31,77,44,0.08); }
-.sched-cal-events { display: flex; flex-direction: column; gap: 2px; }
+.sched-cal-events { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; }
+.sched-cal-events.cols-2 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row; align-content: start; }
+.sched-cal-events.cols-2 .sched-cal-event-more { grid-column: 1 / -1; }
 .sched-cal-event {
   font-size: calc(10.5px * var(--sched-cal-scale, 1));
   padding: 2px 6px;
@@ -645,6 +676,104 @@
   cursor: pointer;
 }
 .sched-cal-idle-banner::before { content: '+ '; }
+
+/* WEEK / DAY — hour-positioned time grid (CalendarTimeGrid.tsx) */
+.sched-timegrid { border: 1px solid var(--sched-line); border-radius: 4px; background: var(--sched-canvas); overflow: hidden; }
+.sched-timegrid-head {
+  display: grid;
+  background: var(--sched-bg);
+  border-bottom: 1px solid var(--sched-ink);
+}
+.sched-timegrid-head-cell {
+  padding: 8px 6px;
+  text-align: center;
+  border-left: 1px solid var(--sched-line-soft);
+}
+.sched-timegrid-head-cell.today { background: rgba(28,28,28,0.04); }
+.sched-timegrid-head-dow {
+  display: block;
+  font-family: var(--sched-mono);
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sched-muted);
+  font-weight: 600;
+}
+.sched-timegrid-head-date {
+  display: block;
+  font-family: var(--sched-mono);
+  font-size: calc(13px * var(--sched-cal-scale, 1));
+  color: var(--sched-ink);
+  font-weight: 500;
+  margin-top: 2px;
+}
+.sched-timegrid-body { display: grid; position: relative; overflow-x: auto; }
+.sched-timegrid-hours { position: relative; border-right: 1px solid var(--sched-line-soft); }
+.sched-timegrid-hour-label {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-family: var(--sched-mono);
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
+  color: var(--sched-muted-2);
+}
+.sched-timegrid-col {
+  position: relative;
+  border-left: 1px solid var(--sched-line-soft);
+}
+.sched-timegrid-col.today { background: rgba(28,28,28,0.02); }
+.sched-timegrid-gridline { position: absolute; left: 0; right: 0; height: 1px; background: var(--sched-line-soft); }
+.sched-timegrid-event {
+  position: absolute;
+  border-radius: 3px;
+  color: #fff;
+  padding: 3px 6px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+.sched-timegrid-event:hover { opacity: 0.88; }
+.sched-timegrid-event.conflict { box-shadow: inset 0 0 0 1.5px var(--sched-danger); }
+.sched-timegrid-event-time {
+  font-family: var(--sched-mono);
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
+  opacity: 0.85;
+}
+.sched-timegrid-event-client {
+  font-size: calc(11px * var(--sched-cal-scale, 1));
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sched-timegrid-overflow {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  text-align: center;
+  font-family: var(--sched-mono);
+  font-size: calc(9.5px * var(--sched-cal-scale, 1));
+  color: var(--sched-muted);
+  background: var(--sched-bg);
+  border: 1px dashed var(--sched-line);
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.sched-timegrid-overflow:hover { color: var(--sched-ink); }
+.sched-timegrid-empty {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: calc(11px * var(--sched-cal-scale, 1));
+  color: var(--sched-muted-2);
+}
 
 /* RIGHT PANEL */
 .sched-ops-panel { display: flex; flex-direction: column; gap: 18px; }
