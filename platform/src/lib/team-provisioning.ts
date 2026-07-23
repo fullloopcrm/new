@@ -12,6 +12,7 @@ export type ApprovedApplication = {
   email: string | null
   phone: string | null
   address: string | null
+  photo_url?: string | null
 }
 
 /**
@@ -60,6 +61,10 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       email: app.email || null,
       phone: cleanPhone || null,
       address: app.address || null,
+    }
+    if (app.photo_url) {
+      base.photo_url = app.photo_url
+      base.avatar_url = app.photo_url
     }
     if (settings.default_pay_rate > 0) {
       base.pay_rate = settings.default_pay_rate
