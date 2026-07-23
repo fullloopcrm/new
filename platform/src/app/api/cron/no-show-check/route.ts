@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -22,7 +23,16 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
-  const cutoff = new Date(Date.now() - GRACE_MINUTES * 60 * 1000)
+  // bookings.start_time is a naive America/New_York wall-clock column (no
+  // timezone suffix). A real UTC instant's .toISOString() compares its DIGITS
+  // literally against that naive column, so "45 minutes ago" was read as
+  // 45 minutes before UTC-now — 4-5 hours later than ET-now. A 10am ET booking
+  // was flipping to no-show at 6:45am ET, blaming team members who weren't
+  // even late yet. Use the naive ET digits (with a bare 'Z' so Postgres's
+  // UTC-session cast echoes them back unchanged) instead, same fix already
+  // applied to the other naive-start_time crons (confirmations/reminders).
+  const cutoffNaiveBound = `${nowNaiveET(-GRACE_MINUTES * 60 * 1000)}Z`
+  const floorNaiveBound = `${nowNaiveET(-24 * 60 * 60 * 1000)}Z`
 
   // Find candidates across all tenants in one query (tenant_id returned so
   // we can notify per tenant).
@@ -31,8 +41,8 @@ export async function GET(request: Request) {
     .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
     .is('check_in_time', null)
-    .lt('start_time', cutoff.toISOString())
-    .gt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // skip old stragglers
+    .lt('start_time', cutoffNaiveBound)
+    .gt('start_time', floorNaiveBound) // skip old stragglers
     .limit(500)
 
   if (!candidates || candidates.length === 0) {
