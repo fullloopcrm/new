@@ -87,13 +87,20 @@ describe('bookings/[id] PUT — tenantDb isolation', () => {
 })
 
 describe('bookings/[id] DELETE — tenantDb isolation', () => {
-  it("tenant A deleting its OWN same-id booking leaves tenant B's booking intact", async () => {
+  // DELETE now soft-cancels (status='cancelled') rather than removing the
+  // row — see route.cancel-and-hard-delete.test.ts for that behavior change.
+  // This still proves the same isolation property: tenant A's DELETE call
+  // only ever touches its own same-id row.
+  it("tenant A cancelling its OWN same-id booking leaves tenant B's booking intact and unmutated", async () => {
     const res = await DELETE(new Request('http://x'), paramsFor(SHARED_ID))
     expect(res.status).toBe(200)
 
-    const remaining = fake._all('bookings')
-    expect(remaining).toHaveLength(1)
-    expect(remaining[0].tenant_id).toBe(B_ID)
-    expect(remaining[0].notes).toBe('B note')
+    const all = fake._all('bookings')
+    expect(all).toHaveLength(2)
+    const aBooking = all.find((r) => r.tenant_id === A_ID)!
+    const bBooking = all.find((r) => r.tenant_id === B_ID)!
+    expect(aBooking.status).toBe('cancelled')
+    expect(bBooking.status).toBe('scheduled')
+    expect(bBooking.notes).toBe('B note')
   })
 })

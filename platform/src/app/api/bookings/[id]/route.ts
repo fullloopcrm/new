@@ -12,6 +12,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET(
   _request: Request,
@@ -302,7 +303,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { tenant, error: authError } = await requirePermission('bookings.delete')
@@ -312,8 +313,12 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
     const db = tenantDb(tenantId)
+    const url = new URL(request.url)
+    const hardDelete = url.searchParams.get('hard_delete') === 'true'
+    const cancelSeries = url.searchParams.get('cancel_series') === 'true'
+    const skipEmail = url.searchParams.get('skip_email') === 'true'
 
-    // Get booking details before deleting for notifications
+    // Get booking details before mutating, for notifications.
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast the narrow-select
     // result to the shape actually selected (see client/bookings for the same gap).
@@ -321,26 +326,69 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { status: string; schedule_id: string | null; client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
-    const { error } = await db
-      .from('bookings')
-      .delete()
-      .eq('id', id)
+    if (!booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // BookingsAdmin.tsx's row action, "Cancel booking", and "Cancel series"
+    // buttons all call this same DELETE endpoint expecting a SOFT cancel
+    // (status='cancelled') — it re-fetches this same booking right after and
+    // expects it to still exist. Only the separate "permanently delete" button
+    // (shown only once a booking is already cancelled) sends hard_delete=true.
+    // The old handler unconditionally hard-deleted every time, ignoring both
+    // params entirely — the refetch 404'd and silently corrupted the modal.
+    if (hardDelete) {
+      // Guard server-side too, not just via the UI only showing this button
+      // for already-cancelled bookings — a raw API call must not be able to
+      // permanently wipe an active booking's history.
+      if (booking.status !== 'cancelled') {
+        return NextResponse.json({ error: 'Only a cancelled booking can be permanently deleted' }, { status: 400 })
+      }
+      const { error } = await db.from('bookings').delete().eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      await audit({ tenantId, action: 'booking.hard_deleted', entityType: 'booking', entityId: id })
+      return NextResponse.json({ success: true, hard_deleted: true })
+    }
+
+    let bookingsCancelled = 1
+    if (cancelSeries && booking.schedule_id) {
+      // Same pattern as admin/recurring-schedules/[id] DELETE: pause the
+      // schedule (stop the generator from refilling it) and cancel every
+      // future not-yet-happened booking under it. start_time is naive ET, so
+      // the boundary uses the naive-digits-plus-Z convention, not a real UTC
+      // instant (see this session's cron ET/UTC sweep for why that matters).
+      await db
+        .from('recurring_schedules')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', booking.schedule_id)
+
+      const { data: cancelled, error: seriesErr } = await db
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('schedule_id', booking.schedule_id)
+        .in('status', ['scheduled', 'confirmed', 'pending'])
+        .gte('start_time', `${nowNaiveET()}Z`)
+        .select('id')
+      if (seriesErr) return NextResponse.json({ error: seriesErr.message }, { status: 500 })
+      bookingsCancelled = cancelled?.length || 0
+    } else {
+      const { error } = await db
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     // Send cancellation notifications
-    if (booking) {
+    if (booking && !skipEmail) {
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
           .select('name, telnyx_api_key, telnyx_phone')
           .eq('id', tenantId)
           .single()
-        const bizName = tenantData?.name || 'Your Business'
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
 
         // Client cancellation email — same standard template for every tenant,
@@ -358,9 +406,9 @@ export async function DELETE(
             channel: 'email',
             recipientType: 'client',
             recipientId: booking.client_id,
-            // No bookingId — the booking row is already deleted by this point
-            // (DELETE runs before this notification), so any bookingId here
-            // would violate notifications_booking_id_fkey on INSERT.
+            // The booking row now survives as status='cancelled' (soft
+            // cancel), so bookingId is safe to include here again.
+            bookingId: id,
             metadata: { clientName: booking.clients?.name },
           })
         }
@@ -387,9 +435,9 @@ export async function DELETE(
       }
     }
 
-    await audit({ tenantId, action: 'booking.deleted', entityType: 'booking', entityId: id })
+    await audit({ tenantId, action: 'booking.cancelled', entityType: 'booking', entityId: id, details: { cancel_series: cancelSeries, bookings_cancelled: bookingsCancelled } })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, cancelled: true, bookings_cancelled: bookingsCancelled })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

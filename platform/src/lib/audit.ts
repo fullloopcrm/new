@@ -4,6 +4,7 @@ type AuditAction =
   | 'client.created' | 'client.updated' | 'client.deleted' | 'client.data_exported'
   | 'client.gdpr_deletion_requested' | 'client.gdpr_deletion_cancelled' | 'client.gdpr_deletion_purged'
   | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.status_changed' | 'booking.batch_updated'
+  | 'booking.cancelled' | 'booking.hard_deleted'
   | 'team.created' | 'team.updated' | 'team.deleted' | 'team.deactivated'
   | 'schedule.created' | 'schedule.updated' | 'schedule.deleted' | 'schedule.paused'
   | 'campaign.created' | 'campaign.sent' | 'campaign.deleted'
