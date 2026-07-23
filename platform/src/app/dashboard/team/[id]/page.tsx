@@ -136,6 +136,13 @@ export default function TeamMemberDetailPage() {
   const [member, setMember] = useState<TeamMember | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [stats, setStats] = useState<{
+    jobs_completed: number
+    no_show_count: number
+    avg_rating: number | null
+    rating_count: number
+    ytd_earnings_cents: number
+  } | null>(null)
   const [application, setApplication] = useState<TeamApplication | null>(null)
   const [transportMsg, setTransportMsg] = useState('')
   const [editing, setEditing] = useState(false)
@@ -190,6 +197,7 @@ export default function TeamMemberDetailPage() {
         setHomeByTime(data.member?.home_by_time || '')
         const notesData = parseNotesData(data.member?.notes)
         if (notesData.time_off) setTimeOff(notesData.time_off)
+        if (data.stats) setStats(data.stats)
       })
       .catch((err) => {
         setLoadError(err instanceof Error ? err.message : 'Failed to load')
@@ -664,6 +672,40 @@ export default function TeamMemberDetailPage() {
                   {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2 whitespace-pre-wrap">{displayNotes}</dd></div>}
                 </dl>
               </>
+            )}
+          </div>
+
+          {/* Performance KPIs -- computed server-side (GET /api/team/[id]) from
+              the full booking/rating history, not the capped 50-row list this
+              page also fetches below for the recent-jobs table. */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <h3 className="font-semibold text-slate-900 mb-4">Performance</h3>
+            {stats ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{stats.jobs_completed}</p>
+                  <p className="text-xs text-slate-400">Jobs Completed</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats.avg_rating != null ? stats.avg_rating.toFixed(1) : '—'}
+                    {stats.avg_rating != null && <span className="text-sm text-slate-400"> / 5</span>}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Avg Rating{stats.rating_count > 0 ? ` (${stats.rating_count})` : ''}
+                  </p>
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold ${stats.no_show_count > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{stats.no_show_count}</p>
+                  <p className="text-xs text-slate-400">No-Shows</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">${(stats.ytd_earnings_cents / 100).toFixed(0)}</p>
+                  <p className="text-xs text-slate-400">YTD Earnings</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Loading…</p>
             )}
           </div>
 

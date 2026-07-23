@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { etDayBoundaryUTC, etToday } from '@/lib/recurring'
 
 export async function GET(
   _request: Request,
@@ -24,7 +25,30 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ member: data })
+    // KPI stats — computed server-side via count-only queries rather than
+    // from the (capped at 50) bookings list the page also fetches, so a
+    // long-tenured member's lifetime totals aren't silently undercounted.
+    const yearStart = etDayBoundaryUTC({ ...etToday(), month: 0, day: 1 }).toISOString()
+    const [{ count: jobsCompleted }, { count: noShowCount }, { data: ytdBookings }] = await Promise.all([
+      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
+        .eq('team_member_id', id).in('status', ['completed', 'paid']),
+      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
+        .eq('team_member_id', id).eq('status', 'no_show'),
+      supabaseAdmin.from('bookings').select('team_member_pay')
+        .eq('team_member_id', id).in('status', ['completed', 'paid']).gte('start_time', yearStart),
+    ])
+    const ytdEarningsCents = (ytdBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
+
+    return NextResponse.json({
+      member: data,
+      stats: {
+        jobs_completed: jobsCompleted || 0,
+        no_show_count: noShowCount || 0,
+        avg_rating: data.avg_rating != null ? Number(data.avg_rating) : null,
+        rating_count: data.rating_count || 0,
+        ytd_earnings_cents: ytdEarningsCents,
+      },
+    })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
