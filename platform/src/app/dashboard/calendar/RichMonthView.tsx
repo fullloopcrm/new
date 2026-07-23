@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import '../bookings/schedule.css'
 import CalendarTimeGrid from './CalendarTimeGrid'
 import { BookingPopup, DayEventsPopup } from './CalendarPopups'
+import SidePanel from '@/components/SidePanel'
+import BookingDetailContent from '../bookings/BookingDetailContent'
 import {
   type CalendarEvent, type CalendarDay, fmtTime, fmtMoney, ymdToday,
   addDays, addMonths, weekDatesFor, dayLabel,
@@ -92,8 +94,13 @@ export default function RichMonthView() {
   const [columns, setColumns] = useState<1 | 2>(1)
   const [popupEvent, setPopupEvent] = useState<{ event: CalendarEvent; date: string } | null>(null)
   const [dayPopupDate, setDayPopupDate] = useState<string | null>(null)
+  // Booking shown in the full-detail side panel (Calendar's equivalent of
+  // BookingsAdmin.tsx's edit panel) — replaces the old router.push() to a
+  // separate /dashboard/bookings/[id] page so opening a booking never
+  // navigates the operator away from the calendar.
+  const [viewingBookingId, setViewingBookingId] = useState<string | null>(null)
 
-  useEffect(() => {
+  const loadMonth = useCallback(() => {
     setLoading(true)
     fetch(`/api/schedule/calendar?month=${month}`)
       .then((r) => r.json())
@@ -101,6 +108,10 @@ export default function RichMonthView() {
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [month])
+
+  useEffect(() => {
+    loadMonth()
+  }, [loadMonth])
 
   // The "Jobs" list below the grid is a rolling today-through-+30-days
   // window, independent of whichever month the grid above is navigated to —
@@ -576,6 +587,10 @@ export default function RichMonthView() {
           date={popupEvent.date}
           color={colorForEvent(popupEvent.event)}
           onClose={() => setPopupEvent(null)}
+          onOpenFull={() => {
+            setViewingBookingId(popupEvent.event.id)
+            setPopupEvent(null)
+          }}
         />
       )}
       {dayPopupDay && (
@@ -590,6 +605,20 @@ export default function RichMonthView() {
           onClose={() => setDayPopupDate(null)}
         />
       )}
+      <SidePanel
+        open={!!viewingBookingId}
+        onClose={() => { setViewingBookingId(null); loadMonth() }}
+        title="Booking"
+        width="max-w-2xl"
+      >
+        {viewingBookingId && (
+          <BookingDetailContent
+            bookingId={viewingBookingId}
+            embedded
+            onClose={() => { setViewingBookingId(null); loadMonth() }}
+          />
+        )}
+      </SidePanel>
     </div>
   )
 }

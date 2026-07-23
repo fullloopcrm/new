@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import type { CalendarEvent } from './calendar-shared'
 import { fmtMoney, fmtTimeFull, dayLabel } from './calendar-shared'
 
 // Two popups shared by Month/Week/Day: click an event chip -> BookingPopup
-// (a quick summary + link to the full record); click a day's "+N more" ->
-// DayEventsPopup (every job that day, each row opens BookingPopup in turn).
-// Both close on Escape, backdrop click, or their own close button — neither
-// navigates away on open, so the operator keeps their place on the calendar.
+// (a quick summary + a button that opens the full record in a side panel);
+// click a day's "+N more" -> DayEventsPopup (every job that day, each row
+// opens BookingPopup in turn). All three close on Escape, backdrop click, or
+// their own close button, and none navigate away — "Open full booking" opens
+// the same side-panel pattern BookingsAdmin.tsx uses for the same booking,
+// instead of router.push()ing to a separate full page.
 
 function useEscToClose(onClose: () => void) {
   useEffect(() => {
@@ -38,14 +39,14 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export function BookingPopup({
-  event, color, date, onClose,
+  event, color, date, onClose, onOpenFull,
 }: {
   event: CalendarEvent
   color: string
   date?: string
   onClose: () => void
+  onOpenFull: () => void
 }) {
-  const router = useRouter()
   useEscToClose(onClose)
 
   return (
@@ -96,7 +97,7 @@ export function BookingPopup({
             <button type="button" onClick={onClose} style={{ fontSize: 13, background: 'none', border: '1px solid var(--sched-line-soft, #ddd)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>Close</button>
             <button
               type="button"
-              onClick={() => router.push(`/dashboard/bookings/${event.id}`)}
+              onClick={onOpenFull}
               style={{ fontSize: 13, fontWeight: 600, background: 'var(--sched-ink, #1c1c1c)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}
             >
               Open full booking
