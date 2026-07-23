@@ -41,6 +41,22 @@ export async function POST(request: Request, { params }: Params) {
     const qty = Number(body.qty_per_unit)
     if (!Number.isFinite(qty) || qty <= 0) return NextResponse.json({ error: 'qty_per_unit must be a positive number' }, { status: 400 })
 
+    // Both service_type_id (the URL param) and inventory_item_id are plain
+    // uuid PKs with no per-tenant namespacing and no composite/cross-tenant
+    // FK constraint at the DB level. inventory_item_id is the more serious
+    // gap -- this same file's GET embeds inventory_items(name, unit_label,
+    // unit_cost_cents) with no additional tenant filter, so a caller who
+    // supplied another tenant's real inventory_item_id would have that
+    // foreign item's name and cost render on their own catalog item's BOM
+    // list (an active read-leak, not just write-pollution). Verify both
+    // belong to this tenant before writing anything.
+    const [{ data: svc }, { data: item }] = await Promise.all([
+      tenantDb(tenantId).from('service_types').select('id').eq('id', id).maybeSingle(),
+      tenantDb(tenantId).from('inventory_items').select('id').eq('id', inventoryItemId).maybeSingle(),
+    ])
+    if (!svc) return NextResponse.json({ error: 'Invalid service type' }, { status: 400 })
+    if (!item) return NextResponse.json({ error: 'Invalid inventory_item_id' }, { status: 400 })
+
     const { data, error } = await tenantDb(tenantId)
       .from('catalog_item_materials')
       .upsert(
