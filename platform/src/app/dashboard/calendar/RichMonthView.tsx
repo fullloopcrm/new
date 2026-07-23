@@ -55,6 +55,11 @@ type CalendarData = {
   }
 }
 
+function matchesFilters(e: CalendarEvent, teamFilter: string, statusFilter: Set<string>): boolean {
+  if (teamFilter !== 'all' && e.team_member_id !== teamFilter) return false
+  return statusFilter.has((e.status || 'scheduled').toLowerCase())
+}
+
 function monthLabel(month: string): { name: string; year: string } {
   const [y, m] = month.split('-').map((x) => parseInt(x, 10))
   const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -97,6 +102,43 @@ export default function RichMonthView() {
       .finally(() => setLoading(false))
   }, [month])
 
+  // The "Jobs" list below the grid is a rolling today-through-+30-days
+  // window, independent of whichever month the grid above is navigated to —
+  // so it always answers "what's coming up," not "what happened this
+  // calendar month." Fetched once (not tied to `month`) since the window is
+  // anchored to the real today, not the grid's focused date. Spans at most
+  // two calendar months (30 days can't cross a third), so we fetch each
+  // distinct month's grid and merge.
+  const [upcomingDays, setUpcomingDays] = useState<CalendarDay[]>([])
+  useEffect(() => {
+    let cancelled = false
+    const today = ymdToday()
+    const windowEnd = addDays(today, 30)
+    const months = Array.from(new Set([today.slice(0, 7), windowEnd.slice(0, 7)]))
+    Promise.all(
+      months.map((m) =>
+        fetch(`/api/schedule/calendar?month=${m}`)
+          .then((r) => r.json())
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (cancelled) return
+      const merged = new Map<string, CalendarDay>()
+      for (const res of results) {
+        const grid = res && !res.error ? (res as CalendarData).grid : null
+        grid?.days.forEach((d) => merged.set(d.date, d))
+      }
+      setUpcomingDays(
+        Array.from(merged.values())
+          .filter((d) => d.date >= today && d.date <= windowEnd)
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      )
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function shiftFocus(delta: number) {
     if (innerView === 'month') setAnchorDate((cur) => addMonths(cur, delta))
     else if (innerView === 'week') setAnchorDate((cur) => addDays(cur, delta * 7))
@@ -114,24 +156,20 @@ export default function RichMonthView() {
     if (!data) return []
     return data.grid.days.map((d) => ({
       ...d,
-      events: d.events.filter((e) => {
-        if (teamFilter !== 'all' && e.team_member_id !== teamFilter) return false
-        const status = (e.status || 'scheduled').toLowerCase()
-        if (!statusFilter.has(status)) return false
-        return true
-      }),
+      events: d.events.filter((e) => matchesFilters(e, teamFilter, statusFilter)),
     }))
   }, [data, teamFilter, statusFilter])
 
-  // Flat, chronological list of this month's jobs for the list view under the
-  // calendar grid — same filtered data as the day cells (team/status filters
-  // apply to both), just re-projected as rows instead of a grid.
-  const monthJobsList = useMemo(() => {
-    return filteredDays
-      .filter((d) => d.date.startsWith(month))
+  // Flat, chronological list of the upcoming (today → +30 days) jobs for the
+  // list view under the calendar grid — same team/status filters as the day
+  // cells, sourced from `upcomingDays` (its own rolling fetch) rather than
+  // `filteredDays` (which follows the grid's navigated month).
+  const upcomingJobsList = useMemo(() => {
+    return upcomingDays
+      .map((d) => ({ ...d, events: d.events.filter((e) => matchesFilters(e, teamFilter, statusFilter)) }))
       .flatMap((d) => d.events.map((e) => ({ ...e, date: d.date })))
       .sort((a, b) => a.start.localeCompare(b.start))
-  }, [filteredDays, month])
+  }, [upcomingDays, teamFilter, statusFilter])
 
   const dayByDate = useMemo(() => new Map(filteredDays.map((d) => [d.date, d])), [filteredDays])
   const emptyDay = (date: string): CalendarDay => ({ date, events: [], jobs_count: 0, has_conflict: false, is_idle: false, heat: 'none' })
@@ -418,17 +456,17 @@ export default function RichMonthView() {
             </div>
           )}
 
-          {/* MONTH JOBS — LIST VIEW */}
+          {/* UPCOMING JOBS — LIST VIEW (rolling today → +30 days) */}
           <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">{ml.name} {ml.year} — Jobs</h3>
-              <span className="text-xs text-slate-400">{monthJobsList.length} {monthJobsList.length === 1 ? 'job' : 'jobs'}</span>
+              <h3 className="text-sm font-semibold text-slate-900">Next 30 Days — Jobs</h3>
+              <span className="text-xs text-slate-400">{upcomingJobsList.length} {upcomingJobsList.length === 1 ? 'job' : 'jobs'}</span>
             </div>
-            {monthJobsList.length === 0 ? (
+            {upcomingJobsList.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-400">No jobs match the current filters.</div>
             ) : (
               <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
-                {monthJobsList.map((ev) => {
+                {upcomingJobsList.map((ev) => {
                   const color = colorForEvent(ev)
                   return (
                     <div
