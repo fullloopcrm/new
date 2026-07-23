@@ -19,7 +19,7 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
   const [loading, setLoading] = useState(false)
 
   async function login() {
-    if (pin.length !== 4 || loading) return
+    if (pin.length < 4 || loading) return
     if (needBusiness && !slug) return
     setLoading(true)
     setError('')
@@ -53,14 +53,14 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
       businessName={businessName}
       subtitle={t('Team Portal', 'Portal de Equipo')}
       label={t('PIN', 'PIN')}
-      placeholder={t('4-digit PIN', 'PIN de 4 dígitos')}
+      placeholder={t('PIN', 'PIN')}
       value={pin}
-      onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 4))}
+      onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
       onSubmit={login}
       error={error}
       loading={loading}
-      submitDisabled={pin.length !== 4 || (needBusiness && !slug)}
-      maxLength={4}
+      submitDisabled={pin.length < 4 || (needBusiness && !slug)}
+      maxLength={6}
       buttonLabel={t('Sign in →', 'Entrar →')}
       loadingLabel={t('Signing in…', 'Entrando…')}
       helpLinks={[{ label: t('Feedback', 'Comentarios'), href: '/feedback' }]}
