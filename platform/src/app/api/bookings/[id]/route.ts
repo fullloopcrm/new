@@ -205,14 +205,56 @@ export async function PUT(
         }
       }
 
-      // Team member assigned/reassigned
-      if (memberChanged && data.team_members?.phone && hasSMS && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
-        sendSMS({
-          to: data.team_members.phone,
-          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
-          telnyxApiKey: tenantData!.telnyx_api_key,
-          telnyxPhone: tenantData!.telnyx_phone,
-        }).catch(err => console.error('Assignment SMS error:', err))
+      // Team member assigned/reassigned. Logs to `notifications` regardless of
+      // outcome — previously this branch was fire-and-forget with only a
+      // console.error on failure, so a silently-dropped SMS (e.g. the Telnyx
+      // E.164 rejection this codebase hit post-cutover) left zero trace and
+      // could only be diagnosed after the fact via timestamp archaeology
+      // (see the Peter Martin / Sarai Aguirre incident this was built to catch).
+      if (memberChanged) {
+        const skipReason = !data.team_members?.phone
+          ? 'no phone on file'
+          : !hasSMS
+            ? 'tenant SMS not configured'
+            : null
+        if (data.team_members?.phone && hasSMS && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
+          sendSMS({
+            to: data.team_members.phone,
+            body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
+            telnyxApiKey: tenantData!.telnyx_api_key,
+            telnyxPhone: tenantData!.telnyx_phone,
+          }).then(() => {
+            supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'team_assignment',
+              title: 'Job Assignment SMS Sent',
+              message: `${data.team_members?.name || 'Team member'} notified of assignment to ${data.clients?.name || 'client'} on ${date}`,
+              channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+              booking_id: id, status: 'sent',
+            }).then(() => {}, () => {})
+          }).catch(err => {
+            console.error('Assignment SMS error:', err)
+            supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'team_assignment',
+              title: 'Job Assignment SMS Failed',
+              message: `${data.team_members?.name || 'Team member'} was NOT notified of assignment to ${data.clients?.name || 'client'} on ${date}: ${err instanceof Error ? err.message : String(err)}`,
+              channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+              booking_id: id, status: 'failed',
+            }).then(() => {}, () => {})
+          })
+        } else {
+          // Assignment happened but no SMS was even attempted — surface why.
+          const reason = skipReason || 'team_assignment SMS disabled in comms settings'
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'team_assignment',
+            title: 'Job Assignment SMS Skipped',
+            message: `${data.team_members?.name || 'Team member'} was NOT notified of assignment to ${data.clients?.name || 'client'} on ${date}: ${reason}`,
+            channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+            booking_id: id, status: 'skipped',
+          }).then(() => {}, () => {})
+        }
       }
 
       // Rescheduled

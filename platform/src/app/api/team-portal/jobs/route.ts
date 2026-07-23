@@ -24,10 +24,25 @@ export async function GET(request: NextRequest) {
   const available = request.nextUrl.searchParams.get('available')
   const upcoming = request.nextUrl.searchParams.get('upcoming')
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  // bookings.start_time is stored as a NAIVE Eastern wall-clock timestamp
+  // (no timezone suffix — see buildNaiveTime/shiftNaive in BookingsAdmin.tsx).
+  // `new Date().setHours(0,0,0,0)` computes midnight in the SERVER's local
+  // timezone, which on Vercel is UTC — 4-5 hours ahead of Eastern. From
+  // ~8pm ET onward (once UTC has already rolled to the next calendar day but
+  // ET hasn't), that made TOMORROW's jobs show up under "Today's Jobs" in the
+  // team portal. Compute the boundary in ET instead, as a naive string, so it
+  // lines up with what's actually stored in the column.
+  const todayYMD = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const addDaysYMD = (ymd: string, days: number): string => {
+    const [y, m, d] = ymd.split('-').map(Number)
+    const dt = new Date(y, m - 1, d + days)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  }
+  // Naive strings, compared directly against the naive start_time column —
+  // deliberately not routed through a Date object + .toISOString(), which
+  // would silently depend on the server process's local timezone being UTC.
+  const today = `${todayYMD}T00:00:00`
+  const tomorrow = `${addDaysYMD(todayYMD, 1)}T00:00:00`
 
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
@@ -45,7 +60,7 @@ export async function GET(request: NextRequest) {
       .select('id, start_time, end_time, service_type, price, status, clients(address)')
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
-      .gte('start_time', today.toISOString())
+      .gte('start_time', today)
       .order('start_time')) as {
       data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
       error: { message: string } | null
@@ -70,15 +85,14 @@ export async function GET(request: NextRequest) {
 
   if (upcoming === 'true') {
     // Return next 14 days of jobs (excluding today)
-    const futureEnd = new Date(today)
-    futureEnd.setDate(futureEnd.getDate() + 14)
+    const futureEnd = `${addDaysYMD(todayYMD, 14)}T00:00:00`
 
     const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
       .eq('team_member_id', auth.id)
-      .gte('start_time', tomorrow.toISOString())
-      .lt('start_time', futureEnd.toISOString())
+      .gte('start_time', tomorrow)
+      .lt('start_time', futureEnd)
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
@@ -91,8 +105,8 @@ export async function GET(request: NextRequest) {
     .from('bookings')
     .select('*, clients(name, phone, address, special_instructions)')
     .eq('team_member_id', auth.id)
-    .gte('start_time', today.toISOString())
-    .lt('start_time', tomorrow.toISOString())
+    .gte('start_time', today)
+    .lt('start_time', tomorrow)
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 
