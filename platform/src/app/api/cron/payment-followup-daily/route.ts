@@ -4,6 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -28,11 +29,6 @@ const RECENCY_FLOOR_DAYS = 14
 const SLOT_IDEMPOTENCY_MS = 3.5 * 60 * 60 * 1000 // < 4h gap between slots
 const MAX_SENDS_PER_RUN = 100
 const SMS_TYPE = 'payment_followup_daily'
-
-function toNaive(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
 
 function etHour(now: Date): number {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -68,8 +64,15 @@ export async function GET(request: Request) {
     .not('telnyx_api_key', 'is', null)
     .not('payment_link', 'is', null)
 
-  // bookings.end_time is naive local-ET → compare with a naive string.
-  const recencyFloor = toNaive(new Date(now.getTime() - RECENCY_FLOOR_DAYS * 24 * 60 * 60 * 1000))
+  // bookings.end_time is naive local-ET → compare with a naive string. The
+  // old toNaive() helper used d.getFullYear()/getHours()/etc, which read the
+  // SERVER's local calendar (UTC on Vercel), not ET -- the exact bug class
+  // etToday()/nowNaiveET() exist to fix elsewhere in this codebase. A few
+  // hours of drift on a 14-day recency floor rarely changes which bookings
+  // qualify, but a booking sitting right at the boundary could be silently
+  // included or excluded a few hours early/late. nowNaiveET() is ET-aware
+  // via Intl, unlike the old getters.
+  const recencyFloor = nowNaiveET(-RECENCY_FLOOR_DAYS * 24 * 60 * 60 * 1000)
   const idempotencyCutoff = new Date(now.getTime() - SLOT_IDEMPOTENCY_MS).toISOString()
 
   const perTenant: { tenant: string; sent: number; wouldText: number; capHit: boolean }[] = []
