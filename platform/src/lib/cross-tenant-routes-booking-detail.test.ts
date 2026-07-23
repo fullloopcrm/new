@@ -135,13 +135,19 @@ describe('CROSS-TENANT ATTACK · bookings/[id] (base GET/PUT/DELETE)', () => {
     expect(bBooking.notes).not.toBe('HIJACKED VIA BASE PUT')
   })
 
-  it("tenant A's DELETE never removes tenant B's same-id booking", async () => {
+  // DELETE now soft-cancels (status='cancelled') by default rather than
+  // removing the row (see route.cancel-and-hard-delete.test.ts for that
+  // behavior change) — this still proves the same isolation property:
+  // tenant A's DELETE call only ever mutates its own same-id row.
+  it("tenant A's DELETE never touches tenant B's same-id booking", async () => {
     setAdminSessionFor(A_ID)
     const res = await bookingDELETE(new Request('http://x'), paramsFor(SHARED_ID))
     expect(res.status).toBe(200)
-    const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)
-    expect(bBooking).toBeTruthy()
-    expect(fake._all('bookings').some((r) => r.tenant_id === A_ID)).toBe(false)
+    const all = fake._all('bookings')
+    const aBooking = all.find((r) => r.tenant_id === A_ID)!
+    const bBooking = all.find((r) => r.tenant_id === B_ID)!
+    expect(aBooking.status).toBe('cancelled')
+    expect(bBooking.status).toBe('pending')
   })
 })
 

@@ -215,11 +215,17 @@ describe('CROSS-TENANT ATTACK · booking family — /api/bookings/[id]', () => {
     expect(bRow.tenant_id).toBe(B_ID)
   })
 
-  it("tenant A DELETE targeting tenant B's booking id removes nothing — B's row survives", async () => {
+  it("tenant A DELETE targeting tenant B's booking id → 404, B's row survives untouched", async () => {
+    // DELETE now looks the booking up (tenant-scoped) before mutating anything
+    // — see route.cancel-and-hard-delete.test.ts — so a cross-tenant id 404s
+    // the same way GET/PUT above already do, instead of the old "200 even on
+    // a 0-row scoped delete" contract.
     setAdminSessionFor(A_ID)
     const res = await bookingDELETE(new Request('http://x', { method: 'DELETE' }), paramsFor(ids.booking.b))
-    expect(res.status).toBe(200) // route reports success:true even on a 0-row scoped delete
-    expect(fake._all('bookings').some((r) => r.id === ids.booking.b)).toBe(true)
+    expect(res.status).toBe(404)
+    const bRow = fake._all('bookings').find((r) => r.id === ids.booking.b)!
+    expect(bRow.status).toBe('scheduled')
+    expect(bRow.tenant_id).toBe(B_ID)
   })
 
   it('REJECTS the request entirely with no admin session → 401, before any query runs', async () => {
