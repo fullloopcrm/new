@@ -202,12 +202,19 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 
-      // Client email confirmation — same standard template for every tenant
-      // (matches the fix in bookings/route.ts and the cancellation email in
-      // bookings/[id]/route.ts; nycmaid used to get its own hardcoded legacy
-      // template here), via the shared notify() dispatcher (handles
-      // comm-prefs gating + SMS fallback itself).
-      if (client?.email) {
+      // Client email confirmation — nycmaid gets its own rich branded
+      // template; every other tenant gets the standard one via notify().
+      // Jeff's explicit call (2026-07-23): keep nycmaid's rich template here
+      // even though a concurrent pass unified every other nycmaid email onto
+      // the standard one, including this one — reverted, then re-applied,
+      // by request.
+      if (isNycMaid(tenantId) && client?.email) {
+        const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
+        const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+        const email = clientConfirmationEmail({ ...first, cleaners: cleaner })
+        await sendClientEmail(first.client_id as string, email.subject, email.html)
+          .catch(err => console.error('[batch] nycmaid client email error:', err))
+      } else if (client?.email) {
         await notify({
           tenantId,
           type: 'booking_confirmed',

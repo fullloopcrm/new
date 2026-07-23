@@ -11,6 +11,7 @@ import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export async function GET(
   _request: Request,
@@ -179,12 +180,29 @@ export async function PUT(
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
       const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
-      // Booking confirmed (status changed to scheduled) — same standard
-      // template for every tenant (same fix as its cancellation email just
-      // below, and bookings/route.ts + bookings/batch; nycmaid used to get
-      // its own hardcoded legacy template here).
+      // Booking confirmed (status changed to scheduled) — nycmaid gets its
+      // own rich branded template; every other tenant gets the standard one.
+      // Jeff's explicit call (2026-07-23): keep nycmaid's rich template here
+      // even though a concurrent pass unified every other nycmaid email
+      // (including this one, and its sibling cancellation email below) onto
+      // the standard template — reverted, then re-applied, by request, for
+      // confirmation specifically.
       if (statusChanged && fields.status === 'scheduled') {
-        if (data.client_id) {
+        if (isNycMaid(tenantId) && data.client_id) {
+          const { data: nmBooking } = await supabaseAdmin
+            .from('bookings')
+            .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
+            .eq('id', id)
+            .eq('tenant_id', tenantId)
+            .single()
+          if (nmBooking?.clients?.email) {
+            const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
+            const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
+            const email = clientConfirmationEmail(nmBooking)
+            await sendClientEmail(data.client_id, email.subject, email.html)
+              .catch(err => console.error('nycmaid client confirmation email error:', err))
+          }
+        } else if (data.client_id) {
           await notify({
             tenantId,
             type: 'booking_confirmed',
