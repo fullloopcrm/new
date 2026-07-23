@@ -84,6 +84,37 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
+    // A team member with any booking history (past or future) can't be hard
+    // deleted — bookings.team_member_id's FK rejects it, and even if it
+    // didn't, deleting the row would blow away payout/audit history tied to
+    // real completed jobs. booking_team_members (crew, not lead) is WORSE:
+    // its FK is ON DELETE CASCADE, so a hard delete would silently wipe a
+    // former crew member's job-history rows with no error at all. Deactivate
+    // instead in both cases: same practical effect (gone from the active
+    // roster, unassignable to new jobs) without destroying data.
+    const [{ count: bookingCount }, { count: crewCount }] = await Promise.all([
+      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
+      supabaseAdmin.from('booking_team_members').select('id', { count: 'exact', head: true }).eq('team_member_id', id),
+    ])
+
+    if ((bookingCount || 0) > 0 || (crewCount || 0) > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('team_members')
+        .update({ status: 'inactive' })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      await audit({ tenantId, action: 'team.deactivated', entityType: 'team_member', entityId: id, details: { reason: 'has_booking_history', booking_count: bookingCount, crew_count: crewCount } })
+
+      return NextResponse.json({ success: true, deactivated: true, member: data })
+    }
+
     const { error } = await supabaseAdmin
       .from('team_members')
       .delete()
@@ -96,7 +127,7 @@ export async function DELETE(
 
     await audit({ tenantId, action: 'team.deleted', entityType: 'team_member', entityId: id })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deactivated: false })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

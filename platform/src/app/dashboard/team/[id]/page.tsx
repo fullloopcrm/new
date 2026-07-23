@@ -260,11 +260,14 @@ export default function TeamMemberDetailPage() {
     setDeleteError('')
     try {
       const res = await fetch(`/api/team/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
         setDeleteError(data.error || `Delete failed (${res.status})`)
         setDeleting(false)
         return
+      }
+      if (data.deactivated) {
+        alert('This team member has booking history, so they were deactivated instead of deleted — they no longer appear in the active roster or as an assignment option.')
       }
       router.push('/dashboard/team')
     } catch (e) {

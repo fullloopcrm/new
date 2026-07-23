@@ -31,6 +31,7 @@ type TeamMember = {
   preferred_language: string | null
   stripe_account_id?: string | null
   stripe_ready_at?: string | null
+  avatar_url?: string | null
 }
 
 type EnrichedMember = TeamMember & {
@@ -543,14 +544,14 @@ export default function TeamPage() {
 
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
-            <span className="tm-section-meta">{enriched.length} {enriched.length === 1 ? 'member' : 'members'}</span>
+            <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
           </div>
 
           {loading && <div className="tm-empty">Loading…</div>}
-          {!loading && enriched.length === 0 && <div className="tm-empty">No team members yet.</div>}
+          {!loading && stats.active === 0 && <div className="tm-empty">No team members yet.</div>}
 
           <div className="tm-grid">
-            {enriched.map((m) => {
+            {enriched.filter((m) => (m.status || 'active') !== 'inactive').map((m) => {
               const cardClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 20 ? 'under' : ''
               const utilNumClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'low' : ''
               const utilFillClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct >= 75 ? 'full' : m.utilization_pct >= 40 ? 'med' : 'low'
@@ -559,7 +560,11 @@ export default function TeamPage() {
               return (
                 <div key={m.id} className={`tm-card ${cardClass}`}>
                   <div className="tm-card-head">
-                    <span className="tm-avatar" style={{ background: colorFor(m.id) }}>{initials(m.name)}</span>
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt={m.name} className="tm-avatar" style={{ objectFit: 'cover' }} />
+                    ) : (
+                      <span className="tm-avatar" style={{ background: colorFor(m.id) }}>{initials(m.name)}</span>
+                    )}
                     <div className="tm-name-block">
                       <div className="tm-name">{m.name}</div>
                       <div className={`tm-status-row ${statusClass}`}>
