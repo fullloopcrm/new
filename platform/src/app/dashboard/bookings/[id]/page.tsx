@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 
 type Booking = {
   id: string
@@ -18,6 +19,10 @@ type Booking = {
   team_member_paid: boolean | null
   team_member_paid_at: string | null
   discount_percent: number | null
+  one_time_credit_cents: number | null
+  recurring_type: string | null
+  max_hours: number | null
+  team_size: number | null
   notes: string | null
   special_instructions: string | null
   check_in_time: string | null
@@ -82,6 +87,42 @@ export default function BookingDetailPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payment_status: 'paid', payment_method: paymentMethod || 'cash' }),
+      })
+      if (res.ok) {
+        const { booking: updated } = await res.json()
+        setBooking((prev) => prev ? { ...prev, ...updated } : prev)
+      }
+    } else if (status === 'completed' && booking?.check_in_time) {
+      // This "Complete" action only reaches a bare status PATCH previously,
+      // never recomputing price/actual_hours/team_member_pay from real
+      // check-in-to-now elapsed time -- the booking list/header kept showing
+      // the original scheduling-time estimate forever, even though
+      // BookingsAdmin.tsx's own "Confirm Check Out" button (the other admin
+      // surface for completing a job) already recomputes the real bill via
+      // this same computeCheckoutPricing() helper. Mirror that here so both
+      // "complete a booking" entry points produce the same real number.
+      const checkOutIso = new Date().toISOString()
+      const { actualHours, priceCents, cleanerPayCents } = computeCheckoutPricing({
+        checkInIso: booking.check_in_time,
+        checkOutIso,
+        hourlyRate: booking.hourly_rate,
+        cleanerHourlyRate: booking.pay_rate,
+        discountPercent: booking.discount_percent,
+        oneTimeCreditCents: booking.one_time_credit_cents,
+        recurringType: booking.recurring_type,
+        maxHours: booking.max_hours,
+        teamSize: booking.team_size,
+      })
+      const res = await fetch(`/api/bookings/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          check_out_time: checkOutIso,
+          actual_hours: actualHours,
+          price: priceCents,
+          team_member_pay: cleanerPayCents,
+        }),
       })
       if (res.ok) {
         const { booking: updated } = await res.json()
