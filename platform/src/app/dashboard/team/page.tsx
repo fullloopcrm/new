@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
@@ -76,6 +77,7 @@ function initials(name: string): string {
 }
 
 export default function TeamPage() {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('team')
   const [members, setMembers] = useState<TeamMember[]>([])
   const [applications, setApplications] = useState<Application[]>([])
@@ -532,7 +534,12 @@ export default function TeamPage() {
               const statusClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'idle' : ''
               const statusLabel = m.utilization_pct >= 100 ? 'OVERCAP' : m.utilization_pct < 30 ? 'IDLE' : 'ACTIVE'
               return (
-                <div key={m.id} className={`tm-card ${cardClass}`}>
+                <div
+                  key={m.id}
+                  className={`tm-card ${cardClass}`}
+                  onClick={() => router.push(`/dashboard/team/${m.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="tm-card-head">
                     {m.avatar_url ? (
                       <img src={m.avatar_url} alt={m.name} className="tm-avatar" style={{ objectFit: 'cover' }} />
@@ -591,7 +598,7 @@ export default function TeamPage() {
                     </div>
                   </div>
 
-                  <div className="tm-actions">
+                  <div className="tm-actions" onClick={(e) => e.stopPropagation()}>
                     <button className="tm-action-btn" type="button">Schedule</button>
                     <button className="tm-action-btn" type="button">Pay</button>
                     <Link className="tm-action-btn" href={`/dashboard/team/${m.id}`}>Profile</Link>

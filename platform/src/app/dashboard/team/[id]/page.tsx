@@ -204,7 +204,11 @@ export default function TeamMemberDetailPage() {
         setLoadError(err instanceof Error ? err.message : 'Failed to load')
       })
 
-    fetch(`/api/bookings?team_member_id=${id}`)
+    // date_to bounds this to "up to now" -- without it, sorting by start_time
+    // DESC on a member with far-future recurring bookings (this tenant's
+    // generator runs years ahead) returned only future-scheduled jobs,
+    // pushing all real work history out of the default 50-row page entirely.
+    fetch(`/api/bookings?team_member_id=${id}&date_to=${encodeURIComponent(new Date().toISOString())}`)
       .then((r) => r.json())
       .then((data) => setBookings(data.bookings || []))
       .catch(() => {})
