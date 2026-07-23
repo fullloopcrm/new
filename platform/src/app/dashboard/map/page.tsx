@@ -15,7 +15,8 @@ type Booking = {
   notes: string | null
   client_id: string | null
   team_member_id: string | null
-  clients: { name: string; phone: string | null; address: string | null } | null
+  property_id: string | null
+  clients: { name: string; phone: string | null; address: string | null; latitude: number | null; longitude: number | null } | null
   team_members: { name: string; phone: string | null } | null
 }
 
@@ -112,7 +113,21 @@ export default function MapPage() {
     loadBookings()
   }, [loadBookings])
 
-  // Geocode addresses progressively
+  // Geocode addresses progressively. Real caching, in priority order:
+  // 1) clients.latitude/longitude (or client_properties' override for a
+  //    multi-address booking, already flattened onto b.clients server-side
+  //    by applyPropertyToBookingClient) -- persisted by smart-scheduling,
+  //    the admin geocode-backfill job, or a prior run of this same effect.
+  //    Used directly, no network call at all.
+  // 2) the in-memory per-address cache (geocodeCacheRef) -- avoids a repeat
+  //    live geocode within this same page session for addresses without a
+  //    DB-cached value yet.
+  // 3) a live Nominatim call, only for addresses that miss both of the
+  //    above -- and its result gets written back to the DB (clients or
+  //    client_properties, whichever the booking actually resolves to) so
+  //    every later map load -- this session or any future one -- hits (1)
+  //    instead of re-geocoding. This is the part that was missing before:
+  //    every map load re-geocoded every address unconditionally.
   useEffect(() => {
     const cache = geocodeCacheRef.current
     const bookingsWithAddress = bookings.filter(
@@ -124,11 +139,16 @@ export default function MapPage() {
       return
     }
 
-    // Immediately resolve cached entries
     const immediateResults: GeocodedBooking[] = []
     const toGeocode: Booking[] = []
 
     for (const b of bookingsWithAddress) {
+      const dbLat = b.clients!.latitude
+      const dbLng = b.clients!.longitude
+      if (dbLat != null && dbLng != null) {
+        immediateResults.push({ ...b, lat: Number(dbLat), lng: Number(dbLng) })
+        continue
+      }
       const address = b.clients!.address!.trim()
       if (cache.has(address)) {
         const coords = cache.get(address)
@@ -146,11 +166,32 @@ export default function MapPage() {
       return
     }
 
-    // Deduplicate addresses to geocode
+    // Deduplicate addresses to geocode (a shared building can have several
+    // bookings/clients pointing at the same text address).
     const uniqueAddresses = [...new Set(toGeocode.map((b) => b.clients!.address!.trim()))]
 
     setGeocoding(true)
     let cancelled = false
+
+    async function persistCoords(address: string, coords: { lat: number; lng: number }) {
+      // Write the result back for every client_id/property_id pair that
+      // shares this address, so their next load skips the geocoder too.
+      const targets = new Map<string, { clientId: string; propertyId: string | null }>()
+      for (const b of toGeocode) {
+        if (b.clients!.address!.trim() !== address || !b.client_id) continue
+        const key = `${b.client_id}:${b.property_id || ''}`
+        targets.set(key, { clientId: b.client_id, propertyId: b.property_id })
+      }
+      await Promise.all(
+        Array.from(targets.values()).map(({ clientId, propertyId }) =>
+          fetch(`/api/clients/${clientId}/geocode-cache`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: coords.lat, lng: coords.lng, property_id: propertyId }),
+          }).catch(() => {})
+        )
+      )
+    }
 
     async function geocodeBatch() {
       for (const address of uniqueAddresses) {
@@ -164,7 +205,9 @@ export default function MapPage() {
           )
           const data = await res.json()
           if (data.length > 0) {
-            cache.set(address, { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+            cache.set(address, coords)
+            persistCoords(address, coords)
           } else {
             cache.set(address, null)
           }
@@ -174,8 +217,8 @@ export default function MapPage() {
 
         // Update geocoded bookings progressively
         if (!cancelled) {
-          const results: GeocodedBooking[] = []
-          for (const b of bookingsWithAddress) {
+          const results: GeocodedBooking[] = [...immediateResults]
+          for (const b of toGeocode) {
             const addr = b.clients!.address!.trim()
             const coords = cache.get(addr)
             if (coords) {
