@@ -104,6 +104,27 @@ export async function POST(request: Request, { params }: Params) {
 
     const entityId = await getDefaultEntityId(tenantId)
 
+    // vendor_id/service_type_id/budget_line_item_id (2026_07_21_expenses_fk_wiring.sql)
+    // are plain uuid PKs with no per-tenant namespacing and no composite/
+    // cross-tenant FK constraint at the DB level -- taken straight from the
+    // request body with no ownership check before now. This GET's own select
+    // embeds vendors(name)/service_types(name)/categories(name) with no
+    // additional tenant filter, so a caller supplying another tenant's real
+    // id here would have that foreign vendor/catalog-item/category name
+    // render on this tenant's own expense list -- an active read-leak, same
+    // class as the catalog-materials fix this session. Verify each before
+    // writing anything.
+    if (validated.vendor_id) {
+      const { data: vendor } = await supabaseAdmin
+        .from('vendors').select('id').eq('tenant_id', tenantId).eq('id', validated.vendor_id as string).maybeSingle()
+      if (!vendor) return NextResponse.json({ error: 'Invalid vendor_id' }, { status: 400 })
+    }
+    if (validated.budget_line_item_id) {
+      const { data: line } = await supabaseAdmin
+        .from('budget_line_items').select('id').eq('tenant_id', tenantId).eq('id', validated.budget_line_item_id as string).maybeSingle()
+      if (!line) return NextResponse.json({ error: 'Invalid budget_line_item_id' }, { status: 400 })
+    }
+
     // A picked catalog item's own category tags the expense the same
     // GL-linked way a budget line already is -- no re-typing the category.
     let categoryId: string | null = null
@@ -114,7 +135,8 @@ export async function POST(request: Request, { params }: Params) {
         .eq('tenant_id', tenantId)
         .eq('id', validated.service_type_id as string)
         .maybeSingle()
-      categoryId = catalogItem?.category_id || null
+      if (!catalogItem) return NextResponse.json({ error: 'Invalid service_type_id' }, { status: 400 })
+      categoryId = catalogItem.category_id || null
     }
 
     const { data, error } = await supabaseAdmin
