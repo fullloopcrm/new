@@ -225,6 +225,7 @@ function BookingsPage() {
     extra_team_member_ids: [] as string[],
     max_hours: null as number | null,
     override_availability: false,
+    property_id: '' as string,
     _originalPrice: 0
   })
   const [createForm, setCreateForm] = useState({
@@ -247,9 +248,12 @@ function BookingsPage() {
   const [confirmCheckout, setConfirmCheckout] = useState(false)
 
   // Load the selected client's addresses; default the picker to their primary.
+  // Covers both the create-booking form and editing an existing booking —
+  // the edit modal previously showed the client's address as static text
+  // with no way to change it.
   useEffect(() => {
-    const cid = createForm.client_id
-    if (!showCreateModal || !cid) { setClientProperties([]); return }
+    const cid = showCreateModal ? createForm.client_id : (showModal && editingBooking ? editingBooking.client_id : null)
+    if (!cid) { setClientProperties([]); return }
     let cancelled = false
     fetch(`/api/client/properties?client_id=${cid}`)
       .then(r => r.json())
@@ -257,15 +261,23 @@ function BookingsPage() {
         if (cancelled) return
         const props = d.properties || []
         setClientProperties(props)
-        setCreateForm(prev => {
-          if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
-          const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
-          return primary ? { ...prev, property_id: primary.id } : prev
-        })
+        if (showCreateModal) {
+          setCreateForm(prev => {
+            if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
+            const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
+            return primary ? { ...prev, property_id: primary.id } : prev
+          })
+        } else {
+          setForm(prev => {
+            if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
+            const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
+            return primary ? { ...prev, property_id: primary.id } : prev
+          })
+        }
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [showCreateModal, createForm.client_id])
+  }, [showCreateModal, createForm.client_id, showModal, editingBooking?.client_id])
   const [copied, setCopied] = useState(false)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
@@ -728,6 +740,7 @@ function BookingsPage() {
       extra_team_member_ids: [],
       max_hours: (booking as any).max_hours ?? null,
       override_availability: false,
+      property_id: (booking as any).property_id || '',
       _originalPrice: booking.price
     })
     setShowModal(true)
@@ -819,7 +832,10 @@ function BookingsPage() {
         const props = d.properties || []
         setClientProperties(props)
         const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
-        if (primary) setCreateForm(prev => ({ ...prev, property_id: primary.id }))
+        if (primary) {
+          if (showCreateModal) setCreateForm(prev => ({ ...prev, property_id: primary.id }))
+          else setForm(prev => ({ ...prev, property_id: primary.id }))
+        }
       } catch { /* keep whatever was already loaded */ }
     }
     setShowNewClientModal(false)
@@ -2086,7 +2102,27 @@ function BookingsPage() {
             )}
             <div className="flex items-start justify-between mb-1">
               <div>
-                {editingBooking.clients?.address && <p className="text-sm text-gray-600">{editingBooking.clients.address}</p>}
+                {clientProperties.length > 0 ? (
+                  <select
+                    value={form.property_id}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_address__') {
+                        setNewClientContactsId(editingBooking.client_id)
+                        setShowNewClientModal(true)
+                        return
+                      }
+                      setForm({ ...form, property_id: e.target.value })
+                    }}
+                    className="text-sm text-gray-600 border border-gray-200 rounded px-1.5 py-0.5 -ml-1.5"
+                  >
+                    {clientProperties.map(p => (
+                      <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
+                    ))}
+                    <option value="__add_address__">+ Add new address</option>
+                  </select>
+                ) : (
+                  editingBooking.clients?.address && <p className="text-sm text-gray-600">{editingBooking.clients.address}</p>
+                )}
                 {editingBooking.clients?.phone && (
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm font-medium text-[var(--sched-ink)]">{formatPhone(editingBooking.clients.phone)}</span>
