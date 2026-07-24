@@ -457,7 +457,7 @@ export default function DashboardShell({
             ) : (
               <button
                 type="button"
-                onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/dashboard' }) }}
+                onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/admin-login' }) }}
                 className="text-sm text-gray-500 hover:text-gray-800"
               >
                 Sign out
