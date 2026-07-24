@@ -14,8 +14,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool, type YinezResult, EMPTY_CHECKLIST } from '@/lib/selena/core'
-import { checkAvailability } from '@/lib/availability'
-import { getSmartSuggestions } from '@/lib/nycmaid/availability'
+import { checkAvailability, getSmartSuggestions } from '@/lib/availability'
 import { sendSMS } from '@/lib/sms'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 

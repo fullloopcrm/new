@@ -28,9 +28,8 @@ async function getTenantTelnyxCreds(): Promise<{ apiKey: string; fromNumber: str
 // This whole module is a pre-multi-tenant nycmaid-only helper (see file-level
 // note); `notifications.tenant_id` is NOT NULL, so every insert here was
 // silently dying in the catch-all below with zero trace — every SMS failure
-// for weeks was invisible. Hardcoding nycmaid's id unblocks the logger; this
-// retires with the rest of the module at the standalone cutover.
-const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+// for weeks was invisible. Using the imported NYCMAID_TENANT_ID unblocks the
+// logger; this retires with the rest of the module at the standalone cutover.
 
 async function logSMSFailure(to: string, smsType: string | undefined, error: unknown) {
   try {

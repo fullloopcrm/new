@@ -1008,13 +1008,6 @@ export function portalPinResetEmail(data: TemplateData & {
   `, data)
 }
 
-export function genericNotificationEmail(data: TemplateData & { title: string; message: string }): string {
-  return baseTemplate(`
-    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${escapeHtml(data.title)}</h2>
-    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;">${escapeHtml(data.message)}</p>
-  `, data)
-}
-
 // Sent to an applicant when their team application is approved.
 // NYC-Maid-style: shows the team portal PIN + a portal button. Bilingual EN/ES.
 export function teamApplicationApprovedEmail(data: TemplateData & {

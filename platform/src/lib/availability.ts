@@ -4,6 +4,9 @@ import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { hourToLabel, slotStartHours } from '@/lib/time-slots'
 
+// Preferred scheduling pockets — try to fill these first
+const PREFERRED_POCKETS = [8, 12, 16] // 8am, 12pm, 4pm
+
 export interface AvailabilitySlot {
   time: string
   available: boolean
@@ -250,4 +253,28 @@ export async function checkTeamAvailability(
       conflict: result.reason
     }
   })
+}
+
+/**
+ * Smart scheduling: returns the best available times for a date,
+ * prioritizing preferred pockets (8am, 12pm, 4pm) first.
+ * Used by the voice/chat agent to suggest optimal times.
+ */
+export async function getSmartSuggestions(
+  tenantId: string,
+  date: string,
+  durationHours: number = 2
+): Promise<string[]> {
+  const result = await checkAvailability(tenantId, date, durationHours)
+  if (result.sameDay || result.slots.length === 0) return []
+
+  const available = result.slots.filter(s => s.available)
+  if (available.length === 0) return []
+
+  const pocketTimes = PREFERRED_POCKETS.map(hourToLabel).filter(Boolean)
+
+  const preferred = available.filter(s => pocketTimes.includes(s.time))
+  const others = available.filter(s => !pocketTimes.includes(s.time))
+
+  return [...preferred.map(s => s.time), ...others.map(s => s.time)]
 }
