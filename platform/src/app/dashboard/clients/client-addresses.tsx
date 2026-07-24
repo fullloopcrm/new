@@ -35,6 +35,11 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAddress, setEditAddress] = useState('')
+  // AddressAutocomplete only ever SUGGESTS — it never blocks free text, so
+  // typing garbage and hitting Add/Save silently saved whatever was typed.
+  // Track whether the current value actually came from picking a suggestion.
+  const [newAddressValid, setNewAddressValid] = useState(false)
+  const [editAddressValid, setEditAddressValid] = useState(false)
 
   const load = useCallback(async () => {
     if (!clientId) return
@@ -49,6 +54,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
 
   async function add() {
     if (newAddress.trim().length < 5) { setError('Enter a full address.'); return }
+    if (!newAddressValid) { setError('Pick an address from the suggestions dropdown.'); return }
     setBusy(true); setError('')
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'POST',
@@ -57,12 +63,13 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     })
     setBusy(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
-    setNewAddress(''); setNewUnit(''); setAdding(false)
+    setNewAddress(''); setNewUnit(''); setAdding(false); setNewAddressValid(false)
     load()
   }
 
   async function saveEdit(id: string) {
     if (editAddress.trim().length < 5) { setError('Enter a full address.'); return }
+    if (!editAddressValid) { setError('Pick an address from the suggestions dropdown.'); return }
     setBusy(true); setError('')
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'PATCH',
@@ -109,7 +116,8 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <AddressAutocomplete
                     value={editAddress}
-                    onChange={(val) => setEditAddress(val)}
+                    onChange={(val) => { setEditAddress(val); setEditAddressValid(false) }}
+                    onSelect={() => setEditAddressValid(true)}
                     placeholder="Street, city, state, ZIP, unit"
                   />
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -137,7 +145,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                       className="clients-section-action"
                       role="button"
                       tabIndex={0}
-                      onClick={() => { setEditingId(p.id); setEditAddress(p.address); setError('') }}
+                      onClick={() => { setEditingId(p.id); setEditAddress(p.address); setEditAddressValid(true); setError('') }}
                     >
                       Edit
                     </span>
@@ -158,7 +166,12 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
         <div style={{ marginTop: 8, border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Address</span>
-            <AddressAutocomplete value={newAddress} onChange={(val) => setNewAddress(val)} placeholder="Street, city, state, ZIP" />
+            <AddressAutocomplete
+              value={newAddress}
+              onChange={(val) => { setNewAddress(val); setNewAddressValid(false) }}
+              onSelect={() => setNewAddressValid(true)}
+              placeholder="Street, city, state, ZIP"
+            />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Apt / unit (optional)</span>
@@ -166,7 +179,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" disabled={busy} className="clients-btn clients-btn-primary" onClick={add}>{busy ? 'Adding…' : 'Add'}</button>
-            <button type="button" className="clients-btn clients-btn-ghost" onClick={() => { setAdding(false); setError('') }}>Cancel</button>
+            <button type="button" className="clients-btn clients-btn-ghost" onClick={() => { setAdding(false); setError(''); setNewAddressValid(false) }}>Cancel</button>
           </div>
         </div>
       )}

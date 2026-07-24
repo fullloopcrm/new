@@ -54,6 +54,7 @@ export default function PortalAccountPage() {
 
   const [addingAddress, setAddingAddress] = useState(false)
   const [newAddress, setNewAddress] = useState('')
+  const [newAddressValid, setNewAddressValid] = useState(false)
   const [newUnit, setNewUnit] = useState('')
   const [addressError, setAddressError] = useState('')
 
@@ -156,6 +157,7 @@ export default function PortalAccountPage() {
   async function addAddress() {
     if (!auth) return
     if (newAddress.trim().length < 5) { setAddressError('Enter a full address.'); return }
+    if (!newAddressValid) { setAddressError('Pick an address from the suggestions dropdown.'); return }
     setBusy(true); setAddressError('')
     const res = await fetch('/api/portal/properties', {
       method: 'POST',
@@ -164,7 +166,7 @@ export default function PortalAccountPage() {
     })
     setBusy(false)
     if (!res.ok) { setAddressError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
-    setNewAddress(''); setNewUnit(''); setAddingAddress(false)
+    setNewAddress(''); setNewUnit(''); setAddingAddress(false); setNewAddressValid(false)
     load()
   }
 
@@ -309,7 +311,8 @@ export default function PortalAccountPage() {
           <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
             <AddressAutocomplete
               value={newAddress}
-              onChange={(val) => setNewAddress(val)}
+              onChange={(val) => { setNewAddress(val); setNewAddressValid(false) }}
+              onSelect={() => setNewAddressValid(true)}
               placeholder="Street, city, state, ZIP"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />

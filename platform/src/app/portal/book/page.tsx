@@ -36,6 +36,7 @@ export default function BookingWizardPage() {
   const [propertyId, setPropertyId] = useState('')
   const [addingAddress, setAddingAddress] = useState(false)
   const [newAddress, setNewAddress] = useState('')
+  const [newAddressValid, setNewAddressValid] = useState(false)
   const [newUnit, setNewUnit] = useState('')
   const [addressError, setAddressError] = useState('')
   const [savingAddress, setSavingAddress] = useState(false)
@@ -71,6 +72,7 @@ export default function BookingWizardPage() {
   async function addAddress() {
     if (!auth) return
     if (newAddress.trim().length < 5) { setAddressError('Enter a full address.'); return }
+    if (!newAddressValid) { setAddressError('Pick an address from the suggestions dropdown.'); return }
     setSavingAddress(true); setAddressError('')
     const res = await fetch('/api/portal/properties', {
       method: 'POST',
@@ -80,7 +82,7 @@ export default function BookingWizardPage() {
     setSavingAddress(false)
     if (!res.ok) { setAddressError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
     const created = (await res.json().catch(() => ({}))).property
-    setNewAddress(''); setNewUnit(''); setAddingAddress(false)
+    setNewAddress(''); setNewUnit(''); setAddingAddress(false); setNewAddressValid(false)
     const propsRes = await fetch('/api/portal/properties', { headers: { Authorization: `Bearer ${auth.token}` } })
     const data = await propsRes.json().catch(() => ({}))
     const props: Property[] = data.properties || []
@@ -180,7 +182,12 @@ export default function BookingWizardPage() {
             </select>
           ) : (
             <div className="border border-gray-200 rounded-lg p-3 mb-4 space-y-2">
-              <AddressAutocomplete value={newAddress} onChange={setNewAddress} placeholder="Street, city, state, ZIP" />
+              <AddressAutocomplete
+                value={newAddress}
+                onChange={(val) => { setNewAddress(val); setNewAddressValid(false) }}
+                onSelect={() => setNewAddressValid(true)}
+                placeholder="Street, city, state, ZIP"
+              />
               <input
                 value={newUnit}
                 onChange={(e) => setNewUnit(e.target.value)}

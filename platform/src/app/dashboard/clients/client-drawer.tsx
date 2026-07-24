@@ -148,6 +148,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
   const [activity, setActivity] = useState<Activity[]>([])
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', address: '' })
+  const [editAddressValid, setEditAddressValid] = useState(true)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [showDnsPicker, setShowDnsPicker] = useState(false)
@@ -242,11 +243,16 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
       address: client.address || '',
     })
     setEditError('')
+    setEditAddressValid(true)
     setEditOpen(true)
   }
 
   async function saveEdit() {
     if (!client) return
+    if (editForm.address.trim() && !editAddressValid) {
+      setEditError('Pick an address from the suggestions dropdown.')
+      return
+    }
     setEditSaving(true)
     setEditError('')
     try {
@@ -899,7 +905,8 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
               <label className="clients-edit-label" htmlFor="client-edit-address">Address</label>
               <AddressAutocomplete
                 value={editForm.address}
-                onChange={(val) => setEditForm({ ...editForm, address: val })}
+                onChange={(val) => { setEditForm({ ...editForm, address: val }); setEditAddressValid(false) }}
+                onSelect={() => setEditAddressValid(true)}
                 className="clients-edit-input"
               />
             </div>
