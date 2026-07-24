@@ -52,11 +52,11 @@ export async function GET(request: Request) {
 
     if (dueList.length > CAP) {
       cappedAny = true
-      const { emailAdmins, smsAdmins } = await import('@/lib/nycmaid/admin-contacts')
+      const { emailAdmins, smsAdmins } = await import('@/lib/admin-contacts')
       const subject = `⚠️ BULK rating-prompt attempted — tenant ${tenant.name}, ${dueList.length} eligible, cap=${CAP}`
       const html = `<p>The rating-prompt cron tried to send to <strong>${dueList.length}</strong> clients in one run for tenant <strong>${tenant.name}</strong>. Cap is ${CAP}. Sent only the first ${CAP}; the rest are paused and need a human to review.</p>`
-      await emailAdmins(subject, html).catch(() => {})
-      await smsAdmins(`⚠️ Rating-prompt cron blocked at ${CAP}/${dueList.length} for ${tenant.name}.`).catch(() => {})
+      await emailAdmins(tenantId, subject, html).catch(() => {})
+      await smsAdmins(tenantId, `⚠️ Rating-prompt cron blocked at ${CAP}/${dueList.length} for ${tenant.name}.`).catch(() => {})
       await supabaseAdmin.from('notifications').insert({
         tenant_id: tenantId,
         type: 'cron_bulk_block',

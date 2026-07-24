@@ -7,8 +7,7 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { smsAdmins } from '@/lib/admin-contacts'
 
 export const maxDuration = 60
 
@@ -65,10 +64,8 @@ export async function GET(request: Request) {
       metadata: { deal_id: deal.id, client_name: clientName },
     })
 
-    // NYC Maid parity: also text admins (nycmaid SMSes the follow-up, FL emailed only).
-    if (isNycMaid(deal.tenant_id as string)) {
-      await nmSmsAdmins(`Sales follow-up: ${clientName} — ${note}`).catch(() => {})
-    }
+    // Text admins too, not just email — every tenant, not just nycmaid.
+    await smsAdmins(deal.tenant_id as string, `Sales follow-up: ${clientName} — ${note}`).catch(() => {})
 
     reminded++
   }
