@@ -13,6 +13,14 @@ type ServiceType = {
   default_hourly_rate: number
 }
 
+type Property = {
+  id: string
+  label: string | null
+  address: string
+  unit: string | null
+  is_primary: boolean
+}
+
 export default function BookingWizardPage() {
   const { auth } = usePortalAuth()
   const router = useRouter()
@@ -23,6 +31,8 @@ export default function BookingWizardPage() {
   const [notes, setNotes] = useState('')
   const [recurring, setRecurring] = useState('none')
   const [loading, setLoading] = useState(false)
+  const [properties, setProperties] = useState<Property[]>([])
+  const [propertyId, setPropertyId] = useState('')
 
   useEffect(() => {
     if (!auth) { router.push('/portal/login'); return }
@@ -31,6 +41,17 @@ export default function BookingWizardPage() {
     })
       .then((r) => r.json())
       .then((data) => setServices((data.services || []).filter((s: ServiceType & { active: boolean }) => s.active)))
+      .catch(() => {})
+    fetch('/api/portal/properties', {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const props: Property[] = data.properties || []
+        setProperties(props)
+        const primary = props.find((p) => p.is_primary)
+        if (primary) setPropertyId(primary.id)
+      })
       .catch(() => {})
   }, [auth, router])
 
@@ -51,6 +72,7 @@ export default function BookingWizardPage() {
         end_time: endTime.toISOString(),
         notes,
         recurring_type: recurring,
+        property_id: propertyId || null,
       }),
     })
     if (res.ok) {
@@ -107,6 +129,20 @@ export default function BookingWizardPage() {
             onChange={(e) => setDateTime(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
           />
+          {properties.length > 1 && (
+            <>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Address</label>
+              <select
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label ? `${p.label} — ${p.address}` : p.address}</option>
+                ))}
+              </select>
+            </>
+          )}
           <label className="block text-sm font-medium text-slate-600 mb-1">Frequency</label>
           <select
             value={recurring}
@@ -143,6 +179,12 @@ export default function BookingWizardPage() {
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-6">
             <div className="flex justify-between text-sm"><span className="text-slate-400">Service</span><span className="font-medium">{selectedService.name}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-400">Date</span><span>{new Date(dateTime).toLocaleString()}</span></div>
+            {properties.length > 1 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Address</span>
+                <span className="text-right">{properties.find((p) => p.id === propertyId)?.address || '—'}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm"><span className="text-slate-400">Duration</span><span>{selectedService.default_duration_hours} hours</span></div>
             {(() => {
               const base = selectedService.default_hourly_rate * selectedService.default_duration_hours

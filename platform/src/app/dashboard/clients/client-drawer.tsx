@@ -6,6 +6,7 @@ import { useWorkerLabel } from '../worker-label-context'
 import { DnsReasonPicker } from './dns-reason-picker'
 import { formatCustomerNumber } from '@/lib/format'
 import ClientAddresses from './client-addresses'
+import ClientContacts from './client-contacts'
 
 type EnrichedClient = {
   id: string
@@ -661,6 +662,11 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
           {/* All addresses (multi-property) + change history — Overview tab */}
           {drawerTab === 'overview' && (
             <ClientAddresses clientId={client.id} showHistory />
+          )}
+
+          {/* Additional phone/email contacts with per-channel comms opt-in — Overview tab */}
+          {drawerTab === 'overview' && (
+            <ClientContacts clientId={client.id} />
           )}
 
           {/* Worker affinity (trade-labeled) — Service tab */}

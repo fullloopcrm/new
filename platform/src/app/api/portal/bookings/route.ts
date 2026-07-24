@@ -81,10 +81,25 @@ export async function POST(request: Request) {
     price = applyRecurringDiscount(price, recurringType)
   }
 
+  // Verify the property belongs to THIS client before trusting it — a client
+  // could otherwise pass another client's property_id.
+  let propertyId: string | null = null
+  if (body.property_id) {
+    const { data: prop } = await db
+      .from('client_properties')
+      .select('id')
+      .eq('id', body.property_id)
+      .eq('client_id', auth.id)
+      .single()
+    if (!prop) return NextResponse.json({ error: 'Invalid address' }, { status: 400 })
+    propertyId = prop.id
+  }
+
   const { data, error } = await db
     .from('bookings') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
     .insert({
       client_id: auth.id,
+      property_id: propertyId,
       service_type_id: body.service_type_id || null,
       service_type: serviceType,
       start_time: body.start_time,
