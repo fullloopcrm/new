@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^[\d\s\-+().]{7,20}$/
@@ -173,6 +174,16 @@ export async function POST(request: Request) {
           errors.push(`Database error on batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
         } else {
           imported += data?.length || 0
+          // Every client-creation path must call this or the client silently
+          // never receives any SMS/email — see createPrimaryContact's docstring.
+          // Insert preserves row order, so zip 1:1 against the batch we sent.
+          await Promise.all((data || []).map((row, idx) =>
+            createPrimaryContact(tenantId, row.id, {
+              name: batch[idx]?.name as string | undefined,
+              phone: batch[idx]?.phone as string | undefined,
+              email: batch[idx]?.email as string | undefined,
+            }).catch(() => {})
+          ))
         }
       }
     }

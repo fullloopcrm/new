@@ -11,6 +11,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 export async function POST(request: Request) {
   try {
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Failed to create client: ${cErr?.message}` }, { status: 500 })
       }
       clientId = created.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenantId, created.id, { name, phone, email }).catch(() => {})
     }
 
     // Create the sales-mode deal at the front of the pipeline.

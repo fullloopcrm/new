@@ -25,6 +25,7 @@ import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
 
@@ -296,6 +297,9 @@ export async function POST(request: NextRequest) {
         .single()
       if (error) throw error
       clientId = inserted.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenant.id, clientId, { name, phone, email }).catch(() => {})
     }
 
     await supabaseAdmin

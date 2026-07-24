@@ -20,6 +20,7 @@ import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { randomInt } from 'crypto'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 interface LeadBody {
   type?: string
@@ -212,6 +213,9 @@ export async function POST(request: NextRequest) {
         .single()
       if (error) throw error
       clientId = inserted.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenant.id, clientId, { name, phone, email }).catch(() => {})
     }
 
     await db
