@@ -648,11 +648,30 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
             <div className="clients-property-grid">
               <div className="clients-property-cell">
                 <div className="clients-property-label">Address</div>
-                <div className={`clients-property-value ${client.address ? '' : 'empty'}`}>{client.address || 'Not set'}</div>
+                <div className={`clients-property-value ${client.address ? '' : 'empty'}`}>
+                  {client.address ? (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(client.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-blue-600 hover:underline"
+                    >
+                      {client.address}
+                    </a>
+                  ) : 'Not set'}
+                </div>
               </div>
               <div className="clients-property-cell">
                 <div className="clients-property-label">Phone</div>
-                <div className={`clients-property-value ${client.phone ? '' : 'empty'}`}>{client.phone || '—'}</div>
+                <div className={`clients-property-value ${client.phone ? '' : 'empty'}`}>
+                  {client.phone ? (
+                    <span className="flex items-center gap-1.5">
+                      {client.phone}
+                      <a href={`/admin/comhub?dial=${encodeURIComponent(client.phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100">Call</a>
+                      <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
+                    </span>
+                  ) : '—'}
+                </div>
               </div>
               <div className="clients-property-cell">
                 <div className="clients-property-label">Email</div>

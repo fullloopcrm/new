@@ -8,6 +8,42 @@ import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
+function formatPhoneDisplay(value: string): string {
+  const cleaned = value.replace(/\D/g, '')
+  if (cleaned.length <= 3) return cleaned
+  if (cleaned.length <= 6) return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3)
+  return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 10)
+}
+
+// Row-level Call/Text/Directions — same pattern as the bookings list, so a
+// client row can be worked without opening the drawer.
+function ContactChips({ phone, address }: { phone?: string | null; address?: string | null }) {
+  if (!phone && !address) return null
+  return (
+    <div className="flex items-center gap-1.5 mt-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+      {phone && (
+        <>
+          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
+            {formatPhoneDisplay(phone)}
+          </a>
+          <a href={`sms:${phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100" title="Text">Text</a>
+        </>
+      )}
+      {address && (
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] text-gray-400 hover:text-blue-600 hover:underline truncate max-w-[160px]"
+          title="Get directions"
+        >
+          {address}
+        </a>
+      )}
+    </div>
+  )
+}
+
 type Stage = 'lead' | 'first' | 'active' | 'vip' | 'risk' | 'lapsed' | 'dns'
 type HealthBand = 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
 
@@ -418,7 +454,7 @@ export default function ClientsPage() {
                     {c.name}
                     {c.stage === 'vip' && <span className="clients-row-name-tag vip">VIP</span>}
                   </div>
-                  {c.address && <div className="clients-row-addr">{c.address}</div>}
+                  <ContactChips phone={c.phone} address={c.address} />
                 </div>
               </div>
               <div className="clients-recurring-cell">
