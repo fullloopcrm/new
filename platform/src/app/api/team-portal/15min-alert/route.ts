@@ -235,14 +235,38 @@ export async function POST(req: NextRequest) {
     // claim gate entirely (existing manual-override behavior, unchanged).
     if (!force) {
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-      const { data: claimed } = await tenantDb(tenantId)
-        .from('bookings')
-        .update({ fifteen_min_alert_time: now.toISOString() })
-        .eq('id', bookingId)
-        .eq('tenant_id', tenantId)
-        .or(`fifteen_min_alert_time.is.null,fifteen_min_alert_time.lt.${thirtyMinAgo}`)
-        .select('id, fifteen_min_alert_time')
-        .maybeSingle()
+      // Two sequential attempts instead of a single .or() filter: an
+      // .update() chained with .or('col.is.null,col.lt.X').select() matches
+      // ZERO rows against this Supabase/PostgREST version even though the
+      // identical filter works fine on a plain .select() -- confirmed live
+      // (2026-07-24): every 30-min-alert call silently no-opped and returned
+      // alreadySent, for every tenant, because the claim query never actually
+      // matched. A row is either null or has a stale value, never both, so
+      // running .is(null) first and .lt(thirtyMinAgo) as a fallback covers
+      // the same two cases the .or() was meant to, with builder methods that
+      // are proven to work.
+      let claimed = (
+        await tenantDb(tenantId)
+          .from('bookings')
+          .update({ fifteen_min_alert_time: now.toISOString() })
+          .eq('id', bookingId)
+          .eq('tenant_id', tenantId)
+          .is('fifteen_min_alert_time', null)
+          .select('id, fifteen_min_alert_time')
+          .maybeSingle()
+      ).data
+      if (!claimed) {
+        claimed = (
+          await tenantDb(tenantId)
+            .from('bookings')
+            .update({ fifteen_min_alert_time: now.toISOString() })
+            .eq('id', bookingId)
+            .eq('tenant_id', tenantId)
+            .lt('fifteen_min_alert_time', thirtyMinAgo)
+            .select('id, fifteen_min_alert_time')
+            .maybeSingle()
+        ).data
+      }
       if (!claimed) {
         // Another request already claimed this alert (or it's within its
         // own 30-min window) -- bail out before sending anything, don't
