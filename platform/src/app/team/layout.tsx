@@ -140,7 +140,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
                   {lang === 'en' ? 'ES' : 'EN'}
                 </button>
                 <Link href="/team/rules" className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500">
-                  {t('Rules', 'Reglas')}
+                  {t('Announcements', 'Anuncios')}
                 </Link>
                 <Link href="/team/notifications" className="relative p-1">
                   <span className="text-lg">🔔</span>

@@ -454,21 +454,16 @@ export default function TeamHomePage() {
       })
       .catch(() => {})
 
-    // Guidelines
-    fetch('/api/team-portal/guidelines', { headers })
+    // Announcements — auto-show the latest one if it's newer than last seen
+    fetch('/api/team-portal/announcements', { headers })
       .then((r) => r.json())
       .then((data) => {
-        if (data.sections) {
-          // Convert sections format to en/es strings
-          const en = data.sections.map((s: { title_en: string; content_en: string }) => `${s.title_en}\n${s.content_en}`).join('\n\n')
-          const es = data.sections.map((s: { title_es: string; content_es: string }) => `${s.title_es}\n${s.content_es}`).join('\n\n')
-          setGuidelines({ en, es })
-          // Auto-show if guidelines exist and are newer than last seen
-          if (en || es) {
-            const seenAt = localStorage.getItem('guidelines_seen_at')
-            if (!seenAt || (data.updated_at && new Date(data.updated_at) > new Date(seenAt))) {
-              setShowGuidelines(true)
-            }
+        const latest = data.announcements?.[0]
+        if (latest) {
+          setGuidelines({ en: latest.body_en, es: latest.body_es || latest.body_en })
+          const seenAt = localStorage.getItem('guidelines_seen_at')
+          if (!seenAt || new Date(latest.created_at) > new Date(seenAt)) {
+            setShowGuidelines(true)
           }
         }
       })
@@ -1106,28 +1101,17 @@ export default function TeamHomePage() {
         )}
       </SidePanel>
 
-      {/* Guidelines Panel */}
-      <SidePanel open={showGuidelines} onClose={() => { setShowGuidelines(false); localStorage.setItem('guidelines_seen_at', new Date().toISOString()) }} title={t('Team Guidelines', 'Reglas del Equipo')}>
+      {/* Latest Announcement Panel */}
+      <SidePanel open={showGuidelines} onClose={() => { setShowGuidelines(false); localStorage.setItem('guidelines_seen_at', new Date().toISOString()) }} title={t('New Announcement', 'Nuevo Anuncio')}>
         {guidelines ? (
           <div className="space-y-4">
-            {guidelines.en && (
-              <div>
-                <h3 className="font-semibold text-slate-800 mb-2">English</h3>
-                <div className="text-sm text-slate-600 whitespace-pre-line">{guidelines.en}</div>
-              </div>
-            )}
-            {guidelines.es && (
-              <>
-                <hr className="border-gray-200" />
-                <div>
-                  <h3 className="font-semibold text-slate-800 mb-2">Español</h3>
-                  <div className="text-sm text-slate-600 whitespace-pre-line">{guidelines.es}</div>
-                </div>
-              </>
-            )}
+            <div className="text-sm text-slate-600 whitespace-pre-line">{t(guidelines.en, guidelines.es)}</div>
+            <a href="/team/rules" className="text-sm text-teal-600 font-medium underline">
+              {t('View all announcements', 'Ver todos los anuncios')}
+            </a>
           </div>
         ) : (
-          <p className="text-slate-400 text-center py-8">{t('No guidelines set', 'Sin reglas establecidas')}</p>
+          <p className="text-slate-400 text-center py-8">{t('No announcements yet', 'Aún no hay anuncios')}</p>
         )}
       </SidePanel>
 

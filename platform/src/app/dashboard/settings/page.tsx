@@ -7,6 +7,7 @@ import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
 import CommunicationsTab from './CommunicationsTab'
+import AnnouncementsTab from './AnnouncementsTab'
 import DataExportPanel from './DataExportPanel'
 
 function tenantSiteUrl(tenant: { domain?: string | null; slug?: string | null } | null): string {
@@ -66,9 +67,6 @@ type Tenant = {
   reschedule_notice_days: number | null
 
   // Guidelines
-  guidelines_en: string | null
-  guidelines_es: string | null
-  guidelines_updated_at: string | null
 
   // Payment methods
   payment_methods: string[] | null
@@ -174,7 +172,7 @@ function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<S
   )
 }
 
-const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Guidelines', 'Selena', 'Tools'] as const
+const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Announcements', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -360,12 +358,6 @@ export default function SettingsPage() {
     } else {
       setForm({ ...form, payment_methods: [...current, method] })
     }
-  }
-
-  async function broadcastGuidelines() {
-    if (!confirm('This will send a notification to ALL team members to review the updated guidelines. Continue?')) return
-    await fetch('/api/settings/broadcast-guidelines', { method: 'POST' })
-    alert('Guidelines broadcast sent to all team members.')
   }
 
   async function exportData(type: string) {
@@ -1229,51 +1221,7 @@ export default function SettingsPage() {
 
       {tab === 'Communications' && <CommunicationsTab />}
 
-      {tab === 'Guidelines' && (
-        <div className="max-w-3xl space-y-6">
-          <div className="border border-slate-200 rounded-lg p-6">
-            <h3 className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Team Member Guidelines</h3>
-            <p className="text-sm text-slate-400 mb-6">Bilingual guidelines shown to team members on their dashboard. Displayed as a popup they must review.</p>
-
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs text-slate-400 uppercase block mb-2">English</label>
-                <textarea
-                  rows={12}
-                  value={form.guidelines_en || ''}
-                  onChange={(e) => setForm({ ...form, guidelines_en: e.target.value })}
-                  placeholder={"1. CHECK YOUR SCHEDULE DAILY\n\u2014 Log into your portal every morning\n\u2014 Review all assigned jobs for the day\n\u2014 Confirm arrival times\n\n2. PROFESSIONALISM\n\u2014 Arrive on time\n\u2014 Wear company uniform\n\u2014 Be courteous and respectful"}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-sm font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 uppercase block mb-2">
-                  Spanish / Espa&ntilde;ol <span className="normal-case text-slate-500">(auto-translated on save)</span>
-                </label>
-                <textarea
-                  rows={12}
-                  value={form.guidelines_es || ''}
-                  onChange={(e) => setForm({ ...form, guidelines_es: e.target.value })}
-                  placeholder={"1. REVISA TU HORARIO DIARIAMENTE\n\u2014 Inicia sesi\u00f3n en tu portal cada ma\u00f1ana\n\u2014 Revisa todos los trabajos asignados para el d\u00eda\n\u2014 Confirma las horas de llegada"}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={saveTenant} disabled={saving} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
-                {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Guidelines'}
-              </button>
-              <button
-                onClick={broadcastGuidelines}
-                className="border border-slate-200 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium hover:border-slate-500 hover:text-slate-900 transition-colors"
-              >
-                Broadcast to All Team Members
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {tab === 'Announcements' && <AnnouncementsTab />}
 
       {tab === 'Selena' && (
         <div className="max-w-2xl space-y-6">

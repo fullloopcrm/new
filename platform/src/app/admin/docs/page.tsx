@@ -185,7 +185,7 @@ const sections: DocSection[] = [
 | \`/api/team-portal/connect/unread\` | GET | Unread message count |
 | \`/api/team-portal/notifications\` | GET | Team notifications |
 | \`/api/team-portal/preferences\` | GET/PUT | Notification preferences |
-| \`/api/team-portal/guidelines\` | GET | Company guidelines |
+| \`/api/team-portal/announcements\` | GET | Team announcements feed |
 
 **Client Portal APIs** — Verification code auth
 
