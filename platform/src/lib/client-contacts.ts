@@ -98,6 +98,38 @@ export async function hasAnyClientContacts(tenantId: string, clientId: string): 
   return Boolean(data && data.length > 0)
 }
 
+/**
+ * Create a primary contact row for a newly-inserted client. Every
+ * client-creation path must call this, or the client silently never
+ * receives any SMS/email — getClientContacts() returns empty and the
+ * fan-out helpers above log a comms_fail with nobody to send to.
+ * Safe to call even when no phone/email were captured — it just no-ops.
+ */
+export async function createPrimaryContact(
+  tenantId: string,
+  clientId: string,
+  input: { name?: string | null; phone?: string | null; email?: string | null }
+): Promise<void> {
+  const phone_e164 = input.phone ? normalizePhone(input.phone) : null
+  const email = input.email ? input.email.trim().toLowerCase() || null : null
+  if (!phone_e164 && !email) return
+
+  const now = new Date().toISOString()
+  await tenantDb(tenantId).from('client_contacts').insert({
+    tenant_id: tenantId,
+    client_id: clientId,
+    name: input.name || null,
+    role: 'primary',
+    phone_e164,
+    email,
+    is_primary: true,
+    receives_sms: Boolean(phone_e164),
+    receives_email: Boolean(email),
+    sms_consent_at: phone_e164 ? now : null,
+    email_consent_at: email ? now : null,
+  })
+}
+
 type SendResult = { sent: number; skipped: number }
 
 async function logZeroContactFanout(

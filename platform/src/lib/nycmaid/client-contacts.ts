@@ -106,6 +106,7 @@ export async function getContactById(contactId: string): Promise<ClientContact |
  * `receives_sms` defaults ON when phone present (matches pre-existing sms_consent behavior).
  */
 export async function createPrimaryContact(
+  tenantId: string,
   clientId: string,
   input: { name?: string | null; phone?: string | null; email?: string | null }
 ): Promise<void> {
@@ -115,6 +116,7 @@ export async function createPrimaryContact(
 
   const now = new Date().toISOString()
   await supabaseAdmin.from('client_contacts').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+    tenant_id: tenantId,
     client_id: clientId,
     name: input.name || null,
     role: 'primary',

@@ -21,6 +21,7 @@ import { attributeCollectForm } from '@/lib/attribution'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { randomInt } from 'crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
 
@@ -167,6 +168,10 @@ export async function POST(request: NextRequest) {
 
       if (error) throw error
       data = inserted as { id: string;[key: string]: unknown }
+
+      await createPrimaryContact(tenant.id, data.id, { name, phone, email }).catch((e) => {
+        console.error('createPrimaryContact error:', e)
+      })
     }
 
     // Funnel analytics

@@ -841,7 +841,7 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')
-      await createPrimaryContact(client.id, { name, phone }).catch(() => {})
+      await createPrimaryContact(tid, client.id, { name, phone }).catch(() => {})
       await supabaseAdmin.from('sms_conversations')
         .update({ client_id: client.id, name, phone, updated_at: new Date().toISOString() })
         .eq('id', conversationId).eq('tenant_id', tid)
