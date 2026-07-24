@@ -12,12 +12,15 @@ type GuidelineSection = {
 }
 
 export default function TeamRulesPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [sections, setSections] = useState<GuidelineSection[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetch('/api/team-portal/guidelines', {
       headers: { Authorization: `Bearer ${auth.token}` },
@@ -26,7 +29,7 @@ export default function TeamRulesPage() {
       .then((data) => setSections(data.sections || defaultSections))
       .catch(() => setSections(defaultSections))
       .finally(() => setLoading(false))
-  }, [auth, router])
+  }, [auth, authLoaded, router])
 
   if (!auth) return null
 

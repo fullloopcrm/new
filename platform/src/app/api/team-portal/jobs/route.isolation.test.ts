@@ -23,6 +23,7 @@ vi.mock('@/lib/supabase', async () => {
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { createToken } from '../auth/token'
+import { nowNaiveET } from '@/lib/recurring'
 import { GET } from './route'
 
 const A_ID = 'tenant-A'
@@ -42,8 +43,15 @@ beforeEach(() => {
   fake._seed('bookings', [
     { id: 'bk-a-open', tenant_id: A_ID, team_member_id: null, status: 'scheduled', start_time: '2099-01-01T10:00:00Z', end_time: '2099-01-01T12:00:00Z', service_type: 'Deep', price: 100, clients: { address: '10001 Main St' } },
     { id: 'bk-b-open', tenant_id: B_ID, team_member_id: null, status: 'scheduled', start_time: '2099-01-01T10:00:00Z', end_time: '2099-01-01T12:00:00Z', service_type: 'Deep', price: 200, clients: { address: '90210 Other St' } },
-    { id: 'bk-a-today', tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: new Date().toISOString(), end_time: new Date().toISOString(), service_type: 'Regular', price: 50, clients: { name: 'A Client', phone: '1', address: 'x', special_instructions: null } },
-    { id: 'bk-b-today', tenant_id: B_ID, team_member_id: 'tm-b', status: 'scheduled', start_time: new Date().toISOString(), end_time: new Date().toISOString(), service_type: 'Regular', price: 50, clients: { name: 'B Client', phone: '2', address: 'y', special_instructions: null } },
+    // bookings.start_time/end_time is a NAIVE America/New_York wall-clock string
+    // (no timezone suffix) in production -- see jobs/route.ts's own comment on
+    // this exact column. A real `new Date().toISOString()` UTC instant used
+    // here previously landed on the wrong side of the route's naive-ET
+    // "today" window boundary for several hours of the day, producing a false
+    // isolation-test failure unrelated to tenant scoping. nowNaiveET() matches
+    // the real column convention.
+    { id: 'bk-a-today', tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: nowNaiveET(), end_time: nowNaiveET(), service_type: 'Regular', price: 50, clients: { name: 'A Client', phone: '1', address: 'x', special_instructions: null } },
+    { id: 'bk-b-today', tenant_id: B_ID, team_member_id: 'tm-b', status: 'scheduled', start_time: nowNaiveET(), end_time: nowNaiveET(), service_type: 'Regular', price: 50, clients: { name: 'B Client', phone: '2', address: 'y', special_instructions: null } },
   ])
 })
 

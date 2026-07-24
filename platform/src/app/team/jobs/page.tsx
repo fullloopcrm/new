@@ -14,11 +14,16 @@ type Job = {
 }
 
 export default function OpenJobsPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [jobs, setJobs] = useState<Job[]>([])
 
   useEffect(() => {
+    // authLoaded gates this: auth is null both while the layout's localStorage
+    // read is still pending AND when truly logged out -- redirecting on the
+    // former bounces an already-authenticated cleaner back to the PIN screen
+    // on every fresh page load, before localStorage is ever read.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     // Fetch available (unassigned) jobs
     fetch('/api/team-portal/jobs?available=true', {
@@ -27,7 +32,7 @@ export default function OpenJobsPage() {
       .then((r) => r.json())
       .then((data) => setJobs(data.jobs || []))
       .catch(() => {})
-  }, [auth, router])
+  }, [auth, authLoaded, router])
 
   async function claimJob(jobId: string) {
     if (!auth) return

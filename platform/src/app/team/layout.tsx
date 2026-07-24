@@ -16,12 +16,14 @@ const LANG_KEY = 'team_lang'
 
 const AuthContext = createContext<{
   auth: AuthState
+  authLoaded: boolean
   setAuth: (a: AuthState) => void
   lang: Lang
   setLang: (l: Lang) => void
   t: (en: string, es: string) => string
 }>({
   auth: null,
+  authLoaded: false,
   setAuth: () => {},
   lang: 'en',
   setLang: () => {},
@@ -32,6 +34,13 @@ export const useTeamAuth = () => useContext(AuthContext)
 
 export default function TeamLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<AuthState>(null)
+  // Distinguishes "haven't checked localStorage yet" from "actually logged
+  // out" -- auth is null in BOTH cases during the brief window before this
+  // effect runs. Pages that redirect-to-login on `!auth` (checkin, checkout,
+  // open-jobs) must wait for authLoaded, or a fresh/reloaded page load bounces
+  // an already-authenticated cleaner back to the PIN screen every time, before
+  // localStorage is ever read.
+  const [authLoaded, setAuthLoaded] = useState(false)
   const [lang, setLangState] = useState<Lang>('en')
   const [unreadCount, setUnreadCount] = useState(0)
   const [connectUnread, setConnectUnread] = useState(0)
@@ -46,6 +55,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
       const storedLang = localStorage.getItem(LANG_KEY)
       if (storedLang === 'en' || storedLang === 'es') setLangState(storedLang)
     } catch { /* ignore */ }
+    setAuthLoaded(true)
   }, [])
 
   // Poll notification count
@@ -106,7 +116,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
   ]
 
   return (
-    <AuthContext value={{ auth, setAuth, lang, setLang, t }}>
+    <AuthContext value={{ auth, authLoaded, setAuth, lang, setLang, t }}>
       <head>
         <link rel="manifest" href="/team-manifest.json" />
         <meta name="theme-color" content="#1C1C1C" />

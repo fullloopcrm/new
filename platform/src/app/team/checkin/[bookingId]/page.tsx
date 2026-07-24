@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
 import PhotoCapture from '@/components/PhotoCapture'
@@ -8,9 +8,9 @@ import TeamChecklist from '@/components/TeamChecklist'
 
 export default function CheckInPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
-  const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'done'>('idle')
+  const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'submitting' | 'done'>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [error, setError] = useState('')
 
@@ -32,7 +32,7 @@ export default function CheckInPage() {
 
   async function checkIn() {
     if (!auth) return
-    setStatus('done')
+    setStatus('submitting')
     const res = await fetch('/api/team-portal/checkin', {
       method: 'POST',
       headers: {
@@ -55,10 +55,15 @@ export default function CheckInPage() {
     }
   }
 
-  if (!auth) {
-    router.push('/team/login')
-    return null
-  }
+  // Wait for the layout's localStorage read before deciding the member is
+  // logged out -- auth is null both while that read is pending AND when
+  // truly logged out, and redirecting on the former bounces an already
+  // -authenticated cleaner back to the PIN screen on every fresh page load.
+  useEffect(() => {
+    if (authLoaded && !auth) router.push('/team/login')
+  }, [authLoaded, auth, router])
+
+  if (!authLoaded || !auth) return null
 
   return (
     <div className="flex flex-col items-center pt-12">
@@ -83,7 +88,7 @@ export default function CheckInPage() {
         </div>
       )}
 
-      {status === 'confirming' && coords && (
+      {(status === 'confirming' || status === 'submitting') && coords && (
         <div className="text-center">
           <div className="w-40 h-40 rounded-full bg-green-50 border-4 border-green-500 flex flex-col items-center justify-center mb-4">
             <span className="text-3xl mb-1">✓</span>
@@ -91,9 +96,10 @@ export default function CheckInPage() {
           </div>
           <button
             onClick={checkIn}
-            className="bg-green-600 text-white px-8 py-3 rounded-xl font-medium"
+            disabled={status === 'submitting'}
+            className="bg-green-600 text-white px-8 py-3 rounded-xl font-medium disabled:opacity-50"
           >
-            {t('Confirm Check In', 'Confirmar Entrada')}
+            {status === 'submitting' ? t('Checking in…', 'Registrando…') : t('Confirm Check In', 'Confirmar Entrada')}
           </button>
         </div>
       )}
