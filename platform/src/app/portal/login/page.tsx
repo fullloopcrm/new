@@ -110,7 +110,7 @@ export default function PortalLoginPage() {
               value={slug}
               onChange={(e) => updateSlug(e.target.value)}
               required
-              placeholder="nyc-maid"
+              placeholder="nycmaid"
               className={authInputClass}
             />
           </div>
@@ -161,7 +161,7 @@ export default function PortalLoginPage() {
               value={slug}
               onChange={(e) => updateSlug(e.target.value)}
               required
-              placeholder="nyc-maid"
+              placeholder="nycmaid"
               className={authInputClass}
             />
           </div>
