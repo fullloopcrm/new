@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { emailAdmins, smsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { emailAdmins, smsAdmins } from '@/lib/admin-contacts'
 import { matchInboundPhone } from '@/lib/nycmaid/client-contacts'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -63,13 +63,14 @@ export async function POST(request: Request) {
   `
 
   try {
-    await emailAdmins(`Feedback: ${identityLine}`, html)
+    await emailAdmins(tenant, `Feedback: ${identityLine}`, html)
 
     const truncated = message.trim().length > 100 ? message.trim().slice(0, 100) + '...' : message.trim()
-    // Was hardcoded to Jeff's personal number — smsAdmins() pulls the
-    // tenant's own owner_phone (Telegram-first, SMS fallback), consistent
-    // with how emailAdmins() already resolves the recipient.
-    await smsAdmins(`The NYC Maid Feedback (${identityLine}): ${truncated}`)
+    // Tenant-scoped: smsAdmins() resolves THIS tenant's own admin contacts
+    // and Telnyx creds — previously routed through the nycmaid-only helper,
+    // which sent every tenant's feedback content to nycmaid's admins
+    // regardless of which tenant's site the submission came from.
+    await smsAdmins(tenant, `${tenant.name || 'Feedback'} (${identityLine}): ${truncated}`)
 
     let linkedClientId: string | null = null
     let category: 'client' | 'anonymous' | 'unmatched' = 'unmatched'

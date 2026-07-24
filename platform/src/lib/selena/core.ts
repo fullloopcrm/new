@@ -5,8 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
-import { sendSMS } from '@/lib/nycmaid/sms'
-import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { sendSMS as sendTelnyxSMS } from '@/lib/sms'
+import { smsAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 
@@ -14,6 +14,22 @@ import { emailWrapper } from '@/lib/nycmaid/email-templates'
 // tenant_id column. Phase 3.2 sweep: every tenant-scoped query in this file
 // resolves tid from convo.tenant_id and falls back to this constant.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
+// Every DB read/write in this file is tid-scoped, but SMS previously went
+// out through @/lib/nycmaid/sms — hardcoded to nycmaid's own Telnyx account
+// regardless of which tenant's conversation Yinez was handling. This fetches
+// the real tenant's own creds; no-ops if that tenant hasn't configured
+// Telnyx. Fixed 2026-07-24.
+async function sendSMS(tid: string, to: string, body: string): Promise<{ success: boolean; error?: unknown }> {
+  const { data: tenant } = await supabaseAdmin.from('tenants').select('telnyx_api_key, telnyx_phone').eq('id', tid).single()
+  if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) return { success: false, error: 'Telnyx not configured for tenant' }
+  try {
+    await sendTelnyxSMS({ to, body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error }
+  }
+}
 
 // ─── Error Monitoring ───────────────────────────────────────────────────────
 
@@ -1027,10 +1043,11 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
 // ─── Tool Handlers ──────────────────────────────────────────────────────────
 
 export async function handleCreateBooking(input: Record<string, unknown>, conversationId: string, result: YinezResult): Promise<string> {
+  let tid: string = NYCMAID_TENANT_ID
   try {
     const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, bedrooms, bathrooms, phone, tenant_id').eq('id', conversationId).single()
     if (!convo) return JSON.stringify({ error: 'Conversation not found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     // Auto-link by phone if no client_id on the conversation row.
     if (!convo.client_id && convo.phone) {
@@ -1183,7 +1200,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     const errMsg = err instanceof Error ? err.message : JSON.stringify(err)
     await yinezError('create_booking', err, conversationId)
     result.debug = `create_booking failed: ${errMsg}`
-    await smsAdmins(`YINEZ BOOKING FAILED — ${errMsg}. Convo ${conversationId}.`).catch(() => {})
+    await smsAdmins(tid, `YINEZ BOOKING FAILED — ${errMsg}. Convo ${conversationId}.`).catch(() => {})
     return JSON.stringify({ error: 'booking_failed', success: false, message: errMsg })
   }
 }
@@ -1311,7 +1328,7 @@ async function handleSendPin(conversationId: string): Promise<string> {
 
     const phone = client.phone || convo.phone
     if (phone) {
-      await sendSMS(phone, `Hi ${client.name || 'there'}! Your portal PIN is: ${pin}\n\nLog in at thenycmaid.com/portal 😊`, { skipConsent: true, smsType: 'pin_reminder' })
+      await sendSMS(tid, phone, `Hi ${client.name || 'there'}! Your portal PIN is: ${pin}\n\nLog in at thenycmaid.com/portal 😊`)
     }
     return JSON.stringify({ success: true, message: `PIN sent to ${phone}` })
   } catch (err) {

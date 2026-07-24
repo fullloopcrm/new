@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
@@ -8,11 +8,18 @@ import { nowNaiveET } from '@/lib/recurring'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
-// start_time, then sends one reminder SMS per booking. Dedupe via sms_logs.
+// start_time, then sends one reminder SMS per booking. Dedupe via `notifications`
+// (tenant_id + booking_id + type), same pattern as cron/reminders' 2hr reminder.
 //
-// Multi-tenant: iterates active tenants and runs per-tenant. Tenants without
-// `bookings` data (or using the team_members data model) get empty queries
-// and are no-ops here.
+// Multi-tenant: iterates active tenants and runs per-tenant, through each
+// tenant's OWN Telnyx credentials — tenants without their own creds are
+// skipped rather than borrowing another tenant's account. (Previously this
+// routed every tenant's send through `@/lib/nycmaid/client-contacts`, a
+// pre-multi-tenant helper hardcoded to nycmaid's own Telnyx account AND
+// whose sms_logs rows were hardcoded to nycmaid's tenant_id — so the dedupe
+// check below, which filtered by the real tenantId, never matched and every
+// eligible booking got re-texted on every 5-minute tick, forever, billed to
+// and sent from nycmaid's number. Fixed 2026-07-24.)
 export async function GET(request: Request) {
   const authError = protectCronAPI(request)
   if (authError) return authError
@@ -26,7 +33,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id')
+    .select('id, name, telnyx_api_key, telnyx_phone')
     .eq('status', 'active')
     .limit(1000)
 
@@ -35,6 +42,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
     if (!(await isCommEnabled(tenantId, 'confirmation_reminder', 'sms'))) continue
     const clientSms = await clientSmsTemplatesFor(tenantId)
 
@@ -56,19 +64,29 @@ export async function GET(request: Request) {
       if (typeof booking.notes === 'string' && /\[Client (confirmed|accepted) terms /.test(booking.notes)) continue
 
       const { count } = await supabaseAdmin
-        .from('sms_logs')
+        .from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('booking_id', booking.id)
-        .eq('sms_type', 'confirmation_reminder')
+        .eq('type', 'confirmation_reminder')
 
       if ((count || 0) > 0) continue
 
-      await sendClientSMS(booking.client_id, clientSms.confirmationReminder(booking), {
-        smsType: 'confirmation_reminder',
-        bookingId: booking.id,
-      })
-      sent++
+      const result = await sendClientSMS(tenant, booking.client_id, clientSms.confirmationReminder(booking))
+      if (result.sent > 0) {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'confirmation_reminder',
+          title: 'Confirmation reminder sent',
+          message: `Sent to client for booking ${booking.id}`,
+          booking_id: booking.id,
+          channel: 'sms',
+          recipient_type: 'client',
+          recipient_id: booking.client_id,
+          status: 'sent',
+        })
+        sent++
+      }
     }
   }
 

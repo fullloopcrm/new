@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { sendSMS } from '@/lib/nycmaid/sms'
+import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
 
@@ -61,9 +61,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
   if (client?.phone) {
-    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your service pro now and will send your full booking confirmation with team details once locked in.`, {
-      skipConsent: true, smsType: 'terms_accepted', bookingId: booking.id,
-    }).catch(() => {})
+    const { data: tenantCreds } = await supabaseAdmin
+      .from('tenants')
+      .select('telnyx_api_key, telnyx_phone')
+      .eq('id', booking.tenant_id)
+      .single()
+    if (tenantCreds?.telnyx_api_key && tenantCreds?.telnyx_phone) {
+      await sendSMS({
+        to: client.phone,
+        body: `Got it — terms accepted for ${startTime}. We're assigning your service pro now and will send your full booking confirmation with team details once locked in.`,
+        telnyxApiKey: tenantCreds.telnyx_api_key,
+        telnyxPhone: tenantCreds.telnyx_phone,
+      }).catch(() => {})
+    }
   }
   await smsAdmins(booking.tenant_id, `✓ ${client?.name || 'Client'} accepted terms (one-tap link) — booking ${startTime} ready to assign a team member.`).catch(() => {})
   await notify({
@@ -71,6 +81,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     title: `${client?.name || 'Client'} accepted terms`,
     message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign a team member for ${startTime}.`,
     booking_id: booking.id,
+    tenantId: booking.tenant_id,
     url: '/admin/bookings',
   }).catch(() => {})
 

@@ -6,13 +6,29 @@ import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
-import { sendSMS } from '@/lib/nycmaid/sms'
-import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { sendSMS as sendTelnyxSMS } from '@/lib/sms'
+import { smsAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { notify } from '@/lib/nycmaid/notify'
 import { getCurrentTenantId } from '@/lib/tenant'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+
+// Every DB read/write in this file is tid-scoped, but SMS previously went
+// out through @/lib/nycmaid/sms — hardcoded to nycmaid's own Telnyx account
+// regardless of which tenant's conversation Yinez was handling. This fetches
+// the real tenant's own creds; returns false (no-op) if that tenant hasn't
+// configured Telnyx. Fixed 2026-07-24.
+async function sendSMS(tid: string, to: string, body: string): Promise<{ success: boolean; error?: unknown }> {
+  const { data: tenant } = await supabaseAdmin.from('tenants').select('telnyx_api_key, telnyx_phone').eq('id', tid).single()
+  if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) return { success: false, error: 'Telnyx not configured for tenant' }
+  try {
+    await sendTelnyxSMS({ to, body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error }
+  }
+}
 
 // Hours between start_time and end_time. Bookings table has no estimated_hours column —
 // duration is derived from the start/end timestamps that the booking flow always writes.
@@ -972,7 +988,7 @@ async function handleSendToClient(input: { client_id: string; message: string; c
   const channel = input.channel || 'sms'
   if (channel === 'sms') {
     if (!client.phone) return JSON.stringify({ error: 'no client phone' })
-    const r = await sendSMS(client.phone, input.message, { skipConsent: true, smsType: 'admin_message', recipientType: 'client', recipientId: client.id })
+    const r = await sendSMS(tid, client.phone, input.message)
     return JSON.stringify({ ok: true, channel: 'sms', sent_to: client.name, result: r })
   }
   if (channel === 'email') {
@@ -991,7 +1007,7 @@ async function handleSendToCleaner(input: { cleaner_id: string; message: string 
     .eq('tenant_id', tid)
     .maybeSingle()
   if (!cleaner?.phone) return JSON.stringify({ error: 'cleaner not found or no phone' })
-  const r = await sendSMS(cleaner.phone, input.message, { skipConsent: true, smsType: 'admin_to_cleaner', recipientType: 'cleaner', recipientId: cleaner.id })
+  const r = await sendSMS(tid, cleaner.phone, input.message)
   return JSON.stringify({ ok: true, sent_to: cleaner.name, result: r })
 }
 
@@ -1016,14 +1032,11 @@ async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_cli
 
   let sent = 0, failed = 0
   for (const phone of phones) {
-    try {
-      await sendSMS(phone, input.message, { skipConsent: false, smsType: 'broadcast' })
-      sent++
-    } catch {
-      failed++
-    }
+    const r = await sendSMS(tid, phone, input.message)
+    if (r.success) sent++
+    else failed++
   }
-  await smsAdmins(`Broadcast complete — ${sent} sent, ${failed} failed.`).catch(() => {})
+  await smsAdmins(tid, `Broadcast complete — ${sent} sent, ${failed} failed.`).catch(() => {})
   return JSON.stringify({ ok: true, audience: input.audience, recipients: phones.length, sent, failed })
 }
 
@@ -1127,8 +1140,8 @@ async function handleApproveRefund(input: { booking_id: string; amount_dollars: 
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
 
-  await notify({ type: 'refund_approved', title: `Refund approved — $${input.amount_dollars}`, message: `Booking ${input.booking_id}: ${input.reason}`, booking_id: input.booking_id }).catch(() => {})
-  await smsAdmins(`✓ Refund approved: $${input.amount_dollars} for booking ${input.booking_id}. Reason: ${input.reason}. Process in Stripe.`).catch(() => {})
+  await notify({ type: 'refund_approved', title: `Refund approved — $${input.amount_dollars}`, message: `Booking ${input.booking_id}: ${input.reason}`, booking_id: input.booking_id, tenantId: tid }).catch(() => {})
+  await smsAdmins(tid, `✓ Refund approved: $${input.amount_dollars} for booking ${input.booking_id}. Reason: ${input.reason}. Process in Stripe.`).catch(() => {})
   return JSON.stringify({ ok: true, status: 'refund_approved_pending_processing', amount: input.amount_dollars })
 }
 
