@@ -8,6 +8,22 @@ import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { sendSMS } from '@/lib/sms'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { isCommEnabled } from '@/lib/comms-prefs'
+
+// Cache across the whole cron run — the same handful of cleaners get reused
+// across many schedules/occurrences within one invocation. Keyed by
+// tenant+id (not id alone) since team_members is tenant-owned.
+const teamMemberContactCache = new Map<string, { name: string | null; phone: string | null; pin: string | null }>()
+async function getTeamMemberContact(tenantId: string, id: string) {
+  const cacheKey = `${tenantId}:${id}`
+  if (teamMemberContactCache.has(cacheKey)) return teamMemberContactCache.get(cacheKey)!
+  const { data } = await supabaseAdmin.from('team_members').select('name, phone, pin').eq('id', id).eq('tenant_id', tenantId).single()
+  const contact = { name: data?.name ?? null, phone: data?.phone ?? null, pin: data?.pin ?? null }
+  teamMemberContactCache.set(cacheKey, contact)
+  return contact
+}
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -51,6 +67,11 @@ export async function GET(request: Request) {
       .limit(1)
 
     const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date()
+    // No prior booking for this schedule at all → this is the schedule's very
+    // first generation run. The cleaner has never been told about this
+    // standing job yet, unlike every subsequent weekly top-up of a job they
+    // already know about — see the notify-decision below.
+    const isFirstGeneration = !latest || latest.length === 0
     const fourWeeksOut = new Date()
     fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
 
@@ -88,6 +109,78 @@ export async function GET(request: Request) {
         .eq('id', schedule.service_type_id)
         .single()
       serviceType = svc?.name || null
+    }
+
+    // Client name + tenant SMS config — invariant across every occurrence
+    // this schedule generates, fetched once per schedule rather than per date.
+    const { data: clientRow } = await supabaseAdmin
+      .from('clients')
+      .select('name')
+      .eq('id', schedule.client_id)
+      .eq('tenant_id', schedule.tenant_id)
+      .single()
+    const clientName = clientRow?.name || 'Client'
+    const { data: tenantData } = await supabaseAdmin
+      .from('tenants')
+      .select('slug, industry, name, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+      .eq('id', schedule.tenant_id)
+      .single()
+    const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
+    let notifiedFirstOccurrence = false
+
+    // Fires the same job-assignment SMS the manual create/reassign paths send,
+    // logging sent/failed/skipped to `notifications` the same way — this cron
+    // previously assigned team_member_id on every generated occurrence with
+    // zero notification of any kind, so a cleaner's very first standing job
+    // (or a one-off reassignment) never told them.
+    async function notifyAssignment(bookingId: string, startTimeISO: string, memberId: string) {
+      const member = await getTeamMemberContact(schedule.tenant_id, memberId)
+      const skipReason = !member.phone
+        ? 'no phone on file'
+        : !hasSMS
+          ? 'tenant SMS not configured'
+          : null
+      if (skipReason || !(await isCommEnabled(schedule.tenant_id, 'team_assignment', 'sms'))) {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: schedule.tenant_id,
+          type: 'team_assignment',
+          title: 'Job Assignment SMS Skipped',
+          message: `${member.name || 'Team member'} was NOT notified of recurring assignment to ${clientName}: ${skipReason || 'team_assignment SMS disabled in comms settings'}`,
+          channel: 'sms', recipient_type: 'team_member', recipient_id: memberId,
+          booking_id: bookingId, status: 'skipped',
+        }).then(() => {}, () => {})
+        return
+      }
+      try {
+        await sendSMS({
+          to: member.phone!,
+          body: teamSmsTemplates(tenantData || {}).jobAssignment({
+            start_time: startTimeISO,
+            hourly_rate: schedule.hourly_rate,
+            clients: { name: clientName },
+            team_members: { name: member.name, pin: member.pin },
+          }),
+          telnyxApiKey: tenantData!.telnyx_api_key!,
+          telnyxPhone: tenantData!.telnyx_phone!,
+        })
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: schedule.tenant_id,
+          type: 'team_assignment',
+          title: 'Job Assignment SMS Sent',
+          message: `${member.name || 'Team member'} notified of recurring assignment to ${clientName}`,
+          channel: 'sms', recipient_type: 'team_member', recipient_id: memberId,
+          booking_id: bookingId, status: 'sent',
+        }).then(() => {}, () => {})
+      } catch (err) {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: schedule.tenant_id,
+          type: 'team_assignment',
+          title: 'Job Assignment SMS Failed',
+          message: `${member.name || 'Team member'} was NOT notified of recurring assignment to ${clientName}: ${err instanceof Error ? err.message : String(err)}`,
+          channel: 'sms', recipient_type: 'team_member', recipient_id: memberId,
+          booking_id: bookingId, status: 'failed',
+        }).then(() => {}, () => {})
+      }
     }
 
     const durH = schedule.duration_hours || 3
@@ -159,6 +252,9 @@ export async function GET(request: Request) {
     )
 
     const bookings: Record<string, unknown>[] = []
+    // Parallel to `bookings` by index — the member id to notify for that
+    // occurrence, or null to skip. Kept out of the insert payload itself.
+    const notifyPlan: (string | null)[] = []
     for (const d of dates) {
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       const ex = exMap.get(dateStr)
@@ -204,10 +300,25 @@ export async function GET(request: Request) {
       }
 
       // 'reassign' exception pins a specific member for this date, overriding both paths.
-      if (ex?.type === 'reassign') {
+      const isReassignment = ex?.type === 'reassign'
+      if (isReassignment) {
         assignedId = ex.new_team_member_id ?? null
         unassignedNote = null
       }
+
+      // Notify-worthy: the schedule's very first-ever occurrence (the cleaner
+      // has never heard about this standing job — send once per schedule,
+      // not once per each of the up-to-8-dates-ahead first batch), an
+      // explicit one-off reassignment, or smart-assign picking someone other
+      // than the schedule's usual member for this date. A routine weekly
+      // top-up assigning the SAME member the cleaner already expects does
+      // NOT notify — that would be a new SMS every single week for a
+      // standing job, not a real "new job assigned" event.
+      const isSmartSwitch = smartAssign && !!assignedId && assignedId !== schedule.team_member_id
+      const isFirstEverOccurrence = isFirstGeneration && !notifiedFirstOccurrence
+      const shouldNotify = !!assignedId && (isReassignment || isSmartSwitch || isFirstEverOccurrence)
+      if (shouldNotify && isFirstEverOccurrence) notifiedFirstOccurrence = true
+      notifyPlan.push(shouldNotify ? assignedId : null)
 
       // Occurrence has nobody assigned (no schedule.team_member_id, or the
       // legacy path found them unavailable, or smartAssign found nobody
@@ -255,15 +366,30 @@ export async function GET(request: Request) {
     // could silently drop every occurrence for this schedule. Check the error and,
     // on failure, fall back to per-row inserts so non-conflicting occurrences still
     // land — and surface the ones that couldn't instead of reporting a false count.
-    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings) // tenant-scope-ok: each row carries tenant_id (schedule.tenant_id)
+    const { data: insertedRows, error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings).select('id') // tenant-scope-ok: each row carries tenant_id (schedule.tenant_id)
     if (!batchErr) {
       totalGenerated += bookings.length
+      // Best-effort, fire-and-forget — a notify failure must never affect the
+      // generation count or block the next schedule. Index-aligned with
+      // `bookings`/`notifyPlan`: a single multi-row INSERT's RETURNING
+      // preserves input order (no ORDER BY-less reordering trigger here).
+      insertedRows?.forEach((row, i) => {
+        const memberId = notifyPlan[i]
+        if (memberId) notifyAssignment(row.id, String(bookings[i].start_time), memberId).catch(() => {})
+      })
     } else {
       let inserted = 0
       const skipped: string[] = []
-      for (const row of bookings) {
-        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row) // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
-        if (rowErr) skipped.push(String(row.start_time)); else inserted++
+      for (let i = 0; i < bookings.length; i++) {
+        const row = bookings[i]
+        const { data: rowData, error: rowErr } = await supabaseAdmin.from('bookings').insert(row).select('id').single() // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
+        if (rowErr) {
+          skipped.push(String(row.start_time))
+        } else {
+          inserted++
+          const memberId = notifyPlan[i]
+          if (memberId && rowData) notifyAssignment(rowData.id, String(row.start_time), memberId).catch(() => {})
+        }
       }
       totalGenerated += inserted
       if (skipped.length > 0) {
