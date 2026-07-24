@@ -47,12 +47,20 @@ async function findClientByContact(tenantId: string, contact: string): Promise<C
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
-  const { action, tenant_slug } = body
+  const { action } = body
+  // Prefer an explicit slug, but fall back to the middleware-injected tenant
+  // header (set on every tenant domain/subdomain) — same pattern as
+  // /api/team-portal/auth. Lets a client sign in on the tenant's own site
+  // (e.g. thenycmaid.com) without typing a business code.
+  const tenant_slug: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
 
   if (action === 'login') {
     const pin = String(body.pin || '')
-    if (!pin || !tenant_slug) {
-      return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
+    if (!pin) {
+      return NextResponse.json({ error: 'PIN required' }, { status: 400 })
+    }
+    if (!tenant_slug) {
+      return NextResponse.json({ error: 'Business code required' }, { status: 400 })
     }
 
     const ip = clientIp(request)

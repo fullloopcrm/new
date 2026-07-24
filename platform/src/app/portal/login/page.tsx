@@ -17,6 +17,7 @@ export default function PortalLoginPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('pin')
   const [slug, setSlug] = useState('')
+  const [needBusiness, setNeedBusiness] = useState(false)
   const [pin, setPin] = useState('')
   const [contact, setContact] = useState('')
   const [error, setError] = useState('')
@@ -28,17 +29,21 @@ export default function PortalLoginPage() {
 
   async function login(e: React.FormEvent) {
     e.preventDefault()
-    if (pin.length < 4 || loading) return
+    if (pin.length < 4 || (needBusiness && !slug) || loading) return
     setLoading(true)
     setError('')
     try {
+      // On a tenant's own domain the server resolves the business from the
+      // host. Only send a slug if the host couldn't (main host fallback).
       const res = await fetch('/api/portal/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', pin, tenant_slug: slug }),
+        body: JSON.stringify({ action: 'login', pin, tenant_slug: slug || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
+        // The server couldn't resolve a business from the host → ask for it.
+        if (data.error === 'Business code required') setNeedBusiness(true)
         setError(data.error || 'Login failed')
         setPin('')
         return
@@ -54,17 +59,18 @@ export default function PortalLoginPage() {
 
   async function requestPin(e: React.FormEvent) {
     e.preventDefault()
-    if (!slug || !contact.trim() || loading) return
+    if (!contact.trim() || (needBusiness && !slug) || loading) return
     setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/portal/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request_pin', contact, tenant_slug: slug }),
+        body: JSON.stringify({ action: 'request_pin', contact, tenant_slug: slug || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data.error === 'Business code required') setNeedBusiness(true)
         setError(data.error || 'Could not send a PIN')
         return
       }
@@ -101,21 +107,22 @@ export default function PortalLoginPage() {
     <AuthShell businessName="Full Loop" subtitle="Client Portal">
       {step === 'pin' ? (
         <form className="mt-10" onSubmit={login}>
-          <div>
-            <label htmlFor="portal-slug" className={authLabelClass}>
-              Business code
-            </label>
-            <input
-              id="portal-slug"
-              value={slug}
-              onChange={(e) => updateSlug(e.target.value)}
-              required
-              placeholder="nycmaid"
-              className={authInputClass}
-            />
-          </div>
+          {needBusiness && (
+            <div>
+              <label htmlFor="portal-slug" className={authLabelClass}>
+                Business code
+              </label>
+              <input
+                id="portal-slug"
+                value={slug}
+                onChange={(e) => updateSlug(e.target.value)}
+                placeholder="nycmaid"
+                className={authInputClass}
+              />
+            </div>
+          )}
 
-          <div className="mt-6">
+          <div className={needBusiness ? 'mt-6' : ''}>
             <label htmlFor="portal-pin" className={authLabelClass}>
               PIN
             </label>
@@ -136,7 +143,11 @@ export default function PortalLoginPage() {
 
           {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
 
-          <button type="submit" disabled={loading || pin.length < 4 || !slug} className={`mt-8 ${authButtonClass}`}>
+          <button
+            type="submit"
+            disabled={loading || pin.length < 4 || (needBusiness && !slug)}
+            className={`mt-8 ${authButtonClass}`}
+          >
             {loading ? 'Signing in…' : 'Sign in →'}
           </button>
           <button
@@ -152,21 +163,22 @@ export default function PortalLoginPage() {
         </form>
       ) : (
         <form className="mt-10" onSubmit={requestPin}>
-          <div>
-            <label htmlFor="forgot-slug" className={authLabelClass}>
-              Business code
-            </label>
-            <input
-              id="forgot-slug"
-              value={slug}
-              onChange={(e) => updateSlug(e.target.value)}
-              required
-              placeholder="nycmaid"
-              className={authInputClass}
-            />
-          </div>
+          {needBusiness && (
+            <div>
+              <label htmlFor="forgot-slug" className={authLabelClass}>
+                Business code
+              </label>
+              <input
+                id="forgot-slug"
+                value={slug}
+                onChange={(e) => updateSlug(e.target.value)}
+                placeholder="nycmaid"
+                className={authInputClass}
+              />
+            </div>
+          )}
 
-          <div className="mt-6">
+          <div className={needBusiness ? 'mt-6' : ''}>
             <label htmlFor="forgot-contact" className={authLabelClass}>
               Phone or email on file
             </label>
@@ -183,7 +195,7 @@ export default function PortalLoginPage() {
 
           {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
 
-          <button type="submit" disabled={loading} className={`mt-8 ${authButtonClass}`}>
+          <button type="submit" disabled={loading || (needBusiness && !slug)} className={`mt-8 ${authButtonClass}`}>
             {loading ? 'Sending…' : 'Email me a PIN →'}
           </button>
           <button

@@ -101,6 +101,31 @@ describe('POST /api/portal/auth — login', () => {
     expect(res.status).toBe(400)
   })
 
+  it('asks for a business code when neither the body nor the tenant header supplies one', async () => {
+    const res = await POST(
+      new Request('http://x/api/portal/auth', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'login', pin: REAL_PIN }),
+      }),
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBe('Business code required')
+  })
+
+  it('resolves the tenant from the x-tenant-slug header when no slug is sent in the body', async () => {
+    const res = await POST(
+      new Request('http://x/api/portal/auth', {
+        method: 'POST',
+        headers: { 'x-tenant-slug': TENANT_SLUG },
+        body: JSON.stringify({ action: 'login', pin: REAL_PIN }),
+      }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.token).toBe(`tok.${CLIENT_ID}.${TENANT_ID}`)
+  })
+
   it('the universal PIN signs in as the oldest client for the tenant, regardless of that client\'s real PIN', async () => {
     const res = await POST(loginReq('020179'))
     const body = await res.json()
