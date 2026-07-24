@@ -202,6 +202,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
       if (options?.smsType) {
         try {
           await supabaseAdmin.from('sms_logs').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+            tenant_id: NYCMAID_TENANT_ID,
             booking_id: options.bookingId || null,
             sms_type: options.smsType,
             recipient: cleanPhone,
