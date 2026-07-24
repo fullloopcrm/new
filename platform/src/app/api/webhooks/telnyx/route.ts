@@ -15,6 +15,7 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { handleReviewRating } from '@/lib/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { nowNaiveET } from '@/lib/recurring'
 import { sendTenantTelegram } from '@/lib/notify'
@@ -438,13 +439,19 @@ export async function POST(request: Request) {
     }
 
     // ============================================
-    // NYC MAID review engine (tenant-scoped parity — rating capture + review
-    // generation). FL bills up front in the 30-min alert, so this does NOT
-    // re-bill. $10 written-review credit only. Gated to the NYC Maid tenant.
+    // REVIEW ENGINE — rating capture off the 30-min alert's "reply 1-5" ask,
+    // and (on a 4-5) a review-incentive offer. NYC Maid keeps its own
+    // hand-tuned copy (video-review option, referral plug) via the dedicated
+    // nycmaid engine; every other tenant gets the generic core version using
+    // their own Google review link + business name. Global process, personal
+    // copy/link — see feedback_fullloop_review_engine_globalized.
     // ============================================
     if (isNycMaid(tenantId)) {
       const nmReview = await handleNycMaidReview({ tenantId, from, text })
       if (nmReview) return nmReview
+    } else {
+      const review = await handleReviewRating({ tenantId, from, text })
+      if (review) return review
     }
 
     // ============================================

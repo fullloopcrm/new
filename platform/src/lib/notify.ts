@@ -101,10 +101,16 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   'error',
 ])
 
-// Per-tenant Telegram: post to the tenant's own bot when configured, else
-// fall back to the platform owner bot (mirrors lib/nycmaid/notify.ts).
+// Per-tenant Telegram: post to the tenant's own bot when configured. A
+// resolved tenant with no Telegram of its own stays dashboard-only — falling
+// back to the platform owner bot here would leak every other tenant's
+// new_booking/new_client/payment_received/etc. events into nycmaid/Jeff's own
+// Telegram feed (same cross-tenant leak already fixed in
+// lib/nycmaid/notify.ts). tenantId is always resolved by every call site in
+// this file, so this fallback exists only for symmetry with the nycmaid
+// module's cron/no-request-scope case.
 export async function sendTenantTelegram(
-  tenantId: string,
+  tenantId: string | null,
   tenant: { telegram_bot_token?: string | null; telegram_chat_id?: string | null },
   text: string,
 ): Promise<void> {
@@ -113,7 +119,7 @@ export async function sendTenantTelegram(
     await sendTelegram(tenant.telegram_chat_id, text, botToken)
     return
   }
-  await notifyOwnerOnTelegram(text)
+  if (!tenantId) await notifyOwnerOnTelegram(text)
 }
 
 export async function notify({
