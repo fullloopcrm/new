@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { calculateDistance, estimateTransitMinutes, geocodeClient } from '@/lib/nycmaid/geo'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 export async function GET(request: Request) {
   // Auth: field-staff bearer token. This returns client names + full home
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 
   const { data: bookings } = await db
     .from('bookings')
-    .select('id, start_time, end_time, client_id, clients(id, name, address, latitude, longitude)')
+    .select('id, start_time, end_time, client_id, clients(id, name, address, latitude, longitude), client_properties(address, latitude, longitude)')
     .eq('team_member_id', teamMemberId)
     .gte('start_time', `${date}T00:00:00`)
     .lte('start_time', `${date}T23:59:59`)
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
     .order('start_time', { ascending: true })
 
   if (!bookings || bookings.length < 2) return NextResponse.json([])
+  bookings.forEach((b) => applyPropertyToBookingClient(b as never))
 
   const result: Array<Record<string, unknown>> = []
 

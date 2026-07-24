@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
 // decide if a job is worth claiming, not enough to identify/contact the client.
@@ -107,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
-      .select('*, clients(name, phone, address, special_instructions)')
+      .select('*, clients(name, phone, address, special_instructions), client_properties(address, latitude, longitude)')
       .or(await memberBookingFilter())
       .gte('start_time', tomorrow)
       .lt('start_time', futureEnd)
@@ -115,13 +116,14 @@ export async function GET(request: NextRequest) {
       .order('start_time')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
     return NextResponse.json({ jobs: data })
   }
 
   // Default: return today's jobs for the authenticated team member
   const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
-    .select('*, clients(name, phone, address, special_instructions)')
+    .select('*, clients(name, phone, address, special_instructions), client_properties(address, latitude, longitude)')
     .or(await memberBookingFilter())
     .gte('start_time', today)
     .lt('start_time', tomorrow)
@@ -129,5 +131,6 @@ export async function GET(request: NextRequest) {
     .order('start_time')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
   return NextResponse.json({ jobs: data })
 }

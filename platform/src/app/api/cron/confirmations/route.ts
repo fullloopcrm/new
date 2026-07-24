@@ -6,6 +6,7 @@ import { sendClientSMS } from '@/lib/client-contacts'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { etHour, etToday, addCalendarDays, formatNaiveET, nowNaiveET } from '@/lib/recurring'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, end_time, team_member_id, clients(name, address), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
         .lte('start_time', twoDaysAheadNaiveBound)
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
+      ;(unconfirmedJobs || []).forEach((b) => applyPropertyToBookingClient(b as never))
 
       for (const booking of unconfirmedJobs || []) {
         const member = booking.team_members

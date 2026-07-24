@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
 
     const { data: booking, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, service_type, price, clients(id, name, email, phone, address), team_members!bookings_team_member_id_fkey(id, name, email, phone)')
+      .select('id, start_time, end_time, service_type, price, clients(id, name, email, phone, address), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(id, name, email, phone)')
       .eq('id', bookingId)
       .eq('tenant_id', tenantId)
       .single()
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       if (error) console.error('send-booking-emails lookup error:', error)
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
+    applyPropertyToBookingClient(booking as never)
 
     const client = booking.clients as unknown as { id?: string; name?: string; email?: string; phone?: string; address?: string } | null
     const member = booking.team_members as unknown as { id?: string; name?: string; email?: string; phone?: string } | null

@@ -15,6 +15,7 @@ import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
 import { notify } from '@/lib/nycmaid/notify'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -36,13 +37,14 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await db
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate)')
     .eq('id', booking_id)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+  applyPropertyToBookingClient(booking as never)
 
   // Resolve the service's pricing model. ONLY hourly services recompute the
   // client price from elapsed time; flat/per-unit keep the price fixed at

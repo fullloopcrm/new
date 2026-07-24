@@ -103,6 +103,7 @@ export interface BookingUnconfirmed {
   end_time: string
   team_member_id: string | null
   clients: ClientNameAddress
+  client_properties?: { address: string | null; latitude: number | null; longitude: number | null } | null
   team_members: TeamMemberNamePhone
 }
 
