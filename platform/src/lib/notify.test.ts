@@ -60,6 +60,11 @@ vi.mock('./sms', () => ({
 const isCommEnabledMock = vi.fn(async (_tenantId: string, _key: string, _channel: string) => true)
 vi.mock('./comms-prefs', () => ({
   isCommEnabled: (tenantId: string, key: string, channel: string) => isCommEnabledMock(tenantId, key, channel),
+  getCommPolicy: async () => ({}),
+  buildTemplateData: (tenant: { name: string }, policy: Record<string, unknown>) => ({
+    tenantName: tenant.name,
+    ...policy,
+  }),
 }))
 
 const sendTelegramMock = vi.fn(async (_chatId: unknown, _text: string, _token?: string) => ({ ok: true, status: 200, body: '{}' }))

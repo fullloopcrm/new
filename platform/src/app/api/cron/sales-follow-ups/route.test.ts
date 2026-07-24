@@ -22,14 +22,10 @@ vi.mock('@/lib/notify', () => ({
   }),
 }))
 
-vi.mock('@/lib/nycmaid/admin-contacts', () => ({
-  smsAdmins: vi.fn(async (msg: string) => {
+vi.mock('@/lib/admin-contacts', () => ({
+  smsAdmins: vi.fn(async (_tenantId: string, msg: string) => {
     smsedAdmins.push(msg)
   }),
-}))
-
-vi.mock('@/lib/nycmaid/tenant', () => ({
-  isNycMaid: (tenantId: string | null | undefined) => tenantId === NYCMAID_TENANT_ID,
 }))
 
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
@@ -131,7 +127,7 @@ describe('sales-follow-ups cron — deals.stage filter', () => {
     expect(notified[0]).toMatchObject({ tenantId: NYCMAID_TENANT_ID, message: 'Alice — call back' })
   })
 
-  it('SMS-alerts nycmaid admins (parity) but not other tenants', async () => {
+  it('SMS-alerts every tenant\'s admins, not just nycmaid', async () => {
     const now = new Date()
     dealsRows = [
       {
@@ -156,7 +152,8 @@ describe('sales-follow-ups cron — deals.stage filter', () => {
     const body = await res.json()
 
     expect(body.reminded).toBe(2)
-    expect(smsedAdmins).toHaveLength(1)
-    expect(smsedAdmins[0]).toContain('Carol')
+    expect(smsedAdmins).toHaveLength(2)
+    expect(smsedAdmins.some(m => m.includes('Carol'))).toBe(true)
+    expect(smsedAdmins.some(m => m.includes('Dave'))).toBe(true)
   })
 })
