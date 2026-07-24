@@ -3,7 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
-import { nowNaiveET } from '@/lib/recurring'
+import { nowNaiveET, parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -61,7 +61,12 @@ export async function GET(request: Request) {
 
         if (!lastBooking?.end_time) { skipped++; continue }
 
-        const lastDate = new Date(lastBooking.end_time)
+        // end_time is a naive America/New_York wall-clock string, not real
+        // UTC -- new Date(end_time) silently misreads it as UTC and skews
+        // this comparison against thirtyDaysAgo/ninetyDaysAgo (real
+        // instants) by the ET/UTC gap. Same bug class the upcomingCount
+        // query below this block already guards against.
+        const lastDate = parseNaiveET(lastBooking.end_time)
         // Must be between 30-90 days ago
         if (lastDate > thirtyDaysAgo || lastDate < ninetyDaysAgo) { skipped++; continue }
 
