@@ -77,7 +77,7 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
             id="team-business-code"
             value={slug}
             onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-            placeholder="nyc-maid"
+            placeholder="nycmaid"
             className="mt-2 w-full rounded-none border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none"
           />
         </div>

@@ -10,29 +10,28 @@ export default function CheckInPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
   const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
-  const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'submitting' | 'done'>('idle')
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [status, setStatus] = useState<'idle' | 'checking-in' | 'done'>('idle')
   const [error, setError] = useState('')
 
-  function getLocation() {
-    setStatus('getting-gps')
-    setError('')
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setStatus('confirming')
-      },
-      (err) => {
-        setError(t('Could not get location: ', 'No se pudo obtener ubicación: ') + err.message)
-        setStatus('idle')
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
+  function getLocation(): Promise<{ lat: number; lng: number } | null> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null)
+        return
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    })
   }
 
   async function checkIn() {
     if (!auth) return
-    setStatus('submitting')
+    setStatus('checking-in')
+    setError('')
+    const location = await getLocation()
     const res = await fetch('/api/team-portal/checkin', {
       method: 'POST',
       headers: {
@@ -41,17 +40,16 @@ export default function CheckInPage() {
       },
       body: JSON.stringify({
         booking_id: bookingId,
-        lat: coords?.lat,
-        lng: coords?.lng,
+        lat: location?.lat,
+        lng: location?.lng,
       }),
     })
     if (res.ok) {
-      // Stay on page so team member can upload walkthrough video
       setStatus('done')
     } else {
-      const data = await res.json()
-      setError(data.error || 'Check-in failed')
-      setStatus('confirming')
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || t('Could not check in. Make sure location is on and you are at the job address.', 'No se pudo registrar. Verifica que la ubicación esté activada y que estés en la dirección.'))
+      setStatus('idle')
     }
   }
 
@@ -68,48 +66,31 @@ export default function CheckInPage() {
   return (
     <div className="flex flex-col items-center pt-12">
       <h1 className="text-xl font-bold text-slate-800 mb-2">{t('Check In', 'Registro de Entrada')}</h1>
-      <p className="text-sm text-slate-400 mb-8">{t('Verify your location to start the job', 'Verifica tu ubicación para iniciar')}</p>
+      <p className="text-sm text-slate-400 mb-8">{t('Tap to check in at this job', 'Toca para registrar tu entrada')}</p>
 
-      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+      {error && <p className="text-red-500 text-sm mb-4 text-center max-w-xs">{error}</p>}
 
       {status === 'idle' && (
         <button
-          onClick={getLocation}
+          onClick={checkIn}
           className="w-40 h-40 rounded-full bg-slate-800 text-white flex flex-col items-center justify-center text-lg font-bold"
         >
           <span className="text-3xl mb-1">📍</span>
-          {t('Get GPS', 'Obtener GPS')}
+          {t('Check In', 'Registrar Entrada')}
         </button>
       )}
 
-      {status === 'getting-gps' && (
+      {status === 'checking-in' && (
         <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center">
-          <p className="text-sm text-slate-400 text-center">{t('Getting location...', 'Obteniendo ubicación...')}</p>
-        </div>
-      )}
-
-      {(status === 'confirming' || status === 'submitting') && coords && (
-        <div className="text-center">
-          <div className="w-40 h-40 rounded-full bg-green-50 border-4 border-green-500 flex flex-col items-center justify-center mb-4">
-            <span className="text-3xl mb-1">✓</span>
-            <p className="text-xs text-green-700 font-mono">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
-          </div>
-          <button
-            onClick={checkIn}
-            disabled={status === 'submitting'}
-            className="bg-green-600 text-white px-8 py-3 rounded-xl font-medium disabled:opacity-50"
-          >
-            {status === 'submitting' ? t('Checking in…', 'Registrando…') : t('Confirm Check In', 'Confirmar Entrada')}
-          </button>
+          <p className="text-sm text-slate-400 text-center">{t('Checking in...', 'Registrando...')}</p>
         </div>
       )}
 
       {status === 'done' && (
         <div className="text-center space-y-4">
-          <p className="text-green-600 font-bold text-lg">{t('Checked In!', '¡Registrado!')}</p>
-          <div className="w-full max-w-sm mx-auto space-y-3">
-            <PhotoCapture bookingId={bookingId} photoType="before" token={auth!.token} t={t} />
-            <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
+          <div className="w-40 h-40 mx-auto rounded-full bg-green-50 border-4 border-green-500 flex flex-col items-center justify-center">
+            <span className="text-3xl mb-1">✓</span>
+            <p className="text-green-600 font-bold">{t('Checked In!', '¡Registrado!')}</p>
           </div>
           <button
             onClick={() => router.push('/team')}
@@ -117,10 +98,15 @@ export default function CheckInPage() {
           >
             {t('Continue', 'Continuar')}
           </button>
+          <div className="w-full max-w-sm mx-auto space-y-3 pt-4 border-t border-gray-100">
+            <p className="text-xs text-slate-400">{t('Optional', 'Opcional')}</p>
+            <PhotoCapture bookingId={bookingId} photoType="before" token={auth!.token} t={t} />
+            <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
+          </div>
         </div>
       )}
 
-      {status !== 'done' && (
+      {status === 'idle' && (
         <button onClick={() => router.push('/team')} className="mt-8 text-sm text-slate-400">
           {t('Back', 'Volver')}
         </button>
