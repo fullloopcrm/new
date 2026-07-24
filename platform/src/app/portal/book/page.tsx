@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePortalAuth } from '../layout'
 import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 type ServiceType = {
   id: string
@@ -33,15 +34,14 @@ export default function BookingWizardPage() {
   const [loading, setLoading] = useState(false)
   const [properties, setProperties] = useState<Property[]>([])
   const [propertyId, setPropertyId] = useState('')
+  const [addingAddress, setAddingAddress] = useState(false)
+  const [newAddress, setNewAddress] = useState('')
+  const [newUnit, setNewUnit] = useState('')
+  const [addressError, setAddressError] = useState('')
+  const [savingAddress, setSavingAddress] = useState(false)
 
-  useEffect(() => {
-    if (!auth) { router.push('/portal/login'); return }
-    fetch('/api/portal/services', {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setServices((data.services || []).filter((s: ServiceType & { active: boolean }) => s.active)))
-      .catch(() => {})
+  function loadProperties() {
+    if (!auth) return
     fetch('/api/portal/properties', {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
@@ -51,9 +51,42 @@ export default function BookingWizardPage() {
         setProperties(props)
         const primary = props.find((p) => p.is_primary)
         if (primary) setPropertyId(primary.id)
+        return props
       })
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    if (!auth) { router.push('/portal/login'); return }
+    fetch('/api/portal/services', {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setServices((data.services || []).filter((s: ServiceType & { active: boolean }) => s.active)))
+      .catch(() => {})
+    loadProperties()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth, router])
+
+  async function addAddress() {
+    if (!auth) return
+    if (newAddress.trim().length < 5) { setAddressError('Enter a full address.'); return }
+    setSavingAddress(true); setAddressError('')
+    const res = await fetch('/api/portal/properties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null }),
+    })
+    setSavingAddress(false)
+    if (!res.ok) { setAddressError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
+    const created = (await res.json().catch(() => ({}))).property
+    setNewAddress(''); setNewUnit(''); setAddingAddress(false)
+    const propsRes = await fetch('/api/portal/properties', { headers: { Authorization: `Bearer ${auth.token}` } })
+    const data = await propsRes.json().catch(() => ({}))
+    const props: Property[] = data.properties || []
+    setProperties(props)
+    if (created?.id) setPropertyId(created.id)
+  }
 
   async function submit() {
     if (!auth || !selectedService || !dateTime) return
@@ -129,19 +162,41 @@ export default function BookingWizardPage() {
             onChange={(e) => setDateTime(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
           />
-          {properties.length > 1 && (
-            <>
-              <label className="block text-sm font-medium text-slate-600 mb-1">Address</label>
-              <select
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
-              >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label ? `${p.label} — ${p.address}` : p.address}</option>
-                ))}
-              </select>
-            </>
+          <label className="block text-sm font-medium text-slate-600 mb-1">Address</label>
+          {!addingAddress ? (
+            <select
+              value={propertyId}
+              onChange={(e) => {
+                if (e.target.value === '__add_address__') { setAddingAddress(true); setAddressError(''); return }
+                setPropertyId(e.target.value)
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-4"
+            >
+              {properties.length === 0 && <option value="">Select an address</option>}
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>{p.label ? `${p.label} — ${p.address}` : p.address}</option>
+              ))}
+              <option value="__add_address__">+ Add new address</option>
+            </select>
+          ) : (
+            <div className="border border-gray-200 rounded-lg p-3 mb-4 space-y-2">
+              <AddressAutocomplete value={newAddress} onChange={setNewAddress} placeholder="Street, city, state, ZIP" />
+              <input
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="Apt / unit (optional)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              {addressError && <p className="text-red-600 text-xs">{addressError}</p>}
+              <div className="flex gap-2">
+                <button type="button" onClick={addAddress} disabled={savingAddress} className="flex-1 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                  {savingAddress ? 'Saving…' : 'Save address'}
+                </button>
+                <button type="button" onClick={() => { setAddingAddress(false); setNewAddress(''); setNewUnit(''); setAddressError('') }} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
           <label className="block text-sm font-medium text-slate-600 mb-1">Frequency</label>
           <select
@@ -179,7 +234,7 @@ export default function BookingWizardPage() {
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-6">
             <div className="flex justify-between text-sm"><span className="text-slate-400">Service</span><span className="font-medium">{selectedService.name}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-400">Date</span><span>{new Date(dateTime).toLocaleString()}</span></div>
-            {properties.length > 1 && (
+            {properties.length > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Address</span>
                 <span className="text-right">{properties.find((p) => p.id === propertyId)?.address || '—'}</span>
