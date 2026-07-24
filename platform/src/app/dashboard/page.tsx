@@ -22,6 +22,44 @@ const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
 const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
+function formatPhoneDisplay(value: string): string {
+  const cleaned = value.replace(/\D/g, '')
+  if (cleaned.length <= 3) return cleaned
+  if (cleaned.length <= 6) return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3)
+  return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 10)
+}
+
+// Call/Text/Directions right on the feed row — matches the same chips on the
+// bookings list (BookingsAdmin.tsx) so Jeff never has to open a booking just
+// to reach the client.
+function ContactChips({ phone, address }: { phone?: string | null; address?: string | null }) {
+  if (!phone && !address) return null
+  return (
+    <div className="flex flex-col items-end gap-1 flex-shrink-0 mx-1" style={{ fontFamily: V.mono }}>
+      {phone && (
+        <div className="flex items-center gap-1">
+          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
+            {formatPhoneDisplay(phone)}
+          </a>
+          <a href={`sms:${phone}`} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
+        </div>
+      )}
+      {address && (
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] hover:text-blue-600 hover:underline truncate max-w-[140px]"
+          style={{ color: V.muted }}
+          title="Get directions"
+        >
+          Directions
+        </a>
+      )}
+    </div>
+  )
+}
+
 type Booking = {
   id: string
   start_time: string
@@ -32,6 +70,15 @@ type Booking = {
   schedule_id: string | null
   team_member_id: string | null
   clients: { name: string | null } | null
+  team_members: { name: string | null } | null
+}
+
+type FeedBooking = {
+  id: string
+  start_time: string
+  status: string
+  service_type: string | null
+  clients: { name: string | null; phone: string | null; address: string | null } | null
   team_members: { name: string | null } | null
 }
 
@@ -58,7 +105,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
 const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status === 'paid'
 const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
 const sum = (jobs: Booking[]) => jobs.reduce((s, j) => s + (j.price || 0), 0)
-const inRange = (j: Booking, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
+const inRange = (j: { start_time: string }, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
 const inDateRange = (iso: string, a: Date, b: Date) => { const d = new Date(iso); return d >= a && d <= b }
 
 const PENDING_QUOTE_STATUSES = ['sent', 'viewed']
@@ -242,10 +289,22 @@ export default async function DashboardPage() {
     { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },
   ]
 
-  const todayJobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, startOfDay, endOfDay)).sort((a, b) => a.start_time.localeCompare(b.start_time))
+  // Today/Tomorrow feed rows need phone + address (Call/Text/Directions
+  // without opening the booking) — a targeted 2-day query instead of adding
+  // those columns to the whole-year fetch above.
   const tomorrowStart = new Date(startOfDay.getTime() + 86400000)
   const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
-  const tomorrowJobs = allJobs.filter(j => { const d = new Date(j.start_time); return SCHEDULED(j) && d >= tomorrowStart && d < tomorrowEnd }).sort((a, b) => a.start_time.localeCompare(b.start_time))
+  const { data: feedRows } = await supabaseAdmin
+    .from('bookings')
+    .select('id,start_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name)')
+    .eq('tenant_id', tenant.id)
+    .gte('start_time', startOfDay.toISOString())
+    .lt('start_time', tomorrowEnd.toISOString())
+    .in('status', ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'])
+    .order('start_time', { ascending: true })
+  const feedJobs = (feedRows || []) as unknown as FeedBooking[]
+  const todayJobs = feedJobs.filter(j => inRange(j, startOfDay, endOfDay))
+  const tomorrowJobs = feedJobs.filter(j => { const d = new Date(j.start_time); return d >= tomorrowStart && d < tomorrowEnd })
 
   const Bar = ({ children }: { children: React.ReactNode }) => (
     <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
@@ -335,21 +394,22 @@ export default async function DashboardPage() {
               {col.jobs.length === 0 ? (
                 <p className="p-4" style={{ color: V.muted }}>{col.empty}</p>
               ) : col.jobs.map((job, i, arr) => (
-                <Link key={job.id} href={`/dashboard/bookings?edit=${job.id}`} className="flex items-start gap-3 p-3" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+                <div key={job.id} className="flex items-start gap-3 p-3" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
                   <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
-                  <div className="flex-1 min-w-0">
+                  <Link href={`/dashboard/bookings?edit=${job.id}`} className="flex-1 min-w-0">
                     <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
                     <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {job.team_members?.name || 'Unassigned'}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
+                  </Link>
+                  <ContactChips phone={job.clients?.phone} address={job.clients?.address} />
+                  <Link href={`/dashboard/bookings?edit=${job.id}`} className="text-right flex-shrink-0">
                     <p style={{ fontFamily: V.mono, fontSize: '12px', color: V.ink }}>{formatTime(job.start_time)}</p>
                     {col.showStatus && (
                       <span style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.1em', color: job.status === 'completed' ? V.good : job.status === 'in_progress' ? V.warn : V.muted }}>
                         {job.status === 'in_progress' ? 'live' : job.status}
                       </span>
                     )}
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               ))}
             </div>
           </div>
