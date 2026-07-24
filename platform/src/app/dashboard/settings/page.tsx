@@ -7,7 +7,6 @@ import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
 import CommunicationsTab from './CommunicationsTab'
-import AnnouncementsTab from './AnnouncementsTab'
 import DataExportPanel from './DataExportPanel'
 
 function tenantSiteUrl(tenant: { domain?: string | null; slug?: string | null } | null): string {
@@ -172,7 +171,7 @@ function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<S
   )
 }
 
-const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Announcements', 'Selena', 'Tools'] as const
+const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Selena', 'Tools'] as const
 type Tab = typeof TABS[number]
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -1221,7 +1220,6 @@ export default function SettingsPage() {
 
       {tab === 'Communications' && <CommunicationsTab />}
 
-      {tab === 'Announcements' && <AnnouncementsTab />}
 
       {tab === 'Selena' && (
         <div className="max-w-2xl space-y-6">

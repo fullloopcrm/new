@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
+import AnnouncementsTab from './AnnouncementsTab'
 
 type Eligible = {
   id: string
@@ -139,6 +140,12 @@ export default function FindCleanerPage() {
             {b.job_date} {b.start_time} · {b.job_zone || 'no zone'} · {b.recipients.length} sent · {b.status}{b.test_mode ? ' · TEST' : ''}
           </div>
         ))}
+      </div>
+
+      <div>
+        <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>Team Announcements</h2>
+        <p style={{ color: '#7a7468', margin: '0 0 12px' }}>Post rules and updates — every {worker.singular.toLowerCase()} sees the full history in their portal.</p>
+        <AnnouncementsTab />
       </div>
     </div>
   )
