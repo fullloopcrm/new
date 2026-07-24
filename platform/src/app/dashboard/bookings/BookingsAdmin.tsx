@@ -2691,12 +2691,20 @@ function BookingsPage() {
                     <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Address{clientProperties.length > 1 ? ' *' : ''}</label>
                     <select
                       value={createForm.property_id}
-                      onChange={(e) => setCreateForm({ ...createForm, property_id: e.target.value })}
+                      onChange={(e) => {
+                        if (e.target.value === '__add_address__') {
+                          setNewClientContactsId(createForm.client_id)
+                          setShowNewClientModal(true)
+                          return
+                        }
+                        setCreateForm({ ...createForm, property_id: e.target.value })
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
                     >
                       {clientProperties.map(p => (
                         <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
                       ))}
+                      <option value="__add_address__">+ Add new address</option>
                     </select>
                     {clientProperties.length > 1 && (
                       <p className="mt-1 text-xs text-gray-500">This client has multiple addresses — pick the one being cleaned.</p>
@@ -3127,9 +3135,11 @@ function BookingsPage() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {newClientContactsId ? (
               <>
-                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-1">Client Created</h3>
+                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-1">
+                  {clients.find(c => c.id === newClientContactsId)?.name || newClientForm.name || 'Client'}
+                </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Add another phone, email, or address for {newClientForm.name} now, or continue — you can always add more later.
+                  Add another phone, email, or address, or continue — you can always add more later.
                 </p>
                 <div className="clients-scope">
                   <div className="clients-section">
