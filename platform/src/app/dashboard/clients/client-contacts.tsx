@@ -23,7 +23,7 @@ interface FormState {
   is_primary: boolean
 }
 
-const EMPTY_FORM: FormState = { name: '', role: '', phone: '', email: '', receives_sms: false, receives_email: false, is_primary: false }
+const EMPTY_FORM: FormState = { name: '', role: '', phone: '', email: '', receives_sms: true, receives_email: true, is_primary: false }
 
 const fieldStyle = { padding: '10px 12px', border: '1px solid var(--clients-line)', borderRadius: 4, fontSize: 14, width: '100%' }
 const labelStyle = { fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: 0.5, color: 'var(--clients-muted)' }
@@ -94,7 +94,7 @@ export default function ClientContacts({ clientId }: { clientId: string }) {
   if (loading) return null
 
   return (
-    <div className="clients-section">
+    <div style={{ marginTop: 16 }}>
       <div className="clients-section-head">
         <span className="clients-section-label">Contacts</span>
         {!adding && (

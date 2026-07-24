@@ -660,14 +660,12 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
           </div>
           )}
 
-          {/* All addresses (multi-property) + change history — Overview tab */}
+          {/* Addresses + additional phone/email contacts, one card — Overview tab */}
           {drawerTab === 'overview' && (
-            <ClientAddresses clientId={client.id} showHistory />
-          )}
-
-          {/* Additional phone/email contacts with per-channel comms opt-in — Overview tab */}
-          {drawerTab === 'overview' && (
-            <ClientContacts clientId={client.id} />
+            <div className="clients-section">
+              <ClientAddresses clientId={client.id} showHistory />
+              <ClientContacts clientId={client.id} />
+            </div>
           )}
 
           {/* Worker affinity (trade-labeled) — Service tab */}

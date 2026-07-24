@@ -1,6 +1,7 @@
 'use client'
 
 import './schedule.css'
+import '../clients/clients.css'
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
@@ -807,7 +808,20 @@ function BookingsPage() {
     setSaving(false)
   }
 
-  const finishNewClientFlow = () => {
+  const finishNewClientFlow = async () => {
+    // Re-fetch addresses before closing — the client may have added more via
+    // the contacts popup, and the picker's own effect only refires on
+    // client_id change, not on every add inside that popup.
+    if (newClientContactsId) {
+      try {
+        const res = await fetch(`/api/client/properties?client_id=${newClientContactsId}`)
+        const d = await res.json()
+        const props = d.properties || []
+        setClientProperties(props)
+        const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
+        if (primary) setCreateForm(prev => ({ ...prev, property_id: primary.id }))
+      } catch { /* keep whatever was already loaded */ }
+    }
     setShowNewClientModal(false)
     setNewClientContactsId(null)
     setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
@@ -3117,9 +3131,11 @@ function BookingsPage() {
                 <p className="text-sm text-gray-600 mb-4">
                   Add another phone, email, or address for {newClientForm.name} now, or continue — you can always add more later.
                 </p>
-                <ClientContacts clientId={newClientContactsId} />
-                <div className="mt-4">
-                  <ClientAddresses clientId={newClientContactsId} />
+                <div className="clients-scope">
+                  <div className="clients-section">
+                    <ClientAddresses clientId={newClientContactsId} />
+                    <ClientContacts clientId={newClientContactsId} />
+                  </div>
                 </div>
                 <button type="button" onClick={finishNewClientFlow} className="w-full mt-6 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">
                   Continue to booking

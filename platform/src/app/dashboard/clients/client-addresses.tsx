@@ -89,7 +89,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
   if (loading) return null
 
   return (
-    <div className="clients-section">
+    <div>
       <div className="clients-section-head">
         <span className="clients-section-label">Addresses</span>
         {!adding && (
