@@ -3,7 +3,7 @@ import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { sendTelegram, notifyOwnerOnTelegram } from './telegram'
 import { decryptSecret } from './secret-crypto'
-import { isCommEnabled } from './comms-prefs'
+import { isCommEnabled, getCommPolicy, buildTemplateData } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
   bookingReminderEmail,
@@ -11,6 +11,8 @@ import {
   bookingRescheduledEmail,
   portalPinResetEmail,
   bookingReceivedEmail,
+  clientCancellationEmail,
+  clientPaymentDueEmail,
   followUpEmail,
   dailySummaryEmail,
   dailyOpsRecapEmail,
@@ -18,6 +20,7 @@ import {
   reviewRequestEmail,
   paymentReceiptEmail,
   genericNotificationEmail,
+  teamDailyJobsEmail,
 } from './email-templates'
 
 export type NotificationType =
@@ -173,7 +176,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id, commission_rate')
     .eq('id', tenantId)
     .single()
 
@@ -212,11 +215,15 @@ export async function notify({
     phone = data?.phone || (tenant as { phone?: string | null }).phone || null
   }
 
-  // Build branded HTML for email channel
+  // Build branded HTML for email channel — tenant branding + this tenant's
+  // comm policy (support phone, review link, cancellation policy text, etc.)
+  // in one shot, so every template call site stays consistent.
+  const policy = tenantId ? await getCommPolicy(tenantId) : {}
   const templateData = {
-    tenantName: tenant.name || 'Your Business',
-    primaryColor: tenant.primary_color || '#111827',
-    logoUrl: tenant.logo_url || undefined,
+    ...buildTemplateData(
+      { name: tenant.name, primary_color: tenant.primary_color, logo_url: tenant.logo_url, commission_rate: (tenant as { commission_rate?: number | null }).commission_rate },
+      policy,
+    ),
     // CAN-SPAM: physical postal address in the shared email footer when on file.
     businessAddress: (tenant as { address?: string | null }).address || undefined,
   }
@@ -245,12 +252,22 @@ export async function notify({
       })
       break
     case 'daily_summary':
-      htmlBody = dailySummaryEmail({
-        ...templateData,
-        todaysJobs: (metadata?.todaysJobs as number) || 0,
-        yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
-        upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
-      })
+      // Same notify() type covers two different audiences: the admin metrics
+      // recap and a team member's own upcoming-jobs list. Metadata shape tells
+      // them apart — team-member calls pass `jobs`, admin calls don't.
+      htmlBody = (recipientType === 'team_member' && metadata?.jobs)
+        ? teamDailyJobsEmail({
+            ...templateData,
+            teamMemberName: (metadata?.teamMemberName as string) || clientName,
+            jobs: metadata?.jobs as never[],
+            portalUrl: metadata?.portalUrl as string | undefined,
+          })
+        : dailySummaryEmail({
+            ...templateData,
+            todaysJobs: (metadata?.todaysJobs as number) || 0,
+            yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
+            upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
+          })
       break
     case 'review_request':
       htmlBody = reviewRequestEmail({
@@ -304,6 +321,46 @@ export async function notify({
         clientName,
         serviceName: serviceName || 'Appointment',
         dateTime: message,
+      })
+      break
+    case 'booking_cancelled':
+      htmlBody = clientCancellationEmail({
+        ...templateData,
+        clientName,
+        serviceName: serviceName || 'Appointment',
+        dateTime: message,
+      })
+      break
+    case 'payment_due':
+      htmlBody = clientPaymentDueEmail({
+        ...templateData,
+        clientName,
+        teamMemberName: metadata?.teamMemberName as string | undefined,
+        amount: (metadata?.amount as string) || '0',
+        paymentUrl: metadata?.paymentUrl as string | undefined,
+      })
+      break
+    case 'daily_ops_recap':
+      htmlBody = dailyOpsRecapEmail({
+        ...templateData,
+        todayDate: (metadata?.todayDate as string) || '',
+        tomorrowDate: (metadata?.tomorrowDate as string) || '',
+        todayJobs: (metadata?.todayJobs as never[]) || [],
+        tomorrowJobs: (metadata?.tomorrowJobs as never[]) || [],
+        todayRevenue: (metadata?.todayRevenue as string) || '$0',
+        todayJobCount: (metadata?.todayJobCount as number) || 0,
+        tomorrowJobCount: (metadata?.tomorrowJobCount as number) || 0,
+        todayPaid: (metadata?.todayPaid as number) || 0,
+        todayUnpaid: (metadata?.todayUnpaid as number) || 0,
+      })
+      break
+    case 'daily_digest':
+      htmlBody = notificationDigestEmail({
+        ...templateData,
+        date: (metadata?.date as string) || '',
+        emailCount: (metadata?.emailCount as number) || 0,
+        smsCount: (metadata?.smsCount as number) || 0,
+        entries: (metadata?.entries as never[]) || [],
       })
       break
   }

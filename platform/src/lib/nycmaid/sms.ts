@@ -1,7 +1,29 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/secret-crypto'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
-const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.replace(/\s/g, '')
-const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
+// Resolve nycmaid's OWN Telnyx credentials from its tenant row — the same
+// number/account every other send path (bookings route, crons) already reads
+// via tenants.telnyx_api_key/telnyx_phone. Previously this fell back to
+// platform-wide env vars, which point at a DIFFERENT number with no
+// messaging profile attached, causing every SMS through this module to 400.
+// Falls back to env vars only if the tenant row is somehow unset.
+let cachedCreds: { apiKey: string; fromNumber: string } | null = null
+async function getTenantTelnyxCreds(): Promise<{ apiKey: string; fromNumber: string } | null> {
+  if (cachedCreds) return cachedCreds
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('telnyx_api_key, telnyx_phone')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
+  const apiKey = data?.telnyx_api_key
+    ? decryptSecret(data.telnyx_api_key)
+    : process.env.TELNYX_API_KEY?.replace(/\s/g, '')
+  const fromNumber = (data?.telnyx_phone || process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
+  if (!apiKey) return null
+  cachedCreds = { apiKey, fromNumber }
+  return cachedCreds
+}
 
 // This whole module is a pre-multi-tenant nycmaid-only helper (see file-level
 // note); `notifications.tenant_id` is NOT NULL, so every insert here was
@@ -66,11 +88,13 @@ async function tripCircuit(reason: string) {
 }
 
 export async function sendSMS(to: string, message: string, options?: { skipConsent?: boolean; recipientType?: 'client' | 'cleaner'; recipientId?: string; smsType?: string; bookingId?: string; skipCircuit?: boolean; from?: string }): Promise<SMSResult> {
-  if (!TELNYX_API_KEY) {
+  const creds = await getTenantTelnyxCreds()
+  if (!creds) {
     console.error('TELNYX_API_KEY not set')
     await logSMSFailure(to, options?.smsType, 'TELNYX_API_KEY not configured')
     return { success: false, error: 'TELNYX_API_KEY not configured' }
   }
+  const { apiKey: TELNYX_API_KEY, fromNumber: TELNYX_FROM_NUMBER } = creds
 
   // Circuit breaker — refuse to send if we just sent CIRCUIT_MAX in the
   // last minute. Caller can override with skipCircuit (admin alerts use it).
@@ -133,7 +157,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
             try {
               if (options?.recipientType && options?.recipientId) {
                 await supabaseAdmin
-                  .from(options.recipientType === 'client' ? 'clients' : 'cleaners')
+                  .from(options.recipientType === 'client' ? 'clients' : 'team_members')
                   .update({ sms_consent: false })
                   .eq('id', options.recipientId)
               } else {
@@ -150,7 +174,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
                 if (ownerTenant?.id) {
                   const last10 = cleanPhone.replace(/\D/g, '').slice(-10)
                   await supabaseAdmin.from('clients').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
-                  await supabaseAdmin.from('cleaners').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
+                  await supabaseAdmin.from('team_members').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)
                 }
               }
             } catch (e) {
@@ -216,7 +240,7 @@ function normalizePhone(phone: string): string | null {
 }
 
 async function checkSMSConsent(type: 'client' | 'cleaner', id: string): Promise<boolean> {
-  const table = type === 'client' ? 'clients' : 'cleaners'
+  const table = type === 'client' ? 'clients' : 'team_members'
   const { data } = await supabaseAdmin
     .from(table)
     .select('sms_consent')

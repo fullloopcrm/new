@@ -321,7 +321,7 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
     const { error } = await db
       .from('bookings')
@@ -361,7 +361,7 @@ export async function DELETE(
             // No bookingId — the booking row is already deleted by this point
             // (DELETE runs before this notification), so any bookingId here
             // would violate notifications_booking_id_fkey on INSERT.
-            metadata: { clientName: booking.clients?.name },
+            metadata: { clientName: booking.clients?.name, serviceName: booking.service_type },
           })
         }
 

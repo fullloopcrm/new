@@ -396,7 +396,7 @@ async function maybeSendMissedCallSMS(opts: {
   // Don't SMS a cleaner number — they'd just get confused. Skip if the phone
   // matches a known cleaner.
   const { data: cleanerMatch } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('id')
     .eq('phone', opts.customerPhone)
     .limit(1)

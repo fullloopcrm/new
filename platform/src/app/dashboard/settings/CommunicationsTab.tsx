@@ -19,7 +19,7 @@ import {
   type CommChannel,
   type CommTimingKey,
 } from '@/lib/comms-registry'
-import type { CommPreferences, CommCapabilities } from '@/lib/comms-prefs'
+import type { CommPreferences, CommCapabilities, CommPolicy } from '@/lib/comms-prefs'
 
 const CHANNELS: CommChannel[] = ['email', 'sms', 'in_app']
 const CHANNEL_LABEL: Record<CommChannel, string> = { email: 'Email', sms: 'SMS', in_app: 'App' }
@@ -83,6 +83,11 @@ export default function CommunicationsTab() {
   function setTimingList(tk: CommTimingKey, values: number[]) {
     if (!prefs) return
     persist({ ...prefs, timing: { ...prefs.timing, [tk]: values } })
+  }
+
+  function setPolicyField<K extends keyof CommPolicy>(field: K, value: CommPolicy[K]) {
+    if (!prefs) return
+    persist({ ...prefs, policy: { ...prefs.policy, [field]: value } }, true)
   }
 
   if (!prefs) return <div className="text-sm text-slate-400">Loading communications…</div>
@@ -217,6 +222,78 @@ export default function CommunicationsTab() {
           </div>
         )
       })}
+
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Content & Policy</h4>
+          <p className="text-xs text-slate-400 mt-1">
+            Every automated message pulls these values in automatically — set them once here.
+          </p>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="text-xs text-slate-500">
+              <span className="block mb-1">Support phone (shown in messages)</span>
+              <input
+                value={prefs.policy.supportPhone || ''}
+                onChange={(e) => setPolicyField('supportPhone', e.target.value)}
+                placeholder="(555) 123-4567"
+                className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-500">
+              <span className="block mb-1">Portal / booking URL</span>
+              <input
+                value={prefs.policy.bookingUrl || ''}
+                onChange={(e) => setPolicyField('bookingUrl', e.target.value)}
+                placeholder="https://yourbusiness.com/book"
+                className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-500">
+              <span className="block mb-1">Public review link</span>
+              <input
+                value={prefs.policy.reviewUrl || ''}
+                onChange={(e) => setPolicyField('reviewUrl', e.target.value)}
+                placeholder="Google review link"
+                className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-500">
+              <span className="block mb-1">Loyalty discount (%)</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={prefs.policy.loyaltyDiscountPercent ?? ''}
+                onChange={(e) => setPolicyField('loyaltyDiscountPercent', e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="10"
+                className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-1">One-time booking cancellation policy</span>
+            <textarea
+              value={prefs.policy.cancellationPolicyOneTime || ''}
+              onChange={(e) => setPolicyField('cancellationPolicyOneTime', e.target.value)}
+              rows={2}
+              placeholder="Shown on confirmation/reminder emails for one-time bookings. Leave blank to omit."
+              className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-xs text-slate-500">
+            <span className="block mb-1">Recurring booking cancellation policy</span>
+            <textarea
+              value={prefs.policy.cancellationPolicyRecurring || ''}
+              onChange={(e) => setPolicyField('cancellationPolicyRecurring', e.target.value)}
+              rows={2}
+              placeholder="Shown on confirmation/reminder emails for recurring bookings. Leave blank to omit."
+              className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+      </div>
 
       <div className="flex items-center justify-between rounded-lg border border-dashed border-slate-300 px-5 py-4">
         <p className="text-xs text-slate-400">

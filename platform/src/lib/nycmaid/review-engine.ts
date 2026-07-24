@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { smsReviewRequest } from '@/lib/nycmaid/sms-templates'
+import { sendClientEmail } from '@/lib/nycmaid/client-contacts'
+import { clientReviewIncentiveEmail } from '@/lib/email-templates'
+import { getCommPolicy, buildTemplateData } from '@/lib/comms-prefs'
 
 // NYC Maid review engine — tenant-scoped parity port (gated by isNycMaid in the
 // telnyx webhook; see feedback_nycmaid_copyover_tenant_scoped). Ported from the
@@ -134,12 +137,47 @@ export async function handleNycMaidReview(
         service_rating: num,
         cleaner_rating: num, // single-question flow: one rating reflects both
       })
+      // client_feedback is the system-of-record the /dashboard/clients/feedback
+      // page reads — the `ratings` insert above alone never surfaced here.
+      await supabaseAdmin.from('client_feedback').insert({
+        tenant_id: tenantId,
+        client_id: booking.client_id,
+        source: 'sms_rating',
+        category: 'client',
+        message: `Rating: ${num}/5 for ${cleanerFirst}`,
+        is_anonymous: false,
+      }).then(() => {}, () => {})
       if (num >= 4) {
         await sendSMS(from, smsReviewRequest(cleanerName), {
           skipConsent: true,
           smsType: 'review_request',
           bookingId: booking.id,
         }).catch(() => {})
+        // Branded email version of the same review-incentive ask, same 4-5
+        // star gate as the SMS above — only fires on a good rating.
+        if (booking.client_id) {
+          try {
+            const [{ data: tenantRow }, policy] = await Promise.all([
+              supabaseAdmin.from('tenants').select('name, primary_color, logo_url, commission_rate').eq('id', tenantId).single(),
+              getCommPolicy(tenantId),
+            ])
+            if (tenantRow) {
+              const base = buildTemplateData(tenantRow, policy)
+              await sendClientEmail(
+                booking.client_id,
+                `5 stars + a thank-you from ${tenantRow.name}`,
+                (contact) => clientReviewIncentiveEmail({
+                  ...base,
+                  clientName: contact.name?.split(' ')[0] || 'there',
+                  teamMemberName: cleanerName,
+                  incentiveAmount: '10',
+                }),
+              )
+            }
+          } catch (emailErr) {
+            console.error('Review incentive email error:', emailErr)
+          }
+        }
         await smsAdmins(`★ ${num}/5 ${cleanerFirst} — review link sent`).catch(() => {})
       } else {
         await sendSMS(
@@ -172,6 +210,14 @@ export async function handleNycMaidReview(
       team_member_id: booking.team_member_id,
       feedback: rawText.slice(0, 500) || null,
     })
+    await supabaseAdmin.from('client_feedback').insert({
+      tenant_id: tenantId,
+      client_id: booking.client_id,
+      source: 'sms_rating',
+      category: 'client',
+      message: rawText.slice(0, 2000),
+      is_anonymous: false,
+    }).then(() => {}, () => {})
     await smsAdmins(`Feedback for ${cleanerFirst} (no numeric rating) — "${rawText.slice(0, 200)}"`).catch(() => {})
     return NextResponse.json({ ok: true, action: 'feedback_captured' })
   }
@@ -180,6 +226,14 @@ export async function handleNycMaidReview(
   if (existing.service_rating != null && existing.service_rating < 5 && !existing.feedback) {
     const fb = rawText.slice(0, 500) || null
     await supabaseAdmin.from('ratings').update({ feedback: fb }).eq('booking_id', booking.id)
+    await supabaseAdmin.from('client_feedback').insert({
+      tenant_id: tenantId,
+      client_id: booking.client_id,
+      source: 'sms_rating',
+      category: 'client',
+      message: `Rating: ${existing.service_rating}/5 for ${cleanerFirst}${fb ? ` — "${fb}"` : ''}`,
+      is_anonymous: false,
+    }).then(() => {}, () => {})
     await sendSMS(from, `Thanks — recorded. We'll review and follow up if needed.`, {
       skipConsent: true,
       smsType: 'rating_thanks',

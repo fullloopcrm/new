@@ -221,7 +221,7 @@ export async function runTool(
 // Verify each referenced id resolves INSIDE the caller's tenant before the
 // side-effect runs; reject with a stable not-found error otherwise (do not
 // disclose that the id exists in some other tenant).
-async function idInTenant(table: 'clients' | 'cleaners' | 'deals' | 'bookings', id: string, tid: string): Promise<boolean> {
+async function idInTenant(table: 'clients' | 'team_members' | 'deals' | 'bookings', id: string, tid: string): Promise<boolean> {
   if (!id) return false
   const { data } = await supabaseAdmin.from(table).select('id').eq('id', id).eq('tenant_id', tid).maybeSingle()
   return !!data
@@ -241,10 +241,10 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
   if (input.client_id && !(await idInTenant('clients', input.client_id, tid))) {
     return JSON.stringify({ error: 'client not found' })
   }
-  const { scoreCleanersForBooking } = await import('@/lib/nycmaid/smart-schedule')
+  const { scoreTeamForBooking } = await import('@/lib/smart-schedule')
   const [h, m] = input.time.replace(/[^\d:]/g, '').split(':').map(Number)
   const startTime = `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
-  const scores = await scoreCleanersForBooking({
+  const scores = await scoreTeamForBooking({
     tenantId: tid,
     date: input.date,
     startTime,
@@ -258,7 +258,7 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
   // top picks — so Yinez can explain availability + conflicts + day-off reasons.
   // UNLIKE the admin dropdown, this tool is reachable by ordinary CLIENTS
   // (score_cleaners is a CLIENT_LOCAL_TOOL — it bypasses the owner-only gate
-  // above by design). scoreCleanersForBooking's raw `conflict` string can
+  // above by design). scoreTeamForBooking's raw `conflict` string can
   // embed ANOTHER client's name (e.g. "Conflict: 2:00 PM (Sarah J)") and its
   // `day_jobs` array is that other client's full day schedule (name +
   // address + time) — the same cross-client PII the public
@@ -284,7 +284,7 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
   if (!input.booking_id) return JSON.stringify({ error: 'booking_id required' })
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, hourly_rate, status, cleaner_id, suggested_cleaner_id, suggested_reason, client_id, clients(name, address), cleaners(name)')
+    .select('id, start_time, end_time, hourly_rate, status, team_member_id, suggested_team_member_id, suggested_reason, client_id, clients(name, address), team_members(name)')
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
     .maybeSingle()
@@ -295,8 +295,8 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
   const endMs = new Date(booking.end_time).getTime()
   const duration = endMs > startMs ? (endMs - startMs) / 3_600_000 : 2
 
-  const { scoreCleanersForBooking } = await import('@/lib/nycmaid/smart-schedule')
-  const scores = await scoreCleanersForBooking({
+  const { scoreTeamForBooking } = await import('@/lib/smart-schedule')
+  const scores = await scoreTeamForBooking({
     tenantId: tid,
     date: booking.start_time.split('T')[0],
     startTime,
@@ -311,7 +311,7 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
     booking_id: booking.id,
     client: (booking.clients as unknown as { name?: string })?.name || null,
     status: booking.status,
-    assigned_cleaner: (booking.cleaners as unknown as { name?: string })?.name || null,
+    assigned_cleaner: (booking.team_members as unknown as { name?: string })?.name || null,
     saved_suggestion_reason: booking.suggested_reason || null,
     cleaners: scores.map((s) => ({
       name: s.name,
@@ -556,14 +556,14 @@ async function handleTodaySummary(tid: string): Promise<string> {
   const [bookingsToday, payouts, outstanding, cleanersOnDuty] = await Promise.all([
     supabaseAdmin
       .from('bookings')
-      .select('id, status, hourly_rate, clients(name), cleaners(name), start_time, end_time')
+      .select('id, status, hourly_rate, clients(name), team_members(name), start_time, end_time')
       .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
       .order('start_time', { ascending: true }),
     supabaseAdmin
-      .from('cleaner_payouts')
-      .select('amount, status, cleaner_id, cleaners(name)')
+      .from('team_member_payouts')
+      .select('amount_cents, status, team_member_id, team_members(name)')
       .eq('tenant_id', tid)
       .eq('status', 'pending'),
     supabaseAdmin
@@ -575,11 +575,11 @@ async function handleTodaySummary(tid: string): Promise<string> {
       .limit(50),
     supabaseAdmin
       .from('bookings')
-      .select('cleaner_id, cleaners(name)')
+      .select('team_member_id, team_members(name)')
       .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
-      .not('cleaner_id', 'is', null),
+      .not('team_member_id', 'is', null),
   ])
 
   const bookings = bookingsToday.data || []
@@ -588,12 +588,12 @@ async function handleTodaySummary(tid: string): Promise<string> {
   const onDuty = Array.from(
     new Set(
       (cleanersOnDuty.data || [])
-        .map((b) => (b.cleaners as unknown as { name?: string })?.name)
+        .map((b) => (b.team_members as unknown as { name?: string })?.name)
         .filter(Boolean) as string[],
     ),
   )
 
-  const totalPayoutsOwed = payoutsList.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+  const totalPayoutsOwed = payoutsList.reduce((s, p) => s + (Number(p.amount_cents) || 0), 0)
   const totalOutstanding = outstandingList.reduce(
     (s, b) => s + (Number(b.hourly_rate) || 0) * bookingHours(b),
     0,
@@ -604,7 +604,7 @@ async function handleTodaySummary(tid: string): Promise<string> {
     bookings_today: bookings.map((b) => ({
       id: b.id,
       client: (b.clients as unknown as { name?: string })?.name || null,
-      cleaner: (b.cleaners as unknown as { name?: string })?.name || null,
+      cleaner: (b.team_members as unknown as { name?: string })?.name || null,
       time: b.start_time,
       status: b.status,
       est: `$${(Number(b.hourly_rate) || 0) * bookingHours(b)}`,
@@ -666,7 +666,7 @@ async function handleLookupClient(query: string, tid: string): Promise<string> {
   const digits = query.replace(/\D/g, '')
   let q = supabaseAdmin
     .from('clients')
-    .select('id, name, phone, email, address, status, notes, created_at, do_not_service, preferred_cleaner_id')
+    .select('id, name, phone, email, address, status, notes, created_at, do_not_service, preferred_team_member_id')
     .eq('tenant_id', tid)
     .limit(5)
   if (digits.length >= 7) {
@@ -693,12 +693,12 @@ async function handleLookupClient(query: string, tid: string): Promise<string> {
           .select('amount, tip')
           .eq('tenant_id', tid)
           .eq('client_id', c.id),
-        c.preferred_cleaner_id
+        c.preferred_team_member_id
           ? supabaseAdmin
-              .from('cleaners')
+              .from('team_members')
               .select('name')
               .eq('tenant_id', tid)
-              .eq('id', c.preferred_cleaner_id)
+              .eq('id', c.preferred_team_member_id)
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ])
@@ -733,13 +733,13 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
 
   let q = supabaseAdmin
     .from('bookings')
-    .select('id, status, payment_status, start_time, end_time, hourly_rate, team_size, max_hours, clients(name), cleaners(name, id)')
+    .select('id, status, payment_status, start_time, end_time, hourly_rate, team_size, max_hours, clients(name), team_members(name, id)')
     .eq('tenant_id', tid)
     .gte('start_time', from + 'T00:00:00')
     .lte('start_time', to + 'T23:59:59')
     .order('start_time', { ascending: true })
     .limit(100)
-  if (input.cleaner_id) q = q.eq('cleaner_id', input.cleaner_id)
+  if (input.cleaner_id) q = q.eq('team_member_id', input.cleaner_id)
   const { data, error } = await q
   if (error) return JSON.stringify({ error: error.message })
 
@@ -749,13 +749,13 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
   let teamMap: Record<string, { name: string; is_lead: boolean }[]> = {}
   if (teamBookingIds.length > 0) {
     const { data: teamRows } = await supabaseAdmin
-      .from('booking_cleaners')
-      .select('booking_id, is_lead, position, cleaners(name)')
+      .from('booking_team_members')
+      .select('booking_id, is_lead, position, team_members(name)')
       .eq('tenant_id', tid)
       .in('booking_id', teamBookingIds)
       .order('position', { ascending: true })
     teamMap = (teamRows || []).reduce((acc, r) => {
-      const c = r.cleaners as unknown as { name?: string } | { name?: string }[] | null
+      const c = r.team_members as unknown as { name?: string } | { name?: string }[] | null
       const cleaner = Array.isArray(c) ? c[0] : c
       if (!cleaner?.name) return acc
       if (!acc[r.booking_id]) acc[r.booking_id] = []
@@ -769,7 +769,7 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
 
 async function handleLookupCleaner(name: string, tid: string): Promise<string> {
   const { data: cleaners, error } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('id, name, phone, status')
     .eq('tenant_id', tid)
     .ilike('name', `%${name}%`)
@@ -784,24 +784,24 @@ async function handleLookupCleaner(name: string, tid: string): Promise<string> {
           .from('bookings')
           .select('id, start_time, end_time, status, clients(name), hourly_rate')
           .eq('tenant_id', tid)
-          .eq('cleaner_id', c.id)
+          .eq('team_member_id', c.id)
           .order('start_time', { ascending: false })
           .limit(5),
         supabaseAdmin
-          .from('cleaner_payouts')
-          .select('amount, status')
+          .from('team_member_payouts')
+          .select('amount_cents, status')
           .eq('tenant_id', tid)
-          .eq('cleaner_id', c.id)
+          .eq('team_member_id', c.id)
           .eq('status', 'pending'),
         supabaseAdmin
           .from('ratings')
           .select('cleaner_rating, service_rating, feedback, created_at')
           .eq('tenant_id', tid)
-          .eq('cleaner_id', c.id)
+          .eq('team_member_id', c.id)
           .order('created_at', { ascending: false })
           .limit(10),
       ])
-      const owed = (payouts.data || []).reduce((s, p) => s + (Number(p.amount) || 0), 0)
+      const owed = (payouts.data || []).reduce((s, p) => s + (Number(p.amount_cents) || 0), 0)
       const ratingAvg =
         (ratings.data || []).length > 0
           ? (
@@ -941,7 +941,7 @@ async function handleSearchMessages(query: string, tid: string): Promise<string>
 async function handleAssignCleaner(input: { booking_id: string; cleaner_id: string }, tid: string): Promise<string> {
   // The booking write is tenant-scoped, but cleaner_id is written verbatim —
   // reject a cleaner id that belongs to another tenant before the update.
-  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
+  if (!(await idInTenant('team_members', input.cleaner_id, tid))) {
     return JSON.stringify({ error: 'cleaner not found' })
   }
   // booking_id must also resolve inside the caller's tenant. Without this check,
@@ -953,7 +953,7 @@ async function handleAssignCleaner(input: { booking_id: string; cleaner_id: stri
   }
   const { error } = await supabaseAdmin
     .from('bookings')
-    .update({ cleaner_id: input.cleaner_id, status: 'scheduled' })
+    .update({ team_member_id: input.cleaner_id, status: 'scheduled' })
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
@@ -985,7 +985,7 @@ async function handleSendToClient(input: { client_id: string; message: string; c
 
 async function handleSendToCleaner(input: { cleaner_id: string; message: string }, tid: string): Promise<string> {
   const { data: cleaner } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('id, name, phone')
     .eq('id', input.cleaner_id)
     .eq('tenant_id', tid)
@@ -1008,7 +1008,7 @@ async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_cli
       .eq('status', 'active')
     phones = (data || []).filter((c) => c.phone && c.sms_consent && !c.do_not_service).map((c) => c.phone as string)
   } else if (input.audience === 'all_cleaners') {
-    const { data } = await supabaseAdmin.from('cleaners').select('phone, sms_consent').eq('tenant_id', tid).eq('sms_consent', true)
+    const { data } = await supabaseAdmin.from('team_members').select('phone, sms_consent').eq('tenant_id', tid).eq('sms_consent', true)
     phones = (data || []).filter((c) => c.phone).map((c) => c.phone as string)
   } else {
     return JSON.stringify({ error: 'unknown audience' })
@@ -1033,7 +1033,7 @@ async function handleCreateManualBooking(input: { client_id: string; date: strin
   if (!(await idInTenant('clients', input.client_id, tid))) {
     return JSON.stringify({ error: 'client not found' })
   }
-  if (input.cleaner_id && !(await idInTenant('cleaners', input.cleaner_id, tid))) {
+  if (input.cleaner_id && !(await idInTenant('team_members', input.cleaner_id, tid))) {
     return JSON.stringify({ error: 'cleaner not found' })
   }
   const startISO = `${input.date}T${parseTimeToISO(input.time)}`
@@ -1047,8 +1047,8 @@ async function handleCreateManualBooking(input: { client_id: string; date: strin
     .insert({
       tenant_id: tid,
       client_id: input.client_id,
-      cleaner_id: null,
-      suggested_cleaner_id: input.cleaner_id || null,
+      team_member_id: null,
+      suggested_team_member_id: input.cleaner_id || null,
       service_type: input.service_type,
       hourly_rate: input.hourly_rate,
       price: priceCents,
@@ -1088,17 +1088,21 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
   // cleaner_id is a caller (model-supplied) FK — the sibling assign_cleaner_to_booking
   // tool already verifies it belongs to this tenant before writing it; this tool
   // let the same field through unchecked via the allow-list. list_bookings embeds
-  // cleaners(name, id) off this exact column, so an unverified foreign id would
+  // team_members(name, id) off this exact column, so an unverified foreign id would
   // read back another tenant's cleaner name on the next list_bookings call —
   // same class as the P25 finding in deploy-prep/cross-tenant-leak-register.md.
+  // The tool-facing field is still named cleaner_id (Claude's tool schema uses that
+  // name); the actual bookings column is team_member_id, so translate on the way out.
   if (update.cleaner_id) {
     const { data: cleaner } = await supabaseAdmin
-      .from('cleaners')
+      .from('team_members')
       .select('id')
       .eq('id', update.cleaner_id as string)
       .eq('tenant_id', tid)
       .maybeSingle()
     if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+    update.team_member_id = update.cleaner_id
+    delete update.cleaner_id
   }
 
   const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
@@ -1153,7 +1157,7 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
 
 async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
-    .from('cleaner_payouts')
+    .from('team_member_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
     .eq('id', input.payout_id)
     .eq('tenant_id', tid)
@@ -1183,8 +1187,8 @@ async function handleBlockClient(input: { client_id: string; reason: string }, t
 
 async function handleCreateCleaner(input: { name: string; phone: string; email?: string; zone?: string }, tid: string): Promise<string> {
   const { data, error } = await supabaseAdmin
-    .from('cleaners')
-    .insert({ tenant_id: tid, name: input.name, phone: input.phone, email: input.email || null, zone: input.zone || null, status: 'active', sms_consent: true })
+    .from('team_members')
+    .insert({ tenant_id: tid, name: input.name, phone: input.phone, email: input.email || null, service_zones: input.zone ? [input.zone] : null, status: 'active', sms_consent: true })
     .select('id, name')
     .single()
   if (error || !data) return JSON.stringify({ error: error?.message || 'insert failed' })
@@ -1196,19 +1200,25 @@ async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<s
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) if (allowed.includes(k)) update[k] = v
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
-  const { error } = await supabaseAdmin.from('cleaners').update(update).eq('id', input.cleaner_id).eq('tenant_id', tid)
+  // Tool-facing field is singular "zone" (matches Claude's tool schema); the real
+  // team_members column is the array service_zones — translate on the way out.
+  if (update.zone !== undefined) {
+    update.service_zones = update.zone ? [update.zone] : null
+    delete update.zone
+  }
+  const { error } = await supabaseAdmin.from('team_members').update(update).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, updated_fields: Object.keys(update) })
 }
 
 async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }, tid: string): Promise<string> {
-  const { error } = await supabaseAdmin.from('cleaners').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
+  const { error } = await supabaseAdmin.from('team_members').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', reason: input.reason })
 }
 
 async function handleListCleaners(input: { status?: string }, tid: string): Promise<string> {
-  let q = supabaseAdmin.from('cleaners').select('id, name, phone, status, zone, hourly_rate').eq('tenant_id', tid)
+  let q = supabaseAdmin.from('team_members').select('id, name, phone, status, service_zones, hourly_rate').eq('tenant_id', tid)
   const status = input.status || 'active'
   if (status !== 'all') q = q.eq('status', status)
   const { data, error } = await q.order('name', { ascending: true }).limit(100)
@@ -1315,8 +1325,12 @@ async function handleMarkNotificationRead(input: { notification_id: string }, ti
   return JSON.stringify({ ok: true, notification_id: input.notification_id })
 }
 
+// cleaner_applications was the nycmaid-standalone table name; FullLoop's real,
+// dashboard-wired applications table is team_applications (see
+// /api/team-applications) — cleaner_applications holds stale pre-migration rows
+// nobody writes to anymore (memory: fullloop_cleaner_applications_backfill_pending).
 async function handleListCleanerApplications(input: { status?: string }, tid: string): Promise<string> {
-  let q = supabaseAdmin.from('cleaner_applications').select('*').eq('tenant_id', tid)
+  let q = supabaseAdmin.from('team_applications').select('*').eq('tenant_id', tid)
   const status = input.status || 'pending'
   if (status !== 'all') q = q.eq('status', status)
   const { data, error } = await q.order('created_at', { ascending: false }).limit(50)
@@ -1325,23 +1339,31 @@ async function handleListCleanerApplications(input: { status?: string }, tid: st
 }
 
 async function handleApproveCleanerApplication(input: { application_id: string }, tid: string): Promise<string> {
-  const { data: app } = await supabaseAdmin.from('cleaner_applications').select('*').eq('id', input.application_id).eq('tenant_id', tid).maybeSingle()
-  if (!app) return JSON.stringify({ error: 'application not found' })
-  // Create cleaner record from application
-  const { data: cleaner, error: cErr } = await supabaseAdmin
-    .from('cleaners')
-    .insert({ tenant_id: tid, name: app.name, phone: app.phone, email: app.email || null, zone: app.zone || null, status: 'active', sms_consent: true })
-    .select('id')
+  // Mirror PUT /api/team-applications exactly: flip status, then provision the
+  // applicant as a team member (PIN + portal + branded email) via the same
+  // shared helper the dashboard's single- and bulk-approve both use.
+  const { data: app, error: updErr } = await supabaseAdmin
+    .from('team_applications')
+    .update({ status: 'approved' })
+    .eq('id', input.application_id)
+    .eq('tenant_id', tid)
+    .select('id, name, email, phone, address')
     .single()
-  if (cErr || !cleaner) return JSON.stringify({ error: cErr?.message || 'cleaner insert failed' })
-  await supabaseAdmin.from('cleaner_applications').update({ status: 'approved', approved_at: new Date().toISOString(), cleaner_id: cleaner.id }).eq('id', input.application_id).eq('tenant_id', tid)
-  return JSON.stringify({ ok: true, application_id: input.application_id, cleaner_id: cleaner.id })
+  if (updErr || !app) return JSON.stringify({ error: updErr?.message || 'application not found' })
+
+  const { provisionApprovedApplicant } = await import('@/lib/team-provisioning')
+  try {
+    await provisionApprovedApplicant(tid, app)
+  } catch (err) {
+    return JSON.stringify({ ok: true, application_id: input.application_id, warning: `approved but provisioning failed: ${err instanceof Error ? err.message : String(err)}` })
+  }
+  return JSON.stringify({ ok: true, application_id: input.application_id })
 }
 
 async function handleRejectCleanerApplication(input: { application_id: string; reason?: string }, tid: string): Promise<string> {
   const { error } = await supabaseAdmin
-    .from('cleaner_applications')
-    .update({ status: 'rejected', rejected_reason: input.reason || null, rejected_at: new Date().toISOString() })
+    .from('team_applications')
+    .update({ status: 'rejected' })
     .eq('id', input.application_id)
     .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
@@ -1497,20 +1519,44 @@ async function handleTriggerCron(input: { name: string }): Promise<string> {
   }
 }
 
+// nycmaid-standalone wrote these to a separate cleaner_blocks table. FullLoop
+// never got that table (neither cleaner_blocks nor a team_member_blocks
+// equivalent exists) — the only thing the real scheduler (day-availability.ts
+// worksScheduledDay, smart-schedule.ts) actually reads for one-off days off is
+// team_members.unavailable_dates. Writing to a table nothing reads would make
+// this tool a no-op that silently reports ok:true, so this appends the date
+// range into that array instead — same mechanism the team-portal "day off"
+// editor already writes to.
 async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid: string): Promise<string> {
-  // cleaner_id is written into the block row verbatim — reject a foreign cleaner.
-  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
-    return JSON.stringify({ error: 'cleaner not found' })
+  const { data: member } = await supabaseAdmin
+    .from('team_members')
+    .select('id, unavailable_dates')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!member) return JSON.stringify({ error: 'cleaner not found' })
+
+  const from = new Date(input.from_date + 'T00:00:00')
+  const to = new Date(input.to_date + 'T00:00:00')
+  if (isNaN(from.getTime()) || isNaN(to.getTime()) || to < from) {
+    return JSON.stringify({ error: 'invalid from_date/to_date range' })
   }
-  const { error } = await supabaseAdmin.from('cleaner_blocks').insert({
-    tenant_id: tid,
-    cleaner_id: input.cleaner_id,
-    from_date: input.from_date,
-    to_date: input.to_date,
-    reason: input.reason || null,
-  })
+  const MAX_DAYS = 366
+  const newDates: string[] = []
+  for (let d = new Date(from); d <= to && newDates.length < MAX_DAYS; d.setDate(d.getDate() + 1)) {
+    newDates.push(d.toLocaleDateString('en-CA'))
+  }
+
+  const existing: string[] = (member.unavailable_dates as string[] | null) || []
+  const merged = Array.from(new Set([...existing, ...newDates])).sort()
+
+  const { error } = await supabaseAdmin
+    .from('team_members')
+    .update({ unavailable_dates: merged })
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
-  return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, from_date: input.from_date, to_date: input.to_date })
+  return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, from_date: input.from_date, to_date: input.to_date, days_blocked: newDates.length, reason: input.reason || null })
 }
 
 async function handleCreateClient(input: { name: string; phone: string; email?: string }, conversationId: string, tid: string): Promise<string> {

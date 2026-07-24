@@ -70,8 +70,8 @@ vi.mock('@/lib/nycmaid/notify', () => ({ notify: async () => {} }))
 // score_cleaners dynamically imports the scorer only AFTER the FK guard passes;
 // a REJECT must never reach it.
 const scoreMock = vi.hoisted(() => ({ calls: 0 }))
-vi.mock('@/lib/nycmaid/smart-schedule', () => ({
-  scoreCleanersForBooking: async () => { scoreMock.calls++; return [] },
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => { scoreMock.calls++; return [] },
 }))
 
 import { runTool } from '@/lib/selena/tools'
@@ -93,7 +93,7 @@ function baseResolver(table: string, eqs: Eqs): Resolved {
   if (table === 'clients') {
     return eqs.id === OWN_CLIENT && eqs.tenant_id === TENANT_A ? { data: { id: OWN_CLIENT }, error: null } : { data: null, error: null }
   }
-  if (table === 'cleaners') return { data: null, error: null }
+  if (table === 'team_members') return { data: null, error: null }
   return { data: null, error: null }
 }
 

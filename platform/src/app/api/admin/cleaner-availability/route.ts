@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { checkCleanerAvailability } from '@/lib/nycmaid/availability'
+import { checkTeamAvailability } from '@/lib/availability'
 
 export async function GET(request: Request) {
   const authError = await requireAdmin()
@@ -27,6 +27,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing date' }, { status: 400 })
   }
 
-  const cleaners = await checkCleanerAvailability(ctx.tenantId, date, startTime, duration, excludeBooking)
+  const cleaners = await checkTeamAvailability(ctx.tenantId, date, startTime, duration, excludeBooking)
   return NextResponse.json({ cleaners })
 }
