@@ -198,7 +198,16 @@ export async function PUT(
       // (including this one, and its sibling cancellation email below) onto
       // the standard template — reverted, then re-applied, by request, for
       // confirmation specifically.
-      if (statusChanged && fields.status === 'scheduled') {
+      //
+      // OR'd with (memberChanged && data.status === 'scheduled'): client
+      // self-service bookings insert directly at status 'scheduled' (see
+      // create_booking_atomic), so status never "changes" when a cleaner is
+      // assigned afterward via a team_member_id-only update — the client
+      // never got a confirmation at all. Root-caused via nycmaid booking
+      // 8e1e4cf2 (Paul Oberbeck, 2026-07-24): notifications/email_logs
+      // showed team_assignment SMS sent to the cleaner but zero client-facing
+      // rows for the booking.
+      if ((statusChanged && fields.status === 'scheduled') || (memberChanged && data.status === 'scheduled')) {
         if (isNycMaid(tenantId) && data.client_id) {
           const { data: nmBooking } = await supabaseAdmin
             .from('bookings')
