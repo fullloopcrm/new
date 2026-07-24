@@ -330,35 +330,6 @@ export async function POST(request: Request) {
       sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
     }
 
-    // Owner Telegram alert — dropped during the FL port (this route never
-    // called notify() at all); restores the pre-cutover "Job Done" ping with
-    // the collect/pay amounts so Jeff sees checkout + money owed in one line.
-    {
-      const cleanerName = (booking.team_members as unknown as { name?: string | null } | null)?.name || 'Cleaner'
-      const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
-      const cleanerPayAmount = teamMemberPayCents != null ? (teamMemberPayCents / 100).toFixed(2) : '0'
-      let checkoutDistanceInfo = ''
-      let checkoutFlagged = false
-      if (typeof lat === 'number' && typeof lng === 'number') {
-        const addr = (booking.clients as unknown as { address?: string | null } | null)?.address
-        if (addr) {
-          const { geocodeAddress, calculateDistance, MAX_DISTANCE_MILES } = await import('@/lib/nycmaid/geo')
-          const coords = await geocodeAddress(addr).catch(() => null)
-          if (coords) {
-            const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
-            checkoutFlagged = dist > MAX_DISTANCE_MILES
-            checkoutDistanceInfo = ` • ${dist.toFixed(2)} mi from address${checkoutFlagged ? ' ⚠️' : ''}`
-          }
-        }
-      }
-      notify({
-        type: 'job_complete',
-        title: checkoutFlagged ? `Job Done (GPS Mismatch): ${clientName}` : `Job Done: ${clientName}`,
-        message: `${actualHours ?? '?'}hrs by ${cleanerName} • Collect $${clientTotal} → Pay ${cleanerName} $${cleanerPayAmount}${checkoutDistanceInfo}`,
-        booking_id: data.id,
-      }).catch((err) => console.error('nycmaid checkout notify error:', err))
-    }
-
     // Checked out without payment confirmed → loud admin warning immediately.
     if (!reportedMethod && data.payment_status !== 'paid') {
       const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
@@ -384,6 +355,37 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
+
+  // Owner Telegram/dashboard alert — global for every tenant, same as the
+  // check-in ping. notify() only reaches Telegram if this tenant has its own
+  // bot configured, and push is scoped to this tenant's admins.
+  {
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'a client'
+    const cleanerName = (booking.team_members as unknown as { name?: string | null } | null)?.name || 'Cleaner'
+    const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
+    const cleanerPayAmount = teamMemberPayCents != null ? (teamMemberPayCents / 100).toFixed(2) : '0'
+    let checkoutDistanceInfo = ''
+    let checkoutFlagged = false
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      const addr = (booking.clients as unknown as { address?: string | null } | null)?.address
+      if (addr) {
+        const { geocodeAddress, calculateDistance, MAX_DISTANCE_MILES } = await import('@/lib/nycmaid/geo')
+        const coords = await geocodeAddress(addr).catch(() => null)
+        if (coords) {
+          const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
+          checkoutFlagged = dist > MAX_DISTANCE_MILES
+          checkoutDistanceInfo = ` • ${dist.toFixed(2)} mi from address${checkoutFlagged ? ' ⚠️' : ''}`
+        }
+      }
+    }
+    notify({
+      type: 'job_complete',
+      title: checkoutFlagged ? `Job Done (GPS Mismatch): ${clientName}` : `Job Done: ${clientName}`,
+      message: `${actualHours ?? '?'}hrs by ${cleanerName} • Collect $${clientTotal} → Pay ${cleanerName} $${cleanerPayAmount}${checkoutDistanceInfo}`,
+      booking_id: data.id,
+      tenantId: auth.tid,
+    }).catch((err) => console.error('checkout notify error:', err))
   }
 
   return NextResponse.json({

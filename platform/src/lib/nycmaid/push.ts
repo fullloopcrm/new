@@ -24,13 +24,18 @@ async function sendToSubscriptions(subscriptions: { id: string; subscription: we
   }
 }
 
-export async function sendPushToAll(title: string, body: string, url?: string, tag?: string) {
+export async function sendPushToAll(title: string, body: string, url?: string, tag?: string, tenantId?: string) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
 
-  const { data: subscriptions } = await supabaseAdmin
-    .from('push_subscriptions')  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+  // tenantId scopes admin push to the acting tenant. Omitting it is only safe
+  // for nycmaid-only call sites (pre-existing callers) — every new/globalized
+  // caller must pass it, or every tenant's admins get every other tenant's pushes.
+  let query = supabaseAdmin
+    .from('push_subscriptions')
     .select('id, subscription')
     .eq('role', 'admin')
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data: subscriptions } = await query
 
   if (!subscriptions || subscriptions.length === 0) return
   await sendToSubscriptions(subscriptions, title, body, url, tag)

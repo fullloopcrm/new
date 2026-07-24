@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { formatET } from '@/lib/dates'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient, bookingCoords, bookingAddress } from '@/lib/client-properties'
 import { notify } from '@/lib/nycmaid/notify'
@@ -65,7 +64,7 @@ export async function POST(request: Request) {
   // zone so a cleaner at the door is never stranded by NYC GPS jitter.
   let checkInFlagNote = ''
   let checkInDistanceInfo = ''
-  if (isNycMaid(auth.tid) && CHECK_IN_GPS_ENABLED) {
+  if (CHECK_IN_GPS_ENABLED) {
     const hasLoc = typeof lat === 'number' && typeof lng === 'number'
     if (!hasLoc) {
       return NextResponse.json({ error: 'Check-in needs your location. Enable location/GPS for this site and try again.', code: 'location_required' }, { status: 400 })
@@ -105,9 +104,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Owner Telegram alert — dropped during the FL port (this route never
-  // called notify() at all); restores the pre-cutover "Job Started" ping.
-  if (isNycMaid(auth.tid)) {
+  // Owner Telegram/dashboard alert — global for every tenant. notify() only
+  // reaches Telegram if this tenant has its own bot configured, and push is
+  // scoped to this tenant's admins — no cross-tenant leak.
+  {
     const cleanerName = booking.team_members?.name || 'Cleaner'
     const clientName = booking.clients?.name || 'client'
     notify({
@@ -115,7 +115,8 @@ export async function POST(request: Request) {
       title: checkInFlagNote ? 'WARNING: Job Started (GPS Mismatch)' : 'Job Started',
       message: `${cleanerName} checked in at ${clientName}${checkInDistanceInfo}`,
       booking_id,
-    }).catch((err) => console.error('nycmaid check-in notify error:', err))
+      tenantId: auth.tid,
+    }).catch((err) => console.error('check-in notify error:', err))
   }
 
   return NextResponse.json({ booking: data })
