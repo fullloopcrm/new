@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 interface Property {
   id: string
@@ -106,10 +107,9 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
             <div key={p.id} style={{ border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12 }}>
               {editingId === p.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
+                  <AddressAutocomplete
                     value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
-                    style={fieldStyle}
+                    onChange={(val) => setEditAddress(val)}
                     placeholder="Street, city, state, ZIP, unit"
                   />
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -158,7 +158,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
         <div style={{ marginTop: 8, border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Address</span>
-            <input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} style={fieldStyle} placeholder="Street, city, state, ZIP" />
+            <AddressAutocomplete value={newAddress} onChange={(val) => setNewAddress(val)} placeholder="Street, city, state, ZIP" />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Apt / unit (optional)</span>

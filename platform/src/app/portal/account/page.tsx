@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePortalAuth } from '../layout'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 interface Contact {
   id: string
@@ -306,7 +307,12 @@ export default function PortalAccountPage() {
 
         {addingAddress && (
           <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
-            <input placeholder="Street, city, state, ZIP" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <AddressAutocomplete
+              value={newAddress}
+              onChange={(val) => setNewAddress(val)}
+              placeholder="Street, city, state, ZIP"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            />
             <input placeholder="Apt / unit (optional)" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             {addressError && <p className="text-red-600 text-xs">{addressError}</p>}
             <div className="flex gap-2">

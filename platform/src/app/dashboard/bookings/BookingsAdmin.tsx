@@ -9,6 +9,8 @@ import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import ClientContacts from '../clients/client-contacts'
+import ClientAddresses from '../clients/client-addresses'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
 import { formatPhone, formatJobNumber } from '@/lib/format'
@@ -199,6 +201,10 @@ function BookingsPage() {
   const [showModal, setShowModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showNewClientModal, setShowNewClientModal] = useState(false)
+  // Set once the new-client POST succeeds — switches the modal to an
+  // "add more contacts/addresses?" step for that client before returning
+  // to the booking form, so the admin never has to leave Bookings to do it.
+  const [newClientContactsId, setNewClientContactsId] = useState<string | null>(null)
   const [showUpdateChoice, setShowUpdateChoice] = useState(false)
   const [showCancelMenu, setShowCancelMenu] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
@@ -794,10 +800,17 @@ function BookingsPage() {
       await loadClients()
       setCreateForm({ ...createForm, client_id: newClient.id })
       setClientSearch(newClient.name + ' - ' + newClient.phone)
-      setShowNewClientModal(false)
-      setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
+      // Don't close yet — offer to add more contacts/addresses for this
+      // brand-new client right here, before returning to the booking form.
+      setNewClientContactsId(newClient.id)
     }
     setSaving(false)
+  }
+
+  const finishNewClientFlow = () => {
+    setShowNewClientModal(false)
+    setNewClientContactsId(null)
+    setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
   }
 
   const isExistingClient = (clientId: string) => {
@@ -3098,51 +3111,69 @@ function BookingsPage() {
       {showNewClientModal && (
         <div className="fixed inset-0 bg-[rgba(28,28,28,0.5)] flex items-center justify-center z-[60]" onClick={() => setShowNewClientModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-4">New Client</h3>
-            <form onSubmit={handleNewClientSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input type="text" required value={newClientForm.name} onChange={(e) => setNewClientForm({ ...newClientForm, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="John Smith" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" value={newClientForm.email} onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="john@email.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                <input type="tel" required value={newClientForm.phone} onChange={(e) => setNewClientForm({ ...newClientForm, phone: formatPhone(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="212-555-1234" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <AddressAutocomplete value={newClientForm.address} onChange={(val) => setNewClientForm({ ...newClientForm, address: val })} placeholder="123 Main St, New York, NY 10001" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit / Apt</label>
-                <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="Apt 4B" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sales Person</label>
-                <select value={newClientForm.sales_partner_id} onChange={(e) => setNewClientForm({ ...newClientForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
-                  <option value="">None</option>
-                  {salesPartners.filter(sp => sp.active).map(sp => <option key={sp.id} value={sp.id}>{sp.name} ({sp.referral_code})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
-                <select value={newClientForm.referrer_id} onChange={(e) => setNewClientForm({ ...newClientForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
-                  <option value="">None</option>
-                  {referrers.filter(ref => ref.active).map(ref => <option key={ref.id} value={ref.id}>{ref.name} ({ref.ref_code})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" rows={3} placeholder="Any special instructions..." />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowNewClientModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
-              </div>
-            </form>
+            {newClientContactsId ? (
+              <>
+                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-1">Client Created</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Add another phone, email, or address for {newClientForm.name} now, or continue — you can always add more later.
+                </p>
+                <ClientContacts clientId={newClientContactsId} />
+                <div className="mt-4">
+                  <ClientAddresses clientId={newClientContactsId} />
+                </div>
+                <button type="button" onClick={finishNewClientFlow} className="w-full mt-6 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">
+                  Continue to booking
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-4">New Client</h3>
+                <form onSubmit={handleNewClientSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input type="text" required value={newClientForm.name} onChange={(e) => setNewClientForm({ ...newClientForm, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="John Smith" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" value={newClientForm.email} onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="john@email.com" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                    <input type="tel" required value={newClientForm.phone} onChange={(e) => setNewClientForm({ ...newClientForm, phone: formatPhone(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="212-555-1234" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <AddressAutocomplete value={newClientForm.address} onChange={(val) => setNewClientForm({ ...newClientForm, address: val })} placeholder="123 Main St, New York, NY 10001" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit / Apt</label>
+                    <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="Apt 4B" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sales Person</label>
+                    <select value={newClientForm.sales_partner_id} onChange={(e) => setNewClientForm({ ...newClientForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
+                      <option value="">None</option>
+                      {salesPartners.filter(sp => sp.active).map(sp => <option key={sp.id} value={sp.id}>{sp.name} ({sp.referral_code})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
+                    <select value={newClientForm.referrer_id} onChange={(e) => setNewClientForm({ ...newClientForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
+                      <option value="">None</option>
+                      {referrers.filter(ref => ref.active).map(ref => <option key={ref.id} value={ref.id}>{ref.name} ({ref.ref_code})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" rows={3} placeholder="Any special instructions..." />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={finishNewClientFlow} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
+                    <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

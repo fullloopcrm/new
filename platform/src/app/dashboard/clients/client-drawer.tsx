@@ -7,6 +7,7 @@ import { DnsReasonPicker } from './dns-reason-picker'
 import { formatCustomerNumber } from '@/lib/format'
 import ClientAddresses from './client-addresses'
 import ClientContacts from './client-contacts'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 type EnrichedClient = {
   id: string
@@ -898,11 +899,10 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
             </div>
             <div className="clients-edit-field">
               <label className="clients-edit-label" htmlFor="client-edit-address">Address</label>
-              <input
-                id="client-edit-address"
-                className="clients-edit-input"
+              <AddressAutocomplete
                 value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                onChange={(val) => setEditForm({ ...editForm, address: val })}
+                className="clients-edit-input"
               />
             </div>
             {editError && <div className="clients-edit-error">{editError}</div>}

@@ -43,10 +43,18 @@ export default function ClientContacts({ clientId }: { clientId: string }) {
 
   const load = useCallback(async () => {
     if (!clientId) return
-    const res = await fetch(`/api/clients/${clientId}/contacts`)
-    const data = await res.json().catch(() => [])
-    setContacts(Array.isArray(data) ? data : [])
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/contacts`)
+      const data = await res.json().catch(() => [])
+      setContacts(Array.isArray(data) ? data : [])
+    } catch {
+      // A network-level failure must still clear loading — otherwise this
+      // section silently renders as if it doesn't exist at all (see `if
+      // (loading) return null` below), with no visible error anywhere.
+      setContacts([])
+    } finally {
+      setLoading(false)
+    }
   }, [clientId])
 
   useEffect(() => { setLoading(true); load() }, [load])
