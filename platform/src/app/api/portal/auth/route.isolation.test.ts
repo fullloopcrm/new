@@ -1,17 +1,14 @@
+/**
+ * tenantDb conversion probe — portal/auth/route.ts PIN login + request_pin.
+ * `login` resolves the tenant from tenant_slug, then scopes the PIN lookup to
+ * it via tenantDb. `request_pin` does the same for the phone/email lookup and
+ * the PIN update. The LEAK CONTROL proves that scoping is load-bearing: two
+ * tenants sharing the same PIN (or the same phone/email — a realistic
+ * collision, e.g. a family member who uses two different businesses) must
+ * never let a login/reset for one tenant resolve to the other tenant's client.
+ */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
-
-/**
- * tenantDb conversion probe — portal/auth/route.ts (docs/adr/0004).
- * send_code resolves tenant from the request's tenant_slug, then scopes the
- * client lookup, the stale-code delete, and the new-code insert to it via
- * tenantDb. verify_code now also requires tenant_slug up front, resolves the
- * tenant first, and scopes the phone+code lookup AND the mark-as-used update
- * to that tenant_id. The LEAK CONTROL proves that scoping is load-bearing:
- * two tenants sharing both the same phone AND the same 6-digit code (a
- * realistic collision) would otherwise let a verify_code call for one tenant
- * silently burn the other tenant's code.
- */
 
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
@@ -20,12 +17,17 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 vi.mock('@/lib/rate-limit-db', () => ({
-  rateLimitDb: async () => ({ allowed: true }),
+  rateLimitDb: async () => ({ allowed: true, remaining: 99 }),
 }))
-vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
-vi.mock('@/lib/sms', () => ({ sendSMS: async () => ({}) }))
+
+const sendEmailMock = vi.fn(async (_opts: { to: string; html: string; subject: string }) => ({}))
+vi.mock('@/lib/email', () => ({
+  sendEmail: (opts: { to: string; html: string; subject: string }) => sendEmailMock(opts),
+  tenantSender: () => 'Full Loop <hello@fullloopcrm.com>',
+}))
+
 vi.mock('./token', () => ({
-  generateCode: () => '111111',
+  generateCode: () => '777777',
   createToken: (clientId: string, tenantId: string) => `tok.${clientId}.${tenantId}`,
 }))
 
@@ -34,93 +36,64 @@ import { POST } from './route'
 
 const A_ID = 'tenant-A'
 const B_ID = 'tenant-B'
-const PHONE = '+15550001'
+const SHARED_PIN = '111111'
+const SHARED_PHONE = '+15550001'
 const fake = supabaseAdmin as unknown as FakeSupabase
 
 beforeEach(() => {
   fake._store.clear()
+  sendEmailMock.mockClear()
   fake._seed('tenants', [
-    { id: A_ID, name: 'A Co', slug: 'biz-a', status: 'active', telnyx_api_key: null, telnyx_phone: null, resend_api_key: null },
-    { id: B_ID, name: 'B Co', slug: 'biz-b', status: 'active', telnyx_api_key: null, telnyx_phone: null, resend_api_key: null },
+    { id: A_ID, name: 'A Co', slug: 'biz-a', status: 'active', primary_color: null, logo_url: null, email_from: null, resend_api_key: null },
+    { id: B_ID, name: 'B Co', slug: 'biz-b', status: 'active', primary_color: null, logo_url: null, email_from: null, resend_api_key: null },
   ])
-  // Same phone number under both tenants — realistic (a family member cleans
-  // for two different businesses) and the case that actually stresses scoping.
+  // Deliberate collision: same PIN and same phone under both tenants.
   fake._seed('clients', [
-    { id: 'client-a', tenant_id: A_ID, phone: PHONE, email: 'a@x.com', name: 'Client A' },
-    { id: 'client-b', tenant_id: B_ID, phone: PHONE, email: 'b@x.com', name: 'Client B' },
+    { id: 'client-a', tenant_id: A_ID, phone: SHARED_PHONE, email: 'a@x.com', name: 'Client A', pin: SHARED_PIN },
+    { id: 'client-b', tenant_id: B_ID, phone: SHARED_PHONE, email: 'b@x.com', name: 'Client B', pin: SHARED_PIN },
   ])
 })
 
-function sendCodeReq(tenant_slug: string): Request {
+function loginReq(tenant_slug: string) {
   return new Request('http://x/api/portal/auth', {
     method: 'POST',
-    body: JSON.stringify({ action: 'send_code', phone: PHONE, tenant_slug }),
+    body: JSON.stringify({ action: 'login', pin: SHARED_PIN, tenant_slug }),
   })
 }
 
-function verifyCodeReq(code: string, tenant_slug: string): Request {
+function requestPinReq(tenant_slug: string) {
   return new Request('http://x/api/portal/auth', {
     method: 'POST',
-    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code, tenant_slug }),
+    body: JSON.stringify({ action: 'request_pin', contact: SHARED_PHONE, tenant_slug }),
   })
 }
 
-describe('portal/auth send_code — tenantDb isolation', () => {
-  it("resolves the client and stamps the new code under tenant A only, never touching tenant B's row for the same phone", async () => {
-    fake._seed('portal_auth_codes', [
-      { id: 'stale-b', tenant_id: B_ID, phone: PHONE, code: '999999', client_id: 'client-b', used: false, expires_at: '2099-01-01T00:00:00Z', created_at: '2026-07-01T00:00:00Z' },
-    ])
-    const res = await POST(sendCodeReq('biz-a'))
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body).toEqual({ sent: true, channel: 'email' })
-
-    const codes = fake._all('portal_auth_codes')
-    const aCode = codes.find((c) => c.client_id === 'client-a')
-    expect(aCode?.tenant_id).toBe(A_ID)
-    // Tenant B's unrelated stale code is untouched by A's "delete existing
-    // unused codes for this phone" step.
-    const bCode = codes.find((c) => c.id === 'stale-b')
-    expect(bCode?.used).toBe(false)
-  })
-})
-
-describe('portal/auth verify_code — tenantDb isolation', () => {
-  beforeEach(() => {
-    // Deliberate collision: same phone AND same code value under both
-    // tenants. code-a is the more recent row, so the phone+code lookup
-    // (order by created_at desc, limit 1) resolves to tenant A.
-    fake._seed('portal_auth_codes', [
-      { id: 'code-b', tenant_id: B_ID, phone: PHONE, code: '111111', client_id: 'client-b', used: false, expires_at: '2099-01-01T00:00:00Z', created_at: '2026-07-13T00:00:05Z' },
-      { id: 'code-a', tenant_id: A_ID, phone: PHONE, code: '111111', client_id: 'client-a', used: false, expires_at: '2099-01-01T00:00:00Z', created_at: '2026-07-13T00:00:10Z' },
-    ])
-  })
-
-  it("marks only tenant A's code as used via tenantDb, leaving tenant B's colliding phone+code row untouched", async () => {
-    const res = await POST(verifyCodeReq('111111', 'biz-a'))
+describe('portal/auth login — tenantDb isolation', () => {
+  it('a shared PIN across two tenants resolves to the client under the REQUESTED tenant only', async () => {
+    const res = await POST(loginReq('biz-a'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.token).toBe('tok.client-a.tenant-A')
+  })
+})
 
-    const codes = fake._all('portal_auth_codes')
-    expect(codes.find((c) => c.id === 'code-a')?.used).toBe(true)
-    expect(codes.find((c) => c.id === 'code-b')?.used).toBe(false)
+describe('portal/auth request_pin — tenantDb isolation', () => {
+  it("resets tenant A's client PIN only, leaving tenant B's colliding-phone client untouched", async () => {
+    const res = await POST(requestPinReq('biz-a'))
+    expect(res.status).toBe(200)
+
+    const clients = fake._all('clients')
+    expect(clients.find((c) => c.id === 'client-a')?.pin).toBe('777777')
+    expect(clients.find((c) => c.id === 'client-b')?.pin).toBe(SHARED_PIN)
   })
 })
 
 describe('LEAK CONTROL', () => {
-  it("updating portal_auth_codes by phone+code ALONE (no tenant_id filter) WOULD mark BOTH tenants' colliding rows as used — proves the route's tenantDb scoping on mark-as-used is load-bearing", async () => {
-    fake._seed('portal_auth_codes', [
-      { id: 'code-b', tenant_id: B_ID, phone: PHONE, code: '111111', client_id: 'client-b', used: false, expires_at: '2099-01-01T00:00:00Z', created_at: '2026-07-13T00:00:05Z' },
-      { id: 'code-a', tenant_id: A_ID, phone: PHONE, code: '111111', client_id: 'client-a', used: false, expires_at: '2099-01-01T00:00:00Z', created_at: '2026-07-13T00:00:10Z' },
-    ])
-    await supabaseAdmin
-      .from('portal_auth_codes') // tenant-scope-ok: deliberate unscoped LEAK CONTROL probe, proves the route's tenantDb filter is load-bearing
-      .update({ used: true })
-      .eq('phone', PHONE)
-      .eq('code', '111111')
-    const codes = fake._all('portal_auth_codes')
-    expect(codes.find((c) => c.id === 'code-a')?.used).toBe(true)
-    expect(codes.find((c) => c.id === 'code-b')?.used).toBe(true)
+  it('looking up clients by phone ALONE (no tenant filter) WOULD return BOTH tenants — proves the route\'s tenantDb scoping is load-bearing', async () => {
+    const { data } = await supabaseAdmin
+      .from('clients') // tenant-scope-ok: deliberate unscoped LEAK CONTROL probe
+      .select('id, tenant_id')
+      .eq('phone', SHARED_PHONE)
+    expect((data as { id: string }[]).map((r) => r.id).sort()).toEqual(['client-a', 'client-b'])
   })
 })
