@@ -15,12 +15,15 @@ type Notification = {
 }
 
 export default function TeamNotificationsPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetch('/api/team-portal/notifications', {
       headers: { Authorization: `Bearer ${auth.token}` },
@@ -29,7 +32,7 @@ export default function TeamNotificationsPage() {
       .then((data) => setNotifications(data.notifications || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [auth, router])
+  }, [auth, authLoaded, router])
 
   async function markRead(id: string) {
     if (!auth) return

@@ -347,7 +347,7 @@ const JobsMap = dynamic(() => import('./jobs-map'), { ssr: false })
 // ---------------------------------------------------------------------------
 
 export default function TeamHomePage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
 
   // Data state
@@ -498,6 +498,11 @@ export default function TeamHomePage() {
   }, [auth])
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out -- redirecting
+    // on the former bounces an already-authenticated cleaner back to the PIN
+    // screen on every fresh load of the portal's own start_url.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetchData()
     // Poll notifications every 60 seconds
@@ -513,7 +518,7 @@ export default function TeamHomePage() {
         .catch(() => {})
     }, 60000)
     return () => clearInterval(interval)
-  }, [auth, router, fetchData])
+  }, [auth, authLoaded, router, fetchData])
 
   // ---- Today's stats ----
   const todayStats = useMemo(() => {

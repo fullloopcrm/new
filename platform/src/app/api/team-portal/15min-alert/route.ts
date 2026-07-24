@@ -307,7 +307,18 @@ export async function POST(req: NextRequest) {
         const smsResult = await sendClientSMS(clientId, clientSmsText, {
           smsType: clientSmsType,
           bookingId,
-        }).catch(err => { console.error(`Client 30min SMS attempt ${i + 1} failed:`, err); return { sent: 0, skipped: 0 } })
+        }).catch(async err => {
+          console.error(`Client 30min SMS attempt ${i + 1} failed:`, err)
+          // Temporary trace (2026-07-23): persist the exception so it's
+          // queryable — the prior silent .catch() left zero DB trace when
+          // sendClientSMS threw before reaching sendSMS's own logging.
+          await tenantDb(tenantId).from('notifications').insert({
+            type: 'comms_fail',
+            title: '30min client SMS threw',
+            message: `booking=${bookingId} attempt=${i + 1} error=${err instanceof Error ? err.message : String(err)}`,
+          }).then(() => {}, () => {})
+          return { sent: 0, skipped: 0 }
+        })
         if (smsResult?.sent && smsResult.sent > 0) { confirmedVia.push('SMS'); break }
         if (i === 0) await new Promise(r => setTimeout(r, 60_000))
       }

@@ -22,7 +22,7 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 export default function CrewPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [jobs, setJobs] = useState<CrewJob[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -57,9 +57,12 @@ export default function CrewPage() {
   }, [auth, headers])
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     load()
-  }, [auth, router, load])
+  }, [auth, authLoaded, router, load])
 
   async function reassign(bookingId: string, toMemberId: string) {
     if (!toMemberId) return

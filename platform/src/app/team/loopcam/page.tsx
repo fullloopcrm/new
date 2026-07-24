@@ -20,7 +20,7 @@ function formatTime(dateStr: string) {
 }
 
 export default function LoopCamPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [jobs, setJobs] = useState<ActiveJob[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,9 +36,12 @@ export default function LoopCamPage() {
   }, [auth])
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetchJobs()
-  }, [auth, router, fetchJobs])
+  }, [auth, authLoaded, router, fetchJobs])
 
   if (!auth) return null
 

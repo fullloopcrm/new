@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
 import PhotoCapture from '@/components/PhotoCapture'
@@ -8,9 +8,9 @@ import TeamChecklist from '@/components/TeamChecklist'
 
 export default function CheckOutPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
-  const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'done'>('idle')
+  const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'submitting' | 'done'>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [result, setResult] = useState<{ hours_worked: number; earnings: number } | null>(null)
   const [error, setError] = useState('')
@@ -33,7 +33,7 @@ export default function CheckOutPage() {
 
   async function checkOut() {
     if (!auth) return
-    setStatus('done')
+    setStatus('submitting')
     const res = await fetch('/api/team-portal/checkout', {
       method: 'POST',
       headers: {
@@ -55,10 +55,15 @@ export default function CheckOutPage() {
     }
   }
 
-  if (!auth) {
-    router.push('/team/login')
-    return null
-  }
+  // Wait for the layout's localStorage read before deciding the member is
+  // logged out -- auth is null both while that read is pending AND when
+  // truly logged out, and redirecting on the former bounces an already
+  // -authenticated cleaner back to the PIN screen on every fresh page load.
+  useEffect(() => {
+    if (authLoaded && !auth) router.push('/team/login')
+  }, [authLoaded, auth, router])
+
+  if (!authLoaded || !auth) return null
 
   return (
     <div className="flex flex-col items-center pt-12">
@@ -80,7 +85,7 @@ export default function CheckOutPage() {
         </div>
       )}
 
-      {status === 'confirming' && coords && (
+      {(status === 'confirming' || status === 'submitting') && coords && (
         <div className="text-center space-y-4">
           <div className="w-40 h-40 rounded-full bg-blue-50 border-4 border-blue-500 flex flex-col items-center justify-center mb-4 mx-auto">
             <span className="text-3xl mb-1">✓</span>
@@ -90,8 +95,12 @@ export default function CheckOutPage() {
             <PhotoCapture bookingId={bookingId} photoType="after" token={auth!.token} t={t} />
             <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
           </div>
-          <button onClick={checkOut} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium">
-            {t('Confirm Check Out', 'Confirmar Salida')}
+          <button
+            onClick={checkOut}
+            disabled={status === 'submitting'}
+            className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium disabled:opacity-50"
+          >
+            {status === 'submitting' ? t('Checking out…', 'Registrando salida…') : t('Confirm Check Out', 'Confirmar Salida')}
           </button>
         </div>
       )}

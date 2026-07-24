@@ -25,11 +25,33 @@ export const maxDuration = 60
 export async function POST(request: Request) {
   const rawBody = await request.text()
 
+  // Temporary trace (2026-07-23): unconditional, before any logic — proves
+  // whether Telnyx's webhook request reaches this route at all. Every other
+  // branch in this file has been traced and produced nothing for real
+  // inbound replies; this is the last possible silent-drop point. Remove
+  // once inbound handling is confirmed working end-to-end.
+  await supabaseAdmin.from('notifications').insert({
+    tenant_id: '00000000-0000-0000-0000-000000000001',
+    type: 'comms_fail',
+    title: 'Telnyx webhook POST received',
+    message: `headers=${JSON.stringify(Object.fromEntries(request.headers.entries())).slice(0, 500)} body=${rawBody.slice(0, 300)}`,
+  }).then(() => {}, () => {})
+
   // Signature verification (skip only when explicitly disabled for local dev).
   if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx webhook] rejected:', result.reason)
+      // Temporary trace (2026-07-23): inbound SMS replies have zero DB
+      // footprint anywhere (sms_logs, client_sms_messages, notifications) —
+      // this 401 is the prime suspect since it returns before any write.
+      // Remove once root cause is confirmed.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook rejected',
+        message: `reason=${result.reason} body_snippet=${rawBody.slice(0, 300)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
@@ -113,6 +135,16 @@ export async function POST(request: Request) {
     const text = payload?.text
 
     if (!from || !to || !text) {
+      // Temporary trace (2026-07-23): this branch silently drops the whole
+      // message with zero DB footprint if Telnyx's real payload shape
+      // doesn't match what's destructured above. Logging the raw payload
+      // until inbound-reply handling is confirmed working end-to-end.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook missing from/to/text',
+        message: `from=${from} to=${to} text=${text} payload=${JSON.stringify(payload).slice(0, 500)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -133,6 +165,14 @@ export async function POST(request: Request) {
     const tenant = tenantMatches?.[0] || null
 
     if (!tenant) {
+      // Temporary trace (2026-07-23): silent drop if `to` doesn't exactly
+      // match any tenant's telnyx_phone.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook — no tenant matched',
+        message: `to=${to} from=${from}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -144,6 +184,14 @@ export async function POST(request: Request) {
     // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
     const ownerDigits = (tenant.owner_phone || '').replace(/\D/g, '')
     const fromDigits = String(from).replace(/\D/g, '')
+    // Temporary trace (2026-07-23): confirms tenant resolution + owner-match
+    // evaluation right before the branch that decides where this message goes.
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'comms_fail',
+      title: 'Inbound Telnyx webhook — tenant resolved',
+      message: `tenant=${tenant.name} from=${from} to=${to} text=${text} ownerPhoneOnFile=${tenant.owner_phone} ownerMatch=${ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))}`,
+    }).then(() => {}, () => {})
     if (ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
       await supabaseAdmin.from('tenant_owner_messages').insert({
         tenant_id: tenantId, direction: 'in', channel: 'sms', body: text, sender: 'owner',
