@@ -43,7 +43,7 @@ export async function getClientContacts(
   // Account-level gate first
   const { data: client, error: clientErr } = await supabaseAdmin
     .from('clients')
-    .select('id, do_not_service')
+    .select('id, name, email, phone, do_not_service, email_opt_in, sms_opt_in')
     .eq('id', clientId)
     .single()
 
@@ -61,8 +61,32 @@ export async function getClientContacts(
     .not(requiredField, 'is', null)
     .order('is_primary', { ascending: false })
 
-  if (error || !contacts) return []
-  return contacts as ClientContact[]
+  if (error) return []
+  if (contacts && contacts.length > 0) return contacts as ClientContact[]
+
+  // No explicit client_contacts row (the multi-contact system is opt-in and
+  // nothing auto-populates it on client creation — 156/805 nycmaid clients
+  // have none, including every brand-new self-service booking). Without this
+  // fallback those clients' confirmation email/SMS silently no-op forever:
+  // "empty array = send nothing" up the call chain, no error, no trace. Fall
+  // back to the client's own primary email/phone, gated by the same
+  // account-level opt-in flags client_contacts would otherwise enforce.
+  // Root-caused via nycmaid booking 8e1e4cf2 (Paul Oberbeck, 2026-07-24).
+  const optedIn = channel === 'sms' ? client.sms_opt_in !== false : client.email_opt_in !== false
+  if (!optedIn) return []
+  const fallbackValue = channel === 'sms' ? normalizePhone(client.phone) : client.email
+  if (!fallbackValue) return []
+  return [{
+    id: client.id,
+    client_id: client.id,
+    name: client.name,
+    role: 'primary',
+    phone_e164: channel === 'sms' ? fallbackValue : null,
+    email: channel === 'email' ? fallbackValue : null,
+    is_primary: true,
+    receives_sms: channel === 'sms',
+    receives_email: channel === 'email',
+  }]
 }
 
 /**

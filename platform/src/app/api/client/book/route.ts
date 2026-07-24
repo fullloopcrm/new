@@ -21,6 +21,7 @@ import { getSettings } from '@/lib/settings'
 import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -132,6 +133,14 @@ export async function POST(request: Request) {
         }
         clientId = newClient.id
         isNewClient = true
+        // Required by every client-creation path (see createPrimaryContact's
+        // own docstring) — without it, getClientContacts() returns empty
+        // forever and this client's confirmation email/SMS silently no-ops
+        // on every future send, no error, no trace. Missing here is exactly
+        // what happened to nycmaid booking 8e1e4cf2 (Paul Oberbeck,
+        // 2026-07-24): self-booked, zero client_contacts rows, confirmation
+        // silently never sent.
+        await createPrimaryContact(tenant.id, newClient.id, { name: body.name as string, phone, email: emailLower })
         await notify({
           tenantId: tenant.id,
           type: 'new_client',

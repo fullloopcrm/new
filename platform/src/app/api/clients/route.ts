@@ -7,6 +7,7 @@ import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 export async function GET(request: NextRequest) {
   try {
@@ -163,6 +164,11 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Required by every client-creation path — without it, getClientContacts()
+    // returns empty forever and this client's confirmation email/SMS silently
+    // no-ops on every future send. See createPrimaryContact's own docstring.
+    await createPrimaryContact(tenantId, data.id, { name: data.name, phone: data.phone, email: data.email })
 
     await audit({ tenantId, action: 'client.created', entityType: 'client', entityId: data.id, details: { name: data.name } })
 
