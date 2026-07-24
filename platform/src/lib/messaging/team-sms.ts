@@ -20,11 +20,17 @@ export type TeamBookingLike = {
   team_members?: { name?: string | null; pin?: string | null } | null
 }
 
+// booking.start_time is a naive America/New_York wall-clock string (no
+// offset). Parsing it with new Date() treats it as local-to-the-server
+// (UTC on Vercel), then formatting with timeZone: 'America/New_York' shifts
+// it AGAIN by the ET offset — showing e.g. 10:00 AM for an actual 2:00 PM
+// booking. Fix: pin the naive digits to their own instant with a bare 'Z'
+// and read them back in UTC, so no timezone conversion happens at all.
 const etDate = (t: string) =>
-  new Date(t).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  new Date(`${t}Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })
 
 const etTime = (t: string) =>
-  new Date(t).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  new Date(`${t}Z`).toLocaleTimeString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' })
 
 function suppliesLine(booking: TeamBookingLike): string {
   return booking.hourly_rate === 49
