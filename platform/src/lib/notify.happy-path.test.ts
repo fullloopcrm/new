@@ -87,7 +87,14 @@ vi.mock('@/lib/email', () => ({
 vi.mock('@/lib/sms', () => ({ sendSMS: (args: unknown) => sendSMS(args as never) }))
 
 // Comms-preference gate: forced enabled so nothing is gated for an unrelated reason.
-vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: async () => true }))
+vi.mock('@/lib/comms-prefs', () => ({
+  isCommEnabled: async () => true,
+  getCommPolicy: async () => ({}),
+  buildTemplateData: (tenant: { name: string }, policy: Record<string, unknown>) => ({
+    tenantName: tenant.name,
+    ...policy,
+  }),
+}))
 
 // Email templates — inert stubs so imports resolve deterministically.
 vi.mock('@/lib/email-templates', () => ({
