@@ -165,6 +165,14 @@ export async function POST(request: Request) {
     const tenant = tenantMatches?.[0] || null
 
     if (!tenant) {
+      // Temporary trace (2026-07-23): silent drop if `to` doesn't exactly
+      // match any tenant's telnyx_phone.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook — no tenant matched',
+        message: `to=${to} from=${from}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -176,6 +184,14 @@ export async function POST(request: Request) {
     // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
     const ownerDigits = (tenant.owner_phone || '').replace(/\D/g, '')
     const fromDigits = String(from).replace(/\D/g, '')
+    // Temporary trace (2026-07-23): confirms tenant resolution + owner-match
+    // evaluation right before the branch that decides where this message goes.
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'comms_fail',
+      title: 'Inbound Telnyx webhook — tenant resolved',
+      message: `tenant=${tenant.name} from=${from} to=${to} text=${text} ownerPhoneOnFile=${tenant.owner_phone} ownerMatch=${ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))}`,
+    }).then(() => {}, () => {})
     if (ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
       await supabaseAdmin.from('tenant_owner_messages').insert({
         tenant_id: tenantId, direction: 'in', channel: 'sms', body: text, sender: 'owner',
