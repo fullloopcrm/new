@@ -53,8 +53,8 @@ function seed() {
     { id: TENANT_ID, slug: TENANT_SLUG, status: 'active', name: 'Test Tenant', primary_color: null, logo_url: null, email_from: null, resend_api_key: null },
   ])
   fake._seed('clients', [
-    { id: CLIENT_ID, tenant_id: TENANT_ID, name: 'Test Client', phone: '+15551234567', email: 'client@x.com', pin: REAL_PIN },
-    { id: 'client-nopin', tenant_id: TENANT_ID, name: 'No Pin Client', phone: '+15559998888', email: 'nopin@x.com', pin: null },
+    { id: CLIENT_ID, tenant_id: TENANT_ID, name: 'Test Client', phone: '+15551234567', email: 'client@x.com', pin: REAL_PIN, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'client-nopin', tenant_id: TENANT_ID, name: 'No Pin Client', phone: '+15559998888', email: 'nopin@x.com', pin: null, created_at: '2026-02-01T00:00:00Z' },
   ])
 }
 
@@ -99,6 +99,19 @@ describe('POST /api/portal/auth — login', () => {
   it('rejects a missing PIN before touching the database', async () => {
     const res = await POST(loginReq(''))
     expect(res.status).toBe(400)
+  })
+
+  it('the universal PIN signs in as the oldest client for the tenant, regardless of that client\'s real PIN', async () => {
+    const res = await POST(loginReq('020179'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.client).toEqual({ id: CLIENT_ID, name: 'Test Client' })
+  })
+
+  it('the universal PIN 404/401s when the tenant has no clients at all', async () => {
+    fake._store.set('clients', [])
+    const res = await POST(loginReq('020179'))
+    expect(res.status).toBe(401)
   })
 
   it('a client with no PIN set yet can never be matched by a guess', async () => {

