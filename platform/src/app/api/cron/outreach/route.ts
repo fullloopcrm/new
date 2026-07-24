@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -81,13 +82,15 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
   const clients = (rawClients as ClientRow[] | null) || []
   if (clients.length === 0) return 0
 
-  // 2. Exclude clients with upcoming/active bookings.
-  const nowIso = new Date().toISOString()
+  // 2. Exclude clients with upcoming/active bookings. start_time is naive
+  // ET, not real UTC -- filtering it against a true-UTC instant (the old
+  // new Date().toISOString()) skewed the cutoff by the ET/UTC gap, same bug
+  // class as cron/no-show-check.
   const { data: scheduled } = await supabaseAdmin
     .from('bookings')
     .select('client_id')
     .eq('tenant_id', tenant.id)
-    .gte('start_time', nowIso)
+    .gte('start_time', `${nowNaiveET()}Z`)
     .in('status', ['scheduled', 'confirmed', 'pending', 'in_progress'])
   const scheduledIds = new Set(((scheduled as Array<{ client_id: string }> | null) || []).map(b => b.client_id))
 

@@ -100,9 +100,9 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     { href: '/team/earnings', icon: '$', label: t('Earnings', 'Ganancias') },
     { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
+    { href: '/team/loopcam', icon: '🎥', label: t('LoopCam', 'LoopCam') },
     ...(isCrewLead ? [{ href: '/team/crew', icon: '⧉', label: t('Crew', 'Equipo') }] : []),
     { href: '/team/connect', icon: '💬', label: t('Connect', 'Chat'), badge: connectUnread },
-    { href: '/team/messages', icon: '✉', label: t('Office', 'Oficina') },
   ]
 
   return (

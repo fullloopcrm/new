@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
-import LoopCamRecorder from '@/components/LoopCamRecorder'
 import PhotoCapture from '@/components/PhotoCapture'
 import TeamChecklist from '@/components/TeamChecklist'
 
@@ -88,7 +87,6 @@ export default function CheckOutPage() {
             <p className="text-xs text-blue-700 font-mono">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
           </div>
           <div className="w-full max-w-sm mx-auto space-y-3">
-            <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} defaultSessionType="after" onComplete={() => {}} />
             <PhotoCapture bookingId={bookingId} photoType="after" token={auth!.token} t={t} />
             <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
           </div>
