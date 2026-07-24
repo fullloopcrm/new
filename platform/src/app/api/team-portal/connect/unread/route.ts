@@ -11,11 +11,12 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   try {
-    // Get general channel
+    // Get this team member's own private channel
     const { data: channel } = await tenantDb(auth.tid)
       .from('connect_channels')
       .select('id')
-      .eq('type', 'general')
+      .eq('type', 'team')
+      .eq('team_member_id', auth.id)
       .single()
 
     if (!channel) return NextResponse.json({ unread: 0 })

@@ -63,7 +63,7 @@ export default function TeamConnectPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${auth.token}`,
         },
-        body: JSON.stringify({ body, channel_id: channelId }),
+        body: JSON.stringify({ body }),
       })
       fetchMessages()
     } catch {
@@ -86,7 +86,7 @@ export default function TeamConnectPage() {
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
       <h1 className="text-lg font-bold text-slate-800 mb-3">
-        {t('# General', '# General')}
+        {t('Message Admin', 'Mensaje al Administrador')}
       </h1>
 
       <div className="flex-1 overflow-y-auto bg-white rounded-lg border border-slate-200 px-3 py-2">

@@ -10,6 +10,7 @@ type Channel = {
   name: string
   type: string
   client_id: string | null
+  team_member_id: string | null
   last_message: { body: string; sender_name: string; created_at: string } | null
 }
 
@@ -148,6 +149,7 @@ export default function LoopConnectPage() {
     ? channels.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : channels
   const generalChannels = filteredChannels.filter((c) => c.type === 'general')
+  const teamChannels = filteredChannels.filter((c) => c.type === 'team')
   const clientChannels = filteredChannels.filter((c) => c.type === 'client')
   const customChannels = filteredChannels.filter((c) => c.type === 'custom')
   const grouped = groupMessagesByDate(messages)
@@ -185,6 +187,10 @@ export default function LoopConnectPage() {
             </div>
             <div className="lc-channel-list">
               {generalChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
+              {teamChannels.length > 0 && <div className="lc-channel-section">Team</div>}
+              {teamChannels.map((ch) => (
                 <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
               ))}
               {clientChannels.length > 0 && <div className="lc-channel-section">Clients</div>}
@@ -225,7 +231,9 @@ export default function LoopConnectPage() {
                   {activeChannel.name}
                 </span>
                 <span className="lc-channel-head-meta">
-                  {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
+                  {activeChannel.type === 'client' ? 'Private channel'
+                    : activeChannel.type === 'team' ? 'Private channel — auto-translated'
+                    : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
                 </span>
               </div>
             )}

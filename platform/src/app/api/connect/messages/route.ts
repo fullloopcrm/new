@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { translateToEnEs } from '@/lib/connect-translate'
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,12 +23,16 @@ export async function GET(request: NextRequest) {
 
     const { data: messages, error } = await db
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, body_en, created_at')
       .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
       .limit(200)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // display_body is the English version for a translated (type='team')
+    // channel; falls back to the raw body for every other channel type.
+    const displayMessages = (messages || []).map((m) => ({ ...m, display_body: m.body_en || m.body }))
 
     // Update read cursor. Skipped on a forged cross-site GET (SameSite=Lax
     // still sends cookies on top-level navigation) — see csrf-guard.ts.
@@ -45,7 +50,7 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    return NextResponse.json({ messages: messages || [] })
+    return NextResponse.json({ messages: displayMessages })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e
@@ -65,11 +70,17 @@ export async function POST(request: NextRequest) {
     // Verify channel belongs to tenant
     const { data: channel } = await db
       .from('connect_channels')
-      .select('id')
+      .select('id, type')
       .eq('id', channel_id)
       .single()
 
     if (!channel) return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+
+    // Only the private team<->admin channel is auto-translated -- client/
+    // referrer/custom channels are unaffected.
+    const translated = channel.type === 'team'
+      ? await translateToEnEs(body.trim(), tenant.anthropic_api_key)
+      : null
 
     const { data, error } = await db
       .from('connect_messages')
@@ -79,6 +90,7 @@ export async function POST(request: NextRequest) {
         sender_id: userId,
         sender_name: tenant.owner_name || tenant.name || 'Owner',
         body: body.trim(),
+        ...(translated ? { body_en: translated.en, body_es: translated.es } : {}),
       })
       .select()
       .single()
