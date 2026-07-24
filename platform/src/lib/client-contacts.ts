@@ -66,7 +66,7 @@ export async function getClientContacts(
 
   const { data: client, error: clientErr } = await db
     .from('clients')
-    .select('id, do_not_service')
+    .select('id, name, email, phone, do_not_service, email_opt_in, sms_opt_in')
     .eq('id', clientId)
     .single()
   if (clientErr || !client) return []
@@ -82,8 +82,30 @@ export async function getClientContacts(
     .eq(channelColumn, true)
     .not(requiredField, 'is', null)
     .order('is_primary', { ascending: false })
-  if (error || !contacts) return []
-  return contacts as ClientContact[]
+  if (error) return []
+  if (contacts && contacts.length > 0) return contacts as ClientContact[]
+
+  // No explicit client_contacts row — same root cause as the nycmaid
+  // legacy fallback (see that file for the full incident writeup). Every
+  // client-creation path now calls createPrimaryContact(), so this only
+  // matters for clients created before that wiring landed (2026-07-24).
+  // Falls back to the client's own primary email/phone, gated by the same
+  // opt-in flags client_contacts would otherwise enforce.
+  const optedIn = channel === 'sms' ? client.sms_opt_in !== false : client.email_opt_in !== false
+  if (!optedIn) return []
+  const fallbackValue = channel === 'sms' ? normalizePhone(client.phone) : client.email
+  if (!fallbackValue) return []
+  return [{
+    id: client.id,
+    client_id: client.id,
+    name: client.name,
+    role: 'primary',
+    phone_e164: channel === 'sms' ? fallbackValue : null,
+    email: channel === 'email' ? fallbackValue : null,
+    is_primary: true,
+    receives_sms: channel === 'sms',
+    receives_email: channel === 'email',
+  }]
 }
 
 /**
