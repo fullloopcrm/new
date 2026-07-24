@@ -14,6 +14,7 @@ export default function CheckInPage() {
   const [status, setStatus] = useState<'idle' | 'getting-gps' | 'confirming' | 'done'>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [error, setError] = useState('')
+  const [showLoopCam, setShowLoopCam] = useState(false)
 
   function getLocation() {
     setStatus('getting-gps')
@@ -103,7 +104,16 @@ export default function CheckInPage() {
         <div className="text-center space-y-4">
           <p className="text-green-600 font-bold text-lg">{t('Checked In!', '¡Registrado!')}</p>
           <div className="w-full max-w-sm mx-auto space-y-3">
-            <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} onComplete={() => {}} />
+            {showLoopCam ? (
+              <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} onComplete={() => {}} />
+            ) : (
+              <button
+                onClick={() => setShowLoopCam(true)}
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 flex items-center justify-center gap-2"
+              >
+                🎥 {t('Record a LoopCam session (optional)', 'Grabar sesión LoopCam (opcional)')}
+              </button>
+            )}
             <PhotoCapture bookingId={bookingId} photoType="before" token={auth!.token} t={t} />
             <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
           </div>

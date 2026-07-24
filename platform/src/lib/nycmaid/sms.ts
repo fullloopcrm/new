@@ -3,11 +3,19 @@ import { supabaseAdmin } from '@/lib/supabase'
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.replace(/\s/g, '')
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
 
+// This whole module is a pre-multi-tenant nycmaid-only helper (see file-level
+// note); `notifications.tenant_id` is NOT NULL, so every insert here was
+// silently dying in the catch-all below with zero trace — every SMS failure
+// for weeks was invisible. Hardcoding nycmaid's id unblocks the logger; this
+// retires with the rest of the module at the standalone cutover.
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 async function logSMSFailure(to: string, smsType: string | undefined, error: unknown) {
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
     await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+      tenant_id: NYCMAID_TENANT_ID,
       type: 'comms_fail',
       title: 'SMS send failed',
       message: `sms to ${to} | type=${smsType || 'unspecified'} | error=${truncated}`,
@@ -46,6 +54,7 @@ async function tripCircuit(reason: string) {
     const { smsAdmins } = await import('@/lib/nycmaid/admin-contacts')
     const { supabaseAdmin } = await import('@/lib/supabase')
     await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+      tenant_id: NYCMAID_TENANT_ID,
       type: 'sms_circuit_breaker',
       title: 'SMS circuit breaker tripped',
       message: `Blocked outbound SMS — ${sentTimestamps.length} sends in last ${CIRCUIT_WINDOW_MS / 1000}s. ${reason}`,
