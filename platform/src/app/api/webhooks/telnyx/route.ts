@@ -25,6 +25,18 @@ export const maxDuration = 60
 export async function POST(request: Request) {
   const rawBody = await request.text()
 
+  // Temporary trace (2026-07-23): unconditional, before any logic — proves
+  // whether Telnyx's webhook request reaches this route at all. Every other
+  // branch in this file has been traced and produced nothing for real
+  // inbound replies; this is the last possible silent-drop point. Remove
+  // once inbound handling is confirmed working end-to-end.
+  await supabaseAdmin.from('notifications').insert({
+    tenant_id: '00000000-0000-0000-0000-000000000001',
+    type: 'comms_fail',
+    title: 'Telnyx webhook POST received',
+    message: `headers=${JSON.stringify(Object.fromEntries(request.headers.entries())).slice(0, 500)} body=${rawBody.slice(0, 300)}`,
+  }).then(() => {}, () => {})
+
   // Signature verification (skip only when explicitly disabled for local dev).
   if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
