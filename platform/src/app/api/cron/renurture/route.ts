@@ -6,6 +6,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { pickNextTouch, RENURTURE_TOUCHES, type RenurtureTouch } from '@/lib/nycmaid/renurture'
 import { sendRenurtureTouch, type RenurtureClient } from '@/lib/nycmaid/renurture-send'
+import { parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -122,10 +123,14 @@ async function processTenant(tenantId: string): Promise<number> {
 
     const clientBookings = (bookings || []).filter(b => b.client_id === client.id)
     const completedCount = clientBookings.filter(b => b.status === 'completed').length
-    const hasUpcoming = clientBookings.some(b => (b.status === 'scheduled' || b.status === 'in_progress') && new Date(b.start_time).getTime() > now)
+    // bookings.start_time is a naive America/New_York wall-clock string, not
+    // real UTC -- new Date(b.start_time) silently misreads it as UTC and
+    // skews every comparison against `now` (a real instant) by the ET/UTC
+    // gap (4-5h), same bug class as cron/no-show-check et al.
+    const hasUpcoming = clientBookings.some(b => (b.status === 'scheduled' || b.status === 'in_progress') && parseNaiveET(b.start_time).getTime() > now)
     const lastServiceDate = clientBookings
       .filter(b => b.status === 'completed')
-      .map(b => new Date(b.start_time).getTime())
+      .map(b => parseNaiveET(b.start_time).getTime())
       .sort((a, b) => b - a)[0] ?? null
 
     const clientSchedules = (schedules || []).filter(s => s.client_id === client.id)
