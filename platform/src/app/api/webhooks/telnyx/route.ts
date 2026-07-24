@@ -30,6 +30,16 @@ export async function POST(request: Request) {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx webhook] rejected:', result.reason)
+      // Temporary trace (2026-07-23): inbound SMS replies have zero DB
+      // footprint anywhere (sms_logs, client_sms_messages, notifications) —
+      // this 401 is the prime suspect since it returns before any write.
+      // Remove once root cause is confirmed.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook rejected',
+        message: `reason=${result.reason} body_snippet=${rawBody.slice(0, 300)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
