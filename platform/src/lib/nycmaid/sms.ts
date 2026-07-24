@@ -91,7 +91,11 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
   if (!options?.skipConsent && options?.recipientType && options?.recipientId) {
     const hasConsent = await checkSMSConsent(options.recipientType, options.recipientId)
     if (!hasConsent) {
-      // Consent absence is expected behavior, not a failure worth alerting on.
+      // Temporary trace (2026-07-23): this branch previously returned silently
+      // with no DB trace, which made a real client-facing SMS failure
+      // indistinguishable from every other silent path. Logging it until the
+      // 30-min-alert client-SMS failures are root-caused.
+      await logSMSFailure(cleanPhone, options?.smsType, `No SMS consent — recipientType=${options.recipientType} recipientId=${options.recipientId}`)
       return { success: false, error: 'No SMS consent' }
     }
   }
