@@ -3167,7 +3167,7 @@ function BookingsPage() {
       )}
 
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-[rgba(28,28,28,0.5)] flex items-center justify-center z-[60]" onClick={() => setShowNewClientModal(false)}>
+        <div className="fixed inset-0 bg-[rgba(28,28,28,0.5)] flex items-center justify-center z-[10001]" onClick={() => setShowNewClientModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {newClientContactsId ? (
               <>
