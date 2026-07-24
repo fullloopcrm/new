@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { randomInt } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
@@ -156,6 +157,9 @@ export async function POST(request: Request) {
         .single()
       if (error) throw error
       clientId = inserted.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenant.id, clientId, { name, phone, email }).catch(() => {})
     }
 
     await supabaseAdmin

@@ -8,6 +8,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { logQuoteEvent } from '@/lib/quote'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -90,6 +91,13 @@ export async function POST(request: Request, { params }: Params) {
             .single()
           if (cErr) throw cErr
           clientId = newClient.id
+          // Every client-creation path must call this or the client silently
+          // never receives any SMS/email — see createPrimaryContact's docstring.
+          await createPrimaryContact(tenantId, newClient.id, {
+            name: quote.contact_name || quote.title || 'Quote Client',
+            phone: quote.contact_phone,
+            email: quote.contact_email,
+          }).catch(() => {})
         }
         await db.from('quotes').update({ client_id: clientId }).eq('id', id)
       }
