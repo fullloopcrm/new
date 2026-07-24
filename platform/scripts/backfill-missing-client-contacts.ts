@@ -19,18 +19,27 @@ import { createPrimaryContact } from '../src/lib/client-contacts'
 
 const EXECUTE = process.argv.includes('--execute')
 
+type ClientRow = { id: string; tenant_id: string; name: string | null; phone: string | null; email: string | null }
+
+// PostgREST caps an unbounded select at 1000 rows — this platform has 1000+
+// clients, so a plain .select() silently truncates. Page through explicitly.
+async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+  const PAGE = 1000
+  const all: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin.from(table).select(columns).range(from, from + PAGE - 1)
+    if (error) { console.error(`Failed to load ${table}:`, error.message); process.exit(1) }
+    all.push(...((data || []) as T[]))
+    if (!data || data.length < PAGE) break
+  }
+  return all
+}
+
 async function main() {
-  const { data: clients, error: clientsErr } = await supabaseAdmin
-    .from('clients')
-    .select('id, tenant_id, name, phone, email')
-  if (clientsErr) { console.error('Failed to load clients:', clientsErr.message); process.exit(1) }
+  const clients = await fetchAll<ClientRow>('clients', 'id, tenant_id, name, phone, email')
+  const existingContacts = await fetchAll<{ client_id: string }>('client_contacts', 'client_id')
 
-  const { data: existingContacts, error: contactsErr } = await supabaseAdmin
-    .from('client_contacts')
-    .select('client_id')
-  if (contactsErr) { console.error('Failed to load client_contacts:', contactsErr.message); process.exit(1) }
-
-  const hasContact = new Set((existingContacts || []).map((c) => c.client_id as string))
+  const hasContact = new Set(existingContacts.map((c) => c.client_id))
   const missing = (clients || []).filter((c) => !hasContact.has(c.id) && (c.phone || c.email))
 
   if (missing.length === 0) {
