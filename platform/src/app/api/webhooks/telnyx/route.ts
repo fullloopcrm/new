@@ -123,6 +123,16 @@ export async function POST(request: Request) {
     const text = payload?.text
 
     if (!from || !to || !text) {
+      // Temporary trace (2026-07-23): this branch silently drops the whole
+      // message with zero DB footprint if Telnyx's real payload shape
+      // doesn't match what's destructured above. Logging the raw payload
+      // until inbound-reply handling is confirmed working end-to-end.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook missing from/to/text',
+        message: `from=${from} to=${to} text=${text} payload=${JSON.stringify(payload).slice(0, 500)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
