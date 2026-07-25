@@ -28,6 +28,7 @@ import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
+import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import Stripe from 'stripe'
@@ -653,9 +654,19 @@ export async function POST(request: Request) {
           : ''
         // NYC Maid rule: the cleaner is NOT shown the client's total/details —
         // only that payment landed (+ their own tip). No client charge amount.
+        // NYC Maid parity restore (2026-07-25): the old independent build told
+        // the cleaner to finish up and check out once payment was confirmed —
+        // that's the actual signal the cleaner is waiting on 30 min before the
+        // job ends. Only nycmaid ran the 30-min-warning → checkout flow this
+        // line refers back to, so keep the instruction nycmaid-only.
+        const checkoutLine = isNycMaid(tenantId)
+          ? (isEs
+              ? ' Puede terminar y hacer el check-out cuando esté listo.'
+              : ' You can finish up and check out when ready.')
+          : ''
         const body = isEs
-          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
-          : `Payment received for ${client?.name || 'client'}'s job.${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
+          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
+          : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
         sendSMS({
           to: tm.phone,
           body,
@@ -679,11 +690,29 @@ export async function POST(request: Request) {
       // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only
       // the in-app notification fired, so the owner never got a text). Admin DOES
       // see the total (unlike the cleaner).
-      {
-        const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
-        const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
-        const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
-        await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
+      const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
+      const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
+      const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
+      await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
+
+      // 6c. NYC Maid Telegram parity restore (2026-07-25). The old independent
+      // build posted this exact "payment CONFIRMED ... Client + cleaner
+      // notified" line to Jeff's Telegram owner channel via notify() on every
+      // Stripe payment (src/lib/notify.ts, TELEGRAM_NOTIFY_TYPES has
+      // 'payment_received'). That never got ported when this webhook was
+      // rewritten for Full Loop — only the in-app row (step 7) and the admin
+      // SMS above survived, so the Telegram confirmation silently stopped
+      // after cutover. Gated to NYC Maid: other tenants without their own
+      // telegram_bot_token/telegram_chat_id would otherwise fall back to
+      // posting into Jeff's personal platform bot.
+      if (isNycMaid(tenantId)) {
+        await nycmaidNotify({
+          type: 'payment_received',
+          title: `Payment received — ${client?.name || 'Client'}`,
+          message: adminMsg,
+          booking_id: bookingId,
+          tenantId,
+        }).catch(err => console.error('[stripe] nycmaid telegram notify failed:', err))
       }
 
       // 7. In-app notification
