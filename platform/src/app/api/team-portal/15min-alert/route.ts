@@ -24,6 +24,7 @@ import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 
 export const maxDuration = 300
 
@@ -169,11 +170,10 @@ export async function POST(req: NextRequest) {
     const discountLabel = describeDiscount(booking.discount_percent as number | null)
     const creditCents = (booking.one_time_credit_cents as number | null) || 0
 
-    // $10 self-booking discount applies at billing for self-booked jobs.
+    // Self-booking discount applies at billing for self-booked jobs.
     // Flag is in booking.notes; set by /api/client/book at booking time.
-    const SELF_BOOKING_DISCOUNT = 10
     const isSelfBooked = typeof booking.notes === 'string' && /self-booking discount/i.test(booking.notes)
-    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT : 0
+    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT_DOLLARS : 0
 
     const clientOwesCents = Math.max(0, grossOwedCents - bookingDiscountCents - creditCents - Math.round(selfBookingDiscount * 100))
     const clientOwes = (clientOwesCents / 100).toFixed(2)

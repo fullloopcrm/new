@@ -27,6 +27,7 @@ import { normalizePhone } from '@/lib/phone'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 
@@ -262,8 +263,9 @@ export async function POST(request: Request) {
       // Emergency = same-day, OR a multi-cleaner booking under 48hr notice.
       // Emergency rate ($89) overrides the supplies-based rate ($59 client-
       // supplies / $69 we-bring). 2hr min (single) / 4hr min (2+ cleaners).
-      // The $10 self-booking promo (applied at billing in the 30-min alert) is
-      // suppressed for emergency + multi-cleaner. Faithful port of NYC Maid.
+      // The self-booking promo (SELF_BOOKING_DISCOUNT_DOLLARS, applied at
+      // billing in the 30-min alert) is suppressed for emergency +
+      // multi-cleaner. Faithful port of NYC Maid.
       const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       const isSameDay = bookingDate === todayET
       const hoursUntilBooking = (new Date(startTime).getTime() - Date.now()) / 3_600_000
@@ -282,7 +284,7 @@ export async function POST(request: Request) {
       bkPrice = Math.round(effectiveRate * billableHours * bkTeamSize * 100)
       const discountEligible = !bkIsEmergency && !isMultiCleaner
       bkNotes = ((body.notes as string) || '') + (discountEligible
-        ? '\n\n[Promo: $10 self-booking discount applies at billing]'
+        ? `\n\n[Promo: $${SELF_BOOKING_DISCOUNT_DOLLARS} self-booking discount applies at billing]`
         : isMultiCleaner
           ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
           : '\n\n[Same-day emergency booking — no discount, $89/hr]')
