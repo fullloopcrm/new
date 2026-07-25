@@ -2,142 +2,150 @@
 
 import { useEffect, useState } from 'react'
 
-type Eligible = {
+type Client = { id: string; name: string; phone: string | null }
+type Booking = {
   id: string
-  name: string
-  phone: string | null
-  preferred_language: 'en' | 'es' | null
-  reasons_excluded: string[]
-  eligible: boolean
-  jobs_that_day: number
-}
-
-type PreviewResp = {
-  test_mode: boolean
-  job_zone: string | null
-  eligible: Eligible[]
-  excluded: Eligible[]
-  cap: number
-  error?: string
-}
-
-type Broadcast = {
-  id: string
-  job_date: string
   start_time: string
-  job_zone: string | null
-  status: string
-  test_mode: boolean
-  sent_at: string
-  recipients: { id: string; phone: string | null; status: string }[]
+  end_time: string | null
+  service_type: string | null
+  hourly_rate: number | null
+  clients: { name: string; address: string | null } | null
 }
+type SendResult = { sent: number; eligible: number; members: string[] } | { error: string }
 
 const input: React.CSSProperties = { padding: '8px 10px', border: '1px solid #d4cfc4', borderRadius: 8, fontSize: 14, width: '100%' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e7e2d8', borderRadius: 12, padding: 16 }
 
+function fmt(dt: string): string {
+  const d = new Date(dt.replace(' ', 'T').replace(/(\.\d+)?Z?$/, '') + 'Z')
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+}
+
 export default function FindTeamMemberPage() {
-  const [form, setForm] = useState({ job_date: '', start_time: '09:00', duration_hours: 3, qty_needed: 1, job_address: '', hourly_rate_override: '', service_type: '', notes: '' })
-  const [preview, setPreview] = useState<PreviewResp | null>(null)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(false)
-  const [sendMsg, setSendMsg] = useState<string | null>(null)
-  const [recent, setRecent] = useState<Broadcast[]>([])
+  const [clientSearch, setClientSearch] = useState('')
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [rateOverride, setRateOverride] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<SendResult | null>(null)
 
-  const loadRecent = async () => {
-    const r = await fetch('/api/admin/find-cleaner/recent')
-    const d = await r.json().catch(() => ({}))
-    setRecent(d.broadcasts || [])
+  useEffect(() => {
+    if (!clientSearch || selectedClient) { setClients([]); return }
+    const t = setTimeout(() => {
+      fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&limit=8`)
+        .then(r => r.json()).then(d => setClients(d.clients || [])).catch(() => setClients([]))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [clientSearch, selectedClient])
+
+  const pickClient = (c: Client) => {
+    setSelectedClient(c)
+    setClientSearch(c.name)
+    setClients([])
+    setSelectedBooking(null)
+    setResult(null)
+    setBookingsLoading(true)
+    fetch(`/api/bookings?client_id=${c.id}&status=scheduled&limit=200`)
+      .then(r => r.json())
+      .then(d => {
+        const rows: Booking[] = Array.isArray(d) ? d : (d.bookings || [])
+        setBookings(rows.filter((b: any) => !b.team_member_id))
+      })
+      .catch(() => setBookings([]))
+      .finally(() => setBookingsLoading(false))
   }
-  useEffect(() => { loadRecent() }, [])
 
-  const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }))
-
-  const runPreview = async () => {
-    setLoading(true); setSendMsg(null); setPreview(null); setSelected(new Set())
-    const r = await fetch('/api/admin/find-cleaner/preview', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, duration_hours: Number(form.duration_hours), qty_needed: Number(form.qty_needed) }),
-    })
-    const d: PreviewResp = await r.json().catch(() => ({ eligible: [], excluded: [], cap: 50, test_mode: true, job_zone: null }))
-    setPreview(d)
-    setSelected(new Set((d.eligible || []).map((c) => c.id)))
-    setLoading(false)
+  const reset = () => {
+    setSelectedClient(null); setClientSearch(''); setClients([]); setBookings([])
+    setSelectedBooking(null); setRateOverride(''); setResult(null)
   }
-
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const send = async () => {
-    if (selected.size === 0) return
-    setLoading(true); setSendMsg(null)
-    const r = await fetch('/api/admin/find-cleaner/send', {
+    if (!selectedBooking) return
+    setSending(true); setResult(null)
+    const r = await fetch('/api/admin/find-cleaner/broadcast-booking', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form, duration_hours: Number(form.duration_hours), qty_needed: Number(form.qty_needed),
-        hourly_rate_override: form.hourly_rate_override ? Number(form.hourly_rate_override) : null,
-        cleaner_ids: [...selected], confirmed: true,
-      }),
+      body: JSON.stringify({ booking_id: selectedBooking.id, rate_override: rateOverride ? Number(rateOverride) : null }),
     })
-    const d = await r.json().catch(() => ({}))
-    setSendMsg(d.error ? `Error: ${d.error}` : `Sent ${d.sent} · failed ${d.failed}${d.test_mode ? ' · TEST MODE' : ''}`)
-    setLoading(false); loadRecent()
+    const d = await r.json().catch(() => ({ error: 'Failed to send' }))
+    setResult(d)
+    setSending(false)
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: '0 auto', display: 'grid', gap: 20 }}>
+    <div style={{ padding: 24, maxWidth: 720, margin: '0 auto', display: 'grid', gap: 20 }}>
       <div>
         <h1 style={{ fontSize: 24, margin: 0 }}>Find a Team Member</h1>
-        <p style={{ color: '#7a7468', margin: '4px 0 0' }}>Broadcast a job to eligible team members by zone + availability.</p>
+        <p style={{ color: '#7a7468', margin: '4px 0 0' }}>Select a client, then an unassigned booking, and we&apos;ll text eligible team members to claim it.</p>
       </div>
 
-      <div style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
-        <label>Date<input type="date" style={input} value={form.job_date} onChange={(e) => set('job_date', e.target.value)} /></label>
-        <label>Start<input type="time" style={input} value={form.start_time} onChange={(e) => set('start_time', e.target.value)} /></label>
-        <label>Duration (hrs)<input type="number" step="0.5" style={input} value={form.duration_hours} onChange={(e) => set('duration_hours', e.target.value)} /></label>
-        <label>Qty needed<input type="number" style={input} value={form.qty_needed} onChange={(e) => set('qty_needed', e.target.value)} /></label>
-        <label style={{ gridColumn: '1 / -1' }}>Address<input style={input} value={form.job_address} onChange={(e) => set('job_address', e.target.value)} placeholder="for zone match" /></label>
-        <label>Rate override ($/hr)<input type="number" style={input} value={form.hourly_rate_override} onChange={(e) => set('hourly_rate_override', e.target.value)} /></label>
-        <label>Service type<input style={input} value={form.service_type} onChange={(e) => set('service_type', e.target.value)} /></label>
-        <button onClick={runPreview} disabled={loading || !form.job_date} style={{ gridColumn: '1 / -1', padding: 12, borderRadius: 8, border: 'none', background: '#1a1a1a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
-          {loading ? 'Checking…' : 'Preview eligible cleaners'}
-        </button>
+      <div style={{ ...card, display: 'grid', gap: 10 }}>
+        <label>
+          Client
+          <input
+            style={input}
+            placeholder="Type a client's name…"
+            value={clientSearch}
+            onChange={(e) => { setClientSearch(e.target.value); setSelectedClient(null); setBookings([]); setSelectedBooking(null); setResult(null) }}
+          />
+        </label>
+        {clients.length > 0 && (
+          <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, overflow: 'hidden' }}>
+            {clients.map(c => (
+              <div key={c.id} onClick={() => pickClient(c)} style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f0ece3' }}>
+                {c.name}{c.phone ? ` · ${c.phone}` : ''}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selectedClient && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 13, color: '#7a7468' }}>
+              Unassigned bookings for <strong>{selectedClient.name}</strong>
+              {' · '}<button onClick={reset} style={{ border: 'none', background: 'none', color: '#1a1a1a', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>change client</button>
+            </div>
+            {bookingsLoading && <p style={{ color: '#7a7468' }}>Loading…</p>}
+            {!bookingsLoading && bookings.length === 0 && <p style={{ color: '#7a7468' }}>No unassigned bookings for this client.</p>}
+            {bookings.map(b => (
+              <div
+                key={b.id}
+                onClick={() => { setSelectedBooking(b); setRateOverride(''); setResult(null) }}
+                style={{
+                  padding: 10, borderRadius: 8, cursor: 'pointer',
+                  border: selectedBooking?.id === b.id ? '2px solid #1a1a1a' : '1px solid #e7e2d8',
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{fmt(b.start_time)}</div>
+                <div style={{ fontSize: 13, color: '#7a7468' }}>{b.service_type || 'Job'}{b.hourly_rate ? ` · $${b.hourly_rate}/hr` : ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {preview?.error && <div style={{ ...card, color: '#b00' }}>{preview.error}</div>}
-
-      {preview && !preview.error && (
+      {selectedBooking && (
         <div style={{ ...card, display: 'grid', gap: 12 }}>
-          {preview.test_mode && <div style={{ background: '#fff4d6', padding: 8, borderRadius: 8, fontSize: 13 }}>⚠️ TEST MODE — only the test cleaner will be messaged. Zone: {preview.job_zone || 'n/a'}</div>}
-          <div><strong>Eligible ({preview.eligible.length})</strong> · cap {preview.cap}</div>
-          {preview.eligible.map((c) => (
-            <label key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
-              {c.name} · {c.phone || 'no phone'} · {c.jobs_that_day} jobs that day
-            </label>
-          ))}
-          {preview.excluded.length > 0 && (
-            <details>
-              <summary>Excluded ({preview.excluded.length})</summary>
-              {preview.excluded.map((c) => (
-                <div key={c.id} style={{ fontSize: 13, color: '#7a7468', padding: '2px 0' }}>{c.name} — {c.reasons_excluded.join('; ')}</div>
-              ))}
-            </details>
-          )}
-          <button onClick={send} disabled={loading || selected.size === 0} style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a7a3a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
-            Send broadcast to {selected.size} selected
+          <div style={{ fontSize: 13, color: '#7a7468' }}>Broadcasting for:</div>
+          <div style={{ fontWeight: 600 }}>{selectedClient?.name} · {fmt(selectedBooking.start_time)}</div>
+          <label>
+            Rate override ($/hr) — optional
+            <input type="number" style={input} value={rateOverride} onChange={(e) => setRateOverride(e.target.value)} placeholder={selectedBooking.hourly_rate ? String(selectedBooking.hourly_rate) : 'leave blank to keep current rate'} />
+          </label>
+          <button onClick={send} disabled={sending} style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a7a3a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+            {sending ? 'Sending…' : 'Broadcast to eligible team members'}
           </button>
-          {sendMsg && <div style={{ fontWeight: 600 }}>{sendMsg}</div>}
+          {result && 'error' in result && <div style={{ color: '#b00', fontWeight: 600 }}>{result.error}</div>}
+          {result && 'sent' in result && (
+            <div style={{ fontWeight: 600 }}>
+              Sent to {result.sent} of {result.eligible} eligible: {result.members.join(', ')}
+            </div>
+          )}
         </div>
       )}
-
-      <div style={{ ...card }}>
-        <strong>Recent broadcasts</strong>
-        {recent.length === 0 && <p style={{ color: '#7a7468' }}>None yet.</p>}
-        {recent.map((b) => (
-          <div key={b.id} style={{ fontSize: 13, padding: '6px 0', borderTop: '1px solid #f0ece3' }}>
-            {b.job_date} {b.start_time} · {b.job_zone || 'no zone'} · {b.recipients.length} sent · {b.status}{b.test_mode ? ' · TEST' : ''}
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
