@@ -139,7 +139,13 @@ export async function POST(request: Request) {
     const eligible = (applicants || []).filter(a => !!a.phone && !(a.status && EXCLUDED_APPLICANT_STATUSES.includes(a.status)))
 
     if (eligible.length > 0) {
-      const body = "There's an available cleaning — contact us to activate your portal to claim it. Reply STOP to stop receiving messages."
+      const body = [
+        "There's an available cleaning — contact us to activate your portal to claim it.",
+        'You must have your own supplies and equipment. Reply STOP to stop receiving messages.',
+        '',
+        'Hay una limpieza disponible — contáctenos para activar su portal y reclamarla.',
+        'Debe tener sus propios suministros y equipo. Responda STOP para dejar de recibir mensajes.',
+      ].join('\n')
 
       const results = await Promise.allSettled(eligible.map(a => sendSMS({
         to: a.phone as string,

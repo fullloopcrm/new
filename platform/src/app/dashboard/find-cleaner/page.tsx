@@ -25,6 +25,8 @@ const DEFAULT_LABOR_RATE = '35'
 const input: React.CSSProperties = { padding: '8px 10px', border: '1px solid #d4cfc4', borderRadius: 8, fontSize: 14, width: '100%' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e7e2d8', borderRadius: 12, padding: 16 }
 const checklistRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }
+const linkButton: React.CSSProperties = { border: 'none', background: 'none', color: '#1a1a1a', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: 13 }
+const messagePreview: React.CSSProperties = { background: '#f7f4ec', border: '1px solid #e7e2d8', borderRadius: 8, padding: 10, fontSize: 13, color: '#4a4640', whiteSpace: 'pre-wrap', marginBottom: 8 }
 
 function fmt(dt: string): string {
   const d = new Date(dt.replace(' ', 'T').replace(/(\.\d+)?Z?$/, '') + 'Z')
@@ -37,6 +39,27 @@ function toggleId(ids: Set<string>, id: string): Set<string> {
   else next.add(id)
   return next
 }
+
+function teamMessagePreview(rateOverride: string, address: string | null): string {
+  const rate = rateOverride ? Number(rateOverride) : null
+  return [
+    'There is a job available in your portal — first team member to claim it gets it.',
+    `You must be able to arrive within 60-90 minutes.${rate ? ` Pays $${rate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+    '[portal link]',
+    '',
+    'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
+    `Debes poder llegar en 60-90 minutos.${rate ? ` Paga $${rate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+    '[portal link]',
+  ].join('\n')
+}
+
+const APPLICANT_MESSAGE_PREVIEW = [
+  "There's an available cleaning — contact us to activate your portal to claim it.",
+  'You must have your own supplies and equipment. Reply STOP to stop receiving messages.',
+  '',
+  'Hay una limpieza disponible — contáctenos para activar su portal y reclamarla.',
+  'Debe tener sus propios suministros y equipo. Responda STOP para dejar de recibir mensajes.',
+].join('\n')
 
 export default function FindTeamMemberPage() {
   const [clientSearch, setClientSearch] = useState('')
@@ -215,7 +238,14 @@ export default function FindTeamMemberPage() {
           {showRecipients && (
             <>
               <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Active roster ({selectedMemberIds.size}/{members.length})</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ fontWeight: 600 }}>Active roster ({selectedMemberIds.size}/{members.length})</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button style={linkButton} onClick={() => setSelectedMemberIds(new Set(members.map(m => m.id)))}>Select all</button>
+                    <button style={linkButton} onClick={() => setSelectedMemberIds(new Set())}>Deselect all</button>
+                  </div>
+                </div>
+                <div style={messagePreview}>{teamMessagePreview(rateOverride, selectedBooking.clients?.address || null)}</div>
                 <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
                   {members.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No active roster members with a phone on file.</div>}
                   {members.map(m => (
@@ -228,7 +258,14 @@ export default function FindTeamMemberPage() {
               </div>
 
               <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Applicants ({selectedApplicantIds.size}/{applicants.length})</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ fontWeight: 600 }}>Applicants ({selectedApplicantIds.size}/{applicants.length})</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button style={linkButton} onClick={() => setSelectedApplicantIds(new Set(applicants.map(a => a.id)))}>Select all</button>
+                    <button style={linkButton} onClick={() => setSelectedApplicantIds(new Set())}>Deselect all</button>
+                  </div>
+                </div>
+                <div style={messagePreview}>{APPLICANT_MESSAGE_PREVIEW}</div>
                 <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
                   {applicants.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No applicants with a phone on file.</div>}
                   {applicants.map(a => (
