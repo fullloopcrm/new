@@ -60,6 +60,8 @@ interface Booking {
   schedule_id: string | null
   actual_hours: number | null
   team_member_pay: number | null
+  tip_amount: number | null
+  partial_payment_cents: number | null
   check_in_time: string | null
   fifteen_min_alert_time: string | null
   check_out_time: string | null
@@ -1092,6 +1094,34 @@ function BookingsPage() {
     return d >= now && d <= weekFromNow && b.status === 'scheduled'
   }).length
 
+  // Daily Overview — today's closeout numbers, shown inside the Close Out
+  // Jobs panel. "Today" = the booking's own start_time falling on the local
+  // calendar day. Cancelled bookings never generate revenue/labor and are
+  // excluded regardless of status. Labor figures only count in_progress/
+  // completed jobs (labor isn't incurred yet on a merely-scheduled job).
+  const dailyOverview = (() => {
+    const now = new Date()
+    const todaysJobs = bookings.filter(b => {
+      if (b.status === 'cancelled') return false
+      const d = new Date(b.start_time)
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+    })
+    const revenueCents = todaysJobs.reduce((sum, b) => {
+      if (b.payment_status === 'paid') return sum + (b.price || 0)
+      if (b.payment_status === 'partial') return sum + (b.partial_payment_cents || 0)
+      return sum
+    }, 0)
+    const tipsCents = todaysJobs
+      .filter(b => b.payment_status === 'paid')
+      .reduce((sum, b) => sum + (b.tip_amount || 0), 0)
+    const laborJobs = todaysJobs.filter(b => b.status === 'in_progress' || b.status === 'completed')
+    const laborTotalCents = laborJobs.reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
+    const laborOwedCents = laborJobs
+      .filter(b => !b.team_member_paid)
+      .reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
+    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents }
+  })()
+
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize))
   const paginatedBookings = filteredBookings.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -1381,6 +1411,30 @@ function BookingsPage() {
                 </div>
                 <button onClick={() => setShowCloseOut(false)} className="text-gray-400 hover:text-gray-600 text-sm">Close</button>
               </div>
+
+              {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
+              <div className="mb-4">
+                <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl border border-emerald-200/60 p-3">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Revenue Today</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.revenueCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-amber-200/60 p-3">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-1">Labor Owed</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.laborOwedCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-sky-200/60 p-3">
+                    <p className="text-[10px] font-bold text-sky-700 uppercase tracking-wide mb-1">Tips Today</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.tipsCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total Due to Labor</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.laborTotalCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+              </div>
+
               {closeOutJobs.length === 0 ? (
                 <p className="text-emerald-600 text-sm py-4 text-center">All jobs are closed out!</p>
               ) : (
