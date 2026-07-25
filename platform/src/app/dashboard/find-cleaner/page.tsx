@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import CreateBookingForm from '../bookings/CreateBookingForm'
 
 type Client = { id: string; name: string; phone: string | null }
 type Booking = {
@@ -76,7 +77,7 @@ export default function FindTeamMemberPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 720, margin: '0 auto', display: 'grid', gap: 20 }}>
+    <div style={{ maxWidth: 720, display: 'grid', gap: 20 }}>
       <div>
         <h1 style={{ fontSize: 24, margin: 0 }}>Find a Team Member</h1>
         <p style={{ color: '#7a7468', margin: '4px 0 0' }}>Select a client, then an unassigned booking, and we&apos;ll text eligible team members to claim it.</p>
@@ -109,7 +110,17 @@ export default function FindTeamMemberPage() {
               {' · '}<button onClick={reset} style={{ border: 'none', background: 'none', color: '#1a1a1a', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>change client</button>
             </div>
             {bookingsLoading && <p style={{ color: '#7a7468' }}>Loading…</p>}
-            {!bookingsLoading && bookings.length === 0 && <p style={{ color: '#7a7468' }}>No unassigned bookings for this client.</p>}
+            {!bookingsLoading && bookings.length === 0 && (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <p style={{ color: '#7a7468' }}>No unassigned bookings for this client. Create one to broadcast:</p>
+                <CreateBookingForm
+                  key={selectedClient.id}
+                  lockedClientId={selectedClient.id}
+                  onCreated={() => pickClient(selectedClient)}
+                  onCancel={reset}
+                />
+              </div>
+            )}
             {bookings.map(b => (
               <div
                 key={b.id}

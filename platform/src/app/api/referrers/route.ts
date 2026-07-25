@@ -6,6 +6,7 @@ import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requirePermission } from '@/lib/require-permission'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -25,55 +26,75 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
 
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  // failClosed: this resolves a code/email to a referrer's name+email+earnings
-  // with no auth — same PII-enumeration-oracle shape as client/check, which is
-  // already failClosed. An in-memory limiter also resets every serverless cold
-  // start / per-instance, so it never actually bounded this in production —
-  // moved to the persistent DB-backed limiter.
-  const rl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
-  if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  }
+  // Public lookups only (share-link code, or a referrer finding their own
+  // code by email) -- scoped to the tenant whose domain this request came in
+  // on. Deliberately does NOT gate the admin-list branch below: that branch
+  // authenticates via requirePermission()'s own tenant resolution (session/
+  // impersonation), which has nothing to do with the request's domain, and
+  // an admin hitting this from the platform host (not the tenant's own
+  // custom domain) would otherwise always fail here first.
+  if (code || email) {
+    const ip = request.headers.get('x-forwarded-for') || 'unknown'
+    // failClosed: this resolves a code/email to a referrer's name+email+earnings
+    // with no auth — same PII-enumeration-oracle shape as client/check, which is
+    // already failClosed. An in-memory limiter also resets every serverless cold
+    // start / per-instance, so it never actually bounded this in production —
+    // moved to the persistent DB-backed limiter.
+    const rl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
-  // Scope every lookup to the tenant whose domain this request came in on.
-  const lookupTenant = await getTenantFromHeaders()
-  if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
+    const lookupTenant = await getTenantFromHeaders()
+    if (!lookupTenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
-  if (code) {
-    // No auth on this branch (it exists to resolve a public referral code /
-    // let a referrer look up their own code by email) -- never select
-    // total_earned/total_paid/preferred_payout here. A referral code is
-    // handed out publicly by design (it's the whole point of the share
-    // link), so anyone who has ever seen one could otherwise pull the
-    // referrer's earnings with zero auth. The real earnings dashboard is
-    // gated behind the email-OTP session (see /api/referrers/[code] +
-    // /api/referrers/auth/*) -- financial fields only live there.
-    const { data } = await supabaseAdmin
-      .from('referrers')
-      .select('id, name, email, referral_code, ref_code, created_at')
-      .eq('tenant_id', lookupTenant.id)
-      .eq('referral_code', code)
-      .single()
+    if (code) {
+      // No auth on this branch (it exists to resolve a public referral code /
+      // let a referrer look up their own code by email) -- never select
+      // total_earned/total_paid/preferred_payout here. A referral code is
+      // handed out publicly by design (it's the whole point of the share
+      // link), so anyone who has ever seen one could otherwise pull the
+      // referrer's earnings with zero auth. The real earnings dashboard is
+      // gated behind the email-OTP session (see /api/referrers/[code] +
+      // /api/referrers/auth/*) -- financial fields only live there.
+      const { data } = await supabaseAdmin
+        .from('referrers')
+        .select('id, name, email, referral_code, ref_code, created_at')
+        .eq('tenant_id', lookupTenant.id)
+        .eq('referral_code', code)
+        .single()
 
-    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json(data)
-  }
+      if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json(data)
+    }
 
-  if (email) {
     // Same no-financial-fields rule as the code branch above.
     const { data } = await supabaseAdmin
       .from('referrers')
       .select('id, name, email, referral_code, ref_code, created_at')
       .eq('tenant_id', lookupTenant.id)
-      .ilike('email', escapeLikeValue(email))
+      .ilike('email', escapeLikeValue(email as string))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
     return NextResponse.json(data)
   }
 
-  return NextResponse.json({ error: 'Provide code or email' }, { status: 400 })
+  // Admin list -- no code/email, an authenticated dashboard request for the
+  // "Referred By" dropdown (Bookings' create form, etc). Was previously
+  // unreachable: this route only ever had the two public lookup branches
+  // above, so any plain `fetch('/api/referrers')` from the dashboard just
+  // 400'd and silently left that dropdown empty.
+  const { tenant, error: authError } = await requirePermission('referrals.view')
+  if (authError) return authError
+
+  const { data, error } = await supabaseAdmin
+    .from('referrers')
+    .select('id, name, email, ref_code, referral_code, active, created_at')
+    .eq('tenant_id', tenant.tenantId)
+    .order('created_at', { ascending: false })
+  if (error) return NextResponse.json({ error: 'Failed to fetch referrers' }, { status: 500 })
+  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {

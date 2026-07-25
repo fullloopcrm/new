@@ -1,7 +1,6 @@
 'use client'
 
 import './schedule.css'
-import '../clients/clients.css'
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
@@ -9,18 +8,17 @@ import { buildMemberColors, colorForMember, type ColorableMember } from '../cale
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
-import AddressAutocomplete from '@/components/AddressAutocomplete'
-import ClientContacts from '../clients/client-contacts'
-import ClientAddresses from '../clients/client-addresses'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
 import { formatPhone, formatJobNumber } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { CloseoutDetail } from '@/components/closeout-detail'
-import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { crewNames, type CrewRow } from '@/lib/crew'
+import CreateBookingForm from './CreateBookingForm'
+import NewClientModal from './NewClientModal'
+import { SuggestionStrip, getCleanerAvailability, type SmartScore, type SlotSuggestion } from './_create-booking-shared'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -121,36 +119,6 @@ interface Client { id: string; name: string; phone: string; email: string; addre
 interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; status?: string; max_jobs_per_day?: number }
 interface Referrer { id: string; name: string; ref_code: string; active: boolean }
 interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
-interface SmartScore {
-  id: string
-  score: number
-  available: boolean
-  zone_match: boolean
-  has_car: boolean
-  can_make_home?: boolean
-  distance_miles?: number
-  travel_from_prev_min?: number
-  travel_to_next_min?: number
-  travel_to_home_min?: number
-  prev_job_label?: string
-  next_job_label?: string
-  is_preferred?: boolean
-  reason: string
-}
-
-// Alternate-time suggestion (admin view — full reason, since it's owner-facing).
-// Mirrors SlotSuggestion from smart-schedule.ts.
-interface SlotSuggestion {
-  time24: string
-  label: string
-  cleanerId: string
-  cleanerName: string
-  score: number
-  reason: string
-  travelFromPrevMin?: number
-  teamShort?: number
-}
-
 // Parse timestamp as UTC — Supabase may return without timezone offset
 const toEST = (ts: string) => {
   const d = new Date(ts.endsWith('Z') || ts.includes('+') ? ts : ts + 'Z')
@@ -186,36 +154,6 @@ const fromDateTimeLocalET = (val: string): string => {
   return new Date(utcMs - offsetHours * 3600000).toISOString()
 }
 
-// Alternate-time strip: shown when nobody is available at the chosen time.
-// Clicking a pick rewrites the form's start time to that slot. Owner-facing,
-// so the full clustering reason ("Victor is nearby…") is fine to show here.
-function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSuggestion[]; onPick: (time24: string) => void; variant: 'full' | 'better' }) {
-  if (suggestions.length === 0) return null
-  return (
-    <div className={`mb-2 p-2 rounded-lg border ${variant === 'full' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50/60 border-indigo-200'}`}>
-      <p className={`text-[11px] font-semibold mb-1.5 ${variant === 'full' ? 'text-amber-800' : 'text-indigo-700'}`}>
-        {variant === 'full' ? "No one's free at that time. Try one of these:" : 'Better-routed times today:'}
-      </p>
-      <div className="flex flex-col gap-1.5">
-        {suggestions.map((s) => (
-          <button
-            key={s.time24}
-            type="button"
-            onClick={() => onPick(s.time24)}
-            className="flex items-baseline justify-between gap-2 text-left px-2 py-1.5 bg-white border border-amber-300 rounded hover:bg-amber-100 transition-colors"
-          >
-            <span className="text-sm font-semibold text-[var(--sched-ink)]">{s.label}</span>
-            <span className="text-[11px] text-gray-600 flex-1">{s.reason}</span>
-            {s.teamShort != null && s.teamShort > 0 && (
-              <span className="text-[10px] text-red-500 font-medium">{s.teamShort} slot{s.teamShort > 1 ? 's' : ''} short</span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function BookingsPage() {
   const searchParams = useSearchParams()
   const worker = useWorkerLabel()
@@ -241,7 +179,6 @@ function BookingsPage() {
   const [showCancelMenu, setShowCancelMenu] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [showOneTimeCredit, setShowOneTimeCredit] = useState(false)
-  const [showOneTimeCreditCreate, setShowOneTimeCreditCreate] = useState(false)
   const [form, setForm] = useState({
     status: '', payment_status: '', payment_method: '', notes: '', team_member_id: '',
     start_date: '', start_time: '', hours: 2, service_type: '', hourly_rate: 69,
@@ -259,31 +196,23 @@ function BookingsPage() {
     property_id: '' as string,
     _originalPrice: 0
   })
-  const [createForm, setCreateForm] = useState({
-    client_id: '', team_member_id: '', start_date: '', start_time: '09:00',
-    hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
-    repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
-    repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
-    discount_enabled: false, discount_percent: 10,
-    one_time_credit_dollars: 0, one_time_credit_reason: '',
-    is_emergency: false, pay_rate: null as number | null, status: 'scheduled' as string,
-    team_size: 1, extra_team_member_ids: [] as string[], max_hours: null as number | null,
-    override_availability: false, property_id: '' as string,
-  })
-  // Addresses for the selected client (the Create Booking address picker).
+  // Prefill + remount-key for the create form (CreateBookingForm.tsx), which
+  // owns all of the create-side state itself now. openCreate() and the two
+  // deep-link effects below set these instead of calling setCreateForm directly.
+  const [createInitialValues, setCreateInitialValues] = useState<{ clientId?: string; startDate?: string; startTime?: string; serviceType?: string; notes?: string }>({})
+  const [formInstanceKey, setFormInstanceKey] = useState(0)
+  // Addresses for the selected client (the edit modal's address picker).
   const [clientProperties, setClientProperties] = useState<{ id: string; address: string; is_primary: boolean }[]>([])
-  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
   const [referrers, setReferrers] = useState<Referrer[]>([])
   const [salesPartners, setSalesPartners] = useState<SalesPartner[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmCheckout, setConfirmCheckout] = useState(false)
 
-  // Load the selected client's addresses; default the picker to their primary.
-  // Covers both the create-booking form and editing an existing booking —
-  // the edit modal previously showed the client's address as static text
-  // with no way to change it.
+  // Load the edit-modal client's addresses; default the picker to their
+  // primary. (The create form's own copy of this effect now lives in
+  // CreateBookingForm.tsx.)
   useEffect(() => {
-    const cid = showCreateModal ? createForm.client_id : (showModal && editingBooking ? editingBooking.client_id : null)
+    const cid = showModal && editingBooking ? editingBooking.client_id : null
     if (!cid) { setClientProperties([]); return }
     let cancelled = false
     fetch(`/api/client/properties?client_id=${cid}`)
@@ -292,23 +221,15 @@ function BookingsPage() {
         if (cancelled) return
         const props = d.properties || []
         setClientProperties(props)
-        if (showCreateModal) {
-          setCreateForm(prev => {
-            if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
-            const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
-            return primary ? { ...prev, property_id: primary.id } : prev
-          })
-        } else {
-          setForm(prev => {
-            if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
-            const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
-            return primary ? { ...prev, property_id: primary.id } : prev
-          })
-        }
+        setForm(prev => {
+          if (prev.property_id && props.some((p: { id: string }) => p.id === prev.property_id)) return prev
+          const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
+          return primary ? { ...prev, property_id: primary.id } : prev
+        })
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [showCreateModal, createForm.client_id, showModal, editingBooking?.client_id])
+  }, [showModal, editingBooking?.client_id])
   const [copied, setCopied] = useState(false)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
@@ -321,10 +242,6 @@ function BookingsPage() {
   const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null }>>([])
   const [waitlistLoading, setWaitlistLoading] = useState(false)
 
-  const [clientSearch, setClientSearch] = useState('')
-  const [showClientDropdown, setShowClientDropdown] = useState(false)
-  const [filteredClients, setFilteredClients] = useState<Client[]>([])
-  
   const [smartScores, setSmartScores] = useState<Record<string, SmartScore>>({})
   const [smartScoresKey, setSmartScoresKey] = useState<string>('')
   // Alternate-time picks shown when nobody is available at the requested time.
@@ -358,29 +275,6 @@ function BookingsPage() {
   }, [])
   useEffect(() => { applyFilters() }, [bookings, filters, searchQuery])
 
-  // Searches the server instead of filtering the locally preloaded `clients`
-  // array — that array is capped at 200 by /api/clients (most recently
-  // created), so with a tenant's real client count in the thousands, a
-  // client-side filter here silently couldn't find anyone older than the
-  // 200 most recent, no matter what was typed.
-  useEffect(() => {
-    if (!clientSearch) {
-      setFilteredClients([])
-      return
-    }
-    let cancelled = false
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&limit=8`)
-        const json = await res.json()
-        if (!cancelled) setFilteredClients(Array.isArray(json.clients) ? json.clients : [])
-      } catch {
-        if (!cancelled) setFilteredClients([])
-      }
-    }, 250)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [clientSearch])
-
   // Auto-open create modal when linked from clients page with ?new=1&client_id=xxx
   useEffect(() => {
     if (searchParams.get('new') === '1' && clients.length > 0) {
@@ -388,21 +282,8 @@ function BookingsPage() {
       const client = clientId ? clients.find(c => c.id === clientId) : null
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
-      const endDate = new Date()
-      endDate.setMonth(endDate.getMonth() + 3)
-      setShowOneTimeCreditCreate(false)
-      setCreateForm({
-        client_id: client ? client.id : '',
-        team_member_id: '', start_date: tomorrow.toISOString().split('T')[0],
-        start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
-        repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
-        repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
-        team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
-      if (client) {
-        setClientSearch(client.name + ' - ' + client.phone)
-      }
-      setShowClientDropdown(false)
+      setCreateInitialValues({ clientId: client ? client.id : undefined, startDate: tomorrow.toISOString().split('T')[0] })
+      setFormInstanceKey(k => k + 1)
       setShowCreateModal(true)
     }
   }, [searchParams, clients])
@@ -425,77 +306,47 @@ function BookingsPage() {
     const date = searchParams.get('date')
     const time = searchParams.get('time')
     if (date && !searchParams.get('new') && !searchParams.get('edit')) {
-      const endDate = new Date()
-      endDate.setMonth(endDate.getMonth() + 3)
-      setShowOneTimeCreditCreate(false)
-      setCreateForm({
-        client_id: '', team_member_id: '', start_date: date,
-        start_time: time || '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
-        repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
-        repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
-        team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
-      setClientSearch('')
-      setShowClientDropdown(false)
+      setCreateInitialValues({ startDate: date, startTime: time || '09:00' })
+      setFormInstanceKey(k => k + 1)
       setShowCreateModal(true)
       window.history.replaceState({}, '', '/admin/bookings')
     }
   }, [searchParams])
 
-  // Smart-schedule: fetch zone/proximity scores whenever a booking context is live
+  // Smart-schedule: fetch zone/proximity scores for the edit modal's cleaner
+  // picker. (The create form's own copy of this effect now lives in
+  // CreateBookingForm.tsx.)
   useEffect(() => {
-    let ctxClientId = ''
-    let ctxAddress = ''
-    let ctxDate = ''
-    let ctxTime = ''
-    let ctxHours = 2
-    let ctxRate: number | undefined
-    let ctxExclude = ''
-
-    if (showCreateModal && createForm.start_date && createForm.start_time) {
-      // Existing client → use their saved address. New client → use the address
-      // being typed into the new-client form so scoring works before the client row exists.
-      const cli = createForm.client_id ? clients.find(c => c.id === createForm.client_id) : null
-      const selProp = clientProperties.find(p => p.id === createForm.property_id)
-      ctxClientId = createForm.client_id
-      // Rank cleaners against the PICKED address, not just the client's primary.
-      ctxAddress = selProp?.address || cli?.address || newClientForm.address || ''
-      ctxDate = createForm.start_date
-      ctxTime = createForm.start_time
-      ctxHours = createForm.hours
-      ctxRate = createForm.hourly_rate
-    } else if (showModal && editingBooking && form.start_date && form.start_time) {
-      ctxClientId = editingBooking.client_id
-      ctxAddress = editingBooking.clients?.address || ''
-      ctxDate = form.start_date
-      ctxTime = form.start_time
-      ctxHours = form.hours
-      ctxRate = form.hourly_rate
-      ctxExclude = editingBooking.id
-    } else {
+    if (!(showModal && editingBooking && form.start_date && form.start_time)) {
       setSmartScores({})
       setSmartScoresKey('')
       setSuggestions([])
       return
     }
+    const ctxClientId = editingBooking.client_id
+    const ctxAddress = editingBooking.clients?.address || ''
+    const ctxDate = form.start_date
+    const ctxTime = form.start_time
+    const ctxHours = form.hours
+    const ctxRate = form.hourly_rate
+    const ctxExclude = editingBooking.id
 
     if (!ctxAddress || !ctxDate || !ctxTime) return
-    const teamSizeForKey = showCreateModal ? createForm.team_size : showModal ? form.team_size : 1
+    const teamSizeForKey = form.team_size
     const key = [ctxClientId, ctxAddress, ctxDate, ctxTime, ctxHours, ctxRate || '', ctxExclude, teamSizeForKey].join('|')
     if (key === smartScoresKey) return
 
     const controller = new AbortController()
-    const ctxTeamSize = showCreateModal ? createForm.team_size : showModal ? form.team_size : 1
     const params = new URLSearchParams({
       date: ctxDate,
       start_time: ctxTime,
       duration: String(ctxHours),
       address: ctxAddress,
       client_id: ctxClientId,
-      team_size: String(ctxTeamSize),
+      team_size: String(teamSizeForKey),
     })
     if (ctxRate != null) params.set('hourly_rate', String(ctxRate))
-    if (ctxExclude) params.set('exclude_booking', ctxExclude)
+    params.set('exclude_booking', ctxExclude)
     params.set('suggest', '1') // also fetch alternate times when nobody is free
 
     fetch(`/api/admin/smart-schedule?${params.toString()}`, { signal: controller.signal })
@@ -511,7 +362,7 @@ function BookingsPage() {
       .catch(() => {})
 
     return () => controller.abort()
-  }, [showCreateModal, showModal, editingBooking, createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, newClientForm.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, clients, smartScoresKey])
+  }, [showModal, editingBooking, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, smartScoresKey])
 
   const loadBookings = async () => {
     try {
@@ -567,98 +418,6 @@ function BookingsPage() {
       if (res.ok) setWaitlistEntries(await res.json())
     } catch {}
     setWaitlistLoading(false)
-  }
-
-  const getCleanerAvailability = (cleaner: Cleaner, dateStr: string, timeStr?: string, durationHours?: number): { available: boolean; reason?: string; dayBookings?: Array<{ time: string; client: string; hours: number }> } => {
-    if (!dateStr) return { available: true }
-    const dateObj = new Date(dateStr + 'T12:00:00')
-    const dayShort = dateObj.toLocaleDateString('en-US', { weekday: 'short' })
-
-    if (cleaner.unavailable_dates?.includes(dateStr)) {
-      return { available: false, reason: 'Requested off' }
-    }
-    // No days configured (or all off) → NOT available; otherwise honor the set
-    // days. worksScheduledDay normalizes both stored formats. See day-availability.ts.
-    if (!worksScheduledDay(cleaner.working_days, cleaner.schedule, dateStr)) {
-      return { available: false, reason: 'Doesn\'t work ' + dayShort + 's' }
-    }
-    if (scheduleHasAnyDay(cleaner.schedule)) {
-      const daySchedule = getDaySchedule(cleaner.schedule, dateStr)
-      if (daySchedule === null || daySchedule === undefined) {
-        return { available: false, reason: 'Not scheduled' }
-      }
-      // Check if requested time falls within cleaner's working hours
-      if (timeStr && daySchedule.start && daySchedule.end) {
-        const parseTimeToMin = (t: string): number => {
-          const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i)
-          if (!match) return 0
-          let hrs = parseInt(match[1])
-          const mins = parseInt(match[2])
-          const ampm = match[3]?.toUpperCase()
-          if (ampm === 'PM' && hrs < 12) hrs += 12
-          if (ampm === 'AM' && hrs === 12) hrs = 0
-          return hrs * 60 + mins
-        }
-        const schedStart = parseTimeToMin(daySchedule.start)
-        const schedEnd = parseTimeToMin(daySchedule.end)
-        const [rh, rm] = timeStr.split(':').map(Number)
-        const requestStart = rh * 60 + rm
-        const requestEnd = requestStart + (durationHours || 2) * 60
-        if (requestStart < schedStart) {
-          return { available: false, reason: `Starts at ${daySchedule.start}` }
-        }
-        if (requestEnd > schedEnd) {
-          return { available: false, reason: `Off by ${daySchedule.end}` }
-        }
-      }
-    }
-
-    // Check existing bookings on this date
-    const dayBookingCount = bookings.filter(b => b.team_member_id === cleaner.id && b.start_time.startsWith(dateStr) && !['cancelled'].includes(b.status)).length
-
-    // Check max jobs per day
-    if (cleaner.max_jobs_per_day && dayBookingCount >= cleaner.max_jobs_per_day) {
-      return { available: false, reason: `Max ${cleaner.max_jobs_per_day} jobs/day (has ${dayBookingCount})` }
-    }
-
-    const dayBookings = bookings
-      .filter(b => b.team_member_id === cleaner.id && b.start_time.startsWith(dateStr) && !['cancelled'].includes(b.status))
-      .map(b => {
-        const start = new Date(b.start_time)
-        const end = b.end_time ? new Date(b.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000)
-        const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 2) / 2
-        return {
-          time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          client: b.clients?.name || 'Client',
-          hours,
-          startMin: start.getHours() * 60 + start.getMinutes(),
-          endMin: start.getHours() * 60 + start.getMinutes() + hours * 60,
-        }
-      })
-      .sort((a, b) => a.startMin - b.startMin)
-
-    // Check time conflict if time provided
-    if (timeStr && durationHours) {
-      const [h, m] = timeStr.split(':').map(Number)
-      const requestStart = h * 60 + m
-      const requestEnd = requestStart + durationHours * 60
-      const buffer = 60 // 60 min buffer between jobs
-      const conflict = dayBookings.find(b =>
-        requestStart < b.endMin + buffer && requestEnd + buffer > b.startMin
-      )
-      if (conflict) {
-        return {
-          available: false,
-          reason: `Conflict: ${conflict.time} ${conflict.client}`,
-          dayBookings: dayBookings.map(({ time, client, hours }) => ({ time, client, hours })),
-        }
-      }
-    }
-
-    return {
-      available: true,
-      dayBookings: dayBookings.map(({ time, client, hours }) => ({ time, client, hours })),
-    }
   }
 
   const applyFilters = () => {
@@ -830,68 +589,13 @@ function BookingsPage() {
   }
 
   const openCreate = () => {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const endDate = new Date()
-    endDate.setMonth(endDate.getMonth() + 3)
-    setShowOneTimeCreditCreate(false)
-    setCreateForm({
-      client_id: '', team_member_id: '', start_date: tomorrow.toISOString().split('T')[0],
-      start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
-      repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
-      repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-      discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
-      team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''    })
-    setClientSearch('')
-    setShowClientDropdown(false)
+    setCreateInitialValues({})
+    setFormInstanceKey(k => k + 1)
     setShowCreateModal(true)
   }
 
-  const handleClientSelect = (client: Client) => {
-    setCreateForm({ ...createForm, client_id: client.id })
-    setClientSearch(client.name + ' - ' + client.phone)
-    setShowClientDropdown(false)
-    // Selected client may not be in the (capped) preloaded `clients` list —
-    // add it so downstream clients.find(...) lookups (e.g. the DO NOT
-    // SERVICE badge) work regardless of how the client was found.
-    setClients(prev => prev.some(c => c.id === client.id) ? prev : [...prev, client])
-  }
-
-  const handleClientSearchChange = (value: string) => {
-    setClientSearch(value)
-    setCreateForm({ ...createForm, client_id: '' })
-    setShowClientDropdown(true)
-  }
-
-  const handleNewClientClick = () => {
-    setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
-    setShowNewClientModal(true)
-    setShowClientDropdown(false)
-  }
-
-  const handleNewClientSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const fullAddress = newClientForm.unit
-      ? `${newClientForm.address}, ${newClientForm.unit}`
-      : newClientForm.address
-    const res = await fetch('/api/clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newClientForm.name, phone: newClientForm.phone, email: newClientForm.email, address: fullAddress, referrer_id: newClientForm.referrer_id || null, sales_partner_id: newClientForm.sales_partner_id || null, notes: newClientForm.notes || null })
-    })
-    if (res.ok) {
-      const newClient = await res.json()
-      await loadClients()
-      setCreateForm({ ...createForm, client_id: newClient.id })
-      setClientSearch(newClient.name + ' - ' + newClient.phone)
-      // Don't close yet — offer to add more contacts/addresses for this
-      // brand-new client right here, before returning to the booking form.
-      setNewClientContactsId(newClient.id)
-    }
-    setSaving(false)
-  }
-
+  // Edit modal's "+ Add new address" (NewClientModal in add-contacts-only
+  // mode -- see CreateBookingForm.tsx for the create-flow counterpart).
   const finishNewClientFlow = async () => {
     // Re-fetch addresses before closing — the client may have added more via
     // the contacts popup, and the picker's own effect only refires on
@@ -903,44 +607,17 @@ function BookingsPage() {
         const props = d.properties || []
         setClientProperties(props)
         const primary = props.find((p: { is_primary: boolean }) => p.is_primary) || props[0]
-        if (primary) {
-          if (showCreateModal) setCreateForm(prev => ({ ...prev, property_id: primary.id }))
-          else setForm(prev => ({ ...prev, property_id: primary.id }))
-        }
+        if (primary) setForm(prev => ({ ...prev, property_id: primary.id }))
       } catch { /* keep whatever was already loaded */ }
     }
     setShowNewClientModal(false)
     setNewClientContactsId(null)
-    setNewClientForm({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
   }
 
   const isExistingClient = (clientId: string) => {
     const client = clients.find(c => c.id === clientId)
     if (!client) return false
     return new Date(client.created_at) < new Date(Date.now() - 24 * 60 * 60 * 1000)
-  }
-
-  // Persisted discount/credit fields for the create-booking payload — see
-  // calculatePrice() for why one_time_credit is repeat_enabled-gated.
-  const getCreateFormDiscount = () => ({
-    discount_percent: createForm.discount_enabled ? createForm.discount_percent : null,
-    one_time_credit_cents: (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? Math.round(createForm.one_time_credit_dollars * 100) : null,
-    one_time_credit_reason: (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? (createForm.one_time_credit_reason || null) : null,
-  })
-
-  const calculatePrice = () => {
-    const teamSize = Math.max(1, createForm.team_size || 1)
-    const basePrice = createForm.hours * createForm.hourly_rate * teamSize * 100
-    const discountPercent = createForm.discount_enabled ? createForm.discount_percent : null
-    // Never bake the one-time credit into a recurring booking's price — a
-    // recurring schedule's price gets stored verbatim on every initial
-    // occurrence (and the schedule itself, which future cron-generated visits
-    // copy from), never recomputed per-visit. A "one-time" credit must NEVER
-    // ride along on a repeat_enabled submission, or it silently becomes a
-    // standing discount across every future visit instead of just this one
-    // (nycmaid a8efe43f).
-    const creditCents = (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? Math.round(createForm.one_time_credit_dollars * 100) : null
-    return applyCredit(applyDiscount(basePrice, discountPercent), creditCents)
   }
 
   const calculateEditPrice = () => {
@@ -980,11 +657,6 @@ function BookingsPage() {
     const ranges: Record<number, string> = { 1: '1-2', 2: '2-3', 3: '3-4', 4: '4-6', 5: '5-7', 6: '6-8', 7: '7-9' }
     return ranges[hours] || hours + '-' + (hours + 2)
   }
-
-  const recurringDates = generateRecurringDates(
-    createForm.start_date, createForm.repeat_enabled, createForm.repeat_type,
-    createForm.repeat_end, createForm.repeat_end_count, createForm.repeat_end_date, createForm.custom_interval
-  )
 
   const editRecurringDates = generateRecurringDates(
     form.start_date, form.repeat_enabled, form.repeat_type,
@@ -1214,95 +886,6 @@ function BookingsPage() {
     setSaving(false)
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true)
-    const recurringType = createForm.repeat_enabled ? getRecurringDisplayName(createForm.repeat_type, createForm.start_date) : null
-
-    if (createForm.is_emergency) {
-      // Emergency: single booking + broadcast (can't batch)
-      const date = recurringDates[0]
-      const res = await fetch('/api/bookings', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: createForm.client_id, property_id: createForm.property_id || null, team_member_id: null,
-          start_time: buildNaiveTime(date, createForm.start_time),
-          end_time: buildNaiveTime(date, createForm.start_time, createForm.hours),
-          service_type: createForm.service_type, price: calculatePrice(),
-          hourly_rate: createForm.hourly_rate, recurring_type: recurringType,
-          notes: createForm.notes || null, skip_email: true,
-          status: 'available', pay_rate: createForm.pay_rate,
-          max_hours: createForm.max_hours,
-          force: true,
-          ...getCreateFormDiscount(),
-        })
-      })
-      if (res.ok) {
-        const booking = await res.json()
-        await fetch('/api/bookings/broadcast', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_id: booking.id })
-        })
-      }
-    } else if (createForm.repeat_enabled && recurringType && recurringDates.length > 1) {
-      // Recurring: create schedule + first 6 weeks of bookings (cron generates the rest daily)
-      const fourWeeksOut = new Date(createForm.start_date + 'T12:00:00')
-      fourWeeksOut.setDate(fourWeeksOut.getDate() + 42)
-      const cutoff = fourWeeksOut.toISOString().split('T')[0]
-      const initialDates = recurringDates.filter(d => d <= cutoff)
-
-      const scheduleRes = await fetch('/api/admin/recurring-schedules', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: createForm.client_id,
-          property_id: createForm.property_id || null,
-          team_member_id: createForm.team_member_id,
-          recurring_type: rawRecurringType(createForm.repeat_type),
-          day_of_week: new Date(createForm.start_date + 'T12:00:00').getDay(),
-          preferred_time: createForm.start_time,
-          duration_hours: createForm.hours,
-          hourly_rate: createForm.hourly_rate,
-          pay_rate: createForm.pay_rate,
-          notes: createForm.notes || null,
-          start_date: createForm.start_date,
-          price: calculatePrice(),
-          service_type: createForm.service_type,
-          status: createForm.status,
-          dates: initialDates,
-          discount_percent: getCreateFormDiscount().discount_percent,
-        })
-      })
-      if (!scheduleRes.ok) {
-        const err = await scheduleRes.json().catch(() => ({ error: 'Unknown error' }))
-        alert(`Failed to create recurring schedule: ${err.error || scheduleRes.statusText}`)
-      }
-    } else {
-      // Single booking via batch (1 booking)
-      const bookings = recurringDates.map(date => ({
-        client_id: createForm.client_id,
-        property_id: createForm.property_id || null,
-        team_member_id: createForm.team_member_id,
-        start_time: buildNaiveTime(date, createForm.start_time),
-        end_time: buildNaiveTime(date, createForm.start_time, createForm.hours),
-        service_type: createForm.service_type,
-        price: calculatePrice(),
-        hourly_rate: createForm.hourly_rate,
-        recurring_type: recurringType,
-        notes: createForm.notes || null,
-        status: createForm.status,
-        team_size: createForm.team_size,
-        extra_team_member_ids: createForm.extra_team_member_ids,
-        max_hours: createForm.max_hours,
-        pay_rate: createForm.pay_rate,
-        ...getCreateFormDiscount(),
-      }))
-
-      await fetch('/api/bookings/batch', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookings })
-      })
-    }
-    setShowCreateModal(false); loadBookings(); setSaving(false)
-  }
 
   const handleCancel = async (scope: 'single' | 'all') => {
     if (!editingBooking) return
@@ -1736,20 +1319,17 @@ function BookingsPage() {
                           onClick={() => {
                             const tomorrow = new Date()
                             tomorrow.setDate(tomorrow.getDate() + 1)
-                            const endDate = new Date()
-                            endDate.setMonth(endDate.getMonth() + 3)
-                            setShowOneTimeCreditCreate(false)
-                            setCreateForm({
-                              client_id: entry.client_id || '',
-                              team_member_id: '', start_date: entry.preferred_date || tomorrow.toISOString().split('T')[0],
-                              start_time: entry.preferred_time ? entry.preferred_time.replace(/\s*(am|pm)/i, (_, ap) => ap.toLowerCase() === 'am' ? ':00' : ':00').replace(/(\d{1,2})(am|pm)/i, (_, h, ap) => { const hr = parseInt(h); const hour = ap.toLowerCase() === 'pm' && hr < 12 ? hr + 12 : ap.toLowerCase() === 'am' && hr === 12 ? 0 : hr; return `${String(hour).padStart(2, '0')}:00` }) : '09:00',
-                              hours: 2, hourly_rate: 69, service_type: entry.service_type || 'Standard Cleaning', notes: 'Booked from waitlist',
-                              repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
-                              repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-                              discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
-                              team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''                            })
-                            if (entry.name) setClientSearch(entry.name + ' - ' + entry.phone)
-                            setShowClientDropdown(false)
+                            const startTime = entry.preferred_time
+                              ? entry.preferred_time.replace(/\s*(am|pm)/i, (_, ap) => ap.toLowerCase() === 'am' ? ':00' : ':00').replace(/(\d{1,2})(am|pm)/i, (_, h, ap) => { const hr = parseInt(h); const hour = ap.toLowerCase() === 'pm' && hr < 12 ? hr + 12 : ap.toLowerCase() === 'am' && hr === 12 ? 0 : hr; return `${String(hour).padStart(2, '0')}:00` })
+                              : '09:00'
+                            setCreateInitialValues({
+                              clientId: entry.client_id || undefined,
+                              startDate: entry.preferred_date || tomorrow.toISOString().split('T')[0],
+                              startTime,
+                              serviceType: entry.service_type || undefined,
+                              notes: 'Booked from waitlist',
+                            })
+                            setFormInstanceKey(k => k + 1)
                             setShowCreateModal(true)
                           }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 transition-all"
@@ -2697,7 +2277,7 @@ function BookingsPage() {
                     return a.name.localeCompare(b.name)
                   })
                   .map((c) => {
-                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours)
+                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours, bookings)
                   const isLead = form.team_member_id === c.id
                   const isExtra = form.extra_team_member_ids.includes(c.id)
                   const selected = isLead || isExtra
@@ -2817,562 +2397,24 @@ function BookingsPage() {
       )}
 
       {showCreateModal && (
-        <SidePanel open={showCreateModal} onClose={() => { setShowCreateModal(false); setShowClientDropdown(false) }} title="Create Booking" width="max-w-lg">
-            <form onSubmit={handleCreate}>
-              <div className="space-y-4">
-                <div className="relative">
-                  <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Client *</label>
-                  <input
-                    type="text"
-                    required={!createForm.client_id}
-                    value={clientSearch}
-                    onChange={(e) => handleClientSearchChange(e.target.value)}
-                    onFocus={() => setShowClientDropdown(true)}
-                    placeholder="Search by name or phone..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
-                  />
-                  
-                  {showClientDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                      <button type="button" onClick={handleNewClientClick} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-200 font-medium text-[var(--sched-ink)]">+ New Client</button>
-                      {filteredClients.length > 0 ? (
-                        filteredClients.map((client) => (
-                          <button key={client.id} type="button" onClick={() => handleClientSelect(client)} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                            <div className="font-medium text-[var(--sched-ink)]">{client.name}</div>
-                            <div className="text-sm text-gray-500">{formatPhone(client.phone)}</div>
-                          </button>
-                        ))
-                      ) : clientSearch ? (
-                        <div className="px-3 py-2 text-gray-500 text-sm">No clients found</div>
-                      ) : (
-                        <div className="px-3 py-2 text-gray-500 text-sm">Start typing to search...</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {createForm.client_id && clients.find(c => c.id === createForm.client_id)?.do_not_service && (
-                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3">
-                    <p className="text-red-700 font-bold text-sm">DO NOT SERVICE</p>
-                    <p className="text-red-600 text-sm">This client is flagged as Do Not Service. Check client notes before proceeding.</p>
-                  </div>
-                )}
-                {createForm.client_id && clientProperties.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Address{clientProperties.length > 1 ? ' *' : ''}</label>
-                    <select
-                      value={createForm.property_id}
-                      onChange={(e) => {
-                        if (e.target.value === '__add_address__') {
-                          setNewClientContactsId(createForm.client_id)
-                          setShowNewClientModal(true)
-                          return
-                        }
-                        setCreateForm({ ...createForm, property_id: e.target.value })
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
-                    >
-                      {clientProperties.map(p => (
-                        <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
-                      ))}
-                      <option value="__add_address__">+ Add new address</option>
-                    </select>
-                    {clientProperties.length > 1 && (
-                      <p className="mt-1 text-xs text-gray-500">This client has multiple addresses — pick the one being cleaned.</p>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Service</label>
-                  <select value={createForm.service_type} onChange={(e) => {
-                    const isEmergency = e.target.value === 'Emergency / Same-Day'
-                    // Only clear pay_rate when LEAVING emergency mode — the emergency
-                    // "Team Pay Rate" field and the normal per-cleaner rate override share
-                    // this same state, and a stray emergency rate must not leak into a
-                    // normal booking. Switching between two non-emergency service types
-                    // must NOT wipe an admin's intentional per-cleaner rate override.
-                    const clearedPayRate = createForm.is_emergency && !isEmergency ? null : createForm.pay_rate
-                    setCreateForm({ ...createForm, service_type: e.target.value, is_emergency: isEmergency, team_member_id: isEmergency ? '' : createForm.team_member_id, pay_rate: clearedPayRate })
-                  }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
-                    {serviceTypes.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Date *</label>
-                    <input type="date" required value={createForm.start_date} onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Time *</label>
-                    <input type="time" required min="07:00" max="19:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" />
-                  </div>
-                </div>
-                {createForm.is_emergency ? (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                    <p className="text-sm text-red-700 mb-3">🚨 Broadcasts to all team - first to claim gets it</p>
-                    <label className="block text-sm font-medium text-red-700 mb-1">Team Pay Rate</label>
-                    <div className="flex items-center">
-                      <span className="text-[var(--sched-ink)] text-lg mr-1">$</span>
-                      <input
-                        type="number"
-                        step="1"
-                        min="25"
-                        max="100"
-                        value={createForm.pay_rate ?? 40}
-                        onChange={(e) => setCreateForm({ ...createForm, pay_rate: parseInt(e.target.value) || 40 })}
-                        className="w-24 px-3 py-2 border border-red-300 rounded-lg text-[var(--sched-ink)] text-center font-mono bg-white"
-                      />
-                      <span className="text-[var(--sched-ink)] ml-1">/hr</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-[var(--sched-ink)]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-gray-600">Rate</label>
-                        <div className="flex items-center">
-                          <span className="text-[var(--sched-ink)] text-xs mr-0.5">$</span>
-                          <input
-                            type="number"
-                            step="1"
-                            min="0"
-                            value={createForm.pay_rate ?? ''}
-                            onChange={(e) => setCreateForm({ ...createForm, pay_rate: e.target.value ? parseInt(e.target.value) : null })}
-                            placeholder="auto"
-                            className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-[var(--sched-ink)] bg-white"
-                          />
-                          <span className="text-[var(--sched-ink)] text-xs ml-0.5">/hr</span>
-                        </div>
-                        <label className="text-xs text-gray-600">Team size</label>
-                        <select
-                          value={createForm.team_size}
-                          onChange={(e) => {
-                            const n = parseInt(e.target.value, 10) || 1
-                            // Trim extras if shrinking team
-                            const maxExtras = Math.max(0, n - 1)
-                            setCreateForm({
-                              ...createForm,
-                              team_size: n,
-                              extra_team_member_ids: createForm.extra_team_member_ids.slice(0, maxExtras),
-                            })
-                          }}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm text-[var(--sched-ink)] bg-white"
-                        >
-                          {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                        {createForm.team_size > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const ranked = Object.values(smartScores)
-                                .filter(s => s.available)
-                                .sort((a, b) => b.score - a.score)
-                                .slice(0, createForm.team_size)
-                              if (ranked.length === 0) return
-                              const lead = ranked[0]?.id || ''
-                              const extras = ranked.slice(1).map(r => r.id)
-                              setCreateForm({ ...createForm, team_member_id: lead, extra_team_member_ids: extras })
-                            }}
-                            className="text-xs px-2 py-1 bg-[#A8F0DC] text-[var(--sched-ink)] rounded font-semibold hover:bg-[#90E5CC]"
-                          >
-                            Auto-pick top {createForm.team_size}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {suggestions.length > 0 && (
-                      <SuggestionStrip
-                        suggestions={suggestions}
-                        variant={Object.values(smartScores).filter(s => s.available).length === 0 ? 'full' : 'better'}
-                        onPick={(t) => setCreateForm({ ...createForm, start_time: t })}
-                      />
-                    )}
-                    {Object.keys(smartScores).length > 0 && (
-                      <p className="text-[10px] text-gray-500 mb-1">
-                        Ranked by zone match, proximity, and schedule fit
-                        {createForm.team_size > 1 && <> · click to add. Drag to reorder — top of the team list is the LEAD (handles check-in / 30-min / check-out).</>}
-                      </p>
-                    )}
-                    {/* Team order with drag-to-reorder. Top = lead. */}
-                    {createForm.team_size > 1 && (createForm.team_member_id || createForm.extra_team_member_ids.length > 0) && (
-                      <div className="mb-2 p-2 bg-indigo-50/60 border border-indigo-200 rounded-lg">
-                        <p className="text-[10px] text-indigo-700 font-semibold uppercase tracking-wide mb-1.5">Team order — drag to reorder</p>
-                        <div className="space-y-1">
-                          {[createForm.team_member_id, ...createForm.extra_team_member_ids].filter(Boolean).map((cid, idx, arr) => {
-                            const c = cleaners.find(x => x.id === cid)
-                            return (
-                              <div
-                                key={cid}
-                                draggable
-                                onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(idx)) }}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => {
-                                  e.preventDefault()
-                                  const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10)
-                                  if (Number.isNaN(fromIdx) || fromIdx === idx) return
-                                  const next = [...arr]
-                                  const [moved] = next.splice(fromIdx, 1)
-                                  next.splice(idx, 0, moved)
-                                  setCreateForm({ ...createForm, team_member_id: next[0] || '', extra_team_member_ids: next.slice(1) })
-                                }}
-                                className="flex items-center justify-between bg-white border border-indigo-200 rounded-md px-2.5 py-1.5 text-sm cursor-move hover:border-indigo-400"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="text-gray-400 text-base leading-none">⋮⋮</span>
-                                  <span className="font-medium text-[var(--sched-ink)]">{c?.name || cid}</span>
-                                  {idx === 0 && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
-                                  {idx > 0 && <span className="text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = arr.filter((_, i) => i !== idx)
-                                    setCreateForm({ ...createForm, team_member_id: next[0] || '', extra_team_member_ids: next.slice(1) })
-                                  }}
-                                  className="text-xs text-gray-400 hover:text-red-600"
-                                  title="Remove from team"
-                                >✕</button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      {cleaners
-                        .filter(c => c.active !== false && (c.status || 'active') !== 'inactive')
-                        .slice()
-                        .sort((a, b) => {
-                          const sa = smartScores[a.id]
-                          const sb = smartScores[b.id]
-                          if (sa && sb) {
-                            if (sa.available && !sb.available) return -1
-                            if (!sa.available && sb.available) return 1
-                            return sb.score - sa.score
-                          }
-                          if (sa) return -1
-                          if (sb) return 1
-                          return a.name.localeCompare(b.name)
-                        })
-                        .map((c) => {
-                        const avail = getCleanerAvailability(c, createForm.start_date, createForm.start_time, createForm.hours)
-                        const isLead = createForm.team_member_id === c.id
-                        const isExtra = createForm.extra_team_member_ids.includes(c.id)
-                        const selected = isLead || isExtra
-                        const smart = smartScores[c.id]
-                        const isZoneMatch = !!smart?.zone_match
-                        const topPick = smart && smart.available && Object.values(smartScores).filter(s => s.available).sort((x, y) => y.score - x.score)[0]?.id === c.id
-                        const onClickPick = () => {
-                          if (createForm.team_size <= 1) {
-                            // Single-cleaner mode: just set lead.
-                            setCreateForm({ ...createForm, team_member_id: c.id, extra_team_member_ids: [] })
-                            return
-                          }
-                          // Team mode: cycle lead → extra → off.
-                          if (isLead) {
-                            // Promote first extra to lead, drop this one.
-                            const [newLead, ...rest] = createForm.extra_team_member_ids
-                            setCreateForm({ ...createForm, team_member_id: newLead || '', extra_team_member_ids: rest })
-                          } else if (isExtra) {
-                            // Remove from extras.
-                            setCreateForm({
-                              ...createForm,
-                              extra_team_member_ids: createForm.extra_team_member_ids.filter(x => x !== c.id),
-                            })
-                          } else if (!createForm.team_member_id) {
-                            // No lead yet — set as lead.
-                            setCreateForm({ ...createForm, team_member_id: c.id })
-                          } else if (createForm.extra_team_member_ids.length < createForm.team_size - 1) {
-                            // Add as extra (capacity remains).
-                            setCreateForm({
-                              ...createForm,
-                              extra_team_member_ids: [...createForm.extra_team_member_ids, c.id],
-                            })
-                          }
-                        }
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={onClickPick}
-                            className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
-                              isLead
-                                ? 'border-indigo-500 bg-indigo-50 text-[var(--sched-ink)]'
-                                : isExtra
-                                  ? 'border-indigo-500 bg-indigo-50 text-[var(--sched-ink)]'
-                                  : topPick
-                                    ? 'border-green-400 bg-green-50 text-[var(--sched-ink)]'
-                                    : isZoneMatch
-                                      ? 'border-green-200 bg-green-50/40 text-[var(--sched-ink)]'
-                                      : 'border-gray-200 hover:border-gray-300 text-[var(--sched-ink)]'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className={selected ? 'font-medium' : ''}>
-                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{topPick && !selected ? '★ ' : ''}{c.name}
-                                {smart?.is_preferred && <span className="ml-1.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ PREFERRED</span>}
-                                {isLead && createForm.team_size > 1 && <span className="ml-1.5 text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
-                                {isExtra && <span className="ml-1.5 text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
-                                {isZoneMatch && <span className="ml-1.5 text-[10px] text-green-700 bg-green-100 px-1.5 py-0.5 rounded font-medium">zone</span>}
-                                {smart?.has_car === false && <span className="ml-1 text-[10px] text-gray-500">no car</span>}
-                              </span>
-                              {createForm.start_date && (
-                                avail.available
-                                  ? <span className="text-xs text-green-600 font-medium">{smart?.reason || 'Available'}</span>
-                                  : <span className="text-xs text-red-500">{avail.reason}</span>
-                              )}
-                            </div>
-                            {smart?.available && (smart.distance_miles != null || smart.travel_from_prev_min != null || smart.travel_to_next_min != null || smart.travel_to_home_min != null || smart.can_make_home === false) && (
-                              <div className="mt-0.5 text-[10px] text-gray-500 flex flex-wrap gap-x-2">
-                                {smart.distance_miles != null && <span>📍 {smart.distance_miles} mi from home</span>}
-                                {smart.travel_from_prev_min != null && <span>🚗 {smart.travel_from_prev_min} min from {smart.prev_job_label || 'prev job'}</span>}
-                                {smart.travel_to_next_min != null && <span>➡️ {smart.travel_to_next_min} min to {smart.next_job_label || 'next job'}</span>}
-                                {smart.travel_to_home_min != null && <span>🏠 {smart.travel_to_home_min} min to home</span>}
-                                {smart.can_make_home === false && <span className="text-amber-600">won&apos;t make home on time</span>}
-                              </div>
-                            )}
-                            {createForm.start_date && avail.dayBookings && avail.dayBookings.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {avail.dayBookings.map((b, i) => (
-                                  <span key={i} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                                    {b.time} {b.client} ({b.hours}hr)
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Hours</label>
-                    <select value={createForm.hours} onChange={(e) => setCreateForm({ ...createForm, hours: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
-                      {[1,2,3,4,5,6,7,8].map(h => <option key={h} value={h}>{h}hr</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Rate</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={createForm.hourly_rate}
-                      onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
-                      placeholder="$/hr"
-                    />
-                  </div>
-                </div>
-
-                <RecurringOptions
-                  startDate={createForm.start_date}
-                  enabled={createForm.repeat_enabled}
-                  onEnabledChange={(v) => setCreateForm({ ...createForm, repeat_enabled: v })}
-                  repeatType={createForm.repeat_type}
-                  onRepeatTypeChange={(v) => setCreateForm({ ...createForm, repeat_type: v })}
-                  repeatEnd={createForm.repeat_end}
-                  onRepeatEndChange={(v) => setCreateForm({ ...createForm, repeat_end: v })}
-                  repeatEndCount={createForm.repeat_end_count}
-                  onRepeatEndCountChange={(v) => setCreateForm({ ...createForm, repeat_end_count: v })}
-                  repeatEndDate={createForm.repeat_end_date}
-                  onRepeatEndDateChange={(v) => setCreateForm({ ...createForm, repeat_end_date: v })}
-                  customInterval={createForm.custom_interval}
-                  onCustomIntervalChange={(v) => setCreateForm({ ...createForm, custom_interval: v })}
-                  previewDates={recurringDates}
-                />
-
-                <div className="py-3 border-t border-b border-gray-200 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium text-[var(--sched-ink)]">Discount</h4>
-                    <div
-                      onClick={() => setCreateForm({ ...createForm, discount_enabled: !createForm.discount_enabled })}
-                      className={`w-10 h-6 rounded-full transition-colors ${createForm.discount_enabled ? 'bg-green-600' : 'bg-gray-300'} relative cursor-pointer`}
-                    >
-                      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${createForm.discount_enabled ? 'translate-x-5' : 'translate-x-1'}`} />
-                    </div>
-                  </div>
-                  {createForm.discount_enabled && (
-                    <div className="flex gap-2 items-center pt-1">
-                      <label className="text-xs text-gray-500 w-12">Percent:</label>
-                      <select
-                        value={[5, 10, 20].includes(createForm.discount_percent) ? createForm.discount_percent : 'custom'}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          if (v === 'custom') {
-                            const isPreset = [5, 10, 20].includes(createForm.discount_percent)
-                            setCreateForm({ ...createForm, discount_percent: isPreset ? 15 : createForm.discount_percent })
-                          } else setCreateForm({ ...createForm, discount_percent: parseInt(v) })
-                        }}
-                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[var(--sched-ink)]"
-                      >
-                        <option value={20}>20% ($69 weekly)</option>
-                        <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
-                        <option value={5}>5% ($59 biweekly/monthly)</option>
-                        <option value="custom">Custom %</option>
-                      </select>
-                      {![5, 10, 20].includes(createForm.discount_percent) && (
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          step="1"
-                          value={createForm.discount_percent}
-                          onChange={(e) => setCreateForm({ ...createForm, discount_percent: parseInt(e.target.value) || 0 })}
-                          className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-[var(--sched-ink)]"
-                          placeholder="%"
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* One-time credit: a flat comp on THIS visit only. Stacks on
-                    top of the discount above and never touches recurring_schedules.
-                    Hidden when Repeat is on — a recurring schedule's price/discount
-                    apply to every generated visit, so a "one-time" credit here
-                    would silently become a standing discount instead of a comp
-                    for just this visit. Use the edit modal on the specific
-                    occurrence once it exists instead. */}
-                {createForm.repeat_enabled ? null : !showOneTimeCreditCreate ? (
-                  <button type="button" onClick={() => setShowOneTimeCreditCreate(true)} className="text-left text-xs text-amber-700 hover:text-amber-800 font-medium">
-                    + One-time credit (this visit only)
-                  </button>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-amber-700 uppercase font-semibold">One-time credit — this visit only</span>
-                      <button type="button" onClick={() => { setShowOneTimeCreditCreate(false); setCreateForm({ ...createForm, one_time_credit_dollars: 0, one_time_credit_reason: '' }) }} className="text-xs text-amber-600 hover:text-amber-800">Remove</button>
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={createForm.one_time_credit_dollars || ''}
-                        onChange={(e) => setCreateForm({ ...createForm, one_time_credit_dollars: parseFloat(e.target.value) || 0 })}
-                        className="w-24 px-2 py-1.5 border border-amber-300 rounded text-sm text-[var(--sched-ink)]"
-                        placeholder="$ off"
-                      />
-                      <input
-                        type="text"
-                        value={createForm.one_time_credit_reason}
-                        onChange={(e) => setCreateForm({ ...createForm, one_time_credit_reason: e.target.value })}
-                        className="flex-1 px-2 py-1.5 border border-amber-300 rounded text-sm text-[var(--sched-ink)]"
-                        placeholder="Reason (optional)"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-2">ESTIMATE{recurringDates.length > 1 ? ' (per visit)' : ''}</p>
-                  <div className="flex justify-between">
-                    <span>~{getEstimatedHoursRange(createForm.hours)}hrs × ${createForm.hourly_rate}/hr{createForm.team_size > 1 ? ` × ${createForm.team_size} cleaners` : ''}{createForm.discount_enabled && createForm.discount_percent > 0 ? ` − ${createForm.discount_percent}%` : ''}{!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0 ? ` − $${createForm.one_time_credit_dollars} credit` : ''}</span>
-                    <span className="font-semibold">~${(calculatePrice() / 100).toFixed(0)}</span>
-                  </div>
-                  {recurringDates.length > 1 && <p className="text-xs text-gray-500 mt-1">Recurring schedule — billed per visit</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Status</label>
-                  <select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
-                    <option value="pending">Pending</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Canceled</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Notes</label>
-                  <textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" rows={2} placeholder="Access codes..." />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => { setShowCreateModal(false); setShowClientDropdown(false) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-                <button type="submit" disabled={saving || !createForm.client_id} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
-                  {saving ? 'Creating...' : recurringDates.length > 1 ? 'Create Schedule' : 'Create'}
-                </button>
-              </div>
-            </form>
+        <SidePanel open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create Booking" width="max-w-lg">
+          <CreateBookingForm
+            key={formInstanceKey}
+            initialValues={createInitialValues}
+            onCreated={() => { setShowCreateModal(false); loadBookings() }}
+            onCancel={() => setShowCreateModal(false)}
+          />
         </SidePanel>
       )}
 
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-[rgba(28,28,28,0.5)] flex items-center justify-center z-[10001]" onClick={() => setShowNewClientModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            {newClientContactsId ? (
-              <>
-                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-1">
-                  {clients.find(c => c.id === newClientContactsId)?.name || newClientForm.name || 'Client'}
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Add another phone, email, or address, or continue — you can always add more later.
-                </p>
-                <div className="clients-scope">
-                  <div className="clients-section">
-                    <ClientAddresses clientId={newClientContactsId} />
-                    <ClientContacts clientId={newClientContactsId} />
-                  </div>
-                </div>
-                <button type="button" onClick={finishNewClientFlow} className="w-full mt-6 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">
-                  Continue to booking
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold text-[var(--sched-ink)] mb-4">New Client</h3>
-                <form onSubmit={handleNewClientSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                    <input type="text" required value={newClientForm.name} onChange={(e) => setNewClientForm({ ...newClientForm, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="John Smith" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" value={newClientForm.email} onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="john@email.com" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                    <input type="tel" required value={newClientForm.phone} onChange={(e) => setNewClientForm({ ...newClientForm, phone: formatPhone(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="212-555-1234" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                    <AddressAutocomplete value={newClientForm.address} onChange={(val) => setNewClientForm({ ...newClientForm, address: val })} placeholder="123 Main St, New York, NY 10001" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit / Apt</label>
-                    <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="Apt 4B" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sales Person</label>
-                    <select value={newClientForm.sales_partner_id} onChange={(e) => setNewClientForm({ ...newClientForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
-                      <option value="">None</option>
-                      {salesPartners.filter(sp => sp.active).map(sp => <option key={sp.id} value={sp.id}>{sp.name} ({sp.referral_code})</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
-                    <select value={newClientForm.referrer_id} onChange={(e) => setNewClientForm({ ...newClientForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
-                      <option value="">None</option>
-                      {referrers.filter(ref => ref.active).map(ref => <option key={ref.id} value={ref.id}>{ref.name} ({ref.ref_code})</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" rows={3} placeholder="Any special instructions..." />
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <button type="button" onClick={finishNewClientFlow} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-                    <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
+        <NewClientModal
+          initialClientId={newClientContactsId}
+          initialClientName={newClientContactsId ? clients.find(c => c.id === newClientContactsId)?.name : undefined}
+          referrers={referrers}
+          salesPartners={salesPartners}
+          onDone={finishNewClientFlow}
+        />
       )}
     </div>
   )
