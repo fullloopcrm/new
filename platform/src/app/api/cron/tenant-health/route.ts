@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner } from '@/lib/telegram'
 import { checkTenant, type TenantHealth } from '@/lib/tenant-health'
+import { verifySslExpiry } from '@/lib/onboarding-verify'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -109,12 +110,18 @@ export async function GET(request: Request) {
 
   const results = await mapCapped(
     targets,
-    async (t): Promise<TenantHealth & { tenant_id: string }> => {
+    async (t): Promise<TenantHealth & { tenant_id: string; sslDaysRemaining: number | null; sslDetail: string }> => {
       const expected = TEMPLATE_TENANTS.has(t.slug) ? 'template' : t.slug
-      const h = await checkTenant(t.slug, t.domain, expected, {
-        routeGroupHome: ROUTE_GROUP_TENANTS.has(t.slug),
-      })
-      return { ...h, tenant_id: t.tenant_id }
+      // sslExpiry is informational-only — deliberately NOT folded into
+      // checkTenant's pass/fail status. This cron already alerts live on
+      // reachability/routing failures; changing that alert's trigger
+      // conditions isn't part of adding expiry visibility, so cert expiry
+      // gets its own separate signal below instead of widening `failures`.
+      const [h, ssl] = await Promise.all([
+        checkTenant(t.slug, t.domain, expected, { routeGroupHome: ROUTE_GROUP_TENANTS.has(t.slug) }),
+        verifySslExpiry(t.domain),
+      ])
+      return { ...h, tenant_id: t.tenant_id, sslDaysRemaining: ssl.daysRemaining, sslDetail: ssl.detail }
     },
     CONCURRENCY,
   )
@@ -128,7 +135,7 @@ export async function GET(request: Request) {
       domain: r.domain,
       status: r.status,
       matched_path: r.matchedPath,
-      checks: r.checks,
+      checks: { ...r.checks, sslExpiry: { daysRemaining: r.sslDaysRemaining, detail: r.sslDetail } },
       detail: r.detail,
       checked_at: checkedAt,
     })),
@@ -141,11 +148,20 @@ export async function GET(request: Request) {
     await alertOwner(`🚨 Fortress: ${failures.length} tenant site(s) FAILING`, body).catch(() => {})
   }
 
+  // Cert expiry is a slower-moving, separate concern from darkening — its own
+  // alert so it doesn't get lost inside (or inflate) the reachability alert above.
+  const expiring = results.filter((r) => r.sslDaysRemaining !== null && r.sslDaysRemaining < 14)
+  if (expiring.length > 0) {
+    const body = expiring.map((r) => `• ${r.slug} (${r.domain}): ${r.sslDetail}`).join('\n')
+    await alertOwner(`⚠️ Fortress: ${expiring.length} tenant cert(s) expiring soon`, body).catch(() => {})
+  }
+
   return NextResponse.json({
     checked: results.length,
     passing: results.length - failures.length,
     failing: failures.length,
     failures: failures.map((f) => ({ slug: f.slug, domain: f.domain, detail: f.detail })),
+    expiring: expiring.map((r) => ({ slug: r.slug, domain: r.domain, daysRemaining: r.sslDaysRemaining })),
     checkedAt,
   })
 }

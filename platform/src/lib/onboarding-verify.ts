@@ -10,7 +10,8 @@
  */
 import Stripe from 'stripe'
 import { promises as dnsPromises } from 'dns'
-import { safeFetch } from './ssrf'
+import { connect as tlsConnect } from 'tls'
+import { safeFetch, assertPublicUrl } from './ssrf'
 
 export interface CheckResult {
   ok: boolean
@@ -79,6 +80,55 @@ export async function verifySsl(domain: string): Promise<CheckResult> {
   } catch (e) {
     return { ok: false, detail: `HTTPS fetch failed: ${e instanceof Error ? e.message : 'unknown'}` }
   }
+}
+
+export interface SslExpiryResult extends CheckResult {
+  daysRemaining: number | null // null when the check couldn't determine a date
+}
+
+// Certificate expiry — distinct from verifySsl (which only confirms HTTPS
+// responds). Vercel auto-renews certs for domains it manages, so this should
+// almost always be far from the warnDays floor; a real hit means the domain
+// fell out of Vercel's coverage (DNS repointed elsewhere, manually added cert,
+// etc.) and needs a human before it actually expires.
+export async function verifySslExpiry(domain: string, warnDays = 14): Promise<SslExpiryResult> {
+  if (!domain) return { ok: false, detail: 'No domain set', daysRemaining: null }
+  try {
+    // SSRF guard: same pattern as verifySsl/safeFetch — domain is admin-editable.
+    await assertPublicUrl(`https://${domain}`)
+  } catch (e) {
+    return { ok: false, detail: `blocked: ${e instanceof Error ? e.message : 'unsafe host'}`, daysRemaining: null }
+  }
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (result: SslExpiryResult) => {
+      if (settled) return
+      settled = true
+      resolve(result)
+    }
+    const socket = tlsConnect({ host: domain, port: 443, servername: domain, timeout: 10_000 }, () => {
+      const cert = socket.getPeerCertificate()
+      socket.end()
+      if (!cert || !cert.valid_to) {
+        finish({ ok: false, detail: 'no certificate returned', daysRemaining: null })
+        return
+      }
+      const validTo = new Date(cert.valid_to)
+      const daysRemaining = Math.floor((validTo.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+      if (daysRemaining < 0) {
+        finish({ ok: false, detail: `certificate EXPIRED ${Math.abs(daysRemaining)}d ago`, daysRemaining })
+      } else if (daysRemaining < warnDays) {
+        finish({ ok: false, detail: `certificate expires in ${daysRemaining}d`, daysRemaining })
+      } else {
+        finish({ ok: true, detail: `expires in ${daysRemaining}d`, daysRemaining })
+      }
+    })
+    socket.on('error', (e) => finish({ ok: false, detail: `TLS connect failed: ${e.message}`, daysRemaining: null }))
+    socket.on('timeout', () => {
+      socket.destroy()
+      finish({ ok: false, detail: 'TLS connect timed out', daysRemaining: null })
+    })
+  })
 }
 
 // ─── Resend ─────────────────────────────────────────────
