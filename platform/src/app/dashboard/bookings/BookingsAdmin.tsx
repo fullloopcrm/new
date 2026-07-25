@@ -1402,6 +1402,31 @@ function BookingsPage() {
     }
   }
 
+  // Manual trigger for the same "30-min heads up" flow a cleaner fires from
+  // the team portal (/api/team-portal/15min-alert) — admin + client SMS with
+  // pay link, hours worked, and amount owed. force:true bypasses the 30-min
+  // dedupe window since this is an explicit manual resend, not the automatic
+  // cleaner-triggered path.
+  const handleSend30MinAlert = async (bookingId: string) => {
+    setResendMenuId(null)
+    const res = await fetch('/api/team-portal/15min-alert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId, force: true })
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(data.error || 'Failed to send 30-min alert')
+    } else if (data.skipped) {
+      alert('Already paid — no alert sent')
+    } else if (data.clientNotified === false) {
+      alert('Admin notified, but client text failed to send — check Notifications')
+    } else {
+      alert('30-min alert sent!')
+    }
+    loadBookings()
+  }
+
   const copyTeamLink = () => {
     if (editingBooking?.team_member_token) {
       navigator.clipboard.writeText(window.location.origin + '/team/' + editingBooking.team_member_token)
@@ -2024,9 +2049,10 @@ function BookingsPage() {
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                             </button>
                             {resendMenuId === b.id && (
-                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[130px]">
                                 <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Email</button>
                                 <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Text</button>
+                                <button onClick={() => handleSend30MinAlert(b.id)} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors whitespace-nowrap">30-Min Alert</button>
                               </div>
                             )}
                           </div>
