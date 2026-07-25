@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CreateBookingForm from '../bookings/CreateBookingForm'
 
 type Client = { id: string; name: string; phone: string | null }
@@ -54,6 +54,15 @@ export default function FindTeamMemberPage() {
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<Set<string>>(new Set())
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<SendResult | null>(null)
+
+  useEffect(() => {
+    if (!clientSearch || selectedClient) { setClients([]); return }
+    const t = setTimeout(() => {
+      fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&limit=8`)
+        .then(r => r.json()).then(d => setClients(d.clients || [])).catch(() => setClients([]))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [clientSearch, selectedClient])
 
   const pickClient = (c: Client) => {
     setSelectedClient(c)
