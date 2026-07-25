@@ -611,8 +611,6 @@ export default function TeamPage() {
                   </div>
 
                   <div className="tm-actions" onClick={(e) => e.stopPropagation()}>
-                    <button className="tm-action-btn" type="button">Schedule</button>
-                    <button className="tm-action-btn" type="button">Pay</button>
                     <Link className="tm-action-btn" href={`/dashboard/team/${m.id}`}>Profile</Link>
                     <button
                       className="tm-action-btn"
