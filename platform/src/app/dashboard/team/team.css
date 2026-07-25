@@ -227,6 +227,26 @@
   flex-shrink: 0;
 }
 .tm-name-block { flex: 1; min-width: 0; }
+.tm-rating { flex-shrink: 0; text-align: right; }
+.tm-rating-stars {
+  font-family: var(--tm-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tm-ink);
+  white-space: nowrap;
+}
+.tm-rating-count {
+  font-family: var(--tm-mono);
+  font-size: 10px;
+  color: var(--tm-muted);
+  white-space: nowrap;
+}
+.tm-rating-none {
+  font-family: var(--tm-mono);
+  font-size: 10px;
+  color: var(--tm-muted-2);
+  white-space: nowrap;
+}
 .tm-name {
   font-family: var(--tm-display);
   font-size: 16px;

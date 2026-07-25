@@ -36,6 +36,8 @@ type TeamMember = {
   jobs_this_week?: number
   hours_this_week?: number
   ltv_total_cents?: number
+  avg_rating?: number | null
+  rating_count?: number | null
 }
 
 type EnrichedMember = TeamMember & {
@@ -564,6 +566,16 @@ export default function TeamPage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    <div className="tm-rating" title={m.rating_count ? `${m.rating_count} rating${m.rating_count === 1 ? '' : 's'}` : 'No ratings yet'}>
+                      {m.rating_count ? (
+                        <>
+                          <div className="tm-rating-stars">★ {Number(m.avg_rating).toFixed(1)}</div>
+                          <div className="tm-rating-count">{m.rating_count} rating{m.rating_count === 1 ? '' : 's'}</div>
+                        </>
+                      ) : (
+                        <div className="tm-rating-none">No ratings yet</div>
+                      )}
                     </div>
                   </div>
 
