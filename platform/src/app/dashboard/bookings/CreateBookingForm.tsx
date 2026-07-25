@@ -46,12 +46,17 @@ export interface CreateBookingFormProps {
   // When set, the client search UI is hidden and the form is fixed to this
   // client (Find a Team Member: client is already chosen on that page).
   lockedClientId?: string
+  // When set, hides the team-member/cleaner picker entirely (Find a Team
+  // Member: who covers it isn't decided at create time -- that's the whole
+  // point of broadcasting. The booking is created unassigned regardless;
+  // this only controls whether the picker UI shows).
+  hideCleanerPicker?: boolean
   initialValues?: { clientId?: string; startDate?: string; startTime?: string; serviceType?: string; notes?: string }
   onCreated: () => void
   onCancel: () => void
 }
 
-export default function CreateBookingForm({ lockedClientId, initialValues, onCreated, onCancel }: CreateBookingFormProps) {
+export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, initialValues, onCreated, onCancel }: CreateBookingFormProps) {
   const worker = useWorkerLabel()
   const serviceTypesData = useServiceTypes()
   // Catalog-driven only -- no cleaning fallback. Shows the tenant's own services.
@@ -171,7 +176,7 @@ export default function CreateBookingForm({ lockedClientId, initialValues, onCre
   // full preloaded list for the same getCleanerAvailability call).
   useEffect(() => {
     const date = createForm.start_date
-    if (!date) { setDayBookings([]); return }
+    if (hideCleanerPicker || !date) { setDayBookings([]); return }
     let cancelled = false
     fetch(`/api/bookings?from=${date}&to=${date}&limit=1000`)
       .then(r => r.ok ? r.json() : null)
@@ -182,11 +187,11 @@ export default function CreateBookingForm({ lockedClientId, initialValues, onCre
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [createForm.start_date])
+  }, [createForm.start_date, hideCleanerPicker])
 
   // Smart-schedule: fetch zone/proximity scores whenever the booking context changes
   useEffect(() => {
-    if (!createForm.start_date || !createForm.start_time) {
+    if (hideCleanerPicker || !createForm.start_date || !createForm.start_time) {
       setSmartScores({}); setSmartScoresKey(''); setSuggestions([])
       return
     }
@@ -222,7 +227,7 @@ export default function CreateBookingForm({ lockedClientId, initialValues, onCre
       .catch(() => {})
 
     return () => controller.abort()
-  }, [createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, knownClients, smartScoresKey])
+  }, [hideCleanerPicker, createForm.client_id, createForm.property_id, clientProperties, createForm.start_date, createForm.start_time, createForm.hours, createForm.hourly_rate, createForm.team_size, knownClients, smartScoresKey])
 
   const handleClientSelect = (client: Client) => {
     setCreateForm({ ...createForm, client_id: client.id })
@@ -505,7 +510,7 @@ export default function CreateBookingForm({ lockedClientId, initialValues, onCre
               <input type="time" required min="07:00" max="19:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" />
             </div>
           </div>
-          {createForm.is_emergency ? (
+          {!hideCleanerPicker && (createForm.is_emergency ? (
             <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-700 mb-3">🚨 Broadcasts to all team - first to claim gets it</p>
               <label className="block text-sm font-medium text-red-700 mb-1">Team Pay Rate</label>
@@ -744,7 +749,7 @@ export default function CreateBookingForm({ lockedClientId, initialValues, onCre
                 })}
               </div>
             </div>
-          )}
+          ))}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Hours</label>

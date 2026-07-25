@@ -116,6 +116,7 @@ export default function FindTeamMemberPage() {
                 <CreateBookingForm
                   key={selectedClient.id}
                   lockedClientId={selectedClient.id}
+                  hideCleanerPicker
                   onCreated={() => pickClient(selectedClient)}
                   onCancel={reset}
                 />
