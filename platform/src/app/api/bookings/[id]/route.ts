@@ -174,12 +174,12 @@ export async function PUT(
     if (error) {
       // TEMP DIAGNOSTIC 2026-07-24 -- pinpointing which field is an empty-
       // string uuid causing "invalid input syntax for type uuid: ''" on
-      // booking edit save. Remove once root-caused.
+      // booking edit save. Server log pulling wasn't surfacing traffic, so
+      // putting the fields sent directly in the error message the frontend
+      // already alert()s -- visible on the next failed attempt with no log
+      // access needed. Remove once root-caused.
       console.error('[PUT /api/bookings/[id]] update failed', { bookingId: id, fields, error: error.message })
-    }
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: `${error.message} | fields: ${JSON.stringify(fields)}` }, { status: 500 })
     }
 
     // Send notifications based on what changed
