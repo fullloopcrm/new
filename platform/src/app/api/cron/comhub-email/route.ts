@@ -118,8 +118,11 @@ async function sendReply(
     })
     return (res as { id?: string } | null)?.id ?? null
   }
-  // nycmaid env fallback — unchanged behaviour.
-  const html = `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.5">${escapeHtml(text)}</div>`
+  // nycmaid env fallback. Signature ported from the standalone nycmaid app's
+  // own cron/comhub-email route — dropped during the 2026-07-22 FL cutover
+  // port, restored 2026-07-25.
+  const signature = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;margin-top:16px">Yinez | AI Admin (powered by FullLoop CRM)<br>The NYC Maid<br>(212) 202-8400 · thenycmaid.com</div>`
+  const html = `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.5">${escapeHtml(text)}</div>${signature}`
   const send = await sendNycmaidEmail(to, subject, html, undefined, { skipOwnerBcc: true })
   return send?.success ? ((send.data as { id?: string } | undefined)?.id || null) : null
 }
