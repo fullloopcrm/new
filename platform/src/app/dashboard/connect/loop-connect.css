@@ -69,6 +69,11 @@
   display: flex;
   flex-direction: column;
   background: var(--lc-bg);
+  /* Grid items default to a content-based automatic minimum size, so
+     without this, a tall sidebar (pinned section + channel list) inflates
+     .lc-shell's whole grid row past its intended height instead of
+     scrolling internally via .lc-channel-list's own overflow-y. */
+  min-height: 0;
 }
 
 .lc-search-box {
@@ -207,6 +212,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 .lc-channel-head {
   padding: 13px 18px;
