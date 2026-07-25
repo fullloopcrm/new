@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import CreateBookingForm from '../bookings/CreateBookingForm'
 
 type Client = { id: string; name: string; phone: string | null }
@@ -12,14 +12,30 @@ type Booking = {
   hourly_rate: number | null
   clients: { name: string; address: string | null } | null
 }
-type SendResult = { sent: number; eligible: number; members: string[] } | { error: string }
+type Recipient = { id: string; name: string; phone: string | null }
+type SendResult =
+  | {
+      team: { sent: number; eligible: number; members: string[] }
+      applicants: { sent: number; eligible: number; applicants: string[] }
+    }
+  | { error: string }
+
+const DEFAULT_LABOR_RATE = '35'
 
 const input: React.CSSProperties = { padding: '8px 10px', border: '1px solid #d4cfc4', borderRadius: 8, fontSize: 14, width: '100%' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e7e2d8', borderRadius: 12, padding: 16 }
+const checklistRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }
 
 function fmt(dt: string): string {
   const d = new Date(dt.replace(' ', 'T').replace(/(\.\d+)?Z?$/, '') + 'Z')
   return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+}
+
+function toggleId(ids: Set<string>, id: string): Set<string> {
+  const next = new Set(ids)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  return next
 }
 
 export default function FindTeamMemberPage() {
@@ -30,17 +46,14 @@ export default function FindTeamMemberPage() {
   const [bookingsLoading, setBookingsLoading] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [rateOverride, setRateOverride] = useState('')
+  const [loadingRecipients, setLoadingRecipients] = useState(false)
+  const [showRecipients, setShowRecipients] = useState(false)
+  const [members, setMembers] = useState<Recipient[]>([])
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
+  const [applicants, setApplicants] = useState<Recipient[]>([])
+  const [selectedApplicantIds, setSelectedApplicantIds] = useState<Set<string>>(new Set())
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<SendResult | null>(null)
-
-  useEffect(() => {
-    if (!clientSearch || selectedClient) { setClients([]); return }
-    const t = setTimeout(() => {
-      fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}&limit=8`)
-        .then(r => r.json()).then(d => setClients(d.clients || [])).catch(() => setClients([]))
-    }, 250)
-    return () => clearTimeout(t)
-  }, [clientSearch, selectedClient])
 
   const pickClient = (c: Client) => {
     setSelectedClient(c)
@@ -59,9 +72,40 @@ export default function FindTeamMemberPage() {
       .finally(() => setBookingsLoading(false))
   }
 
+  const pickBooking = (b: Booking) => {
+    setSelectedBooking(b)
+    setRateOverride(DEFAULT_LABOR_RATE)
+    setShowRecipients(false)
+    setMembers([]); setSelectedMemberIds(new Set())
+    setApplicants([]); setSelectedApplicantIds(new Set())
+    setResult(null)
+  }
+
   const reset = () => {
     setSelectedClient(null); setClientSearch(''); setClients([]); setBookings([])
     setSelectedBooking(null); setRateOverride(''); setResult(null)
+    setShowRecipients(false)
+    setMembers([]); setSelectedMemberIds(new Set())
+    setApplicants([]); setSelectedApplicantIds(new Set())
+  }
+
+  const loadRecipients = async () => {
+    setLoadingRecipients(true)
+    try {
+      const r = await fetch('/api/admin/find-cleaner/broadcast-booking')
+      const j = await r.json()
+      const m: Recipient[] = j.members || []
+      const a: Recipient[] = j.applicants || []
+      setMembers(m)
+      setSelectedMemberIds(new Set(m.map(x => x.id)))
+      setApplicants(a)
+      setSelectedApplicantIds(new Set(a.map(x => x.id)))
+      setShowRecipients(true)
+    } catch {
+      // leave showRecipients false so the button is still there to retry
+    } finally {
+      setLoadingRecipients(false)
+    }
   }
 
   const send = async () => {
@@ -69,7 +113,12 @@ export default function FindTeamMemberPage() {
     setSending(true); setResult(null)
     const r = await fetch('/api/admin/find-cleaner/broadcast-booking', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ booking_id: selectedBooking.id, rate_override: rateOverride ? Number(rateOverride) : null }),
+      body: JSON.stringify({
+        booking_id: selectedBooking.id,
+        rate_override: rateOverride ? Number(rateOverride) : null,
+        member_ids: Array.from(selectedMemberIds),
+        applicant_ids: Array.from(selectedApplicantIds),
+      }),
     })
     const d = await r.json().catch(() => ({ error: 'Failed to send' }))
     setResult(d)
@@ -125,7 +174,7 @@ export default function FindTeamMemberPage() {
             {bookings.map(b => (
               <div
                 key={b.id}
-                onClick={() => { setSelectedBooking(b); setRateOverride(''); setResult(null) }}
+                onClick={() => pickBooking(b)}
                 style={{
                   padding: 10, borderRadius: 8, cursor: 'pointer',
                   border: selectedBooking?.id === b.id ? '2px solid #1a1a1a' : '1px solid #e7e2d8',
@@ -144,16 +193,63 @@ export default function FindTeamMemberPage() {
           <div style={{ fontSize: 13, color: '#7a7468' }}>Broadcasting for:</div>
           <div style={{ fontWeight: 600 }}>{selectedClient?.name} · {fmt(selectedBooking.start_time)}</div>
           <label>
-            Pay rate override ($/hr) — optional, what the cleaner earns. Does not change what the client is charged.
-            <input type="number" style={input} value={rateOverride} onChange={(e) => setRateOverride(e.target.value)} placeholder="leave blank for their normal pay rate" />
+            Labor rate override ($/hr) — what the cleaner earns. Does not change what the client is charged.
+            <input type="number" style={input} value={rateOverride} onChange={(e) => setRateOverride(e.target.value)} placeholder={DEFAULT_LABOR_RATE} />
           </label>
-          <button onClick={send} disabled={sending} style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a7a3a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
-            {sending ? 'Sending…' : 'Broadcast to eligible team members'}
-          </button>
+
+          {!showRecipients && (
+            <button onClick={loadRecipients} disabled={loadingRecipients} style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a1a1a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+              {loadingRecipients ? 'Loading…' : 'Select broadcast team members'}
+            </button>
+          )}
+
+          {showRecipients && (
+            <>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Active roster ({selectedMemberIds.size}/{members.length})</div>
+                <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
+                  {members.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No active roster members with a phone on file.</div>}
+                  {members.map(m => (
+                    <label key={m.id} style={checklistRow}>
+                      <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => setSelectedMemberIds(prev => toggleId(prev, m.id))} />
+                      {m.name}{m.phone ? ` · ${m.phone}` : ''}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Applicants ({selectedApplicantIds.size}/{applicants.length})</div>
+                <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
+                  {applicants.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No applicants with a phone on file.</div>}
+                  {applicants.map(a => (
+                    <label key={a.id} style={checklistRow}>
+                      <input type="checkbox" checked={selectedApplicantIds.has(a.id)} onChange={() => setSelectedApplicantIds(prev => toggleId(prev, a.id))} />
+                      {a.name}{a.phone ? ` · ${a.phone}` : ''}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={send}
+                disabled={sending || (selectedMemberIds.size === 0 && selectedApplicantIds.size === 0)}
+                style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a7a3a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {sending ? 'Sending…' : 'Send'}
+              </button>
+            </>
+          )}
+
           {result && 'error' in result && <div style={{ color: '#b00', fontWeight: 600 }}>{result.error}</div>}
-          {result && 'sent' in result && (
-            <div style={{ fontWeight: 600 }}>
-              Sent to {result.sent} of {result.eligible} eligible: {result.members.join(', ')}
+          {result && 'team' in result && (
+            <div style={{ display: 'grid', gap: 4 }}>
+              <div style={{ fontWeight: 600 }}>
+                Team: sent {result.team.sent} of {result.team.eligible}{result.team.members.length ? ` — ${result.team.members.join(', ')}` : ''}
+              </div>
+              <div style={{ fontWeight: 600 }}>
+                Applicants: sent {result.applicants.sent} of {result.applicants.eligible}{result.applicants.applicants.length ? ` — ${result.applicants.applicants.join(', ')}` : ''}
+              </div>
             </div>
           )}
         </div>

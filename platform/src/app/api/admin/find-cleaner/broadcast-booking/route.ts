@@ -4,36 +4,61 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
-import { parseNaiveET } from '@/lib/recurring'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 
-// Booking-driven sibling of the older zone/free-form find-cleaner broadcast
-// (preview/send routes) -- that one asks the admin to retype date/time/
-// address by hand and has cleaners reply YES over SMS. This one starts from
-// an already-unassigned booking (so it's already visible in the team
-// portal's claim tab -- no state change needed) and just notifies eligible
-// cleaners to go claim it there.
-const BUFFER_MS = 60 * 60 * 1000
-const DEFAULT_DURATION_MS = 3 * 60 * 60 * 1000
+// Booking-driven find-a-cleaner broadcast. The admin picks recipients
+// explicitly from two rosters (GET) rather than the route auto-computing
+// eligibility -- team members get the claim-the-job text (address, labor
+// rate, portal link); applicants (not yet hired) get a simpler "contact us
+// to activate your portal" text. Not routed through
+// admin/message-applicants/send -- that route is hard-gated by TEST_MODE
+// (constants.ts) for its own mass-campaign use case; this is a targeted,
+// per-booking send and re-applies its own (untest-gated) eligibility here.
+const EXCLUDED_APPLICANT_STATUSES = ['accepted', 'rejected']
+
+type MemberRow = { id: string; name: string; phone: string | null; active: boolean | null; status: string | null }
+type ApplicantRow = { id: string; name: string | null; phone: string | null; status: string | null }
+
+export async function GET() {
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+  const { tenantId } = tenant
+  const db = tenantDb(tenantId)
+
+  const [{ data: members }, { data: applicants }] = await Promise.all([
+    db.from('team_members').select('id, name, phone, active, status') as unknown as Promise<{ data: MemberRow[] | null }>,
+    db.from('cleaner_applications').select('id, name, phone, status') as unknown as Promise<{ data: ApplicantRow[] | null }>,
+  ])
+
+  const eligibleMembers = (members || []).filter(m => m.active !== false && (m.status || 'active') !== 'inactive' && !!m.phone)
+  const eligibleApplicants = (applicants || []).filter(a => !!a.phone && !(a.status && EXCLUDED_APPLICANT_STATUSES.includes(a.status)))
+
+  return NextResponse.json({
+    members: eligibleMembers.map(m => ({ id: m.id, name: m.name, phone: m.phone })),
+    applicants: eligibleApplicants.map(a => ({ id: a.id, name: a.name || 'Applicant', phone: a.phone })),
+  })
+}
 
 export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
   const { tenantId } = tenant
 
-  const { booking_id, rate_override } = await request.json().catch(() => ({}))
+  const { booking_id, rate_override, member_ids, applicant_ids } = await request.json().catch(() => ({}))
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
+  if ((!member_ids || member_ids.length === 0) && (!applicant_ids || applicant_ids.length === 0)) {
+    return NextResponse.json({ error: 'No recipients selected' }, { status: 400 })
+  }
 
   const db = tenantDb(tenantId)
 
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, team_member_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, clients(address)')
+    .select('id, team_member_id, status, pay_rate, clients(address)')
     .eq('id', booking_id)
     .single()) as {
       data: {
         id: string; team_member_id: string | null; status: string
-        start_time: string; end_time: string | null; service_type: string | null; hourly_rate: number | null
         pay_rate: number | null
         clients: { address: string | null } | null
       } | null
@@ -55,57 +80,6 @@ export async function POST(request: Request) {
     await db.from('bookings').update({ pay_rate: Number(rate_override) }).eq('id', booking_id)
   }
 
-  const targetStart = parseNaiveET(booking.start_time)
-  const targetEnd = booking.end_time ? parseNaiveET(booking.end_time) : new Date(targetStart.getTime() + DEFAULT_DURATION_MS)
-
-  const dayYMD = booking.start_time.slice(0, 10)
-  const [y, m, d] = dayYMD.split('-').map(Number)
-  const nextDayYMD = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
-
-  const [{ data: members }, { data: dayBookings }] = await Promise.all([
-    db.from('team_members').select('id, name, phone, active, status') as unknown as Promise<{
-      data: { id: string; name: string; phone: string | null; active: boolean | null; status: string | null }[] | null
-    }>,
-    db.from('bookings')
-      .select('id, team_member_id, start_time, end_time, status')
-      .gte('start_time', `${dayYMD}T00:00:00`)
-      .lt('start_time', `${nextDayYMD}T00:00:00`)
-      .neq('id', booking_id)
-      .not('status', 'eq', 'cancelled') as unknown as Promise<{
-        data: { id: string; team_member_id: string | null; start_time: string; end_time: string | null; status: string }[] | null
-      }>,
-  ])
-
-  const conflictsByMember = new Map<string, { start: Date; end: Date }[]>()
-  for (const b of dayBookings || []) {
-    if (!b.team_member_id) continue
-    const s = parseNaiveET(b.start_time)
-    const e = b.end_time ? parseNaiveET(b.end_time) : new Date(s.getTime() + DEFAULT_DURATION_MS)
-    const arr = conflictsByMember.get(b.team_member_id) || []
-    arr.push({ start: s, end: e })
-    conflictsByMember.set(b.team_member_id, arr)
-  }
-
-  // Symmetric 1hr buffer: eligible only if EVERY other job that day clears a
-  // full hour on both sides of the target slot.
-  const eligible = (members || []).filter(m => {
-    // Two separate inactive signals exist on this table (active boolean,
-    // status string) -- matches the same active !== false && status !==
-    // 'inactive' check CreateBookingForm.tsx's cleaner picker already uses.
-    // This route was only checking `active`, so a member with active:true
-    // but status:'inactive' still got broadcast to.
-    if (m.active === false || (m.status || 'active') === 'inactive' || !m.phone) return false
-    const existing = conflictsByMember.get(m.id) || []
-    return existing.every(x =>
-      x.end.getTime() + BUFFER_MS <= targetStart.getTime() ||
-      x.start.getTime() >= targetEnd.getTime() + BUFFER_MS
-    )
-  })
-
-  if (eligible.length === 0) {
-    return NextResponse.json({ error: 'No eligible team members right now — everyone active either has no phone on file or a conflicting job that day.' }, { status: 409 })
-  }
-
   const { data: tenantData } = await supabaseAdmin
     .from('tenants')
     .select('telnyx_api_key, telnyx_phone, domain, slug')
@@ -120,31 +94,84 @@ export async function POST(request: Request) {
   const address = booking.clients?.address || null
   const payRate = rate_override != null && Number(rate_override) > 0 ? Number(rate_override) : booking.pay_rate
 
-  const body = [
-    'There is a job available in your portal — first team member to claim it gets it.',
-    `You must be able to arrive within 60-90 minutes.${payRate ? ` Pays $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
-    portalUrl,
-    '',
-    'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
-    `Debes poder llegar en 60-90 minutos.${payRate ? ` Paga $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
-    portalUrl,
-  ].join('\n')
+  let teamResult = { sent: 0, eligible: 0, members: [] as string[] }
+  if (member_ids && member_ids.length > 0) {
+    const { data: members } = (await db
+      .from('team_members')
+      .select('id, name, phone, active, status')
+      .in('id', member_ids)) as { data: MemberRow[] | null }
 
-  const results = await Promise.allSettled(eligible.map(m => sendSMS({
-    to: m.phone as string,
-    body,
-    telnyxApiKey: tenantData.telnyx_api_key as string,
-    telnyxPhone: tenantData.telnyx_phone as string,
-  })))
-  const sentCount = results.filter(r => r.status === 'fulfilled').length
+    // Never trust the client's id list blindly -- re-check active/phone server-side.
+    const eligible = (members || []).filter(m => m.active !== false && (m.status || 'active') !== 'inactive' && !!m.phone)
+
+    if (eligible.length > 0) {
+      const body = [
+        'There is a job available in your portal — first team member to claim it gets it.',
+        `You must be able to arrive within 60-90 minutes.${payRate ? ` Pays $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+        portalUrl,
+        '',
+        'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
+        `Debes poder llegar en 60-90 minutos.${payRate ? ` Paga $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+        portalUrl,
+      ].join('\n')
+
+      const results = await Promise.allSettled(eligible.map(m => sendSMS({
+        to: m.phone as string,
+        body,
+        telnyxApiKey: tenantData.telnyx_api_key as string,
+        telnyxPhone: tenantData.telnyx_phone as string,
+      })))
+      teamResult = {
+        sent: results.filter(r => r.status === 'fulfilled').length,
+        eligible: eligible.length,
+        members: eligible.map(m => m.name),
+      }
+    }
+  }
+
+  let applicantResult = { sent: 0, eligible: 0, applicants: [] as string[] }
+  if (applicant_ids && applicant_ids.length > 0) {
+    const { data: applicants } = (await db
+      .from('cleaner_applications')
+      .select('id, name, phone, status')
+      .in('id', applicant_ids)) as { data: ApplicantRow[] | null }
+
+    const eligible = (applicants || []).filter(a => !!a.phone && !(a.status && EXCLUDED_APPLICANT_STATUSES.includes(a.status)))
+
+    if (eligible.length > 0) {
+      const body = "There's an available cleaning — contact us to activate your portal to claim it. Reply STOP to stop receiving messages."
+
+      const results = await Promise.allSettled(eligible.map(a => sendSMS({
+        to: a.phone as string,
+        body,
+        telnyxApiKey: tenantData.telnyx_api_key as string,
+        telnyxPhone: tenantData.telnyx_phone as string,
+      })))
+      applicantResult = {
+        sent: results.filter(r => r.status === 'fulfilled').length,
+        eligible: eligible.length,
+        applicants: eligible.map(a => a.name || 'Applicant'),
+      }
+    }
+  }
+
+  if (teamResult.eligible === 0 && applicantResult.eligible === 0) {
+    return NextResponse.json({ error: 'No eligible recipients — everyone selected either has no phone on file or was excluded.' }, { status: 409 })
+  }
 
   await audit({
     tenantId,
     action: 'booking.updated',
     entityType: 'booking',
     entityId: booking_id,
-    details: { event: 'find_team_member_broadcast', eligible_count: eligible.length, sent_count: sentCount, member_ids: eligible.map(m => m.id) },
+    details: {
+      event: 'find_team_member_broadcast',
+      team_sent: teamResult.sent,
+      team_eligible: teamResult.eligible,
+      applicant_sent: applicantResult.sent,
+      applicant_eligible: applicantResult.eligible,
+    },
   })
 
-  return NextResponse.json({ sent: sentCount, eligible: eligible.length, members: eligible.map(m => m.name) })
+  return NextResponse.json({ team: teamResult, applicants: applicantResult })
 }
