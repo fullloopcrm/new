@@ -7,6 +7,8 @@ import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { notify } from '@/lib/notify'
+import { formatName, formatEmail } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -101,6 +103,14 @@ export async function PUT(
     }
 
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason'])
+
+    if (typeof fields.name === 'string') fields.name = formatName(fields.name)
+    if (typeof fields.email === 'string') fields.email = formatEmail(fields.email)
+    if (typeof fields.phone === 'string') {
+      const normalized = normalizePhone(fields.phone)
+      if (!normalized) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+      fields.phone = normalized
+    }
 
     // preferred_team_member_id is a caller-supplied FK — verify it's tenant-owned
     // before writing it, matching the same guard the client-portal twin

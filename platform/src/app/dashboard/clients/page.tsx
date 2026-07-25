@@ -5,15 +5,10 @@ import dynamic from 'next/dynamic'
 import './clients.css'
 import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { formatPhone as formatPhoneDisplay } from '@/lib/format'
+import { stripPhone } from '@/lib/phone'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
-
-function formatPhoneDisplay(value: string): string {
-  const cleaned = value.replace(/\D/g, '')
-  if (cleaned.length <= 3) return cleaned
-  if (cleaned.length <= 6) return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3)
-  return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 10)
-}
 
 // Row-level Call/Text/Directions — same pattern as the bookings list, so a
 // client row can be worked without opening the drawer.
@@ -229,8 +224,11 @@ export default function ClientsPage() {
       if (typeFilter === 'one-time' && c.recurring) return false
       if (search) {
         const q = search.toLowerCase()
-        const hay = `${c.name} ${c.email || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase()
-        if (!hay.includes(q)) return false
+        const hay = `${c.name} ${c.email || ''} ${c.address || ''}`.toLowerCase()
+        const textMatch = hay.includes(q)
+        const searchDigits = stripPhone(search)
+        const phoneMatch = searchDigits.length > 0 && stripPhone(c.phone || '').includes(searchDigits)
+        if (!textMatch && !phoneMatch) return false
       }
       return true
     })
