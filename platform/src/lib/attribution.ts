@@ -171,6 +171,29 @@ export async function attributeCollectForm(
   return { domain: result.domain, confidence: result.confidence }
 }
 
+// Attribute a deal (web lead entering the sales pipeline) automatically
+export async function attributeDeal(
+  tenantId: string,
+  dealId: string,
+  address: string | null,
+): Promise<{ domain: string; confidence: number } | null> {
+  if (!address) return null
+  const result = await attributeByAddress(tenantId, address)
+  if (!result) return null
+
+  await supabaseAdmin
+    .from('deals')
+    .update({
+      attributed_domain: result.domain,
+      attribution_confidence: result.confidence,
+      attributed_at: new Date().toISOString(),
+    })
+    .eq('id', dealId)
+    .eq('tenant_id', tenantId)
+
+  return { domain: result.domain, confidence: result.confidence }
+}
+
 // Attribute a booking automatically
 export async function autoAttributeBooking(
   tenantId: string,

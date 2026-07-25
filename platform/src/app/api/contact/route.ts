@@ -348,6 +348,10 @@ export async function POST(request: NextRequest) {
           .update({ last_activity_at: nowIso })
           .eq('id', openDeal.id)
           .eq('tenant_id', tenant.id)
+        if (address) {
+          const { attributeDeal } = await import('@/lib/attribution')
+          attributeDeal(tenant.id, openDeal.id, address).catch((err) => console.error('[api/contact] deal attribution error (non-blocking):', err))
+        }
       } else {
         // New deal at the front of the pipeline, seeded with the capture note.
         const { data: newDeal } = await supabaseAdmin
@@ -375,6 +379,10 @@ export async function POST(request: NextRequest) {
             description: `Lead captured via web form [${formType}]${notes ? `\n${notes}` : ''}`,
             metadata: { source: leadSource, form_type: formType, self_book: !!body.selfBook },
           })
+          if (address) {
+            const { attributeDeal } = await import('@/lib/attribution')
+            attributeDeal(tenant.id, newDeal.id, address).catch((err) => console.error('[api/contact] deal attribution error (non-blocking):', err))
+          }
         }
       }
     } catch (dealErr) {
