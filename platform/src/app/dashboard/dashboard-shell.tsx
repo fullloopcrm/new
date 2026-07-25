@@ -49,13 +49,12 @@ const navMain: Array<{
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [
     { letter: 'A', label: 'Loop Connect', href: '/dashboard/connect' },
   ]},
-  { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
-  { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
+  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Catalog', href: '/dashboard/catalog' },
     { letter: 'B', label: 'Sales Partners', href: '/dashboard/sales-partners' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
   ]},
-  { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
+  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
     { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
     { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
@@ -63,9 +62,9 @@ const navMain: Array<{
     { letter: 'E', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
     { letter: 'F', label: 'Announcements', href: '/dashboard/announcements' },
   ]},
-  { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
-  { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
-  { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
+  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
+  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Social', href: '/dashboard/social' },
@@ -90,7 +89,6 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/analytics',
   ],
   comhub: ['/dashboard/comhub', '/dashboard/connect'],
-  messages: ['/dashboard/messages'],
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [

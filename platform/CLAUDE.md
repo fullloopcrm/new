@@ -38,7 +38,9 @@ Until migrated, **do not add features to these clones.** Build in global only.
 
 Two-way in-app messaging, threaded per tenant in `tenant_owner_messages`. **Global** like everything else.
 
-- **Admin:** `/admin/tenant-chats` (+ `/api/admin/tenant-chats`). **Owner:** `/dashboard/messages` (+ `/api/dashboard/messages`, tenant-scoped via `getTenantForRequest`).
+- **Admin:** `/admin/tenant-chats` (+ `/api/admin/tenant-chats`), unchanged. **Owner:** folded into Loop Connect (`/dashboard/connect`) as the pinned "Full Loop Support" conversation (+ `/api/dashboard/messages`, tenant-scoped via `getTenantForRequest`). `/dashboard/messages` is now just a redirect to `/dashboard/connect` — Messages as a separate nav item was retired 2026-07-25; its team-to-team DM feature (`team_direct_messages`) was retired too in favor of Connect's translated 1:1 `type='team'` channels, which already covered the same operator↔worker relationship.
 - **Level 1 is IN-PLATFORM ONLY** — sending stores a row with `channel:'platform'`; it does **not** send SMS/email. External owner reach is a separate path (`notifyTenantOwner` / Jefe `notify_tenant_owner`).
 - **Bot-ready (Level 2):** every row has `sender_role` (`admin|owner|jefe|tenant_agent`) + `meta` jsonb. Jefe tools: `read_tenant_thread`, `send_tenant_message` (confirm-gated). A bot reply is just an insert with `sender_role:'jefe'`.
 - Live refresh = 15s polling; true push-realtime is pending RLS on `tenant_owner_messages`.
+- Every Loop Connect message (Support thread + all `connect_channels` types) is now auto-translated EN/ES at send time (`translateToEnEs`, fail-open) and stored as `body_en`/`body_es` alongside the raw `body`.
+- Mass/group messaging: an admin-created `type='custom'` channel can carry explicit `team_member_id` recipients via `connect_channel_members`. Those members see it in their team-portal channel switcher (`/api/team-portal/connect/channels`) alongside their own private `team` thread.

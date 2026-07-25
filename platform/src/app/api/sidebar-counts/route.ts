@@ -63,6 +63,19 @@ export async function GET() {
       // Table may not exist yet
     }
 
+    // Full Loop Support (pinned in Loop Connect) counts as one more unread
+    // "channel" when the platform admin has sent something we haven't read.
+    try {
+      const { count } = await db
+        .from('tenant_owner_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('direction', 'out')
+        .is('read_at', null)
+      if (count && count > 0) connectUnread++
+    } catch {
+      // Table may not exist yet
+    }
+
     return NextResponse.json({
       clients: clientCount || 0,
       bookings: bookingCount || 0,

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { translateToEnEs } from '@/lib/connect-translate'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +16,14 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await db
       .from('tenant_owner_messages')
-      .select('id, direction, channel, body, sender, sender_role, created_at')
+      .select('id, direction, channel, body, body_en, body_es, sender, sender_role, created_at')
       .order('created_at', { ascending: true })
       .limit(500)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Owner-side dashboard is English throughout -- display_body falls back
+    // to the raw body for older, pre-translation rows.
+    const displayMessages = (data || []).map((m) => ({ ...m, display_body: m.body_en || m.body }))
 
     // Mark admin→owner messages as read now that the owner has loaded the thread.
     // Skipped on a forged cross-site GET (SameSite=Lax still sends cookies on
@@ -31,7 +36,7 @@ export async function GET(request: NextRequest) {
         .is('read_at', null)
     }
 
-    return NextResponse.json({ messages: data || [] })
+    return NextResponse.json({ messages: displayMessages })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     return NextResponse.json({ error: 'unexpected error' }, { status: 500 })
@@ -52,16 +57,20 @@ export async function POST(request: NextRequest) {
     const body = payload.body?.trim()
     if (!body) return NextResponse.json({ error: 'body required' }, { status: 400 })
 
+    const { en, es } = await translateToEnEs(body, tenant?.anthropic_api_key)
+
     const { data: inserted, error } = await db
       .from('tenant_owner_messages')
       .insert({
         direction: 'in', // in = from owner → platform/admin
         channel: 'platform',
         body,
+        body_en: en,
+        body_es: es,
         sender: 'owner',
         sender_role: 'owner',
       })
-      .select('id, direction, channel, body, sender, sender_role, created_at')
+      .select('id, direction, channel, body, body_en, body_es, sender, sender_role, created_at')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

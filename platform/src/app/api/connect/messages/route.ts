@@ -76,11 +76,9 @@ export async function POST(request: NextRequest) {
 
     if (!channel) return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
 
-    // Only the private team<->admin channel is auto-translated -- client/
-    // referrer/custom channels are unaffected.
-    const translated = channel.type === 'team'
-      ? await translateToEnEs(body.trim(), tenant.anthropic_api_key)
-      : null
+    // Every Loop Connect channel is auto-translated EN/ES so each side always
+    // reads in its own language, regardless of type.
+    const translated = await translateToEnEs(body.trim(), tenant.anthropic_api_key)
 
     const { data, error } = await db
       .from('connect_messages')

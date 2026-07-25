@@ -9,6 +9,50 @@ import { translateToEnEs } from '@/lib/connect-translate'
 // personal chat replacing texting, not a team-wide room. Messages are
 // auto-translated both ways (see connect-translate.ts): this route always
 // returns display_body = body_es, since the team member's device shows Spanish.
+// An explicit ?channel_id targets one of the worker's admin-created group/
+// broadcast channels instead (see channels/route.ts) -- membership is
+// verified via connect_channel_members before any read/write.
+async function resolveChannel(auth: { tid: string; id: string }, requestedChannelId: string | null) {
+  if (requestedChannelId) {
+    const { data: membership } = await tenantDb(auth.tid)
+      .from('connect_channel_members') // tenant-scope-ok: tenantDb() scopes the select
+      .select('channel_id')
+      .eq('channel_id', requestedChannelId)
+      .eq('team_member_id', auth.id)
+      .maybeSingle()
+    if (!membership) return null
+    const { data: channel } = await tenantDb(auth.tid)
+      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
+      .select('id')
+      .eq('id', requestedChannelId)
+      .single()
+    return channel || null
+  }
+
+  let { data: channel } = await tenantDb(auth.tid)
+    .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+    .select('id')
+    .eq('type', 'team')
+    .eq('team_member_id', auth.id)
+    .single()
+
+  if (!channel) {
+    const { data: member } = await tenantDb(auth.tid)
+      .from('team_members')
+      .select('name')
+      .eq('id', auth.id)
+      .single()
+    const { data: created } = await tenantDb(auth.tid)
+      .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
+      .insert({ type: 'team', name: member?.name || 'Team Member', team_member_id: auth.id })
+      .select('id')
+      .single()
+    channel = created
+  }
+
+  return channel || null
+}
+
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -17,26 +61,8 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   try {
-    let { data: channel } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
-      .select('id')
-      .eq('type', 'team')
-      .eq('team_member_id', auth.id)
-      .single()
-
-    if (!channel) {
-      const { data: member } = await tenantDb(auth.tid)
-        .from('team_members')
-        .select('name')
-        .eq('id', auth.id)
-        .single()
-      const { data: created } = await tenantDb(auth.tid)
-        .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
-        .insert({ type: 'team', name: member?.name || 'Team Member', team_member_id: auth.id })
-        .select('id')
-        .single()
-      channel = created
-    }
+    const requestedChannelId = request.nextUrl.searchParams.get('channel_id')
+    const channel = await resolveChannel(auth, requestedChannelId)
 
     if (!channel) return NextResponse.json({ messages: [] })
 
@@ -69,7 +95,7 @@ export async function POST(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { body } = await request.json()
+  const { body, channel_id: requestedChannelId } = await request.json()
   if (!body?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })
 
   try {
@@ -79,21 +105,7 @@ export async function POST(request: NextRequest) {
       .eq('id', auth.id)
       .single()
 
-    let { data: channel } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
-      .select('id')
-      .eq('type', 'team')
-      .eq('team_member_id', auth.id)
-      .single()
-
-    if (!channel) {
-      const { data: created } = await tenantDb(auth.tid)
-        .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
-        .insert({ type: 'team', name: member?.name || 'Team Member', team_member_id: auth.id })
-        .select('id')
-        .single()
-      channel = created
-    }
+    const channel = await resolveChannel(auth, requestedChannelId || null)
 
     if (!channel) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
