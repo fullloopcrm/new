@@ -253,6 +253,7 @@ export async function POST(request: Request) {
       schedule_id: schedule.id,
       team_size: finalTeamSize,
       suggested_team_member_id: cleaner_id ? null : suggestedTeamMemberId,
+      source: 'client_portal',
     }
   })
 

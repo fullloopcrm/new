@@ -1069,6 +1069,7 @@ async function handleCreateManualBooking(input: { client_id: string; date: strin
       end_time: endISO,
       status: 'pending',
       payment_status: 'unpaid',
+      source: 'admin',
     })
     .select('id, start_time')
     .single()

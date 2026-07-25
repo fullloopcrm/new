@@ -420,6 +420,7 @@ export async function executeTool(
         end_time: endTime,
         status: 'scheduled',
         service_type: input.service_type || 'regular',
+        source: 'admin',
       }
       if (input.team_member_id) bookingData.team_member_id = input.team_member_id
       if (input.price) bookingData.price = input.price

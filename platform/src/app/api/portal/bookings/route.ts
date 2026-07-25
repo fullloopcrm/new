@@ -109,6 +109,7 @@ export async function POST(request: Request) {
       price,
       recurring_type: recurringType,
       status: 'pending',
+      source: 'client_portal',
     })
     .select()
     .single()

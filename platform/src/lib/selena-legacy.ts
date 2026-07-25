@@ -792,6 +792,7 @@ async function handleCreateBooking(tenantId: string, input: Record<string, unkno
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', notes: `SMS booking | ${serviceType}`,
       price: hourlyRate * estimatedHours * 100,
+      source: 'yinez_sms',
     }).select('id').single()
 
     if (error) throw error

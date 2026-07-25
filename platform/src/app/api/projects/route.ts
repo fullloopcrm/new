@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         price: 0,
         status: 'scheduled',
         duration_class: 'project',
+        source: 'admin',
       })
       .select('id')
       .single()

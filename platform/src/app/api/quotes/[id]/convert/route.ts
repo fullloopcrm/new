@@ -125,6 +125,7 @@ export async function POST(request: Request, { params }: Params) {
           price: quote.total_cents ? quote.total_cents / 100 : null,
           notes: `Converted from quote ${quote.quote_number}`,
           special_instructions: quote.notes || null,
+          source: 'sales',
         })
         .select('id')
         .single()

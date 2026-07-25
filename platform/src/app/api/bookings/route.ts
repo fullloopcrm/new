@@ -286,6 +286,7 @@ export async function POST(request: Request) {
       p_day_start: dayStart,
       p_day_end: dayEnd,
       p_max_jobs_per_day: capLimit,
+      p_source: 'admin',
     })
     if (claimError) {
       return NextResponse.json({ error: claimError.message }, { status: 500 })

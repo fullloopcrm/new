@@ -258,6 +258,7 @@ export async function POST(request: Request) {
       schedule_id: schedule.id,
       discount_percent: finalDiscountPercent || null,
       suggested_team_member_id: teamMemberId ? null : suggestedTeamMemberId,
+      source: 'admin',
     }
   })
 

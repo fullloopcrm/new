@@ -79,6 +79,8 @@ interface Booking {
   final_video_url: string | null
   suggested_team_member_id: string | null
   suggested_reason: string | null
+  created_at: string
+  source: string
 }
 
 // Row-level Call/Text/Directions — lets the list be worked from without opening
@@ -1031,6 +1033,24 @@ function BookingsPage() {
     return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
+  // created_at is a real tz-aware timestamp (unlike start_time's naive ET
+  // string), so it needs actual parsing + zone conversion, not formatDate's
+  // literal split.
+  const formatBookedAt = (dateStr: string) => {
+    const d = new Date(dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
+    return d.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      timeZone: 'America/New_York',
+    })
+  }
+
+  const SOURCE_LABELS: Record<string, string> = {
+    admin: 'Staff', client_portal: 'Self-Booked', yinez_sms: 'Yinez (Text)',
+    yinez_voice: 'Yinez (Voice)', sales: 'Sales', import: 'Import',
+    recurring_auto: 'Recurring', other: 'Other',
+  }
+  const sourceLabel = (source: string) => SOURCE_LABELS[source] || 'Other'
+
   const serviceTypesData = useServiceTypes()
   // Catalog-driven only — no cleaning fallback. Shows the tenant's own services.
   const serviceTypes = serviceTypesData.map(s => s.name)
@@ -1562,6 +1582,8 @@ function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Service</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date & Time</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden xl:table-cell">Booked</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden xl:table-cell">Source</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{worker.singular}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Rate</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
@@ -1594,6 +1616,12 @@ function BookingsPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--sched-ink)]')}>{formatDate(b.start_time)}</span>
+                    </td>
+                    <td className="px-4 py-3.5 hidden xl:table-cell">
+                      <span className="text-sm text-gray-500">{b.created_at ? formatBookedAt(b.created_at) : <span className="text-gray-300">--</span>}</span>
+                    </td>
+                    <td className="px-4 py-3.5 hidden xl:table-cell">
+                      <span className="px-2 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-100 whitespace-nowrap">{sourceLabel(b.source)}</span>
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{crewNames(b) !== 'Unassigned' ? crewNames(b) : <span className="text-gray-300">--</span>}</span>

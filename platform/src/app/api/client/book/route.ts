@@ -345,6 +345,7 @@ export async function POST(request: Request) {
       p_day_start: `${bookingDate}T00:00:00`,
       p_day_end: `${nextBookingDate}T00:00:00`,
       p_active_statuses: ['scheduled', 'pending', 'confirmed', 'in_progress'],
+      p_source: 'client_portal',
     })
     if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 })
     if (!claim?.created) {

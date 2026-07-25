@@ -72,6 +72,12 @@ export interface BookingChecklist {
   notes: string | null
   rating: number | null
   status: 'greeting' | 'collecting' | 'recap' | 'confirmed' | 'rating' | 'closed'
+  /**
+   * Formalizes what voice-agent/customer-tools.ts was already bolting onto
+   * this object ad-hoc (untyped, since the stored column is jsonb). Read at
+   * create_booking time to tag bookings.source as yinez_sms vs yinez_voice.
+   */
+  channel?: 'sms' | 'voice'
 }
 
 export type Intent =
@@ -1182,6 +1188,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       hourly_rate: hourlyRate, price: finalPriceCents,
       recurring_type: recurringType, suggested_team_member_id: suggestedCleanerId,
       notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $${SELF_BOOKING_DISCOUNT_DOLLARS} self-booking discount applies at billing]`,
+      source: checklist.channel === 'voice' ? 'yinez_voice' : 'yinez_sms',
     }).select('id').single()
 
     if (error) throw error

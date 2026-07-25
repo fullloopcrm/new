@@ -142,6 +142,7 @@ export async function POST(request: Request) {
         pay_rate: v.pay_rate || null,
         notes: v.notes || null,
         special_instructions: v.special_instructions || null,
+        source: 'admin',
       }
     })
 

@@ -197,6 +197,7 @@ async function createSeriesAfterClaim(
       token_expires_at: tokenExpires.toISOString(),
       status: 'scheduled',
       schedule_id: scheduleId,
+      source: 'sales',
     }
   })
   let bookingsCreated = 0

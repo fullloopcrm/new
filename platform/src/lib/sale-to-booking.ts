@@ -113,6 +113,7 @@ export async function createBookingFromQuote(
         price: quote.total_cents ? (quote.total_cents as number) / 100 : null,
         notes: `Converted from quote ${quote.quote_number} — confirm the date`,
         special_instructions: quote.notes || null,
+        source: 'sales',
       })
       .select('id')
       .single()

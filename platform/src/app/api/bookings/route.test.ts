@@ -166,6 +166,7 @@ vi.mock('@/lib/supabase', () => {
         notes: params.p_notes,
         special_instructions: params.p_special_instructions,
         status: params.p_status,
+        source: params.p_source,
       }
       bookings.push(row)
       return { data: { created: true, booking: { id: row.id } }, error: null }
@@ -427,6 +428,14 @@ describe('POST /api/bookings — creation', () => {
     const created = h.store.bookings.find((b) => b.client_id === CLIENT_ID && b.start_time === '2026-08-15T09:00:00')!
     expect(created.tenant_id).toBe('tenant-A')
     expect(h.audit).toHaveBeenCalledWith(expect.objectContaining({ tenantId: 'tenant-A', action: 'booking.created' }))
+  })
+
+  it('tags the new booking as staff-created (bookings.source)', async () => {
+    const res = await POST(postReq(validCreateBody))
+
+    expect(res.status).toBe(201)
+    const created = h.store.bookings.find((b) => b.client_id === CLIENT_ID && b.start_time === '2026-08-15T09:00:00')!
+    expect(created.source).toBe('admin')
   })
 
   it('never lets a booking-creation failure crash the request even if notification dispatch throws', async () => {

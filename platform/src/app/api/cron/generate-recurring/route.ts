@@ -358,6 +358,7 @@ export async function GET(request: Request) {
           ? `${schedule.notes ? schedule.notes + ' — ' : ''}${unassignedNote}`
           : schedule.notes,
         special_instructions: schedule.special_instructions,
+        source: 'recurring_auto',
       })
     }
 
