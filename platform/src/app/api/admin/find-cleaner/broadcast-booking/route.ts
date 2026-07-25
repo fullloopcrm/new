@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
 import { parseNaiveET } from '@/lib/recurring'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 // Booking-driven sibling of the older zone/free-form find-cleaner broadcast
 // (preview/send routes) -- that one asks the admin to retype date/time/
@@ -27,12 +28,14 @@ export async function POST(request: Request) {
 
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, team_member_id, status, start_time, end_time, service_type, hourly_rate')
+    .select('id, team_member_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, clients(address)')
     .eq('id', booking_id)
     .single()) as {
       data: {
         id: string; team_member_id: string | null; status: string
         start_time: string; end_time: string | null; service_type: string | null; hourly_rate: number | null
+        pay_rate: number | null
+        clients: { address: string | null } | null
       } | null
     }
 
@@ -60,8 +63,8 @@ export async function POST(request: Request) {
   const nextDayYMD = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
 
   const [{ data: members }, { data: dayBookings }] = await Promise.all([
-    db.from('team_members').select('id, name, phone, active') as unknown as Promise<{
-      data: { id: string; name: string; phone: string | null; active: boolean | null }[] | null
+    db.from('team_members').select('id, name, phone, active, status') as unknown as Promise<{
+      data: { id: string; name: string; phone: string | null; active: boolean | null; status: string | null }[] | null
     }>,
     db.from('bookings')
       .select('id, team_member_id, start_time, end_time, status')
@@ -86,7 +89,12 @@ export async function POST(request: Request) {
   // Symmetric 1hr buffer: eligible only if EVERY other job that day clears a
   // full hour on both sides of the target slot.
   const eligible = (members || []).filter(m => {
-    if (m.active === false || !m.phone) return false
+    // Two separate inactive signals exist on this table (active boolean,
+    // status string) -- matches the same active !== false && status !==
+    // 'inactive' check CreateBookingForm.tsx's cleaner picker already uses.
+    // This route was only checking `active`, so a member with active:true
+    // but status:'inactive' still got broadcast to.
+    if (m.active === false || (m.status || 'active') === 'inactive' || !m.phone) return false
     const existing = conflictsByMember.get(m.id) || []
     return existing.every(x =>
       x.end.getTime() + BUFFER_MS <= targetStart.getTime() ||
@@ -100,7 +108,7 @@ export async function POST(request: Request) {
 
   const { data: tenantData } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone')
+    .select('telnyx_api_key, telnyx_phone, domain, slug')
     .eq('id', tenantId)
     .single()
 
@@ -108,12 +116,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'SMS is not configured for this tenant' }, { status: 500 })
   }
 
+  const portalUrl = `${tenantSiteUrl(tenantData)}/team`
+  const address = booking.clients?.address || null
+  const payRate = rate_override != null && Number(rate_override) > 0 ? Number(rate_override) : booking.pay_rate
+
   const body = [
     'There is a job available in your portal — first team member to claim it gets it.',
-    'You must be able to arrive within 60-90 minutes.',
+    `You must be able to arrive within 60-90 minutes.${payRate ? ` Pays $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+    portalUrl,
     '',
     'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
-    'Debes poder llegar en 60-90 minutos.',
+    `Debes poder llegar en 60-90 minutos.${payRate ? ` Paga $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+    portalUrl,
   ].join('\n')
 
   const results = await Promise.allSettled(eligible.map(m => sendSMS({
