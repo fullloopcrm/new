@@ -1119,7 +1119,13 @@ function BookingsPage() {
     const laborOwedCents = laborJobs
       .filter(b => !b.team_member_paid)
       .reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
-    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents }
+    // Profit = client revenue minus total labor cost. Tips aren't in this
+    // math on either side — they're a 100% pass-through to the cleaner
+    // (see the Stripe webhook), never company revenue, so they don't
+    // affect profit or margin.
+    const profitCents = revenueCents - laborTotalCents
+    const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
+    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct }
   })()
 
   // Pagination
@@ -1415,7 +1421,7 @@ function BookingsPage() {
               {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
               <div className="mb-4">
                 <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="bg-white rounded-xl border border-emerald-200/60 p-3">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Revenue Today</p>
                     <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.revenueCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
@@ -1431,6 +1437,13 @@ function BookingsPage() {
                   <div className="bg-white rounded-xl border border-gray-200 p-3">
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Total Due to Labor</p>
                     <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.laborTotalCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-violet-200/60 p-3">
+                    <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wide mb-1">Total Profit</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">
+                      {dailyOverview.profitCents < 0 ? '-' : ''}${Math.abs(dailyOverview.profitCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      <span className="text-sm font-normal text-gray-400 ml-1">({dailyOverview.profitMarginPct.toFixed(1)}%)</span>
+                    </p>
                   </div>
                 </div>
               </div>
