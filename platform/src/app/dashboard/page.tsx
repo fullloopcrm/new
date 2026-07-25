@@ -23,6 +23,12 @@ const V = {
 const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
 const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+const formatDuration = (start: string, end: string | null) => {
+  if (!end) return null
+  const hrs = (new Date(end).getTime() - new Date(start).getTime()) / 3600000
+  if (!(hrs > 0)) return null
+  return `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)}hr`
+}
 
 // Call/Text/Directions right on the feed row — matches the same chips on the
 // bookings list (BookingsAdmin.tsx) so Jeff never has to open a booking just
@@ -72,6 +78,7 @@ type Booking = {
 type FeedBooking = {
   id: string
   start_time: string
+  end_time: string | null
   status: string
   service_type: string | null
   clients: { name: string | null; phone: string | null; address: string | null } | null
@@ -296,7 +303,7 @@ export default async function DashboardPage() {
   const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
   const { data: feedRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
+    .select('id,start_time,end_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfDay.toISOString())
     .lt('start_time', tomorrowEnd.toISOString())
@@ -402,7 +409,10 @@ export default async function DashboardPage() {
                   </Link>
                   <ContactChips phone={job.clients?.phone} address={job.clients?.address} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="text-right flex-shrink-0">
-                    <p style={{ fontFamily: V.mono, fontSize: '12px', color: V.ink }}>{formatTime(job.start_time)}</p>
+                    <p style={{ fontFamily: V.mono, fontSize: '12px', color: V.ink }}>
+                      {formatTime(job.start_time)}
+                      {formatDuration(job.start_time, job.end_time) && ` · ${formatDuration(job.start_time, job.end_time)}`}
+                    </p>
                     {col.showStatus && (
                       <span style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.1em', color: job.status === 'completed' ? V.good : job.status === 'in_progress' ? V.warn : V.muted }}>
                         {job.status === 'in_progress' ? 'live' : job.status}
