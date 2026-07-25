@@ -12,7 +12,7 @@ export type ApprovedApplication = {
   email: string | null
   phone: string | null
   address: string | null
-  photo_url: string | null
+  photo_url?: string | null
 }
 
 /**
