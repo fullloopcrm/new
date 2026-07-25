@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import CreateBookingForm from '../bookings/CreateBookingForm'
+import EditBookingForm, { type EditableBooking } from '../bookings/EditBookingForm'
 
 type Client = { id: string; name: string; phone: string | null }
 type Booking = {
@@ -77,6 +78,8 @@ export default function FindTeamMemberPage() {
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<Set<string>>(new Set())
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<SendResult | null>(null)
+  const [editingBooking, setEditingBooking] = useState<EditableBooking | null>(null)
+  const [loadingEdit, setLoadingEdit] = useState(false)
 
   useEffect(() => {
     if (!clientSearch || selectedClient) { setClients([]); return }
@@ -93,8 +96,12 @@ export default function FindTeamMemberPage() {
     setClients([])
     setSelectedBooking(null)
     setResult(null)
+    loadBookingsForClient(c.id)
+  }
+
+  const loadBookingsForClient = (clientId: string) => {
     setBookingsLoading(true)
-    fetch(`/api/bookings?client_id=${c.id}&status=scheduled&limit=200`)
+    return fetch(`/api/bookings?client_id=${clientId}&status=scheduled&limit=200`)
       .then(r => r.json())
       .then(d => {
         const rows: Booking[] = Array.isArray(d) ? d : (d.bookings || [])
@@ -111,6 +118,28 @@ export default function FindTeamMemberPage() {
     setMembers([]); setSelectedMemberIds(new Set())
     setApplicants([]); setSelectedApplicantIds(new Set())
     setResult(null)
+  }
+
+  const openEdit = async (bookingId: string) => {
+    setLoadingEdit(true)
+    try {
+      const r = await fetch(`/api/bookings/${bookingId}`)
+      const d = await r.json()
+      if (d.booking) setEditingBooking(d.booking)
+    } finally {
+      setLoadingEdit(false)
+    }
+  }
+
+  const handleEditSaved = async () => {
+    const id = editingBooking?.id
+    const clientId = selectedClient?.id
+    setEditingBooking(null)
+    if (!id) return
+    if (clientId) await loadBookingsForClient(clientId)
+    const r = await fetch(`/api/bookings/${id}`)
+    const d = await r.json().catch(() => null)
+    if (d?.booking) pickBooking(d.booking)
   }
 
   const reset = () => {
@@ -206,7 +235,7 @@ export default function FindTeamMemberPage() {
             {bookings.map(b => (
               <div
                 key={b.id}
-                onClick={() => pickBooking(b)}
+                onClick={() => selectedBooking?.id === b.id ? openEdit(b.id) : pickBooking(b)}
                 style={{
                   padding: 10, borderRadius: 8, cursor: 'pointer',
                   border: selectedBooking?.id === b.id ? '2px solid #1a1a1a' : '1px solid #e7e2d8',
@@ -214,13 +243,22 @@ export default function FindTeamMemberPage() {
               >
                 <div style={{ fontWeight: 600 }}>{fmt(b.start_time)}</div>
                 <div style={{ fontSize: 13, color: '#7a7468' }}>{b.service_type || 'Job'}{b.hourly_rate ? ` · $${b.hourly_rate}/hr` : ''}</div>
+                {selectedBooking?.id === b.id && (
+                  <div style={{ fontSize: 12, color: '#7a7468', marginTop: 4 }}>{loadingEdit ? 'Opening…' : 'Click again to edit this booking'}</div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {selectedBooking && (
+      {editingBooking && (
+        <div style={card}>
+          <EditBookingForm booking={editingBooking} onSaved={handleEditSaved} onCancel={() => setEditingBooking(null)} />
+        </div>
+      )}
+
+      {!editingBooking && selectedBooking && (
         <div style={{ ...card, display: 'grid', gap: 12 }}>
           <div style={{ fontSize: 13, color: '#7a7468' }}>Broadcasting for:</div>
           <div style={{ fontWeight: 600 }}>{selectedClient?.name} · {fmt(selectedBooking.start_time)}</div>
