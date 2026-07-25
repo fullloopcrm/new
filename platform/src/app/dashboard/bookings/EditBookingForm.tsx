@@ -78,11 +78,16 @@ export interface EditableBooking {
 
 export interface EditBookingFormProps {
   booking: EditableBooking
+  // Hides the team-member roster/rate/team-size block entirely -- same
+  // reasoning as CreateBookingForm's identical prop: Find a Team Member
+  // edits an UNASSIGNED booking specifically so it can be broadcast: who
+  // covers it isn't decided here.
+  hideCleanerPicker?: boolean
   onSaved: () => void
   onCancel: () => void
 }
 
-export default function EditBookingForm({ booking, onSaved, onCancel }: EditBookingFormProps) {
+export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, onCancel }: EditBookingFormProps) {
   const worker = useWorkerLabel()
   const serviceTypesData = useServiceTypes()
   const serviceTypes = serviceTypesData.map(s => s.name)
@@ -166,7 +171,7 @@ export default function EditBookingForm({ booking, onSaved, onCancel }: EditBook
 
   useEffect(() => {
     const date = form.start_date
-    if (!date) { setDayBookings([]); return }
+    if (hideCleanerPicker || !date) { setDayBookings([]); return }
     let cancelled = false
     fetch(`/api/bookings?from=${date}&to=${date}&limit=1000`)
       .then(r => r.ok ? r.json() : null)
@@ -177,12 +182,12 @@ export default function EditBookingForm({ booking, onSaved, onCancel }: EditBook
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [form.start_date])
+  }, [form.start_date, hideCleanerPicker])
 
   // Smart-schedule scores, excluding this booking itself from conflict math.
   useEffect(() => {
     const ctxAddress = booking.clients?.address || ''
-    if (!ctxAddress || !form.start_date || !form.start_time) return
+    if (hideCleanerPicker || !ctxAddress || !form.start_date || !form.start_time) return
     const key = [booking.client_id, ctxAddress, form.start_date, form.start_time, form.hours, form.hourly_rate || '', booking.id, form.team_size].join('|')
     if (key === smartScoresKey) return
 
@@ -212,7 +217,7 @@ export default function EditBookingForm({ booking, onSaved, onCancel }: EditBook
       .catch(() => {})
 
     return () => controller.abort()
-  }, [booking.id, booking.client_id, booking.clients?.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, smartScoresKey])
+  }, [booking.id, booking.client_id, booking.clients?.address, form.start_date, form.start_time, form.hours, form.hourly_rate, form.team_size, smartScoresKey, hideCleanerPicker])
 
   const calculateEditPrice = () => {
     const teamSize = Math.max(1, form.team_size || 1)
@@ -482,6 +487,7 @@ export default function EditBookingForm({ booking, onSaved, onCancel }: EditBook
             </div>
           </div>
 
+          {!hideCleanerPicker && (
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-[var(--sched-ink)]">{form.team_size > 1 ? worker.plural : worker.singular} *</label>
@@ -581,6 +587,7 @@ export default function EditBookingForm({ booking, onSaved, onCancel }: EditBook
                 })}
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4">
             <div>

@@ -280,7 +280,7 @@ export default function FindTeamMemberPage() {
 
       {editingBooking && (
         <div style={card}>
-          <EditBookingForm booking={editingBooking} onSaved={handleEditSaved} onCancel={() => setEditingBooking(null)} />
+          <EditBookingForm booking={editingBooking} hideCleanerPicker onSaved={handleEditSaved} onCancel={() => setEditingBooking(null)} />
         </div>
       )}
 
