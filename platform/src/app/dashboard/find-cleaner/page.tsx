@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useWorkerLabel } from '../worker-label-context'
 
 type Eligible = {
   id: string
@@ -36,8 +35,7 @@ type Broadcast = {
 const input: React.CSSProperties = { padding: '8px 10px', border: '1px solid #d4cfc4', borderRadius: 8, fontSize: 14, width: '100%' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e7e2d8', borderRadius: 12, padding: 16 }
 
-export default function FindCleanerPage() {
-  const worker = useWorkerLabel()
+export default function FindTeamMemberPage() {
   const [form, setForm] = useState({ job_date: '', start_time: '09:00', duration_hours: 3, qty_needed: 1, job_address: '', hourly_rate_override: '', service_type: '', notes: '' })
   const [preview, setPreview] = useState<PreviewResp | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -87,7 +85,7 @@ export default function FindCleanerPage() {
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: '0 auto', display: 'grid', gap: 20 }}>
       <div>
-        <h1 style={{ fontSize: 24, margin: 0 }}>Find a {worker.singular}</h1>
+        <h1 style={{ fontSize: 24, margin: 0 }}>Find a Team Member</h1>
         <p style={{ color: '#7a7468', margin: '4px 0 0' }}>Broadcast a job to eligible team members by zone + availability.</p>
       </div>
 
