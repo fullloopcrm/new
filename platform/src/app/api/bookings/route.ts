@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     let query = db
       .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
+      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*), booking_team_members(team_member_id, is_lead, position, team_members(id, name))', { count: 'exact' })
       .order('start_time', { ascending: false })
       .range(offset, offset + limit - 1)
 

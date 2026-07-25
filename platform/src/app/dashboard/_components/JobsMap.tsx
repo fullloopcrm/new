@@ -1,5 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
+import type { CrewRow } from '@/lib/crew'
 
 const V = {
   line: 'var(--color-loop-line)', canvas: 'var(--color-loop-canvas)', ink: 'var(--color-loop-ink)',
@@ -19,6 +20,7 @@ export interface MapJob {
   cleaner_id: string | null
   clients: { name: string; address: string } | null
   team_members: { name: string } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 export default function JobsMap({ jobs }: { jobs: MapJob[] }) {

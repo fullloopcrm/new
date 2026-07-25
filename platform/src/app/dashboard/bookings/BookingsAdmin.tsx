@@ -18,6 +18,7 @@ import { applyDiscount, applyCredit } from '@/lib/discount'
 import { applyTeamMinimum } from '@/lib/billing-hours'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+import { crewNames, type CrewRow } from '@/lib/crew'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -66,6 +67,7 @@ interface Booking {
   check_out_location: Record<string, unknown> | null
   clients: { id: string; name: string; phone: string; address: string } | null
   team_members: { id: string; name: string } | null
+  booking_team_members?: CrewRow[] | null
   team_member_paid: boolean | null
   team_member_paid_at: string | null
   pay_rate: number | null
@@ -267,6 +269,7 @@ function BookingsPage() {
   const [showCloseOut, setShowCloseOut] = useState(false)
   const [closeOutSaving, setCloseOutSaving] = useState<string | null>(null)
   const [closeOutExpanded, setCloseOutExpanded] = useState<Set<string>>(new Set())
+  const [closeOutSummaries, setCloseOutSummaries] = useState<Record<string, { customerOwesCents: number; laborDueCents: number; laborOutstandingCents: number }>>({})
   const [showWaitlist, setShowWaitlist] = useState(false)
   const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null }>>([])
   const [waitlistLoading, setWaitlistLoading] = useState(false)
@@ -610,7 +613,7 @@ function BookingsPage() {
     if (filters.client_id) result = result.filter(b => b.client_id === filters.client_id)
     if (filters.date_from) result = result.filter(b => new Date(b.start_time) >= new Date(filters.date_from))
     if (filters.date_to) result = result.filter(b => new Date(b.start_time) <= new Date(filters.date_to + 'T23:59:59'))
-    if (searchQuery) { const q = searchQuery.toLowerCase(); result = result.filter(b => (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || (b.team_members?.name || '').toLowerCase().includes(q)) }
+    if (searchQuery) { const q = searchQuery.toLowerCase(); result = result.filter(b => (b.clients?.name || '').toLowerCase().includes(q) || (b.clients?.phone || '').includes(q) || (b.clients?.address || '').toLowerCase().includes(q) || crewNames(b).toLowerCase().includes(q)) }
     setFilteredBookings(result)
   }
 
@@ -626,6 +629,36 @@ function BookingsPage() {
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     return new Date(b.start_time) >= sevenDaysAgo
   }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+
+  // Fetch the authoritative closeout math (same source CloseoutDetail uses —
+  // actual check-in/out hours, discounts, and per-cleaner pay, which can
+  // differ from the stored booking.price once actual hours diverge from what
+  // was scheduled) for every visible close-out row, so the customer-owed and
+  // labor-total figures show up front without expanding each row.
+  const closeOutIds = showCloseOut ? closeOutJobs.map(b => b.id).join(',') : ''
+  useEffect(() => {
+    if (!closeOutIds) return
+    const ids = closeOutIds.split(',').filter(id => !(id in closeOutSummaries))
+    if (ids.length === 0) return
+    let cancelled = false
+    Promise.all(ids.map(async (id) => {
+      const r = await fetch(`/api/admin/bookings/${id}/closeout-summary`)
+      if (!r.ok) return null
+      const j = await r.json()
+      const laborDueCents = (j.cleaner_payouts || []).reduce((s: number, c: { total_due_cents: number }) => s + c.total_due_cents, 0)
+      const laborOutstandingCents = (j.cleaner_payouts || []).reduce((s: number, c: { outstanding_cents: number }) => s + c.outstanding_cents, 0)
+      return [id, { customerOwesCents: j.bill.final_cents as number, laborDueCents, laborOutstandingCents }] as const
+    })).then((results) => {
+      if (cancelled) return
+      setCloseOutSummaries(prev => {
+        const next = { ...prev }
+        for (const r of results) { if (r) next[r[0]] = r[1] }
+        return next
+      })
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeOutIds])
 
   const handleCloseOutUpdate = async (bookingId: string, updates: Record<string, unknown>) => {
     setCloseOutSaving(bookingId)
@@ -1371,7 +1404,7 @@ function BookingsPage() {
               }
               const rows = filteredBookings.map(b => [
                 new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                b.clients?.name || '', b.team_members?.name || '', b.service_type || '', b.status,
+                b.clients?.name || '', crewNames(b), b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
               ].map(escCsv).join(','))
               const csv = 'Date,Time,Client,Cleaner,Service,Status,Rate,Price,Payment\n' + rows.join('\n')
@@ -1642,12 +1675,28 @@ function BookingsPage() {
                               <span className={'inline-block transition-transform ' + (isExpanded ? 'rotate-90' : '')}>▸</span>
                               {b.clients?.name || '-'}
                             </p>
-                            <p className="text-gray-500 text-xs mt-0.5 ml-4">{formatDate(b.start_time)} · {b.team_members?.name || 'Unassigned'}</p>
+                            <p className="text-gray-500 text-xs mt-0.5 ml-4">{formatDate(b.start_time)} · {crewNames(b)}</p>
                             <p className="text-gray-400 text-xs mt-0.5 ml-4">{b.service_type}</p>
                           </button>
                           <div className="text-right">
-                            <p className="text-[var(--sched-ink)] font-bold text-lg">${(b.price / 100).toFixed(0)}</p>
-                            {b.team_member_pay ? <p className="text-gray-400 text-xs">Pay: ${(Number(b.team_member_pay) / 100).toFixed(2)}</p> : null}
+                            {(() => {
+                              const summary = closeOutSummaries[b.id]
+                              const customerOwes = summary ? summary.customerOwesCents / 100 : b.price / 100
+                              return (
+                                <>
+                                  <p className="text-[var(--sched-ink)] font-bold text-lg">${customerOwes.toFixed(0)}</p>
+                                  <p className="text-gray-400 text-xs">Customer owes</p>
+                                  {summary ? (
+                                    <p className={'text-xs mt-1 font-medium ' + (summary.laborOutstandingCents > 0 ? 'text-red-600' : 'text-emerald-700')}>
+                                      Labor ${(summary.laborDueCents / 100).toFixed(2)}
+                                      {summary.laborOutstandingCents > 0 ? ` (${(summary.laborOutstandingCents / 100).toFixed(2)} owed)` : ' (paid)'}
+                                    </p>
+                                  ) : (
+                                    b.team_member_pay ? <p className="text-gray-400 text-xs">Pay: ${(Number(b.team_member_pay) / 100).toFixed(2)}</p> : null
+                                  )}
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
                         {/* Close out controls */}
@@ -1761,7 +1810,7 @@ function BookingsPage() {
                                 <span className={'inline-block transition-transform ' + (isExpanded ? 'rotate-90' : '')}>▸</span>
                                 {b.clients?.name || '-'}
                               </p>
-                              <p className="text-xs text-gray-400 ml-4">{formatDate(b.start_time)} · {b.team_members?.name || '-'}</p>
+                              <p className="text-xs text-gray-400 ml-4">{formatDate(b.start_time)} · {crewNames(b)}</p>
                             </div>
                           </div>
                           <div className="text-right flex items-center gap-3">
@@ -1838,7 +1887,7 @@ function BookingsPage() {
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--sched-ink)]')}>{formatDate(b.start_time)}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.team_members?.name || <span className="text-gray-300">--</span>}</span>
+                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{crewNames(b) !== 'Unassigned' ? crewNames(b) : <span className="text-gray-300">--</span>}</span>
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell">
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-500')}>${(() => { const hours = Math.max(1, Math.round((new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60))); return b.hourly_rate ? b.hourly_rate : b.price ? Math.round(b.price / 100 / hours) : 69 })()}/hr</span>
@@ -1999,7 +2048,7 @@ function BookingsPage() {
                   <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>{b.service_type}</span>
-                      {b.team_members?.name && <span className="text-gray-400">/ {b.team_members.name}</span>}
+                      {crewNames(b) !== 'Unassigned' && <span className="text-gray-400">/ {crewNames(b)}</span>}
                       {b.recurring_type && <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{b.recurring_type}</span>}
                     </div>
                     <span className={'text-sm font-bold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[var(--sched-ink)]')}>~${(b.price / 100).toFixed(0)}</span>
