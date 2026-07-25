@@ -181,6 +181,19 @@ export async function POST(request: Request) {
     const tenantId = tenant.id
     const normalizedText = text.trim().toUpperCase()
 
+    // FEEDBACK REPLY — checked before the owner-chat branch below. It's a
+    // no-op unless this exact phone number has a genuinely pending feedback
+    // reply thread (handleFeedbackReply requires a client match AND a recent
+    // reply_requested_at), so this can't change behavior for any normal
+    // owner text. Without this ordering, a phone number that happens to be
+    // BOTH the tenant's registered owner_phone and a client's phone (e.g. an
+    // owner testing with their own number as a client record) always gets
+    // routed to the owner<->admin chat below, and a genuine client reply on
+    // that number can never reach client_feedback.notes — reproduced live
+    // 2026-07-25 testing the feedback-reply feature.
+    const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
+    if (feedbackReply) return feedbackReply
+
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
     // a reply in the platform owner<->admin chat, not a booking conversation.
     // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
@@ -567,15 +580,6 @@ export async function POST(request: Request) {
         }
       }
     }
-
-    // ============================================
-    // FEEDBACK REPLY — a client's SMS reply to an admin's manual reply on
-    // their client_feedback entry (dashboard/clients/feedback "Reply" button).
-    // Only fires if this client has a pending reply thread; falls through
-    // otherwise.
-    // ============================================
-    const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
-    if (feedbackReply) return feedbackReply
 
     // ============================================
     // GENERAL INBOUND SMS — Log, notify admin, chatbot
