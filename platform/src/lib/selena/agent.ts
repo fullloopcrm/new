@@ -428,12 +428,20 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
 
 // Public entry point. Runs the agent, then rewrites NYC-template branding out of
 // the response for non-nycmaid tenants before it ever reaches the customer.
-export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
-  const result = await askSelenaCore(channel, message, conversationId, phone, ctx)
+//
+// tenantId (2026-07-25, Jeff — full channel-parity fix): resolveTenantForConversation()
+// only knows how to resolve a REAL sms_conversations.id — every caller whose
+// conversationId lives in a different table (e.g. comhub-email's threadId,
+// a comhub_threads.id) has to fall back to getCurrentTenantId(), which has no
+// signed tenant header to read inside a cron loop iterating multiple tenants
+// and throws. Callers that already know their own tenant (any per-tenant loop)
+// should pass it directly instead of gambling on that fallback.
+export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, tenantId?: string): Promise<YinezResult> {
+  const result = await askSelenaCore(channel, message, conversationId, phone, ctx, tenantId)
   try {
-    const tenantId = await resolveTenantForConversation(conversationId)
-    if (tenantId !== NYCMAID_TENANT_ID && result?.text) {
-      result.text = await applyBrandRewrite(result.text, tenantId)
+    const tid = tenantId || await resolveTenantForConversation(conversationId)
+    if (tid !== NYCMAID_TENANT_ID && result?.text) {
+      result.text = await applyBrandRewrite(result.text, tid)
     }
   } catch {
     // never let brand rewrite break a response
@@ -441,7 +449,7 @@ export async function askSelena(channel: Channel, message: string, conversationI
   return result
 }
 
-async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, tenantIdOverride?: string): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
 
   try {
@@ -449,7 +457,9 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
     // Resolve tenant for this conversation. v1: derive from sms_conversations.tenant_id;
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
-    const tenantId = await resolveTenantForConversation(conversationId)
+    // tenantIdOverride (2026-07-25): callers that already know their tenant skip
+    // this guesswork entirely — see askSelena's tenantId param doc above.
+    const tenantId = tenantIdOverride || await resolveTenantForConversation(conversationId)
 
     // Resolve the Anthropic client for THIS tenant (their key if set, platform
     // key otherwise). Replaces the old global singleton so each tenant bills

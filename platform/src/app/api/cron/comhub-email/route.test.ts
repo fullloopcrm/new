@@ -89,6 +89,8 @@ function builder(table: string) {
     },
     ilike: () => chain,
     limit: () => chain,
+    lt: () => chain,
+    order: () => chain,
     single: async () => {
       if (table === 'comhub_threads') return { data: threadRow, error: null }
       if (table === 'clients') return { data: { do_not_service: false }, error: null }

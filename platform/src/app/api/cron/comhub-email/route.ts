@@ -204,7 +204,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           const paused = thread?.bot_paused_until && new Date(thread.bot_paused_until) > new Date()
           const { data: dnsClient } = await supabaseAdmin
             .from('clients')
-            .select('do_not_service')
+            .select('do_not_service, phone')
             .eq('tenant_id', tenantId)
             .ilike('email', fromAddr)
             .limit(1)
@@ -222,7 +222,33 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           // stopped ALL nycmaid email auto-replies since 2026-07-22 (the FL
           // cutover), not just "inconsistently."
           if (!paused && !dnsClient?.do_not_service) {
-            const result = await askSelena('email', text || subject || '', threadId as string, undefined)
+            // Channel-parity fix (2026-07-25, Jeff): email used to always pass
+            // phone=undefined, so Yinez's shared loadContext() (prior bookings,
+            // notes, preferred cleaner, remembered facts, owner detection) never
+            // fired for email the way it does for SMS/web -- the client lookup
+            // above already resolves the same clients row by email, so its phone
+            // gets Yinez the identical context SMS/web already get from theirs.
+            // tenantId is passed directly (this cron already knows it per
+            // account) instead of letting askSelena guess it from conversationId
+            // -- see the tenantId param doc on askSelena in selena/agent.ts.
+            const { data: priorInbound } = await supabaseAdmin
+              .from('comhub_messages')
+              .select('body, sent_at')
+              .eq('tenant_id', tenantId)
+              .eq('thread_id', threadId as string)
+              .eq('direction', 'in')
+              .lt('sent_at', sentAt)
+              .order('sent_at', { ascending: false })
+              .limit(5)
+            const recentInbounds = (priorInbound || []).map((m) => ({ message: (m.body as string) || '', created_at: m.sent_at as string }))
+            const result = await askSelena(
+              'email',
+              text || subject || '',
+              threadId as string,
+              dnsClient?.phone || undefined,
+              recentInbounds.length > 0 ? { recent_inbounds: recentInbounds } : undefined,
+              tenantId,
+            )
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
               const externalId = await sendReply(account, fromAddr, replySubject, result.text)
