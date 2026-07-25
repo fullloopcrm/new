@@ -213,7 +213,7 @@ export default function LoopConnectPage() {
       {tab === 'chat' && (
         <div className="lc-shell">
           <aside className="lc-sidebar">
-            <div className="lc-channel-list" style={{ paddingTop: 8 }}>
+            <div style={{ flex: '0 0 auto', padding: '8px 0 0' }}>
               <div className="lc-channel-section">Pinned</div>
               <button
                 className={`lc-channel ${isSupportActive ? 'active' : ''}`}
