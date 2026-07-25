@@ -6,6 +6,7 @@ import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -127,9 +128,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   //     so this line always matches what the client is actually charged --
   //     plus the one-time credit, a flat comp that stacks on top.
   // (2) auto-promo text like "[Promo: $X foo discount applied]" written into
-  //     notes by SMS/self-booking flows. Self-booking auto-discount is $10
-  //     (was mislabeled $20 here -- see /api/team-portal/15min-alert's real
-  //     SELF_BOOKING_DISCOUNT constant, the actual amount collected at billing).
+  //     notes by SMS/self-booking flows. Self-booking now derives its dollar
+  //     amount from SELF_BOOKING_DISCOUNT_DOLLARS (was hardcoded 1000 cents
+  //     here -- the exact "$20 vs $10" drift class this constant exists to
+  //     prevent, just one hop further downstream: this cents value had
+  //     already been manually nudged from 2000 to 1000 once by hand, with
+  //     nothing stopping it from drifting again).
+  //     Separately, the generic promoRe below required text ending in
+  //     literally "applied]" -- the real self-booking note ends "applies at
+  //     billing]", so it never actually matched anything, ever (dead code
+  //     wearing a comment that claimed it worked). Fixed to match both
+  //     endings so a FUTURE non-self-booking promo (there are none today)
+  //     would actually be picked up -- and explicitly skips any match that's
+  //     the self-booking promo, since that's already itemized above and
+  //     would otherwise double-count the same discount.
   const discounts: Array<{ label: string; cents: number }> = []
   const discountedGrossCents = applyDiscount(grossCents, booking.discount_percent as number | null)
   const customDiscountCents = grossCents - discountedGrossCents
@@ -142,12 +154,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const noteText = (booking.notes as string) || ''
   const isSelfBooked = /self-booking discount/i.test(noteText)
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 1000 })
-  const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?applied\]/gi
+  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: SELF_BOOKING_DISCOUNT_DOLLARS * 100 })
+  const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?(?:applied|applies(?:\s+at\s+billing)?)\]/gi
   let m: RegExpExecArray | null
   while ((m = promoRe.exec(noteText)) !== null) {
     const dollars = parseInt(m[1], 10)
     const label = m[2].replace(/\s+/g, ' ').trim()
+    if (/self-book/i.test(label)) continue // already itemized above -- don't double-count
     discounts.push({ label, cents: dollars * 100 })
   }
   const totalDiscountCents = discounts.reduce((s, d) => s + d.cents, 0)
