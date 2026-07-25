@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { crewNames, type CrewRow } from '@/lib/crew'
@@ -40,19 +40,6 @@ const icons = {
 }
 
 import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
-
-function FitBounds({ jobs }: { jobs: GeocodedJob[] }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (jobs.length > 0) {
-      const bounds = L.latLngBounds(jobs.map(j => [j.lat, j.lng]))
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 })
-    }
-  }, [jobs, map])
-
-  return null
-}
 
 export default function DashboardMap({ jobs }: Props) {
   const [mounted, setMounted] = useState(false)
@@ -122,6 +109,9 @@ export default function DashboardMap({ jobs }: Props) {
     return <div className="h-[250px] md:h-[400px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">Loading map...</div>
   }
 
+  // Fixed preset framing (all 5 boroughs + nearby NJ/Long Island) rather than
+  // auto-fitting to whatever's currently filtered -- a tight fit-to-markers
+  // zoom loses the surrounding context Jeff wants when scanning the board.
   const center: [number, number] = [40.78, -73.97]
   const defaultZoom = 10
 
@@ -143,7 +133,6 @@ export default function DashboardMap({ jobs }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {geocodedJobs.length > 0 && <FitBounds jobs={geocodedJobs} />}
         {geocodedJobs.map((job) => {
           const icon = icons[job.status as keyof typeof icons] || icons.scheduled
           const time = new Date(job.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })

@@ -100,6 +100,17 @@ export default function JobsMap({
     return crewIds.includes(cleanerId)
   }), [jobs, rangeStart, rangeEnd, cleanerId])
 
+  // DashboardMap's geocoding effect keys off this array by reference — an
+  // inline .map() in the JSX below would build a brand-new array (and new
+  // per-job objects) on every render, re-running the full geocode pipeline
+  // (and re-flashing "Locating N jobs…") on every filter click even though
+  // most jobs already carry persisted lat/lng and don't need it. Memoizing
+  // means that only actually happens when filteredJobs itself changes.
+  const dashboardMapJobs = useMemo(
+    () => filteredJobs.map(j => ({ ...j, cleaners: j.team_members })),
+    [filteredJobs]
+  )
+
   const Bar = (
     <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>Jobs · Map</div>
   )
@@ -120,7 +131,7 @@ export default function JobsMap({
       </div>
       <div style={{ border: `1px solid ${V.line}` }}>
         {/* DashboardMap maps `cleaners(name)`; our rows carry `team_members(name)` — alias it. */}
-        <DashboardMap jobs={filteredJobs.map(j => ({ ...j, cleaners: j.team_members })) as never} />
+        <DashboardMap jobs={dashboardMapJobs as never} />
       </div>
     </div>
   )
