@@ -144,8 +144,8 @@ export default function FindTeamMemberPage() {
           <div style={{ fontSize: 13, color: '#7a7468' }}>Broadcasting for:</div>
           <div style={{ fontWeight: 600 }}>{selectedClient?.name} · {fmt(selectedBooking.start_time)}</div>
           <label>
-            Rate override ($/hr) — optional
-            <input type="number" style={input} value={rateOverride} onChange={(e) => setRateOverride(e.target.value)} placeholder={selectedBooking.hourly_rate ? String(selectedBooking.hourly_rate) : 'leave blank to keep current rate'} />
+            Pay rate override ($/hr) — optional, what the cleaner earns. Does not change what the client is charged.
+            <input type="number" style={input} value={rateOverride} onChange={(e) => setRateOverride(e.target.value)} placeholder="leave blank for their normal pay rate" />
           </label>
           <button onClick={send} disabled={sending} style={{ padding: 12, borderRadius: 8, border: 'none', background: '#1a7a3a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
             {sending ? 'Sending…' : 'Broadcast to eligible team members'}

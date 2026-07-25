@@ -44,8 +44,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Booking status is "${booking.status}" — only scheduled/confirmed bookings can be broadcast` }, { status: 409 })
   }
 
+  // Overrides what the CLEANER gets paid (booking.pay_rate), never what the
+  // client is billed (booking.hourly_rate) -- team-portal/checkout/route.ts's
+  // baseCleanerRate reads booking.pay_rate first, so this is the field that
+  // actually reaches payment.
   if (rate_override != null && Number(rate_override) > 0) {
-    await db.from('bookings').update({ hourly_rate: Number(rate_override) }).eq('id', booking_id)
+    await db.from('bookings').update({ pay_rate: Number(rate_override) }).eq('id', booking_id)
   }
 
   const targetStart = parseNaiveET(booking.start_time)

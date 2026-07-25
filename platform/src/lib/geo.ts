@@ -28,6 +28,26 @@ export function estimateTransitMinutes(distanceMiles: number): number {
   return Math.round(10 + distanceMiles * 5)
 }
 
+// Every tenant on this platform is a US home-service business — a real
+// result should never fall outside the continental US. Client addresses are
+// often stored incomplete (no city/state, e.g. "352 W 58 St, 20E"), and
+// Nominatim (global, no US bias by default) was matching those bare
+// street/apartment numbers against similarly-numbered streets anywhere in
+// the world — real production data included a Manhattan client geocoded to
+// Hong Kong, another to London, another to rural Australia, silently
+// corrupting every distance/travel-time calculation that read the cached
+// result afterward. Reject anything outside this box instead of caching a
+// wild coordinate. (Alaska/Hawaii excluded — no tenant currently operates
+// there; revisit if one does.)
+const US_MIN_LAT = 24
+const US_MAX_LAT = 50
+const US_MIN_LNG = -125
+const US_MAX_LNG = -66
+
+function isPlausibleUSCoordinate(lat: number, lng: number): boolean {
+  return lat >= US_MIN_LAT && lat <= US_MAX_LAT && lng >= US_MIN_LNG && lng <= US_MAX_LNG
+}
+
 // Primary geocoder: US Census (free, no API key, fast, strong US coverage —
 // the standalone nycmaid app ran on this and never had the reliability/rate-limit
 // problems Nominatim has for production use). Falls back to Nominatim if Census
@@ -46,13 +66,19 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   }
 
   try {
+    // countrycodes=us biases Nominatim's match to the US instead of the
+    // whole world -- doesn't guarantee a correct match on an incomplete
+    // address, so the plausibility check below is the real backstop.
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&q=${encodeURIComponent(address)}&limit=1`,
       { headers: { 'User-Agent': 'FullLoopCRM/1.0' } }
     )
     const data = await res.json()
     if (data.length > 0) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+      const lat = parseFloat(data[0].lat)
+      const lng = parseFloat(data[0].lon)
+      if (!isPlausibleUSCoordinate(lat, lng)) return null
+      return { lat, lng }
     }
     return null
   } catch {
@@ -68,7 +94,7 @@ async function geocodeCensus(address: string): Promise<{ lat: number; lng: numbe
     if (!res.ok) return null
     const data = await res.json()
     const c = data?.result?.addressMatches?.[0]?.coordinates
-    if (c && typeof c.x === 'number' && typeof c.y === 'number') {
+    if (c && typeof c.x === 'number' && typeof c.y === 'number' && isPlausibleUSCoordinate(c.y, c.x)) {
       return { lat: c.y, lng: c.x }
     }
   } catch {
