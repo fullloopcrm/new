@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { crewNames, type CrewRow } from '@/lib/crew'
 
 interface MapJob {
   id: string
@@ -11,6 +12,7 @@ interface MapJob {
   service_type: string
   clients: { name: string; address: string; latitude?: number | null; longitude?: number | null } | null
   team_members: { name: string } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 interface Props {
@@ -154,7 +156,7 @@ export default function DashboardMap({ jobs }: Props) {
                   <p className="font-bold text-base">{job.clients?.name}</p>
                   <p className="text-gray-600">{date} @ {time}</p>
                   <p className="text-gray-600">{job.service_type}</p>
-                  <p className="text-gray-600">{job.team_members?.name || 'Unassigned'}</p>
+                  <p className="text-gray-600">{crewNames(job)}</p>
                   <p className="text-xs text-gray-400 mt-1">{job.clients?.address}</p>
                   <span className={'inline-block mt-2 text-xs px-2 py-1 rounded-full ' +
                     (job.status === 'completed' ? 'bg-green-100 text-green-700' :
