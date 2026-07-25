@@ -6,10 +6,16 @@ import { NextRequest } from 'next/server'
  *
  * nycmaid hardcoded email auto-reply OFF (`if (true || paused || ...)`,
  * dated 2026-05-29 — Selena wasn't checking schedule availability before
- * replying to email leads). The FL tenant-scoped port dropped that
- * override, so Selena would auto-email nycmaid leads with the exact bug
- * Jeff turned off. Fixed by gating the off-switch to the nycmaid tenant
- * only — other tenants keep auto-reply.
+ * replying to email leads), ported tenant-gated into the FL shared cron.
+ * That gap is now closed globally: Yinez is self-book-only on every client
+ * channel (she never creates a booking directly, always directs the client
+ * to the tenant's own booking form — see CLIENT_TOOLS in selena/tools.ts),
+ * and score_cleaners (real per-cleaner smart-schedule availability) is
+ * mandatory on every channel. Re-enabled for nycmaid 2026-07-25 — the
+ * tenant-gate had silently stopped ALL nycmaid email auto-replies since the
+ * 2026-07-22 FL cutover, confirmed via comhub_messages (last auto-reply
+ * 2026-07-22; inbound mail kept mirroring fine, so only the reply step was
+ * dead).
  */
 
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
@@ -130,7 +136,7 @@ beforeEach(() => {
 })
 
 describe('comhub-email cron — Yinez/Selena auto-reply gating', () => {
-  it('does NOT auto-reply for the nycmaid tenant (parity with source hardcoded-off)', async () => {
+  it('DOES auto-reply for the nycmaid tenant (re-enabled 2026-07-25)', async () => {
     tenantsRows = [
       {
         id: NYCMAID_TENANT_ID,
@@ -146,7 +152,7 @@ describe('comhub-email cron — Yinez/Selena auto-reply gating', () => {
 
     const res = await GET(req())
     expect(res.status).toBe(200)
-    expect(askSelenaCalls).toHaveLength(0)
+    expect(askSelenaCalls).toHaveLength(1)
   })
 
   it('DOES auto-reply for a non-nycmaid tenant', async () => {

@@ -209,12 +209,19 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             .ilike('email', fromAddr)
             .limit(1)
             .single()
-          // nycmaid: Yinez/Selena email auto-reply hardcoded off per Jeff
-          // 2026-05-29 (source: cron/comhub-email `if (true || paused ...)`)
-          // — she wasn't checking schedule availability when replying.
-          // Inbound is still mirrored above so admin handles it manually.
-          // Ported tenant-gated rather than dropped; other tenants unaffected.
-          if (!paused && !dnsClient?.do_not_service && tenantId !== NYCMAID_TENANT_ID) {
+          // nycmaid was excluded here (Yinez/Selena email auto-reply hardcoded
+          // off per Jeff 2026-05-29, ported from the standalone nycmaid app's
+          // own `if (true || paused ...)`) because she wasn't checking real
+          // schedule availability when replying. That's no longer true: Yinez
+          // is self-book-only on every client channel (she never creates a
+          // booking directly here — see CLIENT_TOOLS in selena/tools.ts, she
+          // always directs the client to the tenant's own booking form), and
+          // score_cleaners (the real per-cleaner smart-schedule ground truth)
+          // is mandatory on every channel including email. Re-enabled
+          // 2026-07-25 — confirmed via comhub_messages that this had silently
+          // stopped ALL nycmaid email auto-replies since 2026-07-22 (the FL
+          // cutover), not just "inconsistently."
+          if (!paused && !dnsClient?.do_not_service) {
             const result = await askSelena('email', text || subject || '', threadId as string, undefined)
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
