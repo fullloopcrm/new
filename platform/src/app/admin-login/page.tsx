@@ -1,55 +1,20 @@
-'use client'
+import { Suspense } from 'react'
+import LoginForm from '../fullloop/LoginForm'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import PinLoginCard from '@/components/auth/PinLoginCard'
-import { FULL_LOOP_CONTACT_URL } from '@/components/auth/AuthShell'
-
+/**
+ * Platform-level admin login (main host only -- see middleware.ts's /admin
+ * rewrite). Previously a standalone duplicate of fullloop/LoginForm.tsx with
+ * its own copy of the PIN-submit logic; that duplication meant this page --
+ * the actual redirect target from admin/layout.tsx for an unauthenticated
+ * visitor -- never got the ?pin=/?next= deep-link handling or the
+ * super-admin -> /admin/portals redirect added to LoginForm, silently
+ * defeating the portal picker for anyone hitting this page directly instead
+ * of /fullloop. Reusing the same component keeps both entry points in sync.
+ */
 export default function AdminLoginPage() {
-  const router = useRouter()
-  const [pin, setPin] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function login() {
-    if (pin.length < 4 || loading) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/admin-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Login failed')
-        setPin('')
-        return
-      }
-      router.push('/admin')
-      router.refresh()
-    } catch {
-      setError('Connection error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <PinLoginCard
-      businessName="Full Loop"
-      subtitle="Admin Portal"
-      value={pin}
-      onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
-      onSubmit={login}
-      error={error}
-      loading={loading}
-      submitDisabled={pin.length < 4}
-      helpLinks={[
-        { label: 'Feedback', href: '/feedback' },
-        { label: 'Having trouble?', href: FULL_LOOP_CONTACT_URL },
-      ]}
-    />
+    <Suspense fallback={null}>
+      <LoginForm businessName="Full Loop" />
+    </Suspense>
   )
 }
