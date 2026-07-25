@@ -19,6 +19,8 @@ interface ClientFeedbackItem {
   submitted_phone: string | null
   read: boolean
   created_at: string
+  notes: string | null
+  reply_requested_at: string | null
   clients: { name: string; phone: string | null; email: string | null } | null
   campaigns: { name: string } | null
 }
@@ -31,6 +33,9 @@ export default function ClientFeedbackPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread' | 'credit_pending'>('all')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [replyingId, setReplyingId] = useState<string | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [sendingReplyId, setSendingReplyId] = useState<string | null>(null)
 
   useEffect(() => { fetchFeedback() }, [])
 
@@ -85,6 +90,31 @@ export default function ClientFeedbackPage() {
       console.error('Failed to delete feedback:', err)
     }
     setDeletingId(null)
+  }
+
+  const sendReply = async (id: string) => {
+    const message = replyDraft.trim()
+    if (!message) return
+    setSendingReplyId(id)
+    try {
+      const res = await fetch('/api/admin/client-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, message }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setFeedback(prev => prev.map(f => f.id === id ? { ...f, notes: data.notes ?? f.notes } : f))
+        setReplyingId(null)
+        setReplyDraft('')
+      } else {
+        alert(data.error || 'Failed to send text')
+      }
+    } catch (err) {
+      console.error('Failed to send feedback reply:', err)
+      alert('Failed to send text — network error')
+    }
+    setSendingReplyId(null)
   }
 
   const timeAgo = (dateStr: string) => {
@@ -206,6 +236,50 @@ export default function ClientFeedbackPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 whitespace-pre-wrap break-words leading-relaxed">{item.message}</p>
+
+                  {item.notes && (
+                    <div className="mt-3 bg-gray-50 border border-gray-100 rounded-lg p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Notes</p>
+                      <p className="text-xs text-gray-600 whitespace-pre-wrap break-words leading-relaxed">{item.notes}</p>
+                    </div>
+                  )}
+
+                  {item.category === 'client' && !item.is_anonymous && item.client_id && item.clients?.phone && (
+                    replyingId === item.id ? (
+                      <div className="mt-3 flex flex-col gap-2">
+                        <textarea
+                          autoFocus
+                          value={replyDraft}
+                          onChange={(e) => setReplyDraft(e.target.value)}
+                          placeholder={`Text ${item.clients?.name?.split(' ')[0] || 'client'}...`}
+                          className="w-full text-sm border border-gray-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/20"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => sendReply(item.id)}
+                            disabled={sendingReplyId === item.id || !replyDraft.trim()}
+                            className="px-3 py-1.5 bg-[#1E2A4A] text-white rounded-lg text-xs font-medium hover:bg-[#1E2A4A]/90 transition-colors disabled:opacity-50"
+                          >
+                            {sendingReplyId === item.id ? 'Sending...' : 'Send Text'}
+                          </button>
+                          <button
+                            onClick={() => { setReplyingId(null); setReplyDraft('') }}
+                            className="px-3 py-1.5 border border-gray-200 text-gray-500 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setReplyingId(item.id); setReplyDraft('') }}
+                        className="mt-3 self-start px-3 py-1.5 border border-gray-200 text-[#1E2A4A] rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Reply via Text
+                      </button>
+                    )
+                  )}
                 </div>
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   {!item.read && (

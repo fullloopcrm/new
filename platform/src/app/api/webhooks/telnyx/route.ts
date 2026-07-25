@@ -16,6 +16,7 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { handleReviewRating } from '@/lib/review-engine'
+import { handleFeedbackReply } from '@/lib/feedback-reply'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { nowNaiveET } from '@/lib/recurring'
 import { sendTenantTelegram } from '@/lib/notify'
@@ -566,6 +567,15 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    // ============================================
+    // FEEDBACK REPLY — a client's SMS reply to an admin's manual reply on
+    // their client_feedback entry (dashboard/clients/feedback "Reply" button).
+    // Only fires if this client has a pending reply thread; falls through
+    // otherwise.
+    // ============================================
+    const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
+    if (feedbackReply) return feedbackReply
 
     // ============================================
     // GENERAL INBOUND SMS — Log, notify admin, chatbot
