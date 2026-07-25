@@ -172,6 +172,13 @@ export async function PUT(
       .single()
 
     if (error) {
+      // TEMP DIAGNOSTIC 2026-07-24 -- pinpointing which field is an empty-
+      // string uuid causing "invalid input syntax for type uuid: ''" on
+      // booking edit save. Remove once root-caused.
+      console.error('[PUT /api/bookings/[id]] update failed', { bookingId: id, fields, error: error.message })
+    }
+
+    if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
