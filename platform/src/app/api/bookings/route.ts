@@ -327,6 +327,26 @@ export async function POST(request: Request) {
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
 
+    // Seed the notes thread with whatever was entered at creation — same
+    // reasoning as the client-facing booking route: without this, a note
+    // typed here only lives in bookings.notes (a static field the team
+    // portal can read but not reply to), disconnected from anything added
+    // to the thread later. Fire-and-forget: never block booking creation.
+    if ((validated.notes as string | undefined)?.trim()) {
+      supabaseAdmin
+        .from('booking_notes')
+        .insert({
+          tenant_id: tenantId,
+          booking_id: data.id,
+          job_id: (data as { job_id?: string | null }).job_id ?? null,
+          client_id: validated.client_id,
+          author_type: 'admin',
+          author_name: 'Admin',
+          content: (validated.notes as string).trim(),
+        })
+        .then(() => {}, (err: unknown) => console.error('[bookings] booking_notes seed failed:', err))
+    }
+
     // Send notifications to client + team member
     try {
       const { data: tenantData } = await supabaseAdmin

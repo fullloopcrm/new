@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useTeamAuth } from './layout'
 import TranslatedNotes from '@/components/TranslatedNotes'
+import TeamBookingNotes from '@/components/TeamBookingNotes'
 import PushPrompt from '@/components/PushPrompt'
 import { parseTimestamp } from '@/lib/dates'
 
@@ -154,10 +155,11 @@ function CollapsibleSection({ title, badge, defaultOpen = false, children }: {
 // Job Card (expandable, like nycmaid)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunningLate, checkingIn, checkingOut, sendingHeadsUp, sendingLate }: {
+function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunningLate, checkingIn, checkingOut, sendingHeadsUp, sendingLate, authToken }: {
   job: Job; t: (en: string, es: string) => string; showDate?: boolean
   onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void; onRunningLate: (job: Job) => void
   checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null; sendingLate: string | null
+  authToken: string
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -236,6 +238,11 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunning
               )
             })()}
           </div>
+
+          {/* Threaded notes — the client/admin/crew conversation, not the
+              static special_instructions field above. Cleaners could only
+              read that flat field before; this is the actual two-way thread. */}
+          <TeamBookingNotes bookingId={job.id} authToken={authToken} t={t} />
 
           {/* Check-in/out status */}
           {job.check_in_time && (
@@ -877,7 +884,7 @@ export default function TeamHomePage() {
         ) : (
           <div className="space-y-2">
             {todayJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} />
+              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
             ))}
           </div>
         )}
@@ -1065,7 +1072,7 @@ export default function TeamHomePage() {
           </h2>
           <div className="space-y-2">
             {upcomingJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} />
+              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
             ))}
           </div>
         </div>
