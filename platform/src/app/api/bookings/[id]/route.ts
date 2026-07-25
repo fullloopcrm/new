@@ -325,6 +325,30 @@ export async function DELETE(
       .eq('id', id)
       .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
+    if (!booking) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Delete is destructive and irreversible — payments, reviews, and payouts
+    // all reference bookings.id with a blocking (NO ACTION) foreign key, on
+    // purpose (financial and review records must never silently vanish with
+    // the booking). Check for those first and give a clear, actionable error
+    // instead of surfacing Postgres's raw FK-violation message, which is what
+    // every "Cancel" click hit before Cancel/Delete were split into separate
+    // actions — every booking with any payment/review/payout history failed
+    // to delete, with no way to actually cancel it instead.
+    const [{ count: paymentCount }, { count: reviewCount }, { count: payoutCount }] = await Promise.all([
+      db.from('payments').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+      db.from('reviews').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+      db.from('team_member_payouts').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+    ])
+    if ((paymentCount || 0) > 0 || (reviewCount || 0) > 0 || (payoutCount || 0) > 0) {
+      return NextResponse.json({
+        error: 'This booking has payment, review, or payout history and can\'t be deleted. Use Cancel instead.',
+        code: 'has_dependent_records',
+      }, { status: 409 })
+    }
+
     const { error } = await db
       .from('bookings')
       .delete()

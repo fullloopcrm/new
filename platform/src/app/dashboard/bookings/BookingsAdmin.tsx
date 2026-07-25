@@ -1327,7 +1327,11 @@ function BookingsPage() {
           return
         }
       } else {
-        const res = await fetch('/api/bookings/' + editingBooking.id, { method: 'DELETE' })
+        const res = await fetch('/api/bookings/' + editingBooking.id + '/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'cancelled' }),
+        })
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: res.statusText }))
           alert(`Failed to cancel booking: ${err.error || 'Unknown error'}`)
@@ -1982,7 +1986,7 @@ function BookingsPage() {
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         ) : (
-                          <button onClick={async () => { if (confirm(`Cancel booking for ${b.clients?.name || 'this client'}?`)) { try { const res = await fetch('/api/bookings/' + b.id, { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to cancel: ${err.error || 'Unknown error'}`); } await loadBookings() } catch (e) { alert(`Failed to cancel: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Cancel">
+                          <button onClick={async () => { if (confirm(`Cancel booking for ${b.clients?.name || 'this client'}?`)) { try { const res = await fetch('/api/bookings/' + b.id + '/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to cancel: ${err.error || 'Unknown error'}`); } await loadBookings() } catch (e) { alert(`Failed to cancel: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Cancel">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         )}
@@ -2690,7 +2694,9 @@ function BookingsPage() {
 
             {/* ── ACTIONS ── */}
             <div className="flex gap-2 pt-3 border-t border-gray-100">
-              {(editingBooking.recurring_type || editingBooking.schedule_id) ? (
+              {editingBooking.status === 'cancelled' ? (
+                <button type="button" onClick={async () => { if (confirm(`Permanently delete this cancelled booking for ${editingBooking.clients?.name || 'this client'}? This cannot be undone.`)) { try { const res = await fetch('/api/bookings/' + editingBooking.id, { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to delete: ${err.error || 'Unknown error'}`); return } setShowModal(false); setEditingBooking(null); await loadBookings() } catch (e) { alert(`Failed to delete: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Delete</button>
+              ) : (editingBooking.recurring_type || editingBooking.schedule_id) ? (
                 <div className="relative">
                   <button type="button" onClick={() => setShowCancelMenu(!showCancelMenu)} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Cancel ▾</button>
                   {showCancelMenu && (

@@ -218,7 +218,11 @@ describe('CROSS-TENANT ATTACK · booking family — /api/bookings/[id]', () => {
   it("tenant A DELETE targeting tenant B's booking id removes nothing — B's row survives", async () => {
     setAdminSessionFor(A_ID)
     const res = await bookingDELETE(new Request('http://x', { method: 'DELETE' }), paramsFor(ids.booking.b))
-    expect(res.status).toBe(200) // route reports success:true even on a 0-row scoped delete
+    // Cancel/Delete split (2026-07-24) added an explicit !booking check ahead
+    // of the payment/review/payout guard, so a 0-row scoped delete now 404s
+    // instead of silently reporting success:true on nothing — same "B's row
+    // survives" security property, more honest status code.
+    expect(res.status).toBe(404)
     expect(fake._all('bookings').some((r) => r.id === ids.booking.b)).toBe(true)
   })
 

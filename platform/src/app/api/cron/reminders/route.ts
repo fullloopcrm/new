@@ -186,7 +186,7 @@ export async function GET(request: Request) {
             const dateStr = booking.start_time.split('T')[0]
             const { data: dayJobs } = await supabaseAdmin
               .from('bookings')
-              .select('id, start_time, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude)')
+              .select('id, start_time, service_type, clients(name, phone, address, latitude, longitude), client_properties(address, latitude, longitude)')
               .eq('tenant_id', tenantId).eq('team_member_id', booking.team_member_id)
               .gte('start_time', `${dateStr}T00:00:00`).lte('start_time', `${dateStr}T23:59:59`)
               .not('status', 'in', '("cancelled")').order('start_time', { ascending: true })
@@ -208,7 +208,12 @@ export async function GET(request: Request) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const j = jobs[i] as any
                 const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                lines.push(`${t} ${j.clients?.name?.split(' ')[0] || 'Client'}`)
+                const addr = j.client_properties?.address || j.clients?.address
+                // Full name, phone, address, and service type — not just
+                // first name — so a cleaner still has the booking's real
+                // details in-hand from this one text if the system/portal is
+                // down the next day.
+                lines.push(`${t} ${j.clients?.name || 'Client'}${j.clients?.phone ? ' ' + j.clients.phone : ''}${j.service_type ? ' (' + j.service_type + ')' : ''}${addr ? '\n  ' + addr : ''}`)
                 if (i < jobs.length - 1) {
                   const a = await coordsOf(j); const b = await coordsOf(jobs[i + 1])
                   if (a && b) { const mins = estimateTransitMinutes(calculateDistance(a.lat, a.lng, b.lat, b.lng), hasCar); lines.push(`  ${hasCar ? '🚗' : '🚇'} ~${mins} min`) }
