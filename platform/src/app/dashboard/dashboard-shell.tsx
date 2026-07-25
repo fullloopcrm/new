@@ -340,12 +340,13 @@ export default function DashboardShell({
       >
         {/* Brand */}
         <div className="px-[22px] pt-[22px] pb-1">
-          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', lineHeight: 1.1, color: '#F4F4F1' }}>
-            {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
+          <Link href="/dashboard" className="flex items-center gap-2" style={{ color: '#F4F4F1', lineHeight: 1.1 }}>
+            <span style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.025em' }}>Full Loop</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A8A8A4' }}>CRM</span>
           </Link>
         </div>
         <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#F4F4F1', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          v2.4 · NYC
+          v1.0 - {tenantName}
         </div>
 
         {/* Scroll area */}
