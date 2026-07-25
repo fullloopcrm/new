@@ -30,6 +30,7 @@ function summaryFixture() {
     cleaner_payouts: [
       {
         cleaner_id: 'tm-1', name: 'Sarai Aguirre', phone: null, is_lead: true,
+        pay_rate: 25, billed_hours: 2,
         base_cents: 5000, tip_cents: 500, total_due_cents: 5500, total_paid_cents: 5250, outstanding_cents: 250,
         payouts: [
           { id: 'po-1', amount_cents: 3000, method: 'zelle', created_at: '2026-07-23T15:10:00' },
@@ -63,5 +64,13 @@ describe('CloseoutDetail', () => {
 
     expect(await screen.findByText('$30.00')).toBeInTheDocument()
     expect(screen.getByText('$22.50')).toBeInTheDocument()
+  })
+
+  it('shows the cleaner\'s hourly rate and hours breakdown (2026-07-25, Jeff — wants to see the true labor breakdown, not just a flat Base total)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => summaryFixture() }))
+
+    render(<CloseoutDetail bookingId="bk-1" />)
+
+    expect(await screen.findByText('2h × $25/hr')).toBeInTheDocument()
   })
 })

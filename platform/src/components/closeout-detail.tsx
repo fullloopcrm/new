@@ -18,6 +18,8 @@ interface CleanerSummary {
   name: string
   phone: string | null
   is_lead: boolean
+  pay_rate: number
+  billed_hours: number
   base_cents: number
   tip_cents: number
   total_due_cents: number
@@ -209,7 +211,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
                   </span>
                 </div>
                 <div className="space-y-0.5">
-                  <KV k="Base" v={fmtUsd(c.base_cents)} />
+                  <KV k={`${c.billed_hours}h × $${c.pay_rate}/hr`} v={fmtUsd(c.base_cents)} />
                   {c.tip_cents > 0 && <KV k="Tip share" v={fmtUsd(c.tip_cents)} />}
                   <KV k={<span className="font-medium">Total due</span>} v={fmtUsd(c.total_due_cents)} valueClass="font-medium" />
                   <KV k="Paid so far" v={fmtUsd(c.total_paid_cents)} />
