@@ -520,6 +520,9 @@ function BookFormContent() {
               onChange={(e) => update('unit', e.target.value)}
               className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
             />
+            <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
+              <strong>Address must be correct.</strong> If not, travel time will be charged to the client.
+            </div>
           </div>
 
           {/* More options — supplies, hours, team, cleaner pick, notes, referrer.
