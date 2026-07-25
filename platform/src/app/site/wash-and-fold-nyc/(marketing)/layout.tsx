@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 import MarketingNav from '@/app/site/wash-and-fold-nyc/_components/marketing/MarketingNav'
 import MarketingFooter from '@/app/site/wash-and-fold-nyc/_components/marketing/MarketingFooter'
 import FloatingBubbles from '@/app/site/wash-and-fold-nyc/_components/marketing/FloatingBubbles'
+import TenantAnalyticsScript from '@/components/analytics/TenantAnalyticsScript'
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingNav />
       <main id="main-content" className="relative z-10">{children}</main>
       <MarketingFooter />
+      <TenantAnalyticsScript slug="wash-and-fold-nyc" />
     </div>
   )
 }

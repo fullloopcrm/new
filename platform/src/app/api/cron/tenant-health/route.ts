@@ -33,7 +33,7 @@ const SKIP_SLUGS = new Set<string>(['full-loop-crm'])
 const EXCLUDED_TENANTS = new Set<string>(['nycmaid', 'fla-dumpster-rentals'])
 
 // Tenants whose homepage is in a Next route group (report x-matched-path `/`).
-const ROUTE_GROUP_TENANTS = new Set<string>(['wash-and-fold-nyc', 'wash-and-fold-hoboken'])
+const ROUTE_GROUP_TENANTS = new Set<string>(['wash-and-fold-nyc'])
 
 const CONCURRENCY = 8
 

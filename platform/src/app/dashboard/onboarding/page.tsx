@@ -12,6 +12,16 @@ import { ONBOARDING_STEPS } from '@/lib/onboarding-steps'
 
 type Profile = Record<string, string | number | boolean | undefined>
 
+interface WebsiteStatus {
+  domain: string | null
+  domain_name: string | null
+  dns_configured: boolean
+  email_domain_verified: boolean
+  website_published: boolean
+  website_url: string | null
+  enable_legacy_seo_pages: boolean
+}
+
 const ENTITY_TYPES = ['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietor', 'Partnership', 'Nonprofit']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -32,6 +42,42 @@ export default function OnboardingProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [website, setWebsite] = useState<WebsiteStatus | null>(null)
+  const [websiteSaving, setWebsiteSaving] = useState(false)
+
+  useEffect(() => {
+    if (STEPS[step]?.key !== 'website' || website) return
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => {
+        const t = (data.tenant?.tenant || data.tenant || data) as Record<string, unknown>
+        setWebsite({
+          domain: (t.domain as string) || null,
+          domain_name: (t.domain_name as string) || null,
+          dns_configured: !!t.dns_configured,
+          email_domain_verified: !!t.email_domain_verified,
+          website_published: !!t.website_published,
+          website_url: (t.website_url as string) || null,
+          enable_legacy_seo_pages: !!t.enable_legacy_seo_pages,
+        })
+      })
+      .catch(() => {})
+  }, [step, website])
+
+  const toggleWebsiteField = async (k: 'website_published' | 'enable_legacy_seo_pages', v: boolean) => {
+    if (!website) return
+    setWebsite({ ...website, [k]: v })
+    setWebsiteSaving(true)
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [k]: v }),
+      })
+    } finally {
+      setWebsiteSaving(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/dashboard/onboarding/profile')
@@ -158,6 +204,10 @@ export default function OnboardingProfilePage() {
           </div>
         )}
 
+        {s.key === 'website' && (
+          <WebsiteStep website={website} saving={websiteSaving} onToggle={toggleWebsiteField} />
+        )}
+
         {s.key === 'brand' && (
           <div className="space-y-4">
             <Field label="Logo URL" k="logoUrl" form={form} set={set} placeholder="https://…/logo.png" />
@@ -248,6 +298,93 @@ export default function OnboardingProfilePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+/* ---- website setup step ---- */
+function WebsiteStep({
+  website,
+  saving,
+  onToggle,
+}: {
+  website: WebsiteStatus | null
+  saving: boolean
+  onToggle: (k: 'website_published' | 'enable_legacy_seo_pages', v: boolean) => void
+}) {
+  if (!website) return <p className="text-sm text-slate-400">Loading…</p>
+
+  const checks = [
+    { label: 'Domain configured', done: !!(website.domain || website.domain_name), detail: website.domain || website.domain_name || 'No domain set' },
+    { label: 'DNS configured', done: website.dns_configured, detail: website.dns_configured ? 'DNS records verified' : 'DNS not configured — point your domain to Vercel' },
+    { label: 'Email domain verified', done: website.email_domain_verified, detail: website.email_domain_verified ? 'Emails send from your domain' : 'Not verified — emails send from default domain' },
+    { label: 'Website published', done: website.website_published, detail: website.website_published ? 'Your website is live' : 'Website not yet published' },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        {checks.map((check) => (
+          <div key={check.label} className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded ${check.done ? 'border border-green-300 bg-green-50' : 'border border-slate-300'}`}>
+              {check.done && (
+                <svg className="h-3 w-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className={`text-sm ${check.done ? 'text-slate-400 line-through' : 'font-medium text-slate-700'}`}>{check.label}</p>
+              <p className="text-xs text-slate-400">{check.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {website.website_url && (
+        <a href={website.website_url} target="_blank" rel="noopener noreferrer" className="block text-sm text-teal-600 underline hover:text-teal-700">
+          {website.website_url}
+        </a>
+      )}
+
+      <div className="space-y-3 border-t border-slate-200 pt-4">
+        <ToggleRow
+          label="Site published"
+          helper="When off, public visits to your domain return a placeholder."
+          checked={website.website_published}
+          disabled={saving}
+          onChange={(v) => onToggle('website_published', v)}
+        />
+        <ToggleRow
+          label="Legacy SEO pages enabled"
+          helper="Renders the area × service long-tail pages copied from your source site."
+          checked={website.enable_legacy_seo_pages}
+          disabled={saving}
+          onChange={(v) => onToggle('enable_legacy_seo_pages', v)}
+        />
+      </div>
+      <p className="text-xs text-slate-400">DNS and domain setup are configured by your admin — reach out if either needs to change.</p>
+    </div>
+  )
+}
+
+function ToggleRow({ label, helper, checked, disabled, onChange }: { label: string; helper?: string; checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4">
+      <span className="flex-1">
+        <span className="block text-sm font-medium text-slate-700">{label}</span>
+        {helper && <span className="mt-0.5 block text-xs text-slate-400">{helper}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors disabled:opacity-50 ${checked ? 'bg-teal-600' : 'bg-slate-300'}`}
+      >
+        <span className={`inline-block h-5 w-5 translate-y-0.5 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      </button>
+    </label>
   )
 }
 
