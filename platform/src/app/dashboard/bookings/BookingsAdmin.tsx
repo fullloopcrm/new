@@ -1046,6 +1046,12 @@ function BookingsPage() {
     const updateData = {
       ...form,
       team_member_id: form.team_member_id || null,
+      // Same bug as team_member_id above, just missed: form.property_id is ''
+      // (not null) when a booking has no property record — bookings.property_id
+      // is a uuid column, so Postgres rejects '' with the same
+      // "invalid input syntax for type uuid: ''" save failure. Reproduced on
+      // Erin Han's booking (property_id null in the DB, no client_properties row).
+      property_id: form.property_id || null,
       start_time: newStartStr,
       end_time: newEndStr,
       price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
