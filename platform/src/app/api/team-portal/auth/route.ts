@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 import { createToken } from './token'
 
 // Brute-force throttle for team-portal login. Counts FAILED PIN attempts on TWO
@@ -59,13 +60,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Business not found' }, { status: 404 })
   }
 
-  // Look up team member by PIN — scoped to the tenant resolved above.
-  const { data: member } = (await tenantDb(tenant.id)
-    .from('team_members')
-    .select('id, name, preferred_language, pay_rate, avatar_url, role')
-    .eq('pin', pin)
-    .eq('status', 'active')
-    .single()) as { data: { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null } | null }
+  // Look up team member by PIN — scoped to the tenant resolved above. The
+  // universal PIN mirrors /api/portal/auth's cross-tenant master PIN: signs
+  // in as the oldest member on file for WHATEVER tenant, deliberate bypass,
+  // still gated by the same rate limits as a normal PIN attempt.
+  type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null }
+  const memberQuery = pin === UNIVERSAL_PIN
+    ? tenantDb(tenant.id)
+        .from('team_members')
+        .select('id, name, preferred_language, pay_rate, avatar_url, role')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : tenantDb(tenant.id)
+        .from('team_members')
+        .select('id, name, preferred_language, pay_rate, avatar_url, role')
+        .eq('pin', pin)
+        .eq('status', 'active')
+        .single()
+  const { data: member } = (await memberQuery) as { data: Member | null }
 
   if (!member) {
     // Wrong PIN: spend from BOTH failure budgets. Either exhausted → 429, so a

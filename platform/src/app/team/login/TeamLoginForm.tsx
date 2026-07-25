@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTeamAuth } from '../layout'
 import PinLoginCard from '@/components/auth/PinLoginCard'
 
@@ -12,14 +12,16 @@ interface TeamLoginFormProps {
 export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
   const { setAuth, t } = useTeamAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [pin, setPin] = useState('')
   const [slug, setSlug] = useState('')
   const [needBusiness, setNeedBusiness] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function login() {
-    if (pin.length < 4 || loading) return
+  async function login(overridePin?: string) {
+    const submitPin = overridePin ?? pin
+    if (submitPin.length < 4 || loading) return
     if (needBusiness && !slug) return
     setLoading(true)
     setError('')
@@ -29,7 +31,7 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
         headers: { 'Content-Type': 'application/json' },
         // On a tenant's own domain the server resolves the business from the
         // host. Only send a slug if the host couldn't (main host fallback).
-        body: JSON.stringify({ pin, tenant_slug: slug || undefined }),
+        body: JSON.stringify({ pin: submitPin, tenant_slug: slug || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -47,6 +49,19 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
       setLoading(false)
     }
   }
+
+  // Portal-picker deep link (?pin=...) — auto-fills and submits once so the
+  // "master PIN → pick a tenant → land inside" flow is a single click.
+  const autoSubmitted = useRef(false)
+  useEffect(() => {
+    const deepLinkPin = searchParams.get('pin')
+    if (!deepLinkPin || autoSubmitted.current) return
+    autoSubmitted.current = true
+    const cleaned = deepLinkPin.replace(/\D/g, '').slice(0, 6)
+    setPin(cleaned)
+    login(cleaned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   return (
     <PinLoginCard

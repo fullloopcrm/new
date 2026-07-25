@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 import { generateCode, createToken } from './token'
 
 // Brute-force throttle for PIN login. Mirrors /api/team-portal/auth: buckets are
@@ -16,12 +17,6 @@ const FAILED_WINDOW_MS = 15 * 60 * 1000
 function clientIp(request: Request): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 }
-
-// Cross-tenant master PIN — signs in as the oldest client on file for
-// WHATEVER tenant the login is attempted against. Deliberate platform-wide
-// bypass of the per-client PIN check, requested for support/demo access.
-// Still gated by the same rate limits as a normal PIN attempt.
-const UNIVERSAL_PIN = '020179'
 
 type Client = { id: string; name: string; phone: string | null; email: string | null }
 

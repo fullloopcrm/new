@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { headers } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
@@ -24,5 +25,9 @@ export default async function TeamLoginPage() {
     if (tenant?.name) businessName = tenant.name
   }
 
-  return <TeamLoginForm businessName={businessName} />
+  return (
+    <Suspense fallback={null}>
+      <TeamLoginForm businessName={businessName} />
+    </Suspense>
+  )
 }

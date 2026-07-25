@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { headers } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
@@ -25,5 +26,9 @@ export default async function FullLoopLoginPage() {
     if (tenant?.name) businessName = tenant.name
   }
 
-  return <LoginForm businessName={businessName} />
+  return (
+    <Suspense fallback={null}>
+      <LoginForm businessName={businessName} />
+    </Suspense>
+  )
 }

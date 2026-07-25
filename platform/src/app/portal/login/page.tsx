@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { usePortalAuth } from '../layout'
 import AuthShell, {
   authLabelClass,
@@ -13,8 +13,17 @@ import AuthShell, {
 type Step = 'pin' | 'forgot' | 'forgot-sent'
 
 export default function PortalLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <PortalLoginForm />
+    </Suspense>
+  )
+}
+
+function PortalLoginForm() {
   const { setAuth } = usePortalAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>('pin')
   const [slug, setSlug] = useState('')
   const [needBusiness, setNeedBusiness] = useState(false)
@@ -27,9 +36,10 @@ export default function PortalLoginPage() {
     setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
   }
 
-  async function login(e: React.FormEvent) {
-    e.preventDefault()
-    if (pin.length < 4 || (needBusiness && !slug) || loading) return
+  async function login(e?: React.FormEvent, overridePin?: string) {
+    e?.preventDefault()
+    const submitPin = overridePin ?? pin
+    if (submitPin.length < 4 || (needBusiness && !slug) || loading) return
     setLoading(true)
     setError('')
     try {
@@ -38,7 +48,7 @@ export default function PortalLoginPage() {
       const res = await fetch('/api/portal/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', pin, tenant_slug: slug || undefined }),
+        body: JSON.stringify({ action: 'login', pin: submitPin, tenant_slug: slug || undefined }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -56,6 +66,18 @@ export default function PortalLoginPage() {
       setLoading(false)
     }
   }
+
+  // Portal-picker deep link (?pin=...) — auto-fills and submits once.
+  const autoSubmitted = useRef(false)
+  useEffect(() => {
+    const deepLinkPin = searchParams.get('pin')
+    if (!deepLinkPin || autoSubmitted.current) return
+    autoSubmitted.current = true
+    const cleaned = deepLinkPin.replace(/\D/g, '').slice(0, 6)
+    setPin(cleaned)
+    login(undefined, cleaned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   async function requestPin(e: React.FormEvent) {
     e.preventDefault()
