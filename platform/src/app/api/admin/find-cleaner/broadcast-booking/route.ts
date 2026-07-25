@@ -19,15 +19,29 @@ const EXCLUDED_APPLICANT_STATUSES = ['accepted', 'rejected']
 type MemberRow = { id: string; name: string; phone: string | null; active: boolean | null; status: string | null }
 type ApplicantRow = { id: string; name: string | null; phone: string | null; status: string | null }
 
+// Naive timestamps (no timezone suffix) are stored as ET wall-clock time
+// directly -- same convention as CreateBookingForm/EditBookingForm's
+// buildNaiveTime/parseNaive. No timezone math needed, just read HH:MM.
+function formatNaiveClock(naive: string): string {
+  const timePart = naive.split('T')[1] || '00:00:00'
+  const [hStr, mStr] = timePart.split(':')
+  let h = parseInt(hStr, 10)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12
+  if (h === 0) h = 12
+  return `${h}:${mStr} ${ampm}`
+}
+
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
   const { tenantId } = tenant
   const db = tenantDb(tenantId)
 
-  const [{ data: members }, { data: applicants }] = await Promise.all([
+  const [{ data: members }, { data: applicants }, { data: tenantData }] = await Promise.all([
     db.from('team_members').select('id, name, phone, active, status') as unknown as Promise<{ data: MemberRow[] | null }>,
     db.from('cleaner_applications').select('id, name, phone, status') as unknown as Promise<{ data: ApplicantRow[] | null }>,
+    supabaseAdmin.from('tenants').select('domain, slug').eq('id', tenantId).single(),
   ])
 
   const eligibleMembers = (members || []).filter(m => m.active !== false && (m.status || 'active') !== 'inactive' && !!m.phone)
@@ -36,6 +50,7 @@ export async function GET() {
   return NextResponse.json({
     members: eligibleMembers.map(m => ({ id: m.id, name: m.name, phone: m.phone })),
     applicants: eligibleApplicants.map(a => ({ id: a.id, name: a.name || 'Applicant', phone: a.phone })),
+    portal_url: tenantData ? `${tenantSiteUrl(tenantData)}/team` : null,
   })
 }
 
@@ -44,7 +59,7 @@ export async function POST(request: Request) {
   if (authError) return authError
   const { tenantId } = tenant
 
-  const { booking_id, rate_override, member_ids, applicant_ids } = await request.json().catch(() => ({}))
+  const { booking_id, rate_override, member_ids, applicant_ids, team_message, applicant_message } = await request.json().catch(() => ({}))
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
   if ((!member_ids || member_ids.length === 0) && (!applicant_ids || applicant_ids.length === 0)) {
     return NextResponse.json({ error: 'No recipients selected' }, { status: 400 })
@@ -54,12 +69,13 @@ export async function POST(request: Request) {
 
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, team_member_id, status, pay_rate, clients(address)')
+    .select('id, team_member_id, status, pay_rate, start_time, end_time, clients(address)')
     .eq('id', booking_id)
     .single()) as {
       data: {
         id: string; team_member_id: string | null; status: string
         pay_rate: number | null
+        start_time: string; end_time: string | null
         clients: { address: string | null } | null
       } | null
     }
@@ -93,6 +109,9 @@ export async function POST(request: Request) {
   const portalUrl = `${tenantSiteUrl(tenantData)}/team`
   const address = booking.clients?.address || null
   const payRate = rate_override != null && Number(rate_override) > 0 ? Number(rate_override) : booking.pay_rate
+  const timeRange = booking.end_time
+    ? `${formatNaiveClock(booking.start_time)} to ${formatNaiveClock(booking.end_time)}`
+    : formatNaiveClock(booking.start_time)
 
   let teamResult = { sent: 0, eligible: 0, members: [] as string[] }
   if (member_ids && member_ids.length > 0) {
@@ -105,13 +124,17 @@ export async function POST(request: Request) {
     const eligible = (members || []).filter(m => m.active !== false && (m.status || 'active') !== 'inactive' && !!m.phone)
 
     if (eligible.length > 0) {
-      const body = [
+      // Admin can edit the message in the picker UI -- use it verbatim if
+      // provided, since it may already have the real portal link/address/
+      // rate substituted in. Falls back to the same default template if the
+      // admin never touched it (or an older client didn't send one).
+      const body = (typeof team_message === 'string' && team_message.trim()) ? team_message : [
         'There is a job available in your portal — first team member to claim it gets it.',
-        `You must be able to arrive within 60-90 minutes.${payRate ? ` Pays $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+        `You must be able to arrive within 60-90 minutes.${payRate ? ` Pays $${payRate}/hr.` : ''} ${timeRange}.${address ? ` ${address}.` : ''}`,
         portalUrl,
         '',
         'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
-        `Debes poder llegar en 60-90 minutos.${payRate ? ` Paga $${payRate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
+        `Debes poder llegar en 60-90 minutos.${payRate ? ` Paga $${payRate}/hr.` : ''} ${timeRange}.${address ? ` ${address}.` : ''}`,
         portalUrl,
       ].join('\n')
 
@@ -139,7 +162,7 @@ export async function POST(request: Request) {
     const eligible = (applicants || []).filter(a => !!a.phone && !(a.status && EXCLUDED_APPLICANT_STATUSES.includes(a.status)))
 
     if (eligible.length > 0) {
-      const body = [
+      const body = (typeof applicant_message === 'string' && applicant_message.trim()) ? applicant_message : [
         "There's an available cleaning — contact us to activate your portal to claim it.",
         'You must have your own supplies and equipment. Reply STOP to stop receiving messages.',
         '',

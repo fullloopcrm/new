@@ -41,20 +41,37 @@ function toggleId(ids: Set<string>, id: string): Set<string> {
   return next
 }
 
-function teamMessagePreview(rateOverride: string, address: string | null): string {
+// Naive timestamps (no timezone suffix) are ET wall-clock time directly --
+// same convention as EditBookingForm/CreateBookingForm. Mirrors the
+// identical helper in broadcast-booking/route.ts so this default text
+// matches exactly what the server would send if never edited.
+function formatNaiveClock(naive: string): string {
+  const timePart = naive.split('T')[1] || '00:00:00'
+  const [hStr, mStr] = timePart.split(':')
+  let h = parseInt(hStr, 10)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12
+  if (h === 0) h = 12
+  return `${h}:${mStr} ${ampm}`
+}
+
+function teamMessagePreview(rateOverride: string, address: string | null, portalUrl: string, booking: Booking): string {
   const rate = rateOverride ? Number(rateOverride) : null
+  const timeRange = booking.end_time
+    ? `${formatNaiveClock(booking.start_time)} to ${formatNaiveClock(booking.end_time)}`
+    : formatNaiveClock(booking.start_time)
   return [
     'There is a job available in your portal — first team member to claim it gets it.',
-    `You must be able to arrive within 60-90 minutes.${rate ? ` Pays $${rate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
-    '[portal link]',
+    `You must be able to arrive within 60-90 minutes.${rate ? ` Pays $${rate}/hr.` : ''} ${timeRange}.${address ? ` ${address}.` : ''}`,
+    portalUrl,
     '',
     'Hay un trabajo disponible en tu portal — el primero en reclamarlo se lo queda.',
-    `Debes poder llegar en 60-90 minutos.${rate ? ` Paga $${rate}/hr.` : ''}${address ? ` ${address}.` : ''}`,
-    '[portal link]',
+    `Debes poder llegar en 60-90 minutos.${rate ? ` Paga $${rate}/hr.` : ''} ${timeRange}.${address ? ` ${address}.` : ''}`,
+    portalUrl,
   ].join('\n')
 }
 
-const APPLICANT_MESSAGE_PREVIEW = [
+const DEFAULT_APPLICANT_MESSAGE = [
   "There's an available cleaning — contact us to activate your portal to claim it.",
   'You must have your own supplies and equipment. Reply STOP to stop receiving messages.',
   '',
@@ -80,6 +97,8 @@ export default function FindTeamMemberPage() {
   const [result, setResult] = useState<SendResult | null>(null)
   const [editingBooking, setEditingBooking] = useState<EditableBooking | null>(null)
   const [loadingEdit, setLoadingEdit] = useState(false)
+  const [teamMessage, setTeamMessage] = useState('')
+  const [applicantMessage, setApplicantMessage] = useState('')
 
   useEffect(() => {
     if (!clientSearch || selectedClient) { setClients([]); return }
@@ -117,6 +136,7 @@ export default function FindTeamMemberPage() {
     setShowRecipients(false)
     setMembers([]); setSelectedMemberIds(new Set())
     setApplicants([]); setSelectedApplicantIds(new Set())
+    setTeamMessage(''); setApplicantMessage('')
     setResult(null)
   }
 
@@ -148,9 +168,11 @@ export default function FindTeamMemberPage() {
     setShowRecipients(false)
     setMembers([]); setSelectedMemberIds(new Set())
     setApplicants([]); setSelectedApplicantIds(new Set())
+    setTeamMessage(''); setApplicantMessage('')
   }
 
   const loadRecipients = async () => {
+    if (!selectedBooking) return
     setLoadingRecipients(true)
     try {
       const r = await fetch('/api/admin/find-cleaner/broadcast-booking')
@@ -161,6 +183,8 @@ export default function FindTeamMemberPage() {
       setSelectedMemberIds(new Set(m.map(x => x.id)))
       setApplicants(a)
       setSelectedApplicantIds(new Set(a.map(x => x.id)))
+      setTeamMessage(teamMessagePreview(rateOverride, selectedBooking.clients?.address || null, j.portal_url || '[portal link]', selectedBooking))
+      setApplicantMessage(DEFAULT_APPLICANT_MESSAGE)
       setShowRecipients(true)
     } catch {
       // leave showRecipients false so the button is still there to retry
@@ -179,6 +203,8 @@ export default function FindTeamMemberPage() {
         rate_override: rateOverride ? Number(rateOverride) : null,
         member_ids: Array.from(selectedMemberIds),
         applicant_ids: Array.from(selectedApplicantIds),
+        team_message: teamMessage,
+        applicant_message: applicantMessage,
       }),
     })
     const d = await r.json().catch(() => ({ error: 'Failed to send' }))
@@ -283,7 +309,7 @@ export default function FindTeamMemberPage() {
                     <button style={linkButton} onClick={() => setSelectedMemberIds(new Set())}>Deselect all</button>
                   </div>
                 </div>
-                <div style={messagePreview}>{teamMessagePreview(rateOverride, selectedBooking.clients?.address || null)}</div>
+                <textarea style={{ ...messagePreview, width: '100%', minHeight: 100, fontFamily: 'inherit' }} value={teamMessage} onChange={(e) => setTeamMessage(e.target.value)} />
                 <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
                   {members.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No active roster members with a phone on file.</div>}
                   {members.map(m => (
@@ -303,7 +329,7 @@ export default function FindTeamMemberPage() {
                     <button style={linkButton} onClick={() => setSelectedApplicantIds(new Set())}>Deselect all</button>
                   </div>
                 </div>
-                <div style={messagePreview}>{APPLICANT_MESSAGE_PREVIEW}</div>
+                <textarea style={{ ...messagePreview, width: '100%', minHeight: 90, fontFamily: 'inherit' }} value={applicantMessage} onChange={(e) => setApplicantMessage(e.target.value)} />
                 <div style={{ border: '1px solid #e7e2d8', borderRadius: 8, padding: '4px 10px', maxHeight: 220, overflowY: 'auto' }}>
                   {applicants.length === 0 && <div style={{ color: '#7a7468', padding: '6px 0' }}>No applicants with a phone on file.</div>}
                   {applicants.map(a => (
