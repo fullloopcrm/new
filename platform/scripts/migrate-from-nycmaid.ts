@@ -34,6 +34,12 @@ import { createClient } from '@supabase/supabase-js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const VERIFY_ONLY = process.argv.includes('--verify')
+// Runs ONLY the website_visits step. The other tables were already migrated
+// back on 2026-06-06 and have since drifted (real edits made directly in
+// fullloop) — re-running their upserts for real would silently overwrite
+// that with stale nycmaid-side data. website_visits is a fresh, additive
+// backfill with no such risk (nothing has ever written to it before today).
+const WEBSITE_VISITS_ONLY = process.argv.includes('--website-visits-only')
 const CUTOFF = process.env.MIGRATION_CUTOFF || new Date().toISOString()
 const TENANT_NAME = 'The NYC Maid'
 // LIVE tenant slug is `nycmaid` (id 00000000-0000-0000-0000-000000000001).
@@ -483,7 +489,56 @@ async function migrateSelenaMemory(tenantId: string) {
   await upsertBatch('selena_memory', mapped)
 }
 
-// ─── Step 8 — Verify ────────────────────────────────────────────────────────
+// ─── Step 8 — Website visits (lead_clicks → website_visits) ────────────────
+
+// nycmaid's t.js overloaded `action` with two meanings: page-lifecycle events
+// ('visit', 'scroll_25', 'engaged_30s', ...) AND, for CTA rows, the CTA type
+// itself ('call', 'text', 'book', 'pay', 'directions', 'ops_apply'). The
+// current website_visits schema (and its /api/leads/visits reader) expects
+// these split: action='cta' + a separate cta_type column. Re-derive that
+// split on the way in so the CTA stats (conversion rate, CTA breakdown) read
+// correctly against the migrated rows, not just the live ones.
+const CTA_ACTIONS = new Set(['call', 'text', 'book', 'pay', 'directions', 'ops_apply'])
+
+async function migrateWebsiteVisits(tenantId: string) {
+  log('--- website_visits ---')
+  const rows = await fetchAll<Record<string, unknown>>('lead_clicks', q => q.select('*').lte('created_at', CUTOFF))
+  log(`fetched ${rows.length} lead_clicks`)
+
+  const mapped = rows.map(r => {
+    const rawAction = (r.action as string) || 'visit'
+    const isCta = CTA_ACTIONS.has(rawAction)
+    return {
+      id: r.id,
+      tenant_id: tenantId,
+      session_id: r.session_id || null,
+      visitor_id: r.visitor_id || null,
+      referrer: r.referrer || null,
+      device: r.device || null,
+      page_url: r.page || null,
+      scroll_depth: r.scroll_depth ?? null,
+      time_on_page: r.time_on_page ?? null,
+      cta_type: isCta ? rawAction : null,
+      action: isCta ? 'cta' : rawAction,
+      active_time: r.active_time ?? null,
+      cta_clicked: r.cta_clicked ?? false,
+      load_time_ms: r.load_time_ms ?? null,
+      placement: r.placement || null,
+      screen_w: r.screen_w ?? null,
+      screen_h: r.screen_h ?? null,
+      utm_source: r.utm_source || null,
+      utm_medium: r.utm_medium || null,
+      utm_campaign: r.utm_campaign || null,
+      true_conversion: r.true_conversion ?? false,
+      manual_conversion: r.manual_conversion ?? false,
+      manual_sale: r.manual_sale ?? false,
+      created_at: r.created_at || new Date().toISOString(),
+    }
+  })
+  await upsertBatch('website_visits', mapped)
+}
+
+// ─── Step 9 — Verify ────────────────────────────────────────────────────────
 
 async function verify(tenantId: string) {
   log('=== VERIFICATION ===')
@@ -495,6 +550,7 @@ async function verify(tenantId: string) {
     ['sms_conversations', 'sms_conversations'],
     ['sms_conversation_messages', 'sms_conversation_messages'],
     ['selena_memory', 'selena_memory'],
+    ['lead_clicks', 'website_visits'],
   ]
   // Get this tenant's conversation IDs so we can scope the messages count
   const { data: convoIds } = await fullloop.from('sms_conversations').select('id').eq('tenant_id', tenantId)
@@ -563,16 +619,19 @@ async function main() {
 
   const tenantId = await ensureTenant()
 
-  if (!VERIFY_ONLY) {
+  if (!VERIFY_ONLY && WEBSITE_VISITS_ONLY) {
+    await migrateWebsiteVisits(tenantId)
+  } else if (!VERIFY_ONLY) {
     await migrateClients(tenantId)
     await migrateTeamMembers(tenantId)
     await migrateRecurringSchedules(tenantId)
     await migrateBookings(tenantId)
     await migrateSmsConversations(tenantId)
     await migrateSelenaMemory(tenantId)
+    await migrateWebsiteVisits(tenantId)
   }
 
-  await verify(tenantId)
+  if (!WEBSITE_VISITS_ONLY) await verify(tenantId)
 
   log('')
   log('Done. If counts matched, the data copy is faithful.')
