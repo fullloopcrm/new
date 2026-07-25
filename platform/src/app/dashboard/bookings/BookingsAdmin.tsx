@@ -1045,6 +1045,7 @@ function BookingsPage() {
 
     const updateData = {
       ...form,
+      team_member_id: form.team_member_id || null,
       start_time: newStartStr,
       end_time: newEndStr,
       price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
