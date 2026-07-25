@@ -109,7 +109,17 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
 const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status === 'paid'
 const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
 const sum = (jobs: Booking[]) => jobs.reduce((s, j) => s + (j.price || 0), 0)
-const inRange = (j: { start_time: string }, a: Date, b: Date) => { const d = new Date(j.start_time); return d >= a && d <= b }
+// bookings.start_time is a NAIVE Eastern wall-clock timestamp with no
+// timezone info at all (see buildNaiveTime/shiftNaive in BookingsAdmin.tsx).
+// A bare `new Date(...)` parses those digits in the SERVER's own zone (UTC
+// on Vercel), which is wrong by the ET/UTC offset. Reinterpreting the same
+// digits as if they WERE UTC (append "Z") keeps every naive-to-naive
+// comparison in this file internally consistent without needing real DST
+// math — it only has to agree with itself, not with true UTC.
+const parseNaive = (s: string) => new Date(s.replace(' ', 'T').replace(/(\.\d+)?Z?$/, '') + 'Z')
+const inRange = (j: { start_time: string }, a: Date, b: Date) => { const d = parseNaive(j.start_time); return d >= a && d <= b }
+// created_at/accepted_at columns (clients, lead_clicks, quotes) ARE real
+// timestamptz — a bare `new Date(iso)` is already correct for these.
 const inDateRange = (iso: string, a: Date, b: Date) => { const d = new Date(iso); return d >= a && d <= b }
 
 const PENDING_QUOTE_STATUSES = ['sent', 'viewed']
@@ -170,20 +180,63 @@ export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
 
+  // "Today" per the TENANT's own configured timezone (Settings → Time Zone),
+  // not the server process's zone (UTC on Vercel) — without this, every
+  // day/week/month cutoff below rolls over 4-5 hours early, e.g. "Today's
+  // Jobs" starting to show tomorrow's bookings from ~8pm ET onward.
+  const tz = tenant.timezone || 'America/New_York'
   const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const endOfDay = new Date(startOfDay.getTime() + 86400000)
-  const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-  const endOfWeek = new Date(startOfWeek.getTime() + 7 * 86400000)
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' })
-  const yearStr = String(now.getFullYear())
+
+  // True UTC instants for a given tenant-local Y-M-D midnight — correct for
+  // filtering genuine timestamptz columns (clients/lead_clicks/quotes
+  // created_at/accepted_at) via inDateRange() above.
+  const zonedMidnight = (ymd: string): Date => {
+    const guess = new Date(`${ymd}T00:00:00Z`)
+    const asIfInTz = new Date(guess.toLocaleString('en-US', { timeZone: tz }))
+    const asIfUTC = new Date(guess.toLocaleString('en-US', { timeZone: 'UTC' }))
+    return new Date(guess.getTime() + (asIfUTC.getTime() - asIfInTz.getTime()))
+  }
+  // Naive fake-UTC instant for the same Y-M-D — for bookings.start_time,
+  // matching how parseNaive() above reads it back.
+  const naiveMidnight = (ymd: string): Date => new Date(`${ymd}T00:00:00Z`)
+  const addDaysYMD = (ymd: string, days: number): string => {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+  }
+
+  const todayYMD = now.toLocaleDateString('en-CA', { timeZone: tz }) // 'YYYY-MM-DD'
+  const zonedNow = new Date(now.toLocaleString('en-US', { timeZone: tz }))
+  const weekStartYMD = addDaysYMD(todayYMD, -zonedNow.getDay())
+  const monthStartYMD = `${todayYMD.slice(0, 7)}-01`
+  const [tyY, tyM] = todayYMD.slice(0, 7).split('-').map(Number)
+  const nextMonthStartYMD = tyM === 12 ? `${tyY + 1}-01-01` : `${tyY}-${String(tyM + 1).padStart(2, '0')}-01`
+  const yearStartYMD = `${todayYMD.slice(0, 4)}-01-01`
+  const nextYearStartYMD = `${Number(todayYMD.slice(0, 4)) + 1}-01-01`
+
+  // Real instants — for created_at/accepted_at (timestamptz) filtering and
+  // for display (monthShort/yearStr).
+  const startOfDay = zonedMidnight(todayYMD)
+  const endOfDay = zonedMidnight(addDaysYMD(todayYMD, 1))
+  const startOfWeek = zonedMidnight(weekStartYMD)
+  const endOfWeek = zonedMidnight(addDaysYMD(weekStartYMD, 7))
+  const startOfMonth = zonedMidnight(monthStartYMD)
+  const endOfMonth = zonedMidnight(nextMonthStartYMD)
+  const monthShort = now.toLocaleDateString('en-US', { month: 'short', timeZone: tz })
+  const yearStr = todayYMD.slice(0, 4)
+
+  // Naive fake-UTC — for bookings.start_time DB query bounds and for
+  // inRange()/parseNaive() comparisons against Booking.start_time.
+  const startOfDayNaive = naiveMidnight(todayYMD)
+  const endOfDayNaive = naiveMidnight(addDaysYMD(todayYMD, 1))
+  const startOfWeekNaive = naiveMidnight(weekStartYMD)
+  const endOfWeekNaive = naiveMidnight(addDaysYMD(weekStartYMD, 7))
+  const startOfMonthNaive = naiveMidnight(monthStartYMD)
+  const endOfMonthNaive = naiveMidnight(nextMonthStartYMD)
+  const startOfYearNaive = naiveMidnight(yearStartYMD)
+  const endOfYearNaive = naiveMidnight(nextYearStartYMD)
 
   const [allJobs, rosterRes, newClientsRes, leads, quotesRes] = await Promise.all([
-    fetchYearBookings(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
+    fetchYearBookings(tenant.id, startOfYearNaive.toISOString(), endOfYearNaive.toISOString()),
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', startOfMonth.toISOString()),
     fetchLeadVisits(tenant.id),
@@ -199,8 +252,8 @@ export default async function DashboardPage() {
   // union of the week and month windows, not just the month. Client address
   // + any already-geocoded coords so the map can skip live geocoding for
   // clients we've already resolved (see src/lib/geo-cache.ts).
-  const mapRangeStart = new Date(Math.min(startOfWeek.getTime(), startOfMonth.getTime()))
-  const mapRangeEnd = new Date(Math.max(endOfWeek.getTime(), endOfMonth.getTime()))
+  const mapRangeStart = new Date(Math.min(startOfWeekNaive.getTime(), startOfMonthNaive.getTime()))
+  const mapRangeEnd = new Date(Math.max(endOfWeekNaive.getTime(), endOfMonthNaive.getTime()))
   const { data: mapRows } = await supabaseAdmin
     .from('bookings')
     .select('id,start_time,status,service_type,team_member_id,clients(name,address,latitude,longitude),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
@@ -219,23 +272,25 @@ export default async function DashboardPage() {
 
   const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))
   const scheduled = (a: Date, b: Date) => allJobs.filter(j => SCHEDULED(j) && inRange(j, a, b))
-  const collectedToday = collected(startOfDay, endOfDay)
-  const collectedWeek = collected(startOfWeek, endOfWeek)
-  const collectedMonth = collected(startOfMonth, endOfMonth)
-  const collectedYear = collected(startOfYear, endOfYear)
+  const collectedToday = collected(startOfDayNaive, endOfDayNaive)
+  const collectedWeek = collected(startOfWeekNaive, endOfWeekNaive)
+  const collectedMonth = collected(startOfMonthNaive, endOfMonthNaive)
+  const collectedYear = collected(startOfYearNaive, endOfYearNaive)
 
   const all2026 = allJobs.filter(j => SCHEDULED(j))
   const scheduled2026Total = sum(all2026)
-  const scheduledWeek = scheduled(startOfWeek, endOfWeek)
-  const scheduledMonth = scheduled(startOfMonth, endOfMonth)
+  const scheduledWeek = scheduled(startOfWeekNaive, endOfWeekNaive)
+  const scheduledMonth = scheduled(startOfMonthNaive, endOfMonthNaive)
 
   // Remaining (booked, future months through year-end)
-  const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  const remaining = allJobs.filter(j => ['scheduled', 'confirmed'].includes(j.status) && inRange(j, startNextMonth, endOfYear))
+  const remaining = allJobs.filter(j => ['scheduled', 'confirmed'].includes(j.status) && inRange(j, endOfMonthNaive, endOfYearNaive))
 
   // AR aging on completed-but-unpaid
   const toCollect = allJobs.filter(j => j.status === 'completed' && j.payment_status === 'pending')
-  const ageDays = (j: Booking) => Math.floor((now.getTime() - new Date(j.start_time).getTime()) / 86400000)
+  // zonedNow, not now: parseNaive(j.start_time) is a fake-UTC reading of
+  // naive ET digits, so "now" needs the same fake-UTC treatment to diff
+  // correctly against it — see parseNaive()'s comment above.
+  const ageDays = (j: Booking) => Math.floor((zonedNow.getTime() - parseNaive(j.start_time).getTime()) / 86400000)
   const ar30 = sum(toCollect.filter(j => ageDays(j) <= 30))
   const ar60 = sum(toCollect.filter(j => { const a = ageDays(j); return a > 30 && a <= 60 }))
   const ar90 = sum(toCollect.filter(j => ageDays(j) > 60))
@@ -285,13 +340,14 @@ export default async function DashboardPage() {
     { label: 'Approved · Month', val: approvedQuotes.filter(q => q.accepted_at && inDateRange(q.accepted_at, startOfMonth, endOfMonth)).length },
   ]
   const monthsByYear = Array.from({ length: 12 }, (_, monthIdx) => {
-    const mStart = new Date(now.getFullYear(), monthIdx, 1)
-    const mEnd = new Date(now.getFullYear(), monthIdx + 1, 0, 23, 59, 59)
+    const ymd = `${yearStr}-${String(monthIdx + 1).padStart(2, '0')}-01`
+    const mStart = naiveMidnight(ymd)
+    const mEnd = naiveMidnight(monthIdx === 11 ? `${Number(yearStr) + 1}-01-01` : `${yearStr}-${String(monthIdx + 2).padStart(2, '0')}-01`)
     const jobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, mStart, mEnd))
     return {
-      label: mStart.toLocaleDateString('en-US', { month: 'short' }),
+      label: mStart.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
       count: jobs.length, revenue: sum(jobs),
-      isCurrent: monthIdx === now.getMonth(), isFuture: monthIdx > now.getMonth(),
+      isCurrent: monthIdx === zonedNow.getMonth(), isFuture: monthIdx > zonedNow.getMonth(),
     }
   })
   const kpis = [
@@ -304,19 +360,19 @@ export default async function DashboardPage() {
   // Today/Tomorrow feed rows need phone + address (Call/Text/Directions
   // without opening the booking) — a targeted 2-day query instead of adding
   // those columns to the whole-year fetch above.
-  const tomorrowStart = new Date(startOfDay.getTime() + 86400000)
-  const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
+  const tomorrowStartNaive = endOfDayNaive
+  const tomorrowEndNaive = naiveMidnight(addDaysYMD(todayYMD, 2))
   const { data: feedRows } = await supabaseAdmin
     .from('bookings')
     .select('id,start_time,end_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
-    .gte('start_time', startOfDay.toISOString())
-    .lt('start_time', tomorrowEnd.toISOString())
+    .gte('start_time', startOfDayNaive.toISOString())
+    .lt('start_time', tomorrowEndNaive.toISOString())
     .in('status', ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'])
     .order('start_time', { ascending: true })
   const feedJobs = (feedRows || []) as unknown as FeedBooking[]
-  const todayJobs = feedJobs.filter(j => inRange(j, startOfDay, endOfDay))
-  const tomorrowJobs = feedJobs.filter(j => { const d = new Date(j.start_time); return d >= tomorrowStart && d < tomorrowEnd })
+  const todayJobs = feedJobs.filter(j => inRange(j, startOfDayNaive, endOfDayNaive))
+  const tomorrowJobs = feedJobs.filter(j => { const d = parseNaive(j.start_time); return d >= tomorrowStartNaive && d < tomorrowEndNaive })
 
   const Bar = ({ children }: { children: React.ReactNode }) => (
     <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
@@ -434,9 +490,9 @@ export default async function DashboardPage() {
       {/* JOBS MAP — this month, geocoded */}
       <JobsMap
         jobs={mapJobs}
-        dayRange={[startOfDay.toISOString(), endOfDay.toISOString()]}
-        weekRange={[startOfWeek.toISOString(), endOfWeek.toISOString()]}
-        monthRange={[startOfMonth.toISOString(), endOfMonth.toISOString()]}
+        dayRange={[startOfDayNaive.toISOString(), endOfDayNaive.toISOString()]}
+        weekRange={[startOfWeekNaive.toISOString(), endOfWeekNaive.toISOString()]}
+        monthRange={[startOfMonthNaive.toISOString(), endOfMonthNaive.toISOString()]}
       />
     </>
   )

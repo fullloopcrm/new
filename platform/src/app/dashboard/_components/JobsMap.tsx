@@ -87,7 +87,11 @@ export default function JobsMap({
   }, [jobs])
 
   const filteredJobs = useMemo(() => jobs.filter(j => {
-    const t = new Date(j.start_time).getTime()
+    // job.start_time is a naive Eastern wall-clock string (see dashboard/
+    // page.tsx's parseNaive comment) — reinterpreting as if UTC keeps this
+    // consistent with dayRange/weekRange/monthRange regardless of the
+    // browser's own local timezone.
+    const t = new Date(j.start_time.replace(' ', 'T').replace(/(\.\d+)?Z?$/, '') + 'Z').getTime()
     if (t < rangeStart || t > rangeEnd) return false
     if (cleanerId === 'all') return true
     const crewIds = j.booking_team_members && j.booking_team_members.length > 0
