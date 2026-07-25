@@ -44,22 +44,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // booking_id alone (a UUID) already uniquely identifies the right rows.
   const db = tenantDb(booking.tenant_id)
 
-  // Team (booking_team_members) — pay_rate here is a per-booking override for
-  // this specific member; team_members.pay_rate is their standing rate (the
-  // field the admin team-profile page actually edits — hourly_rate is not
-  // maintained anywhere and must not be used for pay math).
-  const { data: teamRows } = await db
+  // Team (booking_team_members) — team_members.pay_rate is each member's
+  // standing rate (the field the admin team-profile page actually edits;
+  // hourly_rate is not maintained anywhere and must not be used for pay
+  // math). booking_team_members has no per-booking pay_rate override column
+  // — selecting one here previously 42703'd the whole query, which this
+  // code silently swallowed (destructured only `data`, never checked
+  // `error`) and fell through to the lead-only branch below, so every
+  // multi-cleaner booking's closeout silently dropped every non-lead
+  // crew member's pay from cleaner_payouts.
+  const { data: teamRows, error: teamRowsError } = await db
     .from('booking_team_members')
-    .select('team_member_id, is_lead, position, pay_rate, team_members(id, name, phone, pay_rate)')
+    .select('team_member_id, is_lead, position, team_members(id, name, phone, pay_rate)')
     .eq('booking_id', id)
     .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
+  if (teamRowsError) {
+    return NextResponse.json({ error: teamRowsError.message }, { status: 500 })
+  }
 
   const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; pay_rate: number | null }> = []
   if (teamRows && teamRows.length > 0) {
     for (const r of teamRows) {
       const c = r.team_members as unknown as { id: string; name: string; phone: string | null; pay_rate: number | null } | null
-      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: (r.pay_rate as number | null) ?? c.pay_rate ?? null })
+      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: c.pay_rate ?? null })
     }
   } else if (booking.team_member_id) {
     const c = booking.team_members as unknown as { id: string; name: string; phone: string | null } | null

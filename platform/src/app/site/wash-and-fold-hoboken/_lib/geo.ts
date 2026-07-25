@@ -1,24 +1,13 @@
 import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
-
-const RADAR_API_KEY = process.env.RADAR_API_KEY || process.env.NEXT_PUBLIC_RADAR_API_KEY || ''
+// Re-export the global geocoder (Census server-side + Nominatim, CORS-safe in
+// the browser) instead of this clone's own Radar-based implementation, which
+// silently returned null on every call — RADAR_API_KEY was never configured
+// for this tenant, so every geocodeClient/geocodeCleaner call below was a
+// no-op. Matches the platform's GLOBAL RULE: one geocoder, not one per clone.
+import { geocodeAddress } from '@/lib/geo'
+export { geocodeAddress } from '@/lib/geo'
 
 export const MAX_DISTANCE_MILES = 0.1
-
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const res = await fetch(
-      `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`,
-      { headers: { 'Authorization': RADAR_API_KEY } }
-    )
-    const data = await res.json()
-    if (data.addresses && data.addresses.length > 0) {
-      return { lat: data.addresses[0].latitude, lng: data.addresses[0].longitude }
-    }
-  } catch (e) {
-    console.error('Geocode error:', e)
-  }
-  return null
-}
 
 export function calculateDistance(
   lat1: number, lng1: number,
@@ -50,11 +39,13 @@ export async function geocodeClient(clientId: string, address: string): Promise<
   return coords
 }
 
-// Geocode and cache lat/lng on a cleaner record
+// Geocode and cache lat/lng on a cleaner record. Was writing to a `cleaners`
+// table that doesn't exist in this schema (real table: team_members) — every
+// call silently no-op'd via Supabase's error-swallowing .update() pattern.
 export async function geocodeCleaner(cleanerId: string, address: string): Promise<{ lat: number; lng: number } | null> {
   const coords = await geocodeAddress(address)
   if (coords) {
-    await supabaseAdmin.from('cleaners').update({ home_latitude: coords.lat, home_longitude: coords.lng }).eq('id', cleanerId)
+    await supabaseAdmin.from('team_members').update({ home_latitude: coords.lat, home_longitude: coords.lng }).eq('id', cleanerId)
   }
   return coords
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import type { CrewRow } from '@/lib/crew'
 
 type Booking = {
   id: string
@@ -16,6 +17,7 @@ type Booking = {
   team_member_id: string | null
   clients: { name: string; phone: string | null; address: string | null } | null
   team_members: { name: string; phone: string | null } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 type TeamMember = { id: string; name: string }

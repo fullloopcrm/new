@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
+import { crewNames, type CrewRow } from '@/lib/crew'
 
 // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
 // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
@@ -71,6 +72,7 @@ type Booking = {
   team_member_id: string | null
   clients: { name: string | null } | null
   team_members: { name: string | null } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 type FeedBooking = {
@@ -89,7 +91,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
   for (let from = 0; ; from += page) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members!bookings_team_member_id_fkey(name)')
+      .select('id,start_time,price,status,payment_status,service_type,schedule_id,team_member_id,clients(name),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
       .eq('tenant_id', tenantId)
       .gte('start_time', startISO)
       .lte('start_time', endISO)
@@ -189,10 +191,12 @@ export default async function DashboardPage() {
   const newThisMonth = newClientsRes.count || 0
   const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
 
-  // Map jobs — this month, with client address for geocoding.
+  // Map jobs — this month, with client address + any already-geocoded
+  // coords so the map can skip live geocoding for clients we've already
+  // resolved (see src/lib/geo-cache.ts).
   const { data: mapRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
+    .select('id,start_time,status,service_type,team_member_id,clients(name,address,latitude,longitude),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfMonth.toISOString())
     .lte('start_time', endOfMonth.toISOString())
@@ -201,8 +205,9 @@ export default async function DashboardPage() {
   const mapJobs = (mapRows || []).map((r) => ({
     id: r.id, start_time: r.start_time, status: r.status, service_type: r.service_type,
     cleaner_id: (r as { team_member_id?: string | null }).team_member_id ?? null,
-    clients: r.clients as unknown as { name: string; address: string } | null,
+    clients: r.clients as unknown as { name: string; address: string; latitude: number | null; longitude: number | null } | null,
     team_members: r.team_members as unknown as { name: string } | null,
+    booking_team_members: r.booking_team_members as unknown as CrewRow[] | null,
   })) as MapJob[]
 
   const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))
@@ -398,7 +403,7 @@ export default async function DashboardPage() {
                   <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="flex-1 min-w-0">
                     <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
-                    <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {job.team_members?.name || 'Unassigned'}</p>
+                    <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {crewNames(job)}</p>
                   </Link>
                   <ContactChips phone={job.clients?.phone} address={job.clients?.address} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="text-right flex-shrink-0">

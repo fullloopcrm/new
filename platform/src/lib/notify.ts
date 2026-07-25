@@ -122,6 +122,114 @@ export async function sendTenantTelegram(
   if (!tenantId) await notifyOwnerOnTelegram(text)
 }
 
+/**
+ * Builds the booking-confirmed HTML on the shared Full Loop template,
+ * enriched from the booking itself (cleaner photo/rating, client portal
+ * PIN, recurring flag). Ported from nycmaid's old standalone
+ * clientConfirmationEmail (nycmaid/email-templates.ts) onto the shared
+ * template — same content, shared branding, every tenant. Used both by
+ * notify()'s single-recipient send below and directly by booking-creation
+ * routes that need multi-contact fan-out (client_contacts) instead.
+ */
+async function bookingConfirmedHtml(
+  tenantId: string,
+  bookingId: string | undefined,
+  templateData: ReturnType<typeof buildTemplateData> & { businessAddress?: string },
+  clientName: string,
+  serviceName: string,
+  dateTime: string,
+  metadata?: Record<string, unknown>,
+): Promise<string> {
+  let teamMemberPhotoUrl: string | undefined
+  let teamMemberRatingAvg: number | undefined
+  let teamMemberRatingCount: number | undefined
+  let portalEmail: string | undefined
+  let portalPin: string | undefined
+  let isRecurring: boolean | undefined
+  if (bookingId) {
+    const { data: b } = await supabaseAdmin
+      .from('bookings')
+      .select('recurring_type, clients(email, pin), team_members!bookings_team_member_id_fkey(photo_url, avg_rating, rating_count)')
+      .eq('id', bookingId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    const cleaner = b?.team_members as unknown as { photo_url: string | null; avg_rating: number | null; rating_count: number | null } | null
+    const bClient = b?.clients as unknown as { email: string | null; pin: string | null } | null
+    teamMemberPhotoUrl = cleaner?.photo_url || undefined
+    teamMemberRatingAvg = cleaner?.avg_rating ? Number(cleaner.avg_rating) : undefined
+    teamMemberRatingCount = cleaner?.rating_count || undefined
+    portalEmail = bClient?.email || undefined
+    portalPin = bClient?.pin || undefined
+    isRecurring = !!b?.recurring_type
+  }
+  // Cancellation policy is tenant-configured (Settings → Notifications).
+  // Every tenant gets this standard platform policy until they override it
+  // there — same default for everyone, not a nycmaid-only fallback.
+  const cancellationFallback = {
+    cancellationPolicyOneTime: templateData.cancellationPolicyOneTime
+      || 'First-time and one-time bookings cannot be cancelled or rescheduled within 48 hours of the appointment. We hold your slot and turn away other clients, so late changes directly affect the person doing the work.',
+    cancellationPolicyRecurring: templateData.cancellationPolicyRecurring
+      || 'Recurring service requires 7 days notice to reschedule or cancel. Late changes directly affect the person doing the work.',
+  }
+  // Tenant-configured (Settings → Notifications, newline-separated), same
+  // standard-until-overridden treatment as the cancellation policy. Default
+  // is trade-agnostic — cleaning, landscaping, dumpster removal, etc. — not
+  // nycmaid-specific cleaning copy.
+  const prepTips = (templateData.prepTips as string | undefined)?.split('\n').map(s => s.trim()).filter(Boolean) || [
+    'Clear the work area so our team can get to it without delay',
+    'Secure any pets so they\'re not underfoot or anxious around our team',
+    'Make sure access is arranged (gate codes, keys, doorman notified, or someone home if needed)',
+    'Let us know about anything fragile, valuable, or off-limits before we start',
+  ]
+  return bookingConfirmationEmail({
+    ...templateData,
+    ...cancellationFallback,
+    clientName,
+    serviceName: serviceName || 'Appointment',
+    dateTime,
+    teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
+    address: metadata?.address as string | undefined,
+    price: metadata?.price as string | undefined,
+    portalUrl: metadata?.portalUrl as string | undefined,
+    teamMemberPhotoUrl,
+    teamMemberRatingAvg,
+    teamMemberRatingCount,
+    portalEmail,
+    portalPin,
+    isRecurring,
+    prepTips,
+  })
+}
+
+/**
+ * Public entry point for booking-confirmation HTML — self-contained (fetches
+ * its own tenant branding + comm policy), for callers that send outside
+ * notify()'s single-recipient path, e.g. multi-contact fan-out via
+ * sendClientEmail() in lib/client-contacts.ts.
+ */
+export async function buildBookingConfirmationEmail(
+  tenantId: string,
+  bookingId: string | undefined,
+  fields: { clientName: string; serviceName: string; dateTime: string; teamMemberName?: string; address?: string; price?: string; portalUrl?: string },
+): Promise<string> {
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('name, slug, primary_color, logo_url, address')
+    .eq('id', tenantId)
+    .single()
+  const policy = await getCommPolicy(tenantId)
+  const templateData = {
+    ...buildTemplateData({ name: tenant?.name || 'Full Loop CRM', primary_color: tenant?.primary_color, logo_url: tenant?.logo_url }, policy),
+    businessAddress: (tenant as { address?: string | null } | null)?.address || undefined,
+  }
+  return bookingConfirmedHtml(tenantId, bookingId, templateData, fields.clientName, fields.serviceName, fields.dateTime, {
+    teamMemberName: fields.teamMemberName,
+    address: fields.address,
+    price: fields.price,
+    portalUrl: fields.portalUrl,
+  })
+}
+
 export async function notify({
   tenantId,
   type,
@@ -293,16 +401,7 @@ export async function notify({
       })
       break
     case 'booking_confirmed':
-      htmlBody = bookingConfirmationEmail({
-        ...templateData,
-        clientName,
-        serviceName: serviceName || 'Appointment',
-        dateTime: message,
-        teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
-        address: metadata?.address as string | undefined,
-        price: metadata?.price as string | undefined,
-        portalUrl: metadata?.portalUrl as string | undefined,
-      })
+      htmlBody = await bookingConfirmedHtml(tenantId, bookingId, templateData, clientName, serviceName, message, metadata)
       break
     case 'booking_rescheduled':
       htmlBody = bookingRescheduledEmail({

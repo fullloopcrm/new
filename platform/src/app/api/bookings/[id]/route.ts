@@ -11,7 +11,6 @@ import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export async function GET(
   _request: Request,
@@ -180,7 +179,7 @@ export async function PUT(
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
@@ -191,13 +190,12 @@ export async function PUT(
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
       const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
-      // Booking confirmed (status changed to scheduled) — nycmaid gets its
-      // own rich branded template; every other tenant gets the standard one.
-      // Jeff's explicit call (2026-07-23): keep nycmaid's rich template here
-      // even though a concurrent pass unified every other nycmaid email
-      // (including this one, and its sibling cancellation email below) onto
-      // the standard template — reverted, then re-applied, by request, for
-      // confirmation specifically.
+      // Booking confirmed (status changed to scheduled) — shared Full Loop
+      // template (same content nycmaid's old standalone template had —
+      // cleaner photo/rating, PIN, cancellation policy, prep tips — now on
+      // shared branding), sent via the global multi-contact fan-out so every
+      // recipient on the account hears about the booking, not just the
+      // primary contact.
       //
       // OR'd with (memberChanged && data.status === 'scheduled'): client
       // self-service bookings insert directly at status 'scheduled' (see
@@ -208,32 +206,16 @@ export async function PUT(
       // showed team_assignment SMS sent to the cleaner but zero client-facing
       // rows for the booking.
       if ((statusChanged && fields.status === 'scheduled') || (memberChanged && data.status === 'scheduled')) {
-        if (isNycMaid(tenantId) && data.client_id) {
-          const { data: nmBooking } = await supabaseAdmin
-            .from('bookings')
-            .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
-            .eq('id', id)
-            .eq('tenant_id', tenantId)
-            .single()
-          if (nmBooking?.clients?.email) {
-            const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
-            const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-            const email = clientConfirmationEmail(nmBooking)
-            await sendClientEmail(data.client_id, email.subject, email.html)
-              .catch(err => console.error('nycmaid client confirmation email error:', err))
-          }
-        } else if (data.client_id) {
-          await notify({
-            tenantId,
-            type: 'booking_confirmed',
-            title: `Booking Confirmed — ${date}`,
-            message: `Your appointment on ${date} at ${time} is confirmed.`,
-            channel: 'email',
-            recipientType: 'client',
-            recipientId: data.client_id,
-            bookingId: id,
-            metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+        if (data.client_id && tenantData) {
+          const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+          const { sendClientEmail } = await import('@/lib/client-contacts')
+          const html = await buildBookingConfirmationEmail(tenantId, id, {
+            clientName: data.clients?.name || 'there',
+            serviceName: data.service_type || 'Appointment',
+            dateTime: `${date} at ${time}`,
           })
+          await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
+            .catch(err => console.error('client confirmation email error:', err))
         }
         if (data.clients?.phone && hasSMS && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {
           sendSMS({

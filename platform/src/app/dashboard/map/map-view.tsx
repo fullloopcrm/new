@@ -5,6 +5,7 @@ import Link from 'next/link'
 import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { crewNames, type CrewRow } from '@/lib/crew'
 
 // Fix Leaflet default marker icons in Next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -48,6 +49,7 @@ type GeocodedBooking = {
   lng: number
   clients: { name: string; phone: string | null; address: string | null } | null
   team_members: { name: string; phone: string | null } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 type MapViewProps = {
@@ -129,10 +131,10 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                     {fmt(b.price)}
                   </p>
                 )}
-                {b.team_members?.name && (
+                {crewNames(b) !== 'Unassigned' && (
                   <p className="text-xs">
                     <span className="font-medium text-slate-600">Team:</span>{' '}
-                    {b.team_members.name}
+                    {crewNames(b)}
                   </p>
                 )}
               </div>
