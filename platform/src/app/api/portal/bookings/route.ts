@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     price = svc.default_hourly_rate * svc.default_duration_hours * 100
   }
 
-  // Recurring-service discount ("save 20%"): weekly 20% off, biweekly/monthly 10% off.
+  // Recurring-service discount ("save 20%"): weekly 20% off, biweekly 10% off, monthly 5% off.
   const recurringType = body.recurring_type && body.recurring_type !== 'none' ? String(body.recurring_type) : null
   if (price != null && recurringType) {
     price = applyRecurringDiscount(price, recurringType)

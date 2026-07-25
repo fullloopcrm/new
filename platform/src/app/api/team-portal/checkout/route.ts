@@ -3,11 +3,9 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
-import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
-import { applyDiscount, applyCredit } from '@/lib/discount'
+import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
@@ -76,25 +74,7 @@ export async function POST(request: Request) {
 
   const checkInParsed = booking.check_in_time ? parseTimestamp(booking.check_in_time as string) : null
   if (checkInParsed) {
-    const rawMinutes = Math.max(0, (checkOutTime.getTime() - checkInParsed.getTime()) / 60000)
-    hoursWorked = rawMinutes / 60
-    const clientHours = clientBilledHours(rawMinutes)
-    const cleanerHours = cleanerPaidHours(rawMinutes)
-    const cap = typeof booking.max_hours === 'number' && booking.max_hours > 0 ? (booking.max_hours as number) : null
-    const billableClient = cap != null ? Math.min(clientHours, cap) : clientHours
-    const billableCleaner = cap != null ? Math.min(cleanerHours, cap) : cleanerHours
-    // actual_hours (stored below) stays the true elapsed/capped time for
-    // reporting — the team minimum only feeds the price/pay math, same split
-    // BookingsAdmin.tsx's admin check-out uses (actualHours vs billableHours).
-    actualHours = billableClient
-    const teamSize = Math.max(1, (booking.team_size as number) || 1)
-    // A 2+ cleaner team is billed/paid at least 4 hours even if the job
-    // finishes early (billing-hours.ts applyTeamMinimum) — this recompute was
-    // missing it entirely, unlike the desktop admin check-out flow, so an
-    // early-finishing multi-cleaner job checked out from the mobile app
-    // underbilled the client and underpaid the crew below the 4hr floor.
-    const billableClientForPrice = applyTeamMinimum(billableClient, teamSize)
-    const billableCleanerForPay = applyTeamMinimum(billableCleaner, teamSize)
+    hoursWorked = Math.max(0, (checkOutTime.getTime() - checkInParsed.getTime()) / 60000) / 60
     const member = booking.team_members as unknown as { pay_rate?: number | null } | null
     // Booking-level pay_rate is an admin override and must win over the team
     // member's own default rate (nycmaid 2428c8c4 precedence parity).
@@ -104,30 +84,33 @@ export async function POST(request: Request) {
     const cleanerRate = isNycMaid(auth.tid)
       ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
       : baseCleanerRate
-    const clientRate = (booking.hourly_rate as number) || 69
-    teamMemberPayCents = Math.round(billableCleanerForPay * cleanerRate * 100)
+
+    // Canonical checkout math (client 10-min / cleaner 15-min grace, team
+    // minimum, max_hours cap, discount_percent-vs-recurringType resolution) —
+    // same function BookingsAdmin.tsx's Check Out flows use. This route used
+    // to hand-roll its own copy that had drifted from it (this file's own git
+    // history: missing team-minimum floor, then a discount double-application
+    // bug independently re-introduced here even after checkout-pricing.ts was
+    // fixed) — consolidating stops the two from silently diverging again.
+    const pricing = computeCheckoutPricing({
+      checkInIso: booking.check_in_time as string,
+      checkOutIso: checkOutTime.toISOString(),
+      hourlyRate: booking.hourly_rate as number | null,
+      cleanerHourlyRate: cleanerRate,
+      discountPercent: booking.discount_percent as number | null,
+      oneTimeCreditCents: booking.one_time_credit_cents as number | null,
+      recurringType: booking.recurring_type as string | null,
+      maxHours: booking.max_hours as number | null,
+      teamSize: booking.team_size as number | null,
+    })
+    // actual_hours (stored below) stays the true elapsed/capped time for
+    // reporting — the team minimum only feeds the price/pay math, same split
+    // BookingsAdmin.tsx's admin check-out uses (actualHours vs billableHours).
+    actualHours = pricing.actualHours
+    teamMemberPayCents = pricing.cleanerPayCents
     if (pricingModel === 'hourly') {
       // Time-and-materials: actual hours × rate × crew (NYC Maid path, unchanged).
-      // The recurring-service discount (20% weekly / 10% biweekly-monthly, see
-      // recurring-discount.ts) is applied to `price` at booking-creation time
-      // (client/book, portal/bookings) — without re-applying it here, this
-      // recompute from raw hourly_rate silently wiped that discount back out
-      // at the moment of actual billing, so every discounted recurring client
-      // was charged full price the instant their cleaner checked out.
-      //
-      // The admin-set discount_percent + one_time_credit_cents (nycmaid 6ec48424
-      // parity) stack on TOP of the automatic recurring discount, same order
-      // BookingsAdmin.tsx's own calculateEditPrice() applies them in.
-      updatedPriceCents = applyCredit(
-        applyDiscount(
-          applyRecurringDiscount(
-            Math.round(billableClientForPrice * clientRate * teamSize * 100),
-            booking.recurring_type as string | null,
-          ),
-          booking.discount_percent as number | null,
-        ),
-        booking.one_time_credit_cents as number | null,
-      )
+      updatedPriceCents = pricing.priceCents
     } else {
       // Flat / per-unit: price was fixed at booking/quote time — elapsed hours
       // must NOT rewrite it. Fall back to the service's configured price.

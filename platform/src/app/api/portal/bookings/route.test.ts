@@ -176,12 +176,12 @@ describe('POST /api/portal/bookings — recurring discount', () => {
     expect(json.booking.price).toBe(Math.round(basePrice * 0.8))
   })
 
-  it('applies a 10% discount for monthly recurring bookings', async () => {
+  it('applies a 5% discount for monthly recurring bookings', async () => {
     const res = await POST(postReq({ start_time: FUTURE_DATE, service_type_id: 'svc-A1', recurring_type: 'monthly' }))
     const json = await res.json()
 
     const basePrice = 50 * 3 * 100
-    expect(json.booking.price).toBe(Math.round(basePrice * 0.9))
+    expect(json.booking.price).toBe(Math.round(basePrice * 0.95))
   })
 
   it('applies no discount when recurring_type is "none"', async () => {

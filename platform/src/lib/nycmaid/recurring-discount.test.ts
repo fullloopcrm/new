@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { recurringDiscountPct, applyRecurringDiscount } from './recurring-discount'
 
 /**
- * Recurring-service discount: weekly = 20% off, biweekly/monthly = 10% off,
- * everything else = 0. Tests pin the exact percentages and the rounding of the
- * applied price, so swapping a rate or dropping a case trips a value assertion.
+ * Recurring-service discount: weekly = 20% off, biweekly = 10% off,
+ * monthly = 5% off, everything else = 0. Tests pin the exact percentages and
+ * the rounding of the applied price, so swapping a rate or dropping a case
+ * trips a value assertion.
  */
 describe('recurringDiscountPct', () => {
   it('weekly → 20%', () => {
@@ -18,17 +19,17 @@ describe('recurringDiscountPct', () => {
     expect(recurringDiscountPct('bi_weekly')).toBe(0.1)
   })
 
-  it('monthly → 10%', () => {
-    expect(recurringDiscountPct('monthly')).toBe(0.1)
+  it('monthly → 5%', () => {
+    expect(recurringDiscountPct('monthly')).toBe(0.05)
   })
 
-  it('monthly_date / monthly_weekday (the real recurring_schedules.recurring_type values) → 10%', () => {
+  it('monthly_date / monthly_weekday (the real recurring_schedules.recurring_type values) → 5%', () => {
     // recurring_schedules never actually stores the bare string 'monthly' --
     // RecurringType is 'monthly_date' | 'monthly_weekday'. Before this fix
     // neither matched any case here, so every monthly schedule silently got
-    // 0% instead of 10%.
-    expect(recurringDiscountPct('monthly_date')).toBe(0.1)
-    expect(recurringDiscountPct('monthly_weekday')).toBe(0.1)
+    // 0% instead of 5%.
+    expect(recurringDiscountPct('monthly_date')).toBe(0.05)
+    expect(recurringDiscountPct('monthly_weekday')).toBe(0.05)
   })
 
   it('normalizes case and separators (WEEKLY, Weekly)', () => {
@@ -55,14 +56,14 @@ describe('applyRecurringDiscount', () => {
     expect(applyRecurringDiscount(20000, 'weekly')).toBe(16000)
   })
 
-  it('applies 10% off monthly', () => {
-    expect(applyRecurringDiscount(20000, 'monthly')).toBe(18000)
+  it('applies 5% off monthly', () => {
+    expect(applyRecurringDiscount(20000, 'monthly')).toBe(19000)
   })
 
   it('rounds the discounted result (odd cent value)', () => {
     // 12345 * 0.8 = 9876 exactly; use a value that needs rounding:
-    // 9999 * 0.9 = 8999.1 → 8999
-    expect(applyRecurringDiscount(9999, 'monthly')).toBe(8999)
+    // 9999 * 0.95 = 9499.05 → 9499
+    expect(applyRecurringDiscount(9999, 'monthly')).toBe(9499)
   })
 
   it('returns the price unchanged when there is no discount', () => {

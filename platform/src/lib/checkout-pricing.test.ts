@@ -54,10 +54,10 @@ describe('computeCheckoutPricing — recurring discount re-application', () => {
     expect(r.priceCents).toBe(11040)
   })
 
-  it('applies the 10% biweekly/monthly recurring discount', () => {
+  it('applies the 5% monthly recurring discount', () => {
     const r = computeCheckoutPricing({ ...base, checkInIso: iso(120), checkOutIso: iso(0), recurringType: 'monthly' })
-    // 13800¢ -> -10% = 12420¢, plain-rounded.
-    expect(r.priceCents).toBe(12420)
+    // 13800¢ -> -5% = 13110¢, plain-rounded.
+    expect(r.priceCents).toBe(13110)
   })
 
   it('a non-recurring (or one-time) booking is unaffected', () => {
@@ -65,14 +65,18 @@ describe('computeCheckoutPricing — recurring discount re-application', () => {
     expect(r.priceCents).toBe(13800)
   })
 
-  it('admin discount_percent and one_time_credit_cents stack on TOP of the recurring discount', () => {
+  it('an explicit discount_percent REPLACES the recurring rate, not stacks with it (2026-07-25 fix)', () => {
     const r = computeCheckoutPricing({
       ...base, checkInIso: iso(120), checkOutIso: iso(0),
       recurringType: 'weekly', discountPercent: 10, oneTimeCreditCents: 300,
     })
-    // 13800 -> recurring -20% (plain round) -> 11040
-    // -> admin -10% (floors to nearest $5) -> 9936 -> 9500 -> -$3 credit -> 9200
-    expect(r.priceCents).toBe(9200)
+    // 13800 -> admin's explicit 10% wins outright (floors to nearest $5,
+    // applyDiscount's own rounding) -> 12420 -> 12000 -> -$3 credit -> 11700.
+    // The weekly-20% recurring rate is NOT also applied on top -- every
+    // creation path that sets discount_percent already treats it as the
+    // final combined rate (default-to-recurring, or admin override replacing
+    // that default), so re-adding the recurring discount here would double it.
+    expect(r.priceCents).toBe(11700)
   })
 })
 

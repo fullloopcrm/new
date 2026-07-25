@@ -107,7 +107,7 @@ export async function POST(request: Request) {
   const teamMemberId = team_member_id || cleaner_id || null
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
-  // Auto-apply the recurring discount (weekly 20% / biweekly-monthly 10%)
+  // Auto-apply the recurring discount (weekly 20% / biweekly 10% / monthly 5%)
   // unless the admin explicitly passed a value (including an explicit 0 to
   // override off) — matches the policy already enforced in
   // /api/client/recurring, ported here so admin-created schedules get the

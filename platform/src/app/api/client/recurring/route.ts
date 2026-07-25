@@ -24,7 +24,7 @@ import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 // and overwrite their preferred_team_member_id
 // (deploy-prep/none-write-routes-triage.md row 3).
 //
-// Recurring discount: weekly 20%, biweekly/monthly 10%. Only available to
+// Recurring discount: weekly 20%, biweekly 10%, monthly 5%. Only available to
 // repeat clients (must have ≥1 completed booking).
 export async function POST(request: Request) {
   // Tenant from the request context (subdomain/host), NOT derived from the
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // Pricing: weekly 20%, biweekly/monthly 10% -- via the shared
+  // Pricing: weekly 20%, biweekly 10%, monthly 5% -- via the shared
   // recurringDiscountPct() single source of truth (also used by the admin
   // recurring-schedules creation path), not a duplicated inline ternary that
   // could drift from it.
