@@ -142,6 +142,16 @@ export async function GET(request: Request) {
     { onConflict: 'domain' },
   )
 
+  // Prune rows for domains no longer in this run's target set (tenant
+  // deleted, or newly added to EXCLUDED_TENANTS/SKIP_SLUGS). Without this, an
+  // excluded tenant's last real result sits in the table forever and gets
+  // reported as a CURRENT failure by anyone reading tenant_health — including
+  // Jefe — even though nothing has actually checked it in weeks.
+  if (targets.length > 0) {
+    const currentDomains = targets.map((t) => t.domain)
+    await supabaseAdmin.from('tenant_health').delete().not('domain', 'in', `(${currentDomains.map((d) => `"${d}"`).join(',')})`)
+  }
+
   const failures = results.filter((r) => r.status === 'fail')
   if (failures.length > 0) {
     const body = failures.map((f) => `• ${f.slug} (${f.domain}): ${f.detail}`).join('\n')
