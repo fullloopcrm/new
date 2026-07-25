@@ -189,10 +189,12 @@ export default async function DashboardPage() {
   const newThisMonth = newClientsRes.count || 0
   const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
 
-  // Map jobs — this month, with client address for geocoding.
+  // Map jobs — this month, with client address + any already-geocoded
+  // coords so the map can skip live geocoding for clients we've already
+  // resolved (see src/lib/geo-cache.ts).
   const { data: mapRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
+    .select('id,start_time,status,service_type,team_member_id,clients(name,address,latitude,longitude),team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfMonth.toISOString())
     .lte('start_time', endOfMonth.toISOString())
@@ -201,7 +203,7 @@ export default async function DashboardPage() {
   const mapJobs = (mapRows || []).map((r) => ({
     id: r.id, start_time: r.start_time, status: r.status, service_type: r.service_type,
     cleaner_id: (r as { team_member_id?: string | null }).team_member_id ?? null,
-    clients: r.clients as unknown as { name: string; address: string } | null,
+    clients: r.clients as unknown as { name: string; address: string; latitude: number | null; longitude: number | null } | null,
     team_members: r.team_members as unknown as { name: string } | null,
   })) as MapJob[]
 

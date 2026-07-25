@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 // Fix Leaflet default marker icons in Next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -41,20 +42,14 @@ function statusIcon(status: string) {
   })
 }
 
-// Simple geocoder using Nominatim (free, no API key)
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-      { headers: { 'User-Agent': 'FullLoopCRM/1.0' } }
-    )
-    const data = await res.json()
-    if (data?.[0]) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-    }
-  } catch {
-    // silently fail
-  }
+// Pull persisted lat/lng off whatever shape the job's join actually has —
+// client_properties(latitude,longitude) or clients(latitude,longitude) —
+// without geocoding at all when it's already there.
+function persistedCoords(job: Job): { lat: number; lng: number } | null {
+  const cp = job.client_properties as { latitude?: number | null; longitude?: number | null } | null | undefined
+  if (cp?.latitude != null && cp?.longitude != null) return { lat: cp.latitude, lng: cp.longitude }
+  const c = job.clients as { latitude?: number | null; longitude?: number | null } | null
+  if (c?.latitude != null && c?.longitude != null) return { lat: c.latitude, lng: c.longitude }
   return null
 }
 
@@ -71,16 +66,43 @@ export default function JobsMap({ jobs }: { jobs: Job[] }) {
     geocodedRef.current = true
 
     async function geocodeAll() {
-      const results: GeocodedJob[] = []
+      const candidates: GeocodedJob[] = []
+      const noPersistedCoords: Job[] = []
       for (const job of jobs) {
-        if (job.clients?.address) {
-          const coords = await geocodeAddress(job.clients.address)
-          if (coords) {
-            results.push({ ...job, lat: coords.lat, lng: coords.lng })
-          }
-        }
+        const coords = persistedCoords(job)
+        if (coords) candidates.push({ ...job, ...coords })
+        else if (job.clients?.address) noPersistedCoords.push(job)
       }
-      setGeocodedJobs(results)
+      // Persisted coords aren't guaranteed correct (found real NYC addresses
+      // stored with coords in Florida/UK/Australia from a stale bad geocode) —
+      // drop outliers relative to this batch and re-geocode those instead.
+      const validCandidates = rejectOutliers(candidates)
+      const validIds = new Set(validCandidates.map(c => c.id))
+      const withCoords: GeocodedJob[] = validCandidates
+      const needsGeocode: Job[] = [
+        ...noPersistedCoords,
+        ...candidates.filter(c => !validIds.has(c.id)),
+      ]
+      setGeocodedJobs(withCoords)
+
+      if (needsGeocode.length > 0) {
+        const addresses = needsGeocode.map(j => j.clients!.address!)
+        const resolved = await geocodeAddressesCached(addresses, (partial) => {
+          const results = [...withCoords]
+          for (const job of needsGeocode) {
+            const coords = partial[job.clients!.address!]
+            if (coords) results.push({ ...job, ...coords })
+          }
+          setGeocodedJobs(rejectOutliers(results))
+        })
+        const results = [...withCoords]
+        for (const job of needsGeocode) {
+          const coords = resolved[job.clients!.address!]
+          if (coords) results.push({ ...job, ...coords })
+        }
+        setGeocodedJobs(rejectOutliers(results))
+      }
+
       setLoading(false)
     }
     geocodeAll()

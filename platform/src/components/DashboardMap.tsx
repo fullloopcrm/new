@@ -9,7 +9,7 @@ interface MapJob {
   start_time: string
   status: string
   service_type: string
-  clients: { name: string; address: string } | null
+  clients: { name: string; address: string; latitude?: number | null; longitude?: number | null } | null
   team_members: { name: string } | null
 }
 
@@ -37,7 +37,7 @@ const icons = {
   cancelled: createIcon('#ef4444')
 }
 
-import { geocodeAddress } from '@/lib/geo'
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 function FitBounds({ jobs }: { jobs: GeocodedJob[] }) {
   const map = useMap()
@@ -62,27 +62,49 @@ export default function DashboardMap({ jobs }: Props) {
   useEffect(() => {
     async function geocodeJobs() {
       setLoading(true)
-      const results: GeocodedJob[] = []
-      const cache: Record<string, { lat: number; lng: number }> = {}
 
+      // Jobs whose client already carries persisted coords (from clients/
+      // client_properties in the DB) skip geocoding entirely — except any
+      // that look like bad historical data (see rejectOutliers), which get
+      // treated as unresolved and re-geocoded instead of trusted as-is.
+      const candidates: (MapJob & { lat: number; lng: number })[] = []
+      const noPersistedCoords: MapJob[] = []
       for (const job of jobs) {
-        if (!job.clients?.address) continue
-        const address = job.clients.address
+        const lat = job.clients?.latitude
+        const lng = job.clients?.longitude
+        if (lat != null && lng != null) candidates.push({ ...job, lat, lng })
+        else if (job.clients?.address) noPersistedCoords.push(job)
+      }
+      const validCandidates = rejectOutliers(candidates)
+      const validIds = new Set(validCandidates.map(c => c.id))
+      const withCoords: GeocodedJob[] = validCandidates
+      const needsGeocode: MapJob[] = [
+        ...noPersistedCoords,
+        ...candidates.filter(c => !validIds.has(c.id)).filter(c => c.clients?.address),
+      ]
+      setGeocodedJobs(withCoords)
 
-        if (cache[address]) {
-          results.push({ ...job, ...cache[address] })
-          continue
-        }
-
-        const coords = await geocodeAddress(address)
-        if (coords) {
-          cache[address] = coords
-          results.push({ ...job, ...coords })
-        }
-        await new Promise(r => setTimeout(r, 100))
+      if (needsGeocode.length === 0) {
+        setLoading(false)
+        return
       }
 
-      setGeocodedJobs(results)
+      const addresses = needsGeocode.map(j => j.clients!.address)
+      const resolved = await geocodeAddressesCached(addresses, (partial) => {
+        const results = [...withCoords]
+        for (const job of needsGeocode) {
+          const coords = partial[job.clients!.address]
+          if (coords) results.push({ ...job, ...coords })
+        }
+        setGeocodedJobs(rejectOutliers(results))
+      })
+
+      const results = [...withCoords]
+      for (const job of needsGeocode) {
+        const coords = resolved[job.clients!.address]
+        if (coords) results.push({ ...job, ...coords })
+      }
+      setGeocodedJobs(rejectOutliers(results))
       setLoading(false)
     }
 
