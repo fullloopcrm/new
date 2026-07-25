@@ -33,6 +33,11 @@ function evaluate(h: Awaited<ReturnType<typeof getPlatformHealth>>, prev: Snapsh
   for (const c of h.crons.silent) {
     alerts.push({ fp: `cron:${c.name}`, label: `Cron silent: ${c.name} (${c.silent_hours ?? 'never'}h, expected every ${c.expected_hours}h)` })
   }
+  for (const t of h.integrations.tenants_with_failures) {
+    for (const check of t.failed) {
+      alerts.push({ fp: `integration:${t.tenant_name}:${check}`, label: `${t.tenant_name}: ${check.replace(/_/g, ' ')} failing — was working, now dead` })
+    }
+  }
   if (h.errors.last_1h >= ERROR_SPIKE_1H) {
     alerts.push({ fp: 'errors:spike', label: `Error spike: ${h.errors.last_1h} errors in the last hour` })
   }
