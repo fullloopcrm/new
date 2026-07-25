@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 type Review = {
   id: string
@@ -103,14 +104,7 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      {/* PORTAL LINK */}
-      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Client Feedback Portal:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/portal/feedback` : '/portal/feedback'}</code>
-        </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portal/feedback`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
-      </div>
+      <QuickLinksBar kinds={['reviews', 'feedback']} />
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

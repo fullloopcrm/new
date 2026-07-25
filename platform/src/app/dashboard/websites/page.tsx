@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import WebsitesSettings from './websites-settings'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 interface TenantSettings {
   domain: string | null
@@ -46,6 +47,8 @@ export default function WebsitesPage() {
 
   return (
     <div>
+      <QuickLinksBar kinds={['website']} />
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-heading font-bold text-slate-900">Website</h1>
         <WebsitesSettings />

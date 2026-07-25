@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 type SalesPartner = {
   id: string
@@ -154,6 +155,8 @@ export default function SalesPartnersPage() {
 
   return (
     <div>
+      <QuickLinksBar kinds={['sales']} />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Sales Partners</h2>

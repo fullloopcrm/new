@@ -18,6 +18,7 @@ import { applyDiscount, applyCredit } from '@/lib/discount'
 import { applyTeamMinimum } from '@/lib/billing-hours'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -1387,16 +1388,7 @@ function BookingsPage() {
           </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="text-xs mb-4 hidden md:flex items-center gap-1 flex-wrap" style={{ color: 'var(--sched-muted-2)' }}>
-          <a href="https://www.thenycmaid.com/book" target="_blank" style={{ color: 'var(--sched-muted)' }} className="hover:underline">Client Portal</a>
-          <span style={{ color: 'var(--sched-line)' }} className="mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/new" target="_blank" style={{ color: 'var(--sched-muted)' }} className="hover:underline">New Booking</a>
-          <span style={{ color: 'var(--sched-line)' }} className="mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/collect" target="_blank" style={{ color: 'var(--sched-muted)' }} className="hover:underline">Collect Info</a>
-          <span style={{ color: 'var(--sched-line)' }} className="mx-1">/</span>
-          <a href="https://www.thenycmaid.com/team" target="_blank" style={{ color: 'var(--sched-muted)' }} className="hover:underline">Team Portal</a>
-        </div>
+        <QuickLinksBar kinds={['collect', 'book']} />
 
         {/* Stat outlook — same sched-outlook/sched-stat pattern as the Calendar tab. */}
         {!loading && (

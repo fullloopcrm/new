@@ -9,6 +9,7 @@ import SalesAppsTab from './SalesAppsTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -236,19 +237,7 @@ export default function TeamPage() {
 
   return (
     <div className="tm-scope">
-      <div className="tm-portals-bar">
-        <div className="tm-portal-item">
-          <span className="tm-portal-label">Team Portal</span>
-          <span className="tm-portal-url">/team</span>
-          <span className="tm-portal-copy">Copy</span>
-        </div>
-        <span className="tm-portal-divider" />
-        <div className="tm-portal-item">
-          <span className="tm-portal-label">Apply</span>
-          <span className="tm-portal-url">/apply</span>
-          <span className="tm-portal-copy">Copy</span>
-        </div>
-      </div>
+      <QuickLinksBar kinds={['team', 'apply']} />
 
       <div className="tm-tabs">
         {TABS.map((t) => (

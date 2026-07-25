@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
 import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 type Referral = {
   id: string
@@ -124,14 +125,7 @@ export default function ReferralsPage() {
 
   return (
     <div>
-      {/* PORTAL LINK */}
-      <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400">Referral Signup Page:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/referral/signup` : '/referral/signup'}</code>
-        </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/referral/signup`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
-      </div>
+      <QuickLinksBar kinds={['referral']} />
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import './clients.css'
 import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import QuickLinksBar from '../_components/QuickLinksBar'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -212,6 +213,8 @@ export default function ClientsPage() {
 
   return (
     <div className="clients-scope">
+      <QuickLinksBar kinds={['book', 'portal']} />
+
       {/* OUTLOOK BAR */}
       <div className="clients-bar-label">Health</div>
       <div className="clients-outlook">
