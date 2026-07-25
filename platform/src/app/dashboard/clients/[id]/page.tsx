@@ -7,6 +7,7 @@ import { formatPhone } from '@/lib/phone'
 import { formatCustomerNumber } from '@/lib/format'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
+import ClientNotesTimeline from '@/components/ClientNotesTimeline'
 
 type Client = {
   id: string
@@ -65,7 +66,7 @@ export default function ClientDetailPage() {
   const [form, setForm] = useState<Partial<Client>>({})
   const [saving, setSaving] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
-  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms'>('bookings')
+  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms' | 'notes'>('bookings')
   const [activities, setActivities] = useState<Activity[]>([])
   const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
 
@@ -253,7 +254,7 @@ export default function ClientDetailPage() {
           {/* TABS: Bookings / Activity / SMS */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="flex border-b border-slate-200">
-              {(['bookings', 'activity', 'sms'] as const).map((t) => (
+              {(['bookings', 'activity', 'sms', 'notes'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -261,7 +262,7 @@ export default function ClientDetailPage() {
                     tab === t ? 'bg-white text-teal-600 border-b-2 border-teal-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : 'SMS Transcript'}
+                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : t === 'sms' ? 'SMS Transcript' : 'Notes'}
                 </button>
               ))}
             </div>
@@ -350,6 +351,10 @@ export default function ClientDetailPage() {
                   </div>
                 )
               )}
+
+              {/* NOTES TAB — the full timestamped thread across every booking
+                  this client has, not just the static notes field above. */}
+              {tab === 'notes' && <ClientNotesTimeline clientId={client.id} />}
             </div>
           </div>
         </div>

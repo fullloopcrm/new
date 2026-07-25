@@ -382,6 +382,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
     }
 
+    // Seed the notes thread with whatever the client typed at booking time —
+    // this is the one place a booking's note history starts. Without this,
+    // a client's initial note only ever lived in bookings.notes (a static
+    // field the team portal read but couldn't reply to) while anything
+    // added later went into booking_notes — two disconnected note trails
+    // for the same booking. Fire-and-forget: never block booking creation
+    // on the notes thread.
+    if ((body.notes as string)?.trim()) {
+      supabaseAdmin
+        .from('booking_notes')
+        .insert({
+          tenant_id: tenant.id,
+          booking_id: data.id,
+          job_id: (data as { job_id?: string | null }).job_id ?? null,
+          client_id: clientId,
+          author_type: 'client',
+          author_name: data.clients?.name || 'Client',
+          content: (body.notes as string).trim(),
+        })
+        .then(() => {}, (err: unknown) => console.error('[client/book] booking_notes seed failed:', err))
+    }
+
     // Render admin/client emails + SMS with this booking's property address
     // (property ?? client.address) instead of the client's default address.
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
