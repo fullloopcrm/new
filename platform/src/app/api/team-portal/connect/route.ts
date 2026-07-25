@@ -14,6 +14,18 @@ import { translateToEnEs } from '@/lib/connect-translate'
 // verified via connect_channel_members before any read/write.
 async function resolveChannel(auth: { tid: string; id: string }, requestedChannelId: string | null) {
   if (requestedChannelId) {
+    // The worker's own default 1:1 channel has no connect_channel_members
+    // row -- ownership is implicit via team_member_id, not membership. Only
+    // a group/broadcast 'custom' channel needs the membership check below.
+    const { data: ownChannel } = await tenantDb(auth.tid)
+      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
+      .select('id')
+      .eq('id', requestedChannelId)
+      .eq('type', 'team')
+      .eq('team_member_id', auth.id)
+      .maybeSingle()
+    if (ownChannel) return ownChannel
+
     const { data: membership } = await tenantDb(auth.tid)
       .from('connect_channel_members') // tenant-scope-ok: tenantDb() scopes the select
       .select('channel_id')

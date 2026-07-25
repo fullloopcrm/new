@@ -77,7 +77,7 @@ export default function TeamConnectPage() {
     const body = draft
     setDraft('')
     try {
-      await fetch('/api/team-portal/connect', {
+      const res = await fetch('/api/team-portal/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,6 +85,7 @@ export default function TeamConnectPage() {
         },
         body: JSON.stringify({ body, channel_id: activeChannelId }),
       })
+      if (!res.ok) throw new Error('send failed')
       fetchMessages()
     } catch {
       setDraft(body)

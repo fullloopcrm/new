@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     }
 
     const channels = [
-      { id: teamChannel?.id, name: 'Message Admin', type: 'team', last_message: teamChannel ? lastMessages[teamChannel.id] || null : null },
+      { id: teamChannel?.id, name: 'Admin', type: 'team', last_message: teamChannel ? lastMessages[teamChannel.id] || null : null },
       ...groupChannels.map((c) => ({ id: c.id, name: c.name, type: 'custom', last_message: lastMessages[c.id] || null })),
     ].filter((c) => c.id)
 

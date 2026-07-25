@@ -148,11 +148,12 @@ export default function LoopConnectPage() {
     setDraft('')
     try {
       const isSupport = activeChannelId === SUPPORT_ID
-      await fetch(isSupport ? '/api/dashboard/messages' : '/api/connect/messages', {
+      const res = await fetch(isSupport ? '/api/dashboard/messages' : '/api/connect/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isSupport ? { body } : { channel_id: activeChannelId, body }),
       })
+      if (!res.ok) throw new Error('send failed')
       fetchMessages()
     } catch {
       setDraft(body)
