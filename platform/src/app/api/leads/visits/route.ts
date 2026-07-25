@@ -34,6 +34,32 @@ export async function GET(request: NextRequest) {
 
     const allVisits = visits || []
 
+    // Top domains — the ~100 legacy SEO satellite sites (uesmaid.com,
+    // licmaid.com, etc.) run nycmaid's original tracking script, which is
+    // hardcoded to post to thenycmaid.com/api/track → lead_clicks. That's a
+    // separate table/pipeline from website_visits (the newer tenant-aware
+    // t.js), but it's the one with real per-domain data, so it's the source
+    // for this ranking specifically.
+    const { data: domainRows } = await supabaseAdmin
+      .from('lead_clicks')
+      .select('domain, action')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', since.toISOString())
+      .limit(20000)
+
+    const domainCounts: Record<string, { visits: number; ctas: number }> = {}
+    for (const row of domainRows || []) {
+      const d = ((row.domain as string) || '').replace(/^www\./, '')
+      if (!d) continue
+      if (!domainCounts[d]) domainCounts[d] = { visits: 0, ctas: 0 }
+      if (row.action === 'visit') domainCounts[d].visits++
+      else if (['call', 'text', 'book', 'pay', 'directions', 'ops_apply'].includes(row.action as string)) domainCounts[d].ctas++
+    }
+    const topDomains = Object.entries(domainCounts)
+      .map(([domain, c]) => ({ domain, visits: c.visits, ctas: c.ctas }))
+      .sort((a, b) => b.visits - a.visits)
+      .slice(0, 25)
+
     // Compute stats
     const pageViews = allVisits.filter((v) => v.action === 'visit' || !v.action)
     const ctaEvents = allVisits.filter((v) => v.cta_type)
@@ -136,6 +162,7 @@ export async function GET(request: NextRequest) {
       devices,
       ctaBreakdown,
       topPages,
+      topDomains,
       sources,
       feed,
     })

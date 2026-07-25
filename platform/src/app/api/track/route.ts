@@ -4,6 +4,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getSettings } from '@/lib/settings'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { getTenantByDomain } from '@/lib/tenant-lookup'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,8 +113,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing domain or action' }, { status: 400, headers: corsHeaders })
     }
 
+    // This endpoint predates multi-tenancy — it's the original nycmaid t.js
+    // payload shape, which has no tenant_id field at all. Every tenant's
+    // legacy script variant posts to ITS OWN domain's /api/track (e.g.
+    // the-florida-maid's script posts to www.thefloridamaid.com/api/track),
+    // and the ~100 SEO satellite domains all post to thenycmaid.com/api/track
+    // regardless of which one the visitor is actually on. So the tenant this
+    // hit belongs to is whichever domain the REQUEST itself arrived at, not
+    // the `domain` field in the payload (that's the visitor's page, kept
+    // separately for the per-domain breakdown).
+    const requestHost = request.headers.get('host')
+    const hostTenant = requestHost ? await getTenantByDomain(requestHost) : null
+
     const payload: Record<string, unknown> = {
-      tenant_id: tenant_id || null,
+      tenant_id: tenant_id || hostTenant?.id || null,
       domain,
       page: page || '/',
       action,
