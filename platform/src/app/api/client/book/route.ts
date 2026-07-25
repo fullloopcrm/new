@@ -22,6 +22,8 @@ import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { createPrimaryContact } from '@/lib/client-contacts'
+import { formatName } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -95,8 +97,9 @@ export async function POST(request: Request) {
     let isNewClient = false
 
     if (!clientId && body.email) {
-      const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
+      const phone = normalizePhone(body.phone as string | undefined) || ''
       const emailLower = (body.email as string).toLowerCase()
+      const clientName = formatName(body.name as string)
 
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
-            name: body.name as string,
+            name: clientName,
             email: emailLower,
             phone,
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
@@ -140,12 +143,12 @@ export async function POST(request: Request) {
         // what happened to nycmaid booking 8e1e4cf2 (Paul Oberbeck,
         // 2026-07-24): self-booked, zero client_contacts rows, confirmation
         // silently never sent.
-        await createPrimaryContact(tenant.id, newClient.id, { name: body.name as string, phone, email: emailLower })
+        await createPrimaryContact(tenant.id, newClient.id, { name: clientName, phone, email: emailLower })
         await notify({
           tenantId: tenant.id,
           type: 'new_client',
           title: 'New Client (via Booking)',
-          message: `${body.name} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
+          message: `${clientName} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
       }
     }
