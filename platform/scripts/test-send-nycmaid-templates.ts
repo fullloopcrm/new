@@ -109,7 +109,7 @@ async function main() {
       ...base, todayDate: 'Thu Aug 6', tomorrowDate: 'Fri Aug 7', todayJobCount: 1, tomorrowJobCount: 1,
       todayJobs: [{ clientName: 'Sarah', teamMemberName: 'Maria G.', time: '10am', revenue: '$138', paymentStatus: 'paid' }],
       tomorrowJobs: [{ clientName: 'John', teamMemberName: 'Maria G.', time: '2pm', revenue: '$150' }],
-      todayRevenue: '$138', todayPaid: 1, todayUnpaid: 0,
+      todayRevenue: '$138', todayLabor: '$45', todayProfit: '$93', todayPaid: 1, todayUnpaid: 0,
     }) },
     { label: 'genericNotificationEmail', subject: 'TEST: Generic Notification', html: ET.genericNotificationEmail({
       ...base, title: 'Heads up', message: 'This is the generic branded fallback template.',

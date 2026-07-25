@@ -453,6 +453,8 @@ export async function notify({
         todayJobs: (metadata?.todayJobs as never[]) || [],
         tomorrowJobs: (metadata?.tomorrowJobs as never[]) || [],
         todayRevenue: (metadata?.todayRevenue as string) || '$0',
+        todayLabor: (metadata?.todayLabor as string) || '$0',
+        todayProfit: (metadata?.todayProfit as string) || '$0',
         todayJobCount: (metadata?.todayJobCount as number) || 0,
         tomorrowJobCount: (metadata?.tomorrowJobCount as number) || 0,
         todayPaid: (metadata?.todayPaid as number) || 0,

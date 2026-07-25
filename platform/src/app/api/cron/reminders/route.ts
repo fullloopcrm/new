@@ -544,7 +544,7 @@ export async function GET(request: Request) {
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
+          .select('id, start_time, end_time, price, payment_status, service_type, pay_rate, team_member_pay, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .gte('start_time', todayStartBound)
           .lte('start_time', todayEndBound)
@@ -563,7 +563,17 @@ export async function GET(request: Request) {
           .limit(500)
 
         const fmt = (cents: number) => '$' + (cents / 100).toFixed(0)
+        // Labor: use the actual checkout-computed pay if set, else estimate
+        // from booking duration × pay_rate (default $35/hr) — same fallback
+        // nycmaid used for jobs that haven't checked out yet when this fires.
+        const laborCostOf = (b: { start_time: string; end_time: string; pay_rate?: number | null; team_member_pay?: number | null }) => {
+          if (b.team_member_pay != null) return b.team_member_pay
+          const hrs = (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60)
+          return Math.round(hrs * (b.pay_rate || 35) * 100)
+        }
         const todayRevenue = (todayBookings || []).reduce((s: number, b: { price?: number }) => s + (b.price || 0), 0)
+        const todayLabor = (todayBookings || []).reduce((s: number, b: any) => s + laborCostOf(b), 0)
+        const todayProfit = todayRevenue - todayLabor
         const todayPaid = (todayBookings || []).filter((b: { payment_status?: string }) => b.payment_status === 'paid').length
         const todayUnpaid = (todayBookings || []).length - todayPaid
 
@@ -590,13 +600,14 @@ export async function GET(request: Request) {
           tenantId,
           type: 'daily_ops_recap',
           title: `Daily Ops Recap — ${todayDateStr}`,
-          message: `Today: ${todayJobsList.length} jobs, ${fmt(todayRevenue)} revenue · Tomorrow: ${tomorrowJobsList.length} jobs`,
+          message: `Today: ${todayJobsList.length} jobs, ${fmt(todayRevenue)} revenue, ${fmt(todayProfit)} profit · Tomorrow: ${tomorrowJobsList.length} jobs`,
           channel: 'email',
           recipientType: 'admin',
           metadata: {
             todayDate: todayDateStr, tomorrowDate: tomorrowDateStr,
             todayJobs: todayJobsList, tomorrowJobs: tomorrowJobsList,
-            todayRevenue: fmt(todayRevenue), todayJobCount: todayJobsList.length,
+            todayRevenue: fmt(todayRevenue), todayLabor: fmt(todayLabor), todayProfit: fmt(todayProfit),
+            todayJobCount: todayJobsList.length,
             tomorrowJobCount: tomorrowJobsList.length, todayPaid, todayUnpaid,
           },
         })
@@ -616,11 +627,17 @@ export async function GET(request: Request) {
         const todayStartInstant = etDayBoundaryUTC(todayCalForDigest)
         const todayEndInstant = etDayBoundaryUTC(addCalendarDays(todayCalForDigest, 1))
 
+        // recipient_type='client' is load-bearing, not decorative — without
+        // it this counted every team_member/admin notification too (team
+        // confirm-request texts alone outnumbered real client sends 10:1 in
+        // production, 2026-07-25), so the digest reported hundreds of
+        // "texts sent" that were never client-facing at all.
         const { data: todayNotifs } = await supabaseAdmin
           .from('notifications')
-          .select('type, channel, recipient_type, created_at, status')
+          .select('type, channel, recipient_type, created_at, status, bookings(clients(name))')
           .eq('tenant_id', tenantId)
           .eq('status', 'sent')
+          .eq('recipient_type', 'client')
           .gte('created_at', todayStartInstant.toISOString())
           .lt('created_at', todayEndInstant.toISOString())
           .not('type', 'in', '("daily_ops_recap","daily_digest")')
@@ -632,7 +649,7 @@ export async function GET(request: Request) {
 
         const entries = (todayNotifs || []).map((n: any) => ({
           type: n.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          recipient: n.recipient_type || 'unknown',
+          recipient: n.bookings?.clients?.name || 'Unknown client',
           time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
           channel: n.channel || 'email',
         }))

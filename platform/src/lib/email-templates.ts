@@ -335,6 +335,8 @@ export function dailyOpsRecapEmail(data: TemplateData & {
   todayJobs: { clientName: string; teamMemberName: string; time: string; revenue: string; paymentStatus: string }[]
   tomorrowJobs: { clientName: string; teamMemberName: string; time: string; revenue: string }[]
   todayRevenue: string
+  todayLabor: string
+  todayProfit: string
   todayJobCount: number
   tomorrowJobCount: number
   todayPaid: number
@@ -380,6 +382,8 @@ export function dailyOpsRecapEmail(data: TemplateData & {
     </table>
     <p style="font-size:13px;color:#6b7280;margin:0 0 24px;">
       Revenue: <strong style="color:#111827;">${escapeHtml(data.todayRevenue)}</strong> &middot;
+      Labor: <strong style="color:#111827;">${escapeHtml(data.todayLabor)}</strong> &middot;
+      Profit: <strong style="color:#16a34a;">${escapeHtml(data.todayProfit)}</strong> &middot;
       ${data.todayPaid} paid &middot; ${data.todayUnpaid} unpaid
     </p>
 
