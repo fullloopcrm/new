@@ -61,7 +61,7 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
   useEffect(() => {
     let alive = true
     Promise.all([
-      fetch('/api/team-members').then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      fetch('/api/cleaners').then((r) => (r.ok ? r.json() : [])).catch(() => []),
       fetch('/api/clients').then((r) => (r.ok ? r.json() : [])).catch(() => []),
     ]).then(([m, c]) => {
       if (!alive) return
