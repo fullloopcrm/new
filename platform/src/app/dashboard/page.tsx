@@ -5,6 +5,7 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 import { crewNames, type CrewRow } from '@/lib/crew'
+import { formatPhone } from '@/lib/format'
 
 // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
 // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
@@ -23,13 +24,6 @@ const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
 const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
-function formatPhoneDisplay(value: string): string {
-  const cleaned = value.replace(/\D/g, '')
-  if (cleaned.length <= 3) return cleaned
-  if (cleaned.length <= 6) return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3)
-  return '(' + cleaned.slice(0, 3) + ') ' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 10)
-}
-
 // Call/Text/Directions right on the feed row — matches the same chips on the
 // bookings list (BookingsAdmin.tsx) so Jeff never has to open a booking just
 // to reach the client.
@@ -40,7 +34,7 @@ function ContactChips({ phone, address }: { phone?: string | null; address?: str
       {phone && (
         <div className="flex items-center gap-1">
           <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
-            {formatPhoneDisplay(phone)}
+            {formatPhone(phone)}
           </a>
           <a href={`sms:${phone}`} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
         </div>
