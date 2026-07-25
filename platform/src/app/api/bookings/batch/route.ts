@@ -7,8 +7,6 @@ import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
-import { notify } from '@/lib/notify'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 /**
  * POST /api/bookings/batch
@@ -178,7 +176,7 @@ export async function POST(request: Request) {
       // Resolve tenant brand for SMS templates
       const { data: tenantRow } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
 
@@ -202,34 +200,22 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 
-      // Client email confirmation — nycmaid gets its own rich branded
-      // template; every other tenant gets the standard one via notify().
-      // Jeff's explicit call (2026-07-23): keep nycmaid's rich template here
-      // even though a concurrent pass unified every other nycmaid email onto
-      // the standard one, including this one — reverted, then re-applied,
-      // by request.
-      if (isNycMaid(tenantId) && client?.email) {
-        const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
-        const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-        const email = clientConfirmationEmail({ ...first, cleaners: cleaner })
-        await sendClientEmail(first.client_id as string, email.subject, email.html)
-          .catch(err => console.error('[batch] nycmaid client email error:', err))
-      } else if (client?.email) {
-        await notify({
-          tenantId,
-          type: 'booking_confirmed',
-          title: `Booking Confirmed — ${bookingDate}`,
-          message: `Your appointment on ${bookingDate} is confirmed.`,
-          channel: 'email',
-          recipientType: 'client',
-          recipientId: first.client_id as string,
-          bookingId: first.id as string,
-          metadata: {
-            clientName: client.name,
-            serviceName: first.service_type,
-            teamMemberName: cleaner?.name || 'Your pro',
-          },
-        }).catch(err => console.error('[batch] client email error:', err))
+      // Client email confirmation — shared Full Loop template (same content
+      // nycmaid's old standalone template had — cleaner photo/rating, PIN,
+      // cancellation policy, prep tips — now on shared branding), sent via
+      // the global multi-contact fan-out so every recipient on the account
+      // hears about the booking, not just the primary contact.
+      if (client?.email && tenantRow) {
+        const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+        const { sendClientEmail } = await import('@/lib/client-contacts')
+        const html = await buildBookingConfirmationEmail(tenantId, first.id as string, {
+          clientName: client.name || 'there',
+          serviceName: first.service_type,
+          dateTime: bookingDate,
+          teamMemberName: cleaner?.name || 'Your pro',
+        })
+        await sendClientEmail({ id: tenantId, ...tenantRow }, first.client_id as string, `Booking Confirmed — ${bookingDate}`, html)
+          .catch(err => console.error('[batch] client email error:', err))
       }
     } catch (notifyErr) {
       console.error('[batch] notification error:', notifyErr)

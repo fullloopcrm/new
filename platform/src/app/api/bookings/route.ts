@@ -8,7 +8,6 @@ import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
-import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -16,7 +15,6 @@ import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -333,49 +331,30 @@ export async function POST(request: Request) {
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
-      // Client confirmation email — nycmaid gets its own rich branded template
-      // (arrival window, no-cancellation policy, tipping, portal PIN); every
-      // other tenant gets the standard template via notify(). Jeff's explicit
-      // call (2026-07-23): keep nycmaid's rich template here even though a
-      // concurrent pass unified every other nycmaid email onto the standard
-      // one, including this one — reverted, then re-applied, by request.
-      // Fetched here (not widening the main `data` select above, which flows
-      // straight into the API response) since the rich template needs client
-      // pin/email + cleaner photo/rating that route deliberately doesn't
-      // expose to the dashboard caller.
-      if (isNycMaid(tenantId) && data.client_id) {
-        const { data: nmBooking } = await supabaseAdmin
-          .from('bookings')
-          .select('*, clients(*), cleaners:team_members!bookings_team_member_id_fkey(*)')
-          .eq('id', data.id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (nmBooking?.clients?.email) {
-          const { clientConfirmationEmail } = await import('@/lib/nycmaid/email-templates')
-          const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')
-          const email = clientConfirmationEmail(nmBooking)
-          await sendClientEmail(data.client_id, email.subject, email.html)
-            .catch(err => console.error('nycmaid client confirmation email error:', err))
-        }
-      } else {
-        await notify({
-          tenantId,
-          type: 'booking_confirmed',
-          title: `Booking Confirmed — ${date}`,
-          message: `Your appointment on ${date} at ${time} with ${memberName} is confirmed.`,
-          channel: 'email',
-          recipientType: 'client',
-          recipientId: data.client_id,
-          bookingId: data.id,
-          metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+      // Client confirmation email — shared Full Loop template (same content
+      // nycmaid's old standalone template had — cleaner photo/rating, PIN,
+      // cancellation policy, prep tips — now on shared branding), sent via
+      // the global multi-contact fan-out (client_contacts) instead of a
+      // single clients.email lookup, so every recipient on the account
+      // hears about the booking, not just the primary contact.
+      if (data.client_id && tenantData) {
+        const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+        const { sendClientEmail } = await import('@/lib/client-contacts')
+        const html = await buildBookingConfirmationEmail(tenantId, data.id, {
+          clientName: data.clients?.name || 'there',
+          serviceName: data.service_type || 'Appointment',
+          dateTime: `${date} at ${time}`,
+          teamMemberName: memberName,
         })
+        await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
+          .catch(err => console.error('client confirmation email error:', err))
       }
 
       // Client confirmation SMS

@@ -52,6 +52,14 @@ export function bookingReceivedEmail(tenant: TenantLike, booking: any): EmailOut
   return { subject: `Booking received — ${tenant.name || 'Your booking'}`, html }
 }
 
+/**
+ * @deprecated No longer called by any booking-confirmation send path — those
+ * now call buildBookingConfirmationEmail() in lib/notify.ts, which renders
+ * the same content (cleaner photo/rating, PIN, cancellation policy, prep
+ * tips) on the shared Full Loop template instead of nycmaid's standalone
+ * one. Left in place (unused) rather than deleted to avoid touching more
+ * than necessary; safe to remove in a follow-up cleanup pass.
+ */
 export function confirmationEmail(tenant: TenantLike, booking: any): EmailOut {
   if (isNycmaid(tenant)) return nycmaidEmail.clientConfirmationEmail(booking)
   const html = sharedConfirmation({
@@ -74,6 +82,7 @@ async function loadTenant(tenantId: string): Promise<TenantLike> {
   return (data as TenantLike) || {}
 }
 
+/** @deprecated see confirmationEmail() above — use buildBookingConfirmationEmail() in lib/notify.ts. */
 export async function confirmationEmailFor(tenantId: string, booking: any): Promise<EmailOut> {
   return confirmationEmail(await loadTenant(tenantId), booking)
 }

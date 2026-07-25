@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
-import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
-import { confirmationEmailFor } from '@/lib/messaging/client-email'
+import { sendClientEmail, sendClientSMS } from '@/lib/client-contacts'
+import { buildBookingConfirmationEmail } from '@/lib/notify'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
@@ -285,14 +285,18 @@ export async function POST(request: Request) {
   if (first && first.status !== 'pending') {
     try {
       if (await isCommEnabled(tenantId, 'booking_confirmed', 'email')) {
-        const email = await confirmationEmailFor(tenantId, first)
-        await sendClientEmail(client_id, email.subject, email.html)
+        const html = await buildBookingConfirmationEmail(tenantId, first.id, {
+          clientName: first.clients?.name || 'there',
+          serviceName: first.service_type || 'Appointment',
+          dateTime: new Date(first.start_time).toLocaleString('en-US', {
+            timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          }),
+        })
+        await sendClientEmail(tenant, client_id, `Booking Confirmed`, html)
       }
       if (await isCommEnabled(tenantId, 'booking_confirmed', 'sms')) {
-        sendClientSMS(client_id, (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first), {
-          smsType: 'confirmation',
-          bookingId: first.id,
-        }).catch((err: unknown) => console.error('Recurring confirmation SMS error:', err))
+        sendClientSMS(tenant, client_id, (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first))
+          .catch((err: unknown) => console.error('Recurring confirmation SMS error:', err))
       }
     } catch (err) {
       console.error('Recurring confirmation error:', err)
