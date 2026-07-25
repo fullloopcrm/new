@@ -76,6 +76,7 @@ type FeedBooking = {
   service_type: string | null
   clients: { name: string | null; phone: string | null; address: string | null } | null
   team_members: { name: string | null } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 // Paginated fetch — FL caps PostgREST at 1000 rows/req; the year has ~1.8k bookings.
@@ -295,7 +296,7 @@ export default async function DashboardPage() {
   const tomorrowEnd = new Date(startOfDay.getTime() + 2 * 86400000)
   const { data: feedRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name)')
+    .select('id,start_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfDay.toISOString())
     .lt('start_time', tomorrowEnd.toISOString())
@@ -397,7 +398,7 @@ export default async function DashboardPage() {
                   <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="flex-1 min-w-0">
                     <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
-                    <p className="text-sm truncate" style={{ color: V.muted }}>{job.service_type || 'Job'} · {crewNames(job)}</p>
+                    <p className="text-sm" style={{ color: V.muted }}>{job.service_type || 'Job'} · {crewNames(job)}</p>
                   </Link>
                   <ContactChips phone={job.clients?.phone} address={job.clients?.address} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="text-right flex-shrink-0">
