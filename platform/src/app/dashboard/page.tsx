@@ -193,15 +193,20 @@ export default async function DashboardPage() {
   const newThisMonth = newClientsRes.count || 0
   const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
 
-  // Map jobs — this month, with client address + any already-geocoded
-  // coords so the map can skip live geocoding for clients we've already
-  // resolved (see src/lib/geo-cache.ts).
+  // Map jobs — wide enough to cover Today/This week/This month, whichever
+  // range the map's own filter is set to (see JobsMap.tsx). The week can
+  // spill into the previous/next calendar month, so the query spans the
+  // union of the week and month windows, not just the month. Client address
+  // + any already-geocoded coords so the map can skip live geocoding for
+  // clients we've already resolved (see src/lib/geo-cache.ts).
+  const mapRangeStart = new Date(Math.min(startOfWeek.getTime(), startOfMonth.getTime()))
+  const mapRangeEnd = new Date(Math.max(endOfWeek.getTime(), endOfMonth.getTime()))
   const { data: mapRows } = await supabaseAdmin
     .from('bookings')
     .select('id,start_time,status,service_type,team_member_id,clients(name,address,latitude,longitude),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
-    .gte('start_time', startOfMonth.toISOString())
-    .lte('start_time', endOfMonth.toISOString())
+    .gte('start_time', mapRangeStart.toISOString())
+    .lte('start_time', mapRangeEnd.toISOString())
     .order('start_time', { ascending: true })
     .limit(1000)
   const mapJobs = (mapRows || []).map((r) => ({
@@ -427,7 +432,12 @@ export default async function DashboardPage() {
       </div>
 
       {/* JOBS MAP — this month, geocoded */}
-      <JobsMap jobs={mapJobs} />
+      <JobsMap
+        jobs={mapJobs}
+        dayRange={[startOfDay.toISOString(), endOfDay.toISOString()]}
+        weekRange={[startOfWeek.toISOString(), endOfWeek.toISOString()]}
+        monthRange={[startOfMonth.toISOString(), endOfMonth.toISOString()]}
+      />
     </>
   )
 }
