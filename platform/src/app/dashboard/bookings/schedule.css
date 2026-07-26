@@ -582,6 +582,10 @@
 .sched-cal-day.heat-mid { background: rgba(31,77,44,0.12); }
 .sched-cal-day.heat-high { background: rgba(31,77,44,0.22); }
 .sched-cal-day.heat-max { background: rgba(31,77,44,0.35); }
+/* A team member is selected in the filter and this is a day they work — used
+   to answer "what days is she available" while picking a booking date. */
+.sched-cal-day.workday { background: color-mix(in srgb, var(--workday-color, var(--sched-good)) 16%, var(--sched-canvas)) !important; }
+.sched-cal-day.workday.today { background: color-mix(in srgb, var(--workday-color, var(--sched-good)) 24%, var(--sched-canvas)) !important; }
 .sched-cal-date-row {
   display: flex;
   align-items: center;
@@ -722,6 +726,7 @@
   border-left: 1px solid var(--sched-line-soft);
 }
 .sched-timegrid-col.today { background: rgba(28,28,28,0.02); }
+.sched-timegrid-col.workday { background: color-mix(in srgb, var(--workday-color, var(--sched-good)) 14%, transparent) !important; }
 .sched-timegrid-gridline { position: absolute; left: 0; right: 0; height: 1px; background: var(--sched-line-soft); }
 .sched-timegrid-event {
   position: absolute;

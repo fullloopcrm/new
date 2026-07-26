@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import type { CalendarDay, CalendarEvent } from './calendar-shared'
 import { packEventsIntoLanes, fmtTime, dayLabel } from './calendar-shared'
 
@@ -25,12 +26,14 @@ function hourLabel(h: number): string {
 }
 
 export default function CalendarTimeGrid({
-  days, todayStr, columns, colorFor, onSelectEvent, onOverflow,
+  days, todayStr, columns, colorFor, isWorkday, workdayColor, onSelectEvent, onOverflow,
 }: {
   days: CalendarDay[]
   todayStr: string
   columns: 1 | 2
   colorFor: (event: CalendarEvent) => string
+  isWorkday?: (date: string) => boolean
+  workdayColor?: string
   onSelectEvent: (event: CalendarEvent, date: string) => void
   onOverflow: (date: string) => void
 }) {
@@ -61,8 +64,13 @@ export default function CalendarTimeGrid({
           const laned = packEventsIntoLanes(day.events)
           const visible = laned.filter((e) => e.lane < columns)
           const hiddenCount = laned.length - visible.length
+          const workday = isWorkday?.(day.date) ?? false
           return (
-            <div key={day.date} className={`sched-timegrid-col ${day.date === todayStr ? 'today' : ''}`} style={{ height: gridHeight }}>
+            <div
+              key={day.date}
+              className={`sched-timegrid-col ${day.date === todayStr ? 'today' : ''} ${workday ? 'workday' : ''}`}
+              style={{ height: gridHeight, ...(workday && workdayColor ? { '--workday-color': workdayColor } as CSSProperties : {}) }}
+            >
               {HOURS.map((h) => (
                 <div key={h} className="sched-timegrid-gridline" style={{ top: (h * 60 - DAY_START_MIN) / 60 * HOUR_PX }} />
               ))}
