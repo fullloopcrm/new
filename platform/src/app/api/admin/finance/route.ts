@@ -1,106 +1,88 @@
+/**
+ * Platform Finance — Revenue tab. Ledger-true cross-tenant revenue rollup
+ * (see src/lib/finance/platform-reports.ts), replacing the old raw
+ * `bookings.price` sum — same ledger-vs-raw-table bug fixed per-tenant on
+ * 2026-07-25, now fixed at the platform rollup too. The old response shape
+ * here (`total_revenue`/`breakdown`/`monthly`) never actually matched what
+ * page.tsx read (`totalRevenue`/`revenueByTenant`/`monthlyTrend`) — this
+ * rewrite fixes both sides together.
+ */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { supabaseAdmin } from '@/lib/supabase'
+import { platformProfitAndLoss, platformMonthlyTrend, type PlatformPnL } from '@/lib/finance/platform-reports'
+
+function periodBounds(period: string): { from: string; to: string } {
+  const now = new Date()
+  const toISODate = (d: Date) => d.toISOString().slice(0, 10)
+  let from: Date
+
+  if (period === 'today') {
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  } else if (period === 'week') {
+    from = new Date(now)
+    from.setDate(from.getDate() - 7)
+  } else if (period === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1)
+  } else {
+    from = new Date(now.getFullYear(), 0, 1)
+  }
+  return { from: toISODate(from), to: toISODate(now) }
+}
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
   const url = request.nextUrl
-  const tenantId = url.searchParams.get('tenant_id')
+  const tenantId = url.searchParams.get('tenant_id') || undefined
   const period = url.searchParams.get('period') || 'month'
+  const year = Number(url.searchParams.get('year')) || new Date().getFullYear()
 
   const now = new Date()
-  let dateFrom: Date
+  const { from, to } = periodBounds(period)
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10)
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10)
+  const todayStr = now.toISOString().slice(0, 10)
 
-  if (period === 'today') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  } else if (period === 'week') {
-    dateFrom = new Date(now)
-    dateFrom.setDate(dateFrom.getDate() - 7)
-  } else if (period === 'month') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1)
-  } else {
-    dateFrom = new Date(now.getFullYear(), 0, 1)
-  }
+  try {
+    const [selected, thisMonth, lastMonth, monthlyTrend] = await Promise.all([
+      platformProfitAndLoss(from, to),
+      platformProfitAndLoss(monthStart, todayStr),
+      platformProfitAndLoss(lastMonthStart, lastMonthEnd),
+      platformMonthlyTrend(year, tenantId),
+    ])
 
-  let query = supabaseAdmin
-    .from('bookings')
-    .select('price, payment_date, payment_status, tenant_id')
-    .in('payment_status', ['paid'])
-    .gte('payment_date', dateFrom.toISOString())
-
-  if (tenantId) query = query.eq('tenant_id', tenantId)
-
-  const { data: bookings } = await query
-
-  const totalRevenue = (bookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
-
-  // Per-tenant breakdown
-  const tenantRevenue: Record<string, { revenue: number; count: number }> = {}
-  for (const b of bookings || []) {
-    if (!tenantRevenue[b.tenant_id]) tenantRevenue[b.tenant_id] = { revenue: 0, count: 0 }
-    tenantRevenue[b.tenant_id].revenue += b.price || 0
-    tenantRevenue[b.tenant_id].count++
-  }
-
-  // Get tenant names
-  const tenantIds = Object.keys(tenantRevenue)
-  let tenantNames: Record<string, string> = {}
-  if (tenantIds.length > 0) {
-    const { data: tenants } = await supabaseAdmin
-      .from('tenants')
-      .select('id, name')
-      .in('id', tenantIds)
-    for (const t of tenants || []) {
-      tenantNames[t.id] = t.name
+    const pick = (pnl: PlatformPnL) => {
+      if (!tenantId) return pnl.revenue_cents
+      return pnl.by_tenant.find((t) => t.tenant_id === tenantId)?.revenue_cents ?? 0
     }
+
+    const totalRevenue = pick(selected)
+    const thisMonthRevenue = pick(thisMonth)
+    const lastMonthRevenue = pick(lastMonth)
+    const growthPercent = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0
+
+    const revenueByTenant = tenantId ? selected.by_tenant.filter((t) => t.tenant_id === tenantId) : selected.by_tenant
+
+    return NextResponse.json({
+      period,
+      year,
+      totalRevenue: totalRevenue / 100,
+      thisMonthRevenue: thisMonthRevenue / 100,
+      lastMonthRevenue: lastMonthRevenue / 100,
+      growthPercent,
+      revenueByTenant: revenueByTenant.map((t) => ({
+        tenant_id: t.tenant_id,
+        tenant_name: t.tenant_name,
+        revenue: t.revenue_cents / 100,
+        margin_bps: t.margin_bps,
+      })),
+      monthlyTrend: monthlyTrend.map((m) => ({ month: m.month, revenue: m.revenue_cents / 100 })),
+      source: 'ledger',
+    })
+  } catch (err) {
+    console.error('GET /api/admin/finance', err)
+    return NextResponse.json({ error: 'Failed to load finance data' }, { status: 500 })
   }
-
-  const breakdown = Object.entries(tenantRevenue)
-    .map(([id, data]) => ({
-      tenant_id: id,
-      tenant_name: tenantNames[id] || id.slice(0, 8),
-      revenue: data.revenue,
-      booking_count: data.count,
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-
-  // Monthly trend (last 12 months)
-  const twelveMonthsAgo = new Date()
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
-
-  let monthlyQuery = supabaseAdmin
-    .from('bookings')
-    .select('price, payment_date')
-    .eq('payment_status', 'paid')
-    .gte('payment_date', twelveMonthsAgo.toISOString())
-
-  if (tenantId) monthlyQuery = monthlyQuery.eq('tenant_id', tenantId)
-
-  const { data: monthlyBookings } = await monthlyQuery
-
-  const monthMap: Record<string, number> = {}
-  // Cross-tenant platform report — no single tenant to key off, so this
-  // renders in the platform's own default (ET), not the server's raw UTC.
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/New_York' })
-    monthMap[key] = 0
-  }
-  for (const b of monthlyBookings || []) {
-    if (b.payment_date) {
-      const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/New_York' })
-      if (key in monthMap) monthMap[key] += (b.price || 0) / 100
-    }
-  }
-
-  return NextResponse.json({
-    period,
-    total_revenue: totalRevenue,
-    booking_count: bookings?.length || 0,
-    breakdown,
-    monthly: Object.entries(monthMap).map(([month, amount]) => ({ month, amount })),
-  })
 }
