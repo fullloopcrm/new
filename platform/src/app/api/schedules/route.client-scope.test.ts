@@ -73,6 +73,25 @@ vi.mock('@/lib/tenant-query', () => ({
 
 vi.mock('@/lib/audit', () => ({ audit: async () => {} }))
 
+// This file tests tenant-scoping on client_id/team_member_id inputs, not
+// smart-scheduling behavior (covered separately) -- the local mock above
+// doesn't implement the fuller query surface scoreTeamForBooking needs
+// (.neq/.gte/.lte/.in), so stub it out. Reports the requested member as
+// available so the route keeps them assigned, same as before this route
+// gained per-occurrence conflict checking.
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => [
+    { id: OWN_MEMBER, name: 'Own Member', score: 100, available: true, zone_match: true, has_car: true, is_preferred: false, day_jobs: [], reason: 'free', home_by: '' },
+  ],
+  pickBestTeam: () => ({ lead: null, extras: [], short: 1 }),
+}))
+vi.mock('@/lib/client-properties', () => ({
+  getBookingAddress: async () => ({ address: '123 Test St', latitude: null, longitude: null }),
+}))
+vi.mock('@/lib/settings', () => ({
+  getSettings: async () => ({ smart_recurring_assign: false }),
+}))
+
 import { POST as CREATE } from '@/app/api/schedules/route'
 
 function jsonReq(body: Row): Request {

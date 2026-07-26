@@ -5,6 +5,9 @@ import { requirePermission } from '@/lib/require-permission'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { getBookingAddress } from '@/lib/client-properties'
+import { getSettings } from '@/lib/settings'
 
 export async function GET() {
   try {
@@ -126,12 +129,58 @@ export async function POST(request: Request) {
       weeksToGenerate: 4,
     })
 
-    const bookings = dates.map((d) => {
+    // Per-occurrence availability check -- a single date the requested member
+    // is already booked on used to abort the ENTIRE batch (the DB's
+    // fn_block_booking_overlap trigger blocks the whole multi-row insert on
+    // any one conflicting row), so one Thursday conflict blocked creating the
+    // whole weekly schedule. Score each date individually instead: keep the
+    // requested member if they're actually free that date, otherwise fall
+    // back to the best-scoring available alternate (smart_recurring_assign
+    // flag, same semantics as the cron refill) or leave that one occurrence
+    // unassigned+flagged for manual review -- never block the others.
+    const { smart_recurring_assign: smartAssign } = await getSettings(tenantId)
+    const durH = (v.duration_hours as number) || 3
+    let jobAddr: { address: string | null; latitude: number | null; longitude: number | null } | null = null
+    if (v.team_member_id) {
+      jobAddr = await getBookingAddress({ propertyId: null, clientId: v.client_id as string })
+    }
+
+    const bookings: Record<string, unknown>[] = []
+    for (const d of dates) {
+      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const startHHMM = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false }).slice(0, 5)
       const endTime = new Date(d)
-      endTime.setHours(endTime.getHours() + ((v.duration_hours as number) || 3))
-      return {
+      endTime.setHours(endTime.getHours() + durH)
+
+      let assignedId: string | null = (v.team_member_id as string) || null
+      let unassignedNote: string | null = null
+
+      if (v.team_member_id) {
+        const scores = await scoreTeamForBooking({
+          tenantId,
+          date: dateStr,
+          startTime: startHHMM,
+          durationHours: durH,
+          clientAddress: jobAddr?.address || '',
+          clientId: v.client_id as string,
+          hourlyRate: v.hourly_rate != null ? Number(v.hourly_rate) : undefined,
+          jobCoords: jobAddr?.latitude != null && jobAddr?.longitude != null
+            ? { lat: Number(jobAddr.latitude), lng: Number(jobAddr.longitude) }
+            : undefined,
+        })
+        const requestedStillFree = scores.find((s) => s.id === v.team_member_id && s.available)
+        if (!requestedStillFree) {
+          const alternate = smartAssign ? pickBestTeam(scores, 1).lead : null
+          assignedId = alternate?.id ?? null
+          unassignedNote = alternate
+            ? null
+            : `[Auto: requested team member unavailable ${dateStr} — needs reassignment]`
+        }
+      }
+
+      bookings.push({
         client_id: v.client_id,
-        team_member_id: v.team_member_id || null,
+        team_member_id: assignedId,
         service_type_id: v.service_type_id || null,
         service_type: serviceTypeName,
         schedule_id: schedule.id,
@@ -140,19 +189,39 @@ export async function POST(request: Request) {
         status: 'scheduled',
         hourly_rate: v.hourly_rate || null,
         pay_rate: v.pay_rate || null,
-        notes: v.notes || null,
+        notes: unassignedNote
+          ? `${v.notes ? v.notes + ' — ' : ''}${unassignedNote}`
+          : (v.notes || null),
         special_instructions: v.special_instructions || null,
         source: 'admin',
-      }
-    })
-
-    if (bookings.length > 0) {
-      await db.from('bookings').insert(bookings)  // tenantDb stamps tenant_id on every row
+      })
     }
 
-    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })
+    // The fn_block_booking_overlap trigger fires BEFORE INSERT and aborts the
+    // whole batch statement on any single conflicting row. The per-occurrence
+    // check above should already keep conflicting rows out, but fall back to
+    // per-row inserts on any batch error so a conflict slipping through
+    // (race condition, stale score) still lands every non-conflicting
+    // occurrence instead of silently creating zero bookings while reporting
+    // success -- mirrors cron/generate-recurring's existing fallback.
+    let bookingsCreated = 0
+    const skippedDates: string[] = []
+    if (bookings.length > 0) {
+      const { error: batchErr } = await db.from('bookings').insert(bookings)  // tenantDb stamps tenant_id on every row
+      if (!batchErr) {
+        bookingsCreated = bookings.length
+      } else {
+        for (const b of bookings) {
+          const { error: rowErr } = await db.from('bookings').insert(b)
+          if (rowErr) skippedDates.push(String(b.start_time))
+          else bookingsCreated++
+        }
+      }
+    }
 
-    return NextResponse.json({ schedule, bookingsCreated: bookings.length }, { status: 201 })
+    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated, skippedDates } })
+
+    return NextResponse.json({ schedule, bookingsCreated, skippedDates }, { status: 201 })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

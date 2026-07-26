@@ -155,7 +155,7 @@ describe('POST /api/schedules — creation + booking generation', () => {
         tenantId: 'tenant-A',
         action: 'schedule.created',
         entityId: json.schedule.id,
-        details: { recurring_type: 'weekly', bookingsCreated: 2 },
+        details: { recurring_type: 'weekly', bookingsCreated: 2, skippedDates: [] },
       })
     )
   })
