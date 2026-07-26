@@ -457,15 +457,41 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           {clientProperties.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Address{clientProperties.length > 1 ? ' *' : ''}</label>
-              <select
-                value={form.property_id}
-                onChange={(e) => setForm({ ...form, property_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
-              >
-                {clientProperties.map(p => (
-                  <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
-                ))}
-              </select>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={form.property_id}
+                  onChange={(e) => setForm({ ...form, property_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]"
+                >
+                  {clientProperties.map(p => (
+                    <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
+                  ))}
+                </select>
+                {clientProperties.length > 1 && (
+                  <button
+                    type="button"
+                    title="Delete this address"
+                    onClick={async () => {
+                      const target = clientProperties.find(p => p.id === form.property_id)
+                      if (!target) return
+                      if (!confirm(`Delete this address?\n\n${target.address}\n\nThis won't change any past completed bookings.`)) return
+                      const res = await fetch('/api/client/properties', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ client_id: booking.client_id, property_id: target.id, action: 'deactivate' }),
+                      })
+                      if (!res.ok) { alert('Failed to delete address.'); return }
+                      const remaining = clientProperties.filter(p => p.id !== target.id)
+                      setClientProperties(remaining)
+                      const next = remaining.find(p => p.is_primary) || remaining[0]
+                      setForm(prev => ({ ...prev, property_id: next?.id || '' }))
+                    }}
+                    className="shrink-0 px-3 py-2 border border-gray-300 rounded-lg text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

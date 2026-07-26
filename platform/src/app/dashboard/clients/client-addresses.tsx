@@ -93,6 +93,18 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     load()
   }
 
+  // Deleting the primary address would leave no property marked primary
+  // (deactivateProperty only clears the flag, it doesn't reassign it) --
+  // promote whichever address is left before deactivating.
+  async function remove(property: Property) {
+    if (!confirm(`Delete this address?\n\n${property.address}`)) return
+    if (property.is_primary) {
+      const next = properties.find((p) => p.id !== property.id)
+      if (next) await patch(next.id, 'set_primary')
+    }
+    await patch(property.id, 'deactivate')
+  }
+
   if (loading) return null
 
   return (
@@ -149,9 +161,9 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                     >
                       Edit
                     </span>
-                    {!p.is_primary && properties.length > 1 && (
-                      <span className="clients-section-action" style={{ color: 'var(--clients-danger)' }} role="button" tabIndex={0} onClick={() => patch(p.id, 'deactivate')}>
-                        Remove
+                    {properties.length > 1 && (
+                      <span className="clients-section-action" style={{ color: 'var(--clients-danger)' }} role="button" tabIndex={0} onClick={() => remove(p)}>
+                        Delete
                       </span>
                     )}
                   </div>
