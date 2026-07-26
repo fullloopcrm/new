@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import BookingsSettings from './bookings-settings'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
@@ -1157,6 +1158,7 @@ function BookingsPage() {
 
   return (
     <div className="sched-scope">
+      <BookingsSettings />
       <main className="p-3 md:p-6 max-w-[1400px] mx-auto">
         {/* Header — page title itself comes from the shared dashboard masthead
             ("Schedule."); this row is just the bar-label + actions. */}

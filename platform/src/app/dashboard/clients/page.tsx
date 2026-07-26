@@ -6,6 +6,7 @@ import './clients.css'
 import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import ClientsSettings from './clients-settings'
 import { formatPhone as formatPhoneDisplay } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 
@@ -262,6 +263,7 @@ export default function ClientsPage() {
 
   return (
     <div className="clients-scope">
+      <ClientsSettings />
       {/* OUTLOOK BAR */}
       <div className="clients-bar-label">Health</div>
       <div className="clients-outlook">
