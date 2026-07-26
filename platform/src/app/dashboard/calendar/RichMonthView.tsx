@@ -6,6 +6,7 @@ import { useTenantSettings } from '@/lib/use-tenant-settings'
 import '../bookings/schedule.css'
 import CalendarTimeGrid from './CalendarTimeGrid'
 import { BookingPopup, DayEventsPopup } from './CalendarPopups'
+import { worksScheduledDay } from '@/lib/day-availability'
 import {
   type CalendarEvent, type CalendarDay, fmtTime, fmtMoney, ymdToday,
   addDays, addMonths, weekDatesFor, dayLabel,
@@ -26,6 +27,11 @@ const TEAM_COLORS = [
 ]
 
 type ApiTeam = { id: string; name: string; status: string | null }
+type TeamSchedule = {
+  working_days?: string[] | null
+  schedule?: Record<string, unknown> | null
+  unavailable_dates?: string[] | null
+}
 type CalendarData = {
   month: string
   grid: { start: string; end: string; days: CalendarDay[] }
@@ -81,6 +87,7 @@ export default function RichMonthView() {
   const month = useMemo(() => anchorDate.slice(0, 7), [anchorDate])
   const [innerView, setInnerView] = useState<'month' | 'week' | 'day'>('month')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [teamSchedules, setTeamSchedules] = useState<Record<string, TeamSchedule>>({})
   const [statusFilter, setStatusFilter] = useState<Set<string>>(
     new Set(['pending', 'scheduled', 'in_progress', 'completed']),
   )
@@ -101,6 +108,25 @@ export default function RichMonthView() {
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [month])
+
+  // /api/schedule/calendar only returns {id, name, status} per team member —
+  // enough for the filter dropdown, not enough to know which days someone
+  // works. Fetched once, separately, for the "which days does she work"
+  // highlight below (same working_days/schedule columns CalendarBoard and
+  // the assignment engine already read).
+  useEffect(() => {
+    fetch('/api/team')
+      .then((r) => r.json())
+      .then((d) => {
+        const members = Array.isArray(d) ? d : (d.team || d.team_members || [])
+        const map: Record<string, TeamSchedule> = {}
+        for (const m of members) {
+          map[m.id] = { working_days: m.working_days, schedule: m.schedule, unavailable_dates: m.unavailable_dates }
+        }
+        setTeamSchedules(map)
+      })
+      .catch(() => setTeamSchedules({}))
+  }, [])
 
   // The "Jobs" list below the grid is a rolling today-through-+30-days
   // window, independent of whichever month the grid above is navigated to —
@@ -183,6 +209,16 @@ export default function RichMonthView() {
   )
   function colorForEvent(ev: CalendarEvent): string {
     return ev.team_member_id ? teamColorById.get(ev.team_member_id) || 'var(--sched-ink)' : 'var(--sched-ink)'
+  }
+
+  // When a single team member is filtered, highlight the days she actually
+  // works so picking a booking date doesn't require guessing her schedule.
+  const selectedSchedule = teamFilter !== 'all' ? teamSchedules[teamFilter] : undefined
+  const workdayColor = teamFilter !== 'all' ? teamColorById.get(teamFilter) : undefined
+  function isWorkday(date: string): boolean {
+    if (!selectedSchedule) return false
+    if (selectedSchedule.unavailable_dates?.includes(date)) return false
+    return worksScheduledDay(selectedSchedule.working_days, selectedSchedule.schedule, date)
   }
   const dayPopupDay = dayPopupDate ? dayByDate.get(dayPopupDate) || emptyDay(dayPopupDate) : null
 
@@ -339,6 +375,11 @@ export default function RichMonthView() {
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
+            {teamFilter !== 'all' && selectedSchedule && (
+              <span className="sched-filter-group-label" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                Highlighted = working days
+              </span>
+            )}
             <span className="sched-filters-divider" />
             <span className="sched-filter-group-label">Status</span>
             {(['pending', 'scheduled', 'in_progress', 'completed', 'cancelled'] as const).map((s) => {
@@ -388,13 +429,18 @@ export default function RichMonthView() {
                     day.heat === 'mid' ? 'heat-mid' : '',
                     day.heat === 'high' ? 'heat-high' : '',
                     day.heat === 'max' ? 'heat-max' : '',
+                    isWorkday(day.date) ? 'workday' : '',
                   ].filter(Boolean).join(' ')
                   const maxVisible = columns * 3
                   const visible = day.events.slice(0, maxVisible)
                   const more = day.events.length - visible.length
                   const showIdleBanner = overlays.idle && inMonth && day.is_idle && !isToday
                   return (
-                    <div key={day.date} className={dayClasses}>
+                    <div
+                      key={day.date}
+                      className={dayClasses}
+                      style={workdayColor ? ({ '--workday-color': workdayColor } as CSSProperties) : undefined}
+                    >
                       <div className="sched-cal-date-row">
                         <span className="sched-cal-date">{dt.getDate()}</span>
                         <div className="sched-cal-day-stats">
@@ -449,6 +495,8 @@ export default function RichMonthView() {
                   todayStr={todayStr}
                   columns={columns}
                   colorFor={colorForEvent}
+                  isWorkday={isWorkday}
+                  workdayColor={workdayColor}
                   onSelectEvent={(event, date) => setPopupEvent({ event, date })}
                   onOverflow={(date) => setDayPopupDate(date)}
                 />

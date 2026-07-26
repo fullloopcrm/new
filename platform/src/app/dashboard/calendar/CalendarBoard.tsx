@@ -8,9 +8,16 @@ import interactionPlugin from '@fullcalendar/interaction'
 import SidePanel from '@/components/SidePanel'
 import { formatRecurringLabel } from '@/lib/recurring'
 import { applyDiscount, applyCredit } from '@/lib/discount'
+import { worksScheduledDay } from '@/lib/day-availability'
 
 interface Client { id: string; name: string; phone: string; address: string }
-interface TeamMember { id: string; name: string }
+interface TeamMember {
+  id: string
+  name: string
+  working_days?: string[] | null
+  schedule?: Record<string, unknown> | null
+  unavailable_dates?: string[] | null
+}
 interface TeamMemberAvail { id: string; name: string; available: boolean; conflict?: string; preferred?: boolean; history_count?: number; jobs_today?: number; tags?: string[]; score?: number; meets_requirements?: boolean; missing_skills?: string[] }
 interface Booking {
   id: string
@@ -202,6 +209,32 @@ export default function CalendarBoard() {
   const toLocalISOString = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`
+  }
+
+  const toLocalDateOnly = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+  }
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    const clean = hex.replace('#', '')
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean
+    const bigint = parseInt(full, 16)
+    const r = (bigint >> 16) & 255
+    const g = (bigint >> 8) & 255
+    const b = bigint & 255
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
+  const selectedMemberObj = teamMembers.find(m => m.id === selectedMember)
+
+  const dayCellClassNames = (arg: { date: Date }) => {
+    if (!selectedMemberObj) return []
+    const dateStr = toLocalDateOnly(arg.date)
+    if (selectedMemberObj.unavailable_dates?.includes(dateStr)) return []
+    return worksScheduledDay(selectedMemberObj.working_days, selectedMemberObj.schedule, dateStr)
+      ? ['sched-cleaner-workday']
+      : []
   }
 
   const formatNaiveTime = (timeStr: string) => {
@@ -472,6 +505,9 @@ export default function CalendarBoard() {
             <option value="">All Team</option>
             {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
+          {selectedMemberObj && (
+            <p className="mt-1 text-[11px] text-slate-400">Highlighted days = {selectedMemberObj.name.split(' ')[0]}&apos;s working days</p>
+          )}
         </div>
 
         <div>
@@ -526,14 +562,21 @@ export default function CalendarBoard() {
           .fc-daygrid-event .fc-event-title { font-size: 9px !important; font-weight: 500 !important; }
           .fc-daygrid-event .fc-event-time { display: none !important; }
           .fc-daygrid-more-link { font-size: 9px !important; grid-column: 1 / -1 !important; }
+          .fc .sched-cleaner-workday { background-color: var(--cleaner-highlight-bg, rgba(13, 148, 136, 0.12)) !important; }
         `}</style>
-        <div className="border border-slate-200 rounded-lg p-2 bg-white">
+        <div
+          className="border border-slate-200 rounded-lg p-2 bg-white"
+          style={selectedMemberObj && memberColors[selectedMemberObj.id]
+            ? ({ '--cleaner-highlight-bg': hexToRgba(memberColors[selectedMemberObj.id], 0.14) } as React.CSSProperties)
+            : undefined}
+        >
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
             events={bookings}
             datesSet={handleDatesSet}
+            dayCellClassNames={dayCellClassNames}
             eventClick={handleEventClick}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
