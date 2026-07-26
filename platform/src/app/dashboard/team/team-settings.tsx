@@ -2,6 +2,7 @@
 
 import { usePageSettings, PageSettingsPanel } from '@/components/page-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { usePageComms, CommsSubsetSection } from '@/components/page-comms-settings'
 
 // Team-facing messages — job assignment, daily schedule, schedule changes,
@@ -19,6 +20,9 @@ export default function TeamSettings() {
   const settings = usePageSettings('team')
   const viewPrefs = useUserPrefs<TeamViewPrefs>('team', { default_tab: 'team' })
   const comms = usePageComms(settings.open)
+  const tenantSettings = useTenantSettings()
+  const selena = (tenantSettings.tenant?.selena_config as Record<string, unknown> | null) || {}
+  const defaultPayRate = Number(selena.default_pay_rate ?? 0)
 
   return (
     <PageSettingsPanel
@@ -48,6 +52,22 @@ export default function TeamSettings() {
                 <option value="performance">Performance</option>
                 <option value="payroll">Payroll</option>
               </select>
+            </label>
+          </div>
+
+          <div className="space-y-3 border-t border-gray-800 pt-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Defaults</p>
+            <label className="block">
+              <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Default pay rate ($/hr)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={defaultPayRate}
+                onChange={(e) => tenantSettings.updateSelenaConfig({ default_pay_rate: e.target.value === '' ? 0 : Number(e.target.value) })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900"
+              />
+              <span className="block text-xs text-white/60 mt-1">Prefilled hourly rate when adding a new team member.</span>
             </label>
           </div>
 
