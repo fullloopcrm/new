@@ -414,6 +414,7 @@ async function maybeSendMissedCallSMS(opts: {
   const { data: cleanerMatch } = await supabaseAdmin
     .from('team_members')
     .select('id')
+    .eq('tenant_id', opts.tenantId)
     .eq('phone', opts.customerPhone)
     .limit(1)
   if (cleanerMatch && cleanerMatch.length > 0) return
