@@ -192,17 +192,6 @@ export const COMMS: CommDef[] = [
     firedBy: 'cron: rating-prompt',
   },
   {
-    key: 'review_request',
-    label: 'Review request',
-    desc: 'Asks a happy client for a public review.',
-    audience: 'client',
-    channels: ['email', 'sms'],
-    defaults: { email: true, sms: false },
-    timing: ['review_delay_hours'],
-    editableCopy: true,
-    firedBy: 'cron: post-job-followup / rating-prompt',
-  },
-  {
     key: 'thank_you',
     label: 'Post-service thank you',
     desc: 'Thank-you message after a completed job.',
@@ -220,17 +209,7 @@ export const COMMS: CommDef[] = [
     channels: ['sms', 'email'],
     defaults: { sms: true, email: false },
     editableCopy: true,
-    firedBy: 'cron: retention / outreach',
-  },
-  {
-    key: 'lead_received',
-    label: 'Lead / inquiry acknowledgement',
-    desc: 'Auto-reply to someone who submits a contact or quote form.',
-    audience: 'client',
-    channels: ['email', 'sms'],
-    defaults: { email: true, sms: false },
-    editableCopy: true,
-    firedBy: 'event: /api/contact, /api/lead',
+    firedBy: 'cron: outreach',
   },
   {
     key: 'verification_code',
@@ -325,31 +304,16 @@ export const COMMS: CommDef[] = [
     firedBy: 'event: /api/contact (job-application)',
   },
   {
-    key: 'owner_new_referrer',
-    label: 'New referrer',
-    desc: 'A new referral partner signed up.',
-    audience: 'owner',
-    channels: ['email', 'in_app'],
-    defaults: { email: true, in_app: true },
-    firedBy: 'event: referrer signup',
-  },
-  {
     key: 'owner_payment_received',
     label: 'Payment received',
     desc: 'A client payment cleared.',
     audience: 'owner',
-    channels: ['email', 'in_app'],
-    defaults: { email: false, in_app: true },
+    channels: ['email', 'sms', 'in_app'],
+    // Both email and SMS currently send unconditionally (fail-open, never
+    // wired to a toggle) — defaults set to true/true to match actual live
+    // behavior, so turning this on for the first time changes nothing.
+    defaults: { email: true, sms: true, in_app: true },
     firedBy: 'event: Stripe webhook',
-  },
-  {
-    key: 'owner_low_rating',
-    label: 'Low rating alert',
-    desc: 'A client left a low rating that may need attention.',
-    audience: 'owner',
-    channels: ['sms', 'in_app'],
-    defaults: { sms: true, in_app: true },
-    firedBy: 'cron: rating-prompt',
   },
   {
     key: 'owner_late_alert',
@@ -359,15 +323,6 @@ export const COMMS: CommDef[] = [
     channels: ['sms', 'in_app'],
     defaults: { sms: true, in_app: true },
     firedBy: 'cron: late-check-in',
-  },
-  {
-    key: 'owner_schedule_gap',
-    label: 'Schedule gap / coverage',
-    desc: 'An upcoming job has no one assigned.',
-    audience: 'owner',
-    channels: ['in_app'],
-    defaults: { in_app: true },
-    firedBy: 'cron: schedule-monitor',
   },
   {
     key: 'owner_daily_summary',
@@ -382,10 +337,10 @@ export const COMMS: CommDef[] = [
   {
     key: 'owner_backup',
     label: 'Data backup',
-    desc: 'Daily backup snapshot email.',
+    desc: 'Daily backup-complete notification (in-app only — not an email).',
     audience: 'owner',
-    channels: ['email'],
-    defaults: { email: true },
+    channels: ['in_app'],
+    defaults: { in_app: true },
     firedBy: 'cron: backup',
   },
 ]
@@ -433,4 +388,5 @@ export const NOTIFY_COMM_MAP: Record<string, string> = {
   'cleaner_application:admin': 'owner_new_application',
   'daily_ops_recap:admin': 'owner_daily_summary',
   'daily_summary:admin': 'owner_daily_summary',
+  'payment_received:admin': 'owner_payment_received',
 }

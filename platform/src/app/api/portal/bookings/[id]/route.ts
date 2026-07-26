@@ -148,7 +148,11 @@ export async function PUT(
     if (oldBooking.team_member_id) {
       await notify({
         tenantId: auth.tid,
-        type: 'booking_cancelled',
+        // job_cancelled, not booking_cancelled — the "team schedule change"
+        // settings toggle maps job_cancelled/job_rescheduled:team_member to
+        // team_schedule_change; booking_cancelled has no team_member mapping,
+        // so this send was never actually gated by the toggle meant to control it.
+        type: 'job_cancelled',
         title: 'Job Cancelled',
         message: `${clientName}'s ${bookingDate} booking has been cancelled`,
         channel: 'sms',

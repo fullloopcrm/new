@@ -27,6 +27,7 @@ export type NotificationType =
   | 'booking_confirmed'
   | 'booking_reminder'
   | 'booking_cancelled'
+  | 'job_cancelled'
   | 'booking_rescheduled'
   | 'portal_pin_reset'
   | 'booking_completed'

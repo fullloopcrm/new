@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
@@ -693,7 +694,13 @@ export async function POST(request: Request) {
       const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
       const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
       const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
-      await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
+      // Gated on the same "Payment received" toggle as the email leg —
+      // previously ungated, so turning the setting off didn't stop this text.
+      // adminMsg itself stays unconditional: the Telegram parity block below
+      // (6c) reuses it regardless of the SMS setting.
+      if (await isCommEnabled(tenantId, 'owner_payment_received', 'sms')) {
+        await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
+      }
 
       // 6c. NYC Maid Telegram parity restore (2026-07-25). The old independent
       // build posted this exact "payment CONFIRMED ... Client + cleaner

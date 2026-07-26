@@ -84,18 +84,17 @@ export async function GET(request: Request) {
     }
   }
 
-  // Log backup results to a platform notification
+  // Log backup results — platform-wide marker, not tied to any one tenant.
+  // Previously stamped tenant_id on whichever tenant happened to sort first
+  // in the query, which isn't a real admin-facing notification for anyone.
   if (backed > 0 || errors.length > 0) {
-    const superAdminTenant = tenants?.[0]
-    if (superAdminTenant) {
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: superAdminTenant.id,
-        type: 'platform',
-        title: 'Nightly Backup Complete',
-        message: `${backed} tenants backed up successfully.${errors.length > 0 ? ` ${errors.length} errors: ${errors.join(', ')}` : ''}`,
-        channel: 'in_app',
-      })
-    }
+    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+      type: 'platform',
+      title: 'Nightly Backup Complete',
+      message: `${backed} tenants backed up successfully.${errors.length > 0 ? ` ${errors.length} errors: ${errors.join(', ')}` : ''}`,
+      channel: 'system',
+      recipient_type: 'admin',
+    }).then(() => {}, () => {})
   }
 
   return NextResponse.json({
