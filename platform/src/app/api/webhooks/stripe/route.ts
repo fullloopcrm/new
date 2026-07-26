@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
@@ -623,8 +624,10 @@ export async function POST(request: Request) {
 
       // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only
       // the in-app notification fired, so the owner never got a text). Admin DOES
-      // see the total (unlike the cleaner).
-      {
+      // see the total (unlike the cleaner). Gated on the same "Payment received"
+      // toggle as the email leg — previously ungated, so turning the setting off
+      // didn't stop this text.
+      if (await isCommEnabled(tenantId, 'owner_payment_received', 'sms')) {
         const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
         const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
         const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`

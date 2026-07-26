@@ -1,4 +1,3 @@
-import Script from 'next/script'
 import { Bebas_Neue, Inter } from 'next/font/google'
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
@@ -8,7 +7,7 @@ import MarketingNav from '@/app/site/nycmaid/_components/MarketingNav'
 import MarketingFooter from '@/app/site/nycmaid/_components/MarketingFooter'
 import ReferralBanner from '@/app/site/nycmaid/_components/ReferralBanner'
 import ConsentBanner from '@/components/consent/ConsentBanner'
-import ConsentGate from '@/components/consent/ConsentGate'
+import TenantAnalyticsScript from '@/components/analytics/TenantAnalyticsScript'
 
 // Fallback title for tenant pages that set no metadata of their own — namely the
 // 'use client' booking/apply/feedback/referral pages, which would otherwise
@@ -31,9 +30,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingNav />
       <main id="main-content">{children}</main>
       <MarketingFooter />
-      <ConsentGate>
-        <Script id="nycmaid-analytics" src="/t.js" strategy="afterInteractive" />
-      </ConsentGate>
+      <TenantAnalyticsScript slug="nycmaid" />
       <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )

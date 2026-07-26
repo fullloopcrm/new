@@ -1,9 +1,16 @@
 import Link from 'next/link'
+import { unstable_cache } from 'next/cache'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
+
+// Every query below is wrapped in unstable_cache with a 30s revalidate window.
+// This page used to re-run all of them (incl. a full-year booking pagination
+// and an unbounded 50k-row lead_clicks scan) from scratch on every single
+// load — 30s of staleness is a fine trade for a KPI/ops dashboard.
+const CACHE_TTL_SECONDS = 30
 
 // The Loop — global tenant dashboard, ported to match nycmaid's V1 Loop.
 // Server-rendered, tenant-scoped. bookings.price is stored in CENTS.
@@ -54,6 +61,7 @@ async function fetchYearBookings(tenantId: string, startISO: string, endISO: str
   }
   return out
 }
+const fetchYearBookingsCached = unstable_cache(fetchYearBookings, ['dashboard-year-bookings'], { revalidate: CACHE_TTL_SECONDS })
 
 const COLLECTED = (j: Booking) => j.status === 'completed' && j.payment_status === 'paid'
 const SCHEDULED = (j: Booking) => ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress'].includes(j.status)
@@ -114,6 +122,55 @@ async function fetchLeadVisits(tenantId: string): Promise<{ created_at: string }
   }
   return leadVisits
 }
+const fetchLeadVisitsCached = unstable_cache(fetchLeadVisits, ['dashboard-lead-visits'], { revalidate: CACHE_TTL_SECONDS })
+
+async function fetchRosterCount(tenantId: string): Promise<number> {
+  const { count } = await supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+  return count || 0
+}
+const fetchRosterCountCached = unstable_cache(fetchRosterCount, ['dashboard-roster-count'], { revalidate: CACHE_TTL_SECONDS })
+
+async function fetchNewClientsCount(tenantId: string, sinceISO: string): Promise<number> {
+  const { count } = await supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', sinceISO)
+  return count || 0
+}
+const fetchNewClientsCountCached = unstable_cache(fetchNewClientsCount, ['dashboard-new-clients-count'], { revalidate: CACHE_TTL_SECONDS })
+
+type QuoteForStats = { id: string; status: string; created_at: string; accepted_at: string | null }
+async function fetchQuotesForStats(tenantId: string): Promise<QuoteForStats[]> {
+  const { data } = await supabaseAdmin
+    .from('quotes')
+    .select('id,status,created_at,accepted_at')
+    .eq('tenant_id', tenantId)
+    .in('status', [...PENDING_QUOTE_STATUSES, 'accepted'])
+    .limit(2000)
+  return (data || []) as QuoteForStats[]
+}
+const fetchQuotesForStatsCached = unstable_cache(fetchQuotesForStats, ['dashboard-quotes'], { revalidate: CACHE_TTL_SECONDS })
+
+// Map jobs — this month, with client address + any already-geocoded lat/lng
+// so the map doesn't have to re-geocode addresses that were geocoded before.
+type MapRow = {
+  id: string
+  start_time: string
+  status: string
+  service_type: string | null
+  team_member_id: string | null
+  clients: { name: string; address: string; latitude: number | null; longitude: number | null } | null
+  team_members: { name: string } | null
+}
+async function fetchMapRows(tenantId: string, startISO: string, endISO: string): Promise<MapRow[]> {
+  const { data } = await supabaseAdmin
+    .from('bookings')
+    .select('id,start_time,status,service_type,team_member_id,clients(name,address,latitude,longitude),team_members!bookings_team_member_id_fkey(name)')
+    .eq('tenant_id', tenantId)
+    .gte('start_time', startISO)
+    .lte('start_time', endISO)
+    .order('start_time', { ascending: true })
+    .limit(1000)
+  return (data || []) as unknown as MapRow[]
+}
+const fetchMapRowsCached = unstable_cache(fetchMapRows, ['dashboard-map-rows'], { revalidate: CACHE_TTL_SECONDS })
 
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
@@ -131,31 +188,22 @@ export default async function DashboardPage() {
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' })
   const yearStr = String(now.getFullYear())
 
-  const [allJobs, rosterRes, newClientsRes, leads, quotesRes] = await Promise.all([
-    fetchYearBookings(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
-    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).gte('created_at', startOfMonth.toISOString()),
-    fetchLeadVisits(tenant.id),
-    supabaseAdmin.from('quotes').select('id,status,created_at,accepted_at').eq('tenant_id', tenant.id).in('status', [...PENDING_QUOTE_STATUSES, 'accepted']).limit(2000),
+  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows] = await Promise.all([
+    fetchYearBookingsCached(tenant.id, startOfYear.toISOString(), endOfYear.toISOString()),
+    fetchRosterCountCached(tenant.id),
+    fetchNewClientsCountCached(tenant.id, startOfMonth.toISOString()),
+    fetchLeadVisitsCached(tenant.id),
+    fetchQuotesForStatsCached(tenant.id),
+    fetchMapRowsCached(tenant.id, startOfMonth.toISOString(), endOfMonth.toISOString()),
   ])
-  const roster = rosterRes.count || 0
-  const newThisMonth = newClientsRes.count || 0
-  const quotesForStats = (quotesRes.data || []) as { id: string; status: string; created_at: string; accepted_at: string | null }[]
 
-  // Map jobs — this month, with client address for geocoding.
-  const { data: mapRows } = await supabaseAdmin
-    .from('bookings')
-    .select('id,start_time,status,service_type,team_member_id,clients(name,address),team_members!bookings_team_member_id_fkey(name)')
-    .eq('tenant_id', tenant.id)
-    .gte('start_time', startOfMonth.toISOString())
-    .lte('start_time', endOfMonth.toISOString())
-    .order('start_time', { ascending: true })
-    .limit(1000)
-  const mapJobs = (mapRows || []).map((r) => ({
+  const mapJobs = mapRows.map((r) => ({
     id: r.id, start_time: r.start_time, status: r.status, service_type: r.service_type,
-    cleaner_id: (r as { team_member_id?: string | null }).team_member_id ?? null,
-    clients: r.clients as unknown as { name: string; address: string } | null,
-    team_members: r.team_members as unknown as { name: string } | null,
+    cleaner_id: r.team_member_id,
+    clients: r.clients ? { name: r.clients.name, address: r.clients.address } : null,
+    lat: r.clients?.latitude ?? null,
+    lng: r.clients?.longitude ?? null,
+    team_members: r.team_members,
   })) as MapJob[]
 
   const collected = (a: Date, b: Date) => allJobs.filter(j => COLLECTED(j) && inRange(j, a, b))

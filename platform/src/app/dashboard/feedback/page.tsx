@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 interface FeedbackItem {
   id: string
@@ -19,6 +20,12 @@ export default function FeedbackPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const feedbackPrefs = useUserPrefs('feedback', { default_filter: 'all' })
+  useEffect(() => {
+    if (feedbackPrefs.loaded) setFilter(feedbackPrefs.prefs.default_filter as 'all' | 'unread' | 'read')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedbackPrefs.loaded])
 
   useEffect(() => { fetchFeedback() }, [])
 

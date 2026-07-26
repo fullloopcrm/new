@@ -29,41 +29,25 @@ import { join, relative, sep } from 'node:path'
 //      deindexed — this is the highest-value assertion in the file.
 //
 // SCANNER SCOPE (honesty): this reads INLINE `robots:` literals and string
-// forms only. Sites here set robots inline; the one shared metadata helper
-// (nyc-classifieds `_lib/seo.ts::buildMetadata`) does NOT set robots, so its
-// callers that need noindex add it inline (and are caught below). If a future
-// helper starts injecting robots dynamically, this scanner won't see it —
-// extend it then.
+// forms only. Sites here set robots inline. If a future helper starts
+// injecting robots dynamically, this scanner won't see it — extend it then.
 
 const SITE_ROOT = join(process.cwd(), 'src/app/site')
 
 // Kept in sync with the sibling SEO tests: real marketing tenants that lack a
 // sitemap.ts (so sitemap-based discovery misses them) but still ship metadata.
-const EXTRA_SITES = ['wash-and-fold-hoboken', 'nyc-classifieds']
+const EXTRA_SITES: string[] = []
 
 // --- the intentional noindex allowlist (path relative to src/app/site) ---
 // Every entry is a page that SHOULD be out of the index, with the reason it is.
-// Two families:
-//   * thin programmatic geo×service / neighborhood×service combos — kept
-//     crawlable (follow) for internal link equity but out of the index to
-//     protect overall site quality.
-//   * nyc-classifieds is a logged-in USER APP (not a marketing brochure); its
-//     auth / account / messaging / notification / new-listing / search screens
-//     are utility pages with no search value and are correctly noindexed.
+// Thin programmatic geo×service / neighborhood×service combos — kept
+// crawlable (follow) for internal link equity but out of the index to
+// protect overall site quality.
 const INTENTIONAL_NOINDEX: Record<string, string> = {
   'template/virtual-assistant/[location]/[service]/page.tsx':
     'thin geo×service programmatic combos, near-duplicate at national scale (follow kept)',
   'sunnyside-clean-nyc/[slug]/[service]/page.tsx':
     'thin neighborhood×service programmatic combos (follow kept for link equity)',
-  'nyc-classifieds/listings/new/page.tsx': 'authed create form — no search value',
-  'nyc-classifieds/messages/page.tsx': 'private user messaging — must not be indexed',
-  'nyc-classifieds/messages/[threadId]/page.tsx': 'private message thread — must not be indexed',
-  'nyc-classifieds/search/page.tsx': 'faceted search results — crawl trap (follow kept)',
-  'nyc-classifieds/notifications/page.tsx': 'authed notifications feed — no search value',
-  'nyc-classifieds/account/page.tsx': 'authed account settings — no search value',
-  'nyc-classifieds/(auth)/login/page.tsx': 'auth screen — no search value',
-  'nyc-classifieds/(auth)/signup/page.tsx': 'auth screen — no search value',
-  'nyc-classifieds/(auth)/forgot-pin/page.tsx': 'auth screen — no search value',
 }
 
 // --- site discovery (same rule as the sibling tests) ---

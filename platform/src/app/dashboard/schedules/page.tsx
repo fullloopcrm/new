@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 type Schedule = {
   id: string
@@ -49,6 +50,14 @@ export default function SchedulesPage() {
     hourly_rate: '', pay_rate: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
+
+  const schedulesPrefs = useUserPrefs('schedules', { default_recurring_frequency: 'weekly', default_status_filter: '' })
+  useEffect(() => {
+    if (!schedulesPrefs.loaded) return
+    setStatusFilter(schedulesPrefs.prefs.default_status_filter as string)
+    setForm((f) => ({ ...f, recurring_type: schedulesPrefs.prefs.default_recurring_frequency as string }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedulesPrefs.loaded])
 
   useEffect(() => {
     fetch('/api/schedules')

@@ -26,8 +26,9 @@
 
 These predate the rule and VIOLATE it — they are full per-tenant operator clones:
 - `src/app/site/wash-and-fold-nyc/(app)/admin/*` + `/dashboard/*` — ~22 cloned pages
-- `src/app/site/wash-and-fold-hoboken/(app)/admin/*` + `/dashboard/*` — ~22 cloned pages
 - `src/app/site/the-florida-maid/clients/dashboard` — 1 client dashboard
+
+`wash-and-fold-hoboken` was removed entirely (2026-07-25) — it had no `tenants` row and its marketing content was still unswapped nycmaid boilerplate (hardcoded `thenycmaid.com` referral links, nycmaid blog routes). Not a real tenant; deleted rather than migrated.
 
 Cutover required: repoint these tenants' operators to the global `/dashboard` + `/admin` (they currently use their own `(app)/login`), verify, THEN delete the clones. Do not delete before the auth/routing cutover — it would dark a live tenant's admin.
 

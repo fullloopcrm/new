@@ -756,7 +756,7 @@ export default function CalendarBoard() {
                   {panelSaving ? 'Saving...' : 'Reassign Team Member'}
                 </button>
               )}
-              <a href={`/dashboard/bookings/${panelBooking.id}`}
+              <a href={`/dashboard/bookings?edit=${panelBooking.id}`}
                 className="w-full py-2.5 border border-slate-300 text-slate-900 rounded-lg font-medium text-center block hover:bg-slate-50">
                 Full Edit
               </a>

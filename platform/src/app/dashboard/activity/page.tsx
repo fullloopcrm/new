@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 type AuditLog = {
   id: string
@@ -42,7 +43,13 @@ export default function ActivityPage() {
   const [page, setPage] = useState(1)
   const [entityFilter, setEntityFilter] = useState('')
   const [search, setSearch] = useState('')
-  const limit = 30
+  const [limit, setLimit] = useState(30)
+
+  const activityPrefs = useUserPrefs('activity', { page_size: 30 })
+  useEffect(() => {
+    if (activityPrefs.loaded) setLimit(activityPrefs.prefs.page_size as number)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityPrefs.loaded])
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -57,7 +64,7 @@ export default function ActivityPage() {
         setTotal(data.total || 0)
       })
       .catch(() => {})
-  }, [page, entityFilter])
+  }, [page, entityFilter, limit])
 
   const filtered = search
     ? logs.filter(l => l.action.includes(search.toLowerCase()) || l.entity_type.includes(search.toLowerCase()) || JSON.stringify(l.details || {}).toLowerCase().includes(search.toLowerCase()))

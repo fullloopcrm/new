@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 interface SocialAccount {
   id: string
@@ -31,6 +32,12 @@ export default function SocialPage() {
   const [platform, setPlatform] = useState<'facebook' | 'instagram'>('facebook')
   const [message, setMessage] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
+
+  const socialPrefs = useUserPrefs('social', { default_platform: 'facebook' })
+  useEffect(() => {
+    if (socialPrefs.loaded) setPlatform(socialPrefs.prefs.default_platform as 'facebook' | 'instagram')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socialPrefs.loaded])
 
   const [successBanner, setSuccessBanner] = useState(connected || '')
   const [error, setError] = useState('')

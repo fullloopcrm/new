@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -23,10 +24,49 @@ function formatMin(min: number): string {
   return m > 0 ? `${hr}:${String(m).padStart(2, '0')} ${ampm}` : `${hr} ${ampm}`
 }
 
+type BookingsListFilters = {
+  status: string | null
+  clientId: string | null
+  teamMemberId: string | null
+  dateFrom: string | null
+  dateTo: string | null
+  offset: number
+  limit: number
+}
+
+// The list query (with its clients/team_members/client_properties joins) was
+// re-run against Postgres on every single page view, poll, and filter change
+// with no caching — this is the expensive part; cache it 30s per tenant+filter
+// combination. Callers still get fresh property-address/duration-class
+// derivation on every response since that runs after the cache read below.
+async function fetchBookingsList(tenantId: string, filters: BookingsListFilters) {
+  const db = tenantDb(tenantId)
+  let query = db
+    .from('bookings')
+    .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
+    .order('start_time', { ascending: false })
+    .range(filters.offset, filters.offset + filters.limit - 1)
+
+  if (filters.status) query = query.eq('status', filters.status)
+  if (filters.clientId) query = query.eq('client_id', filters.clientId)
+  if (filters.teamMemberId) query = query.eq('team_member_id', filters.teamMemberId)
+  if (filters.dateFrom) query = query.gte('start_time', filters.dateFrom)
+  if (filters.dateTo) query = query.lte('start_time', filters.dateTo)
+
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data, count, error } = (await query) as {
+    data: Record<string, unknown>[] | null
+    count: number | null
+    error: { message: string } | null
+  }
+  return { data, count, error: error?.message ?? null }
+}
+const fetchBookingsListCached = unstable_cache(fetchBookingsList, ['bookings-list'], { revalidate: 30 })
+
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
-    const db = tenantDb(tenantId)
     const url = request.nextUrl
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
@@ -38,28 +78,12 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || (isRange ? '500' : '50')), isRange ? 1000 : 200)
     const offset = (page - 1) * limit
 
-    let query = db
-      .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
-      .order('start_time', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (status) query = query.eq('status', status)
-    if (clientId) query = query.eq('client_id', clientId)
-    if (teamMemberId) query = query.eq('team_member_id', teamMemberId)
-    if (dateFrom) query = query.gte('start_time', dateFrom)
-    if (dateTo) query = query.lte('start_time', dateTo)
-
-    // tenantDb's select() takes a non-literal `columns` param, which widens
-    // supabase-js's column-string type inference — cast to the shape actually selected.
-    const { data, count, error } = (await query) as {
-      data: Record<string, unknown>[] | null
-      count: number | null
-      error: { message: string } | null
-    }
+    const { data, count, error } = await fetchBookingsListCached(tenantId, {
+      status, clientId, teamMemberId, dateFrom, dateTo, offset, limit,
+    })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error }, { status: 500 })
     }
 
     // Render each booking under ITS property's address (multi-address clients),

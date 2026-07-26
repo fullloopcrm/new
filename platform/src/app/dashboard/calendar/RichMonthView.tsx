@@ -376,7 +376,7 @@ export default function RichMonthView() {
                             key={ev.id}
                             className={cls}
                             style={{ background: color, cursor: 'pointer' }}
-                            onClick={() => router.push(`/dashboard/bookings/${ev.id}`)}
+                            onClick={() => router.push(`/dashboard/bookings?edit=${ev.id}`)}
                           >
                             <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>

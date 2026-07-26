@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import './sales.css'
 import CalendarShell from '../calendar/CalendarShell'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 // The sales process IS the tabs, left→right. Deals move between them via the
 // stage dropdown on each card. Schedule is the calendar. (The Master Catalog is
@@ -249,6 +250,14 @@ function SalesPageInner() {
     const t = sp.get('tab')
     if (t && TABS.some((x) => x.key === t)) setTab(t as Tab)
   }, [sp])
+
+  const salesPrefs = useUserPrefs('sales', { default_tab: 'pipeline' })
+  useEffect(() => {
+    if (!salesPrefs.loaded) return
+    if (sp.get('tab')) return // a ?tab= deep-link always wins over the saved default
+    setTab(salesPrefs.prefs.default_tab as Tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesPrefs.loaded])
 
   async function loadActivities(id: string) {
     setActLoading((m) => ({ ...m, [id]: true }))

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import Link from 'next/link'
 import './finance.css'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
@@ -59,6 +60,12 @@ export default function FinancePage() {
   const agentName = (tenant?.agent_name as string) || 'Selena'
   const [tab] = useState<Tab>('overview')
   const [range, setRange] = useState<DateRange>('month')
+
+  const financePrefs = useUserPrefs('finance', { default_range: 'month' })
+  useEffect(() => {
+    if (financePrefs.loaded) setRange(financePrefs.prefs.default_range as DateRange)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [financePrefs.loaded])
   const [summary, setSummary] = useState<Summary>({})
   const [totals, setTotals] = useState<EnrichedTotals | null>(null)
   const [topClients, setTopClients] = useState<Array<{ name: string; amount_cents: number; meta: string; vip: boolean }>>([])

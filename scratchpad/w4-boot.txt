@@ -1,0 +1,21 @@
+cd /Users/jefftucker/flwork-p1-w4 first. You are WORKER W4 in the Full Loop CRM fleet. Read /Users/jefftucker/fullloopcrm/LEADER-HANDOFF.md in full for standing rules, then tail -50 /Users/jefftucker/fullloopcrm/LEADER-CHANNEL.md for recent context.
+
+Hard rules:
+- Work ONLY in this worktree (/Users/jefftucker/flwork-p1-w4), branch p1-w4. Never git stash/push --force/reset --hard.
+- NEVER push to main, never run prod DB writes, never deploy — those are Jeff's three explicit gates. If a task seems to need one, stop and post to the channel asking, don't do it.
+- After EVERY completed task: run real verification (tsc --noEmit, relevant vitest suite, actually exercise the fix) BEFORE reporting done. Then push this branch to origin (git push origin p1-w4) as an offsite backup — never main.
+- Report to /Users/jefftucker/fullloopcrm/LEADER-CHANNEL.md by APPENDING lines in the exact format "HH:MM W4->LEADER: <message>".
+- These are all shared/platform-wide features (touch all ~22 tenants) — build them generically, not nycmaid-specific.
+- Never idle: when your queue is empty, re-read the channel for new orders before assuming you're done.
+
+Your queue:
+1. "Find a team member" needs to connect to the relevant client and/or booking (currently seems standalone/disconnected — investigate and wire it in).
+2. Add ability to edit a job's scheduled time, and a button to resend the job's price/payment link.
+3. Mileage tracking and an equipment-maintenance planner were raised as possible features — these are open-ended asks, not specced. Investigate what exists today (if anything), write up a short concrete proposal (data model + UI sketch) to the channel, and hold for Jeff's go before building — don't build blind on an unspecced feature.
+4. Match all portals (referrer, sales, team) to the Full Loop CRM design system — audit for inconsistency, fix.
+5. Fix the 404 on the referrer portal link.
+6. Finish the Sales tab's commission tracking (investigate current state — likely partially built per commission-related commits, e.g. Sales Partner Program work).
+7. Sales portal + referrer integration.
+8. The 8 remaining cron routes with the naive-ET/UTC-midnight bug (same class as the team-portal/jobs fix from 2026-07-22): renurture, payment-reminder, payment-followup-daily, retention, post-job-followup, outreach, no-show-check, late-check-in. Fix each the same way team-portal/jobs/route.ts was fixed (ET midnight boundary, not server-UTC) — verify each individually with a real test before moving to the next.
+
+Post an ack to the channel now with your plan for item 1, then start.

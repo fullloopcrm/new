@@ -10,12 +10,14 @@ import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/ty
 
 export const maxDuration = 300 // Vercel pro plan
 
-const TARGET_LOCAL_HOUR = 8 // send when it's 8am in the tenant's own timezone
+const ADMIN_LOCAL_HOUR = 8 // morning recap — today's jobs + yesterday's revenue
+const TEAM_LOCAL_HOUR = 20 // 8pm — next-day job lookahead for cleaners
 
-// Daily summary cron — polls hourly, sends per-tenant when it's 8am in THAT tenant's timezone
-// 1. Admin summary (today's jobs, yesterday's revenue)
-// 2. Team member 3-day lookahead (SMS + email)
-// 3. Recurring expiration check (30-day warning)
+// Daily summary cron — polls hourly, each section fires when it's the right
+// local hour in THAT tenant's timezone.
+// 1. Admin summary (today's jobs, yesterday's revenue) — 8am tenant-local
+// 2. Team member 3-day lookahead (SMS + email) — 8pm tenant-local
+// 3. Recurring expiration check (30-day warning) — runs with the admin summary
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -35,7 +37,9 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const timezone = getTenantTimezone(tenant)
-    if (!isTenantLocalHour(timezone, TARGET_LOCAL_HOUR, now)) {
+    const runAdmin = isTenantLocalHour(timezone, ADMIN_LOCAL_HOUR, now)
+    const runTeam = isTenantLocalHour(timezone, TEAM_LOCAL_HOUR, now)
+    if (!runAdmin && !runTeam) {
       stats.skipped_wrong_hour++
       continue
     }
@@ -50,199 +54,205 @@ export async function GET(request: Request) {
     const weekEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 7))
     const threeDaysEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 3), 23, 59, 59)
 
+    let adminSent = false
+    let teamSent = 0
+    let expiringCount = 0
+
     try {
     // ============================================
-    // ADMIN DAILY SUMMARY
+    // ADMIN DAILY SUMMARY — 8am tenant-local
     // ============================================
-    const { count: todaysJobs } = await supabaseAdmin
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .gte('start_time', todayStartNaive)
-      .lt('start_time', tomorrowStartNaive)
-      .not('status', 'eq', 'cancelled')
-
-    const { data: paidBookings } = await supabaseAdmin
-      .from('bookings')
-      .select('price')
-      .eq('tenant_id', tenantId)
-      .gte('payment_date', yesterdayReal.toISOString())
-      .lt('payment_date', todayReal.toISOString())
-      .limit(500) // Don't process more than 500 per tenant per run
-
-    const yesterdayRevenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
-
-    // Count upcoming week
-    const { count: weekJobs } = await supabaseAdmin
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .gte('start_time', todayStartNaive)
-      .lt('start_time', weekEndNaive)
-      .not('status', 'eq', 'cancelled')
-
-    const message = [
-      `Good morning from ${tenant.name}!`,
-      `Today's jobs: ${todaysJobs || 0}`,
-      `This week: ${weekJobs || 0} jobs`,
-      `Yesterday's revenue: $${(yesterdayRevenue / 100).toFixed(2)}`,
-    ].join('\n')
-
-    await notify({
-      tenantId,
-      type: 'daily_summary',
-      title: `Daily Summary — ${tenant.name}`,
-      message,
-      channel: 'email',
-      recipientType: 'admin',
-      metadata: { todaysJobs: todaysJobs || 0, yesterdayRevenue: `$${(yesterdayRevenue / 100).toFixed(2)}`, upcomingSchedules: weekJobs || 0 },
-    })
-    totalSent++
-
-    // ============================================
-    // TEAM MEMBER 3-DAY LOOKAHEAD
-    // ============================================
-    let teamSent = 0
-
-    const { data: teamMembers } = await supabaseAdmin
-      .from('team_members')
-      .select('id, name, phone, email, pin')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .limit(500) // Don't process more than 500 per tenant per run
-
-    for (const member of teamMembers || []) {
-      const { data: upcomingJobs } = await supabaseAdmin
+    if (runAdmin) {
+      const { count: todaysJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, service_type, hourly_rate, clients(name, phone, address)')
+        .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('team_member_id', member.id)
-        .gte('start_time', tomorrowStartNaive)
-        .lte('start_time', threeDaysEndNaive)
-        .in('status', ['scheduled', 'confirmed', 'pending'])
-        .order('start_time')
-        .returns<BookingTeamLookahead[]>()
+        .gte('start_time', todayStartNaive)
+        .lt('start_time', tomorrowStartNaive)
+        .not('status', 'eq', 'cancelled')
 
-      if (!upcomingJobs || upcomingJobs.length === 0) continue
+      const { data: paidBookings } = await supabaseAdmin
+        .from('bookings')
+        .select('price')
+        .eq('tenant_id', tenantId)
+        .gte('payment_date', yesterdayReal.toISOString())
+        .lt('payment_date', todayReal.toISOString())
+        .limit(500) // Don't process more than 500 per tenant per run
 
-      // SMS summary
-      if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenantId, 'team_daily_summary', 'sms'))) {
-        const smsBody = teamSmsTemplates(tenant).dailySummary(member.name, upcomingJobs.length, member.pin || undefined, upcomingJobs)
-        await sendSMS({
-          to: member.phone,
-          body: smsBody,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        }).catch(() => {})
-      }
+      const yesterdayRevenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
 
-      // Email with job details
-      if (member.email) {
-        const jobDetails = upcomingJobs.map(j => {
-          const client = j.clients
-          const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-          return `${date} ${time} — ${client?.name || 'Client'}${client?.address ? ` @ ${client.address}` : ''}`
-        }).join('<br>')
+      // Count upcoming week
+      const { count: weekJobs } = await supabaseAdmin
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .gte('start_time', todayStartNaive)
+        .lt('start_time', weekEndNaive)
+        .not('status', 'eq', 'cancelled')
 
-        await notify({
-          tenantId,
-          type: 'daily_summary',
-          title: `Next 3 Days: ${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'}`,
-          message: `Hi ${member.name.split(' ')[0]}, here are your upcoming jobs:\n${jobDetails}`,
-          channel: 'email',
-          recipientType: 'team_member',
-          recipientId: member.id,
-        })
-      }
+      const message = [
+        `Good morning from ${tenant.name}!`,
+        `Today's jobs: ${todaysJobs || 0}`,
+        `This week: ${weekJobs || 0} jobs`,
+        `Yesterday's revenue: $${(yesterdayRevenue / 100).toFixed(2)}`,
+      ].join('\n')
 
-      // In-app notification
       await notify({
         tenantId,
         type: 'daily_summary',
-        title: `${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'} in next 3 days`,
-        message: `You have ${upcomingJobs.length} upcoming job${upcomingJobs.length === 1 ? '' : 's'}`,
-        channel: 'push' as 'email',
-        recipientType: 'team_member',
-        recipientId: member.id,
+        title: `Daily Summary — ${tenant.name}`,
+        message,
+        channel: 'email',
+        recipientType: 'admin',
+        metadata: { todaysJobs: todaysJobs || 0, yesterdayRevenue: `$${(yesterdayRevenue / 100).toFixed(2)}`, upcomingSchedules: weekJobs || 0 },
       })
+      totalSent++
+      adminSent = true
 
-      teamSent++
-    }
+      // ============================================
+      // RECURRING EXPIRATION CHECK — warn 30 days before last booking
+      // ============================================
+      const thirtyDaysOut = new Date(now)
+      thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30)
 
-    // ============================================
-    // RECURRING EXPIRATION CHECK — warn 30 days before last booking
-    // ============================================
-    let expiringCount = 0
-    const thirtyDaysOut = new Date(now)
-    thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30)
-
-    const { data: schedules } = await supabaseAdmin
-      .from('recurring_schedules')
-      .select('id, client_id, recurring_type, clients(name)')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .limit(500) // Don't process more than 500 per tenant per run
-      .returns<RecurringScheduleWithClient[]>()
-
-    for (const schedule of schedules || []) {
-      const { data: latestBooking } = await supabaseAdmin
-        .from('bookings')
-        .select('start_time')
+      const { data: schedules } = await supabaseAdmin
+        .from('recurring_schedules')
+        .select('id, client_id, recurring_type, clients(name)')
         .eq('tenant_id', tenantId)
-        .eq('schedule_id', schedule.id)
-        .in('status', ['scheduled', 'pending'])
-        .order('start_time', { ascending: false })
-        .limit(1)
-        .single()
+        .eq('status', 'active')
+        .limit(500) // Don't process more than 500 per tenant per run
+        .returns<RecurringScheduleWithClient[]>()
 
-      if (!latestBooking) continue
-
-      const lastDate = new Date(latestBooking.start_time)
-      if (lastDate <= thirtyDaysOut && lastDate >= now) {
-        const clientName = schedule.clients?.name || 'Unknown'
-
-        // Check if already notified within 7 days — scoped to THIS client's
-        // recurring_type, not just tenant+type, so one schedule's dedup
-        // window doesn't suppress every other schedule in the same tenant.
-        const { data: existingNotif } = await supabaseAdmin
-          .from('notifications')
-          .select('id')
+      for (const schedule of schedules || []) {
+        const { data: latestBooking } = await supabaseAdmin
+          .from('bookings')
+          .select('start_time')
           .eq('tenant_id', tenantId)
-          .eq('type', 'recurring_expiring' as string)
-          .like('message', `%${clientName}%${schedule.recurring_type}%`)
-          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .eq('schedule_id', schedule.id)
+          .in('status', ['scheduled', 'pending'])
+          .order('start_time', { ascending: false })
           .limit(1)
+          .single()
 
-        if (!existingNotif || existingNotif.length === 0) {
-          const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        if (!latestBooking) continue
 
-          await supabaseAdmin.from('notifications').insert({
-            tenant_id: tenantId,
-            type: 'recurring_expiring',
-            title: 'Recurring Booking Ending Soon',
-            message: `${clientName} — ${schedule.recurring_type} ends ${lastDateStr}`,
-            channel: 'in_app',
-            status: 'sent',
-          })
+        const lastDate = new Date(latestBooking.start_time)
+        if (lastDate <= thirtyDaysOut && lastDate >= now) {
+          const clientName = schedule.clients?.name || 'Unknown'
 
-          await notify({
-            tenantId,
-            type: 'recurring_expiring',
-            title: `Recurring ending: ${clientName}`,
-            message: `${clientName}'s ${schedule.recurring_type} schedule ends ${lastDateStr}. Extend in the dashboard.`,
-            channel: 'email',
-            recipientType: 'admin',
-          })
+          // Check if already notified within 7 days — scoped to THIS client's
+          // recurring_type, not just tenant+type, so one schedule's dedup
+          // window doesn't suppress every other schedule in the same tenant.
+          const { data: existingNotif } = await supabaseAdmin
+            .from('notifications')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('type', 'recurring_expiring' as string)
+            .like('message', `%${clientName}%${schedule.recurring_type}%`)
+            .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+            .limit(1)
 
-          expiringCount++
+          if (!existingNotif || existingNotif.length === 0) {
+            const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+            await supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'recurring_expiring',
+              title: 'Recurring Booking Ending Soon',
+              message: `${clientName} — ${schedule.recurring_type} ends ${lastDateStr}`,
+              channel: 'in_app',
+              status: 'sent',
+            })
+
+            await notify({
+              tenantId,
+              type: 'recurring_expiring',
+              title: `Recurring ending: ${clientName}`,
+              message: `${clientName}'s ${schedule.recurring_type} schedule ends ${lastDateStr}. Extend in the dashboard.`,
+              channel: 'email',
+              recipientType: 'admin',
+            })
+
+            expiringCount++
+          }
         }
       }
     }
 
+    // ============================================
+    // TEAM MEMBER 3-DAY LOOKAHEAD — 8pm tenant-local
+    // ============================================
+    if (runTeam) {
+      const { data: teamMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id, name, phone, email, pin')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .limit(500) // Don't process more than 500 per tenant per run
+
+      for (const member of teamMembers || []) {
+        const { data: upcomingJobs } = await supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, end_time, service_type, hourly_rate, clients(name, phone, address)')
+          .eq('tenant_id', tenantId)
+          .eq('team_member_id', member.id)
+          .gte('start_time', tomorrowStartNaive)
+          .lte('start_time', threeDaysEndNaive)
+          .in('status', ['scheduled', 'confirmed', 'pending'])
+          .order('start_time')
+          .returns<BookingTeamLookahead[]>()
+
+        if (!upcomingJobs || upcomingJobs.length === 0) continue
+
+        // SMS summary
+        if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenantId, 'team_daily_summary', 'sms'))) {
+          const smsBody = teamSmsTemplates(tenant).dailySummary(member.name, upcomingJobs.length, member.pin || undefined, upcomingJobs)
+          await sendSMS({
+            to: member.phone,
+            body: smsBody,
+            telnyxApiKey: tenant.telnyx_api_key,
+            telnyxPhone: tenant.telnyx_phone,
+          }).catch(() => {})
+        }
+
+        // Email with job details
+        if (member.email) {
+          const jobDetails = upcomingJobs.map(j => {
+            const client = j.clients
+            const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            return `${date} ${time} — ${client?.name || 'Client'}${client?.address ? ` @ ${client.address}` : ''}`
+          }).join('<br>')
+
+          await notify({
+            tenantId,
+            type: 'daily_summary',
+            title: `Next 3 Days: ${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'}`,
+            message: `Hi ${member.name.split(' ')[0]}, here are your upcoming jobs:\n${jobDetails}`,
+            channel: 'email',
+            recipientType: 'team_member',
+            recipientId: member.id,
+          })
+        }
+
+        // In-app notification
+        await notify({
+          tenantId,
+          type: 'daily_summary',
+          title: `${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'} in next 3 days`,
+          message: `You have ${upcomingJobs.length} upcoming job${upcomingJobs.length === 1 ? '' : 's'}`,
+          channel: 'push' as 'email',
+          recipientType: 'team_member',
+          recipientId: member.id,
+        })
+
+        teamSent++
+      }
+    }
+
     totalSent += teamSent
-    stats.summaries_sent += 1 + teamSent
-    allResults.push({ tenant: tenant.name, adminSent: true, teamSent, expiring: expiringCount })
+    stats.summaries_sent += (adminSent ? 1 : 0) + teamSent
+    allResults.push({ tenant: tenant.name, adminSent, teamSent, expiring: expiringCount })
     } catch (tenantErr) {
       // Don't let one tenant's failure crash the whole cron
       stats.errors++

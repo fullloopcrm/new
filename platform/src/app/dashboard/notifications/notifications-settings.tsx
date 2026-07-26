@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePageSettings, PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { usePageSettings, PageSettingsPanel } from '@/components/page-settings'
 
 type ChannelPrefs = { email: boolean; sms: boolean; in_app: boolean }
 type Preferences = Record<string, ChannelPrefs>
@@ -71,8 +71,6 @@ export default function NotificationsSettings() {
   }
 
   return (
-    <>
-      <PageSettingsGear open={settings.open} setOpen={settings.setOpen} title="Notifications" />
       <PageSettingsPanel
         {...settings}
         title="Notifications"
@@ -129,6 +127,5 @@ export default function NotificationsSettings() {
           </div>
         )}
       </PageSettingsPanel>
-    </>
   )
 }

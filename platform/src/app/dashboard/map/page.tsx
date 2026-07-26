@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 // Types
 type Booking = {
@@ -59,6 +60,15 @@ export default function MapPage() {
   const [geocoding, setGeocoding] = useState(false)
   const [showStats, setShowStats] = useState(true)
   const geocodeCacheRef = useRef<Map<string, { lat: number; lng: number } | null>>(new Map())
+
+  const mapPrefs = useUserPrefs('map', { default_status_filter: '', default_date_range: 'all', show_stats: true })
+  useEffect(() => {
+    if (!mapPrefs.loaded) return
+    setStatusFilter(mapPrefs.prefs.default_status_filter as string)
+    setDateRange(mapPrefs.prefs.default_date_range as string)
+    setShowStats(mapPrefs.prefs.show_stats as boolean)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapPrefs.loaded])
 
   // Compute date range boundaries
   const getDateRange = useCallback(() => {

@@ -8,6 +8,7 @@ import { buildMemberColors, colorForMember, type ColorableMember } from '../cale
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
@@ -289,6 +290,12 @@ function BookingsPage() {
     date_to: ''
   })
   const [showFilters, setShowFilters] = useState(false)
+
+  const bookingsPrefs = useUserPrefs('bookings', { default_status_filter: 'scheduled' })
+  useEffect(() => {
+    if (bookingsPrefs.loaded) setFilters((f) => ({ ...f, status: bookingsPrefs.prefs.default_status_filter as string }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingsPrefs.loaded])
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 25
@@ -355,7 +362,7 @@ function BookingsPage() {
       if (booking) {
         setFilters({ status: '', service_type: '', team_member_id: '', client_id: '', date_from: '', date_to: '' })
         openEdit(booking)
-        window.history.replaceState({}, '', '/admin/bookings')
+        window.history.replaceState({}, '', '/dashboard/bookings')
       }
     }
   }, [searchParams, bookings])
@@ -378,7 +385,7 @@ function BookingsPage() {
       setClientSearch('')
       setShowClientDropdown(false)
       setShowCreateModal(true)
-      window.history.replaceState({}, '', '/admin/bookings')
+      window.history.replaceState({}, '', '/dashboard/bookings')
     }
   }, [searchParams])
 

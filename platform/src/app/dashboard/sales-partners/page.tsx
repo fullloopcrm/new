@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 type SalesPartner = {
   id: string
@@ -43,6 +44,12 @@ export default function SalesPartnersPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('partners')
   const [search, setSearch] = useState('')
+
+  const salesPartnersPrefs = useUserPrefs('sales-partners', { default_tab: 'partners' })
+  useEffect(() => {
+    if (salesPartnersPrefs.loaded) setActiveTab(salesPartnersPrefs.prefs.default_tab as Tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesPartnersPrefs.loaded])
   const [copied, setCopied] = useState('')
   const [busyId, setBusyId] = useState('')
   const [showAdd, setShowAdd] = useState(false)

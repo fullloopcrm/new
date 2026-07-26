@@ -82,7 +82,6 @@ where td.tenant_id = t.id
     'toll-trucks-near-me',
     'sunnyside-clean-nyc',
     'wash-and-fold-nyc',
-    'wash-and-fold-hoboken',
     'landscaping-in-nyc',
     'debt-service-ratio-loan',
     'fla-dumpster-rentals',

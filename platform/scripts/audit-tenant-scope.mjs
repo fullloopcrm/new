@@ -66,7 +66,7 @@ const TENANT_TABLES = new Set([
 // single fixed tenant, slated for deletion — see platform/CLAUDE.md) and the
 // super-admin analytics surface (intentionally cross-tenant).
 const EXCLUDE = ALL ? [] : [
-  /^src\/app\/site\/(nyc-mobile-salon|wash-and-fold-hoboken|wash-and-fold-nyc)\//,
+  /^src\/app\/site\/(nyc-mobile-salon|wash-and-fold-nyc)\//,
   /^src\/app\/admin\/analytics\//,
 ]
 

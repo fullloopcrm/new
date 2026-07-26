@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChatBubble, DateDivider, NewMessagesDivider, ChatInput } from '@/components/chat-bubble'
 import type { ChatMessage } from '@/components/chat-bubble'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import './loop-connect.css'
 
 type Channel = {
@@ -46,6 +47,11 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
 
 export default function LoopConnectPage() {
   const [tab, setTab] = useState<Tab>('chat')
+  const connectPrefs = useUserPrefs('connect', { default_tab: 'chat' })
+  useEffect(() => {
+    if (connectPrefs.loaded) setTab(connectPrefs.prefs.default_tab as Tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectPrefs.loaded])
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])

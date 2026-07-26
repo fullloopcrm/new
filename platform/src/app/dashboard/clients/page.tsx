@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import './clients.css'
 import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -95,6 +96,7 @@ function stageLabel(stage: Stage): string {
 export default function ClientsPage() {
   const { tenant } = useTenantSettings()
   const agentName = tenant?.agent_name as string || 'Selena'
+  const clientsPrefs = useUserPrefs('clients', { default_tab: 'all', default_stage_filter: 'all', default_type_filter: 'all' })
   const [clients, setClients] = useState<EnrichedClient[]>([])
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,6 +105,17 @@ export default function ClientsPage() {
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
   const [cohortFilter, setCohortFilter] = useState<string | 'all'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | 'recurring' | 'one-time'>('all')
+
+  // Apply saved defaults once the per-user prefs load — same pattern every
+  // page uses so a setting saved in the drawer actually changes what the
+  // page opens to.
+  useEffect(() => {
+    if (!clientsPrefs.loaded) return
+    setTab(clientsPrefs.prefs.default_tab as Tab)
+    setStageFilter(clientsPrefs.prefs.default_stage_filter as Stage | 'all')
+    setTypeFilter(clientsPrefs.prefs.default_type_filter as 'all' | 'recurring' | 'one-time')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsPrefs.loaded])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [drawerId, setDrawerId] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)

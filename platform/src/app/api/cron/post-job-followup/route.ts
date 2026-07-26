@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export const maxDuration = 300
 
@@ -25,6 +26,9 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     try {
+      // NYC Maid runs its own tested 30-min-alert → rating → review-credit flow
+      // (lib/nycmaid/review-engine.ts) — this generic follow-up would double-ask.
+      if (isNycMaid(tenant.id)) continue
       const settings = await getSettings(tenant.id)
       if (!settings.chatbot_enabled) continue
       if (!settings.review_followup_enabled) continue

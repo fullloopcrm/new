@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import './books.css'
 
 type Tab = 'overview' | 'ledger' | 'payroll' | 'expenses' | 'reconcile' | 'tax' | 'statements' | 'cleaners'
@@ -72,6 +73,15 @@ export default function BooksPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'review' | 'ready' | 'synced'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | 'revenue' | 'payroll' | 'expense'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const booksPrefs = useUserPrefs('books', { default_tab: 'ledger', default_status_filter: 'all', default_type_filter: 'all' })
+  useEffect(() => {
+    if (!booksPrefs.loaded) return
+    setTab(booksPrefs.prefs.default_tab as Tab)
+    setStatusFilter(booksPrefs.prefs.default_status_filter as 'all' | 'review' | 'ready' | 'synced')
+    setTypeFilter(booksPrefs.prefs.default_type_filter as 'all' | 'revenue' | 'payroll' | 'expense')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booksPrefs.loaded])
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState<Booking[]>([])

@@ -46,6 +46,14 @@ export default function UsersPage() {
   const [newName, setNewName] = useState('')
   const [newRole, setNewRole] = useState<'admin' | 'manager' | 'staff'>('manager')
 
+  // Preselect the tenant's default invite role once settings load.
+  useEffect(() => {
+    const defaultRole = (tenant?.selena_config as Record<string, unknown> | null)?.default_invite_role as string | undefined
+    if (defaultRole === 'admin' || defaultRole === 'manager' || defaultRole === 'staff') {
+      setNewRole(defaultRole)
+    }
+  }, [tenant])
+
   // Issued-PIN reveal (shown once)
   const [issued, setIssued] = useState<{ name: string; pin: string } | null>(null)
 

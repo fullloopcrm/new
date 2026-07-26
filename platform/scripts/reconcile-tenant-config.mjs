@@ -52,7 +52,7 @@ export function parseBespokeSet(middlewareSource) {
 // disposition that isn't ours to make. Any OTHER unresolvable set entry still
 // hard-fails the gate. REMOVE a slug from this set the moment Jeff dispositions
 // it (recreate the tenant, or drop it from BESPOKE_SITE_TENANTS + the guard).
-export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-fold-hoboken'])
+export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me'])
 
 /**
  * Pure drift computation over already-fetched inputs — no DB, no filesystem of

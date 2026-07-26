@@ -41,7 +41,7 @@ const KNOWN_MISSING_BASE = new Set<string>([
 
 // Real marketing tenants that lack a sitemap.ts (so the sitemap-based discovery
 // below would miss them) but still ship brand metadata worth guarding.
-const EXTRA_SITES = ['wash-and-fold-hoboken', 'nyc-classifieds']
+const EXTRA_SITES: string[] = []
 
 // --- site discovery ---
 // A `sitemap.ts` at the site root is the clean "independent marketing site"
@@ -164,8 +164,6 @@ describe('SEO canonical / metadataBase consistency (per tenant site)', () => {
       'nyc-mobile-salon',
       'the-florida-maid',
       'sunnyside-clean-nyc',
-      'wash-and-fold-hoboken',
-      'nyc-classifieds',
     ]) {
       expect(sites, `discovery must include ${s}`).toContain(s)
     }

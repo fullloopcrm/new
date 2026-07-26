@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 interface Review {
   id: string
@@ -31,6 +32,12 @@ export default function GoogleBusinessPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'reviews' | 'posts'>('reviews')
+
+  const googlePrefs = useUserPrefs('google', { default_tab: 'reviews' })
+  useEffect(() => {
+    if (googlePrefs.loaded) setTab(googlePrefs.prefs.default_tab as 'reviews' | 'posts')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googlePrefs.loaded])
 
   // Reply state
   const [replyingTo, setReplyingTo] = useState<string | null>(null)

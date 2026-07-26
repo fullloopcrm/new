@@ -52,7 +52,6 @@ const PROTECTED = [
   { slug: 'toll-trucks-near-me', domain: 'tolltrucksnearme.com' },
   { slug: 'sunnyside-clean-nyc', domain: 'cleaningservicesunnysideny.com' },
   { slug: 'wash-and-fold-nyc', domain: 'washnfoldnyc' },
-  { slug: 'wash-and-fold-hoboken', domain: 'hoboken laundry' },
   { slug: 'landscaping-in-nyc', domain: 'landscapinginnyc' },
   { slug: 'debt-service-ratio-loan', domain: 'debtserviceratioloan' },
   { slug: 'fla-dumpster-rentals', domain: 'fladumpsterrentals' },

@@ -7,6 +7,7 @@
 export const ONBOARDING_STEPS = [
   { key: 'identity', title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
   { key: 'contact', title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
+  { key: 'website', title: 'Website Setup', blurb: 'Domain, DNS, and publishing status for your site.' },
   { key: 'brand', title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
   { key: 'compliance', title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
   { key: 'social', title: 'Social & Reviews', blurb: 'Public profiles for your site footer, schema, and review flow.' },

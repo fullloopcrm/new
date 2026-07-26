@@ -18,6 +18,8 @@ export interface MapJob {
   service_type: string | null
   cleaner_id: string | null
   clients: { name: string; address: string } | null
+  lat: number | null
+  lng: number | null
   team_members: { name: string } | null
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
@@ -83,6 +84,12 @@ function initials(name: string): string {
 export default function TeamPage() {
   const timezone = useTenantTimezone()
   const [tab, setTab] = useState<Tab>('team')
+
+  const teamPrefs = useUserPrefs('team', { default_tab: 'team' })
+  useEffect(() => {
+    if (teamPrefs.loaded) setTab(teamPrefs.prefs.default_tab as Tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamPrefs.loaded])
   const [members, setMembers] = useState<TeamMember[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [applications, setApplications] = useState<Application[]>([])

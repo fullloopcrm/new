@@ -176,7 +176,7 @@ export default function MobileDayListView() {
                 const meta = STATUS_META[b.status] ?? { label: b.status, dotClass: 'bg-slate-300' }
                 return (
                   <div key={b.id} className="border border-slate-200 rounded-lg p-3 bg-white">
-                    <Link href={`/dashboard/bookings/${b.id}`} className="block active:opacity-70">
+                    <Link href={`/dashboard/bookings?edit=${b.id}`} className="block active:opacity-70">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <span className={`w-2 h-2 rounded-full ${meta.dotClass}`} />
@@ -205,7 +205,7 @@ export default function MobileDayListView() {
                       {b.status === 'completed' && (
                         <button disabled={isBusy} onClick={() => undo(b.id, 'check-out')} className="px-2 py-1 text-[11px] text-red-600 underline disabled:opacity-50">undo check-out</button>
                       )}
-                      <Link href={`/dashboard/bookings/${b.id}`} className="px-2.5 py-1 border border-slate-300 rounded text-[11px] font-medium text-slate-600 ml-auto">Edit</Link>
+                      <Link href={`/dashboard/bookings?edit=${b.id}`} className="px-2.5 py-1 border border-slate-300 rounded text-[11px] font-medium text-slate-600 ml-auto">Edit</Link>
                     </div>
                   </div>
                 )

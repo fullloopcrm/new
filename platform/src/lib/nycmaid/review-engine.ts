@@ -148,7 +148,7 @@ export async function handleNycMaidReview(
           { skipConsent: true, smsType: 'rating_followup', bookingId: booking.id },
         ).catch(() => {})
         await smsAdmins(`★ ${num}/5 ${cleanerFirst} — feedback requested`).catch(() => {})
-        if (num <= 2) {
+        if (num <= 3) {
           await supabaseAdmin
             .from('notifications')
             .insert({

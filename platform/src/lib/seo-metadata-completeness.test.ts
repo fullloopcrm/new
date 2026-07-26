@@ -33,7 +33,7 @@ const SITE_ROOT = join(process.cwd(), 'src/app/site')
 // Real marketing tenants that lack a sitemap.ts (so sitemap-based discovery
 // would miss them) but still ship brand metadata worth guarding. Kept in sync
 // with seo-canonical-consistency.test.ts.
-const EXTRA_SITES = ['wash-and-fold-hoboken', 'nyc-classifieds']
+const EXTRA_SITES: string[] = []
 
 // --- site discovery (same rule as the canonical-consistency test) ---
 function discoverSites(): string[] {
@@ -201,7 +201,7 @@ const sites = discoverSites()
 describe('SEO metadata completeness (per tenant site)', () => {
   it('discovery finds the tenant marketing sites, including the indirection cases', () => {
     expect(sites.length).toBeGreaterThanOrEqual(20)
-    for (const s of ['the-florida-maid', 'sunnyside-clean-nyc', 'nyc-classifieds']) {
+    for (const s of ['the-florida-maid', 'sunnyside-clean-nyc']) {
       expect(sites, `discovery must include ${s}`).toContain(s)
     }
   })

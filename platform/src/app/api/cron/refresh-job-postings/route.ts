@@ -64,9 +64,6 @@ const CAREER_SECTION_ROOTS: readonly string[] = [
   '/site/the-nyc-interior-designer/careers',
   // toll-trucks-near-me
   '/site/toll-trucks-near-me/careers',
-  // wash-and-fold-hoboken
-  '/site/wash-and-fold-hoboken/available-nyc-maid-jobs',
-  '/site/wash-and-fold-hoboken/careers/operations-coordinator',
   // wash-and-fold-nyc
   '/site/wash-and-fold-nyc/careers',
   // we-pay-you-junk

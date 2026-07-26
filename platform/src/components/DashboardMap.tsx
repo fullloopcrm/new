@@ -10,6 +10,8 @@ interface MapJob {
   status: string
   service_type: string
   clients: { name: string; address: string } | null
+  lat: number | null
+  lng: number | null
   team_members: { name: string } | null
 }
 
@@ -66,6 +68,14 @@ export default function DashboardMap({ jobs }: Props) {
       const cache: Record<string, { lat: number; lng: number }> = {}
 
       for (const job of jobs) {
+        // Already geocoded and stored on the client record (the common case —
+        // most addresses were geocoded once, previously) — use it directly,
+        // no network round-trip to Nominatim needed.
+        if (job.lat != null && job.lng != null) {
+          results.push({ ...job, lat: job.lat, lng: job.lng })
+          continue
+        }
+
         if (!job.clients?.address) continue
         const address = job.clients.address
 

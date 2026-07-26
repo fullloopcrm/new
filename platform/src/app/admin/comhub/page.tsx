@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 // Browser softphone — Telnyx WebRTC. Lazy + SSR-disabled because the SDK
 // touches `window` on import.
@@ -160,6 +161,14 @@ export default function ComhubPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [channel, setChannel] = useState<'all' | 'sms' | 'web' | 'email' | 'voice' | 'admin'>('all')
   const [q, setQ] = useState('')
+
+  const comhubPrefs = useUserPrefs('comhub', { default_filter: 'all', default_channel: 'all' })
+  useEffect(() => {
+    if (!comhubPrefs.loaded) return
+    setFilter(comhubPrefs.prefs.default_filter as Filter)
+    setChannel(comhubPrefs.prefs.default_channel as 'all' | 'sms' | 'web' | 'email' | 'voice' | 'admin')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comhubPrefs.loaded])
   const [loadingList, setLoadingList] = useState(true)
   const [sending, setSending] = useState(false)
   const [showCompose, setShowCompose] = useState(false)

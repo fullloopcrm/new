@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantTimezone, toTenantNaiveString, parseTenantNaiveString } from '@/lib/tenant-time'
+
+// The two DB round-trips (bookings + team) are the expensive part of this
+// route and were re-run on every single calendar view/navigation with no
+// caching — wrap them so repeated loads of the same tenant+month within 30s
+// hit the Data Cache instead of Postgres.
+async function fetchScheduleData(tenantId: string, gridStartISO: string, gridEndISO: string) {
+  const [bookingsRes, teamRes] = await Promise.all([
+    supabaseAdmin
+      .from('bookings')
+      .select('id, client_id, team_member_id, price, start_time, end_time, status, payment_status, service_type, clients(name)')
+      .eq('tenant_id', tenantId)
+      .gte('start_time', gridStartISO)
+      .lt('start_time', gridEndISO)
+      .order('start_time', { ascending: true }),
+    supabaseAdmin
+      .from('team_members')
+      .select('id, name, status')
+      .eq('tenant_id', tenantId),
+  ])
+  return { bookings: bookingsRes.data || [], team: teamRes.data || [] }
+}
+const fetchScheduleDataCached = unstable_cache(fetchScheduleData, ['schedule-calendar-data'], { revalidate: 30 })
 
 type CalendarEvent = {
   id: string
@@ -90,23 +113,11 @@ export async function GET(request: NextRequest) {
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
 
-    const [bookingsRes, teamRes] = await Promise.all([
-      supabaseAdmin
-        .from('bookings')
-        .select('id, client_id, team_member_id, price, start_time, end_time, status, payment_status, service_type, clients(name)')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', gridStart.toISOString())
-        .lt('start_time', gridEnd.toISOString())
-        .order('start_time', { ascending: true }),
-      supabaseAdmin
-        .from('team_members')
-        .select('id, name, status')
-        .eq('tenant_id', tenantId),
-    ])
+    const scheduleData = await fetchScheduleDataCached(tenantId, gridStart.toISOString(), gridEnd.toISOString())
 
-    const team = (teamRes.data || []) as Array<{ id: string; name: string; status: string | null }>
+    const team = scheduleData.team as Array<{ id: string; name: string; status: string | null }>
     const teamById = new Map(team.map((t) => [t.id, t]))
-    const bookings = ((bookingsRes.data || []) as Array<Record<string, unknown>>)
+    const bookings = (scheduleData.bookings as Array<Record<string, unknown>>)
       .filter((b) => (b.status as string) !== 'cancelled')
 
     // Compute conflicts: same team_member overlapping windows.

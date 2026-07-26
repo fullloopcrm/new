@@ -216,7 +216,7 @@ export default function ScheduleDetailPage() {
             <h3 className="font-semibold text-slate-900 mb-4">Generated Bookings ({bookings.length})</h3>
             <div className="space-y-2">
               {bookings.map((b) => (
-                <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
+                <Link key={b.id} href={`/dashboard/bookings?edit=${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                   <div>
                     <p className="text-sm font-medium">{new Date(b.start_time).toLocaleDateString()}</p>
                     <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>

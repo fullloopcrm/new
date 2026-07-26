@@ -147,9 +147,9 @@ describe('computeFindings — second mismatch (Drift F: one domain, two tenants)
 describe('computeFindings — orphan gate (Drift L known-pending exemption)', () => {
   it('reports both orphans but only the non-pending one gates CI', () => {
     // No tenants rows resolve either slug; both are bespoke-routed phantoms.
-    // 'wash-and-fold-hoboken' is on the KNOWN_PENDING allowlist (reported, not
+    // 'toll-trucks-near-me' is on the KNOWN_PENDING allowlist (reported, not
     // gating); 'ghost-slug' is a real unresolved orphan and must gate.
-    const bespokeSet = new Set(['wash-and-fold-hoboken', 'ghost-slug'])
+    const bespokeSet = new Set(['toll-trucks-near-me', 'ghost-slug'])
 
     const findings: Finding[] = computeFindings({
       tenants: [],
@@ -164,7 +164,7 @@ describe('computeFindings — orphan gate (Drift L known-pending exemption)', ()
 
     const { counts, pendingCrit, gatingCrit } = summarize(findings)
     expect(counts.CRIT).toBe(2)
-    expect(pendingCrit).toBe(1) // wash-and-fold-hoboken is exempt
+    expect(pendingCrit).toBe(1) // toll-trucks-near-me is exempt
     expect(gatingCrit).toBe(1) // only ghost-slug red-gates
   })
 

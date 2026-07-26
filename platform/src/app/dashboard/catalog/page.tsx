@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 import Breadcrumb from '../_components/Breadcrumb'
 import CatalogTab from '../sales/CatalogTab'
 import BudgetTab from '../sales/BudgetTab'
@@ -30,6 +31,12 @@ const TABS: { key: Tab; label: string }[] = [
 export default function CatalogPage() {
   const [tab, setTab] = useState<Tab>('services')
   const [budgetSubTab, setBudgetSubTab] = useState<'budgets' | 'templates'>('budgets')
+
+  const catalogPrefs = useUserPrefs('catalog', { default_tab: 'services' })
+  useEffect(() => {
+    if (catalogPrefs.loaded) setTab(catalogPrefs.prefs.default_tab as Tab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogPrefs.loaded])
 
   const tabBtn = (active: boolean): React.CSSProperties => ({
     fontSize: 13,

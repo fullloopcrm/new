@@ -213,7 +213,7 @@ describe('audit-tenant-scope guard — explicit overrides and exclusions', () =>
 
   it('excludes the legacy per-tenant clone paths by default (never flagged, never gates)', () => {
     const dir = fixture()
-    write(dir, 'src/app/site/wash-and-fold-hoboken/page.ts', `
+    write(dir, 'src/app/site/wash-and-fold-nyc/page.ts', `
       export async function bad(sb) {
         const { data } = await sb${FROM('bookings')}.select('*')
         return data
@@ -226,7 +226,7 @@ describe('audit-tenant-scope guard — explicit overrides and exclusions', () =>
 
   it('--all includes excluded clone paths in findings but NEVER gates (exit 0)', () => {
     const dir = fixture()
-    write(dir, 'src/app/site/wash-and-fold-hoboken/page.ts', `
+    write(dir, 'src/app/site/wash-and-fold-nyc/page.ts', `
       export async function bad(sb) {
         const { data } = await sb${FROM('bookings')}.select('*')
         return data

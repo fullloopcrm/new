@@ -472,7 +472,6 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     'toll-trucks-near-me',
     'sunnyside-clean-nyc',
     'wash-and-fold-nyc',
-    'wash-and-fold-hoboken',
     'landscaping-in-nyc',
     'debt-service-ratio-loan',
     'fla-dumpster-rentals',

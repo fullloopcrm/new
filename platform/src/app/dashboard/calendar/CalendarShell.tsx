@@ -5,6 +5,7 @@ import RichMonthView from './RichMonthView'
 import KanbanView from './KanbanView'
 import TimelineView from './TimelineView'
 import MobileDayListView from './MobileDayListView'
+import { useUserPrefs } from '@/lib/use-user-prefs'
 
 // The multi-view scheduling surface. One job model, three projections; the switcher
 // picks the axis. Each view has its own persisted size (+/-) so an operator can
@@ -45,6 +46,12 @@ export default function CalendarShell() {
   const [view, setView] = useState<View>('month')
   const [scales, setScales] = useState<Record<View, number>>({ month: 1, timeline: 1, kanban: 1 })
   const active = VIEWS.find((v) => v.key === view)!
+
+  const calendarPrefs = useUserPrefs('calendar', { default_view: 'month' })
+  useEffect(() => {
+    if (calendarPrefs.loaded) setView(calendarPrefs.prefs.default_view as View)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarPrefs.loaded])
 
   // Load persisted per-view sizes once.
   useEffect(() => {
