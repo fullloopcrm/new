@@ -7,6 +7,7 @@ import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import ClientsSettings from './clients-settings'
+import { SettingsHint } from '@/components/page-settings'
 import { formatPhone as formatPhoneDisplay } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 
@@ -290,7 +291,10 @@ export default function ClientsPage() {
           </div>
         </div>
         <div className="clients-stat">
-          <div className="clients-stat-label">At-Risk <span className="clients-stat-tag warn">churn</span></div>
+          <div className="clients-stat-label">
+            At-Risk <span className="clients-stat-tag warn">churn</span>
+            <SettingsHint label="Win-back message settings" fieldKey="retention" />
+          </div>
           <div className="clients-stat-value">{totals?.at_risk ?? 0}</div>
           <div className="clients-stat-sub warn">{agentName} drafted nudges</div>
         </div>

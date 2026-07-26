@@ -10,6 +10,7 @@ import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } fro
 import { buildSeriesUpdateData } from './_recurring'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import BookingsSettings from './bookings-settings'
+import { SettingsHint } from '@/components/page-settings'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
@@ -1219,7 +1220,10 @@ function BookingsPage() {
         {!loading && (
           <div className="sched-outlook" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
             <div className="sched-stat">
-              <div className="sched-stat-label">Upcoming</div>
+              <div className="sched-stat-label flex items-center gap-1.5">
+                Upcoming
+                <SettingsHint label="Appointment reminder settings" fieldKey="booking_reminder" />
+              </div>
               <div className="sched-stat-value">{upcomingCount}</div>
               <div className="sched-stat-sub">Scheduled, not yet done</div>
             </div>
