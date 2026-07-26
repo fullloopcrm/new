@@ -388,6 +388,21 @@ export default function SettingsPage() {
     alert('Contact support to complete this action.')
   }
 
+  async function forceLogoutFieldStaff() {
+    if (!confirm('Force logout ALL field staff? Every cleaner currently logged into the team portal will be signed out and need to log back in. This does not affect the referrer or sales-partner portals.')) return
+    try {
+      const res = await fetch('/api/admin/team-portal/force-logout', { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        alert(`Failed: ${err.error || res.statusText}`)
+        return
+      }
+      alert('Done. Every field-staff member will need to log back in.')
+    } catch {
+      alert('Failed to force logout field staff.')
+    }
+  }
+
   function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
     const lines = text.split(/\r?\n/).filter((line) => line.trim())
     if (lines.length < 2) return { headers: [], rows: [] }
@@ -2070,12 +2085,20 @@ export default function SettingsPage() {
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-3">Danger Zone</h3>
             <p className="text-sm text-slate-400 mb-4">Irreversible actions.</p>
-            <button
-              onClick={deleteAllData}
-              className="text-red-400 border border-red-400/30 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-400/10 transition-colors"
-            >
-              Delete All Data
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={deleteAllData}
+                className="text-red-400 border border-red-400/30 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-400/10 transition-colors"
+              >
+                Delete All Data
+              </button>
+              <button
+                onClick={forceLogoutFieldStaff}
+                className="text-red-400 border border-red-400/30 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-400/10 transition-colors"
+              >
+                Force Logout All Field Staff
+              </button>
+            </div>
           </div>
         </div>
       )}

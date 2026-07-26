@@ -1,6 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createHmac } from 'crypto'
-import { createToken, verifyToken } from './token'
+import { vi } from 'vitest'
+
+// verifyToken now does a DB read for the force-logout check (see
+// team_portal_logout_after) -- no tenant row / null column here means "no
+// force-logout in effect," so every pre-existing accept/reject assertion in
+// this file keeps its original meaning.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { team_portal_logout_after: null } }),
+        }),
+      }),
+    }),
+  },
+}))
+
+const { createToken, verifyToken } = await import('./token')
 
 const SECRET = 'test-team-portal-secret'
 // Set at module load too — `it.each` table arguments are evaluated eagerly,
@@ -12,14 +30,14 @@ beforeEach(() => {
 })
 
 describe('team-portal token — round trip', () => {
-  it('round-trips a valid token', () => {
+  it('round-trips a valid token', async () => {
     const token = createToken('member-1', 'tenant-1', 12, 'lead')
-    expect(verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'lead' })
+    await expect(verifyToken(token)).resolves.toEqual({ id: 'member-1', tid: 'tenant-1', role: 'lead' })
   })
 
-  it('defaults role to worker when omitted (legacy tokens)', () => {
+  it('defaults role to worker when omitted (legacy tokens)', async () => {
     const token = createToken('member-1', 'tenant-1')
-    expect(verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
+    await expect(verifyToken(token)).resolves.toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
   })
 })
 
@@ -32,29 +50,29 @@ describe('team-portal token — forgery and tampering rejected', () => {
   // These prove the fix rejects the same forgeries the old code rejected —
   // constant-time compare must not change the accept/reject outcome, only
   // remove the timing side-channel.
-  it('rejects a tampered payload id (signature no longer matches)', () => {
+  it('rejects a tampered payload id (signature no longer matches)', async () => {
     const token = createToken('victim-member', 'tenant-1')
     const [payloadB64, sig] = token.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     const tamperedB64 = Buffer.from(JSON.stringify({ ...payload, id: 'attacker-member' })).toString('base64')
-    expect(verifyToken(`${tamperedB64}.${sig}`)).toBeNull()
+    await expect(verifyToken(`${tamperedB64}.${sig}`)).resolves.toBeNull()
   })
 
-  it('rejects a token signed with a different secret', () => {
+  it('rejects a token signed with a different secret', async () => {
     const payload = JSON.stringify({ id: 'member-1', tid: 'tenant-1', pr: 0, r: 'worker', exp: Date.now() + 3600_000 })
     const wrongSig = createHmac('sha256', 'not-the-secret').update(payload).digest('hex')
     const forged = Buffer.from(payload).toString('base64') + '.' + wrongSig
-    expect(verifyToken(forged)).toBeNull()
+    await expect(verifyToken(forged)).resolves.toBeNull()
   })
 
-  it('rejects an expired token even with a valid signature', () => {
+  it('rejects an expired token even with a valid signature', async () => {
     const token = createToken('member-1', 'tenant-1')
     const [payloadB64] = token.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     const expiredPayload = JSON.stringify({ ...payload, exp: Date.now() - 1000 })
     const sig = createHmac('sha256', SECRET).update(expiredPayload).digest('hex')
     const expiredToken = Buffer.from(expiredPayload).toString('base64') + '.' + sig
-    expect(verifyToken(expiredToken)).toBeNull()
+    await expect(verifyToken(expiredToken)).resolves.toBeNull()
   })
 
   it.each([
@@ -66,9 +84,9 @@ describe('team-portal token — forgery and tampering rejected', () => {
       const [payloadB64, sig] = token.split('.')
       return `${payloadB64}.${sig.slice(0, 10)}`
     })()],
-  ])('rejects %s without throwing', (_label, input) => {
+  ])('rejects %s without throwing', async (_label, input) => {
     expect(() => verifyToken(input)).not.toThrow()
-    expect(verifyToken(input)).toBeNull()
+    await expect(verifyToken(input)).resolves.toBeNull()
   })
 })
 
@@ -81,8 +99,8 @@ describe('team-portal token — fails closed when TEAM_PORTAL_SECRET is unconfig
     expect(() => createToken('member-1', 'tenant-1')).toThrow(/TEAM_PORTAL_SECRET/)
   })
 
-  it('verifyToken fails closed (does not throw) with no secret configured', () => {
+  it('verifyToken fails closed (does not throw) with no secret configured', async () => {
     expect(() => verifyToken('anything.anything')).not.toThrow()
-    expect(verifyToken('anything.anything')).toBeNull()
+    await expect(verifyToken('anything.anything')).resolves.toBeNull()
   })
 })

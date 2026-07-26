@@ -66,6 +66,11 @@ function parseOr(filter: string) {
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
+      // verifyToken's force-logout check reads tenants.team_portal_logout_after
+      // via .single() -- no force-logout in effect for any of these tests.
+      if (table === 'tenants') {
+        return { select: () => ({ eq: () => ({ single: async () => ({ data: { team_portal_logout_after: null } }) }) }) }
+      }
       if (table !== 'notifications') throw new Error(`unexpected table ${table}`)
       const filters: Array<(row: Record<string, unknown>) => boolean> = []
       let updatePayload: Record<string, unknown> | null = null

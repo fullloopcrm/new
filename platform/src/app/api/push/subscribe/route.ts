@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       }
       tenantId = tenant.tenantId
     } else if (effectiveRole === 'team_member') {
-      const auth = getPortalAuth(request)
+      const auth = await getPortalAuth(request)
       if (!auth) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
       }

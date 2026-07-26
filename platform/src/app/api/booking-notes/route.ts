@@ -24,7 +24,7 @@ async function resolveAuth(request: Request): Promise<NotesAuth | NextResponse> 
   // misattribution before adding this ordering).
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
-    const auth = verifyToken(token)
+    const auth = await verifyToken(token)
     if (auth) return { kind: 'team', tenantId: auth.tid, teamMemberId: auth.id }
   }
   try {

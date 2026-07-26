@@ -73,6 +73,10 @@ function chain(table: string) {
     or: (expr: string) => { filters.push(orMatcher(expr)); return c },
     order: () => c,
     limit: () => Promise.resolve({ data: matched(), error: null }),
+    // verifyToken's force-logout check reads tenants.team_portal_logout_after
+    // via .single() -- no row configured here means "no force-logout in
+    // effect," same as every other table this fake doesn't seed.
+    single: () => Promise.resolve({ data: matched()[0] || null, error: null }),
     update: (values: Row) => updateChain(rowsOf(), values),
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }

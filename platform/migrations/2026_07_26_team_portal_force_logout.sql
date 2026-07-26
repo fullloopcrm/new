@@ -1,0 +1,13 @@
+-- Force-logout capability for the field-staff team portal. Team-portal tokens
+-- are fully stateless HMAC tokens (see src/app/api/team-portal/auth/token.ts)
+-- with no revocation list -- the only way to invalidate an already-issued
+-- token is to reject it at verify time against some stored marker. This adds
+-- a per-tenant marker rather than rotating TEAM_PORTAL_SECRET (which is
+-- shared with the referrer and sales-partner portals, and platform-wide, not
+-- per-tenant -- rotating it would log out every referrer/sales-partner on
+-- every tenant too, not just one tenant's field staff).
+--
+-- Any team-portal token issued (payload.iat) before this timestamp is
+-- rejected by verifyToken(), forcing re-login. NULL = no forced logout in
+-- effect (default/normal state).
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS team_portal_logout_after timestamptz;

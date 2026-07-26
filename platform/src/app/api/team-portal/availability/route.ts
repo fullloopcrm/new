@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   // tenantDb's select() takes a non-literal `columns` param, which widens
@@ -34,7 +34,7 @@ export async function PUT(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { availability } = await request.json()

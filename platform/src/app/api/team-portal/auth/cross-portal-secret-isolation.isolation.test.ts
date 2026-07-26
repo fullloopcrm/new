@@ -1,6 +1,21 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterAll, vi } from 'vitest'
 import { createToken as createPortalToken, verifyPortalToken } from '@/app/api/portal/auth/token'
-import { createToken as createTeamToken, verifyToken as verifyTeamToken } from '@/app/api/team-portal/auth/token'
+
+// verifyToken (team portal) now does a DB read for the force-logout check —
+// no tenant row / null column here means "no force-logout in effect."
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { team_portal_logout_after: null } }),
+        }),
+      }),
+    }),
+  },
+}))
+
+const { createToken: createTeamToken, verifyToken: verifyTeamToken } = await import('@/app/api/team-portal/auth/token')
 
 /**
  * W4 config-risk regression (latent risk flagged 10:44).
@@ -41,21 +56,21 @@ afterAll(() => {
 })
 
 describe('cross-portal token isolation depends on PORTAL_SECRET != TEAM_PORTAL_SECRET', () => {
-  it('COLLAPSE: equal secrets let a client-portal token verify as a team (field-staff) session, and vice-versa', () => {
+  it('COLLAPSE: equal secrets let a client-portal token verify as a team (field-staff) session, and vice-versa', async () => {
     process.env.PORTAL_SECRET = 'shared-secret-danger'
     process.env.TEAM_PORTAL_SECRET = 'shared-secret-danger'
 
     // A client-portal token is accepted by the TEAM verifier → worker-tier field
     // access (role defaults to 'worker' since the client payload has no `r`).
     const clientTok = createPortalToken('client-A', 'tenant-A')
-    expect(verifyTeamToken(clientTok)).toEqual({ id: 'client-A', tid: 'tenant-A', role: 'worker' })
+    await expect(verifyTeamToken(clientTok)).resolves.toEqual({ id: 'client-A', tid: 'tenant-A', role: 'worker' })
 
     // ...and the reverse: a team token is accepted by the CLIENT verifier.
     const teamTok = createTeamToken('member-A', 'tenant-A')
     expect(verifyPortalToken(teamTok)).toMatchObject({ id: 'member-A', tid: 'tenant-A' })
   })
 
-  it('CONTROL: distinct secrets reject cross-portal tokens, yet each verifies on its OWN portal', () => {
+  it('CONTROL: distinct secrets reject cross-portal tokens, yet each verifies on its OWN portal', async () => {
     process.env.PORTAL_SECRET = 'portal-secret-distinct'
     process.env.TEAM_PORTAL_SECRET = 'team-secret-distinct'
 
@@ -64,10 +79,10 @@ describe('cross-portal token isolation depends on PORTAL_SECRET != TEAM_PORTAL_S
 
     // Non-vacuous: each verifier still accepts its own portal's token.
     expect(verifyPortalToken(clientTok)).toMatchObject({ id: 'client-A', tid: 'tenant-A' })
-    expect(verifyTeamToken(teamTok)).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
+    await expect(verifyTeamToken(teamTok)).resolves.toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
 
     // Isolation holds: neither token crosses to the other portal.
-    expect(verifyTeamToken(clientTok)).toBeNull()
+    await expect(verifyTeamToken(clientTok)).resolves.toBeNull()
     expect(verifyPortalToken(teamTok)).toBeNull()
   })
 

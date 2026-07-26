@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { booking_id, lat, lng } = await request.json()

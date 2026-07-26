@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { data: note } = (await tenantDb(auth.tid)

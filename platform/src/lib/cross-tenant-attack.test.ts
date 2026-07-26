@@ -29,6 +29,22 @@ vi.hoisted(() => {
   process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
 })
 
+// verifyToken (team portal) now does a DB read for the force-logout check —
+// no tenant row / null column here means "no force-logout in effect," so this
+// stays the pure-gate test the file's docstring describes for every OTHER
+// assertion; only the team-portal block below needed to become async.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { team_portal_logout_after: null } }),
+        }),
+      }),
+    }),
+  },
+}))
+
 import { signTenantHeader, verifyTenantHeaderSig } from './tenant-header-sig'
 import {
   createAdminToken,
@@ -191,20 +207,20 @@ describe('CROSS-TENANT ATTACK · client-portal session', () => {
 })
 
 describe('CROSS-TENANT ATTACK · team-portal bearer token', () => {
-  it('genuine token carries its own tenant id (positive control)', () => {
+  it('genuine token carries its own tenant id (positive control)', async () => {
     const t = createTeamToken(A.memberId, A.id, 0, 'manager')
-    expect(verifyTeamToken(t)).toEqual({ id: A.memberId, tid: A.id, role: 'manager' })
+    await expect(verifyTeamToken(t)).resolves.toEqual({ id: A.memberId, tid: A.id, role: 'manager' })
   })
 
-  it('REJECTS a token whose tenant id was swapped to B without re-signing', () => {
+  it('REJECTS a token whose tenant id was swapped to B without re-signing', async () => {
     const t = createTeamToken(A.memberId, A.id, 0, 'manager')
     const forged = forgePayloadTenant(t, B.id)
-    expect(verifyTeamToken(forged)).toBeNull()
+    await expect(verifyTeamToken(forged)).resolves.toBeNull()
   })
 
-  it('a genuine tenant-A token can NEVER report tid=B — downstream .eq(tenant_id) is bound to A', () => {
+  it('a genuine tenant-A token can NEVER report tid=B — downstream .eq(tenant_id) is bound to A', async () => {
     const t = createTeamToken(A.memberId, A.id, 0, 'worker')
-    const decoded = verifyTeamToken(t)
+    const decoded = await verifyTeamToken(t)
     expect(decoded?.tid).toBe(A.id)
     expect(decoded?.tid).not.toBe(B.id)
   })
@@ -212,22 +228,22 @@ describe('CROSS-TENANT ATTACK · team-portal bearer token', () => {
   // Scope gate (symmetric counterpart to the referrer block below). TEAM_PORTAL_SECRET
   // is shared with the referrer portal, so a referrer token is HMAC-valid here; only
   // the scope:'team' vs scope:'ref' field stops the cross-scope replay.
-  it("REJECTS a referrer token replayed against the team verifier (scope gate)", () => {
+  it("REJECTS a referrer token replayed against the team verifier (scope gate)", async () => {
     const refTok = createReferrerToken(A.referrerId, A.id)
-    expect(verifyTeamToken(refTok)).toBeNull()
+    await expect(verifyTeamToken(refTok)).resolves.toBeNull()
   })
 
-  it("REJECTS a token carrying any foreign scope, even correctly signed", () => {
+  it("REJECTS a token carrying any foreign scope, even correctly signed", async () => {
     // A validly-signed token whose scope is neither 'team' nor absent must be
     // refused — proves the gate keys on scope, not just on the referrer shape.
     const forgedScope = mintTeamTokenRaw({
       id: A.memberId, tid: A.id, pr: 0, r: 'manager', scope: 'admin',
       exp: Date.now() + 3600_000,
     })
-    expect(verifyTeamToken(forgedScope)).toBeNull()
+    await expect(verifyTeamToken(forgedScope)).resolves.toBeNull()
   })
 
-  it("grandfathers a legacy scope-less team token (backward compat, 24h TTL window)", () => {
+  it("grandfathers a legacy scope-less team token (backward compat, 24h TTL window)", async () => {
     // Tokens minted before the scope field existed carry no scope. They stay
     // valid so a deploy does not log out field staff mid-shift; the 24h TTL
     // closes the window within a day. (A referrer token can never look like
@@ -235,7 +251,7 @@ describe('CROSS-TENANT ATTACK · team-portal bearer token', () => {
     const legacy = mintTeamTokenRaw({
       id: A.memberId, tid: A.id, pr: 0, r: 'lead', exp: Date.now() + 3600_000,
     })
-    expect(verifyTeamToken(legacy)).toEqual({ id: A.memberId, tid: A.id, role: 'lead' })
+    await expect(verifyTeamToken(legacy)).resolves.toEqual({ id: A.memberId, tid: A.id, role: 'lead' })
   })
 })
 

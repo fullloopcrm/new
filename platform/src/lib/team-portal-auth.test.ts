@@ -75,21 +75,21 @@ beforeEach(() => {
 })
 
 describe('getPortalAuth', () => {
-  it('returns null when there is no authorization header', () => {
-    expect(getPortalAuth(requestWithToken())).toBeNull()
+  it('returns null when there is no authorization header', async () => {
+    await expect(getPortalAuth(requestWithToken())).resolves.toBeNull()
     expect(verifyToken).not.toHaveBeenCalled()
   })
 
-  it('strips the Bearer prefix and delegates to verifyToken', () => {
+  it('strips the Bearer prefix and delegates to verifyToken', async () => {
     verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
-    const auth = getPortalAuth(requestWithToken('tok-123'))
+    const auth = await getPortalAuth(requestWithToken('tok-123'))
     expect(verifyToken).toHaveBeenCalledWith('tok-123')
     expect(auth).toEqual({ id: 'm-1', tid: 't-1', role: 'worker' })
   })
 
-  it('returns null when verifyToken rejects the token', () => {
+  it('returns null when verifyToken rejects the token', async () => {
     verifyToken.mockReturnValue(null)
-    expect(getPortalAuth(requestWithToken('forged'))).toBeNull()
+    await expect(getPortalAuth(requestWithToken('forged'))).resolves.toBeNull()
   })
 })
 

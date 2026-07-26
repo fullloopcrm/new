@@ -1,7 +1,24 @@
-import { describe, it, expect, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 import crypto from 'crypto'
-import { createToken, verifyToken } from './token'
-import { createToken as createPortalToken } from '../../portal/auth/token'
+
+// verifyToken now does a DB read for the force-logout check (see
+// team_portal_logout_after) -- no tenant row / null column here means "no
+// force-logout in effect," so every pre-existing accept/reject assertion in
+// this file keeps its original meaning.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { team_portal_logout_after: null } }),
+        }),
+      }),
+    }),
+  },
+}))
+
+const { createToken, verifyToken } = await import('./token')
+const { createToken: createPortalToken } = await import('../../portal/auth/token')
 
 /**
  * The field-staff (team) portal token carries `{ id, tid, r }` — member id,
@@ -57,81 +74,81 @@ afterAll(() => {
 })
 
 describe('verifyToken (team portal) — cross-tenant + privilege isolation', () => {
-  it('round-trips id/tid/role for a manager token (control: not always-null)', () => {
-    const out = verifyToken(createToken('member-A', 'tenant-A', 2500, 'manager'))
+  it('round-trips id/tid/role for a manager token (control: not always-null)', async () => {
+    const out = await verifyToken(createToken('member-A', 'tenant-A', 2500, 'manager'))
     expect(out).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'manager' })
   })
 
-  it('rejects a token whose tid was swapped to another tenant', () => {
+  it('rejects a token whose tid was swapped to another tenant', async () => {
     const tok = createToken('member-A', 'tenant-A', 0, 'worker')
     const [payloadB64, sig] = tok.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     payload.tid = 'tenant-VICTIM'
     const forged = b64(JSON.stringify(payload)) + '.' + sig
-    expect(verifyToken(forged)).toBeNull()
+    await expect(verifyToken(forged)).resolves.toBeNull()
   })
 
-  it('rejects role escalation: worker token tampered to manager (no re-sign)', () => {
+  it('rejects role escalation: worker token tampered to manager (no re-sign)', async () => {
     const tok = createToken('member-A', 'tenant-A', 0, 'worker')
     const [payloadB64, sig] = tok.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     expect(payload.r).toBe('worker')
     payload.r = 'manager'
     const forged = b64(JSON.stringify(payload)) + '.' + sig
-    expect(verifyToken(forged)).toBeNull()
+    await expect(verifyToken(forged)).resolves.toBeNull()
   })
 
-  it('defaults a legacy token with no role field to least-privilege worker', () => {
+  it('defaults a legacy token with no role field to least-privilege worker', async () => {
     // Pre-tier tokens carry no `r`; they must NOT be treated as elevated.
     const legacy = signPayload({ id: 'member-A', tid: 'tenant-A', exp: Date.now() + 60_000 })
-    expect(verifyToken(legacy)).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
+    await expect(verifyToken(legacy)).resolves.toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
   })
 
-  it('rejects a validly-signed but EXPIRED token', () => {
+  it('rejects a validly-signed but EXPIRED token', async () => {
     const expired = signPayload({ id: 'member-A', tid: 'tenant-A', r: 'manager', exp: Date.now() - 1000 })
-    expect(verifyToken(expired)).toBeNull()
+    await expect(verifyToken(expired)).resolves.toBeNull()
   })
 
   it.each([
     ['empty string', ''],
     ['no separator', 'garbage'],
     ['bad base64 payload', '!!!.deadbeef'],
-  ])('fails closed (null, no throw) on malformed input: %s', (_label, tok) => {
-    expect(verifyToken(tok)).toBeNull()
+  ])('fails closed (null, no throw) on malformed input: %s', async (_label, tok) => {
+    await expect(verifyToken(tok)).resolves.toBeNull()
   })
 
-  it('rejects a token signed with a different secret', () => {
+  it('rejects a token signed with a different secret', async () => {
     const raw = JSON.stringify({ id: 'member-A', tid: 'tenant-A', r: 'manager', exp: Date.now() + 60_000 })
     const foreignSig = crypto.createHmac('sha256', 'some-other-secret').update(raw).digest('hex')
-    expect(verifyToken(b64(raw) + '.' + foreignSig)).toBeNull()
+    await expect(verifyToken(b64(raw) + '.' + foreignSig)).resolves.toBeNull()
   })
 
-  it('does NOT accept a client-portal token as a team token (cross-portal confusion)', () => {
+  it('does NOT accept a client-portal token as a team token (cross-portal confusion)', async () => {
     const portalTok = createPortalToken('client-A', 'tenant-A')
-    expect(verifyToken(portalTok)).toBeNull()
+    await expect(verifyToken(portalTok)).resolves.toBeNull()
   })
 
-  it('returns null when TEAM_PORTAL_SECRET is unconfigured (fails closed)', () => {
+  it('returns null when TEAM_PORTAL_SECRET is unconfigured (fails closed)', async () => {
     const tok = createToken('member-A', 'tenant-A', 0, 'worker')
     delete process.env.TEAM_PORTAL_SECRET
-    expect(verifyToken(tok)).toBeNull()
+    await expect(verifyToken(tok)).resolves.toBeNull()
   })
 
-  it('rejects a referrer-portal token (scope:"ref") replayed at the team verifier', () => {
+  it('rejects a referrer-portal token (scope:"ref") replayed at the team verifier', async () => {
     // TEAM_PORTAL_SECRET is shared with referrer-portal-auth.ts, so a
     // referrer token is HMAC-valid here — the scope field is the only thing
     // that can stop cross-portal replay.
     const referrerToken = signPayload({ rid: 'referrer-A', tid: 'tenant-A', scope: 'ref', exp: Date.now() + 60_000 })
-    expect(verifyToken(referrerToken)).toBeNull()
+    await expect(verifyToken(referrerToken)).resolves.toBeNull()
   })
 
-  it('accepts a correctly-scoped team token (control for the scope gate)', () => {
-    const out = verifyToken(createToken('member-A', 'tenant-A', 0, 'worker'))
+  it('accepts a correctly-scoped team token (control for the scope gate)', async () => {
+    const out = await verifyToken(createToken('member-A', 'tenant-A', 0, 'worker'))
     expect(out).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'worker' })
   })
 
-  it('still accepts a legacy scope-less team token (grandfather clause)', () => {
+  it('still accepts a legacy scope-less team token (grandfather clause)', async () => {
     const legacy = signPayload({ id: 'member-A', tid: 'tenant-A', r: 'lead', exp: Date.now() + 60_000 })
-    expect(verifyToken(legacy)).toEqual({ id: 'member-A', tid: 'tenant-A', role: 'lead' })
+    await expect(verifyToken(legacy)).resolves.toEqual({ id: 'member-A', tid: 'tenant-A', role: 'lead' })
   })
 })

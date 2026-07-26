@@ -19,7 +19,7 @@ async function ownedBooking(db: ReturnType<typeof tenantDb>, bookingId: string, 
 export async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { item_id, booking_id, done } = await request.json().catch(() => ({}))
