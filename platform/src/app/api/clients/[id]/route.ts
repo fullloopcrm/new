@@ -9,6 +9,7 @@ import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { notify } from '@/lib/notify'
 import { formatName, formatEmail } from '@/lib/format'
 import { normalizePhone } from '@/lib/phone'
+import { updateProperty } from '@/lib/client-properties'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -138,6 +139,24 @@ export async function PUT(
     }
 
     await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { fields: Object.keys(fields) } })
+
+    // Bookings resolve their address from client_properties (via a booking's
+    // property_id), not from clients.address -- so editing the address here
+    // alone leaves any existing property row stale and every booking tied to
+    // it keeps showing the old address. Sync it when there's exactly one
+    // active property (the common single-address case); with zero or
+    // multiple properties there's no unambiguous row to update, so leave it
+    // to the dedicated Addresses panel.
+    if (typeof fields.address === 'string' && fields.address.trim()) {
+      const { data: activeProps } = await tenantDb(tenantId)
+        .from('client_properties')
+        .select('id')
+        .eq('client_id', id)
+        .eq('active', true)
+      if (activeProps && activeProps.length === 1) {
+        await updateProperty(id, activeProps[0].id, { address: fields.address as string }, { changedBy: 'admin', source: 'admin' })
+      }
+    }
 
     return NextResponse.json({ client: data })
   } catch (e) {
