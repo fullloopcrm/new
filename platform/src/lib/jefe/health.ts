@@ -17,6 +17,11 @@ export const ISSUE_TYPES = [
   'comms_monitor_alert',
   'schedule_issue',
   'security',
+  // Platform-wide Anthropic key alerts (cron/anthropic-health) — shared key,
+  // tenant_id is null, so these fall into the 'platform-wide' bucket below.
+  'anthropic_health_alert_credit_low',
+  'anthropic_health_alert_auth',
+  'anthropic_health_alert_rate_limit',
 ] as const
 
 export interface TenantIssues {
@@ -97,6 +102,14 @@ export interface PlatformHealth {
   // Tenants with active problems, worst first — this is what Jefe acts on.
   tenants_with_issues: TenantIssues[]
   recent_issues: RecentIssue[]
+  // 7. Integration health — latest sweep (cron/integration-health-sweep) of
+  // each tenant's Telnyx/Resend/Stripe (+ tenant Anthropic override) keys.
+  // A dead key here is a tenant that's PROVISIONED but silently broken —
+  // distinct from `provisioning`, which only checks a key is present at all.
+  integrations: {
+    swept_at: string | null // null if the sweep has never run
+    tenants_with_failures: { tenant_name: string; failed: string[] }[]
+  }
 }
 
 const hoursAgo = (now: Date, h: number) => new Date(now.getTime() - h * 60 * 60 * 1000).toISOString()
@@ -171,6 +184,8 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     err7dRes,
     stuckRes,
     cronLasts,
+    integrationsRes,
+    integrationsSweptAtRes,
   ] = await Promise.all([
     supabaseAdmin
       .from('tenants')
@@ -198,6 +213,14 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       .gt('end_time', stuckAfter)
       .limit(1000),
     Promise.all(cronPromises),
+    // Read-only: the sweep itself runs on cron/integration-health-sweep, not here.
+    supabaseAdmin
+      .from('jefe_integration_health')
+      .select('tenant_name, failed, failed_count, checked_at')
+      .gt('failed_count', 0)
+      .order('failed_count', { ascending: false })
+      .limit(20),
+    supabaseAdmin.from('jefe_integration_health').select('checked_at').order('checked_at', { ascending: false }).limit(1),
   ])
 
   const tenants = (tenantsRes.data || []) as TenantRow[]
@@ -337,5 +360,12 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     lifecycle: { new_7d, inactive },
     tenants_with_issues,
     recent_issues,
+    integrations: {
+      swept_at: (integrationsSweptAtRes.data?.[0] as { checked_at: string } | undefined)?.checked_at || null,
+      tenants_with_failures: ((integrationsRes.data || []) as Array<{ tenant_name: string; failed: string[] }>).map((r) => ({
+        tenant_name: r.tenant_name,
+        failed: r.failed,
+      })),
+    },
   }
 }

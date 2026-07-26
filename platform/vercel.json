@@ -133,6 +133,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/integration-health-sweep",
+      "schedule": "0 */6 * * *"
+    },
+    {
       "path": "/api/cron/jefe-heartbeat",
       "schedule": "*/30 * * * *"
     },
