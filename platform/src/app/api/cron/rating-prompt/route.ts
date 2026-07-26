@@ -4,6 +4,7 @@ import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 // Runs every 5 min. Sends ONE SMS — Q1 only — 30+ min after the cleaner
 // checked out: "How was your service today?" Reply triggers Q2 in the
@@ -32,6 +33,9 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    // NYC Maid runs its own tested 30-min-alert → rating → review-credit flow
+    // (lib/nycmaid/review-engine.ts) — this generic prompt would double-ask.
+    if (isNycMaid(tenantId)) continue
     if (!(await isCommEnabled(tenantId, 'rating_prompt', 'sms'))) continue
     const clientSms = await clientSmsTemplatesFor(tenantId)
 
