@@ -181,8 +181,10 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'hr': {
     page: 'hr', title: 'HR',
-    tips: ['HR roster and profiles — nothing configurable here yet.'],
-    fields: [],
+    tips: ['Team guidelines appear wherever team members are pointed to policy — onboarding, the team portal, etc.'],
+    fields: [
+      { key: 'guidelines_en', label: 'Team guidelines', type: 'textarea', layer: 'tenant_column', default: '', helper: 'Your team handbook / policy text — shown to team members in the portal.' },
+    ],
   },
   'jobs': {
     page: 'jobs', title: 'Production',
