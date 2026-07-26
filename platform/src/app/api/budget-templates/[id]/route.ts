@@ -72,12 +72,22 @@ export async function PUT(request: Request, { params }: Params) {
     }
     if ('active' in body) patch.active = !!body.active
 
-    const { data: template, error } = await tenantDb(tenantId)
-      .from('budget_templates')
-      .update(patch)
-      .eq('id', id)
-      .select('id, name, description, target_margin_bps, active, created_at')
-      .single()
+    // An empty patch (e.g. a caller saving only line_items) must not run
+    // .update({}) -- some PostgREST versions match zero rows on an empty
+    // payload, so .single() finds nothing and this misreports a real
+    // template as "not found." Fall back to a plain SELECT in that case.
+    const { data: template, error } = Object.keys(patch).length
+      ? await tenantDb(tenantId)
+          .from('budget_templates')
+          .update(patch)
+          .eq('id', id)
+          .select('id, name, description, target_margin_bps, active, created_at')
+          .single()
+      : await tenantDb(tenantId)
+          .from('budget_templates')
+          .select('id, name, description, target_margin_bps, active, created_at')
+          .eq('id', id)
+          .single()
     if (error || !template) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
 
     if (Array.isArray(body.line_items)) {
