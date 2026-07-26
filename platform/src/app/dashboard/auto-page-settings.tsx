@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'campaigns', 'notifications', 'referrals', 'reviews', 'sms',
+  'bookings', 'campaigns', 'clients', 'notifications', 'referrals', 'reviews', 'sms',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -67,15 +67,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
     page: 'analytics', title: 'Analytics',
     tips: ['A fixed-content dashboard — nothing configurable here yet.'],
     fields: [],
-  },
-  'bookings': {
-    page: 'bookings', title: 'Bookings',
-    tips: ['Which status filter the bookings list opens to.'],
-    fields: [
-      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which status the bookings list opens filtered to.', options: [
-        { value: '', label: 'All' }, { value: 'pending', label: 'Pending' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'in_progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Canceled' },
-      ], default: 'scheduled' },
-    ],
   },
   'books': {
     page: 'books', title: 'Books',
@@ -114,21 +105,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
     page: 'changelog', title: 'Changelog',
     tips: ['Stay current with platform updates from FullLoop — nothing configurable here yet.'],
     fields: [],
-  },
-  'clients': {
-    page: 'clients', title: 'Clients',
-    tips: ['Manage default views and client list behavior.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab the Clients page opens to.', options: [
-        { value: 'all', label: 'All Clients' }, { value: 'lifecycle', label: 'Lifecycle' }, { value: 'cohorts', label: 'Cohorts' }, { value: 'conversations', label: 'Conversations' }, { value: 'reviews', label: 'Reviews' }, { value: 'referrals', label: 'Referrals' },
-      ], default: 'all' },
-      { key: 'default_stage_filter', label: 'Default stage filter', type: 'select', layer: 'user', helper: 'Which client stage the list is pre-filtered to.', options: [
-        { value: 'all', label: 'All stages' }, { value: 'lead', label: 'Lead' }, { value: 'first', label: 'First-Time' }, { value: 'active', label: 'Active' }, { value: 'vip', label: 'VIP' }, { value: 'risk', label: 'At-Risk' }, { value: 'lapsed', label: 'Lapsed' }, { value: 'dns', label: 'DNS' },
-      ], default: 'all' },
-      { key: 'default_type_filter', label: 'Default type filter', type: 'select', layer: 'user', helper: 'Recurring, one-time, or both by default.', options: [
-        { value: 'all', label: 'All' }, { value: 'recurring', label: 'Recurring' }, { value: 'one-time', label: 'One-Time' },
-      ], default: 'all' },
-    ],
   },
   'comhub': {
     page: 'comhub', title: 'ComHub',
