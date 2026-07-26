@@ -124,6 +124,19 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     }).catch(() => {})
   }, [lockedClientId])
 
+  // Prefilled client (e.g. "Book Next" from the client drawer): the search
+  // box otherwise stays blank even though client_id is already set, since
+  // it only fills in via handleClientSelect on a manual pick.
+  useEffect(() => {
+    if (!initialValues?.clientId || lockedClientId) return
+    fetch(`/api/clients/${initialValues.clientId}`).then(r => r.ok ? r.json() : null).then(d => {
+      if (!d?.client) return
+      setKnownClients(prev => ({ ...prev, [d.client.id]: d.client }))
+      setClientSearch(d.client.name + (d.client.phone ? ' - ' + d.client.phone : ''))
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues?.clientId, lockedClientId])
+
   // Searches the server instead of filtering a locally preloaded array -- see
   // BookingsAdmin.tsx's identical client-search effect for why (200-row cap).
   useEffect(() => {
