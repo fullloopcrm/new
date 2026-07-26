@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, ReactNode } from 'react'
+import { ReactNode, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel, usePageSettingsOpen } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 
@@ -37,133 +37,234 @@ type PageEntry = {
   fields?: FieldDef[]
 }
 
-// Pages that render their own custom settings panel — we skip the auto-gear
-// for these so two gears don't show.
+// Pages that render their own custom settings panel content (real fields,
+// not the generic PAGE_MAP fallback) — we skip the auto-registrar for these
+// so the drawer doesn't show two competing bodies. Every other page falls
+// back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'bookings', 'campaigns', 'clients', 'finance', 'leads', 'referrals',
-  'reviews', 'sms', 'team', 'notifications', 'selena', 'websites',
+  'campaigns', 'notifications', 'referrals', 'reviews', 'sms',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
   '': {
     page: 'overview', title: 'Overview',
-    tips: ['This is your tenant home.'],
-    fields: [
-      { key: 'show_setup_checklist', label: 'Show setup checklist', type: 'toggle', layer: 'user', helper: 'Hide once your tenant is fully configured.', default: true },
-    ],
+    tips: ['This is your tenant home — server-rendered, nothing configurable here yet.'],
+    fields: [],
   },
   'activity': {
     page: 'activity', title: 'Activity',
     tips: ['Recent client and team actions.'],
     fields: [
-      { key: 'page_size', label: 'Items per page', type: 'number', layer: 'user', min: 10, max: 200, step: 10, default: 50 },
-      { key: 'channels_filter', label: 'Default channel filter', type: 'select', layer: 'user', options: [
-        { value: 'all', label: 'All' }, { value: 'sms', label: 'SMS only' }, { value: 'email', label: 'Email only' }, { value: 'in_app', label: 'In-app only' },
-      ], default: 'all' },
+      { key: 'page_size', label: 'Items per page', type: 'number', layer: 'user', min: 10, max: 200, step: 10, default: 30, helper: 'How many activity rows load per page.' },
     ],
   },
   'ai': {
     page: 'ai', title: 'AI Assistant',
-    tips: ['Configure the in-app AI assistant for your team.'],
-    fields: [
-      { key: 'ai_enabled', label: 'AI assistant enabled', type: 'toggle', layer: 'tenant_selena', default: true },
-      { key: 'verbose_replies', label: 'Verbose replies', type: 'toggle', layer: 'user', helper: 'Longer, more explanatory answers.', default: false },
-    ],
+    tips: ['Quick-action AI chat for drafting content — nothing configurable here yet.'],
+    fields: [],
   },
   'analytics': {
     page: 'analytics', title: 'Analytics',
-    tips: ['Default date ranges and chart preferences live here.'],
+    tips: ['A fixed-content dashboard — nothing configurable here yet.'],
+    fields: [],
+  },
+  'bookings': {
+    page: 'bookings', title: 'Bookings',
+    tips: ['Which status filter the bookings list opens to.'],
     fields: [
-      { key: 'default_range', label: 'Default range', type: 'select', layer: 'user', options: [
-        { value: '7d', label: 'Last 7 days' }, { value: '30d', label: 'Last 30 days' }, { value: '90d', label: 'Last 90 days' }, { value: 'ytd', label: 'Year-to-date' }, { value: '12m', label: 'Last 12 months' },
-      ], default: '30d' },
-      { key: 'default_view', label: 'Default view', type: 'select', layer: 'user', options: [
-        { value: 'overview', label: 'Overview' }, { value: 'revenue', label: 'Revenue' }, { value: 'pipeline', label: 'Pipeline' },
-      ], default: 'overview' },
+      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which status the bookings list opens filtered to.', options: [
+        { value: '', label: 'All' }, { value: 'pending', label: 'Pending' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'in_progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Canceled' },
+      ], default: 'scheduled' },
+    ],
+  },
+  'books': {
+    page: 'books', title: 'Books',
+    tips: ['Default tab and filters for the ledger.'],
+    fields: [
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which Books tab opens by default.', options: [
+        { value: 'overview', label: 'Overview' }, { value: 'ledger', label: 'Ledger' }, { value: 'payroll', label: 'Payroll' }, { value: 'expenses', label: 'Expenses' }, { value: 'reconcile', label: 'Reconcile' }, { value: 'tax', label: 'Tax' }, { value: 'statements', label: 'Statements' }, { value: 'cleaners', label: 'Cleaners' },
+      ], default: 'ledger' },
+      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which ledger rows show by default.', options: [
+        { value: 'all', label: 'All' }, { value: 'review', label: 'Needs Review' }, { value: 'ready', label: 'Ready' }, { value: 'synced', label: 'Synced' },
+      ], default: 'all' },
+      { key: 'default_type_filter', label: 'Default type filter', type: 'select', layer: 'user', helper: 'Which row types show by default.', options: [
+        { value: 'all', label: 'All' }, { value: 'revenue', label: 'Revenue' }, { value: 'payroll', label: 'Payroll' }, { value: 'expense', label: 'Expense' },
+      ], default: 'all' },
     ],
   },
   'calendar': {
     page: 'calendar', title: 'Calendar',
-    tips: ['Pick your default view, week start, and timezone.'],
+    tips: ['Pick which view the calendar opens to.'],
     fields: [
-      { key: 'default_view', label: 'Default view', type: 'select', layer: 'user', options: [
-        { value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'day', label: 'Day' }, { value: 'list', label: 'List' },
-      ], default: 'week' },
-      { key: 'first_day', label: 'Week starts on', type: 'select', layer: 'user', options: [
-        { value: '0', label: 'Sunday' }, { value: '1', label: 'Monday' },
-      ], default: '0' },
-      { key: 'show_weekends', label: 'Show weekends', type: 'toggle', layer: 'user', default: true },
+      { key: 'default_view', label: 'Default view', type: 'select', layer: 'user', helper: 'Which calendar view opens by default.', options: [
+        { value: 'month', label: 'Month' }, { value: 'timeline', label: 'Timeline' }, { value: 'kanban', label: 'Kanban' },
+      ], default: 'month' },
+    ],
+  },
+  'catalog': {
+    page: 'catalog', title: 'Catalog',
+    tips: ['Which tab the Catalog page opens to.'],
+    fields: [
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Catalog opens to.', options: [
+        { value: 'services', label: 'Services' }, { value: 'budgets', label: 'Budgets' }, { value: 'vendors', label: 'Vendors' }, { value: 'categories', label: 'Categories' }, { value: 'inventory', label: 'Inventory' }, { value: 'equipment', label: 'Equipment' },
+      ], default: 'services' },
     ],
   },
   'changelog': {
     page: 'changelog', title: 'Changelog',
-    tips: ['Stay current with platform updates from FullLoop.'],
+    tips: ['Stay current with platform updates from FullLoop — nothing configurable here yet.'],
+    fields: [],
+  },
+  'clients': {
+    page: 'clients', title: 'Clients',
+    tips: ['Manage default views and client list behavior.'],
     fields: [
-      { key: 'notify_on_new', label: 'Email me on new entries', type: 'toggle', layer: 'user', default: false },
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab the Clients page opens to.', options: [
+        { value: 'all', label: 'All Clients' }, { value: 'lifecycle', label: 'Lifecycle' }, { value: 'cohorts', label: 'Cohorts' }, { value: 'conversations', label: 'Conversations' }, { value: 'reviews', label: 'Reviews' }, { value: 'referrals', label: 'Referrals' },
+      ], default: 'all' },
+      { key: 'default_stage_filter', label: 'Default stage filter', type: 'select', layer: 'user', helper: 'Which client stage the list is pre-filtered to.', options: [
+        { value: 'all', label: 'All stages' }, { value: 'lead', label: 'Lead' }, { value: 'first', label: 'First-Time' }, { value: 'active', label: 'Active' }, { value: 'vip', label: 'VIP' }, { value: 'risk', label: 'At-Risk' }, { value: 'lapsed', label: 'Lapsed' }, { value: 'dns', label: 'DNS' },
+      ], default: 'all' },
+      { key: 'default_type_filter', label: 'Default type filter', type: 'select', layer: 'user', helper: 'Recurring, one-time, or both by default.', options: [
+        { value: 'all', label: 'All' }, { value: 'recurring', label: 'Recurring' }, { value: 'one-time', label: 'One-Time' },
+      ], default: 'all' },
+    ],
+  },
+  'comhub': {
+    page: 'comhub', title: 'ComHub',
+    tips: ['Default inbox filter and channel.'],
+    fields: [
+      { key: 'default_filter', label: 'Default filter', type: 'select', layer: 'user', helper: 'Which threads show by default.', options: [
+        { value: 'all', label: 'All' }, { value: 'unread', label: 'Unread' }, { value: 'unresponded', label: 'Unresponded' },
+      ], default: 'all' },
+      { key: 'default_channel', label: 'Default channel', type: 'select', layer: 'user', helper: 'Which channel the inbox opens filtered to.', options: [
+        { value: 'all', label: 'All' }, { value: 'sms', label: 'SMS' }, { value: 'web', label: 'Web' }, { value: 'email', label: 'Email' }, { value: 'voice', label: 'Voice' }, { value: 'admin', label: 'Admin' },
+      ], default: 'all' },
     ],
   },
   'connect': {
-    page: 'connect', title: 'Connect',
-    tips: ['Manage third-party integrations.'],
+    page: 'connect', title: 'Loop Connect',
+    tips: ['Team chat, announcements, and the team directory.'],
     fields: [
-      { key: 'show_unconnected', label: 'Show available (unconnected) integrations', type: 'toggle', layer: 'user', default: true },
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Loop Connect opens to.', options: [
+        { value: 'chat', label: 'Chat' }, { value: 'announcements', label: 'Announcements' }, { value: 'directory', label: 'Directory' },
+      ], default: 'chat' },
     ],
   },
   'docs': {
     page: 'docs', title: 'Docs',
-    tips: ['Pin frequently used docs.'],
-    fields: [
-      { key: 'language', label: 'Default language', type: 'select', layer: 'user', options: [
-        { value: 'en', label: 'English' }, { value: 'es', label: 'Spanish' },
-      ], default: 'en' },
-    ],
+    tips: ['Static reference content — nothing configurable here yet.'],
+    fields: [],
   },
   'feedback': {
     page: 'feedback', title: 'Feedback',
-    tips: ['Configure auto-reply text, escalation thresholds.'],
+    tips: ['Which feedback items show by default.'],
     fields: [
-      { key: 'feedback_auto_respond', label: 'Auto-respond on new feedback', type: 'toggle', layer: 'tenant_selena', default: false },
-      { key: 'feedback_auto_response_text', label: 'Auto-response text', type: 'textarea', layer: 'tenant_selena', placeholder: 'Thanks for your feedback — we received it and will follow up shortly.' },
-      { key: 'feedback_escalate_below', label: 'Escalate when rating ≤', type: 'number', layer: 'tenant_selena', min: 1, max: 5, default: 3, helper: 'Sends an admin alert for ratings at or below this score.' },
+      { key: 'default_filter', label: 'Default filter', type: 'select', layer: 'user', helper: 'Which feedback items the list opens showing.', options: [
+        { value: 'all', label: 'All' }, { value: 'unread', label: 'Unread' }, { value: 'read', label: 'Read' },
+      ], default: 'all' },
     ],
+  },
+  'finance': {
+    page: 'finance', title: 'Finance',
+    tips: ['Which date range Finance opens to.'],
+    fields: [
+      { key: 'default_range', label: 'Default date range', type: 'select', layer: 'user', helper: 'Which date range Finance opens showing.', options: [
+        { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'This Quarter' }, { value: 'ytd', label: 'Year-to-date' },
+      ], default: 'month' },
+    ],
+  },
+  'find-cleaner': {
+    page: 'find-cleaner', title: 'Find a Team Member',
+    tips: ['Broadcasts a job to available team members — nothing configurable here yet.'],
+    fields: [],
+  },
+  'go-live': {
+    page: 'go-live', title: 'Go Live',
+    tips: ['Tenant go-live checklist — nothing configurable here yet.'],
+    fields: [],
   },
   'google': {
     page: 'google', title: 'Google Profile',
-    tips: ['Sync interval and default review reply.'],
+    tips: ['Which tab the Google Profile page opens to.'],
     fields: [
-      { key: 'auto_reply_reviews', label: 'Auto-reply to new reviews', type: 'toggle', layer: 'tenant_selena', default: false },
-      { key: 'review_sync_interval_hours', label: 'Sync interval (hours)', type: 'number', layer: 'tenant_selena', min: 1, max: 168, default: 24 },
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Reviews or Posts — which tab opens by default.', options: [
+        { value: 'reviews', label: 'Reviews' }, { value: 'posts', label: 'Posts' },
+      ], default: 'reviews' },
     ],
+  },
+  'hr': {
+    page: 'hr', title: 'HR',
+    tips: ['HR roster and profiles — nothing configurable here yet.'],
+    fields: [],
+  },
+  'jobs': {
+    page: 'jobs', title: 'Production',
+    tips: ['Production totals overview — nothing configurable here yet.'],
+    fields: [],
+  },
+  'leads': {
+    page: 'leads', title: 'Leads',
+    tips: ['This route redirects to Sales — manage its settings from the Sales page.'],
+    fields: [],
   },
   'map': {
     page: 'map', title: 'Map',
-    tips: ['Default zoom and clustering.'],
+    tips: ['Default filters for the job map.'],
     fields: [
-      { key: 'default_zoom', label: 'Default zoom', type: 'number', layer: 'user', min: 1, max: 20, default: 11 },
-      { key: 'cluster_markers', label: 'Cluster markers', type: 'toggle', layer: 'user', default: true },
+      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which job status the map opens filtered to.', options: [
+        { value: '', label: 'All' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'in_progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'cancelled', label: 'Canceled' },
+      ], default: '' },
+      { key: 'default_date_range', label: 'Default date range', type: 'select', layer: 'user', helper: 'Which date range the map opens to.', options: [
+        { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }, { value: 'all', label: 'All Time' },
+      ], default: 'all' },
+      { key: 'show_stats', label: 'Show stats panel', type: 'toggle', layer: 'user', helper: 'Show the stats sidebar alongside the map (mobile only — always on for desktop).', default: true },
     ],
+  },
+  'messages': {
+    page: 'messages', title: 'Messages',
+    tips: ['Platform ↔ tenant owner messaging — nothing configurable here yet.'],
+    fields: [],
+  },
+  'onboarding': {
+    page: 'onboarding', title: 'Onboarding',
+    tips: ['Tenant onboarding checklist — nothing configurable here yet.'],
+    fields: [],
   },
   'sales': {
     page: 'sales', title: 'Sales',
-    tips: ['Default funnel stage filter and pipeline view.'],
+    tips: ['Which step of the pipeline the Sales page opens to.'],
     fields: [
-      { key: 'default_stage_filter', label: 'Default stage filter', type: 'select', layer: 'user', options: [
-        { value: 'all', label: 'All stages' }, { value: 'open', label: 'Open' }, { value: 'qualified', label: 'Qualified' }, { value: 'won', label: 'Won' }, { value: 'lost', label: 'Lost' },
-      ], default: 'open' },
-      { key: 'view_mode', label: 'View mode', type: 'select', layer: 'user', options: [
-        { value: 'kanban', label: 'Kanban' }, { value: 'list', label: 'List' },
-      ], default: 'kanban' },
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which step of the pipeline opens by default (a ?tab= link always overrides this).', options: [
+        { value: 'pipeline', label: 'Pipeline' }, { value: 'leads', label: 'Leads' }, { value: 'qualify', label: 'Qualify' }, { value: 'quotes', label: 'Quotes' }, { value: 'sales', label: 'Sales' }, { value: 'schedule', label: 'Schedule' },
+      ], default: 'pipeline' },
+    ],
+  },
+  'sales-partners': {
+    page: 'sales-partners', title: 'Sales Partners',
+    tips: ['Which tab Sales Partners opens to.'],
+    fields: [
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Sales Partners opens to.', options: [
+        { value: 'partners', label: 'Partners' }, { value: 'payouts', label: 'Payouts' },
+      ], default: 'partners' },
     ],
   },
   'schedules': {
     page: 'schedules', title: 'Recurring Schedules',
-    tips: ['Default recurrence cadence and visibility.'],
+    tips: ['Default recurrence cadence and status filter.'],
     fields: [
-      { key: 'default_recurring_frequency', label: 'Default frequency', type: 'select', layer: 'tenant_selena', options: [
+      { key: 'default_recurring_frequency', label: 'Default frequency', type: 'select', layer: 'user', helper: 'Preselected cadence when creating a new recurring schedule.', options: [
         { value: 'weekly', label: 'Weekly' }, { value: 'biweekly', label: 'Every 2 weeks' }, { value: 'triweekly', label: 'Every 3 weeks' }, { value: 'monthly_date', label: 'Monthly (date)' }, { value: 'monthly_weekday', label: 'Monthly (weekday)' },
-      ], default: 'biweekly' },
-      { key: 'show_paused', label: 'Show paused schedules by default', type: 'toggle', layer: 'user', default: false },
+      ], default: 'weekly' },
+      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which schedules show by default.', options: [
+        { value: '', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'paused', label: 'Paused' }, { value: 'inactive', label: 'Inactive' },
+      ], default: '' },
     ],
+  },
+  'selena': {
+    page: 'selena', title: 'AI Assistant',
+    tips: ['This page already has its own Settings button (top right of the page) for voice/SMS/web config — nothing additional here yet.'],
+    fields: [],
   },
   'settings': {
     page: 'settings', title: 'Settings',
@@ -172,20 +273,38 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'social': {
     page: 'social', title: 'Social Media',
-    tips: ['Connected accounts and posting cadence.'],
+    tips: ['Which connected platform the composer opens to.'],
     fields: [
-      { key: 'auto_post_5_star_reviews', label: 'Auto-share new 5-star reviews', type: 'toggle', layer: 'tenant_selena', default: false },
-      { key: 'default_posting_time', label: 'Default posting time (24h)', type: 'text', layer: 'tenant_selena', placeholder: '09:00', default: '10:00' },
+      { key: 'default_platform', label: 'Default platform', type: 'select', layer: 'user', helper: 'Which platform the post composer opens to.', options: [
+        { value: 'facebook', label: 'Facebook' }, { value: 'instagram', label: 'Instagram' },
+      ], default: 'facebook' },
+    ],
+  },
+  'team': {
+    page: 'team', title: 'Team',
+    tips: ['Which tab Team opens to.'],
+    fields: [
+      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Team opens to.', options: [
+        { value: 'team', label: 'Team' }, { value: 'applications', label: 'Applications' }, { value: 'sales_apps', label: 'Sales Apps' }, { value: 'ops_admin', label: 'Ops Admin' }, { value: 'performance', label: 'Performance' }, { value: 'payroll', label: 'Payroll' },
+      ], default: 'team' },
     ],
   },
   'users': {
     page: 'users', title: 'Users',
     tips: ['Default role for new invites.'],
     fields: [
-      { key: 'default_invite_role', label: 'Default invite role', type: 'select', layer: 'tenant_selena', options: [
-        { value: 'owner', label: 'Owner' }, { value: 'manager', label: 'Manager' }, { value: 'staff', label: 'Staff' }, { value: 'viewer', label: 'Viewer' },
-      ], default: 'staff' },
-      { key: 'require_2fa_for_new_users', label: 'Require 2FA for new users', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'Recommended for any role above viewer.' },
+      { key: 'default_invite_role', label: 'Default invite role', type: 'select', layer: 'tenant_selena', helper: 'Preselected role on the invite form, and the fallback used platform-wide when no role is specified.', options: [
+        { value: 'admin', label: 'Admin' }, { value: 'manager', label: 'Manager' }, { value: 'staff', label: 'Staff' },
+      ], default: 'manager' },
+    ],
+  },
+  'websites': {
+    page: 'websites', title: 'Websites',
+    tips: ['Default period for site visit stats.'],
+    fields: [
+      { key: 'default_period', label: 'Default period', type: 'select', layer: 'user', helper: 'Which time period the visits chart opens to.', options: [
+        { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' },
+      ], default: 'week' },
     ],
   },
 }
@@ -199,8 +318,8 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
     return (
       <label className="flex items-start justify-between gap-4 cursor-pointer">
         <span className="flex-1">
-          <span className="block text-sm font-medium text-gray-200">{field.label}</span>
-          {field.helper && <span className="block text-xs text-gray-500 mt-0.5">{field.helper}</span>}
+          <span className="block text-sm font-medium text-white">{field.label}</span>
+          {field.helper && <span className="block text-xs text-white/60 mt-0.5">{field.helper}</span>}
         </span>
         <button
           type="button"
@@ -218,11 +337,11 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
   if (field.type === 'select') {
     return (
       <label className="block">
-        <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">{field.label}</span>
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">{field.label}</span>
         <select value={(v as string) ?? ''} onChange={(e) => onChange(e.target.value)} className={inputCls}>
           {field.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        {field.helper && <span className="block text-xs text-gray-500 mt-1">{field.helper}</span>}
+        {field.helper && <span className="block text-xs text-white/60 mt-1">{field.helper}</span>}
       </label>
     )
   }
@@ -230,7 +349,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
   if (field.type === 'textarea') {
     return (
       <label className="block">
-        <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">{field.label}</span>
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">{field.label}</span>
         <textarea
           rows={3}
           value={(v as string) ?? ''}
@@ -238,7 +357,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
           placeholder={field.placeholder}
           className={inputCls}
         />
-        {field.helper && <span className="block text-xs text-gray-500 mt-1">{field.helper}</span>}
+        {field.helper && <span className="block text-xs text-white/60 mt-1">{field.helper}</span>}
       </label>
     )
   }
@@ -246,7 +365,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
   if (field.type === 'number') {
     return (
       <label className="block">
-        <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">{field.label}</span>
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">{field.label}</span>
         <input
           type="number"
           value={v === null || v === undefined ? '' : String(v)}
@@ -257,7 +376,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
           step={field.step}
           className={inputCls}
         />
-        {field.helper && <span className="block text-xs text-gray-500 mt-1">{field.helper}</span>}
+        {field.helper && <span className="block text-xs text-white/60 mt-1">{field.helper}</span>}
       </label>
     )
   }
@@ -265,7 +384,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
   // text
   return (
     <label className="block">
-      <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">{field.label}</span>
+      <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">{field.label}</span>
       <input
         type="text"
         value={(v as string) ?? ''}
@@ -273,7 +392,7 @@ function FieldEditor({ field, value, onChange }: { field: FieldDef; value: unkno
         placeholder={field.placeholder}
         className={inputCls}
       />
-      {field.helper && <span className="block text-xs text-gray-500 mt-1">{field.helper}</span>}
+      {field.helper && <span className="block text-xs text-white/60 mt-1">{field.helper}</span>}
     </label>
   )
 }
@@ -292,7 +411,7 @@ function AutoPanel({ entry }: { entry: PageEntry }) {
   const fields = entry.fields || []
   const tenantSettings = useTenantSettings()
   const userPrefs = useUserPrefs<Record<string, unknown>>(entry.page, buildUserDefaults(fields))
-  const [open, setOpen] = useState(false)
+  const { open, setOpen } = usePageSettingsOpen()
 
   const tenant = tenantSettings.tenant
   const selena = (tenant?.selena_config as Record<string, unknown> | null) || {}
@@ -326,35 +445,79 @@ function AutoPanel({ entry }: { entry: PageEntry }) {
   const loaded = userPrefs.loaded && tenantSettings.loaded
   const saving = userPrefs.saving || tenantSettings.saving
   const saveMsg = tenantSettings.saveMsg || userPrefs.saveMsg
+  const columns = columnsForFieldCount(fields.length)
 
   return (
-    <>
-      <PageSettingsGear open={open} setOpen={setOpen} title={entry.title} />
-      <PageSettingsPanel
-        open={open}
-        setOpen={setOpen}
-        loaded={loaded}
-        saving={saving}
-        saveMsg={saveMsg}
-        config={config}
-        updateConfig={updateConfig}
-        title={entry.title}
-        tips={entry.tips}
-      >
-        {fields.length > 0
-          ? renderFields(fields)
-          : undefined}
-      </PageSettingsPanel>
-    </>
+    <PageSettingsPanel
+      open={open}
+      setOpen={setOpen}
+      loaded={loaded}
+      saving={saving}
+      saveMsg={saveMsg}
+      config={config}
+      updateConfig={updateConfig}
+      title={entry.title}
+      tips={entry.tips}
+      columns={columns}
+    >
+      {fields.length > 0
+        ? renderFields(fields, columns)
+        : undefined}
+    </PageSettingsPanel>
   )
 }
 
-function renderFields(fields: FieldDef[]): (props: { config: Record<string, unknown>; updateConfig: (key: string, value: unknown) => void; saving: boolean }) => ReactNode {
+// 1 column while a page has a handful of settings, growing to 2 then 3 as
+// more get added — the drawer widens to match (see DRAWER_WIDTH_BY_COLUMNS
+// in page-settings.tsx).
+function columnsForFieldCount(count: number): 1 | 2 | 3 {
+  if (count <= 3) return 1
+  if (count <= 6) return 2
+  return 3
+}
+
+function renderFields(fields: FieldDef[], columns: 1 | 2 | 3): (props: { config: Record<string, unknown>; updateConfig: (key: string, value: unknown) => void; saving: boolean }) => ReactNode {
   return ({ config, updateConfig }) => (
-    <div className="space-y-4">
-      {fields.map((f) => (
-        <FieldEditor key={f.key} field={f} value={config[f.key]} onChange={(v) => updateConfig(f.key, v)} />
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: '1.25rem 1.5rem' }}>
+      {fields.map((f, i) => (
+        <FieldRow key={f.key} field={f} index={i} value={config[f.key]} onChange={(v) => updateConfig(f.key, v)} />
       ))}
+    </div>
+  )
+}
+
+// A SettingsHint out on a page's own content can target one specific field
+// by key — this row scrolls itself into view and highlights when it's the
+// current target, so "click the hint" lands you right on the setting.
+function FieldRow({ field, index, value, onChange }: { field: FieldDef; index: number; value: unknown; onChange: (v: unknown) => void }) {
+  const { targetKey } = usePageSettingsOpen()
+  const ref = useRef<HTMLDivElement>(null)
+  const isTarget = targetKey === field.key
+
+  useEffect(() => {
+    if (isTarget && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isTarget])
+
+  return (
+    <div
+      ref={ref}
+      className="flex items-start gap-2.5 transition-shadow"
+      style={{
+        ...(field.type === 'textarea' ? { gridColumn: `1 / -1` } : {}),
+        ...(isTarget ? { boxShadow: '0 0 0 2px #FFD60A', borderRadius: 8, padding: 8, margin: -8 } : {}),
+      }}
+    >
+      <span
+        className="flex-shrink-0 flex items-center justify-center rounded-full"
+        style={{ width: 18, height: 18, marginTop: 2, fontFamily: 'var(--mono)', fontSize: '10px', fontWeight: 700, color: '#1C1C1C', background: '#FFD60A' }}
+      >
+        {index + 1}
+      </span>
+      <div className="flex-1 min-w-0">
+        <FieldEditor field={field} value={value} onChange={onChange} />
+      </div>
     </div>
   )
 }

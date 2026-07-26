@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Review = {
@@ -118,7 +118,6 @@ export default function ReviewsPage() {
             <h2 className="text-2xl font-bold text-slate-900">Reviews</h2>
             <p className="text-sm text-slate-400">{reviews.length} total &middot; {avgRating.toFixed(1)} avg rating</p>
           </div>
-          <PageSettingsGear open={reviewsSettings.open} setOpen={reviewsSettings.setOpen} title="Reviews" />
         </div>
       </div>
 

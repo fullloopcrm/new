@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel, usePageSettingsOpen } from '@/components/page-settings'
 
 type Conversation = {
   id: string
@@ -29,7 +29,7 @@ export default function SmsInboxPage() {
   const [tenantPhone, setTenantPhone] = useState<string | null>(null)
   const [telnyxConnected, setTelnyxConnected] = useState(false)
 
-  const [smsPanelOpen, setSmsPanelOpen] = useState(false)
+  const { open: smsPanelOpen, setOpen: setSmsPanelOpen } = usePageSettingsOpen()
 
   // Fetch tenant info for settings panel
   useEffect(() => {
@@ -158,7 +158,6 @@ export default function SmsInboxPage() {
               {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <PageSettingsGear open={smsPanelOpen} setOpen={setSmsPanelOpen} title="SMS" />
         </div>
       </div>
 
