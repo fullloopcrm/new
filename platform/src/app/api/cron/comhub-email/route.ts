@@ -9,6 +9,21 @@ import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
 
+// Automated/notification senders (payment processors, banks, dev-tool alerts,
+// marketing blasts) should be mirrored into comhub for visibility but never
+// get a Yinez auto-reply — she has no way to distinguish "customer asking a
+// question" from "Stripe telling us a webhook is 404ing" and will draft a
+// reply into the void, burying anything actually actionable. List-Unsubscribe
+// is the standard signal for bulk/automated mail (RFC 2369); the local-part
+// regex is a fallback for senders that omit it.
+const AUTOMATED_LOCAL_PART = /^(no-?reply|notifications?|alerts?|do-?not-?reply|mailer-daemon|postmaster|bounces?|updates?|failed-payments|ship|service|support-reply)$/i
+
+function isAutomatedSender(fromAddr: string, headers: Map<string, unknown> | undefined): boolean {
+  const local = fromAddr.split('@')[0] || ''
+  if (AUTOMATED_LOCAL_PART.test(local)) return true
+  return !!headers?.has('list-unsubscribe')
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -198,7 +213,10 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         })
 
         // ── Yinez auto-reply ─────────────────────────────────────────────────
-        try {
+        // Automated/notification senders are mirrored into comhub_messages
+        // above (and get their thread-metadata update below) but never get a
+        // reply — see isAutomatedSender().
+        if (!isAutomatedSender(fromAddr, parsed.headers)) try {
           const { data: thread } = await supabaseAdmin
             .from('comhub_threads')
             .select('bot_paused_until')
