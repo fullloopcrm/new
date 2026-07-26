@@ -312,7 +312,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { tenant, error: authError } = await requirePermission('bookings.delete')
@@ -322,6 +322,8 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
     const db = tenantDb(tenantId)
+    const url = new URL(request.url)
+    const cancelSeries = url.searchParams.get('cancel_series') === 'true'
 
     // Get booking details before deleting for notifications
     // tenantDb's select() takes a non-literal `columns` param, which widens
@@ -331,10 +333,61 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; schedule_id?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
     if (!booking) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // cancel_series=true (BookingsAdmin.tsx's "Cancel > All future") was never
+    // handled here at all -- the frontend sent it, this route silently
+    // ignored it and hard-deleted only the single clicked booking, leaving
+    // every other future booking in the series (and the schedule itself)
+    // showing 'scheduled' forever. Found live 2026-07-26: creating then
+    // cancelling a 2-week daily recurring series left all of it scheduled.
+    //
+    // Cancel (not hard-delete) the schedule + every future scheduled/pending
+    // booking on it, this one forward -- soft-cancel avoids the payments/
+    // reviews/payouts FK-block entirely and matches DELETE
+    // /api/admin/recurring-schedules/[id]'s existing (correct) pattern.
+    if (cancelSeries && booking.schedule_id) {
+      const { data: cancelledSchedule } = await db
+        .from('recurring_schedules')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', booking.schedule_id)
+        .select('id')
+        .maybeSingle()
+
+      const { data: cancelledBookings, error: cancelErr } = await db
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('schedule_id', booking.schedule_id)
+        .in('status', ['scheduled', 'pending'])
+        .gte('start_time', booking.start_time)
+        .select('id')
+
+      if (cancelErr) {
+        return NextResponse.json({ error: cancelErr.message }, { status: 500 })
+      }
+
+      if (booking.client_id) {
+        await notify({
+          tenantId,
+          type: 'booking_cancelled',
+          title: 'Recurring series cancelled',
+          message: 'Your upcoming recurring appointments have been cancelled.',
+          channel: 'sms',
+          recipientType: 'client',
+          recipientId: booking.client_id,
+        }).catch((err: unknown) => console.error('cancel_series notify failed:', err))
+      }
+
+      await audit({
+        tenantId, action: 'booking.batch_updated', entityType: 'booking', entityId: id,
+        details: { action: 'series_cancelled', schedule_id: booking.schedule_id, schedule_cancelled: !!cancelledSchedule, bookings_cancelled: cancelledBookings?.length || 0 },
+      })
+
+      return NextResponse.json({ success: true, schedule_cancelled: !!cancelledSchedule, bookings_cancelled: cancelledBookings?.length || 0 })
     }
 
     // Delete is destructive and irreversible — payments, reviews, and payouts
