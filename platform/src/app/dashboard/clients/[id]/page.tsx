@@ -7,6 +7,7 @@ import { formatPhone } from '@/lib/phone'
 import { formatCustomerNumber } from '@/lib/format'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
+import ClientAddresses from '../client-addresses'
 import ClientNotesTimeline from '@/components/ClientNotesTimeline'
 
 type Client = {
@@ -249,6 +250,13 @@ export default function ClientDetailPage() {
                 {client.special_instructions && <div><dt className="text-slate-400 mb-1">Special Instructions</dt><dd className="bg-yellow-500/10 rounded p-2">{client.special_instructions}</dd></div>}
               </dl>
             )}
+          </div>
+
+          {/* ADDRESSES: multi-property add/edit/delete -- the single
+              Contact Info address field above is a denormalized copy; this
+              is the actual source bookings resolve their address from. */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <ClientAddresses clientId={client.id} showHistory />
           </div>
 
           {/* TABS: Bookings / Activity / SMS */}
