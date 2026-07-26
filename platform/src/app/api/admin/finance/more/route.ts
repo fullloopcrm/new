@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { platformArAging } from '@/lib/finance/platform-ar-aging'
+import { isTestTenant } from '@/lib/finance/platform-reports'
 
 const PAGE = 1000
 
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
   const { from, to } = periodBounds(period)
 
   try {
-    const [expenses, inventoryItems, equipmentRows, tenants] = await Promise.all([
+    const [expenses, inventoryItems, equipmentRows, tenants, arAging] = await Promise.all([
       fetchAll<{ tenant_id: string; vendor_id: string | null; vendor_name: string | null; amount: number | null }>(
         'expenses',
         'tenant_id, vendor_id, vendor_name, amount',
@@ -66,13 +68,19 @@ export async function GET(request: NextRequest) {
         (q) => q.eq('active', true),
       ),
       supabaseAdmin.from('tenants').select('id, name').then((r) => r.data || []),
+      platformArAging(),
     ])
     const tenantNames: Record<string, string> = {}
-    for (const t of tenants) tenantNames[t.id] = t.name
+    const testTenantIds = new Set<string>()
+    for (const t of tenants) {
+      tenantNames[t.id] = t.name
+      if (isTestTenant(t.name)) testTenantIds.add(t.id)
+    }
 
     // Vendor spend — group by vendor_id, fall back to free-text vendor_name.
     const vendorSpend = new Map<string, { label: string; amount: number; count: number }>()
     for (const e of expenses) {
+      if (testTenantIds.has(e.tenant_id)) continue
       const key = e.vendor_id || (e.vendor_name ? `name:${e.vendor_name}` : null)
       if (!key) continue
       const cur = vendorSpend.get(key) || { label: e.vendor_name || 'Unnamed vendor', amount: 0, count: 0 }
@@ -90,6 +98,7 @@ export async function GET(request: NextRequest) {
     let lowStockCount = 0
     const inventoryByTenant = new Map<string, number>()
     for (const item of inventoryItems) {
+      if (testTenantIds.has(item.tenant_id)) continue
       const qty = Number(item.quantity_on_hand) || 0
       const value = qty * (item.unit_cost_cents || 0)
       inventoryValueCents += value
@@ -102,6 +111,7 @@ export async function GET(request: NextRequest) {
     let equipmentValueCents = 0
     const equipmentByStatus: Record<string, number> = {}
     for (const eq of equipmentRows) {
+      if (testTenantIds.has(eq.tenant_id)) continue
       equipmentValueCents += (eq.acquisition_cost_cents || 0) - (eq.accumulated_depreciation_cents || 0)
       equipmentByStatus[eq.status] = (equipmentByStatus[eq.status] || 0) + 1
     }
@@ -132,6 +142,11 @@ export async function GET(request: NextRequest) {
       },
       catalog: {
         activeItemCount: catalogCount || 0,
+      },
+      arAging: {
+        total: arAging.total_cents / 100,
+        buckets: arAging.buckets.map((b) => ({ label: b.label, count: b.count, amount: b.amount_cents / 100 })),
+        byTenant: arAging.byTenant.slice(0, 10).map((t) => ({ tenant_id: t.tenant_id, tenant_name: t.tenant_name, amount: t.total_cents / 100 })),
       },
       note: 'Vendor/inventory/equipment data is real but does not yet auto-post to the ledger — tracked as operational value here, not yet a journaled COGS feed.',
     })

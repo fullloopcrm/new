@@ -10,6 +10,13 @@ import { supabaseAdmin } from '../supabase'
 
 const PAGE = 1000
 
+// Heuristic, not a real column — no tenant_type/is_test flag exists yet.
+// Simulation tenants created for demos are named with a "SIM " prefix. Shared
+// across every platform-finance route so test data is excluded consistently
+// (Revenue, Margin, Jobs, More all use the same rule) rather than each route
+// reinventing — or forgetting — its own filter.
+export const isTestTenant = (name: string): boolean => /^SIM /i.test(name)
+
 interface PlatformLineRow {
   tenant_id: string
   debit_cents: number | null
@@ -41,9 +48,8 @@ export interface PlatformPnL {
   source: 'ledger'
 }
 
-async function tenantNameMap(tenantIds: string[]): Promise<Record<string, string>> {
-  if (tenantIds.length === 0) return {}
-  const { data } = await supabaseAdmin.from('tenants').select('id, name').in('id', tenantIds)
+async function allTenantNames(): Promise<Record<string, string>> {
+  const { data } = await supabaseAdmin.from('tenants').select('id, name')
   const names: Record<string, string> = {}
   for (const t of data || []) names[t.id] = t.name
   return names
@@ -53,9 +59,15 @@ async function tenantNameMap(tenantIds: string[]): Promise<Record<string, string
  * Platform-wide P&L over [from, to], broken down per tenant. Streams every
  * matching journal line (paginated so a busy platform never trips the
  * 1000-row cap) instead of summing raw bookings — the same ledger-truth
- * fix applied per-tenant, now at the cross-tenant rollup level.
+ * fix applied per-tenant, now at the cross-tenant rollup level. Excludes
+ * simulation/test tenants by default (see isTestTenant) — pass
+ * `{ includeTest: true }` to include them.
  */
-export async function platformProfitAndLoss(from: string, to: string): Promise<PlatformPnL> {
+export async function platformProfitAndLoss(from: string, to: string, opts: { includeTest?: boolean } = {}): Promise<PlatformPnL> {
+  const names = await allTenantNames()
+  const testTenantIds = new Set(Object.entries(names).filter(([, name]) => isTestTenant(name)).map(([id]) => id))
+  const skip = (tenantId: string) => !opts.includeTest && testTenantIds.has(tenantId)
+
   const perTenant = new Map<string, { revenue: number; cogs: number; opex: number }>()
   const byCategory = new Map<string, number>()
 
@@ -71,6 +83,7 @@ export async function platformProfitAndLoss(from: string, to: string): Promise<P
     const rows = (data || []) as unknown as PlatformLineRow[]
 
     for (const r of rows) {
+      if (skip(r.tenant_id)) continue
       const coa = r.chart_of_accounts
       if (!coa) continue
       const debit = Number(r.debit_cents) || 0
@@ -94,7 +107,6 @@ export async function platformProfitAndLoss(from: string, to: string): Promise<P
   }
 
   const tenantIds = Array.from(perTenant.keys())
-  const names = await tenantNameMap(tenantIds)
 
   const by_tenant: PlatformTenantPnL[] = tenantIds
     .map((id) => {
@@ -151,9 +163,10 @@ export interface PlatformMonthlyPoint {
  * Platform-wide monthly trend for a calendar year (Jan–Dec, matching the
  * per-tenant Overview fix — never a rolling window, so numbers don't shift
  * as the query date changes). Pass tenantId to scope to one tenant instead
- * of the whole platform.
+ * of the whole platform (test-tenant exclusion is skipped when a specific
+ * tenantId is requested — an explicit pick overrides the default filter).
  */
-export async function platformMonthlyTrend(year: number, tenantId?: string): Promise<PlatformMonthlyPoint[]> {
+export async function platformMonthlyTrend(year: number, tenantId?: string, opts: { includeTest?: boolean } = {}): Promise<PlatformMonthlyPoint[]> {
   const from = `${year}-01-01`
   const to = `${year}-12-31`
   const perMonth = new Map<string, { revenue: number; cogs: number; opex: number }>()
@@ -161,6 +174,10 @@ export async function platformMonthlyTrend(year: number, tenantId?: string): Pro
     const key = new Date(Date.UTC(year, m, 1)).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
     perMonth.set(key, { revenue: 0, cogs: 0, opex: 0 })
   }
+
+  const names = tenantId || opts.includeTest ? {} : await allTenantNames()
+  const testTenantIds = new Set(Object.entries(names).filter(([, name]) => isTestTenant(name)).map(([id]) => id))
+  const skip = (rowTenantId: string) => !tenantId && !opts.includeTest && testTenantIds.has(rowTenantId)
 
   let offset = 0
   for (;;) {
@@ -177,6 +194,7 @@ export async function platformMonthlyTrend(year: number, tenantId?: string): Pro
     const rows = (data || []) as unknown as (PlatformLineRow & { journal_entries: { entry_date: string } | null })[]
 
     for (const r of rows) {
+      if (skip(r.tenant_id)) continue
       const coa = r.chart_of_accounts
       const entry = r.journal_entries
       if (!coa || !entry) continue
@@ -202,4 +220,36 @@ export async function platformMonthlyTrend(year: number, tenantId?: string): Pro
     revenue_cents: v.revenue,
     net_profit_cents: v.revenue - v.cogs - v.opex,
   }))
+}
+
+export interface LedgerIntegrity {
+  unpostedCount: number
+  futureDatedCount: number
+  mostRecentEntryAt: string | null
+}
+
+/**
+ * "Can I trust this number" check for the platform ledger — no dedicated
+ * cron-run log exists (finance-post's cron only returns counts in its HTTP
+ * response, nothing durable), so this is a proxy derived straight from the
+ * ledger itself rather than a heartbeat: unposted entries (journal_entries.
+ * posted = false) and future-dated entries (entry_date beyond today, which
+ * should never happen for a real transaction) are both real, queryable
+ * anomalies. mostRecentEntryAt is a freshness signal, not a "last cron ran"
+ * timestamp.
+ */
+export async function platformLedgerIntegrity(): Promise<LedgerIntegrity> {
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  const [unposted, futureDated, mostRecent] = await Promise.all([
+    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).eq('posted', false),
+    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).gt('entry_date', todayStr),
+    supabaseAdmin.from('journal_entries').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ])
+
+  return {
+    unpostedCount: unposted.count || 0,
+    futureDatedCount: futureDated.count || 0,
+    mostRecentEntryAt: mostRecent.data?.created_at || null,
+  }
 }

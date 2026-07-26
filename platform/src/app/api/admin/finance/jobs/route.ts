@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { computeBudgetVariance } from '@/lib/budget-template'
+import { isTestTenant } from '@/lib/finance/platform-reports'
 
 const PAGE = 1000
 
@@ -102,6 +103,7 @@ export async function GET() {
     const jobVariances: JobVariance[] = []
     for (const job of jobs || []) {
       if (!job.quote_id) continue
+      if (isTestTenant(tenantNames[job.tenant_id] || '')) continue
       const budget = budgetByQuoteId.get(job.quote_id)
       if (!budget) continue
       const lines = linesByBudget.get(budget.id) || []

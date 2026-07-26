@@ -9,7 +9,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { platformProfitAndLoss, platformMonthlyTrend, type PlatformPnL } from '@/lib/finance/platform-reports'
+import { platformProfitAndLoss, platformMonthlyTrend, platformLedgerIntegrity, isTestTenant } from '@/lib/finance/platform-reports'
+import { supabaseAdmin } from '@/lib/supabase'
 
 function periodBounds(period: string): { from: string; to: string } {
   const now = new Date()
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   const tenantId = url.searchParams.get('tenant_id') || undefined
   const period = url.searchParams.get('period') || 'month'
   const year = Number(url.searchParams.get('year')) || new Date().getFullYear()
+  const includeTest = url.searchParams.get('includeTest') === 'true'
 
   const now = new Date()
   const { from, to } = periodBounds(period)
@@ -46,22 +48,33 @@ export async function GET(request: NextRequest) {
   const todayStr = now.toISOString().slice(0, 10)
 
   try {
-    const [selected, thisMonth, lastMonth, monthlyTrend] = await Promise.all([
-      platformProfitAndLoss(from, to),
-      platformProfitAndLoss(monthStart, todayStr),
-      platformProfitAndLoss(lastMonthStart, lastMonthEnd),
-      platformMonthlyTrend(year, tenantId),
+    const opts = { includeTest }
+    const [selected, thisMonth, lastMonth, monthlyTrend, integrity, allTenants] = await Promise.all([
+      platformProfitAndLoss(from, to, opts),
+      platformProfitAndLoss(monthStart, todayStr, opts),
+      platformProfitAndLoss(lastMonthStart, lastMonthEnd, opts),
+      platformMonthlyTrend(year, tenantId, opts),
+      platformLedgerIntegrity(),
+      supabaseAdmin.from('tenants').select('name').then((r) => r.data || []),
     ])
 
-    const pick = (pnl: PlatformPnL) => {
-      if (!tenantId) return pnl.revenue_cents
-      return pnl.by_tenant.find((t) => t.tenant_id === tenantId)?.revenue_cents ?? 0
-    }
+    const pick = (pnl: typeof selected) => (tenantId ? pnl.by_tenant.find((t) => t.tenant_id === tenantId)?.revenue_cents ?? 0 : pnl.revenue_cents)
 
     const totalRevenue = pick(selected)
     const thisMonthRevenue = pick(thisMonth)
     const lastMonthRevenue = pick(lastMonth)
     const growthPercent = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0
+
+    const lastMonthByTenant = new Map(lastMonth.by_tenant.map((t) => [t.tenant_id, t.revenue_cents]))
+    const healthDirection = (tenantIdKey: string, thisMonthCents: number): 'growing' | 'flat' | 'shrinking' => {
+      const priorCents = lastMonthByTenant.get(tenantIdKey) || 0
+      if (priorCents === 0) return thisMonthCents > 0 ? 'growing' : 'flat'
+      const changePct = ((thisMonthCents - priorCents) / priorCents) * 100
+      if (changePct > 5) return 'growing'
+      if (changePct < -5) return 'shrinking'
+      return 'flat'
+    }
+    const thisMonthByTenant = new Map(thisMonth.by_tenant.map((t) => [t.tenant_id, t.revenue_cents]))
 
     const revenueByTenant = tenantId ? selected.by_tenant.filter((t) => t.tenant_id === tenantId) : selected.by_tenant
 
@@ -72,13 +85,16 @@ export async function GET(request: NextRequest) {
       thisMonthRevenue: thisMonthRevenue / 100,
       lastMonthRevenue: lastMonthRevenue / 100,
       growthPercent,
+      integrity,
       revenueByTenant: revenueByTenant.map((t) => ({
         tenant_id: t.tenant_id,
         tenant_name: t.tenant_name,
         revenue: t.revenue_cents / 100,
         margin_bps: t.margin_bps,
+        health: healthDirection(t.tenant_id, thisMonthByTenant.get(t.tenant_id) || 0),
       })),
       monthlyTrend: monthlyTrend.map((m) => ({ month: m.month, revenue: m.revenue_cents / 100 })),
+      excludedTestTenantCount: includeTest || tenantId ? 0 : allTenants.filter((t) => isTestTenant(t.name)).length,
       source: 'ledger',
     })
   } catch (err) {
