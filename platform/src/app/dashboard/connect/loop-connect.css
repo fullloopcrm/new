@@ -63,10 +63,11 @@
 @media (max-width: 900px) {
   /* Single-column stack: without an explicit row split, grid defaults to an
      even 50/50 split between sidebar and chat, leaving almost no room for
-     either once the sidebar carries Pinned + channels + a footer. Give the
-     sidebar a fixed budget and let the chat pane (the primary action) take
-     the rest. */
-  .lc-shell { grid-template-columns: 1fr; grid-template-rows: 220px 1fr; }
+     either once the sidebar carries Pinned + channels + a footer. The
+     non-list chrome (pinned block + search box + footer) measures ~221px
+     on its own -- 340px leaves genuine room for the channel list itself
+     instead of squeezing it to ~0. */
+  .lc-shell { grid-template-columns: 1fr; grid-template-rows: 340px 1fr; }
 }
 
 .lc-sidebar {
