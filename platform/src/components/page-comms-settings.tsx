@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { COMMS, type CommChannel } from '@/lib/comms-registry'
-import type { CommPreferences } from '@/lib/comms-prefs'
+import { useEffect, useRef, useState } from 'react'
+import { COMMS, type CommChannel, type CommDef } from '@/lib/comms-registry'
+import type { CommPreferences, CommChannelPrefs } from '@/lib/comms-prefs'
+import { usePageSettingsOpen } from '@/components/page-settings'
 
 // Same GET/PUT /api/settings/notifications endpoint the tenant-wide
 // Communications tab (dashboard/settings/CommunicationsTab.tsx) reads and
@@ -67,6 +68,66 @@ const CHANNEL_COLUMNS: CommChannel[] = ['email', 'sms']
 // small toggle table — used by any per-page drawer that wants to surface
 // "communication" settings specific to that page's audience, without
 // duplicating the full Communications tab.
+// A SettingsHint out on a page's own content can target one specific comm
+// by key (e.g. "booking_reminder") — this row scrolls itself into view and
+// highlights when it's the current target, mirroring FieldRow's behavior
+// for the generic auto-registered fields in auto-page-settings.tsx.
+function CommsRow({
+  def,
+  on,
+  saving,
+  onToggle,
+}: {
+  def: CommDef
+  on: CommChannelPrefs | undefined
+  saving: boolean
+  onToggle: (key: string, channel: CommChannel) => void
+}) {
+  const { targetKey } = usePageSettingsOpen()
+  const ref = useRef<HTMLTableRowElement>(null)
+  const isTarget = targetKey === def.key
+
+  useEffect(() => {
+    if (isTarget && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isTarget])
+
+  return (
+    <tr
+      ref={ref}
+      className="border-t border-gray-800 transition-shadow"
+      style={isTarget ? { boxShadow: 'inset 0 0 0 2px #FFD60A' } : undefined}
+    >
+      <td className="px-3 py-2 text-gray-200">
+        <span className="block">{def.label}</span>
+        <span className="block text-xs text-gray-500">{def.desc}</span>
+      </td>
+      {CHANNEL_COLUMNS.map((ch) => {
+        if (!def.channels.includes(ch)) {
+          return <td key={ch} className="px-3 py-2 text-center text-gray-700">—</td>
+        }
+        const v = !!on?.[ch]
+        return (
+          <td key={ch} className="px-3 py-2 text-center">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={v}
+              disabled={saving || def.locked}
+              title={def.locked ? 'Always on — transactional message' : undefined}
+              onClick={() => onToggle(def.key, ch)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${v ? 'bg-emerald-500' : 'bg-gray-600'} disabled:opacity-50`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${v ? 'translate-x-5' : 'translate-x-0.5'} translate-y-0.5`} />
+            </button>
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
 export function CommsSubsetSection({
   keys,
   prefs,
@@ -94,33 +155,7 @@ export function CommsSubsetSection({
         </thead>
         <tbody>
           {defs.map((def) => (
-            <tr key={def.key} className="border-t border-gray-800">
-              <td className="px-3 py-2 text-gray-200">
-                <span className="block">{def.label}</span>
-                <span className="block text-xs text-gray-500">{def.desc}</span>
-              </td>
-              {CHANNEL_COLUMNS.map((ch) => {
-                if (!def.channels.includes(ch)) {
-                  return <td key={ch} className="px-3 py-2 text-center text-gray-700">—</td>
-                }
-                const on = !!prefs.comms[def.key]?.[ch]
-                return (
-                  <td key={ch} className="px-3 py-2 text-center">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={on}
-                      disabled={saving || def.locked}
-                      title={def.locked ? 'Always on — transactional message' : undefined}
-                      onClick={() => onToggle(def.key, ch)}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${on ? 'bg-emerald-500' : 'bg-gray-600'} disabled:opacity-50`}
-                    >
-                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'} translate-y-0.5`} />
-                    </button>
-                  </td>
-                )
-              })}
-            </tr>
+            <CommsRow key={def.key} def={def} on={prefs.comms[def.key]} saving={saving} onToggle={onToggle} />
           ))}
         </tbody>
       </table>

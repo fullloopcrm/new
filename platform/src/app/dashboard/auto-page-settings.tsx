@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'bookings', 'campaigns', 'clients', 'notifications', 'referrals', 'reviews', 'sms',
+  'bookings', 'campaigns', 'clients', 'notifications', 'referrals', 'reviews', 'sms', 'team',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -254,15 +254,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'default_platform', label: 'Default platform', type: 'select', layer: 'user', helper: 'Which platform the post composer opens to.', options: [
         { value: 'facebook', label: 'Facebook' }, { value: 'instagram', label: 'Instagram' },
       ], default: 'facebook' },
-    ],
-  },
-  'team': {
-    page: 'team', title: 'Team',
-    tips: ['Which tab Team opens to.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Team opens to.', options: [
-        { value: 'team', label: 'Team' }, { value: 'applications', label: 'Applications' }, { value: 'sales_apps', label: 'Sales Apps' }, { value: 'ops_admin', label: 'Ops Admin' }, { value: 'performance', label: 'Performance' }, { value: 'payroll', label: 'Payroll' },
-      ], default: 'team' },
     ],
   },
   'users': {
