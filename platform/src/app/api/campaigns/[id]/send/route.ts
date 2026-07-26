@@ -71,8 +71,13 @@ export async function POST(
     // "Name <email>" so Resend uses the configured sender. Resend domain
     // determines the email half — fall back to the platform default when not set.
     const fromName = settings.campaign_sender_name || tenant.name || 'Full Loop'
-    const fromEmail = tenant.email_from
+    const emailFromRaw = tenant.email_from
       || (tenant.resend_domain ? `noreply@${tenant.resend_domain}` : 'noreply@fullloopcrm.com')
+    // tenant.email_from may already be a full "Name <email>" header (as stored
+    // for nycmaid) — extract the bare address so it isn't double-wrapped into
+    // an invalid "Name <Name <email>>" header that Resend rejects with a 422.
+    const emailMatch = emailFromRaw.match(/<(.+)>/)
+    const fromEmail = emailMatch ? emailMatch[1] : emailFromRaw
     const fromHeader = `${fromName} <${fromEmail}>`
 
     for (const client of clients) {
