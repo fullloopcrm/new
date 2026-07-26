@@ -71,13 +71,18 @@ vi.mock('@/lib/supabase', () => ({
         }
       }
       if (table === 'bookings') {
+        // Same two-call-shape pattern as team_members above: the daily-cap
+        // path and the post-claim admin-notification lookup both land here,
+        // one with a single .eq() the other with a further .eq() chained on.
+        const single = async (id: string) => {
+          const b = holder.bookings.get(id)
+          return b ? { data: { clients: { name: 'A Client' } }, error: null } : { data: null, error: { message: 'not found' } }
+        }
         return {
           select: () => ({
             eq: (_col: string, id: string) => ({
-              single: async () => {
-                const b = holder.bookings.get(id)
-                return b ? { data: { clients: { name: 'A Client' } }, error: null } : { data: null, error: { message: 'not found' } }
-              },
+              eq: () => ({ single: () => single(id) }),
+              single: () => single(id),
             }),
           }),
         }

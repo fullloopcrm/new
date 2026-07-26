@@ -52,8 +52,8 @@ export async function POST(request: Request) {
   // (src/app/api/webhooks/telnyx/route.ts), just triggered from the portal
   // claim path instead of an SMS reply.
   const [{ data: member }, { data: bookingRow }] = await Promise.all([
-    supabaseAdmin.from('team_members').select('name').eq('id', auth.id).single(),
-    supabaseAdmin.from('bookings').select('clients(name)').eq('id', booking_id).single(),
+    supabaseAdmin.from('team_members').select('name').eq('id', auth.id).eq('tenant_id', auth.tid).single(),
+    supabaseAdmin.from('bookings').select('clients(name)').eq('id', booking_id).eq('tenant_id', auth.tid).single(),
   ])
   const memberName = member?.name || 'A team member'
   const clientName = (bookingRow?.clients as unknown as { name: string } | null)?.name || 'a client'

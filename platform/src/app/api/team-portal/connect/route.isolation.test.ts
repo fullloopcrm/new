@@ -36,9 +36,9 @@ function seed() {
   fake._store.clear()
   fake._seed('team_members', [{ id: MEMBER_A1, tenant_id: TENANT_A, name: 'Alice' }])
   fake._seed('connect_channels', [
-    { id: 'chan-a-general', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_A1, name: 'General' },
+    { id: 'chan-a-general', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_A1, name: 'Alice' },
     { id: 'chan-a-client', tenant_id: TENANT_A, type: 'client', client_id: 'client-a1', name: 'Victor' },
-    { id: 'chan-b-general', tenant_id: TENANT_B, type: 'team', team_member_id: MEMBER_A1, name: 'Other tenant general' },
+    { id: 'chan-b-general', tenant_id: TENANT_B, type: 'team', team_member_id: 'member-b1', name: 'Other tenant team' },
   ])
   fake._seed('connect_messages', [])
   fake._seed('connect_read_cursors', [])

@@ -26,19 +26,28 @@ beforeEach(() => {
   vi.resetModules()
 })
 
-describe('portal/auth send_code', () => {
-  it('opts the send_code throttle into failClosed', async () => {
+describe('portal/auth request_pin', () => {
+  // This route's OTP-issuance action is named 'request_pin' (not 'send_code' --
+  // that naming belongs to the sibling pin-reset/client flows below). It
+  // already throttles via rateLimitDb(..., { failClosed: true }); this locks
+  // that in against the same class of fail-open regression.
+  it('opts the request_pin throttle into failClosed', async () => {
     vi.doMock('@/lib/supabase', () => {
       function chain(table: string) {
         const c: Record<string, unknown> = {
           select: () => c,
           eq: () => c,
+          ilike: () => c,
           delete: () => c,
           insert: async () => ({ data: null, error: null }),
+          update: () => c,
           single: async () => {
             if (table === 'tenants') {
-              return { data: { id: 'tenant-1', name: 'Acme', telnyx_api_key: null, telnyx_phone: null, resend_api_key: 'k' }, error: null }
+              return { data: { id: 'tenant-1', name: 'Acme', email_from: null, resend_api_key: 'k' }, error: null }
             }
+            return { data: null, error: null }
+          },
+          maybeSingle: async () => {
             if (table === 'clients') {
               return { data: { id: 'client-1', name: 'C', phone: '+15551230000', email: 'c@x.com' }, error: null }
             }
@@ -49,15 +58,15 @@ describe('portal/auth send_code', () => {
       }
       return { supabaseAdmin: { from: (t: string) => chain(t) } }
     })
-    vi.doMock('@/lib/email', () => ({ sendEmail: async () => {} }))
+    vi.doMock('@/lib/email', () => ({ sendEmail: async () => {}, tenantSender: () => 'noreply@test.com' }))
     const { POST } = await import('./portal/auth/route')
     const res = await POST(new Request('https://x', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ action: 'send_code', phone: '+15551230000', tenant_slug: 'acme' }),
+      body: JSON.stringify({ action: 'request_pin', contact: '+15551230000', tenant_slug: 'acme' }),
     }))
     expect(res.status).toBe(200)
-    expect(rlOpts.get('portal_auth:+15551230000')?.failClosed).toBe(true)
+    expect(rlOpts.get('portal_pin_request:acme:+15551230000')?.failClosed).toBe(true)
   })
 })
 

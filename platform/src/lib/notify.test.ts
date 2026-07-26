@@ -305,12 +305,18 @@ describe('notify — Telegram delivery', () => {
     expect(notifyOwnerOnTelegramMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to the platform owner bot when the tenant has no bot configured', async () => {
+  // sendTenantTelegram's owner-bot fallback is deliberately gated on `!tenantId`
+  // (a cron/no-request-scope caller) -- NOT "resolved tenant, no bot". Falling
+  // back to the platform owner bot for every under-configured tenant would leak
+  // that tenant's new_lead/new_booking/payment_received events into Jeff's own
+  // Telegram feed. A resolved tenant with no bot configured stays dashboard-only.
+  it('stays dashboard-only (no Telegram at all) when a resolved tenant has no bot configured', async () => {
     seedTenant({ telegram_bot_token: null, telegram_chat_id: null })
     tableData['tenant_members'] = { email: 'owner@acme.com' }
     await notify({ tenantId: TENANT_ID, type: 'new_lead', title: 'New Lead', message: 'hi' })
-    await vi.waitFor(() => expect(notifyOwnerOnTelegramMock).toHaveBeenCalledTimes(1))
+    await new Promise((res) => setTimeout(res, 0))
     expect(sendTelegramMock).not.toHaveBeenCalled()
+    expect(notifyOwnerOnTelegramMock).not.toHaveBeenCalled()
   })
 
   it('does not send Telegram for a type outside TELEGRAM_NOTIFY_TYPES', async () => {

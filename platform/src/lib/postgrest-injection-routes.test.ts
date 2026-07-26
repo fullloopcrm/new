@@ -174,9 +174,13 @@ const ALL_FOURTEEN_SITES = [
 
 // Identifiers assigned from an expression containing sanitizePostgrestValue(...)
 // e.g. `const s = sanitizePostgrestValue(x)`, `const ql = \`%${sanitizePostgrestValue(q)}%\``
+// -- or from stripPhone(...), which is equally injection-safe for this purpose
+// since it regexes out every non-digit character (see lib/phone.ts), so the
+// PostgREST-structural chars `, ( ) " \`` this guard cares about can never
+// survive it.
 function sanitizedIdentifiers(src: string): Set<string> {
   const set = new Set<string>()
-  const re = /\b(\w+)\s*=\s*[^;\n]*sanitizePostgrestValue\s*\(/g
+  const re = /\b(\w+)\s*=\s*[^;\n]*(?:sanitizePostgrestValue|stripPhone)\s*\(/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src))) set.add(m[1])
   return set
@@ -187,6 +191,21 @@ function orTemplateLiterals(src: string): string[] {
   const re = /\.or\(\s*`([^`]*)`/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src))) out.push(m[1])
+
+  // Also covers `.or(arr.join(','))` built from several small template
+  // literals (e.g. clients/route.ts's multi-field OR:
+  // `[`a.ilike.%${x}%`, `b.ilike.%${y}%`].join(',')` instead of one big
+  // literal) -- same per-interpolation sanitization contract applies.
+  const joinRe = /\.or\(\s*(\w+)\.join\(/g
+  let jm: RegExpExecArray | null
+  while ((jm = joinRe.exec(src))) {
+    const arrRe = new RegExp(`\\b(?:const|let)\\s+${jm[1]}\\s*=\\s*\\[([\\s\\S]*?)\\]`, 'm')
+    const arrMatch = arrRe.exec(src)
+    if (!arrMatch) continue
+    const tplRe = /`([^`]*)`/g
+    let tm: RegExpExecArray | null
+    while ((tm = tplRe.exec(arrMatch[1]))) out.push(tm[1])
+  }
   return out
 }
 
