@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 import { createToken } from './token'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 // Brute-force throttle for team-portal login. Counts FAILED PIN attempts on TWO
 // compound buckets — per TENANT and per IP — never per (tenant, pin). The old
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
+    await logAuthFailure({ surface: 'team-portal/auth', ip, identifier: tenant_slug, lockedOut: true })
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
@@ -90,8 +92,10 @@ export async function POST(request: Request) {
       rateLimitDb(`team_portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
     ])
     if (!byTenant.allowed || !byIp.allowed) {
+      await logAuthFailure({ surface: 'team-portal/auth', tenantId: tenant.id, ip, lockedOut: true })
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
+    await logAuthFailure({ surface: 'team-portal/auth', tenantId: tenant.id, ip, lockedOut: false, remaining: Math.min(byTenant.remaining, byIp.remaining) })
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
   }
 

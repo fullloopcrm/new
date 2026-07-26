@@ -5,6 +5,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 import { generateCode, createToken } from './token'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 // Brute-force throttle for PIN login. Mirrors /api/team-portal/auth: buckets are
 // keyed by TENANT and by IP, never by the guessed PIN itself — a bucket keyed on
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
     const ip = clientIp(request)
     const rl = await rateLimitDb(`portal_auth_login:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
+      await logAuthFailure({ surface: 'portal/auth', ip, identifier: tenant_slug, lockedOut: true })
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
@@ -102,8 +104,10 @@ export async function POST(request: Request) {
         rateLimitDb(`portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
       ])
       if (!byTenant.allowed || !byIp.allowed) {
+        await logAuthFailure({ surface: 'portal/auth', tenantId: tenant.id, ip, lockedOut: true })
         return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
       }
+      await logAuthFailure({ surface: 'portal/auth', tenantId: tenant.id, ip, lockedOut: false, remaining: Math.min(byTenant.remaining, byIp.remaining) })
       return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
     }
 

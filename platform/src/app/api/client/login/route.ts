@@ -10,6 +10,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
 import { audit } from '@/lib/audit'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
   const rlIp = await rateLimitDb(`client-login:${tenant.id}:${ip}`, 5, 10 * 60 * 1000, { failClosed: true })
   const rlTenant = await rateLimitDb(`client-login-tenant:${tenant.id}`, 100, 10 * 60 * 1000, { failClosed: true })
   if (!rlIp.allowed || !rlTenant.allowed) {
+    await logAuthFailure({ surface: 'client/login', tenantId: tenant.id, ip, lockedOut: true })
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (!client || client.do_not_service) {
+    await logAuthFailure({ surface: 'client/login', tenantId: tenant.id, ip, lockedOut: false, remaining: Math.min(rlIp.remaining, rlTenant.remaining) })
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
   }
 

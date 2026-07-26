@@ -12,6 +12,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || 'unknown'
     const rl = await rateLimitDb(`sales-partner-login:${ip}:${String(email).toLowerCase()}`, 5, 15 * 60 * 1000)
     if (!rl.allowed) {
+      await logAuthFailure({ surface: 'sales-partners/login', ip, identifier: String(email), lockedOut: true })
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (error || !partner || !verifyPin(String(pin), partner.pin_hash as string, partner.pin_salt as string)) {
+      await logAuthFailure({ surface: 'sales-partners/login', tenantId: tenant.id, ip, identifier: String(email), lockedOut: false, remaining: rl.remaining })
       return NextResponse.json({ error: 'Invalid email or PIN' }, { status: 401 })
     }
 

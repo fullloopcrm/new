@@ -26,6 +26,48 @@ interface StatusPayload {
   errors: { total24h: number }
 }
 
+interface ErrorLog {
+  id: string
+  severity: string
+  message: string
+  route: string | null
+  action: string | null
+  tenant_id: string | null
+  tenant_name: string | null
+  metadata: Record<string, unknown> | null
+  resolved: boolean | null
+  resolved_at: string | null
+  resolution_notes: string | null
+  dismissed_at: string | null
+  created_at: string
+}
+
+interface ErrorsPayload {
+  logs: ErrorLog[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+interface AuditLog {
+  id: string
+  tenant_id: string | null
+  tenant_name: string | null
+  action: string
+  entity_type: string
+  entity_id: string | null
+  user_id: string | null
+  details: Record<string, unknown> | null
+  created_at: string
+}
+
+interface AuditPayload {
+  logs: AuditLog[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 function humanSilence(min: number | null): string {
   if (min === null) return 'never'
   if (min < 60) return `${min}m`
@@ -39,10 +81,24 @@ function humanTs(iso: string | null): string {
   return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const
+
 export default function MonitoringPage() {
   const [status, setStatus] = useState<StatusPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string>('')
+
+  const [errors, setErrors] = useState<ErrorsPayload | null>(null)
+  const [errorsLoading, setErrorsLoading] = useState(true)
+  const [severityFilter, setSeverityFilter] = useState<string>('')
+  const [resolvedFilter, setResolvedFilter] = useState<'false' | 'true' | ''>('false')
+  const [page, setPage] = useState(0)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const [audit, setAudit] = useState<AuditPayload | null>(null)
+  const [auditLoading, setAuditLoading] = useState(true)
+  const [auditPage, setAuditPage] = useState(0)
+  const [auditSensitiveOnly, setAuditSensitiveOnly] = useState(true)
 
   async function load() {
     setLoading(true)
@@ -60,11 +116,63 @@ export default function MonitoringPage() {
     setLoading(false)
   }
 
+  async function loadErrors() {
+    setErrorsLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(page) })
+      if (severityFilter) params.set('severity', severityFilter)
+      if (resolvedFilter) params.set('resolved', resolvedFilter)
+      const res = await fetch(`/api/admin/monitoring/errors?${params}`, { cache: 'no-store' })
+      if (res.ok) setErrors(await res.json() as ErrorsPayload)
+    } catch {
+      // Non-fatal — the cron table above still renders.
+    }
+    setErrorsLoading(false)
+  }
+
+  async function updateLog(id: string, action: 'resolve' | 'dismiss' | 'reopen') {
+    setBusyId(id)
+    try {
+      await fetch('/api/admin/monitoring/errors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      })
+      await loadErrors()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function loadAudit() {
+    setAuditLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(auditPage), sensitive_only: String(auditSensitiveOnly) })
+      const res = await fetch(`/api/admin/monitoring/audit?${params}`, { cache: 'no-store' })
+      if (res.ok) setAudit(await res.json() as AuditPayload)
+    } catch {
+      // Non-fatal — the rest of the dashboard still renders.
+    }
+    setAuditLoading(false)
+  }
+
   useEffect(() => {
     load()
     const t = setInterval(load, 60 * 1000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    loadErrors()
+    const t = setInterval(loadErrors, 60 * 1000)
+    return () => clearInterval(t)
+  }, [severityFilter, resolvedFilter, page])
+
+  useEffect(() => {
+    loadAudit()
+    const t = setInterval(loadAudit, 60 * 1000)
+    return () => clearInterval(t)
+  }, [auditPage, auditSensitiveOnly])
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -125,9 +233,194 @@ export default function MonitoringPage() {
               </table>
             </div>
           </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold">Errors &amp; Security</h2>
+              <div className="flex items-center gap-2 text-sm">
+                <select
+                  value={severityFilter}
+                  onChange={(e) => { setPage(0); setSeverityFilter(e.target.value) }}
+                  className="border border-gray-200 rounded-lg px-2 py-1"
+                >
+                  <option value="">All severities</option>
+                  {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select
+                  value={resolvedFilter}
+                  onChange={(e) => { setPage(0); setResolvedFilter(e.target.value as 'false' | 'true' | '') }}
+                  className="border border-gray-200 rounded-lg px-2 py-1"
+                >
+                  <option value="false">Open</option>
+                  <option value="true">Resolved</option>
+                  <option value="">All</option>
+                </select>
+                <button onClick={loadErrors} className="px-3 py-1 bg-black text-white rounded-lg">Refresh</button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2">Severity</th>
+                    <th className="px-4 py-2">Route</th>
+                    <th className="px-4 py-2">Message</th>
+                    <th className="px-4 py-2">Tenant</th>
+                    <th className="px-4 py-2">When</th>
+                    <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {errorsLoading && !errors && (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td></tr>
+                  )}
+                  {errors && errors.logs.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">Nothing to review.</td></tr>
+                  )}
+                  {errors?.logs.map(log => (
+                    <tr key={log.id} className="border-t border-gray-100 align-top">
+                      <td className="px-4 py-3">
+                        <SeverityBadge severity={log.severity} />
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{log.route || '—'}</td>
+                      <td className="px-4 py-3 text-gray-900 max-w-md">{log.message}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.tenant_name || (log.tenant_id ? log.tenant_id.slice(0, 8) : '—')}</td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{humanTs(log.created_at)}</td>
+                      <td className="px-4 py-3">
+                        {log.resolved ? (
+                          <span className="text-green-700">Resolved</span>
+                        ) : log.dismissed_at ? (
+                          <span className="text-gray-400">Dismissed</span>
+                        ) : (
+                          <span className="text-red-600 font-medium">Open</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {!log.resolved && !log.dismissed_at ? (
+                          <div className="flex gap-2">
+                            <button
+                              disabled={busyId === log.id}
+                              onClick={() => updateLog(log.id, 'resolve')}
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded disabled:opacity-50"
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              disabled={busyId === log.id}
+                              onClick={() => updateLog(log.id, 'dismiss')}
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            disabled={busyId === log.id}
+                            onClick={() => updateLog(log.id, 'reopen')}
+                            className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded disabled:opacity-50"
+                          >
+                            Reopen
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {errors && errors.total > errors.pageSize && (
+              <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
+                <span>{errors.total} total</span>
+                <div className="flex gap-2">
+                  <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="px-2 py-1 border border-gray-200 rounded disabled:opacity-40">Prev</button>
+                  <button disabled={(page + 1) * errors.pageSize >= errors.total} onClick={() => setPage(p => p + 1)} className="px-2 py-1 border border-gray-200 rounded disabled:opacity-40">Next</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold">Admin Actions</h2>
+              <div className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-1 text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={auditSensitiveOnly}
+                    onChange={(e) => { setAuditPage(0); setAuditSensitiveOnly(e.target.checked) }}
+                  />
+                  Sensitive only
+                </label>
+                <button onClick={loadAudit} className="px-3 py-1 bg-black text-white rounded-lg">Refresh</button>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 mb-2">
+              {auditSensitiveOnly
+                ? 'Permission changes, deletions, GDPR exports/purges, mass sends — the same set that pings Telegram.'
+                : 'Full admin-action history across every tenant.'}
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-2">Action</th>
+                    <th className="px-4 py-2">Entity</th>
+                    <th className="px-4 py-2">Tenant</th>
+                    <th className="px-4 py-2">By</th>
+                    <th className="px-4 py-2">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLoading && !audit && (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td></tr>
+                  )}
+                  {audit && audit.logs.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">Nothing to show.</td></tr>
+                  )}
+                  {audit?.logs.map(log => (
+                    <tr key={log.id} className="border-t border-gray-100 align-top">
+                      <td className="px-4 py-3 font-mono text-xs text-gray-900">{log.action}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.entity_type}{log.entity_id ? ` (${log.entity_id.slice(0, 8)})` : ''}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.tenant_name || (log.tenant_id ? log.tenant_id.slice(0, 8) : '—')}</td>
+                      <td className="px-4 py-3 text-gray-600">{log.user_id || '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{humanTs(log.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {audit && audit.total > audit.pageSize && (
+              <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
+                <span>{audit.total} total</span>
+                <div className="flex gap-2">
+                  <button disabled={auditPage === 0} onClick={() => setAuditPage(p => Math.max(0, p - 1))} className="px-2 py-1 border border-gray-200 rounded disabled:opacity-40">Prev</button>
+                  <button disabled={(auditPage + 1) * audit.pageSize >= audit.total} onClick={() => setAuditPage(p => p + 1)} className="px-2 py-1 border border-gray-200 rounded disabled:opacity-40">Next</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
+  )
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const styles: Record<string, string> = {
+    critical: 'bg-red-100 text-red-800',
+    high: 'bg-orange-100 text-orange-800',
+    medium: 'bg-yellow-100 text-yellow-800',
+    low: 'bg-gray-100 text-gray-600',
+  }
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${styles[severity] || styles.low}`}>
+      {severity}
+    </span>
   )
 }
 

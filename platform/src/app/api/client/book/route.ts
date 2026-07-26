@@ -18,6 +18,7 @@ import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-prop
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
+import { trackError } from '@/lib/error-tracking'
 import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
@@ -347,11 +348,15 @@ export async function POST(request: Request) {
       p_active_statuses: ['scheduled', 'pending', 'confirmed', 'in_progress'],
       p_source: 'client_portal',
     })
-    if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 })
+    if (claimError) {
+      await trackError(claimError, { source: 'client/book:create_booking_atomic', tenantId: tenant.id, severity: 'high' })
+      return NextResponse.json({ error: claimError.message }, { status: 500 })
+    }
     if (!claim?.created) {
       if (claim?.reason === 'duplicate_date') {
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
+      await trackError(new Error(`create_booking_atomic returned created:false, reason:${claim?.reason}`), { source: 'client/book:atomic_not_created', tenantId: tenant.id, severity: 'high' })
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
     }
 
@@ -382,6 +387,7 @@ export async function POST(request: Request) {
       if ((error as { code?: string } | null)?.code === '23505') {
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
+      await trackError(error || new Error('post-claim booking fetch returned no data'), { source: 'client/book:post_claim_fetch', tenantId: tenant.id, severity: 'high' })
       return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
     }
 
@@ -559,6 +565,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ...data, is_new_client: isNewClient })
   } catch (err) {
     console.error('Booking error:', err)
+    await trackError(err, { source: 'client/book:unhandled', tenantId: tenant.id, severity: 'high' })
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
   }
 }

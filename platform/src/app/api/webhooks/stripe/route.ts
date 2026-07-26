@@ -32,6 +32,7 @@ import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseC
 import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { trackError } from '@/lib/error-tracking'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -783,6 +784,12 @@ export async function POST(request: Request) {
       const tenantId = intent.metadata?.tenant_id
 
       if (bookingId && tenantId) {
+        await trackError(new Error(intent.last_payment_error?.message || 'Unknown error'), {
+          source: 'webhooks/stripe:payment_intent.payment_failed',
+          tenantId,
+          severity: 'high',
+          extra: `booking ${bookingId}`,
+        })
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'payment_failed',
@@ -852,6 +859,13 @@ export async function POST(request: Request) {
         .from('tenants')
         .update({ billing_status: 'past_due' })
         .eq('id', tenant.id)
+      // This is a FullLoop tenant failing to pay FullLoop (not a tenant's own
+      // client payment) — always critical, always worth a Telegram ping.
+      await trackError(new Error(`${tenant.name} subscription payment failed, billing_status -> past_due`), {
+        source: 'webhooks/stripe:invoice.payment_failed',
+        tenantId: tenant.id,
+        severity: 'critical',
+      })
       // Alert platform admin + the tenant owner. Don't auto-suspend yet —
       // let Stripe's dunning retry logic run first.
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL

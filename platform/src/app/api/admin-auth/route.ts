@@ -6,6 +6,7 @@ import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin } from '@/lib/admin-pin'
 import { sendLoginAlert } from '@/lib/login-alert'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { logAuthFailure } from '@/lib/error-tracking'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
@@ -110,6 +111,10 @@ export async function POST(request: Request) {
   // unlimited PIN guessing against the one credential that unlocks everything.
   const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
+    // Deliberately not reading `headers()` here — this branch returns before
+    // any tenant context is needed, and headers() throws outside a real
+    // request scope (hit by rate-limit-only test harnesses).
+    await logAuthFailure({ surface: 'admin-auth', ip, lockedOut: true })
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
@@ -162,5 +167,6 @@ export async function POST(request: Request) {
     }
   }
 
+  await logAuthFailure({ surface: 'admin-auth', tenantId: headerTenantId, ip, lockedOut: false, remaining: rl.remaining })
   return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
 }
