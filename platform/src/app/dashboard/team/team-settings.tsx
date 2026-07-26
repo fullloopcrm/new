@@ -15,6 +15,7 @@ type TeamViewPrefs = {
 }
 
 const selectCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900'
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function TeamSettings() {
   const settings = usePageSettings('team')
@@ -23,6 +24,16 @@ export default function TeamSettings() {
   const tenantSettings = useTenantSettings()
   const selena = (tenantSettings.tenant?.selena_config as Record<string, unknown> | null) || {}
   const defaultPayRate = Number(selena.default_pay_rate ?? 0)
+  const defaultWorkingDays: number[] = Array.isArray(selena.default_working_days)
+    ? (selena.default_working_days as number[])
+    : [1, 2, 3, 4, 5]
+
+  function toggleWorkingDay(day: number) {
+    const next = defaultWorkingDays.includes(day)
+      ? defaultWorkingDays.filter((d) => d !== day)
+      : [...defaultWorkingDays, day].sort((a, b) => a - b)
+    tenantSettings.updateSelenaConfig({ default_working_days: next })
+  }
 
   return (
     <PageSettingsPanel
@@ -69,6 +80,26 @@ export default function TeamSettings() {
               />
               <span className="block text-xs text-white/60 mt-1">Prefilled hourly rate when adding a new team member.</span>
             </label>
+            <div>
+              <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Default working days</span>
+              <div className="flex gap-1.5">
+                {DAY_LABELS.map((label, day) => {
+                  const on = defaultWorkingDays.includes(day)
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleWorkingDay(day)}
+                      className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${on ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <span className="block text-xs text-white/60 mt-1">Prefilled schedule when adding a new team member.</span>
+            </div>
           </div>
 
           <div className="space-y-3 border-t border-gray-800 pt-4">
