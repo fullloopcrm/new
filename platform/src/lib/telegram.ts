@@ -1,5 +1,8 @@
 // Telegram bot helpers — shared between the webhook route (inbound from Jeff)
 // and notify() (outbound operational events to Jeff).
+import { sendEmail } from './email'
+
+const ADMIN_NOTIFICATION_EMAIL = (process.env.ADMIN_NOTIFICATION_EMAIL || '').trim()
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
@@ -69,11 +72,33 @@ export async function notifyOwnerOnTelegram(text: string): Promise<TelegramSendR
 }
 
 // Platform monitoring/warning alerts to the owner's Jefe channel (the "Full Loop
-// CRM" group). Replaces the old email-based alerts (system-check, comms/health
-// monitors, error-tracking). Mirrors jefe/heartbeat.ts EXACTLY — same bot + chat
-// so every platform alert lands in one place. Plain text, no HTML. No-ops
-// silently if the Jefe channel isn't configured.
+// CRM" group). Mirrors jefe/heartbeat.ts EXACTLY — same bot + chat so every
+// platform alert lands in one place. Plain text, no HTML. No-ops silently if
+// the Jefe channel isn't configured.
+//
+// Also fans out to ADMIN_NOTIFICATION_EMAIL when set (re-added 2026-07-26 —
+// email had been dropped in favor of Telegram-only, per Jeff: every platform
+// alert should land in both). This is every existing alertOwner() call site's
+// single choke point, so adding it here covers all of them at once instead of
+// touching each one individually. Email is fire-and-forget and never blocks
+// or fails the Telegram send.
 export async function alertOwner(subject: string, detail?: string): Promise<TelegramSendResult | null> {
+  if (ADMIN_NOTIFICATION_EMAIL) {
+    const html = `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+        <div style="background: #1E2A4A; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0; font-size: 16px;">${subject.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h2>
+        </div>
+        <div style="background: #fff; border: 1px solid #e5e7eb; border-top: 0; padding: 20px; border-radius: 0 0 8px 8px;">
+          ${detail ? `<pre style="white-space: pre-wrap; font-family: sans-serif; font-size: 14px; color: #111; margin: 0 0 16px 0;">${detail.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>` : ''}
+          <p style="color: #999; font-size: 12px; margin: 0;">${new Date().toLocaleString('en-US')} ET</p>
+        </div>
+      </div>
+    `
+    sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `[FL] ${subject}`, html })
+      .catch((e) => console.error('Failed to send owner alert email:', e))
+  }
+
   const chatId = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
   const token = (process.env.JEFE_BOT_TOKEN || '').trim()
   if (!chatId || !token) return null
