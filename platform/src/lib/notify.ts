@@ -102,6 +102,7 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   'comms_fail',
   'selena_error',
   'error',
+  '15min_warning',
 ])
 
 // Per-tenant Telegram: post to the tenant's own bot when configured. A
