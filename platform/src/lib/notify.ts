@@ -1,13 +1,18 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
-import { isCommEnabled } from './comms-prefs'
+import { sendTelegram, notifyOwnerOnTelegram } from './telegram'
+import { decryptSecret } from './secret-crypto'
+import { isCommEnabled, getCommPolicy, buildTemplateData } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
-import { getTenantTimezone } from './tenant-time'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
+  bookingRescheduledEmail,
+  portalPinResetEmail,
   bookingReceivedEmail,
+  clientCancellationEmail,
+  clientPaymentDueEmail,
   followUpEmail,
   dailySummaryEmail,
   dailyOpsRecapEmail,
@@ -15,12 +20,16 @@ import {
   reviewRequestEmail,
   paymentReceiptEmail,
   genericNotificationEmail,
+  teamDailyJobsEmail,
 } from './email-templates'
 
 export type NotificationType =
   | 'booking_confirmed'
   | 'booking_reminder'
   | 'booking_cancelled'
+  | 'job_cancelled'
+  | 'booking_rescheduled'
+  | 'portal_pin_reset'
   | 'booking_completed'
   | 'check_in'
   | 'check_out'
@@ -57,10 +66,7 @@ export type NotificationType =
   | 'selena_error'
   | 'escalation'
   | 'video_uploaded'
-  | '30min_warning'
-  | 'running_late'
-  | 'booking_rescheduled'
-  | 'recurring_expiring'
+  | '15min_warning'
   | 'late_check_in'
   | 'duplicate_recurring_schedule'
   | 'comms_fail'
@@ -74,6 +80,156 @@ export type NotificationType =
   | 'error'
   | 'referral_lead'
   | 'cleaner_application'
+
+// Operational event types worth pushing to the tenant's Telegram, ported from
+// lib/nycmaid/notify.ts (2026-07-22) — that nycmaid-specific notify() had
+// working Telegram delivery, but the live client-booking route and most other
+// send paths call THIS global notify(), which never sent Telegram at all.
+// Per the platform's own global rule (one shared codebase, tenant differences
+// come from data), the fix belongs here so every tenant with a bot configured
+// benefits, not a nycmaid-only patch. Filtered to values that exist in
+// NotificationType above.
+const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
+  'new_lead',
+  'new_client',
+  'new_booking',
+  'referral_lead',
+  'payment_received',
+  'review_received',
+  'escalation',
+  'comms_fail',
+  'selena_error',
+  'error',
+])
+
+// Per-tenant Telegram: post to the tenant's own bot when configured. A
+// resolved tenant with no Telegram of its own stays dashboard-only — falling
+// back to the platform owner bot here would leak every other tenant's
+// new_booking/new_client/payment_received/etc. events into nycmaid/Jeff's own
+// Telegram feed (same cross-tenant leak already fixed in
+// lib/nycmaid/notify.ts). tenantId is always resolved by every call site in
+// this file, so this fallback exists only for symmetry with the nycmaid
+// module's cron/no-request-scope case.
+export async function sendTenantTelegram(
+  tenantId: string | null,
+  tenant: { telegram_bot_token?: string | null; telegram_chat_id?: string | null },
+  text: string,
+): Promise<void> {
+  if (tenant.telegram_bot_token && tenant.telegram_chat_id) {
+    const botToken = decryptSecret(tenant.telegram_bot_token)
+    await sendTelegram(tenant.telegram_chat_id, text, botToken)
+    return
+  }
+  if (!tenantId) await notifyOwnerOnTelegram(text)
+}
+
+/**
+ * Builds the booking-confirmed HTML on the shared Full Loop template,
+ * enriched from the booking itself (cleaner photo/rating, client portal
+ * PIN, recurring flag). Ported from nycmaid's old standalone
+ * clientConfirmationEmail (nycmaid/email-templates.ts) onto the shared
+ * template — same content, shared branding, every tenant. Used both by
+ * notify()'s single-recipient send below and directly by booking-creation
+ * routes that need multi-contact fan-out (client_contacts) instead.
+ */
+async function bookingConfirmedHtml(
+  tenantId: string,
+  bookingId: string | undefined,
+  templateData: ReturnType<typeof buildTemplateData> & { businessAddress?: string },
+  clientName: string,
+  serviceName: string,
+  dateTime: string,
+  metadata?: Record<string, unknown>,
+): Promise<string> {
+  let teamMemberPhotoUrl: string | undefined
+  let teamMemberRatingAvg: number | undefined
+  let teamMemberRatingCount: number | undefined
+  let portalEmail: string | undefined
+  let portalPin: string | undefined
+  let isRecurring: boolean | undefined
+  if (bookingId) {
+    const { data: b } = await supabaseAdmin
+      .from('bookings')
+      .select('recurring_type, clients(email, pin), team_members!bookings_team_member_id_fkey(photo_url, avg_rating, rating_count)')
+      .eq('id', bookingId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    const cleaner = b?.team_members as unknown as { photo_url: string | null; avg_rating: number | null; rating_count: number | null } | null
+    const bClient = b?.clients as unknown as { email: string | null; pin: string | null } | null
+    teamMemberPhotoUrl = cleaner?.photo_url || undefined
+    teamMemberRatingAvg = cleaner?.avg_rating ? Number(cleaner.avg_rating) : undefined
+    teamMemberRatingCount = cleaner?.rating_count || undefined
+    portalEmail = bClient?.email || undefined
+    portalPin = bClient?.pin || undefined
+    isRecurring = !!b?.recurring_type
+  }
+  // Cancellation policy is tenant-configured (Settings → Notifications).
+  // Every tenant gets this standard platform policy until they override it
+  // there — same default for everyone, not a nycmaid-only fallback.
+  const cancellationFallback = {
+    cancellationPolicyOneTime: templateData.cancellationPolicyOneTime
+      || 'First-time and one-time bookings cannot be cancelled or rescheduled within 48 hours of the appointment. We hold your slot and turn away other clients, so late changes directly affect the person doing the work.',
+    cancellationPolicyRecurring: templateData.cancellationPolicyRecurring
+      || 'Recurring service requires 7 days notice to reschedule or cancel. Late changes directly affect the person doing the work.',
+  }
+  // Tenant-configured (Settings → Notifications, newline-separated), same
+  // standard-until-overridden treatment as the cancellation policy. Default
+  // is trade-agnostic — cleaning, landscaping, dumpster removal, etc. — not
+  // nycmaid-specific cleaning copy.
+  const prepTips = (templateData.prepTips as string | undefined)?.split('\n').map(s => s.trim()).filter(Boolean) || [
+    'Clear the work area so our team can get to it without delay',
+    'Secure any pets so they\'re not underfoot or anxious around our team',
+    'Make sure access is arranged (gate codes, keys, doorman notified, or someone home if needed)',
+    'Let us know about anything fragile, valuable, or off-limits before we start',
+  ]
+  return bookingConfirmationEmail({
+    ...templateData,
+    ...cancellationFallback,
+    clientName,
+    serviceName: serviceName || 'Appointment',
+    dateTime,
+    teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
+    address: metadata?.address as string | undefined,
+    price: metadata?.price as string | undefined,
+    portalUrl: metadata?.portalUrl as string | undefined,
+    teamMemberPhotoUrl,
+    teamMemberRatingAvg,
+    teamMemberRatingCount,
+    portalEmail,
+    portalPin,
+    isRecurring,
+    prepTips,
+  })
+}
+
+/**
+ * Public entry point for booking-confirmation HTML — self-contained (fetches
+ * its own tenant branding + comm policy), for callers that send outside
+ * notify()'s single-recipient path, e.g. multi-contact fan-out via
+ * sendClientEmail() in lib/client-contacts.ts.
+ */
+export async function buildBookingConfirmationEmail(
+  tenantId: string,
+  bookingId: string | undefined,
+  fields: { clientName: string; serviceName: string; dateTime: string; teamMemberName?: string; address?: string; price?: string; portalUrl?: string },
+): Promise<string> {
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('name, slug, primary_color, logo_url, address')
+    .eq('id', tenantId)
+    .single()
+  const policy = await getCommPolicy(tenantId)
+  const templateData = {
+    ...buildTemplateData({ name: tenant?.name || 'Full Loop CRM', primary_color: tenant?.primary_color, logo_url: tenant?.logo_url }, policy),
+    businessAddress: (tenant as { address?: string | null } | null)?.address || undefined,
+  }
+  return bookingConfirmedHtml(tenantId, bookingId, templateData, fields.clientName, fields.serviceName, fields.dateTime, {
+    teamMemberName: fields.teamMemberName,
+    address: fields.address,
+    price: fields.price,
+    portalUrl: fields.portalUrl,
+  })
+}
 
 export async function notify({
   tenantId,
@@ -135,11 +291,21 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, timezone')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id, commission_rate')
     .eq('id', tenantId)
     .single()
 
   if (!tenant) return { success: false, error: 'Tenant not found' }
+
+  // Telegram is orthogonal to the email/sms `channel` param below — it goes
+  // to the tenant's own ops chat regardless of recipientType, same as
+  // lib/nycmaid/notify.ts. Fire-and-forget: a Telegram failure must never
+  // block the DB notification record or the primary email/SMS send.
+  if (TELEGRAM_NOTIFY_TYPES.has(type)) {
+    sendTenantTelegram(tenantId, tenant, `${title}\n\n${message}`).catch((err) => {
+      console.error(`Notification telegram send error (${type}):`, err)
+    })
+  }
 
   // Get recipient contact info
   let email: string | null = null
@@ -164,11 +330,15 @@ export async function notify({
     phone = data?.phone || (tenant as { phone?: string | null }).phone || null
   }
 
-  // Build branded HTML for email channel
+  // Build branded HTML for email channel — tenant branding + this tenant's
+  // comm policy (support phone, review link, cancellation policy text, etc.)
+  // in one shot, so every template call site stays consistent.
+  const policy = tenantId ? await getCommPolicy(tenantId) : {}
   const templateData = {
-    tenantName: tenant.name || 'Your Business',
-    primaryColor: tenant.primary_color || '#111827',
-    logoUrl: tenant.logo_url || undefined,
+    ...buildTemplateData(
+      { name: tenant.name, primary_color: tenant.primary_color, logo_url: tenant.logo_url, commission_rate: (tenant as { commission_rate?: number | null }).commission_rate },
+      policy,
+    ),
     // CAN-SPAM: physical postal address in the shared email footer when on file.
     businessAddress: (tenant as { address?: string | null }).address || undefined,
   }
@@ -197,12 +367,22 @@ export async function notify({
       })
       break
     case 'daily_summary':
-      htmlBody = dailySummaryEmail({
-        ...templateData,
-        todaysJobs: (metadata?.todaysJobs as number) || 0,
-        yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
-        upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
-      })
+      // Same notify() type covers two different audiences: the admin metrics
+      // recap and a team member's own upcoming-jobs list. Metadata shape tells
+      // them apart — team-member calls pass `jobs`, admin calls don't.
+      htmlBody = (recipientType === 'team_member' && metadata?.jobs)
+        ? teamDailyJobsEmail({
+            ...templateData,
+            teamMemberName: (metadata?.teamMemberName as string) || clientName,
+            jobs: metadata?.jobs as never[],
+            portalUrl: metadata?.portalUrl as string | undefined,
+          })
+        : dailySummaryEmail({
+            ...templateData,
+            todaysJobs: (metadata?.todaysJobs as number) || 0,
+            yesterdayRevenue: (metadata?.yesterdayRevenue as string) || '$0',
+            upcomingSchedules: (metadata?.upcomingSchedules as number) || 0,
+          })
       break
     case 'review_request':
       htmlBody = reviewRequestEmail({
@@ -217,20 +397,28 @@ export async function notify({
         clientName,
         serviceName,
         amount: (metadata?.amount as string) || '$0',
-        date: (metadata?.date as string) || new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) }),
+        date: (metadata?.date as string) || new Date().toLocaleDateString(),
         paymentMethod: (metadata?.paymentMethod as string) || 'Card',
       })
       break
     case 'booking_confirmed':
-      htmlBody = bookingConfirmationEmail({
+      htmlBody = await bookingConfirmedHtml(tenantId, bookingId, templateData, clientName, serviceName, message, metadata)
+      break
+    case 'booking_rescheduled':
+      htmlBody = bookingRescheduledEmail({
         ...templateData,
         clientName,
-        serviceName: serviceName || 'Appointment',
-        dateTime: message,
-        teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
-        address: metadata?.address as string | undefined,
-        price: metadata?.price as string | undefined,
+        oldDateTime: (metadata?.oldDateTime as string) || '',
+        newDateTime: (metadata?.newDateTime as string) || message,
+      })
+      break
+    case 'portal_pin_reset':
+      htmlBody = portalPinResetEmail({
+        ...templateData,
+        recipientName: (metadata?.recipientName as string) || clientName,
+        pin: (metadata?.pin as string) || '',
         portalUrl: metadata?.portalUrl as string | undefined,
+        wasReset: metadata?.wasReset as boolean | undefined,
       })
       break
     case 'booking_received':
@@ -239,6 +427,48 @@ export async function notify({
         clientName,
         serviceName: serviceName || 'Appointment',
         dateTime: message,
+      })
+      break
+    case 'booking_cancelled':
+      htmlBody = clientCancellationEmail({
+        ...templateData,
+        clientName,
+        serviceName: serviceName || 'Appointment',
+        dateTime: message,
+      })
+      break
+    case 'payment_due':
+      htmlBody = clientPaymentDueEmail({
+        ...templateData,
+        clientName,
+        teamMemberName: metadata?.teamMemberName as string | undefined,
+        amount: (metadata?.amount as string) || '0',
+        paymentUrl: metadata?.paymentUrl as string | undefined,
+      })
+      break
+    case 'daily_ops_recap':
+      htmlBody = dailyOpsRecapEmail({
+        ...templateData,
+        todayDate: (metadata?.todayDate as string) || '',
+        tomorrowDate: (metadata?.tomorrowDate as string) || '',
+        todayJobs: (metadata?.todayJobs as never[]) || [],
+        tomorrowJobs: (metadata?.tomorrowJobs as never[]) || [],
+        todayRevenue: (metadata?.todayRevenue as string) || '$0',
+        todayLabor: (metadata?.todayLabor as string) || '$0',
+        todayProfit: (metadata?.todayProfit as string) || '$0',
+        todayJobCount: (metadata?.todayJobCount as number) || 0,
+        tomorrowJobCount: (metadata?.tomorrowJobCount as number) || 0,
+        todayPaid: (metadata?.todayPaid as number) || 0,
+        todayUnpaid: (metadata?.todayUnpaid as number) || 0,
+      })
+      break
+    case 'daily_digest':
+      htmlBody = notificationDigestEmail({
+        ...templateData,
+        date: (metadata?.date as string) || '',
+        emailCount: (metadata?.emailCount as number) || 0,
+        smsCount: (metadata?.smsCount as number) || 0,
+        entries: (metadata?.entries as never[]) || [],
       })
       break
   }
