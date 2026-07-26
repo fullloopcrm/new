@@ -16,6 +16,7 @@ import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
+import { trackError } from '@/lib/error-tracking'
 
 interface ApplyBody {
   name?: string
@@ -155,6 +156,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, id: data.id })
   } catch (err) {
     console.error('POST /api/apply error:', err)
+    await trackError(err, { source: 'api/apply', tenantId: tenant.id, severity: 'high' }).catch(() => {})
     return NextResponse.json({ error: 'Failed to submit application' }, { status: 500 })
   }
 }

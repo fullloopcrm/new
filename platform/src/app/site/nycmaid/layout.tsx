@@ -8,6 +8,7 @@ import MarketingFooter from '@/app/site/nycmaid/_components/MarketingFooter'
 import ReferralBanner from '@/app/site/nycmaid/_components/ReferralBanner'
 import ConsentBanner from '@/components/consent/ConsentBanner'
 import TenantAnalyticsScript from '@/components/analytics/TenantAnalyticsScript'
+import ClientErrorMonitor from '@/components/monitoring/ClientErrorMonitor'
 
 // Fallback title for tenant pages that set no metadata of their own — namely the
 // 'use client' booking/apply/feedback/referral pages, which would otherwise
@@ -31,6 +32,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main id="main-content">{children}</main>
       <MarketingFooter />
       <TenantAnalyticsScript slug="nycmaid" />
+      <ClientErrorMonitor slug="nycmaid" />
       <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )

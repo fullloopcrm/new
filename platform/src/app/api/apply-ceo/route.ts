@@ -11,6 +11,7 @@ import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { trackError } from '@/lib/error-tracking'
 
 interface CeoBody {
   name?: string
@@ -126,6 +127,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, id: data.id })
   } catch (err) {
     console.error('POST /api/apply-ceo error:', err)
+    await trackError(err, { source: 'api/apply-ceo', tenantId: tenant.id, severity: 'high' }).catch(() => {})
     return NextResponse.json({ error: 'Failed to submit application' }, { status: 500 })
   }
 }
