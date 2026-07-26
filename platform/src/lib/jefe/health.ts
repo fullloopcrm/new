@@ -110,6 +110,16 @@ export interface PlatformHealth {
     swept_at: string | null // null if the sweep has never run
     tenants_with_failures: { tenant_name: string; failed: string[] }[]
   }
+  // 8. Uptime — reads the existing Fortress cron's results (tenant_health),
+  // does not re-run any checks itself. `failing` = site is down/misrouting
+  // RIGHT NOW (Fortress already Telegrams this separately); `expiring_certs`
+  // = SSL expiry within 14d, a slower-moving signal Fortress tracks but only
+  // alerts on its own separate channel.
+  uptime: {
+    checked_at: string | null
+    failing: { tenant_name: string; domain: string; detail: string }[]
+    expiring_certs: { tenant_name: string; domain: string; days_remaining: number | null; detail: string }[]
+  }
 }
 
 const hoursAgo = (now: Date, h: number) => new Date(now.getTime() - h * 60 * 60 * 1000).toISOString()
@@ -186,6 +196,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     cronLasts,
     integrationsRes,
     integrationsSweptAtRes,
+    uptimeRes,
   ] = await Promise.all([
     supabaseAdmin
       .from('tenants')
@@ -221,6 +232,9 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       .order('failed_count', { ascending: false })
       .limit(20),
     supabaseAdmin.from('jefe_integration_health').select('checked_at').order('checked_at', { ascending: false }).limit(1),
+    // Read-only: Fortress (cron/tenant-health) owns the actual checks + its
+    // own direct alerting. Jefe just reads the latest results here.
+    supabaseAdmin.from('tenant_health').select('slug, domain, status, checks, detail, checked_at'),
   ])
 
   const tenants = (tenantsRes.data || []) as TenantRow[]
@@ -332,6 +346,33 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   }
   inactive.sort((a, b) => a.last_active.localeCompare(b.last_active)) // most stale first
 
+  // --- 7. uptime (reads Fortress's existing tenant_health results) ---
+  interface TenantHealthRow {
+    slug: string
+    domain: string
+    status: string
+    checks: { sslExpiry?: { daysRemaining: number | null; detail: string } } | null
+    detail: string
+    checked_at: string
+  }
+  const uptimeRows = (uptimeRes.data || []) as TenantHealthRow[]
+  const uptimeFailing = uptimeRows
+    .filter((r) => r.status === 'fail')
+    .map((r) => ({ tenant_name: r.slug, domain: r.domain, detail: r.detail }))
+  const expiringCerts = uptimeRows
+    .filter((r) => {
+      const d = r.checks?.sslExpiry?.daysRemaining
+      return typeof d === 'number' && d < 14
+    })
+    .map((r) => ({
+      tenant_name: r.slug,
+      domain: r.domain,
+      days_remaining: r.checks?.sslExpiry?.daysRemaining ?? null,
+      detail: r.checks?.sslExpiry?.detail || '',
+    }))
+  const uptimeCheckedAt = uptimeRows.reduce<string | null>((latest, r) => (!latest || r.checked_at > latest ? r.checked_at : latest), null)
+  const uptime: PlatformHealth['uptime'] = { checked_at: uptimeCheckedAt, failing: uptimeFailing, expiring_certs: expiringCerts }
+
   return {
     generated_at: now.toISOString(),
     sales: {
@@ -367,5 +408,6 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
         failed: r.failed,
       })),
     },
+    uptime,
   }
 }

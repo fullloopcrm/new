@@ -44,6 +44,7 @@ function builder(table: string) {
       upsertedRows.push(rows)
       return { data: null, error: null }
     },
+    delete: () => chain,
     then: (resolve: (v: { data: unknown; error: unknown }) => void) => {
       if (table === 'tenant_domains') {
         const rows = tenantDomainsRows.filter((r) => (eqs.active === undefined ? true : eqs.active === true))
@@ -80,6 +81,12 @@ vi.mock('@/lib/tenant-health', () => ({
       detail: 'ok',
     }
   }),
+}))
+
+// verifySslExpiry opens a real TLS connection -- this suite is about domain
+// source precedence, not cert expiry, so keep it hermetic like checkTenant above.
+vi.mock('@/lib/onboarding-verify', () => ({
+  verifySslExpiry: vi.fn(async () => ({ ok: true, detail: 'expires in 90d', daysRemaining: 90 })),
 }))
 
 import { GET } from './route'

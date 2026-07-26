@@ -20,7 +20,7 @@ const RERUNNABLE_CRONS = new Set([
   'follow-up', 'health-check', 'system-check', 'late-check-in', 'schedule-monitor',
   'payment-reminder', 'email-monitor', 'sales-follow-ups', 'post-job-followup',
   'no-show-check', 'health-monitor', 'comms-monitor', 'rating-prompt',
-  'confirmation-reminder', 'anthropic-health', 'integration-health-sweep',
+  'confirmation-reminder', 'anthropic-health', 'integration-health-sweep', 'tenant-health',
 ])
 
 interface TenantRow {
