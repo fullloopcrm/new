@@ -61,7 +61,12 @@
   overflow: hidden;
 }
 @media (max-width: 900px) {
-  .lc-shell { grid-template-columns: 1fr; }
+  /* Single-column stack: without an explicit row split, grid defaults to an
+     even 50/50 split between sidebar and chat, leaving almost no room for
+     either once the sidebar carries Pinned + channels + a footer. Give the
+     sidebar a fixed budget and let the chat pane (the primary action) take
+     the rest. */
+  .lc-shell { grid-template-columns: 1fr; grid-template-rows: 220px 1fr; }
 }
 
 .lc-sidebar {
