@@ -8,6 +8,7 @@ import MarketingNav from '@/app/site/the-florida-maid/_components/marketing/Mark
 import MarketingFooter from '@/app/site/the-florida-maid/_components/marketing/MarketingFooter'
 import ConsentBanner from '@/components/consent/ConsentBanner'
 import ConsentGate from '@/components/consent/ConsentGate'
+import ClientErrorMonitor from '@/components/monitoring/ClientErrorMonitor'
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <Script id="floridamaid-analytics" src="/sites/the-florida-maid/t.js" strategy="afterInteractive" />
       </ConsentGate>
       <ConsentBanner privacyHref="/privacy-policy" />
+      <ClientErrorMonitor slug="the-florida-maid" />
     </div>
   )
 }

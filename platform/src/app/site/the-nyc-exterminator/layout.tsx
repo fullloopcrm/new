@@ -10,6 +10,7 @@ import Footer from "@/app/site/the-nyc-exterminator/_components/Footer";
 import Tracker from "@/app/site/the-nyc-exterminator/_components/Tracker";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/the-nyc-exterminator/_lib/seo";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID ?? "";
@@ -121,6 +122,7 @@ export default function RootLayout({
           />
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="the-nyc-exterminator" />
       </body>
     </html>
   );

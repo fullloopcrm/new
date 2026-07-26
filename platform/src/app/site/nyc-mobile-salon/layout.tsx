@@ -4,6 +4,7 @@ import { Playfair_Display } from "next/font/google";
 import LayoutShell from "@/app/site/nyc-mobile-salon/_components/LayoutShell";
 import "./globals.css";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const geistSans = Geist({
@@ -60,6 +61,7 @@ export default function RootLayout({
           />
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="nyc-mobile-salon" />
       </body>
     </html>
   );

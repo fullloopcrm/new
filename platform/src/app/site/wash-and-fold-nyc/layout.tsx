@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 export const metadata: Metadata = {
@@ -108,6 +109,7 @@ s0.parentNode.insertBefore(s1,s0);
           />
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="wash-and-fold-nyc" />
       </body>
     </html>
   );

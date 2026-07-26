@@ -7,6 +7,7 @@ import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/the-nyc-ma
 import Navbar from "@/app/site/the-nyc-marketing-company/_components/Navbar";
 import Footer from "@/app/site/the-nyc-marketing-company/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
@@ -136,6 +137,7 @@ export default function RootLayout({
         `}</Script>
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
+        <ClientErrorMonitor slug="the-nyc-marketing-company" />
       </body>
     </html>
   );

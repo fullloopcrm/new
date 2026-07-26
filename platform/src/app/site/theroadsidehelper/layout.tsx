@@ -6,6 +6,7 @@ import { Header } from "@/app/site/theroadsidehelper/_components/Header";
 import { Footer } from "@/app/site/theroadsidehelper/_components/Footer";
 import { localBusinessSchema, organizationSchema, webSiteSchema, graph } from "@/app/site/theroadsidehelper/_lib/schema";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
@@ -115,6 +116,7 @@ s0.parentNode.insertBefore(s1,s0);
           />
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="theroadsidehelper" />
       </body>
     </html>
   );

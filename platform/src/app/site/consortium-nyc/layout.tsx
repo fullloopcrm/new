@@ -8,6 +8,7 @@ import Navbar from "@/app/site/consortium-nyc/_components/Navbar";
 import Footer from "@/app/site/consortium-nyc/_components/Footer";
 import { PartnerBanner } from "@/app/site/consortium-nyc/_lib/brand";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
@@ -141,6 +142,7 @@ export default function RootLayout({
         `}</Script>
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
+        <ClientErrorMonitor slug="consortium-nyc" />
       </body>
     </html>
   );

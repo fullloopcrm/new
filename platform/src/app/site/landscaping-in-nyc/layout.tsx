@@ -6,6 +6,7 @@ import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/landscapin
 import Navbar from "@/app/site/landscaping-in-nyc/_components/Navbar";
 import Footer from "@/app/site/landscaping-in-nyc/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
@@ -138,6 +139,7 @@ s0.parentNode.insertBefore(s1,s0);
           />
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
+        <ClientErrorMonitor slug="landscaping-in-nyc" />
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import { Footer } from "@/app/site/nycroadsideemergencyassistance/_components/Fo
 import { MobileStickyBar } from "@/app/site/nycroadsideemergencyassistance/_components/MobileStickyBar";
 import { JsonLd, organizationSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
@@ -106,6 +107,7 @@ export default function RootLayout({
           />
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="nycroadsideemergencyassistance" />
       </body>
     </html>
   );

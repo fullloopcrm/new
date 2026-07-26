@@ -5,6 +5,7 @@ import "./globals.css";
 import { SiteChromeHeader, SiteChromeFooter } from "@/app/site/the-home-services-company/_components/SiteChrome";
 import { SiteSchema } from "@/app/site/the-home-services-company/_components/SiteSchema";
 import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
@@ -68,6 +69,7 @@ export default function RootLayout({
           </Script>
         </ConsentGate>
         <ConsentBanner />
+        <ClientErrorMonitor slug="the-home-services-company" />
       </body>
     </html>
   );

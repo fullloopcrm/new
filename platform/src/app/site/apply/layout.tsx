@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import ClientErrorMonitorByHeaders from '@/components/monitoring/ClientErrorMonitorByHeaders'
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantFromHeaders()
@@ -27,5 +28,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function ApplyLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      {children}
+      <ClientErrorMonitorByHeaders />
+    </>
+  )
 }

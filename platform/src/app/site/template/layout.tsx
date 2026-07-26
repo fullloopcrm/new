@@ -7,6 +7,7 @@ import MarketingNav from '@/app/site/template/_components/MarketingNav'
 import MarketingFooter from '@/app/site/template/_components/MarketingFooter'
 import ConsentBanner from '@/app/site/template/_components/ConsentBanner'
 import AnalyticsGate from '@/app/site/template/_components/AnalyticsGate'
+import ClientErrorMonitorByHeaders from '@/components/monitoring/ClientErrorMonitorByHeaders'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { buildThemeCss } from '@/app/site/template/_config/theme'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
@@ -66,6 +67,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <main id="main-content">{children}</main>
       <MarketingFooter config={config} />
       <AnalyticsGate />
+      <ClientErrorMonitorByHeaders />
       <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )
