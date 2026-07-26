@@ -85,11 +85,17 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'calendar': {
     page: 'calendar', title: 'Calendar',
-    tips: ['Pick which view the calendar opens to.'],
+    tips: ['Pick which view the calendar opens to.', 'Scheduling rules below apply tenant-wide — they control what clients and the booking form can actually do, not just this view.'],
     fields: [
       { key: 'default_view', label: 'Default view', type: 'select', layer: 'user', helper: 'Which calendar view opens by default.', options: [
         { value: 'month', label: 'Month' }, { value: 'timeline', label: 'Timeline' }, { value: 'kanban', label: 'Kanban' },
       ], default: 'month' },
+      { key: 'booking_buffer_minutes', label: 'Booking buffer (minutes)', type: 'number', layer: 'tenant_column', min: 0, max: 240, step: 15, default: 60, helper: 'Minimum notice, in minutes, before a slot can be booked.' },
+      { key: 'default_duration_hours', label: 'Default job duration (hours)', type: 'number', layer: 'tenant_column', min: 0.5, max: 12, step: 0.5, default: 2, helper: 'Prefilled duration for a new booking when the service has none set.' },
+      { key: 'min_days_ahead', label: 'Minimum days ahead', type: 'number', layer: 'tenant_column', min: 0, max: 30, step: 1, default: 1, helper: 'Earliest a client can book relative to today.' },
+      { key: 'allow_same_day', label: 'Allow same-day booking', type: 'toggle', layer: 'tenant_column', default: false, helper: 'Overrides minimum days ahead for today only.' },
+      { key: 'open_365', label: 'Open 365 days/year', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'When off, federal holidays block booking/availability.' },
+      { key: 'smart_recurring_assign', label: 'Smart-assign recurring jobs', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'Each generated recurring occurrence gets the best-available team member instead of hard-locking the schedule’s original assignee.' },
     ],
   },
   'catalog': {
@@ -143,11 +149,15 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'finance': {
     page: 'finance', title: 'Finance',
-    tips: ['Which date range Finance opens to.'],
+    tips: ['Which date range Finance opens to.', 'Fiscal year and tax rate feed reporting and tax-line calculations tenant-wide.'],
     fields: [
       { key: 'default_range', label: 'Default date range', type: 'select', layer: 'user', helper: 'Which date range Finance opens showing.', options: [
         { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'This Quarter' }, { value: 'ytd', label: 'Year-to-date' },
       ], default: 'month' },
+      { key: 'fiscal_year_start', label: 'Fiscal year start month', type: 'select', layer: 'tenant_selena', helper: 'Which month your fiscal year begins.', options: [
+        { value: '1', label: 'January' }, { value: '2', label: 'February' }, { value: '3', label: 'March' }, { value: '4', label: 'April' }, { value: '5', label: 'May' }, { value: '6', label: 'June' }, { value: '7', label: 'July' }, { value: '8', label: 'August' }, { value: '9', label: 'September' }, { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' },
+      ], default: '1' },
+      { key: 'tax_rate', label: 'Tax rate (%)', type: 'number', layer: 'tenant_selena', min: 0, max: 100, step: 0.1, default: 0, helper: 'Applied to tax-line calculations in reporting.' },
     ],
   },
   'find-cleaner': {
@@ -209,11 +219,18 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'sales': {
     page: 'sales', title: 'Sales',
-    tips: ['Which step of the pipeline the Sales page opens to.'],
+    tips: ['Which step of the pipeline the Sales page opens to.', 'Quote defaults below prefill every new proposal in Quotes.'],
     fields: [
       { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which step of the pipeline opens by default (a ?tab= link always overrides this).', options: [
         { value: 'pipeline', label: 'Pipeline' }, { value: 'leads', label: 'Leads' }, { value: 'qualify', label: 'Qualify' }, { value: 'quotes', label: 'Quotes' }, { value: 'sales', label: 'Sales' }, { value: 'schedule', label: 'Schedule' },
       ], default: 'pipeline' },
+      { key: 'proposal_valid_days', label: 'Quote valid for (days)', type: 'number', layer: 'tenant_selena', min: 1, max: 180, step: 1, default: 30, helper: 'How long a new quote stays valid before it expires.' },
+      { key: 'proposal_deposit_type', label: 'Deposit type', type: 'select', layer: 'tenant_selena', helper: 'Whether new quotes default to requiring a deposit.', options: [
+        { value: 'none', label: 'None' }, { value: 'percent', label: 'Percent of total' }, { value: 'flat', label: 'Flat amount' },
+      ], default: 'none' },
+      { key: 'proposal_deposit_value', label: 'Deposit value', type: 'number', layer: 'tenant_selena', min: 0, step: 1, default: 0, helper: 'Percent (0-100) or flat dollar amount, depending on deposit type.' },
+      { key: 'currency_symbol', label: 'Currency symbol', type: 'text', layer: 'tenant_selena', default: '$', helper: 'Shown on every quote and proposal total.' },
+      { key: 'proposal_terms', label: 'Default quote terms', type: 'textarea', layer: 'tenant_selena', default: '', helper: 'Prefilled terms & conditions text on every new quote — leave blank for none.' },
     ],
   },
   'sales-partners': {
