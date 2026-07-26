@@ -36,9 +36,9 @@ function seed() {
   fake._store.clear()
   fake._seed('team_members', [{ id: MEMBER_A1, tenant_id: TENANT_A, name: 'Alice' }])
   fake._seed('connect_channels', [
-    { id: 'chan-a-general', tenant_id: TENANT_A, type: 'general', name: 'General' },
+    { id: 'chan-a-general', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_A1, name: 'General' },
     { id: 'chan-a-client', tenant_id: TENANT_A, type: 'client', client_id: 'client-a1', name: 'Victor' },
-    { id: 'chan-b-general', tenant_id: TENANT_B, type: 'general', name: 'Other tenant general' },
+    { id: 'chan-b-general', tenant_id: TENANT_B, type: 'team', team_member_id: MEMBER_A1, name: 'Other tenant general' },
   ])
   fake._seed('connect_messages', [])
   fake._seed('connect_read_cursors', [])
@@ -60,21 +60,19 @@ describe('POST /api/team-portal/connect — channel_id ownership', () => {
   it('WRONG-TENANT PROBE: a foreign channel_id from another tenant is not honored', async () => {
     const token = createToken(MEMBER_A1, TENANT_A)
     const res = await POST(postReq({ body: 'cross-tenant probe', channel_id: 'chan-b-general' }, token) as never)
-    expect(res.status).toBe(201)
+    // resolveChannel now fails closed on an unowned channel_id (400) rather
+    // than silently rerouting to the caller's own channel.
+    expect(res.status).toBe(400)
     const inserted = fake._store.get('connect_messages') || []
-    expect(inserted).toHaveLength(1)
-    expect(inserted[0].channel_id).toBe('chan-a-general')
-    expect(inserted[0].tenant_id).toBe(TENANT_A)
+    expect(inserted).toHaveLength(0)
   })
 
   it('WRONG-TYPE PROBE: a same-tenant client channel_id is not honored by a team sender', async () => {
     const token = createToken(MEMBER_A1, TENANT_A)
     const res = await POST(postReq({ body: 'hijacked into client channel', channel_id: 'chan-a-client' }, token) as never)
-    expect(res.status).toBe(201)
+    expect(res.status).toBe(400)
     const inserted = fake._store.get('connect_messages') || []
-    expect(inserted).toHaveLength(1)
-    expect(inserted[0].channel_id).toBe('chan-a-general')
-    expect(inserted[0].channel_id).not.toBe('chan-a-client')
+    expect(inserted).toHaveLength(0)
   })
 
   it("positive control: the caller's own general channel_id is honored", async () => {

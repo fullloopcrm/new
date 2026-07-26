@@ -32,6 +32,7 @@ function chain(table: string) {
     },
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
     single: async () => ({ data: matched()[0] ?? null, error: null }),
+    maybeSingle: async () => ({ data: matched()[0] ?? null, error: null }),
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
   return c
@@ -46,8 +47,8 @@ import { GET } from './route'
 
 beforeEach(() => {
   DB.connect_channels = [
-    { id: 'chan-a', tenant_id: TENANT_A, type: 'general' },
-    { id: 'chan-b', tenant_id: TENANT_B, type: 'general' },
+    { id: 'chan-a', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_ID },
+    { id: 'chan-b', tenant_id: TENANT_B, type: 'team', team_member_id: MEMBER_ID },
   ]
   DB.connect_read_cursors = []
   DB.connect_messages = [

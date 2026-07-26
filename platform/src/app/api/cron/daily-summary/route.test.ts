@@ -24,12 +24,16 @@ vi.mock('@/lib/sms-templates', () => ({
   smsDailySummary: vi.fn(() => 'summary'),
 }))
 
-let tenantsRows: Array<{ id: string; name: string; telnyx_api_key: string | null; telnyx_phone: string | null; resend_api_key: string | null }>
+let tenantsRows: Array<{ id: string; name: string; telnyx_api_key: string | null; telnyx_phone: string | null; resend_api_key: string | null; owner_phone?: string | null; phone?: string | null }>
 let schedulesRows: Array<{ id: string; client_id: string; recurring_type: string; clients: { name: string } }>
 // Bookings fixtures, keyed by BOTH schedule_id and tenant_id — a poisoned
 // cross-tenant row shares schedule_id with a legit tenant's schedule but
 // must not be matched (see P38-class wrong-tenant probe below).
 let bookingRows: Array<{ schedule_id: string; tenant_id: string; start_time: string }>
+// Tomorrow's admin-schedule-digest fixtures — separate from bookingRows
+// (recurring-expiration lookups) since the admin digest queries `bookings`
+// with a different filter shape (start_time window, no schedule_id).
+let tomorrowJobRows: Array<{ id: string; start_time: string; end_time: string; service_type: string | null; team_members: { name: string } | null }>
 // Simulates rows already sitting in the DB from a prior cron run.
 let seededNotifications: Array<{ tenant_id: string; type: string; message: string; created_at: string }>
 const insertedNotifications: Array<Record<string, unknown>> = []
@@ -43,6 +47,11 @@ function likeMatches(message: string, pattern: string): boolean {
 function builder(table: string) {
   const eqs: Record<string, unknown> = {}
   let likePattern: string | null = null
+  // The admin-schedule-digest query is the only `bookings` read that calls
+  // `.lte()` (a start_time window) — every other bookings query in this
+  // route uses `.lt()`. Cheap way to route this mock to the right fixture
+  // set without threading a second table name through the builder.
+  let isStartTimeWindowQuery = false
   const chain = {
     select: () => chain,
     eq: (col: string, val: unknown) => {
@@ -52,7 +61,10 @@ function builder(table: string) {
     in: () => chain,
     gte: () => chain,
     lt: () => chain,
-    lte: () => chain,
+    lte: () => {
+      isStartTimeWindowQuery = true
+      return chain
+    },
     not: () => chain,
     like: (_col: string, pattern: string) => {
       likePattern = pattern
@@ -85,6 +97,10 @@ function builder(table: string) {
       if (table === 'tenants') return resolve({ data: tenantsRows, error: null })
       if (table === 'team_members') return resolve({ data: [], error: null, count: 0 })
       if (table === 'recurring_schedules') return resolve({ data: schedulesRows, error: null })
+      if (table === 'bookings' && isStartTimeWindowQuery) {
+        const sorted = [...tomorrowJobRows].sort((a, b) => (a.start_time < b.start_time ? -1 : 1))
+        return resolve({ data: sorted, error: null })
+      }
       if (table === 'bookings') return resolve({ data: [], error: null, count: 0 })
       if (table === 'notifications') {
         // Faithful to the real pre-fix bug: base filter is tenant_id+type
@@ -196,5 +212,79 @@ describe('daily-summary cron — recurring-expiration lookup is tenant-scoped (P
       (n) => n.type === 'recurring_expiring' && String(n.message).includes('Alice')
     )
     expect(aliceInserted).toBeFalsy()
+  })
+})
+
+describe('daily-summary cron — admin next-day schedule text (8pm tenant-local)', () => {
+  beforeEach(() => {
+    // 8pm EDT on 2026-07-22 = 2026-07-23T00:00:00Z — runTeam fires, runAdmin does not.
+    vi.setSystemTime(new Date('2026-07-23T00:00:00Z'))
+    tenantsRows = [{
+      id: NYCMAID_TENANT_ID,
+      name: 'The NYC Maid',
+      telnyx_api_key: 'key',
+      telnyx_phone: '+15550000000',
+      resend_api_key: null,
+      owner_phone: '+15551234567',
+      phone: null,
+    }]
+    tomorrowJobRows = [
+      { id: 'b2', start_time: '2026-07-23T13:00:00', end_time: '2026-07-23T15:00:00', service_type: 'Deep Clean', team_members: { name: 'Bianca' } },
+      { id: 'b1', start_time: '2026-07-23T08:00:00', end_time: '2026-07-23T10:00:00', service_type: 'Standard Clean', team_members: { name: 'Alma' } },
+    ]
+  })
+
+  it('texts the admin one ordered line per job with job name, cleaner, duration, and start-finish', async () => {
+    const { sendSMS } = await import('@/lib/sms')
+
+    const res = await GET(req())
+    expect(res.status).toBe(200)
+
+    const call = vi.mocked(sendSMS).mock.calls.find((c) => c[0].to === '+15551234567')
+    expect(call).toBeTruthy()
+    const body = call![0].body as string
+
+    // Order follows the query's start_time ordering (Alma's 8am job first),
+    // not fixture insertion order.
+    const almaIdx = body.indexOf('Alma')
+    const biancaIdx = body.indexOf('Bianca')
+    expect(almaIdx).toBeGreaterThan(-1)
+    expect(biancaIdx).toBeGreaterThan(almaIdx)
+    expect(body).toContain('Standard Clean | Alma | 2h |')
+    expect(body).toContain('Deep Clean | Bianca | 2h |')
+
+    const auditRow = insertedNotifications.find((n) => n.type === 'admin_daily_schedule')
+    expect(auditRow).toBeTruthy()
+  })
+
+  it('does not text the admin when there are no jobs tomorrow', async () => {
+    tomorrowJobRows = []
+    const { sendSMS } = await import('@/lib/sms')
+    vi.mocked(sendSMS).mockClear()
+
+    await GET(req())
+
+    const call = vi.mocked(sendSMS).mock.calls.find((c) => c[0].to === '+15551234567')
+    expect(call).toBeFalsy()
+  })
+
+  it('falls back to the tenant business phone when no owner_phone is set', async () => {
+    tenantsRows = [{ ...tenantsRows[0], owner_phone: null, phone: '+15559998888' }]
+    const { sendSMS } = await import('@/lib/sms')
+
+    await GET(req())
+
+    const call = vi.mocked(sendSMS).mock.calls.find((c) => c[0].to === '+15559998888')
+    expect(call).toBeTruthy()
+  })
+
+  it('skips the admin text when no admin phone is on file', async () => {
+    tenantsRows = [{ ...tenantsRows[0], owner_phone: null, phone: null }]
+    const { sendSMS } = await import('@/lib/sms')
+    vi.mocked(sendSMS).mockClear()
+
+    await GET(req())
+
+    expect(vi.mocked(sendSMS).mock.calls.length).toBe(0)
   })
 })

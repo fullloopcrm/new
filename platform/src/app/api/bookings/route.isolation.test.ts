@@ -11,6 +11,11 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * exists (as a different row) under another tenant.
  */
 
+// unstable_cache requires a real Next.js incrementalCache provider that
+// doesn't exist under plain vitest -- pass the wrapped function straight
+// through so the route's cached list-fetch runs uncached in tests.
+vi.mock('next/cache', () => ({ unstable_cache: (fn: unknown) => fn }))
+
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()

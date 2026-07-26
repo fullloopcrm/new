@@ -28,6 +28,7 @@ function chain(table: string) {
     order: () => c,
     limit: () => Promise.resolve({ data: matched(), error: null }),
     single: async () => ({ data: matched()[0] ?? null, error: null }),
+    maybeSingle: async () => ({ data: matched()[0] ?? null, error: null }),
     insert: (row: Row) => {
       const created = { id: `row-${++idSeq}`, ...row }
       rowsOf().push(created)
@@ -51,8 +52,8 @@ import { GET, POST } from './route'
 
 beforeEach(() => {
   DB.connect_channels = [
-    { id: 'chan-a', tenant_id: TENANT_A, type: 'general' },
-    { id: 'chan-b', tenant_id: TENANT_B, type: 'general' },
+    { id: 'chan-a', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_ID },
+    { id: 'chan-b', tenant_id: TENANT_B, type: 'team', team_member_id: MEMBER_ID },
   ]
   DB.connect_messages = []
   DB.connect_read_cursors = []

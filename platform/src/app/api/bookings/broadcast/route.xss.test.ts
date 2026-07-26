@@ -17,13 +17,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const TENANT = 'tid-a'
 
-const { sendSMS, notify } = vi.hoisted(() => ({
+const { sendSMS, notify, sendEmail } = vi.hoisted(() => ({
   sendSMS: vi.fn(async () => {}),
   notify: vi.fn(async (..._args: { message: string }[]) => {}),
+  sendEmail: vi.fn(async (..._args: { html: string }[]) => ({ success: true })),
 }))
 vi.mock('@/lib/sms', () => ({ sendSMS }))
 vi.mock('@/lib/sms-templates', () => ({ smsUrgentBroadcast: () => 'sms' }))
 vi.mock('@/lib/notify', () => ({ notify }))
+// Broadcast email is sent directly via sendEmail, not routed through notify()
+// (see the route's own comment on why) -- the XSS assertion below reads the
+// escaped HTML from this mock instead.
+vi.mock('@/lib/email', () => ({ sendEmail, tenantSender: () => 'Acme <no-reply@example.com>' }))
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: vi.fn(async () => ({ tenant: { tenantId: TENANT }, error: null })),
 }))
@@ -76,14 +81,15 @@ function req(body: Record<string, unknown>) {
 
 beforeEach(() => {
   notify.mockClear()
+  sendEmail.mockClear()
 })
 
 describe('bookings/broadcast — HTML escaping of notes/address', () => {
   it('escapes booking.notes and client.address before building the team-member broadcast email', async () => {
     const res = await POST(req({ booking_id: 'bk-1' }))
     expect(res.status).toBe(200)
-    expect(notify).toHaveBeenCalledTimes(1)
-    const [{ message: html }] = notify.mock.calls[0]
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    const [{ html }] = sendEmail.mock.calls[0]
 
     expect(html).not.toContain('<img src=x onerror=alert(document.cookie)>')
     expect(html).not.toContain('<script>alert(1)</script>')

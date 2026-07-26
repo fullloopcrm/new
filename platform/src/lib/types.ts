@@ -134,3 +134,12 @@ export interface RecurringScheduleWithClient {
   recurring_type: string | null
   clients: ClientName
 }
+
+/** daily-summary/route.ts — admin next-day schedule text digest */
+export interface BookingAdminScheduleLine {
+  id: string
+  start_time: string
+  end_time: string
+  service_type: string | null
+  team_members: TeamMemberName
+}

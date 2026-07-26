@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
+// unstable_cache requires a real Next.js incrementalCache provider that
+// doesn't exist under plain vitest -- pass the wrapped function straight
+// through so the route's cached list-fetch runs uncached in tests.
+vi.mock('next/cache', () => ({ unstable_cache: (fn: unknown) => fn }))
+
 /**
  * GET/POST /api/bookings — first route-level regression test (P1/W1 O13
  * sweep). The main booking-creation path with the most guard rails in the

@@ -41,6 +41,9 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'bookings' && selectCols === 'notes') {
           return { data: { notes: '' }, error: null }
         }
+        if (table === 'tenants') {
+          return { data: { telnyx_api_key: 'k', telnyx_phone: '+15550000000' }, error: null }
+        }
         return { data: null, error: null }
       },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => res({ data: null, error: null }),
@@ -54,8 +57,8 @@ const clientSms: string[] = []
 const adminSms: string[] = []
 const notifyMessages: string[] = []
 
-vi.mock('@/lib/nycmaid/sms', () => ({
-  sendSMS: async (_to: string, message: string) => { clientSms.push(message); return { success: true } },
+vi.mock('@/lib/sms', () => ({
+  sendSMS: async ({ body }: { body: string }) => { clientSms.push(body); return { success: true } },
 }))
 vi.mock('@/lib/admin-contacts', () => ({
   smsAdmins: async (_tenantId: string, message: string) => { adminSms.push(message) },

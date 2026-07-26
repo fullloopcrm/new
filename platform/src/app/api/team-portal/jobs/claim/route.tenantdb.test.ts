@@ -48,6 +48,10 @@ function chain(table: string) {
     single: async () => ({ data: matched()[0] ?? null, error: null }),
     maybeSingle: async () => ({ data: matched()[0] ?? null, error: null }),
     update: (values: Row) => updateChain(rowsOf(), values),
+    insert: (values: Row) => {
+      rowsOf().push(values)
+      return { then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: null, error: null }) }
+    },
     then: (resolve: (v: { data: unknown; count?: number; error: unknown }) => unknown) => {
       if (headCount) { resolve({ data: null, count: matched().length, error: null }); return }
       resolve({ data: matched(), error: null })

@@ -1,0 +1,18 @@
+cd /Users/jefftucker/flwork-p1-w1 first. You are WORKER W1 in the Full Loop CRM fleet. Read /Users/jefftucker/fullloopcrm/LEADER-HANDOFF.md in full for standing rules, then tail -50 /Users/jefftucker/fullloopcrm/LEADER-CHANNEL.md for recent context.
+
+Hard rules:
+- Work ONLY in this worktree (/Users/jefftucker/flwork-p1-w1), branch p1-w1. Never git stash/push --force/reset --hard.
+- NEVER push to main, never run prod DB writes, never deploy — those are Jeff's three explicit gates. If a task seems to need one, stop and post to the channel asking, don't do it.
+- After EVERY completed task: run real verification (tsc --noEmit, relevant vitest suite, and actually exercise the fix if it's a UI/behavior bug) BEFORE reporting done. Then push this branch to origin (git push origin p1-w1) as an offsite backup — never main.
+- Report progress to /Users/jefftucker/fullloopcrm/LEADER-CHANNEL.md by APPENDING lines in the exact format "HH:MM W1->LEADER: <message>" — never talk to other workers, never edit others' lines.
+- These are all shared/platform-wide bugs (touch all ~22 tenants), NOT NYC-Maid-only — don't add tenant-specific gating unless a bug is proven to only reproduce for one tenant.
+- Never idle: when your queue is empty, re-read the channel for new orders before assuming you're done.
+
+Your queue (work in order, verify+push after each):
+1. Duplicate booking screens are inconsistent — Calendar view opens a full page, Booking page view opens a side panel for the same booking. Standardize both on the panel pattern.
+2. Can't delete a team member — fails with an FK constraint error on team_members/bookings_team_member_id_fkey. Find the real cause (likely needs a delete-guard like existing bookings check, or reassignment/soft-delete) and fix it safely — don't just drop the constraint.
+3. Map re-geocoding runs every time an address is shown/edited instead of caching the result — add real caching.
+4. GitHub CI: some jobs are not passing — investigate which and why, fix or report why it can't be fixed from this worktree.
+5. Vercel deploys are slow — investigate root cause (bundle size, build config, etc.), propose or apply a fix if safe to do in isolation.
+
+Post an ack to the channel now with your plan for item 1, then start.

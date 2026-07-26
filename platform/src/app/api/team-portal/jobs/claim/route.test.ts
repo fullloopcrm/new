@@ -53,18 +53,37 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'team_members') {
+        // Two call shapes hit this table: the auth check (.eq().eq().single())
+        // and the post-claim admin-notification lookup (.eq().single()) — the
+        // eq-returned object supports both a further .eq() and a terminal
+        // .single() so either chain length resolves the same member row.
+        const single = async () => {
+          const m = holder.members.get(MEMBER)
+          return m ? { data: { name: 'A Team Member', status: m.status }, error: null } : { data: null, error: { message: 'not found' } }
+        }
         return {
           select: () => ({
             eq: () => ({
-              eq: () => ({
-                single: async () => {
-                  const m = holder.members.get(MEMBER)
-                  return m ? { data: { status: m.status }, error: null } : { data: null, error: { message: 'not found' } }
-                },
-              }),
+              eq: () => ({ single }),
+              single,
             }),
           }),
         }
+      }
+      if (table === 'bookings') {
+        return {
+          select: () => ({
+            eq: (_col: string, id: string) => ({
+              single: async () => {
+                const b = holder.bookings.get(id)
+                return b ? { data: { clients: { name: 'A Client' } }, error: null } : { data: null, error: { message: 'not found' } }
+              },
+            }),
+          }),
+        }
+      }
+      if (table === 'notifications') {
+        return { insert: async () => ({ data: null, error: null }) }
       }
       if (table === 'tenants') {
         return {

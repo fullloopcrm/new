@@ -4,20 +4,36 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
-import { isCommEnabled } from '@/lib/comms-prefs'
+import { isCommEnabled, getCommPrefs } from '@/lib/comms-prefs'
 import { getTenantTimezone, getTenantDayBoundaries, isTenantLocalHour, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
-import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
+import type { BookingTeamLookahead, RecurringScheduleWithClient, BookingAdminScheduleLine } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
 
 const ADMIN_LOCAL_HOUR = 8 // morning recap — today's jobs + yesterday's revenue
 const TEAM_LOCAL_HOUR = 20 // 8pm — next-day job lookahead for cleaners
 
+// One line per job: job name, cleaner, estimated duration, start–finish.
+// Naive start_time/end_time digits pass straight through toLocaleTimeString
+// (no timeZone override) same as the rest of this file — see
+// getTenantNaiveDayBoundaries comment above.
+export function formatAdminScheduleLine(job: BookingAdminScheduleLine): string {
+  const jobName = job.service_type || 'Job'
+  const cleaner = job.team_members?.name || 'Unassigned'
+  const start = new Date(job.start_time)
+  const end = new Date(job.end_time)
+  const durationHours = Math.round(((end.getTime() - start.getTime()) / (1000 * 60 * 60)) * 10) / 10
+  const startStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const endStr = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${jobName} | ${cleaner} | ${durationHours}h | ${startStr}-${endStr}`
+}
+
 // Daily summary cron — polls hourly, each section fires when it's the right
 // local hour in THAT tenant's timezone.
 // 1. Admin summary (today's jobs, yesterday's revenue) — 8am tenant-local
 // 2. Team member 3-day lookahead (SMS + email) — 8pm tenant-local
 // 3. Recurring expiration check (30-day warning) — runs with the admin summary
+// 4. Admin next-day schedule text (one line per job, ordered) — 8pm tenant-local
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -26,14 +42,14 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
+    .select('id, name, slug, industry, phone, owner_phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
     .eq('status', 'active')
     .limit(1000)
 
   let totalSent = 0
   const stats = { tenants_processed: 0, summaries_sent: 0, errors: 0, skipped_wrong_hour: 0 }
   const errorMessages: string[] = []
-  const allResults: { tenant: string; adminSent: boolean; teamSent: number; expiring: number }[] = []
+  const allResults: { tenant: string; adminSent: boolean; teamSent: number; expiring: number; adminScheduleSent: boolean }[] = []
 
   for (const tenant of tenants || []) {
     const timezone = getTenantTimezone(tenant)
@@ -49,13 +65,14 @@ export async function GET(request: Request) {
     // start_time/end_time are naive tenant-local wall-clock columns (no tz) —
     // compare against naive strings. payment_date is real timestamptz — compare
     // against real UTC instants.
-    const { todayStartNaive, tomorrowStartNaive, today: todayCal } = getTenantNaiveDayBoundaries(timezone, now)
+    const { todayStartNaive, tomorrowStartNaive, tomorrowEndNaive, today: todayCal } = getTenantNaiveDayBoundaries(timezone, now)
     const { todayStart: todayReal, yesterdayStart: yesterdayReal } = getTenantDayBoundaries(timezone, now)
     const weekEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 7))
     const threeDaysEndNaive = formatCalendarNaive(addCalendarDays(todayCal, 3), 23, 59, 59)
 
     let adminSent = false
     let teamSent = 0
+    let adminScheduleSent = false
     let expiringCount = 0
 
     try {
@@ -253,11 +270,57 @@ export async function GET(request: Request) {
 
         teamSent++
       }
+
+      // ============================================
+      // ADMIN NEXT-DAY SCHEDULE TEXT — 8pm tenant-local, same run as the team
+      // lookahead above. One line per job (name, cleaner, est. duration,
+      // start-finish), in schedule order, so the owner has the full next-day
+      // roster in hand — including as a fallback if the dashboard is down.
+      // ============================================
+      const adminPhone = tenant.owner_phone || tenant.phone
+      const adminPrefs = await getCommPrefs(tenantId)
+      const adminScheduleOn = adminPrefs.comms.admin_daily_schedule?.sms !== false
+      if (adminScheduleOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        const { data: tomorrowJobs } = await supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, end_time, service_type, team_members!bookings_team_member_id_fkey(name)')
+          .eq('tenant_id', tenantId)
+          .gte('start_time', tomorrowStartNaive)
+          .lte('start_time', tomorrowEndNaive)
+          .in('status', ['scheduled', 'confirmed', 'pending'])
+          .order('start_time')
+          .limit(200)
+          .returns<BookingAdminScheduleLine[]>()
+
+        if (tomorrowJobs && tomorrowJobs.length > 0) {
+          const tomorrowLabel = new Date(tomorrowStartNaive).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const lines = tomorrowJobs.map(formatAdminScheduleLine)
+          const body = `${tenant.name} — Schedule ${tomorrowLabel} (${tomorrowJobs.length} job${tomorrowJobs.length === 1 ? '' : 's'}):\n\n${lines.join('\n')}`
+
+          await sendSMS({
+            to: adminPhone,
+            body,
+            telnyxApiKey: tenant.telnyx_api_key,
+            telnyxPhone: tenant.telnyx_phone,
+          }).catch(() => {})
+
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'admin_daily_schedule',
+            title: 'Admin Daily Schedule',
+            message: `Sent ${tomorrowJobs.length} job(s) for ${tomorrowLabel}`,
+            channel: 'sms',
+            status: 'sent',
+          })
+
+          adminScheduleSent = true
+        }
+      }
     }
 
-    totalSent += teamSent
-    stats.summaries_sent += (adminSent ? 1 : 0) + teamSent
-    allResults.push({ tenant: tenant.name, adminSent, teamSent, expiring: expiringCount })
+    totalSent += teamSent + (adminScheduleSent ? 1 : 0)
+    stats.summaries_sent += (adminSent ? 1 : 0) + teamSent + (adminScheduleSent ? 1 : 0)
+    allResults.push({ tenant: tenant.name, adminSent, teamSent, expiring: expiringCount, adminScheduleSent })
     } catch (tenantErr) {
       // Don't let one tenant's failure crash the whole cron
       stats.errors++

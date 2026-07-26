@@ -13,6 +13,10 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabaseAdmin: fake }
 })
+vi.mock('@/lib/email', () => ({
+  sendEmail: async () => ({ success: true }),
+  tenantSender: () => 'Tenant <no-reply@example.com>',
+}))
 
 let currentTenantId: string
 vi.mock('@/lib/require-permission', () => ({
