@@ -21,6 +21,8 @@ import { applyDiscount } from './discount'
 export interface ScheduleSyncFields {
   recurring_type: RecurringType
   day_of_week: number | null
+  /** Multi-visit-per-cycle days (e.g. [1,4] = Mon+Thu). null/empty = single-day, uses day_of_week. */
+  days_of_week?: number[] | null
   preferred_time: string | null // 'HH:MM' or 'HH:MM:SS'
   duration_hours: number
   hourly_rate: number | null
@@ -99,6 +101,7 @@ export async function syncFutureBookings(
       recurringType: newSchedule.recurring_type,
       lastOccurrence: anchor,
       dayOfWeek: newSchedule.day_of_week ?? undefined,
+      daysOfWeek: newSchedule.days_of_week ?? undefined,
       count,
     })
     targetDates = generated.slice(0, futureBookings.length).map((d) => d.toISOString().slice(0, 10))

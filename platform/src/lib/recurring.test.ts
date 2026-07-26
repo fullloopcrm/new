@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   generateRecurringDates,
+  nextOccurrenceDates,
   getRecurringDisplayName,
   type RecurringType,
 } from './recurring'
@@ -121,6 +122,54 @@ describe('generateRecurringDates — DST boundaries (America/New_York)', () => {
     const dates = generateRecurringDates({ recurringType: 'weekly', startDate: start, weeksToGenerate: 3 })
     expect(dates.map(ymd)).toEqual(['2026-10-26', '2026-11-02', '2026-11-09'])
     for (const d of dates) expect(d.getDay()).toBe(1) // still Monday across the DST change
+  })
+})
+
+describe('generateRecurringDates — daysOfWeek (multi-visit-per-cycle)', () => {
+  it('weekly Mon+Thu produces two dates per week, in order', () => {
+    const start = noon(2026, 0, 5) // Mon Jan 5
+    const dates = generateRecurringDates({
+      recurringType: 'weekly', startDate: start, daysOfWeek: [1, 4], weeksToGenerate: 2,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-05', '2026-01-08', '2026-01-12', '2026-01-15'])
+  })
+
+  it('drops a daysOfWeek entry earlier in the week than the anchor date', () => {
+    const start = noon(2026, 0, 7) // Wed Jan 7 -- Monday of that week already passed
+    const dates = generateRecurringDates({
+      recurringType: 'weekly', startDate: start, daysOfWeek: [1, 3, 5], weeksToGenerate: 1,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-07', '2026-01-09']) // Wed, Fri only -- not the earlier Monday
+  })
+
+  it('biweekly with multiple days steps a full fortnight between cycles', () => {
+    const start = noon(2026, 0, 6) // Tue Jan 6
+    const dates = generateRecurringDates({
+      recurringType: 'biweekly', startDate: start, daysOfWeek: [2, 5], weeksToGenerate: 2,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-06', '2026-01-09', '2026-01-20', '2026-01-23'])
+  })
+
+  it('a single-entry daysOfWeek behaves the same as plain dayOfWeek', () => {
+    const start = noon(2026, 0, 5)
+    const multi = generateRecurringDates({ recurringType: 'weekly', startDate: start, daysOfWeek: [1], weeksToGenerate: 3 })
+    const single = generateRecurringDates({ recurringType: 'weekly', startDate: start, weeksToGenerate: 3 })
+    expect(multi.map(ymd)).toEqual(single.map(ymd))
+  })
+
+  it('nextOccurrenceDates drops the already-materialized last occurrence, multi-day', () => {
+    const lastOccurrence = noon(2026, 0, 8) // Thu Jan 8, the later of that week's Mon+Thu pair
+    const dates = nextOccurrenceDates({
+      recurringType: 'weekly', lastOccurrence, daysOfWeek: [1, 4], count: 2,
+    })
+    // Next real occurrences after Jan 8 are the following week's Mon+Thu, then the week after's
+    expect(dates.map(ymd)).toEqual(['2026-01-12', '2026-01-15', '2026-01-19', '2026-01-22'])
+  })
+
+  it('empty daysOfWeek array falls back to single-day dayOfWeek semantics', () => {
+    const start = noon(2026, 0, 5)
+    const dates = generateRecurringDates({ recurringType: 'weekly', startDate: start, daysOfWeek: [], weeksToGenerate: 2 })
+    expect(dates.map(ymd)).toEqual(['2026-01-05', '2026-01-12'])
   })
 })
 

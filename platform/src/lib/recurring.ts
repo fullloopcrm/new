@@ -9,22 +9,63 @@ export type RecurringType =
   | 'monthly_weekday'
   | 'custom'
 
+/**
+ * Fan a single-day cadence out over multiple weekday anchors (e.g. Mon+Thu
+ * every week, or Tue+Fri every other week) instead of one schedule row per
+ * day. `cycles` is the number of `cycleDays`-long cycles to generate (a
+ * "week" for weekly, a "fortnight" for biweekly, etc.) -- with multiple
+ * days-of-week, total occurrences is cycles * daysOfWeek.length, not
+ * cycles itself.
+ *
+ * Anchored on `startDate`'s own calendar week so cycle 0 lands in the same
+ * week startDate is in; any candidate that falls before startDate's own
+ * calendar date is dropped (an anchor mid-week with earlier weekdays in
+ * daysOfWeek shouldn't retroactively generate a past occurrence). Output is
+ * naturally sorted ascending (days within a cycle ascending, cycles
+ * ascending, and cycleDays is always >= the span of a week so cycles never
+ * interleave) -- callers like nextOccurrenceDates rely on this to drop
+ * exactly the first (already-materialized) result via .slice(1).
+ */
+function generateMultiDayDates(startDate: Date, daysOfWeek: number[], cycles: number, cycleDays: number): Date[] {
+  const sortedDays = [...new Set(daysOfWeek)].sort((a, b) => a - b)
+  const weekAnchor = new Date(startDate)
+  weekAnchor.setDate(weekAnchor.getDate() - weekAnchor.getDay()) // Sunday of startDate's week
+  const startMidnight = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+
+  const out: Date[] = []
+  for (let c = 0; c < cycles; c++) {
+    for (const dow of sortedDays) {
+      const d = new Date(weekAnchor)
+      d.setDate(d.getDate() + c * cycleDays + dow)
+      const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      if (dMidnight >= startMidnight) out.push(d)
+    }
+  }
+  return out
+}
+
 export function generateRecurringDates({
   recurringType,
   startDate,
   dayOfWeek,
+  daysOfWeek,
   weeksToGenerate = 4,
   customIntervalDays,
 }: {
   recurringType: RecurringType
   startDate: Date
-  dayOfWeek?: number // 0=Sun, 1=Mon, ...
+  dayOfWeek?: number // 0=Sun, 1=Mon, ... single-day cadence (legacy/default)
+  /** Multiple visits per cadence cycle (e.g. [1,4] = Mon+Thu). Only consulted
+   * for 'weekly'/'biweekly' -- other types keep single-anchor semantics since
+   * no production schedule uses multi-day daily/triweekly/monthly cadences. */
+  daysOfWeek?: number[] | null
   weeksToGenerate?: number
   /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
   customIntervalDays?: number | null
 }): Date[] {
   const dates: Date[] = []
   const current = new Date(startDate)
+  const multiDay = daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek : null
 
   switch (recurringType) {
     case 'daily':
@@ -35,6 +76,10 @@ export function generateRecurringDates({
       break
 
     case 'weekly':
+      if (multiDay) {
+        dates.push(...generateMultiDayDates(current, multiDay, weeksToGenerate, 7))
+        break
+      }
       for (let i = 0; i < weeksToGenerate; i++) {
         dates.push(new Date(current))
         current.setDate(current.getDate() + 7)
@@ -42,6 +87,10 @@ export function generateRecurringDates({
       break
 
     case 'biweekly':
+      if (multiDay) {
+        dates.push(...generateMultiDayDates(current, multiDay, weeksToGenerate, 14))
+        break
+      }
       for (let i = 0; i < weeksToGenerate; i++) {
         dates.push(new Date(current))
         current.setDate(current.getDate() + 14)
@@ -179,12 +228,14 @@ export function nextOccurrenceDates({
   recurringType,
   lastOccurrence,
   dayOfWeek,
+  daysOfWeek,
   count = 4,
   customIntervalDays,
 }: {
   recurringType: RecurringType
   lastOccurrence: Date
   dayOfWeek?: number
+  daysOfWeek?: number[] | null
   count?: number
   /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
   customIntervalDays?: number | null
@@ -193,6 +244,7 @@ export function nextOccurrenceDates({
     recurringType,
     startDate: lastOccurrence,
     dayOfWeek,
+    daysOfWeek,
     weeksToGenerate: count + 1,
     customIntervalDays,
   }).slice(1)
