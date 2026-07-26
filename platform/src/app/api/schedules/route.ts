@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       service_type_id: { type: 'uuid' },
       recurring_type: { type: 'string', required: true, max: 50 },
       day_of_week: { type: 'number', min: 0, max: 6 },
+      days_of_week: { type: 'array' },
       preferred_time: { type: 'string', max: 10 },
       duration_hours: { type: 'number', min: 0.5, max: 24 },
       hourly_rate: { type: 'number', min: 0 },
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
       recurringType: v.recurring_type as RecurringType,
       startDate,
       dayOfWeek: v.day_of_week as number,
+      daysOfWeek: v.days_of_week as number[] | undefined,
       weeksToGenerate: 4,
     })
 

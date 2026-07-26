@@ -190,6 +190,7 @@ function BookingsPage() {
     one_time_credit_dollars: 0, one_time_credit_reason: '',
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
+    days_of_week: [] as number[],
     actual_hours: null as number | null, team_member_pay: null as number | null,
     pay_rate: null as number | null,
     team_member_paid: false,
@@ -566,6 +567,7 @@ function BookingsPage() {
       repeat_end_count: 10,
       repeat_end_date: endDate3.toISOString().split('T')[0],
       custom_interval: 3,
+      days_of_week: (booking as any).days_of_week || [],
       actual_hours: booking.actual_hours,
       team_member_pay: booking.team_member_pay,
       pay_rate: booking.pay_rate ?? null,
@@ -664,7 +666,8 @@ function BookingsPage() {
 
   const editRecurringDates = generateRecurringDates(
     form.start_date, form.repeat_enabled, form.repeat_type,
-    form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
+    form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval,
+    form.days_of_week
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -711,7 +714,7 @@ function BookingsPage() {
 
     const newStartStr = buildNaiveTime(form.start_date, form.start_time)
     const newEndStr = buildNaiveTime(form.start_date, form.start_time, form.hours)
-    const recurringType = form.repeat_enabled ? getRecurringDisplayName(form.repeat_type, form.start_date) : null
+    const recurringType = form.repeat_enabled ? getRecurringDisplayName(form.repeat_type, form.start_date, form.days_of_week) : null
 
     const updateData = {
       ...form,
@@ -745,7 +748,8 @@ function BookingsPage() {
         const startDateObj = new Date(form.start_date + 'T12:00:00')
         const newDates = generateRecurringDates(
           form.start_date, true, form.repeat_type,
-          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
+          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval,
+          form.days_of_week
         )
         const res = await fetch('/api/admin/recurring-schedules/' + editingBooking.schedule_id + '/regenerate', {
           method: 'POST',
@@ -753,6 +757,7 @@ function BookingsPage() {
           body: JSON.stringify({
             recurring_type: rawRecurringType(form.repeat_type),
             day_of_week: startDateObj.getDay(),
+            days_of_week: form.repeat_type === 'weekly_days' ? form.days_of_week : undefined,
             preferred_time: form.start_time,
             duration_hours: form.hours,
             hourly_rate: form.hourly_rate,
@@ -1069,6 +1074,12 @@ function BookingsPage() {
     if (lower === 'custom') return 'custom'
     // Pattern like "1st Mon", "2nd Thu" = monthly_day
     if (/^\d/.test(displayName)) return 'monthly_day'
+    // getRecurringDisplayName's 'weekly_days' output is a slash-joined day
+    // list, e.g. "Mon/Wed/Fri" -- the actual selected days come from
+    // booking.days_of_week (denormalized on the row), not parsed out of this
+    // display string; this only needs to route the dropdown/day-picker back
+    // to the right repeat_type.
+    if (displayName.includes('/')) return 'weekly_days'
     return 'weekly'
   }
 
@@ -2188,7 +2199,7 @@ function BookingsPage() {
                 <span className="font-semibold text-[var(--sched-ink)]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
               </div>
               <div className="pt-2 border-t border-gray-200">
-                <RecurringOptions startDate={form.start_date} enabled={form.repeat_enabled} onEnabledChange={(v) => setForm({ ...form, repeat_enabled: v })} repeatType={form.repeat_type} onRepeatTypeChange={(v) => setForm({ ...form, repeat_type: v })} repeatEnd={form.repeat_end} onRepeatEndChange={(v) => setForm({ ...form, repeat_end: v })} repeatEndCount={form.repeat_end_count} onRepeatEndCountChange={(v) => setForm({ ...form, repeat_end_count: v })} repeatEndDate={form.repeat_end_date} onRepeatEndDateChange={(v) => setForm({ ...form, repeat_end_date: v })} customInterval={form.custom_interval} onCustomIntervalChange={(v) => setForm({ ...form, custom_interval: v })} previewDates={!(editingBooking?.recurring_type || editingBooking?.schedule_id) ? editRecurringDates : []} />
+                <RecurringOptions startDate={form.start_date} enabled={form.repeat_enabled} onEnabledChange={(v) => setForm({ ...form, repeat_enabled: v })} repeatType={form.repeat_type} onRepeatTypeChange={(v) => setForm({ ...form, repeat_type: v })} repeatEnd={form.repeat_end} onRepeatEndChange={(v) => setForm({ ...form, repeat_end: v })} repeatEndCount={form.repeat_end_count} onRepeatEndCountChange={(v) => setForm({ ...form, repeat_end_count: v })} repeatEndDate={form.repeat_end_date} onRepeatEndDateChange={(v) => setForm({ ...form, repeat_end_date: v })} customInterval={form.custom_interval} onCustomIntervalChange={(v) => setForm({ ...form, custom_interval: v })} previewDates={!(editingBooking?.recurring_type || editingBooking?.schedule_id) ? editRecurringDates : []} daysOfWeek={form.days_of_week} onDaysOfWeekChange={(v) => setForm({ ...form, days_of_week: v })} />
               </div>
             </div>
 
@@ -2465,7 +2476,7 @@ function BookingsPage() {
               )}
               <div className="flex-1" />
               <button type="button" onClick={() => { setShowModal(false); setEditingBooking(null) }} className="px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)] text-sm">Close</button>
-              <button type="submit" disabled={saving} className="px-6 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium">{saving ? '...' : 'Save'}</button>
+              <button type="submit" disabled={saving || (form.repeat_enabled && form.repeat_type === 'weekly_days' && form.days_of_week.length === 0)} className="px-6 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium">{saving ? '...' : 'Save'}</button>
             </div>
           </form>
         </SidePanel>

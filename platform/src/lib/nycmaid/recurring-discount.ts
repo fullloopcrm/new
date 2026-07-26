@@ -9,6 +9,11 @@
 export function recurringDiscountPct(recurringType: string | null | undefined): number {
   switch ((recurringType || '').toLowerCase().replace(/[\s_]/g, '-')) {
     case 'weekly':
+    // 'weekly-days' (recurring_schedules.recurring_type 'weekly_days',
+    // normalized) is a client picking specific days each week -- still a
+    // weekly-or-more-frequent commitment, same discount tier as plain weekly
+    // (Jeff's call, 2026-07-25).
+    case 'weekly-days':
       return 0.20
     case 'biweekly':
     case 'bi-weekly':

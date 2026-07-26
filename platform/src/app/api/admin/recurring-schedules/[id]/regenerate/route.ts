@@ -38,6 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const {
     recurring_type,
     day_of_week,
+    days_of_week,
     preferred_time,
     duration_hours,
     hourly_rate,
@@ -67,12 +68,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // Confirm the schedule belongs to this tenant; pull client_id + property_id to
   // preserve them on the regenerated bookings.
-  const { data: schedule } = await db
+  // team_size/extra_team_member_ids were selected here but never exist on
+  // recurring_schedules (never added by any migration) -- Postgres errored on
+  // the unknown columns and the destructuring below silently dropped that
+  // error, so `schedule` came back undefined and EVERY series pattern-change
+  // ("update all future bookings") 404'd as "Schedule not found," for every
+  // recurring type, on every tenant. Found while verifying the new
+  // weekly_days type's regenerate path -- pre-existing, not introduced by it.
+  const { data: schedule, error: scheduleFetchErr } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size, extra_team_member_ids, discount_percent')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, discount_percent')
     .eq('id', id)
     .single()
-  if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
+  if (scheduleFetchErr || !schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
   // A caller-supplied team_member_id/cleaner_id must belong to THIS tenant —
   // team_members has no cross-tenant FK check, and it's written into BOTH the
@@ -100,6 +108,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const rulePatch: Record<string, unknown> = { updated_at: new Date().toISOString(), next_generate_after: lastDate }
   if (recurring_type !== undefined) rulePatch.recurring_type = recurring_type
   if (day_of_week !== undefined) rulePatch.day_of_week = day_of_week
+  // Gated on recurring_type (always sent by every caller today), not
+  // days_of_week itself, so switching a schedule AWAY from 'weekly_days'
+  // clears the now-stale array instead of leaving it stranded in the row.
+  if (recurring_type !== undefined) rulePatch.days_of_week = recurring_type === 'weekly_days' ? (days_of_week ?? null) : null
   if (preferred_time !== undefined) rulePatch.preferred_time = preferred_time
   if (duration_hours !== undefined) rulePatch.duration_hours = hours
   if (hourly_rate !== undefined) rulePatch.hourly_rate = hourly_rate
@@ -145,6 +157,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       discount_percent: effDiscountPercent,
       notes: notes || null,
       recurring_type,
+      days_of_week: recurring_type === 'weekly_days' ? (days_of_week ?? null) : null,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',

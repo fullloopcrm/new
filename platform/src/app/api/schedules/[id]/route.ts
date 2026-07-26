@@ -54,7 +54,7 @@ export async function PUT(
     const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions'])
+    const fields = pick(body, ['recurring_type', 'day_of_week', 'days_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions'])
 
     const { data, error } = await db
       .from('recurring_schedules')

@@ -81,6 +81,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     hours: 2, hourly_rate: 69, service_type: initialValues?.serviceType || 'Standard Cleaning', notes: initialValues?.notes || '',
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
+    days_of_week: [] as number[],
     discount_enabled: false, discount_percent: 10,
     one_time_credit_dollars: 0, one_time_credit_reason: '',
     is_emergency: false, pay_rate: null as number | null, status: 'scheduled' as string,
@@ -304,7 +305,8 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
 
   const recurringDates = generateRecurringDates(
     createForm.start_date, createForm.repeat_enabled, createForm.repeat_type,
-    createForm.repeat_end, createForm.repeat_end_count, createForm.repeat_end_date, createForm.custom_interval
+    createForm.repeat_end, createForm.repeat_end_count, createForm.repeat_end_date, createForm.custom_interval,
+    createForm.days_of_week
   )
 
   // Build naive datetime string from date + time + hours (no Date object, no TZ shift)
@@ -318,7 +320,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true)
-    const recurringType = createForm.repeat_enabled ? getRecurringDisplayName(createForm.repeat_type, createForm.start_date) : null
+    const recurringType = createForm.repeat_enabled ? getRecurringDisplayName(createForm.repeat_type, createForm.start_date, createForm.days_of_week) : null
 
     if (createForm.is_emergency) {
       // Emergency: single booking + broadcast (can't batch)
@@ -360,6 +362,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
           team_member_id: createForm.team_member_id,
           recurring_type: rawRecurringType(createForm.repeat_type),
           day_of_week: new Date(createForm.start_date + 'T12:00:00').getDay(),
+          days_of_week: createForm.repeat_type === 'weekly_days' ? createForm.days_of_week : undefined,
           preferred_time: createForm.start_time,
           duration_hours: createForm.hours,
           hourly_rate: createForm.hourly_rate,
@@ -786,6 +789,8 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
             customInterval={createForm.custom_interval}
             onCustomIntervalChange={(v) => setCreateForm({ ...createForm, custom_interval: v })}
             previewDates={recurringDates}
+            daysOfWeek={createForm.days_of_week}
+            onDaysOfWeekChange={(v) => setCreateForm({ ...createForm, days_of_week: v })}
           />
 
           <div className="py-3 border-t border-b border-gray-200 space-y-2">
@@ -896,7 +901,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
         </div>
         <div className="flex gap-3 mt-6">
           <button type="button" onClick={onCancel} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-          <button type="submit" disabled={saving || !createForm.client_id} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
+          <button type="submit" disabled={saving || !createForm.client_id || (createForm.repeat_enabled && createForm.repeat_type === 'weekly_days' && createForm.days_of_week.length === 0)} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
             {saving ? 'Creating...' : recurringDates.length > 1 ? 'Create Schedule' : 'Create'}
           </button>
         </div>

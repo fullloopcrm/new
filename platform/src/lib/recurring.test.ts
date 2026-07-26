@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generateRecurringDates,
   getRecurringDisplayName,
+  nextOccurrenceDates,
   type RecurringType,
 } from './recurring'
 
@@ -216,6 +217,101 @@ describe('generateRecurringDates — monthly_weekday (nth weekday of month)', ()
     expect(dates[1].getDay()).toBe(1)
     expect(Math.ceil(dates[1].getDate() / 7)).toBe(1) // 1st Monday of Oct -> Oct 5
     expect(ymd(dates[1])).toBe('2026-10-05')
+  })
+})
+
+describe('generateRecurringDates — weekly_days (specific days each week)', () => {
+  it('emits one date per selected weekday, every week, in chronological order', () => {
+    // Mon Jan 5 2026 is a Monday -- Mon/Wed/Fri across 2 weeks.
+    const dates = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 5),
+      daysOfWeek: [1, 3, 5],
+      weeksToGenerate: 2,
+    })
+    expect(dates.map(ymd)).toEqual([
+      '2026-01-05', '2026-01-07', '2026-01-09', // week 1: Mon, Wed, Fri
+      '2026-01-12', '2026-01-14', '2026-01-16', // week 2: Mon, Wed, Fri
+    ])
+  })
+
+  it('drops this week\'s selected days that fall before the anchor', () => {
+    // Anchor on the Wednesday of a Mon/Wed/Fri schedule -- that week's Monday
+    // already passed, so it must not appear.
+    const dates = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 7), // Wed Jan 7
+      daysOfWeek: [1, 3, 5],
+      weeksToGenerate: 1,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-07', '2026-01-09'])
+  })
+
+  it('starts from the nearest selected day when the anchor is not itself one of the selected days', () => {
+    // Anchor on a Tuesday, schedule is Mon/Wed/Fri -- first result is the
+    // next matching day (Wed), not the anchor date itself.
+    const dates = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 6), // Tue Jan 6
+      daysOfWeek: [1, 3, 5],
+      weeksToGenerate: 1,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-07', '2026-01-09'])
+  })
+
+  it('falls back to the anchor\'s own weekday when daysOfWeek is missing or empty', () => {
+    const withoutDays = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 5), // Monday
+      weeksToGenerate: 3,
+    })
+    const withEmptyDays = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 5),
+      daysOfWeek: [],
+      weeksToGenerate: 3,
+    })
+    const expected = ['2026-01-05', '2026-01-12', '2026-01-19'] // same as plain 'weekly'
+    expect(withoutDays.map(ymd)).toEqual(expected)
+    expect(withEmptyDays.map(ymd)).toEqual(expected)
+  })
+
+  it('de-dupes and sorts an unsorted/duplicated daysOfWeek input', () => {
+    const dates = generateRecurringDates({
+      recurringType: 'weekly_days',
+      startDate: noon(2026, 0, 5), // Monday
+      daysOfWeek: [5, 1, 1, 3],
+      weeksToGenerate: 1,
+    })
+    expect(dates.map(ymd)).toEqual(['2026-01-05', '2026-01-07', '2026-01-09'])
+  })
+})
+
+describe('nextOccurrenceDates — weekly_days refill', () => {
+  it('anchors on lastOccurrence, drops the echo, and continues the same Mon/Wed/Fri pattern', () => {
+    const dates = nextOccurrenceDates({
+      recurringType: 'weekly_days',
+      lastOccurrence: noon(2026, 0, 7), // Wed Jan 7 -- a real prior occurrence
+      daysOfWeek: [1, 3, 5],
+      count: 2,
+    })
+    // The Wed Jan 7 echo (dates[0] before slicing) must NOT reappear.
+    expect(dates.map(ymd)).toEqual([
+      '2026-01-09',
+      '2026-01-12', '2026-01-14', '2026-01-16',
+      '2026-01-19', '2026-01-21', '2026-01-23',
+    ])
+  })
+})
+
+describe('getRecurringDisplayName — weekly_days', () => {
+  it('formats selected days sorted, slash-joined, regardless of input order', () => {
+    expect(getRecurringDisplayName('weekly_days', '2026-01-12', [5, 1, 3])).toBe('Mon/Wed/Fri')
+  })
+
+  it('falls back to the start date\'s own day name when no days array is given', () => {
+    expect(getRecurringDisplayName('weekly_days', '2026-01-12')).toBe('Mon') // Jan 12 2026 is a Monday
+    expect(getRecurringDisplayName('weekly_days', '2026-01-12', [])).toBe('Mon')
   })
 })
 

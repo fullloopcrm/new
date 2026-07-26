@@ -7,6 +7,7 @@ type Schedule = {
   id: string
   recurring_type: string
   day_of_week: number | null
+  days_of_week: number[] | null
   preferred_time: string | null
   duration_hours: number | null
   status: string
@@ -26,6 +27,7 @@ const frequencyLabels: Record<string, string> = {
   triweekly: 'Every 3 Weeks',
   monthly_date: 'Monthly (date)',
   monthly_weekday: 'Monthly (weekday)',
+  weekly_days: 'Specific Days',
 }
 
 const statusTabs = [
@@ -45,7 +47,7 @@ export default function SchedulesPage() {
   const [services, setServices] = useState<{ id: string; name: string }[]>([])
   const [form, setForm] = useState({
     client_id: '', team_member_id: '', service_type_id: '',
-    recurring_type: 'weekly', day_of_week: '1', preferred_time: '09:00', duration_hours: '3',
+    recurring_type: 'weekly', day_of_week: '1', days_of_week: [] as number[], preferred_time: '09:00', duration_hours: '3',
     hourly_rate: '', pay_rate: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
@@ -82,6 +84,7 @@ export default function SchedulesPage() {
         service_type_id: form.service_type_id || null,
         recurring_type: form.recurring_type,
         day_of_week: parseInt(form.day_of_week),
+        days_of_week: form.recurring_type === 'weekly_days' ? form.days_of_week : null,
         preferred_time: form.preferred_time,
         duration_hours: parseFloat(form.duration_hours),
         hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : null,
@@ -95,6 +98,15 @@ export default function SchedulesPage() {
       setShowCreate(false)
     }
     setSaving(false)
+  }
+
+  const toggleDay = (day: number) => {
+    setForm((prev) => ({
+      ...prev,
+      days_of_week: prev.days_of_week.includes(day)
+        ? prev.days_of_week.filter((d) => d !== day)
+        : [...prev.days_of_week, day].sort((a, b) => a - b),
+    }))
   }
 
   const activeCount = schedules.filter(s => s.status === 'active').length
@@ -177,15 +189,33 @@ export default function SchedulesPage() {
                 <option value="triweekly">Every 3 Weeks</option>
                 <option value="monthly_date">Monthly (same date)</option>
                 <option value="monthly_weekday">Monthly (same weekday)</option>
+                <option value="weekly_days">Specific days each week</option>
               </select>
             </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
-              <select value={form.day_of_week} onChange={(e) => setForm({ ...form, day_of_week: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
-              </select>
-            </div>
+            {form.recurring_type === 'weekly_days' ? (
+              <div>
+                <label className="text-xs text-slate-400 uppercase mb-1 block">Days</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAYS.map((d, i) => (
+                    <button key={i} type="button" onClick={() => toggleDay(i)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
+                        form.days_of_week.includes(i)
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >{d}</button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs text-slate-400 uppercase mb-1 block">Day</label>
+                <select value={form.day_of_week} onChange={(e) => setForm({ ...form, day_of_week: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                  {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-slate-400 uppercase mb-1 block">Time</label>
               <input type="time" value={form.preferred_time} onChange={(e) => setForm({ ...form, preferred_time: e.target.value })}
@@ -203,7 +233,7 @@ export default function SchedulesPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button type="submit" disabled={saving || !form.client_id}
+            <button type="submit" disabled={saving || !form.client_id || (form.recurring_type === 'weekly_days' && form.days_of_week.length === 0)}
               className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">
               {saving ? 'Creating...' : 'Create Schedule'}
             </button>
@@ -261,7 +291,11 @@ export default function SchedulesPage() {
                 <td className="px-4 py-3 text-slate-400">{s.service_types?.name || '—'}</td>
                 <td className="px-4 py-3 text-slate-400">{frequencyLabels[s.recurring_type] || s.recurring_type}</td>
                 <td className="px-4 py-3">
-                  <p className="text-slate-900 font-medium">{s.day_of_week != null ? DAYS[s.day_of_week] : '—'}</p>
+                  <p className="text-slate-900 font-medium">
+                    {s.days_of_week && s.days_of_week.length > 0
+                      ? s.days_of_week.map((d) => DAYS[d]).join('/')
+                      : s.day_of_week != null ? DAYS[s.day_of_week] : '—'}
+                  </p>
                   <p className="text-xs text-slate-400">{s.preferred_time || ''} {s.duration_hours ? `· ${s.duration_hours}hr` : ''}</p>
                 </td>
                 <td className="px-4 py-3">

@@ -18,6 +18,10 @@ interface RecurringOptionsProps {
   customInterval: number
   onCustomIntervalChange: (interval: number) => void
   previewDates: string[]
+  // Only read/rendered when repeatType === 'weekly_days'. Optional so every
+  // existing caller keeps compiling untouched until it's wired up.
+  daysOfWeek?: number[]
+  onDaysOfWeekChange?: (days: number[]) => void
 }
 
 export function RecurringOptions({
@@ -34,7 +38,9 @@ export function RecurringOptions({
   onRepeatEndDateChange,
   customInterval,
   onCustomIntervalChange,
-  previewDates
+  previewDates,
+  daysOfWeek = [],
+  onDaysOfWeekChange
 }: RecurringOptionsProps) {
   
   // Get day info from start date
@@ -59,8 +65,19 @@ export function RecurringOptions({
     { value: 'triweekly', label: `Every 3 weeks on ${dayName}` },
     { value: 'monthly_date', label: `Every month on the ${dayOfMonth}${getOrdinalSuffix(dayOfMonth)}` },
     { value: 'monthly_day', label: `Every month on the ${weekOfMonth} ${dayName}` },
+    { value: 'weekly_days', label: 'Specific days each week' },
     { value: 'custom', label: 'Custom...' },
   ]
+
+  const dayAbbrevs = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const toggleDay = (day: number) => {
+    if (!onDaysOfWeekChange) return
+    onDaysOfWeekChange(
+      daysOfWeek.includes(day)
+        ? daysOfWeek.filter((d) => d !== day)
+        : [...daysOfWeek, day].sort((a, b) => a - b)
+    )
+  }
 
   function getOrdinalSuffix(n: number) {
     if (n > 3 && n < 21) return 'th'
@@ -118,6 +135,30 @@ export function RecurringOptions({
                 >+</button>
               </div>
               <span className="text-sm text-gray-600">weeks</span>
+            </div>
+          )}
+
+          {/* Specific Days */}
+          {repeatType === 'weekly_days' && (
+            <div>
+              <label className="block text-sm font-medium text-[#1E2A4A] mb-2">On which days</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {dayAbbrevs.map((label, day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => toggleDay(day)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                      daysOfWeek.includes(day)
+                        ? 'bg-[#1E2A4A] text-white border-[#1E2A4A]'
+                        : 'bg-white text-[#1E2A4A] border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+              {daysOfWeek.length === 0 && (
+                <p className="text-xs text-red-500 mt-1.5">Select at least one day.</p>
+              )}
             </div>
           )}
 

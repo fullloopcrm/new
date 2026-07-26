@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     cleaner_id, // nycmaid alias
     recurring_type,
     day_of_week,
+    days_of_week,
     preferred_time,
     duration_hours,
     hourly_rate,
@@ -212,6 +213,7 @@ export async function POST(request: Request) {
       team_member_id: teamMemberId,
       recurring_type,
       day_of_week: day_of_week ?? new Date(start_date + 'T12:00:00').getDay(),
+      days_of_week: recurring_type === 'weekly_days' ? (days_of_week ?? null) : null,
       preferred_time: preferred_time || null,
       duration_hours: hours,
       hourly_rate: hourly_rate || null,
@@ -252,6 +254,7 @@ export async function POST(request: Request) {
       pay_rate: payRate,
       notes: notes || null,
       recurring_type,
+      days_of_week: recurring_type === 'weekly_days' ? (days_of_week ?? null) : null,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',

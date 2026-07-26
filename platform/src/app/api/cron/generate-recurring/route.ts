@@ -95,6 +95,7 @@ export async function GET(request: Request) {
       recurringType: schedule.recurring_type as RecurringType,
       lastOccurrence: lastDate,
       dayOfWeek: schedule.day_of_week ?? undefined,
+      daysOfWeek: schedule.days_of_week ?? undefined,
       count: 8, // generous upper bound; filtered below to the real 4-week horizon
     }).filter((d) => d <= fourWeeksOut)
 

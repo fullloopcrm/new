@@ -42,6 +42,10 @@ function reverseRecurringType(displayName: string | null): string {
   if (lower === 'monthly') return 'monthly_date'
   if (lower === 'custom') return 'custom'
   if (/^\d/.test(displayName)) return 'monthly_day'
+  // See BookingsAdmin.tsx's identical comment -- 'weekly_days' displays as a
+  // slash-joined day list ("Mon/Wed/Fri"); the actual days come from
+  // booking.days_of_week, not parsed out of this string.
+  if (displayName.includes('/')) return 'weekly_days'
   return 'weekly'
 }
 
@@ -65,6 +69,7 @@ export interface EditableBooking {
   hourly_rate: number | null
   pay_rate: number | null
   recurring_type: string | null
+  days_of_week?: number[] | null
   schedule_id: string | null
   actual_hours: number | null
   discount_percent: number | null
@@ -129,6 +134,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
     repeat_end_count: 10,
     repeat_end_date: endDate3.toISOString().split('T')[0],
     custom_interval: 3,
+    days_of_week: booking.days_of_week || [] as number[],
     actual_hours: booking.actual_hours,
     pay_rate: booking.pay_rate ?? null as number | null,
     team_size: booking.team_size || 1,
@@ -245,7 +251,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
   const editRecurringDates = generateRecurringDates(
     form.start_date, form.repeat_enabled, form.repeat_type,
-    form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
+    form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval,
+    form.days_of_week
   )
 
   const buildNaiveTime = (date: string, time: string, addHours: number = 0) => {
@@ -289,7 +296,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
     const newStartStr = buildNaiveTime(form.start_date, form.start_time)
     const newEndStr = buildNaiveTime(form.start_date, form.start_time, form.hours)
-    const recurringType = form.repeat_enabled ? getRecurringDisplayName(form.repeat_type, form.start_date) : null
+    const recurringType = form.repeat_enabled ? getRecurringDisplayName(form.repeat_type, form.start_date, form.days_of_week) : null
 
     const updateData = {
       ...form,
@@ -313,7 +320,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
         const startDateObj = new Date(form.start_date + 'T12:00:00')
         const newDates = generateRecurringDates(
           form.start_date, true, form.repeat_type,
-          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
+          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval,
+          form.days_of_week
         )
         const res = await fetch('/api/admin/recurring-schedules/' + booking.schedule_id + '/regenerate', {
           method: 'POST',
@@ -321,6 +329,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           body: JSON.stringify({
             recurring_type: rawRecurringType(form.repeat_type),
             day_of_week: startDateObj.getDay(),
+            days_of_week: form.repeat_type === 'weekly_days' ? form.days_of_week : undefined,
             preferred_time: form.start_time,
             duration_hours: form.hours,
             hourly_rate: form.hourly_rate,
@@ -617,6 +626,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
             customInterval={form.custom_interval}
             onCustomIntervalChange={(v) => setForm({ ...form, custom_interval: v })}
             previewDates={editRecurringDates}
+            daysOfWeek={form.days_of_week}
+            onDaysOfWeekChange={(v) => setForm({ ...form, days_of_week: v })}
           />
 
           <div className="py-3 border-t border-b border-gray-200 space-y-2">
@@ -694,7 +705,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
         <div className="flex gap-3 mt-6">
           <button type="button" onClick={onCancel} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
+          <button type="submit" disabled={saving || (form.repeat_enabled && form.repeat_type === 'weekly_days' && form.days_of_week.length === 0)} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>

@@ -7,6 +7,7 @@ export type RecurringType =
   | 'triweekly'
   | 'monthly_date'
   | 'monthly_weekday'
+  | 'weekly_days'
   | 'custom'
 
 export function generateRecurringDates({
@@ -15,6 +16,7 @@ export function generateRecurringDates({
   dayOfWeek,
   weeksToGenerate = 4,
   customIntervalDays,
+  daysOfWeek,
 }: {
   recurringType: RecurringType
   startDate: Date
@@ -22,6 +24,8 @@ export function generateRecurringDates({
   weeksToGenerate?: number
   /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
   customIntervalDays?: number | null
+  /** Only read for recurringType 'weekly_days' (recurring_schedules.days_of_week) -- 0=Sun..6=Sat. */
+  daysOfWeek?: number[] | null
 }): Date[] {
   const dates: Date[] = []
   const current = new Date(startDate)
@@ -54,6 +58,36 @@ export function generateRecurringDates({
         current.setDate(current.getDate() + 21)
       }
       break
+
+    case 'weekly_days': {
+      // One occurrence per selected weekday (0=Sun..6=Sat), every week in the
+      // horizon. Falls back to startDate's own weekday if none given, so a
+      // missing/empty days_of_week degrades to plain 'weekly' instead of
+      // emitting nothing. Built week-by-week off the Sunday containing
+      // `current` so the result stays chronological without an extra sort --
+      // for a fixed week, iterating `days` ascending yields ascending dates,
+      // and each later week starts strictly after the previous week's last day.
+      const days = (daysOfWeek && daysOfWeek.length > 0)
+        ? Array.from(new Set(daysOfWeek)).sort((a, b) => a - b)
+        : [current.getDay()]
+      const weekStart = new Date(current)
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      for (let w = 0; w < weeksToGenerate; w++) {
+        for (const dow of days) {
+          const d = new Date(weekStart)
+          d.setDate(d.getDate() + w * 7 + dow)
+          // Drop this week's selected days that fall before the anchor (e.g.
+          // anchor lands on a Wednesday of a Mon/Wed/Fri schedule -- Monday
+          // of that same week is in the past). nextOccurrenceDates relies on
+          // the FIRST surviving date here being an exact echo of `current`
+          // (see its docstring) -- guaranteed as long as current's own
+          // weekday is one of `days`, true for every refill since lastOccurrence
+          // was itself generated for one of these days.
+          if (d >= current) dates.push(d)
+        }
+      }
+      break
+    }
 
     case 'monthly_date': {
       // Recompute each month's anchor from the ORIGINAL day-of-month every
@@ -181,6 +215,7 @@ export function nextOccurrenceDates({
   dayOfWeek,
   count = 4,
   customIntervalDays,
+  daysOfWeek,
 }: {
   recurringType: RecurringType
   lastOccurrence: Date
@@ -188,6 +223,8 @@ export function nextOccurrenceDates({
   count?: number
   /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
   customIntervalDays?: number | null
+  /** Only read for recurringType 'weekly_days' (recurring_schedules.days_of_week). */
+  daysOfWeek?: number[] | null
 }): Date[] {
   return generateRecurringDates({
     recurringType,
@@ -195,6 +232,7 @@ export function nextOccurrenceDates({
     dayOfWeek,
     weeksToGenerate: count + 1,
     customIntervalDays,
+    daysOfWeek,
   }).slice(1)
 }
 
@@ -401,7 +439,9 @@ export function etMinuteOfDay(date: Date = new Date()): number {
 
 export function getRecurringDisplayName(
   repeatType: string,
-  startDate: string
+  startDate: string,
+  /** Only read for repeatType 'weekly_days' -- 0=Sun..6=Sat, formats e.g. "Mon/Wed/Fri". */
+  daysOfWeek?: number[] | null
 ): string | null {
   if (!startDate) return null
 
@@ -422,6 +462,14 @@ export function getRecurringDisplayName(
     case 'monthly_day':
     case 'monthly_weekday':
       return `${weekNames[weekNum-1]} ${dayName}`
+    case 'weekly_days':
+      // Falls back to the anchor date's own day name (degrading to plain
+      // "weekly"-style display) when no days array is given, rather than a
+      // blank/generic label -- same degrade-gracefully approach as the
+      // dayOfWeek fallback in generateRecurringDates above.
+      return (daysOfWeek && daysOfWeek.length > 0)
+        ? Array.from(new Set(daysOfWeek)).sort((a, b) => a - b).map((d) => dayNames[d]).join('/')
+        : dayName
     case 'custom': return 'Custom'
     default: return null
   }
@@ -461,6 +509,7 @@ export function formatRecurringFrequency(recurringType: string | null | undefine
     case 'monthly_date':
     case 'monthly_weekday':
       return 'Monthly'
+    case 'weekly_days': return 'Weekly (multiple days)'
     case 'custom': return 'Custom'
     default: return recurringType
   }

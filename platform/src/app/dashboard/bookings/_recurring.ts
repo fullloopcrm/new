@@ -9,7 +9,9 @@ export function generateRecurringDates(
   repeatEnd: string,
   repeatEndCount: number,
   repeatEndDate: string,
-  customInterval: number
+  customInterval: number,
+  /** Only read for repeatType 'weekly_days' -- 0=Sun..6=Sat. */
+  daysOfWeek: number[] = []
 ): string[] {
   if (!repeatEnabled || !startDate) return [startDate]
 
@@ -24,6 +26,29 @@ export function generateRecurringDates(
     : (repeatEnd === 'on_date' && repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null)
 
   let current = new Date(start)
+
+  // One occurrence per selected weekday every week in the horizon, same
+  // week-boundary approach as lib/recurring.ts's generateRecurringDates.
+  // Falls back to the anchor's own weekday when none given.
+  if (repeatType === 'weekly_days') {
+    const days = (daysOfWeek.length > 0 ? Array.from(new Set(daysOfWeek)) : [start.getDay()]).sort((a, b) => a - b)
+    const weekStart = new Date(start)
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+    let week = 0
+    let stop = false
+    while (dates.length < maxDates && !stop) {
+      for (const dow of days) {
+        const date = new Date(weekStart)
+        date.setDate(date.getDate() + week * 7 + dow)
+        if (date < start) continue
+        if (endDate && date > endDate) { stop = true; break }
+        dates.push(date.toISOString().split('T')[0])
+        if (dates.length >= maxDates) { stop = true; break }
+      }
+      week++
+    }
+    return dates
+  }
 
   // For monthly_day, we need special handling
   if (repeatType === 'monthly_day') {
@@ -129,7 +154,9 @@ export function buildSeriesUpdateData(opts: {
 // Helper to get display name for recurring type
 export function getRecurringDisplayName(
   repeatType: string,
-  startDate: string
+  startDate: string,
+  /** Only read for repeatType 'weekly_days' -- 0=Sun..6=Sat, formats e.g. "Mon/Wed/Fri". */
+  daysOfWeek?: number[] | null
 ): string | null {
   if (!startDate) return null
 
@@ -146,6 +173,10 @@ export function getRecurringDisplayName(
     case 'triweekly': return 'Tri-weekly'
     case 'monthly_date': return 'Monthly'
     case 'monthly_day': return `${weekNames[weekNum-1]} ${dayName}`
+    case 'weekly_days':
+      return (daysOfWeek && daysOfWeek.length > 0)
+        ? Array.from(new Set(daysOfWeek)).sort((a, b) => a - b).map((d) => dayNames[d]).join('/')
+        : dayName
     case 'custom': return 'Custom'
     default: return null
   }

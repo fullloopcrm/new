@@ -8,6 +8,7 @@ type Schedule = {
   id: string
   recurring_type: string
   day_of_week: number | null
+  days_of_week: number[] | null
   preferred_time: string | null
   duration_hours: number | null
   hourly_rate: number | null
@@ -40,6 +41,7 @@ export default function ScheduleDetailPage() {
   const [editForm, setEditForm] = useState({
     recurring_type: '',
     day_of_week: '',
+    days_of_week: [] as number[],
     preferred_time: '',
     duration_hours: '',
     notes: '',
@@ -81,6 +83,7 @@ export default function ScheduleDetailPage() {
     setEditForm({
       recurring_type: schedule.recurring_type || '',
       day_of_week: schedule.day_of_week != null ? String(schedule.day_of_week) : '',
+      days_of_week: schedule.days_of_week || [],
       preferred_time: schedule.preferred_time || '',
       duration_hours: schedule.duration_hours != null ? String(schedule.duration_hours) : '',
       notes: schedule.notes || '',
@@ -96,6 +99,7 @@ export default function ScheduleDetailPage() {
       body: JSON.stringify({
         recurring_type: editForm.recurring_type,
         day_of_week: editForm.day_of_week !== '' ? Number(editForm.day_of_week) : null,
+        days_of_week: editForm.recurring_type === 'weekly_days' ? editForm.days_of_week : null,
         preferred_time: editForm.preferred_time || null,
         duration_hours: editForm.duration_hours ? Number(editForm.duration_hours) : null,
         notes: editForm.notes || null,
@@ -142,6 +146,7 @@ export default function ScheduleDetailPage() {
                 <option value="weekly">Weekly</option>
                 <option value="biweekly">Biweekly</option>
                 <option value="monthly">Monthly</option>
+                <option value="weekly_days">Specific days each week</option>
               </select>
             </div>
             <div>
@@ -149,15 +154,38 @@ export default function ScheduleDetailPage() {
               <input type="time" value={editForm.preferred_time} onChange={e => setEditForm({...editForm, preferred_time: e.target.value})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Day of Week</label>
-              <select value={editForm.day_of_week} onChange={e => setEditForm({...editForm, day_of_week: e.target.value})}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d, i) => (
-                  <option key={i} value={i}>{d}</option>
-                ))}
-              </select>
-            </div>
+            {editForm.recurring_type === 'weekly_days' ? (
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Days</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAYS.map((d, i) => (
+                    <button key={i} type="button"
+                      onClick={() => setEditForm((prev) => ({
+                        ...prev,
+                        days_of_week: prev.days_of_week.includes(i)
+                          ? prev.days_of_week.filter((x) => x !== i)
+                          : [...prev.days_of_week, i].sort((a, b) => a - b),
+                      }))}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
+                        editForm.days_of_week.includes(i)
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >{d}</button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Day of Week</label>
+                <select value={editForm.day_of_week} onChange={e => setEditForm({...editForm, day_of_week: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                  {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d, i) => (
+                    <option key={i} value={i}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Duration (hours)</label>
               <input type="number" value={editForm.duration_hours} onChange={e => setEditForm({...editForm, duration_hours: e.target.value})}
@@ -175,7 +203,8 @@ export default function ScheduleDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={saveEdit} className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold">Save</button>
+            <button onClick={saveEdit} disabled={editForm.recurring_type === 'weekly_days' && editForm.days_of_week.length === 0}
+            className="bg-teal-600 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50">Save</button>
             <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-900">Cancel</button>
           </div>
         </div>
@@ -187,7 +216,11 @@ export default function ScheduleDetailPage() {
             <h3 className="font-semibold text-slate-900 mb-4">Schedule Details</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between"><dt className="text-slate-400">Frequency</dt><dd className="capitalize">{schedule.recurring_type.replace('_', ' ')}</dd></div>
-              <div className="flex justify-between"><dt className="text-slate-400">Day</dt><dd>{schedule.day_of_week != null ? DAYS[schedule.day_of_week] : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Day</dt><dd>
+                {schedule.days_of_week && schedule.days_of_week.length > 0
+                  ? schedule.days_of_week.map((d) => DAYS[d]).join('/')
+                  : schedule.day_of_week != null ? DAYS[schedule.day_of_week] : '—'}
+              </dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Time</dt><dd>{schedule.preferred_time || '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Duration</dt><dd>{schedule.duration_hours ? `${schedule.duration_hours} hours` : '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{schedule.status}</dd></div>
