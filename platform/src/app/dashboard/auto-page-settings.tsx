@@ -280,6 +280,7 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'default_invite_role', label: 'Default invite role', type: 'select', layer: 'tenant_selena', helper: 'Preselected role on the invite form, and the fallback used platform-wide when no role is specified.', options: [
         { value: 'admin', label: 'Admin' }, { value: 'manager', label: 'Manager' }, { value: 'staff', label: 'Staff' },
       ], default: 'manager' },
+      { key: 'require_2fa_for_new_users', label: 'Require 2FA for new users', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'New invites must set up two-factor authentication before their first login.' },
     ],
   },
   'websites': {

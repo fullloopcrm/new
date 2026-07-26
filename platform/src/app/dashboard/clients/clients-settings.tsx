@@ -2,6 +2,7 @@
 
 import { usePageSettings, PageSettingsPanel } from '@/components/page-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { usePageComms, CommsSubsetSection } from '@/components/page-comms-settings'
 
 // Client-relationship messages, not tied to a specific booking's lifecycle
@@ -17,6 +18,26 @@ type ClientsViewPrefs = {
 
 const selectCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900'
 
+function ToggleRow({ label, helper, on, onChange }: { label: string; helper: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start justify-between gap-4 cursor-pointer">
+      <span className="flex-1">
+        <span className="block text-sm font-medium text-white">{label}</span>
+        <span className="block text-xs text-white/60 mt-0.5">{helper}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => onChange(!on)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${on ? 'bg-emerald-500' : 'bg-gray-600'}`}
+      >
+        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'} translate-y-0.5`} />
+      </button>
+    </label>
+  )
+}
+
 export default function ClientsSettings() {
   const settings = usePageSettings('clients')
   const viewPrefs = useUserPrefs<ClientsViewPrefs>('clients', {
@@ -25,6 +46,11 @@ export default function ClientsSettings() {
     default_type_filter: 'all',
   })
   const comms = usePageComms(settings.open)
+  const tenantSettings = useTenantSettings()
+  const selena = (tenantSettings.tenant?.selena_config as Record<string, unknown> | null) || {}
+  const defaultClientStatus = (selena.default_client_status as string) || 'active'
+  const requireClientPhone = !!selena.require_client_phone
+  const requireClientEmail = !!selena.require_client_email
 
   return (
     <PageSettingsPanel
@@ -83,6 +109,34 @@ export default function ClientsSettings() {
                 <option value="one-time">One-Time</option>
               </select>
             </label>
+          </div>
+
+          <div className="space-y-3 border-t border-gray-800 pt-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Client Creation Rules</p>
+            <label className="block">
+              <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Default status for new clients</span>
+              <select
+                className={selectCls}
+                value={defaultClientStatus}
+                onChange={(e) => tenantSettings.updateSelenaConfig({ default_client_status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="lead">Lead</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <ToggleRow
+              label="Require phone number"
+              helper="A new client cannot be created without a phone number."
+              on={requireClientPhone}
+              onChange={(v) => tenantSettings.updateSelenaConfig({ require_client_phone: v })}
+            />
+            <ToggleRow
+              label="Require email address"
+              helper="A new client cannot be created without an email address."
+              on={requireClientEmail}
+              onChange={(v) => tenantSettings.updateSelenaConfig({ require_client_email: v })}
+            />
           </div>
 
           <div className="space-y-3 border-t border-gray-800 pt-4">
