@@ -125,18 +125,32 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
   const skipNextAutoSave = useRef(false)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function openBudget(row: QuoteRow) {
+  async function openBudget(row: QuoteRow) {
     setErr('')
     setTemplateMsg('')
     setApplyingTemplateId('')
     skipNextAutoSave.current = true
     setOpenId(row.id)
-    const b = row.budget
-    setForm(
-      b
-        ? { line_items: b.line_items, target_margin: b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '', notes: b.notes || '' }
-        : { ...emptyForm }
-    )
+    // The list view's embedded row.budget never carries line_items (only
+    // aggregated totals) -- fetch the single-quote detail endpoint for the
+    // real array, or form.line_items ends up undefined and every render
+    // that maps/reduces over it crashes.
+    if (!row.budget) {
+      setForm({ ...emptyForm })
+      return
+    }
+    try {
+      const res = await fetch(`/api/quote-budgets/${row.id}`)
+      const d = await res.json().catch(() => null)
+      const b = d?.budget
+      setForm(
+        b
+          ? { line_items: b.line_items || [], target_margin: b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '', notes: b.notes || '' }
+          : { ...emptyForm }
+      )
+    } catch {
+      setForm({ ...emptyForm })
+    }
   }
 
   async function applySavedTemplate(quoteId: string, templateId: string) {
