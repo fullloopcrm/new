@@ -278,11 +278,36 @@ export async function updateProperty(
   return after
 }
 
-// Make one property primary (and clear the flag on the others).
+// Bookings not yet finalized — these should follow the client to their new
+// primary address. completed/no_show/cancelled bookings are historical
+// record and keep whatever address they actually happened at.
+const UPCOMING_BOOKING_STATUSES = ['scheduled', 'confirmed', 'pending']
+
+// Make one property primary (and clear the flag on the others). Any of the
+// client's upcoming bookings still pointing at the OLD primary property move
+// with it — otherwise the client's address looks "updated" everywhere except
+// the appointments actually tied to it. Bookings deliberately pinned to a
+// different (non-primary) property are left alone.
 export async function setPrimaryProperty(clientId: string, propertyId: string, actor?: ChangeActor): Promise<void> {
+  const { data: prevPrimary } = await supabaseAdmin
+    .from('client_properties')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('is_primary', true)
+    .maybeSingle()
+
   await supabaseAdmin.from('client_properties').update({ is_primary: false }).eq('client_id', clientId)
   await supabaseAdmin.from('client_properties').update({ is_primary: true }).eq('id', propertyId).eq('client_id', clientId)
   await logPropertyChange({ clientId, propertyId, action: 'set_primary', newValue: { is_primary: true }, actor })
+
+  if (prevPrimary && prevPrimary.id !== propertyId) {
+    await supabaseAdmin
+      .from('bookings')
+      .update({ property_id: propertyId })
+      .eq('client_id', clientId)
+      .eq('property_id', prevPrimary.id)
+      .in('status', UPCOMING_BOOKING_STATUSES)
+  }
 }
 
 // Soft-delete a property (keeps booking history intact).
