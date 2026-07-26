@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Referral = {
@@ -139,7 +139,6 @@ export default function ReferralsPage() {
             <h2 className="text-2xl font-bold text-slate-900">Referrals</h2>
             <p className="text-sm text-slate-400">{totalReferrals} total &middot; {converted} converted &middot; {convRate}% rate</p>
           </div>
-          <PageSettingsGear open={referralsSettings.open} setOpen={referralsSettings.setOpen} title="Referrals" />
         </div>
         <div className="flex gap-2">
           <button onClick={() => downloadCSV(

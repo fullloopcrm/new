@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { PageSettingsGear, PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Campaign = {
@@ -147,7 +147,6 @@ export default function CampaignsPage() {
             <h2 className="text-2xl font-bold text-slate-900">Campaigns</h2>
             <p className="text-sm text-slate-400">{campaigns.length} total &middot; {draftCount} drafts &middot; {sentCount} sent</p>
           </div>
-          <PageSettingsGear open={campaignsSettings.open} setOpen={campaignsSettings.setOpen} title="Campaigns" />
         </div>
         <button onClick={() => setShowCreate(!showCreate)}
           className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold hover:bg-teal-700 transition-colors">
