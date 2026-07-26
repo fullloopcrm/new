@@ -1,3 +1,36 @@
 /* @ts-nocheck — minimal brand stub for wash-and-fold-nyc. Replace with real theme tokens. */
 @import "../../globals.css";
 :root { --brand-accent: #0066cc; }
+
+/* FloatingBubbles decorative overlay (_components/marketing/FloatingBubbles.tsx).
+   Without positioning, .bubble divs stack in normal flow and push the whole
+   page down — these rules take the container out of flow entirely. */
+.bubbles-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  animation-name: bubble-rise, bubble-sway;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: normal, alternate;
+}
+
+@keyframes bubble-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-110vh); opacity: 0; }
+}
+
+@keyframes bubble-sway {
+  from { margin-left: 0; }
+  to { margin-left: 24px; }
+}
