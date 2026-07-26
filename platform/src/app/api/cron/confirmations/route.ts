@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendSMS } from '@/lib/sms'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { getCommPrefs } from '@/lib/comms-prefs'
-import { getTenantTimezone, getLocalHour, getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+import { etHour, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 import type { BookingTomorrowConfirm } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
 
 // Confirmation cron — runs every hour
 // Clients: send day-before confirmation text asking for reply.
-// Team members do NOT need to confirm — their portal schedule is the assignment,
-// full stop. (Previously nagged cleaners hourly per unconfirmed job; removed —
-// that requirement never should have existed.)
+// Team members do NOT need to confirm — their portal schedule is the
+// assignment, full stop. (Previously resent an hourly "reply YES to confirm"
+// SMS per unconfirmed job, uncapped, to every cleaner — removed. That
+// requirement never should have existed; a scheduled job in the portal is
+// the assignment.)
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -32,31 +34,35 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
     const tenantId = tenant.id
-    const timezone = getTenantTimezone(tenant)
     // Client day-before confirmation is gated by the confirmation_reminder SMS toggle.
     const confirmPrefs = await getCommPrefs(tenantId)
     const clientConfirmOn = confirmPrefs.comms.confirmation_reminder?.sms !== false
 
     try {
       // ============================================
-      // CLIENT DAY-BEFORE CONFIRMATION — 1pm tenant-local the day before
+      // CLIENT DAY-BEFORE CONFIRMATION — 1pm ET the day before
       // ============================================
-      if (getLocalHour(timezone, now) === 13 && clientConfirmOn) {
-        const { tomorrowStartNaive, tomorrowEndNaive } = getTenantNaiveDayBoundaries(timezone, now)
+      // now.getHours() reads the SERVER's local hour (UTC on Vercel), so this
+      // gate used to fire at 1pm UTC (9am EDT / 8am EST), not 1pm ET as
+      // intended. etHour() reads the real ET wall-clock hour instead.
+      if (etHour(now) === 13 && clientConfirmOn) {
+        const tomorrowCal = addCalendarDays(etToday(), 1)
+        const tomorrowStartBound = `${formatNaiveET(tomorrowCal)}Z`
+        const tomorrowEndBound = `${formatNaiveET(tomorrowCal, 23, 59, 59)}Z`
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', tomorrowStartNaive)
-          .lte('start_time', tomorrowEndNaive)
+          .gte('start_time', tomorrowStartBound)
+          .lte('start_time', tomorrowEndBound)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingTomorrowConfirm[]>()
 
         for (const booking of tomorrowBookings || []) {
           const client = booking.clients
-          if (!client?.phone) continue
+          if (!client || !booking.client_id) continue
 
           // Check if already sent confirmation for this booking
           const { data: alreadySent } = await supabaseAdmin
@@ -76,13 +82,11 @@ export async function GET(request: Request) {
           const smsBody = `${tenant.name}: Hi ${firstName}, just confirming your appointment tomorrow at ${time} with ${memberFirst}. Reply YES to confirm or call us to reschedule.\nReply STOP to opt out.`
 
           try {
-            await sendSMS({
-              to: client.phone,
-              body: smsBody,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
-            })
-            sent++
+            // Fans out to every contact on this client with receives_sms=true
+            // (client_contacts), not just the single clients.phone value.
+            const result = await sendClientSMS(tenant, booking.client_id, smsBody)
+            sent += result.sent
+            if (result.sent === 0) failed++
           } catch (smsErr) {
             failed++
             errors.push(`Client confirm SMS to ${client.name} (${tenantId}): ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)

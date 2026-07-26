@@ -61,7 +61,13 @@
   overflow: hidden;
 }
 @media (max-width: 900px) {
-  .lc-shell { grid-template-columns: 1fr; }
+  /* Single-column stack: without an explicit row split, grid defaults to an
+     even 50/50 split between sidebar and chat, leaving almost no room for
+     either once the sidebar carries Pinned + channels + a footer. The
+     non-list chrome (pinned block + search box + footer) measures ~221px
+     on its own -- 340px leaves genuine room for the channel list itself
+     instead of squeezing it to ~0. */
+  .lc-shell { grid-template-columns: 1fr; grid-template-rows: 340px 1fr; }
 }
 
 .lc-sidebar {
@@ -69,6 +75,11 @@
   display: flex;
   flex-direction: column;
   background: var(--lc-bg);
+  /* Grid items default to a content-based automatic minimum size, so
+     without this, a tall sidebar (pinned section + channel list) inflates
+     .lc-shell's whole grid row past its intended height instead of
+     scrolling internally via .lc-channel-list's own overflow-y. */
+  min-height: 0;
 }
 
 .lc-search-box {
@@ -207,6 +218,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 .lc-channel-head {
   padding: 13px 18px;

@@ -48,7 +48,7 @@ const sections: DocSection[] = [
 
 **Level 1 — human ↔ human (live):**
 - Admin side: \`/admin/tenant-chats\` — every tenant as a thread, owner replies surface here. Threads needing a reply sort to the top.
-- Owner side: \`/dashboard/messages\` — the owner reads admin messages and replies.
+- Owner side: \`/dashboard/connect\` (pinned "Full Loop Support" conversation) — the owner reads admin messages and replies. Folded in from the old \`/dashboard/messages\`, which now just redirects there.
 - **In-platform only** — sending stores a row (\`channel: 'platform'\`); it does NOT send SMS or email. (For external SMS/email to an owner, Jefe uses \`notify_tenant_owner\`, a separate path.)
 - Both views poll every 15s while visible. True push-realtime is pending RLS policies.
 
@@ -185,7 +185,7 @@ const sections: DocSection[] = [
 | \`/api/team-portal/connect/unread\` | GET | Unread message count |
 | \`/api/team-portal/notifications\` | GET | Team notifications |
 | \`/api/team-portal/preferences\` | GET/PUT | Notification preferences |
-| \`/api/team-portal/guidelines\` | GET | Company guidelines |
+| \`/api/team-portal/announcements\` | GET | Team announcements feed |
 
 **Client Portal APIs** — Verification code auth
 

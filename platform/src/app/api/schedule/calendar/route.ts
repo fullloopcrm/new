@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantTimezone, toTenantNaiveString, parseTenantNaiveString } from '@/lib/tenant-time'
+import { etToday, parseNaiveET, calendarDayOfWeek, addCalendarDays, etDayBoundaryUTC } from '@/lib/recurring'
 
 // The two DB round-trips (bookings + team) are the expensive part of this
 // route and were re-run on every single calendar view/navigation with no
@@ -99,16 +99,17 @@ function heatLevel(jobs: number, max: number): CalendarDay['heat'] {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
-    const timezone = getTenantTimezone(tenant)
+    const { tenantId } = await getTenantForRequest()
     const url = request.nextUrl
     const monthParam = url.searchParams.get('month') // YYYY-MM
-    // Default (no ?month=) must be the tenant's OWN current calendar month —
-    // `new Date()` reads the server's (UTC) month, which flips a day+ early
-    // for US tenants near a month boundary.
+    // `bookings.start_time` is a naive America/New_York wall-clock column (see
+    // parseNaiveET below) — the "current" month/day must be ET's, not the
+    // server's local (UTC on Vercel) calendar, or the default view drifts a
+    // day early/late for hours near midnight ET.
+    const todayCal = etToday()
     const focus = monthParam
       ? new Date(`${monthParam}-01T00:00:00`)
-      : new Date(`${toTenantNaiveString(timezone).slice(0, 7)}-01T00:00:00`)
+      : new Date(todayCal.year, todayCal.month, todayCal.day)
 
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
@@ -171,7 +172,11 @@ export async function GET(request: NextRequest) {
     for (const b of bookings) {
       const startStr = b.start_time as string
       if (!startStr) continue
-      const key = ymd(new Date(startStr))
+      // Slice the naive string directly rather than round-tripping through
+      // `new Date()` — start_time has no timezone marker, so parsing it would
+      // read the calendar date back through the SERVER's local (UTC) getters
+      // instead of just echoing the ET digits already in the column.
+      const key = startStr.slice(0, 10)
       const day = dayByKey.get(key)
       if (!day) continue
       const tm = b.team_member_id as string | null
@@ -200,24 +205,17 @@ export async function GET(request: NextRequest) {
       d.is_idle = d.jobs_count === 0
     }
 
-    // Outlook stats — for the focused month + this-week view.
-    // start_time is naive tenant-local — every comparison below runs against
-    // naive strings (not real-instant Date math) so bookings land on the
-    // correct tenant-local day regardless of the server's own (UTC) clock.
+    // Outlook stats — for the focused month + this-week view. `now` is a
+    // genuine instant (fine as-is); the week boundary and "today" key must be
+    // computed against ET's calendar, not the server's local (UTC) one, and
+    // every booking start/end compared against them must go through
+    // parseNaiveET() (which interprets the naive column as ET, not UTC) —
+    // otherwise every comparison below silently drifts by the ET/UTC gap
+    // (4-5h) for the whole day, not just at a midnight edge case.
     const now = new Date()
-    const nowNaive = toTenantNaiveString(timezone, now)
-    const todayKey = nowNaive.slice(0, 10)
-    const weekStartNaive = (() => {
-      const d = new Date(`${todayKey}T00:00:00`)
-      const dayIdx = (d.getDay() + 6) % 7
-      d.setDate(d.getDate() - dayIdx)
-      return d.toISOString().slice(0, 10)
-    })()
-    const weekEndNaive = (() => {
-      const d = new Date(`${weekStartNaive}T00:00:00`)
-      d.setDate(d.getDate() + 7)
-      return d.toISOString().slice(0, 10)
-    })()
+    const weekStartCal = addCalendarDays(todayCal, -((calendarDayOfWeek(todayCal) + 6) % 7)) // Mon=0
+    const monStart = etDayBoundaryUTC(weekStartCal)
+    const monEnd = etDayBoundaryUTC(addCalendarDays(weekStartCal, 7))
 
     let weekJobs = 0
     let weekRevenueCents = 0
@@ -227,12 +225,13 @@ export async function GET(request: NextRequest) {
     let todayTotal = 0
     let firstUpcoming: { client: string; start: string; team_member: string | null } | null = null
     const weekHoursByTm = new Map<string, number>()
+    const todayKey = ymd(new Date(todayCal.year, todayCal.month, todayCal.day))
 
     for (const b of bookings) {
       const startStr = b.start_time as string
       if (!startStr) continue
-      const start = new Date(startStr)
-      const isWeek = startStr >= weekStartNaive && startStr < weekEndNaive
+      const start = parseNaiveET(startStr)
+      const isWeek = start >= monStart && start < monEnd
       const id = b.id as string
       if (isWeek) {
         weekJobs += 1
@@ -241,7 +240,7 @@ export async function GET(request: NextRequest) {
         if (conflictIds.has(id)) conflictCount += 1
         const endRaw = b.end_time as string | null
         const durHours = endRaw
-          ? Math.max(0.5, (new Date(endRaw).getTime() - start.getTime()) / 3_600_000)
+          ? Math.max(0.5, (parseNaiveET(endRaw).getTime() - start.getTime()) / 3_600_000)
           : 3
         const tmId = (b.team_member_id as string | null) || ''
         if (tmId) weekHoursByTm.set(tmId, (weekHoursByTm.get(tmId) || 0) + durHours)
@@ -250,7 +249,7 @@ export async function GET(request: NextRequest) {
         todayTotal += 1
         if ((b.status as string) === 'in_progress') todayActive += 1
       }
-      if (startStr > nowNaive && !firstUpcoming) {
+      if (start.getTime() > now.getTime() && !firstUpcoming) {
         firstUpcoming = {
           client: ((b.clients as unknown as { name?: string } | null)?.name) || 'Unknown',
           start: startStr,
@@ -262,7 +261,7 @@ export async function GET(request: NextRequest) {
     // Cleaner load bar: jobs per team member this week.
     const loads: TeamLoad[] = team
       .map((t) => {
-        const jobs = bookings.filter((b) => b.team_member_id === t.id && (b.start_time as string) >= weekStartNaive && (b.start_time as string) < weekEndNaive).length
+        const jobs = bookings.filter((b) => b.team_member_id === t.id && parseNaiveET(b.start_time as string) >= monStart && parseNaiveET(b.start_time as string) < monEnd).length
         return { id: t.id, name: t.name, jobs, over: jobs >= 12 }
       })
       .sort((a, b) => b.jobs - a.jobs)
@@ -287,22 +286,19 @@ export async function GET(request: NextRequest) {
     const liveOps: LiveOpsRow[] = bookings
       .filter((b) => (b.start_time as string).slice(0, 10) === todayKey)
       .map((b) => {
-        const start = new Date(b.start_time as string)
+        const start = parseNaiveET(b.start_time as string)
         const status = (b.status as string) || 'scheduled'
         let liveStatus: LiveOpsRow['status'] = 'upcoming'
         let durationLabel = ''
         if (status === 'in_progress') {
           liveStatus = 'in-progress'
-          // Real elapsed time needs the TRUE instant start_time represents,
-          // not the naive-digits-parsed-as-UTC value `start` holds.
-          const realStart = parseTenantNaiveString(b.start_time as string, timezone)
-          const hrs = (now.getTime() - realStart.getTime()) / 3_600_000
+          const hrs = (now.getTime() - start.getTime()) / 3_600_000
           durationLabel = `${hrs.toFixed(1)}h in`
         } else if (status === 'completed') {
           liveStatus = 'done'
-          durationLabel = `done ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          durationLabel = `done ${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })}`
         } else {
-          durationLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+          durationLabel = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
         }
         const tm = (b.team_member_id as string | null) || null
         return {

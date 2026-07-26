@@ -13,6 +13,8 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
+import { audit } from '@/lib/audit'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -327,7 +329,10 @@ export async function executeTool(
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
+      // before ET's does, so this fallback showed TOMORROW's schedule as
+      // "today" for evening ET admin queries.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
       const dateTo = (input.date_to as string) || date
       const { data, error } = await db
         .from('bookings')
@@ -364,6 +369,9 @@ export async function executeTool(
         .from('clients')
         .update(updates)
         .eq('id', input.client_id as string)
+      if (!error) {
+        await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: input.client_id as string, details: { fields: Object.keys(updates), via: 'ai_chat' } })
+      }
       return JSON.stringify(error ? { error: error.message } : { success: true })
     }
 
@@ -412,6 +420,7 @@ export async function executeTool(
         end_time: endTime,
         status: 'scheduled',
         service_type: input.service_type || 'regular',
+        source: 'admin',
       }
       if (input.team_member_id) bookingData.team_member_id = input.team_member_id
       if (input.price) bookingData.price = input.price

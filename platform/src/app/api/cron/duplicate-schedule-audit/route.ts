@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -45,7 +46,10 @@ async function auditTenant(tenantId: string): Promise<{ flagged: number; notifie
     .eq('tenant_id', tenantId)
     .in('status', ['scheduled', 'pending'])
     .not('schedule_id', 'is', null)
-    .gte('start_time', new Date().toISOString())
+    // start_time is naive ET — a real-instant boundary here missed
+    // this-morning's duplicate bookings for hours after they'd actually
+    // happened (same bug as cron/no-show-check).
+    .gte('start_time', `${nowNaiveET()}Z`)
 
   if (error) throw new Error(error.message)
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import PinLoginCard from '@/components/auth/PinLoginCard'
 import { FULL_LOOP_CONTACT_URL } from '@/components/auth/AuthShell'
 
@@ -16,19 +16,21 @@ interface LoginFormProps {
  */
 export default function LoginForm({ businessName }: LoginFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function login() {
-    if (pin.length < 4 || loading) return
+  async function login(overridePin?: string) {
+    const submitPin = overridePin ?? pin
+    if (submitPin.length < 4 || loading) return
     setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/admin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ pin: submitPin }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -36,7 +38,12 @@ export default function LoginForm({ businessName }: LoginFormProps) {
         setPin('')
         return
       }
-      router.push('/admin')
+      // Deep links from the portal picker (?next=/dashboard) land straight on
+      // the tenant surface being visited; a fresh super-admin login with no
+      // next= otherwise defaults into the picker instead of the platform
+      // panel, since a bare /admin lands you nowhere tenant-specific.
+      const next = searchParams.get('next')
+      router.push(next || (data.role === 'super_admin' ? '/admin/portals' : '/admin'))
       router.refresh()
     } catch {
       setError('Connection error')
@@ -44,6 +51,18 @@ export default function LoginForm({ businessName }: LoginFormProps) {
       setLoading(false)
     }
   }
+
+  // Portal-picker deep link (?pin=...&next=...) — auto-fills and submits once.
+  const autoSubmitted = useRef(false)
+  useEffect(() => {
+    const deepLinkPin = searchParams.get('pin')
+    if (!deepLinkPin || autoSubmitted.current) return
+    autoSubmitted.current = true
+    const cleaned = deepLinkPin.replace(/\D/g, '').slice(0, 6)
+    setPin(cleaned)
+    login(cleaned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   return (
     <PinLoginCard

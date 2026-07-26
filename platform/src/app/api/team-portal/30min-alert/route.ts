@@ -24,6 +24,7 @@ import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 
 export const maxDuration = 300
 
@@ -169,11 +170,10 @@ export async function POST(req: NextRequest) {
     const discountLabel = describeDiscount(booking.discount_percent as number | null)
     const creditCents = (booking.one_time_credit_cents as number | null) || 0
 
-    // $10 self-booking discount applies at billing for self-booked jobs.
+    // Self-booking discount applies at billing for self-booked jobs.
     // Flag is in booking.notes; set by /api/client/book at booking time.
-    const SELF_BOOKING_DISCOUNT = 10
     const isSelfBooked = typeof booking.notes === 'string' && /self-booking discount/i.test(booking.notes)
-    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT : 0
+    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT_DOLLARS : 0
 
     const clientOwesCents = Math.max(0, grossOwedCents - bookingDiscountCents - creditCents - Math.round(selfBookingDiscount * 100))
     const clientOwes = (clientOwesCents / 100).toFixed(2)
@@ -224,12 +224,66 @@ export async function POST(req: NextRequest) {
 
     const smsMessage = smsLines.join('\n')
 
-    // Record the 30-min alert timestamp on the booking
-    await tenantDb(tenantId)
-      .from('bookings')
-      .update({ fifteen_min_alert_time: now.toISOString() })
-      .eq('id', bookingId)
-      .eq('tenant_id', tenantId)
+    // Atomic claim, not a plain write. The early idempotency check above
+    // (line ~104) is a read-then-later-write gap -- fine for the common
+    // case, but two requests for the SAME booking close together (e.g. a
+    // client whose 20s abort-timeout led them to retry while the FIRST
+    // request is still deep in its own Telnyx retry loop below) could both
+    // pass that early read before either one's write lands, and both text
+    // the client. Same class of race already closed elsewhere this session
+    // (bank-transactions/match's atomic claim). force=true bypasses the
+    // claim gate entirely (existing manual-override behavior, unchanged).
+    if (!force) {
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      // Two sequential attempts instead of a single .or() filter: an
+      // .update() chained with .or('col.is.null,col.lt.X').select() matches
+      // ZERO rows against this Supabase/PostgREST version even though the
+      // identical filter works fine on a plain .select() -- confirmed live
+      // (2026-07-24): every 30-min-alert call silently no-opped and returned
+      // alreadySent, for every tenant, because the claim query never actually
+      // matched. A row is either null or has a stale value, never both, so
+      // running .is(null) first and .lt(thirtyMinAgo) as a fallback covers
+      // the same two cases the .or() was meant to, with builder methods that
+      // are proven to work.
+      let claimed = (
+        await tenantDb(tenantId)
+          .from('bookings')
+          .update({ fifteen_min_alert_time: now.toISOString() })
+          .eq('id', bookingId)
+          .eq('tenant_id', tenantId)
+          .is('fifteen_min_alert_time', null)
+          .select('id, fifteen_min_alert_time')
+          .maybeSingle()
+      ).data
+      if (!claimed) {
+        claimed = (
+          await tenantDb(tenantId)
+            .from('bookings')
+            .update({ fifteen_min_alert_time: now.toISOString() })
+            .eq('id', bookingId)
+            .eq('tenant_id', tenantId)
+            .lt('fifteen_min_alert_time', thirtyMinAgo)
+            .select('id, fifteen_min_alert_time')
+            .maybeSingle()
+        ).data
+      }
+      if (!claimed) {
+        // Another request already claimed this alert (or it's within its
+        // own 30-min window) -- bail out before sending anything, don't
+        // just silently proceed.
+        return NextResponse.json({
+          success: true,
+          alreadySent: true,
+          message: 'Alert already in progress or recently sent — skipping duplicate',
+        })
+      }
+    } else {
+      await tenantDb(tenantId)
+        .from('bookings')
+        .update({ fifteen_min_alert_time: now.toISOString() })
+        .eq('id', bookingId)
+        .eq('tenant_id', tenantId)
+    }
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]
@@ -277,7 +331,18 @@ export async function POST(req: NextRequest) {
         const smsResult = await sendClientSMS(clientId, clientSmsText, {
           smsType: clientSmsType,
           bookingId,
-        }).catch(err => { console.error(`Client 30min SMS attempt ${i + 1} failed:`, err); return { sent: 0, skipped: 0 } })
+        }).catch(async err => {
+          console.error(`Client 30min SMS attempt ${i + 1} failed:`, err)
+          // Temporary trace (2026-07-23): persist the exception so it's
+          // queryable — the prior silent .catch() left zero DB trace when
+          // sendClientSMS threw before reaching sendSMS's own logging.
+          await tenantDb(tenantId).from('notifications').insert({
+            type: 'comms_fail',
+            title: '30min client SMS threw',
+            message: `booking=${bookingId} attempt=${i + 1} error=${err instanceof Error ? err.message : String(err)}`,
+          }).then(() => {}, () => {})
+          return { sent: 0, skipped: 0 }
+        })
         if (smsResult?.sent && smsResult.sent > 0) { confirmedVia.push('SMS'); break }
         if (i === 0) await new Promise(r => setTimeout(r, 60_000))
       }

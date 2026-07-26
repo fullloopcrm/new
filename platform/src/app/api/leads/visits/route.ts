@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantTimezone, getTenantDayBoundaries } from '@/lib/tenant-time'
+import { etDayBoundaryUTC } from '@/lib/recurring'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -11,11 +11,14 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'
 
-    // Date filter — website_visits.created_at is real timestamptz; "today"
-    // must be the tenant's own calendar day, not the server's (UTC).
+    // Date filter. `website_visits.created_at` is a genuine timestamptz (real
+    // UTC instant), so week/month lookbacks are fine as plain elapsed-time
+    // math. "today" is the one case that needs a calendar boundary — and it
+    // must be ET midnight, not the server's local (UTC on Vercel) midnight,
+    // or the first ~4-5 hours of each ET day undercount as "yesterday."
     const now = new Date()
     let since = new Date()
-    if (period === 'today') since = getTenantDayBoundaries(getTenantTimezone(tenant), now).todayStart
+    if (period === 'today') since = etDayBoundaryUTC()
     else if (period === 'week') since.setDate(now.getDate() - 7)
     else if (period === 'month') since.setDate(now.getDate() - 30)
     else since.setDate(now.getDate() - 7)
@@ -30,6 +33,32 @@ export async function GET(request: NextRequest) {
       .limit(500)
 
     const allVisits = visits || []
+
+    // Top domains — the ~100 legacy SEO satellite sites (uesmaid.com,
+    // licmaid.com, etc.) run nycmaid's original tracking script, which is
+    // hardcoded to post to thenycmaid.com/api/track → lead_clicks. That's a
+    // separate table/pipeline from website_visits (the newer tenant-aware
+    // t.js), but it's the one with real per-domain data, so it's the source
+    // for this ranking specifically.
+    const { data: domainRows } = await supabaseAdmin
+      .from('lead_clicks')
+      .select('domain, action')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', since.toISOString())
+      .limit(20000)
+
+    const domainCounts: Record<string, { visits: number; ctas: number }> = {}
+    for (const row of domainRows || []) {
+      const d = ((row.domain as string) || '').replace(/^www\./, '')
+      if (!d) continue
+      if (!domainCounts[d]) domainCounts[d] = { visits: 0, ctas: 0 }
+      if (row.action === 'visit') domainCounts[d].visits++
+      else if (['call', 'text', 'book', 'pay', 'directions', 'ops_apply'].includes(row.action as string)) domainCounts[d].ctas++
+    }
+    const topDomains = Object.entries(domainCounts)
+      .map(([domain, c]) => ({ domain, visits: c.visits, ctas: c.ctas }))
+      .sort((a, b) => b.visits - a.visits)
+      .slice(0, 25)
 
     // Compute stats
     const pageViews = allVisits.filter((v) => v.action === 'visit' || !v.action)
@@ -133,6 +162,7 @@ export async function GET(request: NextRequest) {
       devices,
       ctaBreakdown,
       topPages,
+      topDomains,
       sources,
       feed,
     })

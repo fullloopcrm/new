@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
 // Gated on earnings.view_crew, which defaults ON only for manager. Scoped to the
@@ -12,7 +13,12 @@ export async function GET(request: Request) {
   const scope = await scopedMemberIds(auth)
   if (scope.length === 0) return NextResponse.json({ members: [] })
 
-  const since = new Date(); since.setDate(since.getDate() - 30)
+  // bookings.start_time is a naive ET wall-clock column (see earnings/route.ts's
+  // comment on the identical bug in cron/no-show-check) — a real
+  // `new Date().toISOString()` boundary compares real UTC digits against those
+  // naive ET digits, shifting the 30-day cutoff by the ET/UTC offset. Use the
+  // naive-ET string convention instead so the boundary lines up with the column.
+  const sinceNaiveET = `${nowNaiveET(-30 * 24 * 3600 * 1000)}Z`
 
   // Round worked hours to the nearest half hour, matching the individual
   // earnings endpoint so crew totals reconcile with each member's own view.
@@ -29,7 +35,7 @@ export async function GET(request: Request) {
       .select('team_member_id, pay_rate, start_time, end_time, check_in_time, check_out_time, status')
       .in('team_member_id', scope)
       .eq('status', 'completed')
-      .gte('start_time', since.toISOString()),
+      .gte('start_time', sinceNaiveET),
   ])
 
   // Per-member hourly fallback (dollars/hour). booking.pay_rate overrides it.

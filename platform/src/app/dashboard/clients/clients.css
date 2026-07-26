@@ -627,6 +627,13 @@
   background: rgba(107,79,174,0.1);
   color: var(--clients-vip);
 }
+.clients-drawer-customer-number {
+  font-family: var(--clients-mono);
+  font-size: 11px;
+  color: var(--clients-muted);
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
 .clients-drawer-stage-row {
   display: flex;
   align-items: center;
@@ -658,6 +665,9 @@
   color: var(--clients-ink);
 }
 .clients-drawer-body { flex: 1; overflow-y: auto; padding-bottom: 24px; }
+
+.clients-drawer-tabs { padding: 0 20px; margin-bottom: 0; border-bottom: 1px solid var(--clients-line); }
+.clients-drawer-tabs .clients-tabs { border-bottom: 0; margin-bottom: 0; }
 
 .clients-next-action {
   margin: 16px 26px;

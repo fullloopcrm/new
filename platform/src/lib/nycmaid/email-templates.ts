@@ -2,7 +2,7 @@
 // CLEAN EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
-import { clientArrivalWindow } from '../time-window'
+import { clientArrivalWindow, nycmaidWallClockTime } from '../time-window'
 import { escapeHtml, safeUrl } from '../escape-html'
 import { formatRecurringLabel } from '../recurring'
 import { applyDiscount } from '../discount'
@@ -505,7 +505,7 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
 export function cleanerAssignmentEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const startTime = nycmaidWallClockTime(booking.start_time)
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
   const hourlyRate = booking.hourly_rate || 69
@@ -1120,6 +1120,30 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
   `
 
   return { subject: `Rescheduled / Reprogramado – ${newDate}`, html: emailWrapper(content) }
+}
+
+export function pinResetEmail(person: { name: string; pin: string; portal: 'client' | 'team' }) {
+  const firstName = person.name.split(' ')[0]
+  const portalUrl = person.portal === 'client' ? 'https://www.thenycmaid.com/book' : 'https://www.thenycmaid.com/team'
+  const portalLabel = person.portal === 'client' ? 'Open Client Portal' : 'Open Team Portal'
+
+  const content = `
+    <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0;">Your PIN was reset</h1>
+    <p style="color: #444; font-size: 15px; margin: 24px 0;">Hi ${escapeHtml(firstName)}, your portal PIN was just reset. Use the new PIN below to log in.</p>
+
+    <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: left;">
+      <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your new PIN</p>
+      <p style="margin: 0; font-size: 36px; font-weight: 700; color: #000; letter-spacing: 6px;">${escapeHtml(person.pin)}</p>
+    </div>
+
+    ${primaryButton(portalLabel, portalUrl)}
+
+    <p style="color: #666; font-size: 14px; text-align: left; margin: 24px 0 0 0;">
+      Didn't request this? Call us right away: <a href="sms:6464900130" style="color: #000;">(646) 490-0130</a>
+    </p>
+  `
+
+  return { subject: `Your NYC Maid PIN was reset: ${person.pin}`, html: emailWrapper(content) }
 }
 
 export function referralSignupNotifyEmail(referrerName: string, bookingDate: string) {

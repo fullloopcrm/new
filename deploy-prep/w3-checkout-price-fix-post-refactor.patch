@@ -1,0 +1,182 @@
+diff --git a/platform/src/app/dashboard/bookings/BookingDetailContent.complete-recompute.test.tsx b/platform/src/app/dashboard/bookings/BookingDetailContent.complete-recompute.test.tsx
+new file mode 100644
+index 000000000..42df10e8e
+--- /dev/null
++++ b/platform/src/app/dashboard/bookings/BookingDetailContent.complete-recompute.test.tsx
+@@ -0,0 +1,110 @@
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
++import { render, screen, fireEvent, waitFor } from '@testing-library/react'
++
++/**
++ * TOP-PRIORITY financial bug (2026-07-23, Jeff-reported), ported to this
++ * file per leader's direction to close Conflict E: W1's calendar-panel
++ * refactor (e376fbfca) moved the booking detail view's Complete-button
++ * logic out of dashboard/bookings/[id]/page.tsx and into this shared
++ * BookingDetailContent.tsx component. The original fix (770577c0f on
++ * page.tsx) would have been silently dropped if that refactor merged
++ * first -- this ports the same fix directly onto the new location so it
++ * survives the refactor instead of needing manual reconciliation later.
++ *
++ * Same underlying bug as the original: the "Complete" button (shown when
++ * status='in_progress') PATCHed only { status: 'completed' } via
++ * /api/bookings/[id]/status -- never recomputing price/actual_hours/
++ * team_member_pay from real check-in-to-now elapsed time. The OTHER admin
++ * surface for completing a job (BookingsAdmin.tsx's "Confirm Check Out")
++ * already recomputes correctly via computeCheckoutPricing(). This proves
++ * the fix: clicking Complete here now PUTs a real recomputed price
++ * instead of leaving the stale scheduling-time estimate in place.
++ */
++
++import BookingDetailContent from './BookingDetailContent'
++
++const CHECK_IN_ISO = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
++
++const inProgressBooking = {
++  id: 'booking-1',
++  service_type: 'Standard Clean',
++  start_time: '2026-07-23T15:00:00.000Z',
++  end_time: '2026-07-23T17:00:00.000Z',
++  status: 'in_progress',
++  price: 11000, // stale $110 estimate set at scheduling time
++  hourly_rate: 55,
++  pay_rate: null,
++  actual_hours: null,
++  team_member_pay: null,
++  team_member_paid: false,
++  team_member_paid_at: null,
++  discount_percent: null,
++  one_time_credit_cents: null,
++  recurring_type: null,
++  max_hours: null,
++  team_size: 1,
++  notes: null,
++  special_instructions: null,
++  check_in_time: CHECK_IN_ISO,
++  check_in_lat: null,
++  check_in_lng: null,
++  check_out_time: null,
++  check_out_lat: null,
++  check_out_lng: null,
++  walkthrough_video_url: null,
++  final_video_url: null,
++  payment_status: null,
++  payment_method: null,
++  payment_date: null,
++  tip_amount: null,
++  clients: { name: 'Test Client', phone: null, address: null, email: null },
++  team_members: null,
++}
++
++describe('BookingDetailContent — Complete button recomputes the real bill', () => {
++  let fetchMock: ReturnType<typeof vi.fn>
++
++  beforeEach(() => {
++    fetchMock = vi.fn((url: string, opts?: RequestInit) => {
++      if (!opts || opts.method === undefined) {
++        return Promise.resolve({ json: () => Promise.resolve({ booking: inProgressBooking }) })
++      }
++      if (opts.method === 'PUT') {
++        const body = JSON.parse(opts.body as string)
++        return Promise.resolve({
++          ok: true,
++          json: () => Promise.resolve({ booking: { ...inProgressBooking, ...body } }),
++        })
++      }
++      return Promise.resolve({ ok: true, json: () => Promise.resolve({ booking: inProgressBooking }) })
++    })
++    vi.stubGlobal('fetch', fetchMock)
++  })
++
++  afterEach(() => {
++    vi.restoreAllMocks()
++    vi.unstubAllGlobals()
++  })
++
++  it('PUTs a recomputed price from real elapsed hours, not the stale scheduling-time estimate', async () => {
++    render(<BookingDetailContent bookingId="booking-1" onClose={() => {}} />)
++
++    const completeBtn = await screen.findByRole('button', { name: /complete/i })
++    fireEvent.click(completeBtn)
++
++    await waitFor(() => {
++      const putCall = fetchMock.mock.calls.find((c) => c[1]?.method === 'PUT')
++      expect(putCall).toBeTruthy()
++    })
++
++    const putCall = fetchMock.mock.calls.find((c) => c[1]?.method === 'PUT')!
++    const body = JSON.parse(putCall[1].body as string)
++
++    expect(body.status).toBe('completed')
++    expect(body.check_out_time).toBeTruthy()
++    // 3 real hours at $55/hr = $165, NOT the stale $110 estimate.
++    expect(body.price).toBe(16500)
++    expect(body.price).not.toBe(inProgressBooking.price)
++    expect(body.actual_hours).toBeCloseTo(3, 5)
++  })
++})
+diff --git a/platform/src/app/dashboard/bookings/BookingDetailContent.tsx b/platform/src/app/dashboard/bookings/BookingDetailContent.tsx
+index 35e6d219a..56aae3850 100644
+--- a/platform/src/app/dashboard/bookings/BookingDetailContent.tsx
++++ b/platform/src/app/dashboard/bookings/BookingDetailContent.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { useEffect, useState } from 'react'
+ import Link from 'next/link'
++import { computeCheckoutPricing } from '@/lib/checkout-pricing'
+ 
+ type Booking = {
+   id: string
+@@ -17,6 +18,10 @@ type Booking = {
+   team_member_paid: boolean | null
+   team_member_paid_at: string | null
+   discount_percent: number | null
++  one_time_credit_cents: number | null
++  recurring_type: string | null
++  max_hours: number | null
++  team_size: number | null
+   notes: string | null
+   special_instructions: string | null
+   check_in_time: string | null
+@@ -98,6 +103,42 @@ export default function BookingDetailContent({
+         const { booking: updated } = await res.json()
+         setBooking((prev) => prev ? { ...prev, ...updated } : prev)
+       }
++    } else if (status === 'completed' && booking?.check_in_time) {
++      // This "Complete" action only reaches a bare status PATCH previously,
++      // never recomputing price/actual_hours/team_member_pay from real
++      // check-in-to-now elapsed time -- the booking list/header kept showing
++      // the original scheduling-time estimate forever, even though
++      // BookingsAdmin.tsx's own "Confirm Check Out" button (the other admin
++      // surface for completing a job) already recomputes the real bill via
++      // this same computeCheckoutPricing() helper. Mirror that here so both
++      // "complete a booking" entry points produce the same real number.
++      const checkOutIso = new Date().toISOString()
++      const { actualHours, priceCents, cleanerPayCents } = computeCheckoutPricing({
++        checkInIso: booking.check_in_time,
++        checkOutIso,
++        hourlyRate: booking.hourly_rate,
++        cleanerHourlyRate: booking.pay_rate,
++        discountPercent: booking.discount_percent,
++        oneTimeCreditCents: booking.one_time_credit_cents,
++        recurringType: booking.recurring_type,
++        maxHours: booking.max_hours,
++        teamSize: booking.team_size,
++      })
++      const res = await fetch(`/api/bookings/${bookingId}`, {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          status: 'completed',
++          check_out_time: checkOutIso,
++          actual_hours: actualHours,
++          price: priceCents,
++          team_member_pay: cleanerPayCents,
++        }),
++      })
++      if (res.ok) {
++        const { booking: updated } = await res.json()
++        setBooking((prev) => prev ? { ...prev, ...updated } : prev)
++      }
+     } else {
+       const res = await fetch(`/api/bookings/${bookingId}/status`, {
+         method: 'PATCH',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
+import { translateToEnEs } from '@/lib/connect-translate'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -45,10 +46,12 @@ export async function GET(request: NextRequest) {
 
     const { data: messages } = await db
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, body_en, created_at')
       .eq('channel_id', channel.id)
       .order('created_at', { ascending: true })
       .limit(200)
+
+    const displayMessages = (messages || []).map((m) => ({ ...m, display_body: m.body_en || m.body }))
 
     // Update read cursor
     await tenantDb(auth.tid)
@@ -63,7 +66,7 @@ export async function GET(request: NextRequest) {
         { onConflict: 'channel_id,reader_type,reader_id' }
       )
 
-    return NextResponse.json({ messages: messages || [], channel_id: channel.id })
+    return NextResponse.json({ messages: displayMessages, channel_id: channel.id })
   } catch {
     return NextResponse.json({ messages: [] })
   }
@@ -129,6 +132,9 @@ export async function POST(request: NextRequest) {
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
+    const { data: tenant } = await supabaseAdmin.from('tenants').select('anthropic_api_key').eq('id', auth.tid).single()
+    const { en, es } = await translateToEnEs(body.trim(), tenant?.anthropic_api_key)
+
     const { data, error } = await tenantDb(auth.tid)
       .from('connect_messages') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
       .insert({
@@ -137,6 +143,8 @@ export async function POST(request: NextRequest) {
         sender_id: auth.id,
         sender_name: client?.name || 'Client',
         body: body.trim(),
+        body_en: en,
+        body_es: es,
       })
       .select()
       .single()

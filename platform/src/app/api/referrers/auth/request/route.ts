@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   })
   const rlIp = await rateLimitDb(`referrer_otp_req_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
   if (!rlEmail.allowed || !rlIp.allowed) {
+    await logAuthFailure({ surface: 'referrers/auth', ip, identifier: email, lockedOut: true })
     return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 

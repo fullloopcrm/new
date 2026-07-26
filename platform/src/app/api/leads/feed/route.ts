@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantTimezone, getTenantDayBoundaries } from '@/lib/tenant-time'
+import { etDayBoundaryUTC, parseNaiveET } from '@/lib/recurring'
 
 type FeedRow = {
   id: string
@@ -55,13 +55,13 @@ function relTime(ts: string): { label: string; sub: string | null; isLive: boole
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
-    const timezone = getTenantTimezone(tenant)
+    const { tenantId } = await getTenantForRequest()
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
-    // lead_clicks.created_at is real timestamptz — the "today" boundary must
-    // be the tenant's own calendar day, not the server's (UTC).
-    const todayStartIso = getTenantDayBoundaries(timezone).todayStart.toISOString()
+    // click/client created_at are genuine timestamptz — "today" still needs to
+    // be ET midnight, not the server's local (UTC on Vercel) midnight, or the
+    // first 4-5 hours of each ET day undercount into "yesterday."
+    const todayStartIso = etDayBoundaryUTC().toISOString()
     const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString()
 
     const [clicksRes, leadsRes, bookingsRes, clientsRes] = await Promise.all([
@@ -109,15 +109,18 @@ export async function GET(_request: NextRequest) {
       let convKind: FeedRow['conv_kind'] = null
       const cBookings = bookings.filter((b) => b.client_id === c.id)
       const paid = cBookings.find((b) => b.payment_status === 'paid')
-      const upcoming = cBookings.find((b) => new Date(b.start_time as string).getTime() > Date.now())
+      // bookings.start_time is a naive ET wall-clock column — parseNaiveET()
+      // (not new Date()) is required to compare it against a real instant
+      // like Date.now(), or "upcoming" silently drifts by the ET/UTC gap.
+      const upcoming = cBookings.find((b) => parseNaiveET(b.start_time as string).getTime() > Date.now())
       if (paid) {
         status = 'booked'
         intentAction = `Paid · $${Math.round(Number(paid.price || 0) / 100)}`
         convKind = 'auto'
       } else if (upcoming) {
         status = 'booked'
-        const dt = new Date(upcoming.start_time as string)
-        intentAction = `Booked · ${dt.toLocaleDateString('en-US', { weekday: 'short' })} ${dt.toLocaleTimeString('en-US', { hour: 'numeric' })}`
+        const dt = parseNaiveET(upcoming.start_time as string)
+        intentAction = `Booked · ${dt.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'America/New_York' })} ${dt.toLocaleTimeString('en-US', { hour: 'numeric', timeZone: 'America/New_York' })}`
         convKind = 'auto'
       } else if (cBookings.length > 0) {
         status = 'quoted'

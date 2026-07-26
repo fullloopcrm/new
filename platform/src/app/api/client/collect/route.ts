@@ -8,6 +8,7 @@ import { attributeCollectForm } from '@/lib/attribution'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -125,6 +126,10 @@ export async function POST(request: Request) {
         .single()
       if (error || !inserted) throw error || new Error('insert failed')
       data = inserted as typeof data
+
+      await createPrimaryContact(tenant.id, data.id, { name, phone, email }).catch((e) => {
+        console.error('createPrimaryContact error:', e)
+      })
     }
 
     await notify({

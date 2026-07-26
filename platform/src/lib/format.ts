@@ -76,6 +76,23 @@ export function formatEmail(email: string): string {
   return email.toLowerCase().trim()
 }
 
+// ── Customer / job numbers ────────────────────────────────────────────
+//
+// Every id is prefixed with the tenant's slug so a number is never
+// ambiguous outside its own dashboard context — this matters once
+// franchise/multi-location sub-tenants exist and numbers could
+// otherwise be compared or pasted across tenants.
+
+// "NYCMAID-007" — tenant slug + per-tenant client sequence, zero-padded to 3 digits
+export function formatCustomerNumber(tenantSlug: string, customerNumber: number): string {
+  return `${tenantSlug.toUpperCase()}-${String(customerNumber).padStart(3, '0')}`
+}
+
+// "NYCMAID-007-02" — tenant slug + customer number + per-client booking sequence
+export function formatJobNumber(tenantSlug: string, customerNumber: number, jobSeq: number): string {
+  return `${formatCustomerNumber(tenantSlug, customerNumber)}-${String(jobSeq).padStart(2, '0')}`
+}
+
 // Format address - capitalize properly
 export function formatAddress(address: string): string {
   // Common abbreviations to keep uppercase

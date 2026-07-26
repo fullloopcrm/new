@@ -3,17 +3,17 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
 import { parseTimestamp } from '@/lib/dates'
-import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
-import { applyDiscount, applyCredit } from '@/lib/discount'
+import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
+import { notify } from '@/lib/nycmaid/notify'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -35,13 +35,14 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await db
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate)')
     .eq('id', booking_id)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+  applyPropertyToBookingClient(booking as never)
 
   // Resolve the service's pricing model. ONLY hourly services recompute the
   // client price from elapsed time; flat/per-unit keep the price fixed at
@@ -73,14 +74,7 @@ export async function POST(request: Request) {
 
   const checkInParsed = booking.check_in_time ? parseTimestamp(booking.check_in_time as string) : null
   if (checkInParsed) {
-    const rawMinutes = Math.max(0, (checkOutTime.getTime() - checkInParsed.getTime()) / 60000)
-    hoursWorked = rawMinutes / 60
-    const clientHours = clientBilledHours(rawMinutes)
-    const cleanerHours = cleanerPaidHours(rawMinutes)
-    const cap = typeof booking.max_hours === 'number' && booking.max_hours > 0 ? (booking.max_hours as number) : null
-    const billableClient = cap != null ? Math.min(clientHours, cap) : clientHours
-    const billableCleaner = cap != null ? Math.min(cleanerHours, cap) : cleanerHours
-    actualHours = billableClient
+    hoursWorked = Math.max(0, (checkOutTime.getTime() - checkInParsed.getTime()) / 60000) / 60
     const member = booking.team_members as unknown as { pay_rate?: number | null } | null
     // Booking-level pay_rate is an admin override and must win over the team
     // member's own default rate (nycmaid 2428c8c4 precedence parity).
@@ -90,31 +84,33 @@ export async function POST(request: Request) {
     const cleanerRate = isNycMaid(auth.tid)
       ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
       : baseCleanerRate
-    const clientRate = (booking.hourly_rate as number) || 69
-    const teamSize = Math.max(1, (booking.team_size as number) || 1)
-    teamMemberPayCents = Math.round(billableCleaner * cleanerRate * 100)
+
+    // Canonical checkout math (client 10-min / cleaner 15-min grace, team
+    // minimum, max_hours cap, discount_percent-vs-recurringType resolution) —
+    // same function BookingsAdmin.tsx's Check Out flows use. This route used
+    // to hand-roll its own copy that had drifted from it (this file's own git
+    // history: missing team-minimum floor, then a discount double-application
+    // bug independently re-introduced here even after checkout-pricing.ts was
+    // fixed) — consolidating stops the two from silently diverging again.
+    const pricing = computeCheckoutPricing({
+      checkInIso: booking.check_in_time as string,
+      checkOutIso: checkOutTime.toISOString(),
+      hourlyRate: booking.hourly_rate as number | null,
+      cleanerHourlyRate: cleanerRate,
+      discountPercent: booking.discount_percent as number | null,
+      oneTimeCreditCents: booking.one_time_credit_cents as number | null,
+      recurringType: booking.recurring_type as string | null,
+      maxHours: booking.max_hours as number | null,
+      teamSize: booking.team_size as number | null,
+    })
+    // actual_hours (stored below) stays the true elapsed/capped time for
+    // reporting — the team minimum only feeds the price/pay math, same split
+    // BookingsAdmin.tsx's admin check-out uses (actualHours vs billableHours).
+    actualHours = pricing.actualHours
+    teamMemberPayCents = pricing.cleanerPayCents
     if (pricingModel === 'hourly') {
       // Time-and-materials: actual hours × rate × crew (NYC Maid path, unchanged).
-      // The recurring-service discount (20% weekly / 10% biweekly-monthly, see
-      // recurring-discount.ts) is applied to `price` at booking-creation time
-      // (client/book, portal/bookings) — without re-applying it here, this
-      // recompute from raw hourly_rate silently wiped that discount back out
-      // at the moment of actual billing, so every discounted recurring client
-      // was charged full price the instant their cleaner checked out.
-      //
-      // The admin-set discount_percent + one_time_credit_cents (nycmaid 6ec48424
-      // parity) stack on TOP of the automatic recurring discount, same order
-      // BookingsAdmin.tsx's own calculateEditPrice() applies them in.
-      updatedPriceCents = applyCredit(
-        applyDiscount(
-          applyRecurringDiscount(
-            Math.round(billableClient * clientRate * teamSize * 100),
-            booking.recurring_type as string | null,
-          ),
-          booking.discount_percent as number | null,
-        ),
-        booking.one_time_credit_cents as number | null,
-      )
+      updatedPriceCents = pricing.priceCents
     } else {
       // Flat / per-unit: price was fixed at booking/quote time — elapsed hours
       // must NOT rewrite it. Fall back to the service's configured price.
@@ -344,6 +340,37 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
+
+  // Owner Telegram/dashboard alert — global for every tenant, same as the
+  // check-in ping. notify() only reaches Telegram if this tenant has its own
+  // bot configured, and push is scoped to this tenant's admins.
+  {
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'a client'
+    const cleanerName = (booking.team_members as unknown as { name?: string | null } | null)?.name || 'Cleaner'
+    const clientTotal = updatedPriceCents != null ? (updatedPriceCents / 100).toFixed(0) : '—'
+    const cleanerPayAmount = teamMemberPayCents != null ? (teamMemberPayCents / 100).toFixed(2) : '0'
+    let checkoutDistanceInfo = ''
+    let checkoutFlagged = false
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      const addr = (booking.clients as unknown as { address?: string | null } | null)?.address
+      if (addr) {
+        const { geocodeAddress, calculateDistance, MAX_DISTANCE_MILES } = await import('@/lib/nycmaid/geo')
+        const coords = await geocodeAddress(addr).catch(() => null)
+        if (coords) {
+          const dist = calculateDistance(lat, lng, coords.lat, coords.lng)
+          checkoutFlagged = dist > MAX_DISTANCE_MILES
+          checkoutDistanceInfo = ` • ${dist.toFixed(2)} mi from address${checkoutFlagged ? ' ⚠️' : ''}`
+        }
+      }
+    }
+    notify({
+      type: 'job_complete',
+      title: checkoutFlagged ? `Job Done (GPS Mismatch): ${clientName}` : `Job Done: ${clientName}`,
+      message: `${actualHours ?? '?'}hrs by ${cleanerName} • Collect $${clientTotal} → Pay ${cleanerName} $${cleanerPayAmount}${checkoutDistanceInfo}`,
+      booking_id: data.id,
+      tenantId: auth.tid,
+    }).catch((err) => console.error('checkout notify error:', err))
   }
 
   return NextResponse.json({

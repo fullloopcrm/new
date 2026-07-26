@@ -161,7 +161,13 @@ DECLARE
     -- `tenant_id uuid NOT NULL REFERENCES tenants(id)`. Guards skip them harmlessly
     -- if not present in the target DB. Adding tenant_isolation makes them
     -- consistent with the other 129 tenant tables.
-    'cleaner_broadcasts','cleaner_broadcast_recipients','google_posts'
+    'cleaner_broadcasts','cleaner_broadcast_recipients','google_posts',
+    -- Budget Templates + inventory/vendor/equipment costing (added to
+    -- audit-tenant-scope.mjs's TENANT_TABLES 2026_07_21 but never added here —
+    -- caught by rls-tenant-tables-vs-audit-scope-spec.test.ts's no-drift guard).
+    'budget_line_items','budget_template_line_items','budget_templates','catalog_item_materials','categories',
+    'equipment','equipment_bookings','inventory_items','quote_budgets','vendor_items',
+    'vendors'
   ];
 BEGIN
   -- tenant_domains: retire the 046 deny-all so the permissive tenant_isolation

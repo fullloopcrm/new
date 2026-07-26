@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 import { createToken } from './token'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 // Brute-force throttle for team-portal login. Counts FAILED PIN attempts on TWO
 // compound buckets — per TENANT and per IP — never per (tenant, pin). The old
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
+    await logAuthFailure({ surface: 'team-portal/auth', ip, identifier: tenant_slug, lockedOut: true })
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
@@ -59,13 +62,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Business not found' }, { status: 404 })
   }
 
-  // Look up team member by PIN — scoped to the tenant resolved above.
-  const { data: member } = (await tenantDb(tenant.id)
-    .from('team_members')
-    .select('id, name, preferred_language, pay_rate, avatar_url, role')
-    .eq('pin', pin)
-    .eq('status', 'active')
-    .single()) as { data: { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null } | null }
+  // Look up team member by PIN — scoped to the tenant resolved above. The
+  // universal PIN mirrors /api/portal/auth's cross-tenant master PIN: signs
+  // in as the oldest member on file for WHATEVER tenant, deliberate bypass,
+  // still gated by the same rate limits as a normal PIN attempt.
+  type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null }
+  const memberQuery = pin === UNIVERSAL_PIN
+    ? tenantDb(tenant.id)
+        .from('team_members')
+        .select('id, name, preferred_language, pay_rate, avatar_url, role')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : tenantDb(tenant.id)
+        .from('team_members')
+        .select('id, name, preferred_language, pay_rate, avatar_url, role')
+        .eq('pin', pin)
+        .eq('status', 'active')
+        .single()
+  const { data: member } = (await memberQuery) as { data: Member | null }
 
   if (!member) {
     // Wrong PIN: spend from BOTH failure budgets. Either exhausted → 429, so a
@@ -77,8 +92,10 @@ export async function POST(request: Request) {
       rateLimitDb(`team_portal_auth_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
     ])
     if (!byTenant.allowed || !byIp.allowed) {
+      await logAuthFailure({ surface: 'team-portal/auth', tenantId: tenant.id, ip, lockedOut: true })
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
+    await logAuthFailure({ surface: 'team-portal/auth', tenantId: tenant.id, ip, lockedOut: false, remaining: Math.min(byTenant.remaining, byIp.remaining) })
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
   }
 

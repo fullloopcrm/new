@@ -74,7 +74,12 @@ function seed() {
     },
   ])
   fake._seed('referrers', [
-    { id: REFERRER_ID, tenant_id: TENANT_ID, total_paid: 0, total_earned: COMMISSION_CENTS },
+    // stripe_ineligible_at set: this suite is about the mark-paid race/CAS
+    // mechanics, not payout-method policy. Since 2026-07-22 (CHANNEL.md
+    // 16:35/16:55), an un-ineligible, un-connected referrer can no longer be
+    // marked paid at all -- flag them ineligible so the manual path stays
+    // legitimately reachable and these tests keep exercising the CAS.
+    { id: REFERRER_ID, tenant_id: TENANT_ID, total_paid: 0, total_earned: COMMISSION_CENTS, stripe_ineligible_at: '2026-01-01T00:00:00.000Z' },
   ])
 }
 

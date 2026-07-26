@@ -122,6 +122,7 @@ vi.mock('@/lib/supabase', () => {
           team_member_token: args.p_team_member_token,
           token_expires_at: args.p_token_expires_at,
           referrer_id: args.p_referrer_id,
+          source: args.p_source,
           status: 'pending',
         }
         inserts.push({ table: 'bookings', payload })
@@ -232,6 +233,9 @@ describe('POST /api/client/book — happy path (booking persists tenant-scoped)'
     // Time was computed from date + time.
     expect(b.start_time).toBe('2026-08-14T10:00:00')
     expect(b.end_time).toBe('2026-08-14T12:00:00')
+
+    // Tagged as self-booked (bookings.source), not left to the DB default.
+    expect(b.source).toBe('client_portal')
   })
 
   it('reads that gate the booking (DNS + same-date duplicate) are themselves tenant-scoped', async () => {

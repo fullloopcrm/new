@@ -12,7 +12,7 @@ export async function GET() {
     // "Fully closed" = payment_status is paid AND team_member_paid is true
     const { data: needsCloseout } = await db
       .from('bookings')
-      .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_member_pay, payment_status, payment_method, team_member_paid, discount_enabled, check_in_time, check_out_time, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_member_pay, payment_status, payment_method, team_member_paid, check_in_time, check_out_time, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name)')
       .in('status', ['completed', 'in_progress', 'paid'])
       .or('payment_status.neq.paid,team_member_paid.is.null,team_member_paid.eq.false')
       .order('start_time', { ascending: false })

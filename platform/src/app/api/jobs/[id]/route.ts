@@ -53,7 +53,7 @@ export async function GET(_request: Request, { params }: Params) {
         .order('start_time'),
       db.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
       job.client_id
-        ? db.from('clients').select('id, name, email, phone, address, unit, notes').eq('id', job.client_id).maybeSingle()
+        ? db.from('clients').select('id, name, email, phone, address, unit, notes, customer_number').eq('id', job.client_id).maybeSingle()
         : Promise.resolve({ data: null }),
       job.quote_id
         ? db.from('quotes').select('id, quote_number, deal_id').eq('id', job.quote_id).maybeSingle()
@@ -77,6 +77,7 @@ export async function GET(_request: Request, { params }: Params) {
       payments: canViewFinance ? payments.data ?? [] : [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
+      tenant_slug: tenant.tenant.slug,
     })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

@@ -25,6 +25,10 @@ function builder(table: string) {
       eqs[col] = val
       return chain
     },
+    not: () => chain,
+    gte: () => chain,
+    lt: () => chain,
+    in: () => chain,
     order: () => chain,
     insert: (row: Row) => {
       insertedRow = { id: `new-${(store[table] || []).length + 1}`, ...row }

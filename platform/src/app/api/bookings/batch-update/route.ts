@@ -9,10 +9,17 @@ import { pick } from '@/lib/validate'
 
 // Same allowlist as PUT /api/bookings/[id] — kept in sync so a batch edit can
 // touch exactly the same fields a single edit can, no more.
+// discount_enabled removed -- not a real bookings column (see the matching
+// note in api/bookings/[id]/route.ts); a value here 400s every row in the
+// batch with a schema-cache error. discount_percent added -- it IS a real
+// column and buildSeriesUpdateData() (BookingsAdmin.tsx's _recurring.ts)
+// sends it on every "apply to all future" edit, but it was missing from this
+// allowlist, so pick() silently dropped it and discount changes on recurring
+// series edits never actually saved.
 const UPDATABLE_FIELDS = [
   'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
   'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
-  'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'price',
+  'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'price',
 ] as const
 
 /**

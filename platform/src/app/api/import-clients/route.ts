@@ -8,6 +8,7 @@ import crypto from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { createPrimaryContact } from '@/lib/client-contacts'
 
 interface ClientInput {
   name?: string
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       if (!c?.name) { failed++; continue }
       const pin = String(100000 + crypto.randomInt(0, 900000))
 
-      const { error } = await supabaseAdmin.from('clients').insert({
+      const { data, error } = await supabaseAdmin.from('clients').insert({
         tenant_id: tenantId,
         name: c.name,
         phone: c.phone || null,
@@ -42,13 +43,18 @@ export async function POST(request: Request) {
         notes: c.notes || null,
         pin,
         status: 'active',
-      })
+      }).select('id').single()
 
       if (error) {
         if (error.message.includes('duplicate')) skipped++
         else { failed++; console.error('[import-clients] insert failed:', error.message) }
       } else {
         success++
+        // Every client-creation path must call this or the client silently
+        // never receives any SMS/email — see createPrimaryContact's docstring.
+        await createPrimaryContact(tenantId, data.id, { name: c.name, phone: c.phone, email: c.email }).catch((e) => {
+          console.error('[import-clients] createPrimaryContact failed:', e)
+        })
       }
     }
 

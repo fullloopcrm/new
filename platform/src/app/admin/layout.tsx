@@ -19,8 +19,9 @@ type Section = {
 
 const navMain: Section[] = [
   { num: '00', label: 'Overview', href: '/admin', fold: 'overview', subs: [] },
-  { num: '01', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [] },
-  { num: '02', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
+  { num: '01', label: 'Portals', href: '/admin/portals', fold: 'portals', subs: [] },
+  { num: '02', label: 'Sales', href: '/admin/sales', fold: 'sales', subs: [] },
+  { num: '03', label: 'Tenants', href: '/admin/businesses', fold: 'tenants', subs: [
     { letter: 'a', label: 'Territories', href: '/admin/territories' },
   ] },
   { num: '04', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
@@ -61,12 +62,13 @@ export default async function AdminLayout({
       >
         {/* Brand */}
         <div className="px-[22px] pt-[22px] pb-1">
-          <Link href="/admin" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', color: '#F4F4F1' }}>
-            Full Loop<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
+          <Link href="/admin" className="flex items-center gap-2" style={{ color: '#F4F4F1' }}>
+            <span style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.025em' }}>Full Loop</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A8A8A4' }}>CRM</span>
           </Link>
         </div>
         <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Admin · v2.4
+          v1.0 - Admin
         </div>
 
         <div className="flex-1 overflow-y-auto pb-20">

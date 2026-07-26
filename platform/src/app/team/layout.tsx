@@ -16,12 +16,14 @@ const LANG_KEY = 'team_lang'
 
 const AuthContext = createContext<{
   auth: AuthState
+  authLoaded: boolean
   setAuth: (a: AuthState) => void
   lang: Lang
   setLang: (l: Lang) => void
   t: (en: string, es: string) => string
 }>({
   auth: null,
+  authLoaded: false,
   setAuth: () => {},
   lang: 'en',
   setLang: () => {},
@@ -32,6 +34,13 @@ export const useTeamAuth = () => useContext(AuthContext)
 
 export default function TeamLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<AuthState>(null)
+  // Distinguishes "haven't checked localStorage yet" from "actually logged
+  // out" -- auth is null in BOTH cases during the brief window before this
+  // effect runs. Pages that redirect-to-login on `!auth` (checkin, checkout,
+  // open-jobs) must wait for authLoaded, or a fresh/reloaded page load bounces
+  // an already-authenticated cleaner back to the PIN screen every time, before
+  // localStorage is ever read.
+  const [authLoaded, setAuthLoaded] = useState(false)
   const [lang, setLangState] = useState<Lang>('en')
   const [unreadCount, setUnreadCount] = useState(0)
   const [connectUnread, setConnectUnread] = useState(0)
@@ -46,6 +55,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
       const storedLang = localStorage.getItem(LANG_KEY)
       if (storedLang === 'en' || storedLang === 'es') setLangState(storedLang)
     } catch { /* ignore */ }
+    setAuthLoaded(true)
   }, [])
 
   // Poll notification count
@@ -100,21 +110,21 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     { href: '/team/earnings', icon: '$', label: t('Earnings', 'Ganancias') },
     { href: '/team/availability', icon: '◈', label: t('Schedule', 'Horario') },
     { href: '/team/jobs', icon: '!', label: t('Open', 'Abierto') },
+    { href: '/team/loopcam', icon: '🎥', label: t('LoopCam', 'LoopCam') },
     ...(isCrewLead ? [{ href: '/team/crew', icon: '⧉', label: t('Crew', 'Equipo') }] : []),
     { href: '/team/connect', icon: '💬', label: t('Connect', 'Chat'), badge: connectUnread },
-    { href: '/team/messages', icon: '✉', label: t('Office', 'Oficina') },
   ]
 
   return (
-    <AuthContext value={{ auth, setAuth, lang, setLang, t }}>
+    <AuthContext value={{ auth, authLoaded, setAuth, lang, setLang, t }}>
       <head>
         <link rel="manifest" href="/team-manifest.json" />
-        <meta name="theme-color" content="#16a34a" />
+        <meta name="theme-color" content="#1C1C1C" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Team Portal" />
       </head>
-      <div className="min-h-screen bg-gray-50">
+      <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
         {auth && (
           <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
             <div className="max-w-lg mx-auto flex items-center justify-between">
@@ -130,7 +140,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
                   {lang === 'en' ? 'ES' : 'EN'}
                 </button>
                 <Link href="/team/rules" className="text-xs bg-gray-100 px-2 py-1 rounded font-medium text-slate-500">
-                  {t('Rules', 'Reglas')}
+                  {t('Announcements', 'Anuncios')}
                 </Link>
                 <Link href="/team/notifications" className="relative p-1">
                   <span className="text-lg">🔔</span>

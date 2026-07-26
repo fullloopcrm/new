@@ -21,7 +21,7 @@ export async function GET(
   // Load the authenticated referrer and confirm the URL code is theirs.
   const { data: referrer } = await supabaseAdmin
     .from('referrers')
-    .select('id, tenant_id, name, email, referral_code, commission_rate, total_earned, total_paid')
+    .select('id, tenant_id, name, email, referral_code, commission_rate, total_earned, total_paid, stripe_connect_account_id, stripe_ready_at')
     .eq('id', auth.rid)
     .single()
 
@@ -55,22 +55,28 @@ export async function GET(
     : tenantSiteUrl({ slug: tenant.slug })
   const shareUrl = base ? `${base}/book/new?ref=${code}` : null
 
-  // Commission history — keyed by referrer_id. Amounts are stored in cents in
-  // `commission_amount` (commission_cents is unreliable/double-scaled).
+  // Commission history — keyed by referrer_id. Two amount columns exist on
+  // this table from a past migration: legacy rows only ever got
+  // `commission_amount` populated correctly (a since-removed write path;
+  // `commission_cents` on those same rows is either 0 or 100x-inflated).
+  // Current inserts (team-portal/checkout, referral-commissions POST) only
+  // ever write `commission_cents`, correctly, and leave `commission_amount`
+  // null. Prefer commission_amount when present so old rows keep displaying
+  // right; fall back to commission_cents so new rows aren't shown as $0.
   let commissions: { id: string; client_name: string; amount: number; status: string; paid_via: string | null; created_at: string }[] = []
   try {
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data } = (await db
       .from('referral_commissions')
-      .select('id, client_name, commission_amount, status, paid_via, created_at')
+      .select('id, client_name, commission_amount, commission_cents, status, paid_via, created_at')
       .eq('referrer_id', referrer.id)
       .order('created_at', { ascending: false })
-      .limit(50)) as { data: { id: string; client_name: string; commission_amount: number | null; status: string; paid_via: string | null; created_at: string }[] | null }
+      .limit(50)) as { data: { id: string; client_name: string; commission_amount: number | null; commission_cents: number | null; status: string; paid_via: string | null; created_at: string }[] | null }
     commissions = (data || []).map((c) => ({
       id: c.id,
       client_name: c.client_name,
-      amount: c.commission_amount || 0,
+      amount: c.commission_amount != null ? c.commission_amount : (c.commission_cents || 0),
       status: c.status,
       paid_via: c.paid_via,
       created_at: c.created_at,
@@ -117,6 +123,8 @@ export async function GET(
       commission_rate: ratePercent,
       total_earned: referrer.total_earned || 0,
       total_paid: referrer.total_paid || 0,
+      stripe_connected: Boolean(referrer.stripe_connect_account_id),
+      stripe_ready: Boolean(referrer.stripe_ready_at),
     },
     tenant: {
       name: tenant.name,

@@ -28,12 +28,20 @@ vi.mock('@/lib/supabase', () => {
       eq: () => c,
       in: () => c,
       not: () => c,
+      or: () => c,
       order: () => c,
       limit: async () => ({ data: [], error: null }),
       single: async () => {
         if (table === 'team_members' && selectStr.includes('status')) return { data: { status: 'active' }, error: null }
         if (table === 'tenants' && selectStr.includes('selena_config')) return { data: { selena_config: null }, error: null }
         if (table === 'tenants') return { data: { name: 'T', telnyx_api_key: 'k', telnyx_phone: '+15550001', payment_link: state.paymentLink }, error: null }
+        if (table === 'bookings') return { data: state.booking, error: null }
+        return { data: null, error: null }
+      },
+      // The atomic idempotency-claim update chains .or(...).select(...).maybeSingle() --
+      // returning the booking (truthy) here means the claim always succeeds in
+      // these tests, same as the pre-existing single() behavior for 'bookings'.
+      maybeSingle: async () => {
         if (table === 'bookings') return { data: state.booking, error: null }
         return { data: null, error: null }
       },

@@ -149,6 +149,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',
       schedule_id: id,
+      source: 'admin',
     }
   })
 

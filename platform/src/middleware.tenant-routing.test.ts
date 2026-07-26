@@ -126,6 +126,40 @@ describe('middleware — subdomain routing wiring', () => {
 
     expect(rewriteTarget(res)).toContain('/site/template')
   })
+
+  it('a BESPOKE_SITE_TENANTS slug WITHOUT its own /sales subtree falls through to the shared sales portal', async () => {
+    const wpyj = { id: 'tenant-wpyj', slug: 'we-pay-you-junk', name: 'We Pay You Junk', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'we-pay-you-junk' ? wpyj : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://we-pay-you-junk.fullloopcrm.com/sales', { headers: { host: 'we-pay-you-junk.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/template/sales')
+  })
+
+  it('nycmaid keeps routing /sales to its own bespoke subtree, never the shared template', async () => {
+    const nycmaid = { id: 'tenant-nycmaid', slug: 'nycmaid', name: 'NYC Maid', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'nycmaid' ? nycmaid : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://nycmaid.fullloopcrm.com/sales', { headers: { host: 'nycmaid.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/nycmaid/sales')
+    expect(rewriteTarget(res)).not.toContain('/site/template')
+  })
+
+  it('a BESPOKE_SITE_TENANTS slug still routes non-/sales pages to its own subtree', async () => {
+    const wpyj = { id: 'tenant-wpyj', slug: 'we-pay-you-junk', name: 'We Pay You Junk', domain: null, status: 'active' }
+    bySlug = async (slug) => (slug === 'we-pay-you-junk' ? wpyj : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://we-pay-you-junk.fullloopcrm.com/services', { headers: { host: 'we-pay-you-junk.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/we-pay-you-junk/services')
+  })
 })
 
 describe('middleware — custom domain routing wiring', () => {
@@ -240,8 +274,11 @@ describe('middleware — main-host / subdomain Host-header case sensitivity', ()
     byDomain = domainSpy
     const { default: middleware } = await import('./middleware')
 
-    const req = new NextRequest('https://WWW.FULLLOOPCRM.COM/dashboard', {
-      headers: { host: 'WWW.FULLLOOPCRM.COM' },
+    // Uses homeservicesbusinesscrm.com, not fullloopcrm.com: the latter now hits
+    // the brand-consolidation 308 (see middleware.ts) before ever reaching this
+    // gate, which would shadow the case-sensitivity behavior this test targets.
+    const req = new NextRequest('https://WWW.HOMESERVICESBUSINESSCRM.COM/dashboard', {
+      headers: { host: 'WWW.HOMESERVICESBUSINESSCRM.COM' },
     })
     const res = await middleware(req)
 

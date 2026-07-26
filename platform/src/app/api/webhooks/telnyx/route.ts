@@ -15,8 +15,12 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { handleReviewRating } from '@/lib/review-engine'
+import { handleFeedbackReply } from '@/lib/feedback-reply'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { nowNaiveET } from '@/lib/recurring'
+import { sendTenantTelegram } from '@/lib/notify'
 
 export const maxDuration = 60
 
@@ -29,6 +33,16 @@ export async function POST(request: Request) {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx webhook] rejected:', result.reason)
+      // Temporary trace (2026-07-23): inbound SMS replies have zero DB
+      // footprint anywhere (sms_logs, client_sms_messages, notifications) —
+      // this 401 is the prime suspect since it returns before any write.
+      // Remove once root cause is confirmed.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook rejected',
+        message: `reason=${result.reason} body_snippet=${rawBody.slice(0, 300)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
@@ -112,6 +126,16 @@ export async function POST(request: Request) {
     const text = payload?.text
 
     if (!from || !to || !text) {
+      // Temporary trace (2026-07-23): this branch silently drops the whole
+      // message with zero DB footprint if Telnyx's real payload shape
+      // doesn't match what's destructured above. Logging the raw payload
+      // until inbound-reply handling is confirmed working end-to-end.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook missing from/to/text',
+        message: `from=${from} to=${to} text=${text} payload=${JSON.stringify(payload).slice(0, 500)}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -121,7 +145,7 @@ export async function POST(request: Request) {
     // Pick the first deterministically and log loudly if it's ambiguous.
     const { data: tenantMatches } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone')
+      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone, telegram_bot_token, telegram_chat_id')
       .eq('telnyx_phone', to)
       .order('id', { ascending: true })
       .limit(2)
@@ -132,17 +156,46 @@ export async function POST(request: Request) {
     const tenant = tenantMatches?.[0] || null
 
     if (!tenant) {
+      // Temporary trace (2026-07-23): silent drop if `to` doesn't exactly
+      // match any tenant's telnyx_phone.
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: '00000000-0000-0000-0000-000000000001',
+        type: 'comms_fail',
+        title: 'Inbound Telnyx webhook — no tenant matched',
+        message: `to=${to} from=${from}`,
+      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
     const tenantId = tenant.id
     const normalizedText = text.trim().toUpperCase()
 
+    // FEEDBACK REPLY — checked before the owner-chat branch below. It's a
+    // no-op unless this exact phone number has a genuinely pending feedback
+    // reply thread (handleFeedbackReply requires a client match AND a recent
+    // reply_requested_at), so this can't change behavior for any normal
+    // owner text. Without this ordering, a phone number that happens to be
+    // BOTH the tenant's registered owner_phone and a client's phone (e.g. an
+    // owner testing with their own number as a client record) always gets
+    // routed to the owner<->admin chat below, and a genuine client reply on
+    // that number can never reach client_feedback.notes — reproduced live
+    // 2026-07-25 testing the feedback-reply feature.
+    const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
+    if (feedbackReply) return feedbackReply
+
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
     // a reply in the platform owner<->admin chat, not a booking conversation.
     // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
     const ownerDigits = (tenant.owner_phone || '').replace(/\D/g, '')
     const fromDigits = String(from).replace(/\D/g, '')
+    // Temporary trace (2026-07-23): confirms tenant resolution + owner-match
+    // evaluation right before the branch that decides where this message goes.
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'comms_fail',
+      title: 'Inbound Telnyx webhook — tenant resolved',
+      message: `tenant=${tenant.name} from=${from} to=${to} text=${text} ownerPhoneOnFile=${tenant.owner_phone} ownerMatch=${ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))}`,
+    }).then(() => {}, () => {})
     if (ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
       await supabaseAdmin.from('tenant_owner_messages').insert({
         tenant_id: tenantId, direction: 'in', channel: 'sms', body: text, sender: 'owner',
@@ -151,6 +204,10 @@ export async function POST(request: Request) {
         tenant_id: tenantId, type: 'owner_message', title: `Owner reply — ${tenant.name}`,
         message: text.slice(0, 200), channel: 'system', recipient_type: 'admin',
       })
+      // Telegram echo — dropped in the FL port (this webhook never called
+      // notify()/sendTenantTelegram at all, only wrote the in-app row above).
+      sendTenantTelegram(tenantId, tenant, `Jeff texted: ${text}`).catch((err) =>
+        console.error('[telnyx webhook] owner-text telegram send failed:', err))
       return NextResponse.json({ received: true, routed: 'owner_chat' })
     }
 
@@ -277,7 +334,11 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('client_id', client.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // start_time is naive ET — a real-instant boundary here made SMS
+          // auto-confirm silently fail to find this-morning's booking for
+          // hours after it had actually started (same bug as
+          // cron/no-show-check).
+          .gte('start_time', `${nowNaiveET()}Z`)
           .order('start_time', { ascending: true })
           .limit(1)
           .single()
@@ -336,7 +397,11 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('team_member_id', member.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // start_time is naive ET — a real-instant boundary here made SMS
+          // auto-confirm silently fail to find this-morning's booking for
+          // hours after it had actually started (same bug as
+          // cron/no-show-check).
+          .gte('start_time', `${nowNaiveET()}Z`)
           .order('start_time', { ascending: true })
           .limit(1)
           .single()
@@ -377,13 +442,19 @@ export async function POST(request: Request) {
     }
 
     // ============================================
-    // NYC MAID review engine (tenant-scoped parity — rating capture + review
-    // generation). FL bills up front in the 30-min alert, so this does NOT
-    // re-bill. $10 written-review credit only. Gated to the NYC Maid tenant.
+    // REVIEW ENGINE — rating capture off the 30-min alert's "reply 1-5" ask,
+    // and (on a 4-5) a review-incentive offer. NYC Maid keeps its own
+    // hand-tuned copy (video-review option, referral plug) via the dedicated
+    // nycmaid engine; every other tenant gets the generic core version using
+    // their own Google review link + business name. Global process, personal
+    // copy/link — see feedback_fullloop_review_engine_globalized.
     // ============================================
     if (isNycMaid(tenantId)) {
       const nmReview = await handleNycMaidReview({ tenantId, from, text })
       if (nmReview) return nmReview
+    } else {
+      const review = await handleReviewRating({ tenantId, from, text })
+      if (review) return review
     }
 
     // ============================================
@@ -446,16 +517,23 @@ export async function POST(request: Request) {
             replyMsg = `We're sorry to hear that, ${ratingClient.name?.split(' ')[0]}. Your feedback has been shared with our team and we'll work to do better.`
 
             // Notify admin about low rating
+            const lowRatingTitle = `Low Rating: ${ratingClient.name} (${rating}/5)`
+            const lowRatingMsg = `${ratingClient.name} rated their experience ${rating}/5. Follow up recommended.`
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'review_received',
-              title: `Low Rating: ${ratingClient.name} (${rating}/5)`,
-              message: `${ratingClient.name} rated their experience ${rating}/5. Follow up recommended.`,
+              title: lowRatingTitle,
+              message: lowRatingMsg,
               channel: 'in_app',
               booking_id: recentBooking.id,
               metadata: { client_id: ratingClient.id, rating, phone: from },
               status: 'sent',
             })
+            // Telegram alert — dropped in the FL port (direct DB insert above
+            // never called notify()/sendTenantTelegram, so low ratings never
+            // reached Telegram despite 'review_received' being a wired type).
+            sendTenantTelegram(tenantId, tenant, `${lowRatingTitle}\n\n${lowRatingMsg}`).catch((err) =>
+              console.error('[telnyx webhook] low-rating telegram send failed:', err))
           }
 
           if (replyMsg && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -512,11 +590,13 @@ export async function POST(request: Request) {
     const senderName = client?.name || member?.name || from
 
     // Create notification for inbound SMS
+    const inboundSmsTitle = `SMS from ${senderName}`
+    const inboundSmsMsg = text.slice(0, 500)
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
       type: 'sms_received',
-      title: `SMS from ${senderName}`,
-      message: text.slice(0, 500),
+      title: inboundSmsTitle,
+      message: inboundSmsMsg,
       channel: 'in_app',
       metadata: {
         from_phone: from,
@@ -527,6 +607,15 @@ export async function POST(request: Request) {
       },
       status: 'sent',
     })
+    // Telegram alert — dropped in the FL port. nycmaid-only for now (matches
+    // its pre-cutover behavior); other tenants would fall back to the shared
+    // platform owner chat here since most don't have their own bot configured
+    // yet, flooding it with every tenant's routine client texts — needs its
+    // own review before going global.
+    if (isNycMaid(tenantId)) {
+      sendTenantTelegram(tenantId, tenant, `${inboundSmsTitle}\n\n${inboundSmsMsg}`).catch((err) =>
+        console.error('[telnyx webhook] inbound-sms telegram send failed:', err))
+    }
 
     // If from a client, add to their notes
     if (client) {
@@ -733,14 +822,20 @@ export async function POST(request: Request) {
                 .eq('id', convo.id)
 
               const bookingClientName = clientName || 'New client'
+              const smsBookingTitle = `New SMS Booking: ${bookingClientName}`
+              const smsBookingMsg = `${bookingClientName} booked via AI chatbot`
               await supabaseAdmin.from('notifications').insert({
                 tenant_id: tenantId,
                 type: 'booking_created',
-                title: `New SMS Booking: ${bookingClientName}`,
-                message: `${bookingClientName} booked via AI chatbot`,
+                title: smsBookingTitle,
+                message: smsBookingMsg,
                 channel: 'in_app',
                 status: 'sent',
               })
+              // Telegram alert — dropped in the FL port (direct DB insert
+              // above never called notify()/sendTenantTelegram).
+              sendTenantTelegram(tenantId, tenant, `${smsBookingTitle}\n\n${smsBookingMsg}`).catch((err) =>
+                console.error('[telnyx webhook] sms-booking telegram send failed:', err))
             }
           }
 

@@ -6,8 +6,39 @@ import './clients.css'
 import ClientDrawer from './client-drawer'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { formatPhone as formatPhoneDisplay } from '@/lib/format'
+import { stripPhone } from '@/lib/phone'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
+
+// Row-level Call/Text/Directions — same pattern as the bookings list, so a
+// client row can be worked without opening the drawer.
+function ContactChips({ phone, address }: { phone?: string | null; address?: string | null }) {
+  if (!phone && !address) return null
+  return (
+    <div className="flex items-center gap-1.5 mt-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+      {phone && (
+        <>
+          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
+            {formatPhoneDisplay(phone)}
+          </a>
+          <a href={`sms:${phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100" title="Text">Text</a>
+        </>
+      )}
+      {address && (
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] text-gray-400 hover:text-blue-600 hover:underline truncate max-w-[160px]"
+          title="Get directions"
+        >
+          {address}
+        </a>
+      )}
+    </div>
+  )
+}
 
 type Stage = 'lead' | 'first' | 'active' | 'vip' | 'risk' | 'lapsed' | 'dns'
 type HealthBand = 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
@@ -18,6 +49,7 @@ type EnrichedClient = {
   email: string | null
   phone: string | null
   address: string | null
+  customer_number: number | null
   status: string
   source: string | null
   created_at: string
@@ -98,6 +130,7 @@ export default function ClientsPage() {
   const agentName = tenant?.agent_name as string || 'Selena'
   const clientsPrefs = useUserPrefs('clients', { default_tab: 'all', default_stage_filter: 'all', default_type_filter: 'all' })
   const [clients, setClients] = useState<EnrichedClient[]>([])
+  const [tenantSlug, setTenantSlug] = useState('')
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('all')
@@ -131,6 +164,7 @@ export default function ClientsPage() {
         if (data && Array.isArray(data.clients)) {
           setClients(data.clients)
           setTotals(data.totals || null)
+          setTenantSlug(data.tenant_slug || '')
         }
       })
       .catch(() => {})
@@ -203,8 +237,11 @@ export default function ClientsPage() {
       if (typeFilter === 'one-time' && c.recurring) return false
       if (search) {
         const q = search.toLowerCase()
-        const hay = `${c.name} ${c.email || ''} ${c.phone || ''} ${c.address || ''}`.toLowerCase()
-        if (!hay.includes(q)) return false
+        const hay = `${c.name} ${c.email || ''} ${c.address || ''}`.toLowerCase()
+        const textMatch = hay.includes(q)
+        const searchDigits = stripPhone(search)
+        const phoneMatch = searchDigits.length > 0 && stripPhone(c.phone || '').includes(searchDigits)
+        if (!textMatch && !phoneMatch) return false
       }
       return true
     })
@@ -428,7 +465,7 @@ export default function ClientsPage() {
                     {c.name}
                     {c.stage === 'vip' && <span className="clients-row-name-tag vip">VIP</span>}
                   </div>
-                  {c.address && <div className="clients-row-addr">{c.address}</div>}
+                  <ContactChips phone={c.phone} address={c.address} />
                 </div>
               </div>
               <div className="clients-recurring-cell">
@@ -505,6 +542,7 @@ export default function ClientsPage() {
 
       <ClientDrawer
         client={drawerClient}
+        tenantSlug={tenantSlug}
         open={!!drawerId}
         onClose={() => setDrawerId(null)}
         onClientUpdated={loadClients}

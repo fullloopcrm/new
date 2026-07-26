@@ -6,12 +6,40 @@ import type { ChatMessage } from '@/components/chat-bubble'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import './loop-connect.css'
 
+const SUPPORT_ID = 'fullloop'
+
 type Channel = {
   id: string
   name: string
   type: string
   client_id: string | null
+  team_member_id: string | null
   last_message: { body: string; sender_name: string; created_at: string } | null
+}
+
+// Full Loop Support: the pinned, always-present escalation thread to the
+// platform team (tenant_owner_messages, via /api/dashboard/messages) --
+// folded in from the old /dashboard/messages page so there's one inbox.
+// direction 'in' = this tenant's own message (rendered as "mine").
+interface SupportMessage {
+  id: string
+  direction: 'in' | 'out'
+  body: string
+  display_body?: string
+  created_at: string
+}
+
+function toSupportChatMessage(m: SupportMessage): ChatMessage {
+  const fromMe = m.direction === 'in'
+  return {
+    id: m.id,
+    sender_type: fromMe ? 'owner' : 'team',
+    sender_id: fromMe ? 'me' : 'fullloop',
+    sender_name: fromMe ? 'You' : 'Full Loop',
+    body: m.body,
+    display_body: m.display_body,
+    created_at: m.created_at,
+  }
 }
 
 function formatPreviewTime(iso: string): string {
@@ -53,13 +81,16 @@ export default function LoopConnectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectPrefs.loaded])
   const [channels, setChannels] = useState<Channel[]>([])
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
+  const [activeChannelId, setActiveChannelId] = useState<string>(SUPPORT_ID)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [search, setSearch] = useState('')
   const [newChannelName, setNewChannelName] = useState('')
   const [showNewChannel, setShowNewChannel] = useState(false)
+  const [supportPreview, setSupportPreview] = useState<{ body: string; created_at: string } | null>(null)
+  const [teamRoster, setTeamRoster] = useState<{ team_member_id: string; name: string }[]>([])
+  const [newChannelMemberIds, setNewChannelMemberIds] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
@@ -67,28 +98,26 @@ export default function LoopConnectPage() {
     fetch('/api/connect/channels')
       .then((r) => r.json())
       .then((data) => {
-        if (data.channels) {
-          setChannels(data.channels)
-          if (!activeChannelId && data.channels.length > 0) {
-            const general = data.channels.find((c: Channel) => c.type === 'general')
-            setActiveChannelId(general?.id || data.channels[0].id)
-          }
-        }
+        if (data.channels) setChannels(data.channels)
       })
       .catch(() => {})
-  }, [activeChannelId])
+  }, [])
 
   const fetchMessages = useCallback(() => {
-    if (!activeChannelId) return
-    fetch(`/api/connect/messages?channel_id=${activeChannelId}`)
+    const isSupport = activeChannelId === SUPPORT_ID
+    const url = isSupport ? '/api/dashboard/messages' : `/api/connect/messages?channel_id=${activeChannelId}`
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
-        if (data.messages) {
-          const oldLen = messages.length
-          setMessages(data.messages)
-          if (oldLen > 0 && data.messages.length > oldLen) {
-            lastReadRef.current = messages[messages.length - 1]?.created_at || null
-          }
+        if (!data.messages) return
+        const mapped: ChatMessage[] = isSupport ? data.messages.map(toSupportChatMessage) : data.messages
+        const oldLen = messages.length
+        setMessages(mapped)
+        if (isSupport && mapped.length > 0) {
+          setSupportPreview({ body: mapped[mapped.length - 1].display_body || mapped[mapped.length - 1].body, created_at: mapped[mapped.length - 1].created_at })
+        }
+        if (oldLen > 0 && mapped.length > oldLen) {
+          lastReadRef.current = messages[messages.length - 1]?.created_at || null
         }
       })
       .catch(() => {})
@@ -97,7 +126,13 @@ export default function LoopConnectPage() {
   useEffect(() => { fetchChannels() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!activeChannelId) return
+    fetch('/api/dashboard/team-messages')
+      .then((r) => r.json())
+      .then((data) => setTeamRoster(data.conversations || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     fetchMessages()
     const interval = setInterval(fetchMessages, 5000)
     return () => clearInterval(interval)
@@ -113,16 +148,18 @@ export default function LoopConnectPage() {
   }, [messages.length])
 
   const sendMessage = async () => {
-    if (!draft.trim() || !activeChannelId || sending) return
+    if (!draft.trim() || sending) return
     setSending(true)
     const body = draft
     setDraft('')
     try {
-      await fetch('/api/connect/messages', {
+      const isSupport = activeChannelId === SUPPORT_ID
+      const res = await fetch(isSupport ? '/api/dashboard/messages' : '/api/connect/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel_id: activeChannelId, body }),
+        body: JSON.stringify(isSupport ? { body } : { channel_id: activeChannelId, body }),
       })
+      if (!res.ok) throw new Error('send failed')
       fetchMessages()
     } catch {
       setDraft(body)
@@ -137,11 +174,12 @@ export default function LoopConnectPage() {
       const res = await fetch('/api/connect/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newChannelName.trim(), type: 'custom' }),
+        body: JSON.stringify({ name: newChannelName.trim(), type: 'custom', member_ids: newChannelMemberIds }),
       })
       const data = await res.json()
       if (data.channel) {
         setNewChannelName('')
+        setNewChannelMemberIds([])
         setShowNewChannel(false)
         fetchChannels()
         setActiveChannelId(data.channel.id)
@@ -149,11 +187,13 @@ export default function LoopConnectPage() {
     } catch { /* ignore */ }
   }
 
+  const isSupportActive = activeChannelId === SUPPORT_ID
   const activeChannel = channels.find((c) => c.id === activeChannelId)
   const filteredChannels = search
     ? channels.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : channels
   const generalChannels = filteredChannels.filter((c) => c.type === 'general')
+  const teamChannels = filteredChannels.filter((c) => c.type === 'team')
   const clientChannels = filteredChannels.filter((c) => c.type === 'client')
   const customChannels = filteredChannels.filter((c) => c.type === 'custom')
   const grouped = groupMessagesByDate(messages)
@@ -165,7 +205,7 @@ export default function LoopConnectPage() {
           <button key={t.key} className={`lc-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} type="button">
             <span className="lc-tab-letter">{t.letter}</span>
             {t.label}
-            {t.key === 'chat' && channels.length > 0 && <span className="lc-tab-count">{channels.length}</span>}
+            {t.key === 'chat' && <span className="lc-tab-count">{channels.length + 1}</span>}
           </button>
         ))}
       </div>
@@ -180,6 +220,20 @@ export default function LoopConnectPage() {
       {tab === 'chat' && (
         <div className="lc-shell">
           <aside className="lc-sidebar">
+            <div style={{ flex: '0 0 auto', padding: '8px 0 0' }}>
+              <div className="lc-channel-section">Pinned</div>
+              <button
+                className={`lc-channel ${isSupportActive ? 'active' : ''}`}
+                onClick={() => { setActiveChannelId(SUPPORT_ID); lastReadRef.current = null }}
+                type="button"
+              >
+                <div className="lc-channel-row">
+                  <span className="lc-channel-name">Full Loop Support</span>
+                  {supportPreview && <span className="lc-channel-time">{formatPreviewTime(supportPreview.created_at)}</span>}
+                </div>
+                {supportPreview && <div className="lc-channel-preview">{supportPreview.body}</div>}
+              </button>
+            </div>
             <div className="lc-search-box">
               <input
                 type="text"
@@ -193,6 +247,10 @@ export default function LoopConnectPage() {
               {generalChannels.map((ch) => (
                 <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
               ))}
+              {teamChannels.length > 0 && <div className="lc-channel-section">Team</div>}
+              {teamChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
               {clientChannels.length > 0 && <div className="lc-channel-section">Clients</div>}
               {clientChannels.map((ch) => (
                 <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
@@ -204,34 +262,62 @@ export default function LoopConnectPage() {
             </div>
             <div className="lc-channel-foot">
               {showNewChannel ? (
-                <div className="lc-new-row">
+                <div className="lc-new-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
                   <input
                     type="text"
                     value={newChannelName}
                     onChange={(e) => setNewChannelName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && createChannel()}
-                    placeholder="Channel name"
+                    placeholder="Channel or group name"
                     className="lc-new-input"
                     autoFocus
                   />
-                  <button className="lc-new-add" type="button" onClick={createChannel}>Add</button>
-                  <button className="lc-new-cancel" type="button" onClick={() => setShowNewChannel(false)}>×</button>
+                  {teamRoster.length > 0 && (
+                    <div style={{ maxHeight: 120, overflowY: 'auto', fontSize: 12, color: 'var(--lc-muted)' }}>
+                      <div style={{ marginBottom: 4 }}>Add recipients for a mass/group message (optional):</div>
+                      {teamRoster.map((m) => (
+                        <label key={m.team_member_id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+                          <input
+                            type="checkbox"
+                            checked={newChannelMemberIds.includes(m.team_member_id)}
+                            onChange={(e) => setNewChannelMemberIds((ids) =>
+                              e.target.checked ? [...ids, m.team_member_id] : ids.filter((id) => id !== m.team_member_id)
+                            )}
+                          />
+                          {m.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="lc-new-add" type="button" onClick={createChannel}>
+                      {newChannelMemberIds.length > 0 ? `Create group (${newChannelMemberIds.length})` : 'Add'}
+                    </button>
+                    <button className="lc-new-cancel" type="button" onClick={() => { setShowNewChannel(false); setNewChannelMemberIds([]) }}>×</button>
+                  </div>
                 </div>
               ) : (
-                <button className="lc-new-btn" type="button" onClick={() => setShowNewChannel(true)}>+ New channel</button>
+                <button className="lc-new-btn" type="button" onClick={() => setShowNewChannel(true)}>+ New channel / group</button>
               )}
             </div>
           </aside>
 
           <div className="lc-main">
-            {activeChannel && (
+            {isSupportActive && (
+              <div className="lc-channel-head">
+                <span className="lc-channel-head-name">Full Loop Support</span>
+                <span className="lc-channel-head-meta">Errors, issues, or questions for the platform team</span>
+              </div>
+            )}
+            {!isSupportActive && activeChannel && (
               <div className="lc-channel-head">
                 <span className="lc-channel-head-name">
                   {activeChannel.type === 'general' && <span style={{ color: 'var(--lc-muted)', fontFamily: 'var(--lc-mono)', fontWeight: 400, marginRight: 4 }}>#</span>}
                   {activeChannel.name}
                 </span>
                 <span className="lc-channel-head-meta">
-                  {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
+                  {activeChannel.type === 'client' ? 'Private channel — auto-translated'
+                    : activeChannel.type === 'team' ? 'Private channel — auto-translated'
+                    : activeChannel.type === 'general' ? 'Everyone — auto-translated' : 'Custom — auto-translated'}
                 </span>
               </div>
             )}
@@ -249,7 +335,7 @@ export default function LoopConnectPage() {
                     return (
                       <div key={msg.id}>
                         {showNewDivider && <NewMessagesDivider />}
-                        <ChatBubble msg={msg} variant="slack" />
+                        <ChatBubble msg={msg} variant={isSupportActive ? (msg.sender_id === 'me' ? 'imessage-mine' : 'imessage-theirs') : 'slack'} />
                       </div>
                     )
                   })}
@@ -258,13 +344,13 @@ export default function LoopConnectPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {activeChannel && (
+            {(isSupportActive || activeChannel) && (
               <div className="lc-input-bar">
                 <ChatInput
                   value={draft}
                   onChange={setDraft}
                   onSend={sendMessage}
-                  placeholder={`Message ${activeChannel.type === 'general' ? '#' + activeChannel.name : activeChannel.name}…`}
+                  placeholder={isSupportActive ? 'Message the Full Loop team…' : `Message ${activeChannel!.type === 'general' ? '#' + activeChannel!.name : activeChannel!.name}…`}
                   disabled={sending}
                 />
               </div>

@@ -51,7 +51,17 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'video_dispute_hold', 'payment_status', 'payment_method'])
+    // discount_enabled and video_dispute_hold are NOT real bookings columns --
+    // discount_enabled is pure client-side form state (BookingsAdmin.tsx
+    // derives it from discount_percent, `hasDiscount = !!booking.discount_percent`,
+    // and never reads it back from the DB); video_dispute_hold has no reader
+    // or writer anywhere else in the codebase. Including either in the
+    // allowlist made PostgREST reject the ENTIRE update whenever the field
+    // was present in the body ("Could not find the 'discount_enabled' column
+    // ... in the schema cache") -- since BookingsAdmin.tsx spreads the whole
+    // form (which always sets discount_enabled) into every save, this broke
+    // saving ANY booking edit, not just discounted ones.
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'property_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm
@@ -113,6 +123,17 @@ export async function PUT(
         return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
       }
     }
+    if (fields.property_id) {
+      const { data: ownedProperty } = await supabaseAdmin
+        .from('client_properties')
+        .select('id')
+        .eq('id', fields.property_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedProperty) {
+        return NextResponse.json({ error: 'Address not found' }, { status: 404 })
+      }
+    }
 
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
@@ -152,14 +173,21 @@ export async function PUT(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      // TEMP DIAGNOSTIC 2026-07-24 -- pinpointing which field is an empty-
+      // string uuid causing "invalid input syntax for type uuid: ''" on
+      // booking edit save. Server log pulling wasn't surfacing traffic, so
+      // putting the fields sent directly in the error message the frontend
+      // already alert()s -- visible on the next failed attempt with no log
+      // access needed. Remove once root-caused.
+      console.error('[PUT /api/bookings/[id]] update failed', { bookingId: id, fields, error: error.message })
+      return NextResponse.json({ error: `${error.message} | fields: ${JSON.stringify(fields)}` }, { status: 500 })
     }
 
     // Send notifications based on what changed
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
@@ -170,20 +198,32 @@ export async function PUT(
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
       const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
-      // Booking confirmed (status changed to scheduled)
-      if (statusChanged && fields.status === 'scheduled') {
-        if (data.client_id) {
-          await notify({
-            tenantId,
-            type: 'booking_confirmed',
-            title: `Booking Confirmed — ${date}`,
-            message: `Your appointment on ${date} at ${time} is confirmed.`,
-            channel: 'email',
-            recipientType: 'client',
-            recipientId: data.client_id,
-            bookingId: id,
-            metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+      // Booking confirmed (status changed to scheduled) — shared Full Loop
+      // template (same content nycmaid's old standalone template had —
+      // cleaner photo/rating, PIN, cancellation policy, prep tips — now on
+      // shared branding), sent via the global multi-contact fan-out so every
+      // recipient on the account hears about the booking, not just the
+      // primary contact.
+      //
+      // OR'd with (memberChanged && data.status === 'scheduled'): client
+      // self-service bookings insert directly at status 'scheduled' (see
+      // create_booking_atomic), so status never "changes" when a cleaner is
+      // assigned afterward via a team_member_id-only update — the client
+      // never got a confirmation at all. Root-caused via nycmaid booking
+      // 8e1e4cf2 (Paul Oberbeck, 2026-07-24): notifications/email_logs
+      // showed team_assignment SMS sent to the cleaner but zero client-facing
+      // rows for the booking.
+      if ((statusChanged && fields.status === 'scheduled') || (memberChanged && data.status === 'scheduled')) {
+        if (data.client_id && tenantData) {
+          const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+          const { sendClientEmail } = await import('@/lib/client-contacts')
+          const html = await buildBookingConfirmationEmail(tenantId, id, {
+            clientName: data.clients?.name || 'there',
+            serviceName: data.service_type || 'Appointment',
+            dateTime: `${date} at ${time}`,
           })
+          await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
+            .catch(err => console.error('client confirmation email error:', err))
         }
         if (data.clients?.phone && hasSMS && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {
           sendSMS({
@@ -195,14 +235,56 @@ export async function PUT(
         }
       }
 
-      // Team member assigned/reassigned
-      if (memberChanged && data.team_members?.phone && hasSMS && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
-        sendSMS({
-          to: data.team_members.phone,
-          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
-          telnyxApiKey: tenantData!.telnyx_api_key,
-          telnyxPhone: tenantData!.telnyx_phone,
-        }).catch(err => console.error('Assignment SMS error:', err))
+      // Team member assigned/reassigned. Logs to `notifications` regardless of
+      // outcome — previously this branch was fire-and-forget with only a
+      // console.error on failure, so a silently-dropped SMS (e.g. the Telnyx
+      // E.164 rejection this codebase hit post-cutover) left zero trace and
+      // could only be diagnosed after the fact via timestamp archaeology
+      // (see the Peter Martin / Sarai Aguirre incident this was built to catch).
+      if (memberChanged) {
+        const skipReason = !data.team_members?.phone
+          ? 'no phone on file'
+          : !hasSMS
+            ? 'tenant SMS not configured'
+            : null
+        if (data.team_members?.phone && hasSMS && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
+          sendSMS({
+            to: data.team_members.phone,
+            body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
+            telnyxApiKey: tenantData!.telnyx_api_key,
+            telnyxPhone: tenantData!.telnyx_phone,
+          }).then(() => {
+            supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'team_assignment',
+              title: 'Job Assignment SMS Sent',
+              message: `${data.team_members?.name || 'Team member'} notified of assignment to ${data.clients?.name || 'client'} on ${date}`,
+              channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+              booking_id: id, status: 'sent',
+            }).then(() => {}, () => {})
+          }).catch(err => {
+            console.error('Assignment SMS error:', err)
+            supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: 'team_assignment',
+              title: 'Job Assignment SMS Failed',
+              message: `${data.team_members?.name || 'Team member'} was NOT notified of assignment to ${data.clients?.name || 'client'} on ${date}: ${err instanceof Error ? err.message : String(err)}`,
+              channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+              booking_id: id, status: 'failed',
+            }).then(() => {}, () => {})
+          })
+        } else {
+          // Assignment happened but no SMS was even attempted — surface why.
+          const reason = skipReason || 'team_assignment SMS disabled in comms settings'
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'team_assignment',
+            title: 'Job Assignment SMS Skipped',
+            message: `${data.team_members?.name || 'Team member'} was NOT notified of assignment to ${data.clients?.name || 'client'} on ${date}: ${reason}`,
+            channel: 'sms', recipient_type: 'team_member', recipient_id: fields.team_member_id as string,
+            booking_id: id, status: 'skipped',
+          }).then(() => {}, () => {})
+        }
       }
 
       // Rescheduled
@@ -249,7 +331,31 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+
+    if (!booking) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Delete is destructive and irreversible — payments, reviews, and payouts
+    // all reference bookings.id with a blocking (NO ACTION) foreign key, on
+    // purpose (financial and review records must never silently vanish with
+    // the booking). Check for those first and give a clear, actionable error
+    // instead of surfacing Postgres's raw FK-violation message, which is what
+    // every "Cancel" click hit before Cancel/Delete were split into separate
+    // actions — every booking with any payment/review/payout history failed
+    // to delete, with no way to actually cancel it instead.
+    const [{ count: paymentCount }, { count: reviewCount }, { count: payoutCount }] = await Promise.all([
+      db.from('payments').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+      db.from('reviews').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+      db.from('team_member_payouts').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+    ])
+    if ((paymentCount || 0) > 0 || (reviewCount || 0) > 0 || (payoutCount || 0) > 0) {
+      return NextResponse.json({
+        error: 'This booking has payment, review, or payout history and can\'t be deleted. Use Cancel instead.',
+        code: 'has_dependent_records',
+      }, { status: 409 })
+    }
 
     const { error } = await db
       .from('bookings')
@@ -304,7 +410,7 @@ export async function DELETE(
               recipientType: 'client',
               recipientId: booking.client_id,
               // No bookingId — same dangling-FK reason as above.
-              metadata: { clientName: booking.clients?.name },
+              metadata: { clientName: booking.clients?.name, serviceName: booking.service_type },
             })
           }
         }

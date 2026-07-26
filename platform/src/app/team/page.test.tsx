@@ -30,6 +30,7 @@ const AUTH = {
 vi.mock('./layout', () => ({
   useTeamAuth: () => ({
     auth: AUTH,
+    authLoaded: true,
     setAuth: vi.fn(),
     lang: 'en',
     setLang: vi.fn(),

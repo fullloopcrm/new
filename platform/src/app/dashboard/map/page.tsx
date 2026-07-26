@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 // Types
 type Booking = {
@@ -16,7 +17,7 @@ type Booking = {
   notes: string | null
   client_id: string | null
   team_member_id: string | null
-  clients: { name: string; phone: string | null; address: string | null } | null
+  clients: { name: string; phone: string | null; address: string | null; latitude?: number | null; longitude?: number | null } | null
   team_members: { name: string; phone: string | null } | null
 }
 
@@ -59,7 +60,6 @@ export default function MapPage() {
   const [geocoded, setGeocoded] = useState<GeocodedBooking[]>([])
   const [geocoding, setGeocoding] = useState(false)
   const [showStats, setShowStats] = useState(true)
-  const geocodeCacheRef = useRef<Map<string, { lat: number; lng: number } | null>>(new Map())
 
   const mapPrefs = useUserPrefs('map', { default_status_filter: '', default_date_range: 'all', show_stats: true })
   useEffect(() => {
@@ -122,86 +122,60 @@ export default function MapPage() {
     loadBookings()
   }, [loadBookings])
 
-  // Geocode addresses progressively
+  // Resolve coords — bookings whose client already has persisted lat/lng
+  // (from the clients table) skip geocoding entirely; the rest go through
+  // the shared cached geocoder (localStorage-persisted, batched — see
+  // src/lib/geo-cache.ts) instead of re-geocoding every address on every load.
   useEffect(() => {
-    const cache = geocodeCacheRef.current
-    const bookingsWithAddress = bookings.filter(
-      (b) => b.clients?.address && b.clients.address.trim().length > 0
-    )
-
-    if (bookingsWithAddress.length === 0) {
-      setGeocoded([])
-      return
-    }
-
-    // Immediately resolve cached entries
-    const immediateResults: GeocodedBooking[] = []
-    const toGeocode: Booking[] = []
-
-    for (const b of bookingsWithAddress) {
-      const address = b.clients!.address!.trim()
-      if (cache.has(address)) {
-        const coords = cache.get(address)
-        if (coords) {
-          immediateResults.push({ ...b, lat: coords.lat, lng: coords.lng })
-        }
-      } else {
-        toGeocode.push(b)
+    const candidates: GeocodedBooking[] = []
+    const noPersistedCoords: Booking[] = []
+    for (const b of bookings) {
+      const lat = b.clients?.latitude
+      const lng = b.clients?.longitude
+      if (lat != null && lng != null) {
+        candidates.push({ ...b, lat, lng })
+      } else if (b.clients?.address?.trim()) {
+        noPersistedCoords.push(b)
       }
     }
 
-    setGeocoded(immediateResults)
+    // Persisted coords aren't guaranteed correct (found real NYC addresses
+    // stored with coords in Florida/UK/Australia from a stale bad geocode) —
+    // drop outliers relative to the rest of this batch and re-geocode those
+    // instead of trusting them.
+    const validCandidates = rejectOutliers(candidates)
+    const validIds = new Set(validCandidates.map((c) => c.id))
+    const withCoords: GeocodedBooking[] = validCandidates
+    const needsGeocode: Booking[] = [
+      ...noPersistedCoords,
+      ...candidates.filter((c) => !validIds.has(c.id)),
+    ]
 
-    if (toGeocode.length === 0) {
+    setGeocoded(withCoords)
+
+    if (needsGeocode.length === 0) {
+      setGeocoding(false)
       return
     }
-
-    // Deduplicate addresses to geocode
-    const uniqueAddresses = [...new Set(toGeocode.map((b) => b.clients!.address!.trim()))]
 
     setGeocoding(true)
     let cancelled = false
 
-    async function geocodeBatch() {
-      for (const address of uniqueAddresses) {
-        if (cancelled) break
-        if (cache.has(address)) continue
-
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-            { headers: { 'User-Agent': 'FullLoopCRM/1.0' } }
-          )
-          const data = await res.json()
-          if (data.length > 0) {
-            cache.set(address, { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
-          } else {
-            cache.set(address, null)
-          }
-        } catch {
-          cache.set(address, null)
+    async function run() {
+      const addresses = needsGeocode.map((b) => b.clients!.address!.trim())
+      await geocodeAddressesCached(addresses, (partial) => {
+        if (cancelled) return
+        const results = [...withCoords]
+        for (const b of needsGeocode) {
+          const coords = partial[b.clients!.address!.trim()]
+          if (coords) results.push({ ...b, ...coords })
         }
-
-        // Update geocoded bookings progressively
-        if (!cancelled) {
-          const results: GeocodedBooking[] = []
-          for (const b of bookingsWithAddress) {
-            const addr = b.clients!.address!.trim()
-            const coords = cache.get(addr)
-            if (coords) {
-              results.push({ ...b, lat: coords.lat, lng: coords.lng })
-            }
-          }
-          setGeocoded(results)
-        }
-
-        // Rate limit: 100ms between requests
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
+        setGeocoded(rejectOutliers(results))
+      })
       if (!cancelled) setGeocoding(false)
     }
 
-    geocodeBatch()
+    run()
 
     return () => {
       cancelled = true

@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { parseNaiveET } from '@/lib/recurring'
 
 interface ClientRow {
   id: string
@@ -66,14 +67,18 @@ export async function GET() {
       const totalSpent = completed.reduce((sum, b) => sum + (b.price || 0), 0)
       const totalBookings = completed.length
 
+      // start_time is a naive America/New_York wall-clock string, not real
+      // UTC -- new Date(start_time) silently misread it as UTC, skewing
+      // this comparison against `now` (a real instant) by the ET/UTC gap.
+      // Same bug class as cron/no-show-check et al.
       const futureBookings = cb.filter(b =>
-        b.start_time && new Date(b.start_time).getTime() > now.getTime() && b.status !== 'completed'
+        b.start_time && parseNaiveET(b.start_time).getTime() > now.getTime() && b.status !== 'completed'
       )
       const hasUpcoming = futureBookings.length > 0
 
       const lastCompleted = completed
         .filter(b => b.start_time)
-        .map(b => new Date(b.start_time as string))
+        .map(b => parseNaiveET(b.start_time as string))
         .sort((a, b) => b.getTime() - a.getTime())[0]
 
       const daysSinceLastBooking = lastCompleted

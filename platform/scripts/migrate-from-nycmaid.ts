@@ -34,6 +34,19 @@ import { createClient } from '@supabase/supabase-js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const VERIFY_ONLY = process.argv.includes('--verify')
+// Runs ONLY the website_visits step. The other tables were already migrated
+// back on 2026-06-06 and have since drifted (real edits made directly in
+// fullloop) — re-running their upserts for real would silently overwrite
+// that with stale nycmaid-side data. website_visits is a fresh, additive
+// backfill with no such risk (nothing has ever written to it before today).
+const WEBSITE_VISITS_ONLY = process.argv.includes('--website-visits-only')
+// Reconciles rows that fell through the original 2026-06-06 migration —
+// found via a real ID-level diff (the table-count comparison in verify()
+// undercounts sms_conversation_messages due to a bug in its own chunked
+// query, so it is NOT a reliable signal of what's actually missing).
+// INSERT only, never upsert — existing dest rows may carry real edits made
+// directly in fullloop since June and must not be touched.
+const RECONCILE_ONLY = process.argv.includes('--reconcile-only')
 const CUTOFF = process.env.MIGRATION_CUTOFF || new Date().toISOString()
 const TENANT_NAME = 'The NYC Maid'
 // LIVE tenant slug is `nycmaid` (id 00000000-0000-0000-0000-000000000001).
@@ -89,6 +102,41 @@ async function upsertBatch(table: string, rows: Record<string, unknown>[], confl
     if (error) throw new Error(`upsert ${table} [${i}-${i + batch.length}]: ${error.message}`)
     log(`  ${table}: ${i + batch.length}/${rows.length}`)
   }
+}
+
+// Plain INSERT, not upsert — for reconciliation, where the whole point is
+// "only touch rows that don't exist yet." If the diff logic is ever wrong
+// and an id collides, this fails loudly instead of silently overwriting.
+async function insertBatch(table: string, rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return
+  if (DRY_RUN || VERIFY_ONLY) {
+    log(`would insert ${rows.length} rows into ${table}`)
+    return
+  }
+  const PAGE = 500
+  for (let i = 0; i < rows.length; i += PAGE) {
+    const batch = rows.slice(i, i + PAGE)
+    const { error } = await fullloop.from(table).insert(batch)
+    if (error) throw new Error(`insert ${table} [${i}-${i + batch.length}]: ${error.message}`)
+    log(`  ${table}: ${i + batch.length}/${rows.length}`)
+  }
+}
+
+async function fetchIdSet(client: typeof fullloop, table: string, tenantId?: string): Promise<Set<string>> {
+  const ids: string[] = []
+  let from = 0
+  const PAGE = 1000
+  while (true) {
+    let q = client.from(table).select('id').range(from, from + PAGE - 1).order('id')
+    if (tenantId) q = q.eq('tenant_id', tenantId)
+    const { data, error } = await q
+    if (error) throw new Error(`fetchIdSet ${table}: ${error.message}`)
+    if (!data || data.length === 0) break
+    ids.push(...data.map((d) => d.id as string))
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return new Set(ids)
 }
 
 // ─── Step 1 — Tenant ────────────────────────────────────────────────────────
@@ -483,7 +531,151 @@ async function migrateSelenaMemory(tenantId: string) {
   await upsertBatch('selena_memory', mapped)
 }
 
-// ─── Step 8 — Verify ────────────────────────────────────────────────────────
+// ─── Step 8 — Website visits (lead_clicks → website_visits) ────────────────
+
+// nycmaid's t.js overloaded `action` with two meanings: page-lifecycle events
+// ('visit', 'scroll_25', 'engaged_30s', ...) AND, for CTA rows, the CTA type
+// itself ('call', 'text', 'book', 'pay', 'directions', 'ops_apply'). The
+// current website_visits schema (and its /api/leads/visits reader) expects
+// these split: action='cta' + a separate cta_type column. Re-derive that
+// split on the way in so the CTA stats (conversion rate, CTA breakdown) read
+// correctly against the migrated rows, not just the live ones.
+const CTA_ACTIONS = new Set(['call', 'text', 'book', 'pay', 'directions', 'ops_apply'])
+
+async function migrateWebsiteVisits(tenantId: string) {
+  log('--- website_visits ---')
+  const rows = await fetchAll<Record<string, unknown>>('lead_clicks', q => q.select('*').lte('created_at', CUTOFF))
+  log(`fetched ${rows.length} lead_clicks`)
+
+  const mapped = rows.map(r => {
+    const rawAction = (r.action as string) || 'visit'
+    const isCta = CTA_ACTIONS.has(rawAction)
+    return {
+      id: r.id,
+      tenant_id: tenantId,
+      session_id: r.session_id || null,
+      visitor_id: r.visitor_id || null,
+      referrer: r.referrer || null,
+      device: r.device || null,
+      page_url: r.page || null,
+      scroll_depth: r.scroll_depth ?? null,
+      time_on_page: r.time_on_page ?? null,
+      cta_type: isCta ? rawAction : null,
+      action: isCta ? 'cta' : rawAction,
+      active_time: r.active_time ?? null,
+      cta_clicked: r.cta_clicked ?? false,
+      load_time_ms: r.load_time_ms ?? null,
+      placement: r.placement || null,
+      screen_w: r.screen_w ?? null,
+      screen_h: r.screen_h ?? null,
+      utm_source: r.utm_source || null,
+      utm_medium: r.utm_medium || null,
+      utm_campaign: r.utm_campaign || null,
+      true_conversion: r.true_conversion ?? false,
+      manual_conversion: r.manual_conversion ?? false,
+      manual_sale: r.manual_sale ?? false,
+      created_at: r.created_at || new Date().toISOString(),
+    }
+  })
+  await upsertBatch('website_visits', mapped)
+}
+
+// ─── Step 9 — Reconcile rows the original migration missed ─────────────────
+
+async function reconcileClients(tenantId: string) {
+  log('--- reconcile: clients ---')
+  const src = await fetchAll<Record<string, unknown>>('clients', (q) => q.select('*'))
+  const destIds = await fetchIdSet(fullloop, 'clients', tenantId)
+  const missing = src.filter((c) => !isTestClient(c) && !destIds.has(c.id as string))
+  // Tombstones from manual dedup merges (notes: "[MERGED into <id> on ...]",
+  // active:false) — the real data lives under the target id, which the
+  // original migration already carried over. Recreating the tombstone would
+  // reintroduce a dead duplicate.
+  const real = missing.filter((c) => !((c.notes as string) || '').includes('MERGED into'))
+  const skippedMerged = missing.length - real.length
+  log(`found ${missing.length} missing (${skippedMerged} are merge tombstones, skipping), inserting ${real.length}`)
+  const rows = real.map((c) => ({
+    id: c.id,
+    tenant_id: tenantId,
+    name: c.name,
+    email: c.email || null,
+    phone: c.phone || null,
+    address: c.address || null,
+    address_line1: c.address_line1 || null,
+    address_line2: c.address_line2 || null,
+    city: c.city || null,
+    state: c.state || null,
+    zip: c.zip || null,
+    unit: c.unit || null,
+    notes: c.notes || null,
+    special_instructions: c.special_instructions || null,
+    source: c.source || null,
+    referral_code: c.referral_code || null,
+    referrer_id: c.referrer_id || null,
+    email_opt_in: c.email_opt_in !== false,
+    sms_opt_in: c.sms_opt_in !== false,
+    sms_consent: c.sms_consent !== false,
+    status: c.status || (c.active === false ? 'inactive' : 'active'),
+    pin: c.pin || null,
+    do_not_service: c.do_not_service || false,
+    created_at: c.created_at || new Date().toISOString(),
+    updated_at: c.updated_at || new Date().toISOString(),
+  }))
+  await insertBatch('clients', rows)
+}
+
+async function reconcileTeamMembers(tenantId: string) {
+  log('--- reconcile: team_members ---')
+  const src = await fetchAll<Record<string, unknown>>('cleaners', (q) => q.select('*'))
+  const destIds = await fetchIdSet(fullloop, 'team_members', tenantId)
+  const missing = src.filter((c) => !destIds.has(c.id as string))
+  log(`found ${missing.length} missing, inserting`)
+  const rows = missing.map((c) => ({
+    id: c.id,
+    tenant_id: tenantId,
+    name: c.name,
+    email: c.email || null,
+    phone: c.phone || null,
+    pin: c.pin || null,
+    role: 'worker',
+    status: c.active === false || c.status === 'inactive' ? 'inactive' : 'active',
+    hourly_rate: c.hourly_rate ?? null,
+    pay_rate: c.pay_rate ?? null,
+    preferred_language: c.preferred_language || 'en',
+    sms_consent: c.sms_consent !== false,
+    labor_only: c.labor_only || false,
+    photo_url: c.photo_url || null,
+    address: c.address || null,
+    created_at: c.created_at || new Date().toISOString(),
+    updated_at: c.updated_at || new Date().toISOString(),
+  }))
+  await insertBatch('team_members', rows)
+}
+
+async function reconcileSmsMessages() {
+  log('--- reconcile: sms_conversation_messages ---')
+  const src = await fetchAll<Record<string, unknown>>('sms_conversation_messages', (q) => q.select('*'))
+  const destIds = await fetchIdSet(fullloop, 'sms_conversation_messages')
+  const validConvoIds = await fetchIdSet(fullloop, 'sms_conversations')
+  const missing = src.filter((m) => !destIds.has(m.id as string) && validConvoIds.has(m.conversation_id as string))
+  log(`found ${missing.length} missing, inserting`)
+  const rows = missing.map((m) => ({
+    id: m.id,
+    conversation_id: m.conversation_id,
+    direction: m.direction,
+    message: m.message,
+    created_at: m.created_at || new Date().toISOString(),
+  }))
+  await insertBatch('sms_conversation_messages', rows)
+}
+
+async function reconcile(tenantId: string) {
+  await reconcileClients(tenantId)
+  await reconcileTeamMembers(tenantId)
+  await reconcileSmsMessages()
+}
+
+// ─── Step 10 — Verify ───────────────────────────────────────────────────────
 
 async function verify(tenantId: string) {
   log('=== VERIFICATION ===')
@@ -495,6 +687,7 @@ async function verify(tenantId: string) {
     ['sms_conversations', 'sms_conversations'],
     ['sms_conversation_messages', 'sms_conversation_messages'],
     ['selena_memory', 'selena_memory'],
+    ['lead_clicks', 'website_visits'],
   ]
   // Get this tenant's conversation IDs so we can scope the messages count
   const { data: convoIds } = await fullloop.from('sms_conversations').select('id').eq('tenant_id', tenantId)
@@ -563,16 +756,21 @@ async function main() {
 
   const tenantId = await ensureTenant()
 
-  if (!VERIFY_ONLY) {
+  if (!VERIFY_ONLY && WEBSITE_VISITS_ONLY) {
+    await migrateWebsiteVisits(tenantId)
+  } else if (!VERIFY_ONLY && RECONCILE_ONLY) {
+    await reconcile(tenantId)
+  } else if (!VERIFY_ONLY) {
     await migrateClients(tenantId)
     await migrateTeamMembers(tenantId)
     await migrateRecurringSchedules(tenantId)
     await migrateBookings(tenantId)
     await migrateSmsConversations(tenantId)
     await migrateSelenaMemory(tenantId)
+    await migrateWebsiteVisits(tenantId)
   }
 
-  await verify(tenantId)
+  if (!WEBSITE_VISITS_ONLY && !RECONCILE_ONLY) await verify(tenantId)
 
   log('')
   log('Done. If counts matched, the data copy is faithful.')

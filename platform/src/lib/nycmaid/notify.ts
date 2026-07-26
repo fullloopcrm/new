@@ -16,6 +16,10 @@ interface NotifyOptions {
 // Security/login chatter and unsubscribe noise stay dashboard-only.
 const TELEGRAM_NOTIFY_TYPES = new Set<string>([
   'new_lead',
+  'new_client',
+  'feedback',
+  'hot_lead',
+  'referral_lead',
   'new_booking',
   'sms_reply',
   'owner_sms',
@@ -60,9 +64,14 @@ async function sendTenantTelegram(tenantId: string | null, text: string): Promis
     if (t?.telegram_bot_token && t?.telegram_chat_id) {
       const botToken = decryptSecret(t.telegram_bot_token as string)
       await sendTelegram(t.telegram_chat_id as string, text, botToken)
-      return
     }
+    // A resolved tenant with no Telegram of its own stays dashboard-only —
+    // falling back to the global bot here would leak this tenant's event into
+    // nycmaid/Jeff's own Telegram feed.
+    return
   }
+  // No tenant context at all (e.g. a cron running outside request scope) —
+  // this is the one case the global platform bot is the right fallback.
   await notifyOwnerOnTelegram(text)
 }
 
@@ -83,7 +92,7 @@ export async function notify({ type, title, message, booking_id, url, tenantId }
   }
 
   try {
-    await sendPushToAll(title, message, url)
+    await sendPushToAll(title, message, url, undefined, tid || undefined)
   } catch (err) {
     console.error('notify push failed:', err)
   }

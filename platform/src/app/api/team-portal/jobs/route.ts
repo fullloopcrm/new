@@ -4,6 +4,7 @@ import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantTimezone, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
 // decide if a job is worth claiming, not enough to identify/contact the client.
@@ -31,6 +32,24 @@ export async function GET(request: NextRequest) {
   const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).maybeSingle()
   const timezone = getTenantTimezone(tenantRow)
   const { today: todayCal, todayStartNaive: today, tomorrowStartNaive: tomorrow } = getTenantNaiveDayBoundaries(timezone)
+
+  // A booking's crew can include team members beyond the single `team_member_id`
+  // lead column on `bookings` — booking_team_members holds the full crew (lead +
+  // extras) when the multi-cleaner assignment UI was used to build the team.
+  // Older/simple single-assign bookings never get a booking_team_members row at
+  // all, so a non-lead crew member is only findable via that table while a lead
+  // (or a single-assignee booking) is only findable via `bookings.team_member_id`
+  // — match on either signal or extra crew members never see their own jobs.
+  const memberBookingFilter = async (): Promise<string> => {
+    const { data: crewRows } = await tenantDb(auth.tid)
+      .from('booking_team_members') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+      .select('booking_id')
+      .eq('team_member_id', auth.id)
+    const crewBookingIds = (crewRows || []).map((r) => r.booking_id as string)
+    return crewBookingIds.length > 0
+      ? `team_member_id.eq.${auth.id},id.in.(${crewBookingIds.join(',')})`
+      : `team_member_id.eq.${auth.id}`
+  }
 
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
@@ -77,27 +96,29 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
-      .select('*, clients(name, phone, address, special_instructions)')
-      .eq('team_member_id', auth.id)
+      .select('*, clients(name, phone, address, special_instructions), client_properties(address, latitude, longitude)')
+      .or(await memberBookingFilter())
       .gte('start_time', tomorrow)
       .lt('start_time', futureEnd)
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
     return NextResponse.json({ jobs: data })
   }
 
   // Default: return today's jobs for the authenticated team member
   const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
-    .select('*, clients(name, phone, address, special_instructions)')
-    .eq('team_member_id', auth.id)
+    .select('*, clients(name, phone, address, special_instructions), client_properties(address, latitude, longitude)')
+    .or(await memberBookingFilter())
     .gte('start_time', today)
     .lt('start_time', tomorrow)
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
   return NextResponse.json({ jobs: data })
 }

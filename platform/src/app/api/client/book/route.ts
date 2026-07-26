@@ -18,12 +18,17 @@ import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-prop
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
+import { trackError } from '@/lib/error-tracking'
 import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { createPrimaryContact } from '@/lib/client-contacts'
+import { formatName } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 
@@ -94,8 +99,9 @@ export async function POST(request: Request) {
     let isNewClient = false
 
     if (!clientId && body.email) {
-      const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
+      const phone = normalizePhone(body.phone as string | undefined) || ''
       const emailLower = (body.email as string).toLowerCase()
+      const clientName = formatName(body.name as string)
 
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
@@ -118,7 +124,7 @@ export async function POST(request: Request) {
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
-            name: body.name as string,
+            name: clientName,
             email: emailLower,
             phone,
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
@@ -132,11 +138,19 @@ export async function POST(request: Request) {
         }
         clientId = newClient.id
         isNewClient = true
+        // Required by every client-creation path (see createPrimaryContact's
+        // own docstring) — without it, getClientContacts() returns empty
+        // forever and this client's confirmation email/SMS silently no-ops
+        // on every future send, no error, no trace. Missing here is exactly
+        // what happened to nycmaid booking 8e1e4cf2 (Paul Oberbeck,
+        // 2026-07-24): self-booked, zero client_contacts rows, confirmation
+        // silently never sent.
+        await createPrimaryContact(tenant.id, newClient.id, { name: clientName, phone, email: emailLower })
         await notify({
           tenantId: tenant.id,
           type: 'new_client',
           title: 'New Client (via Booking)',
-          message: `${body.name} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
+          message: `${clientName} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
       }
     }
@@ -250,8 +264,9 @@ export async function POST(request: Request) {
       // Emergency = same-day, OR a multi-cleaner booking under 48hr notice.
       // Emergency rate ($89) overrides the supplies-based rate ($59 client-
       // supplies / $69 we-bring). 2hr min (single) / 4hr min (2+ cleaners).
-      // The $10 self-booking promo (applied at billing in the 30-min alert) is
-      // suppressed for emergency + multi-cleaner. Faithful port of NYC Maid.
+      // The self-booking promo (SELF_BOOKING_DISCOUNT_DOLLARS, applied at
+      // billing in the 30-min alert) is suppressed for emergency +
+      // multi-cleaner. Faithful port of NYC Maid.
       const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       const isSameDay = bookingDate === todayET
       const hoursUntilBooking = (new Date(startTime).getTime() - Date.now()) / 3_600_000
@@ -270,7 +285,7 @@ export async function POST(request: Request) {
       bkPrice = Math.round(effectiveRate * billableHours * bkTeamSize * 100)
       const discountEligible = !bkIsEmergency && !isMultiCleaner
       bkNotes = ((body.notes as string) || '') + (discountEligible
-        ? '\n\n[Promo: $10 self-booking discount applies at billing]'
+        ? `\n\n[Promo: $${SELF_BOOKING_DISCOUNT_DOLLARS} self-booking discount applies at billing]`
         : isMultiCleaner
           ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
           : '\n\n[Same-day emergency booking — no discount, $89/hr]')
@@ -331,12 +346,17 @@ export async function POST(request: Request) {
       p_day_start: `${bookingDate}T00:00:00`,
       p_day_end: `${nextBookingDate}T00:00:00`,
       p_active_statuses: ['scheduled', 'pending', 'confirmed', 'in_progress'],
+      p_source: 'client_portal',
     })
-    if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 })
+    if (claimError) {
+      await trackError(claimError, { source: 'client/book:create_booking_atomic', tenantId: tenant.id, severity: 'high' })
+      return NextResponse.json({ error: claimError.message }, { status: 500 })
+    }
     if (!claim?.created) {
       if (claim?.reason === 'duplicate_date') {
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
+      await trackError(new Error(`create_booking_atomic returned created:false, reason:${claim?.reason}`), { source: 'client/book:atomic_not_created', tenantId: tenant.id, severity: 'high' })
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
     }
 
@@ -367,7 +387,30 @@ export async function POST(request: Request) {
       if ((error as { code?: string } | null)?.code === '23505') {
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
+      await trackError(error || new Error('post-claim booking fetch returned no data'), { source: 'client/book:post_claim_fetch', tenantId: tenant.id, severity: 'high' })
       return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+    }
+
+    // Seed the notes thread with whatever the client typed at booking time —
+    // this is the one place a booking's note history starts. Without this,
+    // a client's initial note only ever lived in bookings.notes (a static
+    // field the team portal read but couldn't reply to) while anything
+    // added later went into booking_notes — two disconnected note trails
+    // for the same booking. Fire-and-forget: never block booking creation
+    // on the notes thread.
+    if ((body.notes as string)?.trim()) {
+      supabaseAdmin
+        .from('booking_notes')
+        .insert({
+          tenant_id: tenant.id,
+          booking_id: data.id,
+          job_id: (data as { job_id?: string | null }).job_id ?? null,
+          client_id: clientId,
+          author_type: 'client',
+          author_name: data.clients?.name || 'Client',
+          content: (body.notes as string).trim(),
+        })
+        .then(() => {}, (err: unknown) => console.error('[client/book] booking_notes seed failed:', err))
     }
 
     // Render admin/client emails + SMS with this booking's property address
@@ -522,6 +565,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ...data, is_new_client: isNewClient })
   } catch (err) {
     console.error('Booking error:', err)
+    await trackError(err, { source: 'client/book:unhandled', tenantId: tenant.id, severity: 'high' })
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
   }
 }

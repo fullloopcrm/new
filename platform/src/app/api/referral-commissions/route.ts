@@ -10,12 +10,20 @@
  *               (atomically claimed so a double-submit can't double-credit).
  */
 import { NextResponse } from 'next/server'
+import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
+import { decryptSecret } from '@/lib/secret-crypto'
+
+function getStripe(key: string | null | undefined): Stripe {
+  const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
+  if (!apiKey) throw new Error('Stripe not configured')
+  return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+}
 
 export async function GET(request: Request) {
   try {
@@ -189,11 +197,52 @@ export async function PUT(request: Request) {
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    const updates: Record<string, unknown> = { status }
     const markingPaid = status === 'paid'
+
+    // Product decision (leader/Jeff, 2026-07-22, CHANNEL.md 16:35 + 16:55):
+    // manual Zelle/Apple Cash is no longer a live payout method once a
+    // referrer CAN connect Stripe -- Connect is mandatory then, matching
+    // cleaners. The ONLY escape hatch is an admin-flagged exception
+    // (referrers.stripe_ineligible_at, set via PATCH /api/referrers/[id])
+    // for a referrer who genuinely can't onboard -- never a default choice.
+    // A caller-supplied paid_via no longer overrides Connect for a ready
+    // referrer, and is rejected outright for a referrer who's neither ready
+    // nor flagged ineligible (forces the admin to actually resolve one of
+    // the two states instead of drifting into an unintended manual payout).
+    let referrerForTransfer: { id: string; name: string; commission_cents: number; stripe_connect_account_id: string } | null = null
+    if (markingPaid) {
+      const { data: existing } = await supabaseAdmin
+        .from('referral_commissions')
+        .select('id, referrer_id, commission_cents, status')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (existing && existing.status !== 'paid') {
+        const { data: ref } = await supabaseAdmin
+          .from('referrers')
+          .select('id, name, stripe_connect_account_id, stripe_ready_at, stripe_ineligible_at')
+          .eq('id', existing.referrer_id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        if (ref?.stripe_ready_at && ref.stripe_connect_account_id) {
+          referrerForTransfer = {
+            id: ref.id,
+            name: ref.name,
+            commission_cents: existing.commission_cents,
+            stripe_connect_account_id: ref.stripe_connect_account_id,
+          }
+        } else if (ref && !ref.stripe_ineligible_at) {
+          return NextResponse.json({
+            error: 'This referrer has not connected Stripe and is not flagged Stripe-ineligible. Connect is required to pay them — if they genuinely cannot onboard, mark them Stripe-ineligible first (PATCH /api/referrers/[id]) to unlock manual payout.',
+          }, { status: 409 })
+        }
+      }
+    }
+
+    const updates: Record<string, unknown> = { status }
     if (markingPaid) {
       updates.paid_at = new Date().toISOString()
-      updates.paid_via = paid_via || 'zelle'
+      updates.paid_via = referrerForTransfer ? 'stripe_connect' : (paid_via || 'zelle')
     }
 
     // `.neq('status', 'paid')` makes the paid transition a DB-level
@@ -203,7 +252,9 @@ export async function PUT(request: Request) {
     // re-read the referrer's total_paid before either write committed and
     // both add commission_cents -- double-counting the payout and
     // double-posting the ledger (postCommissionPayment below), even though
-    // no second real payment was ever made.
+    // no second real payment was ever made. This also serves as the claim
+    // for the Connect transfer below -- only the request that wins the CAS
+    // is allowed to move money.
     let query = supabaseAdmin.from('referral_commissions').update(updates).eq('id', id).eq('tenant_id', tenantId)
     if (markingPaid) query = query.neq('status', 'paid')
     const { data, error } = await query.select().maybeSingle()
@@ -223,6 +274,34 @@ export async function PUT(request: Request) {
       return NextResponse.json(current)
     }
 
+    if (markingPaid && referrerForTransfer) {
+      // Won the CAS claim above -- now actually move the money. If the
+      // transfer fails, revert the claim so the commission goes back to
+      // pending instead of being recorded "paid" with no funds sent.
+      try {
+        const stripe = getStripe((tenant.tenant as { stripe_api_key?: string | null }).stripe_api_key)
+        await stripe.transfers.create({
+          amount: referrerForTransfer.commission_cents,
+          currency: 'usd',
+          destination: referrerForTransfer.stripe_connect_account_id,
+          description: `Referral commission — ${referrerForTransfer.name}`,
+          metadata: { commission_id: data.id, referrer_id: referrerForTransfer.id, tenant_id: tenantId },
+        }, {
+          idempotencyKey: `referrer-commission-payout:${data.id}`,
+        })
+      } catch (transferErr) {
+        await supabaseAdmin
+          .from('referral_commissions')
+          .update({ status: 'pending', paid_at: null, paid_via: null })
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+        console.error('[ref-comm] Connect transfer failed, reverted to pending:', transferErr)
+        return NextResponse.json({
+          error: transferErr instanceof Error ? transferErr.message : 'Stripe transfer failed',
+        }, { status: 502 })
+      }
+    }
+
     if (markingPaid) {
       // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) — a
       // read-then-write here would lose an increment if two commissions for
@@ -237,7 +316,7 @@ export async function PUT(request: Request) {
         .catch(err => console.error('[ref-comm] payment post failed:', err))
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(referrerForTransfer ? { ...data, paid_via: 'stripe_connect' } : data)
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Commissions PUT error:', err)

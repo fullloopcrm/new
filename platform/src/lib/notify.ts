@@ -70,6 +70,8 @@ export type NotificationType =
   | 'late_check_in'
   | 'duplicate_recurring_schedule'
   | 'comms_fail'
+  | 'running_late'
+  | 'recurring_expiring'
   | 'late_check_out'
   | 'quote_sent'
   | 'quote_viewed'

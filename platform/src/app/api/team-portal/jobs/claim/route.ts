@@ -47,5 +47,26 @@ export async function POST(request: Request) {
     details: { event: 'claimed', by: auth.id },
   })
 
+  // Admin-facing "job accepted" notification -- same shape/table the Telnyx
+  // SMS-confirm webhook already uses for the sibling 'team_confirmed' event
+  // (src/app/api/webhooks/telnyx/route.ts), just triggered from the portal
+  // claim path instead of an SMS reply.
+  const [{ data: member }, { data: bookingRow }] = await Promise.all([
+    supabaseAdmin.from('team_members').select('name').eq('id', auth.id).single(),
+    supabaseAdmin.from('bookings').select('clients(name)').eq('id', booking_id).single(),
+  ])
+  const memberName = member?.name || 'A team member'
+  const clientName = (bookingRow?.clients as unknown as { name: string } | null)?.name || 'a client'
+  await supabaseAdmin.from('notifications').insert({
+    tenant_id: auth.tid,
+    type: 'team_confirmed',
+    title: `Job Claimed: ${memberName}`,
+    message: `${memberName} claimed the job for ${clientName} via the team portal.`,
+    channel: 'in_app',
+    booking_id,
+    metadata: { team_member_id: auth.id, confirmed_via: 'portal_claim' },
+    status: 'sent',
+  })
+
   return NextResponse.json({ booking: data.booking })
 }

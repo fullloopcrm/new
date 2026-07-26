@@ -119,10 +119,11 @@ function req() {
 }
 
 beforeEach(() => {
-  // The route now only processes a tenant when it's 8am in THAT tenant's own
-  // timezone (fixture has no `timezone`, so it defaults to America/New_York)
-  // — pin the clock so this test is deterministic regardless of real
-  // wall-clock time when the suite runs. 2026-07-22T12:00:00Z = 8am EDT.
+  // The route (and the recurring-expiration check that rides along with it)
+  // now only processes a tenant when it's 8am in THAT tenant's own timezone
+  // (fixture has no `timezone`, so it defaults to America/New_York) — pin the
+  // clock so this test is deterministic regardless of real wall-clock time
+  // when the suite runs. 2026-07-22T12:00:00Z = 8am EDT.
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-07-22T12:00:00Z'))
   process.env.CRON_SECRET = 'test-secret'

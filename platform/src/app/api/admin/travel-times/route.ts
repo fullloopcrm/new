@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { calculateDistance, estimateTransitMinutes, geocodeAddress } from '@/lib/geo'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
 
 type RawClient = { id: string; name: string; address: string; latitude: number | null; longitude: number | null }
 type RawTeamMember = { id: string; name: string; has_car: boolean | null }
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
   }
 
   const tenantId = tenant.tenantId
-  const sel = 'id, start_time, end_time, team_member_id, clients(id, name, address, latitude, longitude), team_members!bookings_team_member_id_fkey(id, name, has_car)'
+  const sel = 'id, start_time, end_time, team_member_id, clients(id, name, address, latitude, longitude), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(id, name, has_car)'
 
   if (date) {
     const { data: bookings } = await tenantDb(tenantId)
@@ -121,6 +122,7 @@ export async function GET(request: NextRequest) {
       .order('start_time', { ascending: true })
 
     if (!bookings || bookings.length === 0) return NextResponse.json([])
+    bookings.forEach((b) => applyPropertyToBookingClient(b as never))
     return NextResponse.json(await buildRoutes(tenantId, bookings as unknown as Booking[]))
   }
 
@@ -133,6 +135,7 @@ export async function GET(request: NextRequest) {
     .order('start_time', { ascending: true })
 
   if (!bookings || bookings.length === 0) return NextResponse.json({})
+  bookings.forEach((b) => applyPropertyToBookingClient(b as never))
 
   const byDate: Record<string, Booking[]> = {}
   for (const b of bookings as unknown as Booking[]) {

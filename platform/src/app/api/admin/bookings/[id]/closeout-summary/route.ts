@@ -6,6 +6,7 @@ import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -44,22 +45,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // booking_id alone (a UUID) already uniquely identifies the right rows.
   const db = tenantDb(booking.tenant_id)
 
-  // Team (booking_team_members) — pay_rate here is a per-booking override for
-  // this specific member; team_members.pay_rate is their standing rate (the
-  // field the admin team-profile page actually edits — hourly_rate is not
-  // maintained anywhere and must not be used for pay math).
-  const { data: teamRows } = await db
+  // Team (booking_team_members) — team_members.pay_rate is each member's
+  // standing rate (the field the admin team-profile page actually edits;
+  // hourly_rate is not maintained anywhere and must not be used for pay
+  // math). booking_team_members has no per-booking pay_rate override column
+  // — selecting one here previously 42703'd the whole query, which this
+  // code silently swallowed (destructured only `data`, never checked
+  // `error`) and fell through to the lead-only branch below, so every
+  // multi-cleaner booking's closeout silently dropped every non-lead
+  // crew member's pay from cleaner_payouts.
+  const { data: teamRows, error: teamRowsError } = await db
     .from('booking_team_members')
-    .select('team_member_id, is_lead, position, pay_rate, team_members(id, name, phone, pay_rate)')
+    .select('team_member_id, is_lead, position, team_members(id, name, phone, pay_rate)')
     .eq('booking_id', id)
     .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
+  if (teamRowsError) {
+    return NextResponse.json({ error: teamRowsError.message }, { status: 500 })
+  }
 
   const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; pay_rate: number | null }> = []
   if (teamRows && teamRows.length > 0) {
     for (const r of teamRows) {
       const c = r.team_members as unknown as { id: string; name: string; phone: string | null; pay_rate: number | null } | null
-      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: (r.pay_rate as number | null) ?? c.pay_rate ?? null })
+      if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: c.pay_rate ?? null })
     }
   } else if (booking.team_member_id) {
     const c = booking.team_members as unknown as { id: string; name: string; phone: string | null } | null
@@ -119,9 +128,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   //     so this line always matches what the client is actually charged --
   //     plus the one-time credit, a flat comp that stacks on top.
   // (2) auto-promo text like "[Promo: $X foo discount applied]" written into
-  //     notes by SMS/self-booking flows. Self-booking auto-discount is $10
-  //     (was mislabeled $20 here -- see /api/team-portal/30min-alert's real
-  //     SELF_BOOKING_DISCOUNT constant, the actual amount collected at billing).
+  //     notes by SMS/self-booking flows. Self-booking now derives its dollar
+  //     amount from SELF_BOOKING_DISCOUNT_DOLLARS (was hardcoded 1000 cents
+  //     here -- the exact "$20 vs $10" drift class this constant exists to
+  //     prevent, just one hop further downstream: this cents value had
+  //     already been manually nudged from 2000 to 1000 once by hand, with
+  //     nothing stopping it from drifting again).
+  //     Separately, the generic promoRe below required text ending in
+  //     literally "applied]" -- the real self-booking note ends "applies at
+  //     billing]", so it never actually matched anything, ever (dead code
+  //     wearing a comment that claimed it worked). Fixed to match both
+  //     endings so a FUTURE non-self-booking promo (there are none today)
+  //     would actually be picked up -- and explicitly skips any match that's
+  //     the self-booking promo, since that's already itemized above and
+  //     would otherwise double-count the same discount.
   const discounts: Array<{ label: string; cents: number }> = []
   const discountedGrossCents = applyDiscount(grossCents, booking.discount_percent as number | null)
   const customDiscountCents = grossCents - discountedGrossCents
@@ -134,12 +154,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const noteText = (booking.notes as string) || ''
   const isSelfBooked = /self-booking discount/i.test(noteText)
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: 1000 })
-  const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?applied\]/gi
+  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: SELF_BOOKING_DISCOUNT_DOLLARS * 100 })
+  const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?(?:applied|applies(?:\s+at\s+billing)?)\]/gi
   let m: RegExpExecArray | null
   while ((m = promoRe.exec(noteText)) !== null) {
     const dollars = parseInt(m[1], 10)
     const label = m[2].replace(/\s+/g, ' ').trim()
+    if (/self-book/i.test(label)) continue // already itemized above -- don't double-count
     discounts.push({ label, cents: dollars * 100 })
   }
   const totalDiscountCents = discounts.reduce((s, d) => s + d.cents, 0)

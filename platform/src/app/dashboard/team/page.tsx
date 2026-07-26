@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { useRouter } from 'next/navigation'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 import SalesAppsTab from './SalesAppsTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
-import { useTenantTimezone } from '@/hooks/useTenantTimezone'
-import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -32,6 +31,14 @@ type TeamMember = {
   pay_rate: number | null
   notes: string | null
   preferred_language: string | null
+  stripe_account_id?: string | null
+  stripe_ready_at?: string | null
+  avatar_url?: string | null
+  jobs_this_week?: number
+  hours_this_week?: number
+  ltv_total_cents?: number
+  avg_rating?: number | null
+  rating_count?: number | null
 }
 
 type EnrichedMember = TeamMember & {
@@ -39,15 +46,6 @@ type EnrichedMember = TeamMember & {
   hours_this_week: number
   utilization_pct: number
   ltv_total_cents: number
-}
-
-type Booking = {
-  id: string
-  team_member_id: string | null
-  start_time: string
-  end_time: string | null
-  price: number | null
-  status: string
 }
 
 type Application = {
@@ -82,7 +80,7 @@ function initials(name: string): string {
 }
 
 export default function TeamPage() {
-  const timezone = useTenantTimezone()
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('team')
 
   const teamPrefs = useUserPrefs('team', { default_tab: 'team' })
@@ -91,7 +89,6 @@ export default function TeamPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamPrefs.loaded])
   const [members, setMembers] = useState<TeamMember[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [appsLoading, setAppsLoading] = useState(true)
@@ -99,12 +96,8 @@ export default function TeamPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
-      fetch('/api/cleaners').then((r) => r.json()).catch(() => []),
-      fetch('/api/bookings?limit=500').then((r) => r.json()).catch(() => ({ bookings: [] })),
-    ]).then(([m, b]) => {
+    fetch('/api/cleaners').then((r) => r.json()).catch(() => []).then((m) => {
       setMembers(Array.isArray(m) ? m : [])
-      setBookings((b?.bookings || []) as Booking[])
       setLoading(false)
     })
     fetch('/api/service-area')
@@ -113,6 +106,15 @@ export default function TeamPage() {
       .catch(() => {})
     loadApplications()
   }, [])
+
+  async function loadMembers() {
+    try {
+      const m = await fetch('/api/cleaners').then((r) => r.json())
+      setMembers(Array.isArray(m) ? m : [])
+    } catch {
+      // Leave the existing members list in place on a refresh failure.
+    }
+  }
 
   async function loadApplications() {
     setAppsLoading(true)
@@ -145,7 +147,7 @@ export default function TeamPage() {
         `Approved ${json.approved}. Emailed/provisioned ${json.provisioned}.` +
         (failed > 0 ? `\n${failed} applicant(s) approved but could not be emailed/provisioned — check their email/phone.` : '')
       )
-      await loadApplications()
+      await Promise.all([loadApplications(), loadMembers()])
     } catch (e) {
       alert(`Failed: ${e instanceof Error ? e.message : 'network error'}`)
     } finally {
@@ -166,6 +168,36 @@ export default function TeamPage() {
       return
     }
     loadApplications()
+    if (status === 'approved') loadMembers()
+  }
+
+  const [invitingAppId, setInvitingAppId] = useState<string | null>(null)
+  const [invitedAppIds, setInvitedAppIds] = useState<Set<string>>(new Set())
+
+  // The just-approved application has no direct FK to the team_members row
+  // provisionApprovedApplicant() created — it's matched the same way that
+  // provisioning function dedupes: by cleaned phone digits.
+  function matchedMemberFor(app: Application): TeamMember | undefined {
+    const appPhone = (app.phone || '').replace(/\D/g, '')
+    if (!appPhone) return undefined
+    return members.find((m) => (m.phone || '').replace(/\D/g, '') === appPhone)
+  }
+
+  async function sendConnectInvite(app: Application, member: TeamMember) {
+    setInvitingAppId(app.id)
+    try {
+      const res = await fetch(`/api/team-members/${member.id}/stripe-invite`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Could not send invite: ${json.error || res.statusText}`)
+        return
+      }
+      setInvitedAppIds((prev) => new Set(prev).add(app.id))
+    } catch (e) {
+      alert(`Could not send invite: ${e instanceof Error ? e.message : 'network error'}`)
+    } finally {
+      setInvitingAppId(null)
+    }
   }
 
   async function deleteApplication(id: string) {
@@ -177,6 +209,32 @@ export default function TeamPage() {
       return
     }
     loadApplications()
+  }
+
+  const [deleteTarget, setDeleteTarget] = useState<EnrichedMember | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  async function confirmDeleteMember() {
+    if (!deleteTarget || deleteConfirmText.trim() !== deleteTarget.name.trim()) return
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const res = await fetch(`/api/team/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setDeleteError(err.error || `Failed (${res.status})`)
+        setDeleting(false)
+        return
+      }
+      setMembers((ms) => ms.filter((m) => m.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function setMemberRole(id: string, role: string) {
@@ -195,42 +253,25 @@ export default function TeamPage() {
     }
   }
 
+  // jobs_this_week/hours_this_week/ltv_total_cents now come pre-computed from
+  // GET /api/cleaners (scoped, bounded queries server-side) rather than being
+  // derived here from the old unbounded /api/bookings?limit=500 fetch, which
+  // on a tenant with thousands of bookings (recurring generation runs years
+  // ahead) returned only far-future rows sorted by start_time DESC —
+  // containing zero completed jobs, so every member showed 0 regardless of
+  // real activity.
   const enriched: EnrichedMember[] = useMemo(() => {
-    // start_time is naive tenant-local — build the week window as naive
-    // strings and compare directly, rather than via Date (browser's own zone).
-    const { todayStartNaive } = getTenantNaiveDayBoundaries(timezone)
-    const todayDate = new Date(`${todayStartNaive}T00:00:00`)
-    const dayIdx = (todayDate.getDay() + 6) % 7
-    todayDate.setDate(todayDate.getDate() - dayIdx)
-    const mondayNaive = todayDate.toISOString().slice(0, 10) + 'T00:00:00'
-    const sundayDate = new Date(`${mondayNaive}`)
-    sundayDate.setDate(sundayDate.getDate() + 7)
-    const sundayNaive = sundayDate.toISOString().slice(0, 10) + 'T00:00:00'
     const targetHours = 40
-
-    return members.map((m) => {
-      const memberBookings = bookings.filter((b) => b.team_member_id === m.id)
-      const weekBookings = memberBookings.filter((b) => {
-        return b.start_time >= mondayNaive && b.start_time < sundayNaive
-      })
-      const hours = weekBookings.reduce((s, b) => {
-        const start = new Date(b.start_time).getTime()
-        const end = b.end_time ? new Date(b.end_time).getTime() : start + 3 * 3_600_000
-        return s + Math.max(0.5, (end - start) / 3_600_000)
-      }, 0)
-      const ltv = memberBookings
-        .filter((b) => b.status === 'completed')
-        .reduce((s, b) => s + Number(b.price || 0), 0)
-
-      return {
+    return members
+      .map((m) => ({
         ...m,
-        jobs_this_week: weekBookings.length,
-        hours_this_week: Math.round(hours * 10) / 10,
-        utilization_pct: Math.round((hours / targetHours) * 100),
-        ltv_total_cents: ltv,
-      }
-    }).sort((a, b) => b.utilization_pct - a.utilization_pct)
-  }, [members, bookings, timezone])
+        jobs_this_week: m.jobs_this_week ?? 0,
+        hours_this_week: m.hours_this_week ?? 0,
+        ltv_total_cents: m.ltv_total_cents ?? 0,
+        utilization_pct: Math.round(((m.hours_this_week ?? 0) / targetHours) * 100),
+      }))
+      .sort((a, b) => b.utilization_pct - a.utilization_pct)
+  }, [members])
 
   const stats = useMemo(() => {
     const active = enriched.filter((m) => (m.status || 'active') !== 'inactive').length
@@ -243,6 +284,43 @@ export default function TeamPage() {
 
   return (
     <div className="tm-scope">
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, maxWidth: 420, width: '100%', padding: 24 }}>
+            <h3 style={{ fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>Delete {deleteTarget.name}?</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+              This permanently removes their profile, schedule, and pay rate. Job history stays attached to past bookings. This cannot be undone.
+            </p>
+            <p style={{ fontSize: 13, color: '#334155', marginBottom: 8 }}>
+              Type <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{deleteTarget.name}</span> to confirm.
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteTarget.name}
+              autoFocus
+              style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 12 }}
+            />
+            {deleteError && <p style={{ fontSize: 13, color: '#dc2626', marginBottom: 12 }}>{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                style={{ flex: 1, fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 0', fontWeight: 500, color: '#64748b', background: '#fff' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteMember}
+                disabled={deleting || deleteConfirmText.trim() !== deleteTarget.name.trim()}
+                style={{ flex: 1, fontSize: 13, background: '#dc2626', color: '#fff', borderRadius: 8, padding: '8px 0', fontWeight: 500, border: 'none', opacity: (deleting || deleteConfirmText.trim() !== deleteTarget.name.trim()) ? 0.4 : 1 }}
+              >
+                {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="tm-portals-bar">
         <div className="tm-portal-item">
           <span className="tm-portal-label">Team Portal</span>
@@ -390,26 +468,43 @@ export default function TeamPage() {
                   <div className="tm-apps-group-head">Past</div>
                   {applications
                     .filter((a) => a.status !== 'pending')
-                    .map((app) => (
-                      <div key={app.id} className="tm-app-row past">
-                        <div className="tm-app-photo">
-                          {app.photo_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={app.photo_url} alt={app.name} />
-                          ) : (
-                            <span className="tm-app-photo-fallback">{initials(app.name)}</span>
-                          )}
+                    .map((app) => {
+                      const matchedMember = app.status === 'approved' ? matchedMemberFor(app) : undefined
+                      const alreadyConnected = !!(matchedMember?.stripe_account_id && matchedMember?.stripe_ready_at)
+                      const justInvited = invitedAppIds.has(app.id)
+                      const showConnectInvite = app.status === 'approved' && matchedMember && !alreadyConnected
+                      return (
+                        <div key={app.id} className="tm-app-row past">
+                          <div className="tm-app-photo">
+                            {app.photo_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={app.photo_url} alt={app.name} />
+                            ) : (
+                              <span className="tm-app-photo-fallback">{initials(app.name)}</span>
+                            )}
+                          </div>
+                          <div className="tm-app-body">
+                            <div className="tm-app-name">{app.name}</div>
+                            <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                          </div>
+                          <div className="tm-app-actions">
+                            <span className={`tm-app-status ${app.status}`}>{app.status}</span>
+                            {showConnectInvite && (
+                              <button
+                                className="tm-action-btn"
+                                type="button"
+                                disabled={invitingAppId === app.id || justInvited}
+                                onClick={() => sendConnectInvite(app, matchedMember)}
+                                title="Text/email a Stripe Connect payout setup link to the new hire"
+                              >
+                                {justInvited ? 'Invite sent ✓' : invitingAppId === app.id ? 'Sending…' : 'Send Connect invite'}
+                              </button>
+                            )}
+                            <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
+                          </div>
                         </div>
-                        <div className="tm-app-body">
-                          <div className="tm-app-name">{app.name}</div>
-                          <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                        </div>
-                        <div className="tm-app-actions">
-                          <span className={`tm-app-status ${app.status}`}>{app.status}</span>
-                          <button className="tm-action-btn" type="button" onClick={() => deleteApplication(app.id)}>Delete</button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                 </div>
               )}
             </div>
@@ -434,23 +529,32 @@ export default function TeamPage() {
 
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
-            <span className="tm-section-meta">{enriched.length} {enriched.length === 1 ? 'member' : 'members'}</span>
+            <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
           </div>
 
           {loading && <div className="tm-empty">Loading…</div>}
-          {!loading && enriched.length === 0 && <div className="tm-empty">No team members yet.</div>}
+          {!loading && stats.active === 0 && <div className="tm-empty">No team members yet.</div>}
 
           <div className="tm-grid">
-            {enriched.map((m) => {
+            {enriched.filter((m) => (m.status || 'active') !== 'inactive').map((m) => {
               const cardClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 20 ? 'under' : ''
               const utilNumClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'low' : ''
               const utilFillClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct >= 75 ? 'full' : m.utilization_pct >= 40 ? 'med' : 'low'
               const statusClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'idle' : ''
               const statusLabel = m.utilization_pct >= 100 ? 'OVERCAP' : m.utilization_pct < 30 ? 'IDLE' : 'ACTIVE'
               return (
-                <div key={m.id} className={`tm-card ${cardClass}`}>
+                <div
+                  key={m.id}
+                  className={`tm-card ${cardClass}`}
+                  onClick={() => router.push(`/dashboard/team/${m.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="tm-card-head">
-                    <span className="tm-avatar" style={{ background: colorFor(m.id) }}>{initials(m.name)}</span>
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt={m.name} className="tm-avatar" style={{ objectFit: 'cover' }} />
+                    ) : (
+                      <span className="tm-avatar" style={{ background: colorFor(m.id) }}>{initials(m.name)}</span>
+                    )}
                     <div className="tm-name-block">
                       <div className="tm-name">{m.name}</div>
                       <div className={`tm-status-row ${statusClass}`}>
@@ -469,6 +573,16 @@ export default function TeamPage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    <div className="tm-rating" title={m.rating_count ? `${m.rating_count} rating${m.rating_count === 1 ? '' : 's'}` : 'No ratings yet'}>
+                      {m.rating_count ? (
+                        <>
+                          <div className="tm-rating-stars">★ {Number(m.avg_rating).toFixed(1)}</div>
+                          <div className="tm-rating-count">{m.rating_count} rating{m.rating_count === 1 ? '' : 's'}</div>
+                        </>
+                      ) : (
+                        <div className="tm-rating-none">No ratings yet</div>
+                      )}
                     </div>
                   </div>
 
@@ -494,7 +608,7 @@ export default function TeamPage() {
                     </div>
                     <div className="tm-metric">
                       <div className="tm-metric-label">Rate</div>
-                      <div className="tm-metric-value">{m.hourly_rate ? `$${Math.round(Number(m.hourly_rate))}` : '—'}</div>
+                      <div className="tm-metric-value">{m.pay_rate ? `$${Math.round(Number(m.pay_rate))}` : '—'}</div>
                       <div className="tm-metric-sub">per hour</div>
                     </div>
                     <div className="tm-metric">
@@ -503,10 +617,16 @@ export default function TeamPage() {
                     </div>
                   </div>
 
-                  <div className="tm-actions">
-                    <button className="tm-action-btn" type="button">Schedule</button>
-                    <button className="tm-action-btn" type="button">Pay</button>
+                  <div className="tm-actions" onClick={(e) => e.stopPropagation()}>
                     <Link className="tm-action-btn" href={`/dashboard/team/${m.id}`}>Profile</Link>
+                    <button
+                      className="tm-action-btn"
+                      type="button"
+                      onClick={() => { setDeleteTarget(m); setDeleteConfirmText(''); setDeleteError('') }}
+                      style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               )

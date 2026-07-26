@@ -1,11 +1,14 @@
 // Full Loop CRM — Website Tracking Script
-// Embed: <script src="https://app.fullloopcrm.com/t.js" data-tenant="TENANT_ID"></script>
+// Embed: <script src="https://<your-domain>/t.js" data-tenant="TENANT_ID"></script>
+// (there is no shared app.fullloopcrm.com host — every tenant is served on
+// its own domain, so the script must be loaded from that same domain)
 ;(function () {
   'use strict'
 
   var ENDPOINT = (document.currentScript && document.currentScript.src)
     ? new URL(document.currentScript.src).origin + '/api/leads/visits'
-    : 'https://app.fullloopcrm.com/api/leads/visits'
+    : null
+  if (!ENDPOINT) return
 
   var tenantId = document.currentScript && document.currentScript.getAttribute('data-tenant')
   if (!tenantId) return

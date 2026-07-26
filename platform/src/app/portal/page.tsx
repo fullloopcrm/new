@@ -871,6 +871,11 @@ export default function PortalHomePage() {
         )}
       </div>
 
+      {/* My Info link */}
+      <Link href="/portal/account" className="block text-center text-sm text-slate-400 hover:text-slate-500 mt-4">
+        My Info (contacts &amp; addresses)
+      </Link>
+
       {/* Feedback link */}
       <Link href="/portal/feedback" className="block text-center text-sm text-slate-400 hover:text-slate-500 mt-4">
         Leave Feedback

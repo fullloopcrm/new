@@ -7,6 +7,9 @@ import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
+import { createPrimaryContact } from '@/lib/client-contacts'
+import { formatName } from '@/lib/format'
+import { stripPhone } from '@/lib/phone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +31,13 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const s = sanitizePostgrestValue(search)
-      query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
+      // Phone is stored E.164 (+1XXXXXXXXXX). A user typing a formatted
+      // number ("(212) 555-1234") won't literally substring-match that, so
+      // match on digits-only against the same column separately.
+      const searchDigits = stripPhone(search)
+      const orParts = [`name.ilike.%${s}%`, `email.ilike.%${s}%`]
+      if (searchDigits) orParts.push(`phone.ilike.%${searchDigits}%`)
+      query = query.or(orParts.join(','))
     }
     if (status) {
       query = query.eq('status', status)
@@ -72,6 +81,7 @@ export async function POST(request: Request) {
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
+    if (fields?.name) fields.name = formatName(fields.name as string)
 
     // Tenant rules: enforce required fields, default the lifecycle status.
     if (settings.require_client_phone && !fields?.phone) {
@@ -163,6 +173,11 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Required by every client-creation path — without it, getClientContacts()
+    // returns empty forever and this client's confirmation email/SMS silently
+    // no-ops on every future send. See createPrimaryContact's own docstring.
+    await createPrimaryContact(tenantId, data.id, { name: data.name, phone: data.phone, email: data.email })
 
     await audit({ tenantId, action: 'client.created', entityType: 'client', entityId: data.id, details: { name: data.name } })
 

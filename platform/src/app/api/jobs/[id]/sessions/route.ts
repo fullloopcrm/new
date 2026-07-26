@@ -91,6 +91,7 @@ export async function POST(request: Request, { params }: Params) {
         end_time: end.toISOString(),
         status: 'confirmed',
         notes: body.notes || 'Job session',
+        source: 'admin',
         ...(body.price_cents != null ? { price: Math.max(0, Math.round(body.price_cents)) } : {}),
       })
       .select('id, start_time, end_time, status, team_member_id, crew_id, service_type')

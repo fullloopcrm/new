@@ -15,7 +15,7 @@ const DAYS = [
 ]
 
 export default function AvailabilityPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5])
   const [blockedDates, setBlockedDates] = useState<string[]>([])
@@ -24,6 +24,9 @@ export default function AvailabilityPage() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetch('/api/team-portal/availability', {
       headers: { Authorization: `Bearer ${auth.token}` },
@@ -35,7 +38,7 @@ export default function AvailabilityPage() {
           setBlockedDates(data.availability.blocked_dates || [])
         }
       })
-  }, [auth, router])
+  }, [auth, authLoaded, router])
 
   function toggleDay(day: number) {
     setWorkingDays((prev) =>

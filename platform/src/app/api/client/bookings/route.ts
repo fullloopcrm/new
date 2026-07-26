@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -14,7 +15,10 @@ export async function GET(request: Request) {
   const auth = await protectClientAPI(tenant.id, clientId)
   if (auth instanceof NextResponse) return auth
 
-  const now = new Date().toISOString()
+  // bookings.start_time is naive ET — a real-instant boundary here split
+  // "upcoming" vs "past" wrong for hours after this morning's ET jobs had
+  // actually started (same bug as cron/no-show-check).
+  const now = `${nowNaiveET()}Z`
 
   const { data: clientRecord } = await tenantDb(tenant.id)
     .from('clients')

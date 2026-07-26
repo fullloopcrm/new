@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { randomInt } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
@@ -31,6 +32,8 @@ import { tenantSiteUrl } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { trackError } from '@/lib/error-tracking'
 import { escapeHtml } from '@/lib/escape-html'
+import { formatName } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -115,7 +118,8 @@ export async function POST(request: Request) {
   }
 
   const cleanPhone = phoneRaw.replace(/\D/g, '')
-  const phone = phoneRaw || null
+  const phone = normalizePhone(phoneRaw)
+  const formattedName = formatName(name)
 
   try {
     // Dedupe by phone within the tenant when we have a usable number.
@@ -134,7 +138,7 @@ export async function POST(request: Request) {
       deduped = true
       const { data: updated, error } = await supabaseAdmin
         .from('clients')
-        .update({ name, email, notes, active: true, status: 'active' })
+        .update({ name: formattedName, email, notes, active: true, status: 'active' })
         .eq('id', existing[0].id)
         .eq('tenant_id', tenant.id)
         .select('id')
@@ -146,7 +150,7 @@ export async function POST(request: Request) {
         .from('clients')
         .insert({
           tenant_id: tenant.id,
-          name,
+          name: formattedName,
           email,
           phone,
           notes,
@@ -156,13 +160,16 @@ export async function POST(request: Request) {
         .single()
       if (error) throw error
       clientId = inserted.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenant.id, clientId, { name: formattedName, phone, email }).catch(() => {})
     }
 
     await supabaseAdmin
       .from('portal_leads')
       .insert({
         tenant_id: tenant.id,
-        name,
+        name: formattedName,
         email,
         phone,
         notes,
@@ -211,13 +218,13 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead',
-      message: `${escapeHtml(name)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
+      message: `${escapeHtml(formattedName)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
     }).catch((err) => console.error('[ingest/lead] notify error:', err))
 
     try {
       const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
-        { name, phone: phone || '', email: email || undefined, notes: notes || undefined },
+        { name: formattedName, phone: phone || '', email: email || undefined, notes: notes || undefined },
         { tenantName: tenant.name, adminUrl },
       )
       await emailAdmins(tenant.id, msg.subject, msg.html)

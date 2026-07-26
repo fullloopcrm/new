@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
+import { parseNaiveET } from '@/lib/recurring'
 
 interface BookingRow {
   client_id: string
@@ -77,6 +78,10 @@ export async function POST(request: Request) {
       const now = Date.now()
       const DAY = 86_400_000
 
+      // b.start_time is a naive America/New_York wall-clock string, not real
+      // UTC -- new Date(b.start_time) silently misread it as UTC, skewing
+      // every comparison against `now` (a real instant) by the ET/UTC gap.
+      // Same bug class as cron/no-show-check et al.
       filtered = allClients.filter(c => {
         const cb = byClient.get(c.id) || []
         switch (contact_filter) {
@@ -93,13 +98,13 @@ export async function POST(request: Request) {
             if (cb.length === 0) return true
             const completed = cb.filter(b => b.status === 'completed')
             if (completed.length === 0) return false
-            const last = Math.max(...completed.map(b => new Date(b.start_time).getTime()))
+            const last = Math.max(...completed.map(b => parseNaiveET(b.start_time).getTime()))
             return (now - last) > days * DAY
           }
           case 'has_upcoming':
-            return cb.some(b => b.status === 'scheduled' && new Date(b.start_time).getTime() > now)
+            return cb.some(b => b.status === 'scheduled' && parseNaiveET(b.start_time).getTime() > now)
           case 'no_upcoming':
-            return !cb.some(b => b.status === 'scheduled' && new Date(b.start_time).getTime() > now)
+            return !cb.some(b => b.status === 'scheduled' && parseNaiveET(b.start_time).getTime() > now)
           case 'vip': {
             const total = cb.filter(b => b.status === 'completed').reduce((s, b) => s + (b.price || 0), 0)
             return total > 100_000

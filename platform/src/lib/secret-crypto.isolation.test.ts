@@ -151,6 +151,7 @@ describe('secret-crypto — encryptTenantSecrets field scoping', () => {
       resend_api_key: 're_live_3',
       imap_pass: 'imap-pw',
       anthropic_api_key: 'ak_live_4',
+      deepgram_api_key: 'dg_live_4b',
       indexnow_key: 'idx_5',
       telegram_bot_token: 'tg_6',
       telegram_webhook_secret: 'tg_secret_7',

@@ -3,8 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
-import { sendEmail } from '@/lib/email'
-import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -142,6 +140,7 @@ export async function POST(request: Request) {
       one_time_credit_cents: b.one_time_credit_cents || null,
       one_time_credit_reason: b.one_time_credit_reason || null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
+      source: 'admin',
     }
   })
 
@@ -168,19 +167,17 @@ export async function POST(request: Request) {
       // Resolve tenant SMS creds
       const { data: tRow } = await supabaseAdmin
         .from('tenants')
-        .select('telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+        .select('telnyx_api_key, telnyx_phone')
         .eq('id', tenantId)
         .single()
 
       const telnyxApiKey = (tRow?.telnyx_api_key as string) || process.env.TELNYX_API_KEY || ''
       const telnyxPhone = (tRow?.telnyx_phone as string) || process.env.TELNYX_PHONE || ''
-      const resendKey = (tRow?.resend_api_key as string) || process.env.RESEND_API_KEY || ''
-      const fromEmail = (tRow?.email_from as string) || process.env.EMAIL_FROM || ''
 
       // Resolve tenant brand for SMS templates
       const { data: tenantRow } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
 
@@ -204,15 +201,22 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 
-      // Client email confirmation
-      if (client?.email && resendKey && fromEmail && (await isCommEnabled(tenantId, 'booking_confirmed', 'email'))) {
-        sendEmail({
-          to: client.email,
-          subject: `Booking confirmed for ${bookingDate}`,
-          html: `<p>Hi ${escapeHtml(client.name || 'there')},</p><p>Your booking on <strong>${escapeHtml(bookingDate)}</strong> is confirmed.</p>`,
-          from: fromEmail,
-          resendApiKey: resendKey,
-        }).catch(err => console.error('[batch] client email error:', err))
+      // Client email confirmation — shared Full Loop template (same content
+      // nycmaid's old standalone template had — cleaner photo/rating, PIN,
+      // cancellation policy, prep tips — now on shared branding), sent via
+      // the global multi-contact fan-out so every recipient on the account
+      // hears about the booking, not just the primary contact.
+      if (client?.email && tenantRow) {
+        const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+        const { sendClientEmail } = await import('@/lib/client-contacts')
+        const html = await buildBookingConfirmationEmail(tenantId, first.id as string, {
+          clientName: client.name || 'there',
+          serviceName: first.service_type,
+          dateTime: bookingDate,
+          teamMemberName: cleaner?.name || 'Your pro',
+        })
+        await sendClientEmail({ id: tenantId, ...tenantRow }, first.client_id as string, `Booking Confirmed — ${bookingDate}`, html)
+          .catch(err => console.error('[batch] client email error:', err))
       }
     } catch (notifyErr) {
       console.error('[batch] notification error:', notifyErr)

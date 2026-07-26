@@ -128,7 +128,12 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
     return { data: null, error: null }
   }
 
-  const found = rows.filter((r) => matches(r, state))
+  // Clone matched rows: a real SELECT returns a JSON snapshot, never a live
+  // reference into server-side state. Without this, a row fetched here (e.g.
+  // an old-vs-new diff snapshot taken before an .update()) stays aliased to
+  // the same store object — a later .update() mutates it too, silently
+  // corrupting any before/after comparison a route makes.
+  const found = rows.filter((r) => matches(r, state)).map((r) => ({ ...r }))
   const count = state.wantCount ? found.length : null
   if (state.head) return { count: found.length, data: null, error: null }
   if (terminal === 'single') return { data: found[0] ?? null, count, error: found[0] ? null : { message: 'no rows' } }

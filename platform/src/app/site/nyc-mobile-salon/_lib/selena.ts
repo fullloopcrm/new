@@ -683,6 +683,7 @@ async function handleCreateBooking(input: Record<string, unknown>, conversationI
       hourly_rate: hourlyRate, price: hourlyRate * estimatedHours * 100,
       recurring_type: recurringType,
       notes: `SMS booking | ${bedrooms} guest(s)`,
+      source: 'yinez_sms',
     }).select('id').single()
 
     if (error) throw error

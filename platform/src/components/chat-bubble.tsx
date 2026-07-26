@@ -32,6 +32,9 @@ export type ChatMessage = {
   sender_id: string
   sender_name: string
   body: string
+  // Auto-translated render target (Loop Connect team<->admin channel only) —
+  // falls back to `body` for every other channel, where it's just absent.
+  display_body?: string
   created_at: string
 }
 
@@ -40,7 +43,7 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
     return (
       <div className="flex justify-end mb-2">
         <div className="bg-teal-500 text-white px-3 py-2 rounded-2xl rounded-br-sm max-w-[75%]">
-          <p className="text-sm">{msg.body}</p>
+          <p className="text-sm">{msg.display_body ?? msg.body}</p>
           <p className="text-[10px] text-white/60 mt-0.5 text-right">{formatTime(msg.created_at)}</p>
         </div>
       </div>
@@ -52,7 +55,7 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
       <div className="flex justify-start mb-2">
         <div className="bg-gray-200 text-slate-800 px-3 py-2 rounded-2xl rounded-bl-sm max-w-[75%]">
           <p className="text-xs font-medium text-slate-500 mb-0.5">{msg.sender_name}</p>
-          <p className="text-sm">{msg.body}</p>
+          <p className="text-sm">{msg.display_body ?? msg.body}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{formatTime(msg.created_at)}</p>
         </div>
       </div>
@@ -75,7 +78,7 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
             {formatTime(msg.created_at)}
           </span>
         </div>
-        <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap break-words">{msg.body}</p>
+        <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap break-words">{msg.display_body ?? msg.body}</p>
       </div>
     </div>
   )

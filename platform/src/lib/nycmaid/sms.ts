@@ -1,13 +1,42 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/secret-crypto'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
-const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.replace(/\s/g, '')
-const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
+// Resolve nycmaid's OWN Telnyx credentials from its tenant row — the same
+// number/account every other send path (bookings route, crons) already reads
+// via tenants.telnyx_api_key/telnyx_phone. Previously this fell back to
+// platform-wide env vars, which point at a DIFFERENT number with no
+// messaging profile attached, causing every SMS through this module to 400.
+// Falls back to env vars only if the tenant row is somehow unset.
+let cachedCreds: { apiKey: string; fromNumber: string } | null = null
+async function getTenantTelnyxCreds(): Promise<{ apiKey: string; fromNumber: string } | null> {
+  if (cachedCreds) return cachedCreds
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('telnyx_api_key, telnyx_phone')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
+  const apiKey = data?.telnyx_api_key
+    ? decryptSecret(data.telnyx_api_key)
+    : process.env.TELNYX_API_KEY?.replace(/\s/g, '')
+  const fromNumber = (data?.telnyx_phone || process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
+  if (!apiKey) return null
+  cachedCreds = { apiKey, fromNumber }
+  return cachedCreds
+}
+
+// This whole module is a pre-multi-tenant nycmaid-only helper (see file-level
+// note); `notifications.tenant_id` is NOT NULL, so every insert here was
+// silently dying in the catch-all below with zero trace — every SMS failure
+// for weeks was invisible. Using the imported NYCMAID_TENANT_ID unblocks the
+// logger; this retires with the rest of the module at the standalone cutover.
 
 async function logSMSFailure(to: string, smsType: string | undefined, error: unknown) {
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
     await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+      tenant_id: NYCMAID_TENANT_ID,
       type: 'comms_fail',
       title: 'SMS send failed',
       message: `sms to ${to} | type=${smsType || 'unspecified'} | error=${truncated}`,
@@ -46,6 +75,7 @@ async function tripCircuit(reason: string) {
     const { smsAdmins } = await import('@/lib/nycmaid/admin-contacts')
     const { supabaseAdmin } = await import('@/lib/supabase')
     await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+      tenant_id: NYCMAID_TENANT_ID,
       type: 'sms_circuit_breaker',
       title: 'SMS circuit breaker tripped',
       message: `Blocked outbound SMS — ${sentTimestamps.length} sends in last ${CIRCUIT_WINDOW_MS / 1000}s. ${reason}`,
@@ -57,11 +87,13 @@ async function tripCircuit(reason: string) {
 }
 
 export async function sendSMS(to: string, message: string, options?: { skipConsent?: boolean; recipientType?: 'client' | 'cleaner'; recipientId?: string; smsType?: string; bookingId?: string; skipCircuit?: boolean; from?: string }): Promise<SMSResult> {
-  if (!TELNYX_API_KEY) {
+  const creds = await getTenantTelnyxCreds()
+  if (!creds) {
     console.error('TELNYX_API_KEY not set')
     await logSMSFailure(to, options?.smsType, 'TELNYX_API_KEY not configured')
     return { success: false, error: 'TELNYX_API_KEY not configured' }
   }
+  const { apiKey: TELNYX_API_KEY, fromNumber: TELNYX_FROM_NUMBER } = creds
 
   // Circuit breaker — refuse to send if we just sent CIRCUIT_MAX in the
   // last minute. Caller can override with skipCircuit (admin alerts use it).
@@ -82,7 +114,11 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
   if (!options?.skipConsent && options?.recipientType && options?.recipientId) {
     const hasConsent = await checkSMSConsent(options.recipientType, options.recipientId)
     if (!hasConsent) {
-      // Consent absence is expected behavior, not a failure worth alerting on.
+      // Temporary trace (2026-07-23): this branch previously returned silently
+      // with no DB trace, which made a real client-facing SMS failure
+      // indistinguishable from every other silent path. Logging it until the
+      // 30-min-alert client-SMS failures are root-caused.
+      await logSMSFailure(cleanPhone, options?.smsType, `No SMS consent — recipientType=${options.recipientType} recipientId=${options.recipientId}`)
       return { success: false, error: 'No SMS consent' }
     }
   }
@@ -166,6 +202,7 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
       if (options?.smsType) {
         try {
           await supabaseAdmin.from('sms_logs').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+            tenant_id: NYCMAID_TENANT_ID,
             booking_id: options.bookingId || null,
             sms_type: options.smsType,
             recipient: cleanPhone,
@@ -207,7 +244,7 @@ function normalizePhone(phone: string): string | null {
 }
 
 async function checkSMSConsent(type: 'client' | 'cleaner', id: string): Promise<boolean> {
-  const table = type === 'client' ? 'clients' : 'cleaners'
+  const table = type === 'client' ? 'clients' : 'team_members'
   const { data } = await supabaseAdmin
     .from(table)
     .select('sms_consent')

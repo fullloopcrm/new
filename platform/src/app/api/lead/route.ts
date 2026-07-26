@@ -20,6 +20,9 @@ import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { randomInt } from 'crypto'
+import { createPrimaryContact } from '@/lib/client-contacts'
+import { formatName } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
 
 interface LeadBody {
   type?: string
@@ -177,7 +180,8 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanPhone = phoneRaw.replace(/\D/g, '')
-    const phone = phoneRaw || null
+    const phone = normalizePhone(phoneRaw)
+    const formattedName = formatName(name)
     let clientId: string
 
     // Dedupe by phone only when we have a usable number.
@@ -192,7 +196,7 @@ export async function POST(request: NextRequest) {
     if (existing && existing.length > 0) {
       const { data: updated, error } = await db
         .from('clients')
-        .update({ name, email, notes, active: true, status: 'active' })
+        .update({ name: formattedName, email, notes, active: true, status: 'active' })
         .eq('id', existing[0].id)
         .select('id')
         .single()
@@ -202,7 +206,7 @@ export async function POST(request: NextRequest) {
       const { data: inserted, error } = await db
         .from('clients')
         .insert({
-          name,
+          name: formattedName,
           email,
           phone,
           notes,
@@ -212,12 +216,15 @@ export async function POST(request: NextRequest) {
         .single()
       if (error) throw error
       clientId = inserted.id
+      // Every client-creation path must call this or the client silently
+      // never receives any SMS/email — see createPrimaryContact's docstring.
+      await createPrimaryContact(tenant.id, clientId, { name: formattedName, phone, email }).catch(() => {})
     }
 
     await db
       .from('portal_leads')
       .insert({
-        name,
+        name: formattedName,
         email,
         phone,
         notes,
@@ -251,7 +258,7 @@ export async function POST(request: NextRequest) {
       } else {
         const { data: newDeal } = await db.from('deals').insert({
           client_id: clientId,
-          title: name || 'New lead', stage: 'new', mode: 'sales',
+          title: formattedName || 'New lead', stage: 'new', mode: 'sales',
           value_cents: 0, probability: 10, source: leadSource,
           notes: notes || null, status: 'active', last_activity_at: nowIso,
         }).select('id').single()
@@ -271,13 +278,13 @@ export async function POST(request: NextRequest) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead',
-      message: `${escapeHtml(name)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
+      message: `${escapeHtml(formattedName)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
     }).catch((err) => console.error('[api/lead] notify error:', err))
 
     try {
       const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
-        { name, phone: phone || '', email: email || undefined, notes: notes || undefined },
+        { name: formattedName, phone: phone || '', email: email || undefined, notes: notes || undefined },
         {
           tenantName: tenant.name,
           primaryColor: tenant.primary_color || undefined,
@@ -303,7 +310,7 @@ export async function POST(request: NextRequest) {
             logoUrl: tenant.logo_url || null,
             primaryColor: tenant.primary_color || null,
           },
-          heading: `Thanks, ${name.split(' ')[0]}`,
+          heading: `Thanks, ${formattedName.split(' ')[0]}`,
           bodyHtml: `<p>We received your request and will be in touch shortly. If it's urgent, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
           preheader: `We received your message`,
         })

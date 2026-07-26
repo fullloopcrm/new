@@ -7,7 +7,7 @@ import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
-import { getTenantTimezone, getTenantNaiveDayBoundaries, toTenantNaiveString } from '@/lib/tenant-time'
+import { nowNaiveET, etDayBoundaryUTC } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -16,8 +16,16 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000)
   const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
+  // bookings.start_time is a naive America/New_York wall-clock column. A real
+  // UTC instant's .toISOString() compares its DIGITS literally against that
+  // naive column, so "10 min ago" and "midnight" were both read 4-5 hours
+  // later than actual ET time — the exact bug that flipped a 10am ET booking
+  // to no-show at 6:45am ET (see cron/no-show-check). Same fix here: naive ET
+  // digits with a bare 'Z' so Postgres's UTC-session cast echoes them back
+  // unchanged, plus the real ET midnight instant for the day-floor.
+  const tenMinAgoNaiveBound = `${nowNaiveET(-10 * 60 * 1000)}Z`
+  const todayStart = etDayBoundaryUTC()
 
   let lateCheckIns = 0
   let lateCheckOuts = 0
@@ -31,10 +39,6 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
-    const timezone = getTenantTimezone(tenant)
-    // start_time is naive tenant-local — compare against naive strings.
-    const { todayStartNaive } = getTenantNaiveDayBoundaries(timezone, now)
-    const tenMinAgoNaive = toTenantNaiveString(timezone, tenMinAgo)
     // Late alerts: team text gated by team_late_alert, owner text by
     // owner_late_alert. Push + in-app rows stay regardless.
     const latePrefs = await getCommPrefs(tenantId)
@@ -50,8 +54,8 @@ export async function GET(request: Request) {
         .select('id, start_time, hourly_rate, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
-        .lte('start_time', tenMinAgoNaive)
-        .gte('start_time', todayStartNaive)
+        .lte('start_time', tenMinAgoNaiveBound)
+        .gte('start_time', todayStart.toISOString())
         .is('check_in_time', null)
         .limit(100)
 

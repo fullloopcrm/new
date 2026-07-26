@@ -234,6 +234,7 @@ export async function createJobFromQuote(
         end_time: s.end_time ?? null,
         status: 'confirmed',
         notes: s.notes || `Session of job (quote ${quote.quote_number})`,
+        source: 'sales',
         // NB: bookings has no address column — the location lives on the parent
         // job (service_address) and the client. Setting it here throws PGRST204.
       }))

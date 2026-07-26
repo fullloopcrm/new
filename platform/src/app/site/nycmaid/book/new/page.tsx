@@ -520,14 +520,19 @@ function BookFormContent() {
               onChange={(e) => update('unit', e.target.value)}
               className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
             />
+            <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
+              <strong>Address must be correct.</strong> If not, travel time will be charged to the client.
+            </div>
           </div>
 
-          {/* More options — supplies, hours, team, cleaner pick, notes, referrer.
-              Hidden by default to keep the form short. State stays populated with
-              defaults (we_bring / 1 cleaner / service-derived hours / no notes). */}
+          {/* More options — supplies, hours, team size, notes, referrer. Clients
+              no longer pick a specific cleaner here (2026-07-25) — we assign
+              the crew. Hidden by default to keep the form short. State stays
+              populated with defaults (we_bring / 1 cleaner / service-derived
+              hours / no notes). */}
           <details className="group rounded-lg border border-gray-200 bg-gray-50/40">
             <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-medium text-[#1E2A4A]">
-              <span>More options <span className="text-gray-400 font-normal">(supplies, hours, cleaner pick, notes, referrer)</span></span>
+              <span>More options <span className="text-gray-400 font-normal">(supplies, hours, team size, notes, referrer)</span></span>
               <span className="text-gray-400 group-open:rotate-180 transition">▾</span>
             </summary>
             <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-200">
@@ -570,11 +575,11 @@ function BookFormContent() {
               </div>
 
               <div className="border border-gray-200 bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase">Pick a specific cleaner (optional)</label>
-                  <span className="text-[10px] text-gray-500">{form.team_size > 1 ? `Team of ${form.team_size}` : ''}</span>
-                </div>
-                {loadingCleaners && <p className="text-xs text-gray-400">Loading team…</p>}
+                {/* Clients no longer pick a specific cleaner here (2026-07-25) —
+                    we assign the crew. This block still checks slot availability:
+                    when nobody's available, it shows alternate open times or a
+                    waitlist join, same as before. */}
+                {loadingCleaners && <p className="text-xs text-gray-400">Checking availability…</p>}
                 {!loadingCleaners && availableCleaners.length === 0 && (
                   <>
                     {timeSuggestions.length > 0 ? (
@@ -622,46 +627,7 @@ function BookFormContent() {
                   </>
                 )}
                 {!loadingCleaners && availableCleaners.length > 0 && (
-                  <div className="space-y-1">
-                    <button type="button" onClick={() => { update('cleaner_id', ''); update('extra_cleaner_ids', []) }} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium text-[#1E2A4A]' : 'border-gray-200 hover:border-gray-300 text-[#1E2A4A]'}`}>
-                      Any available cleaner
-                    </button>
-                    {availableCleaners.map(c => {
-                      const isLead = form.cleaner_id === c.id
-                      const isExtra = form.extra_cleaner_ids.includes(c.id)
-                      const onClick = () => {
-                        if (form.team_size <= 1) {
-                          update('cleaner_id', c.id)
-                          update('extra_cleaner_ids', [])
-                          return
-                        }
-                        if (isLead) {
-                          const [newLead, ...rest] = form.extra_cleaner_ids
-                          update('cleaner_id', newLead || '')
-                          update('extra_cleaner_ids', rest)
-                        } else if (isExtra) {
-                          update('extra_cleaner_ids', form.extra_cleaner_ids.filter(x => x !== c.id))
-                        } else if (!form.cleaner_id) {
-                          update('cleaner_id', c.id)
-                        } else if (form.extra_cleaner_ids.length < form.team_size - 1) {
-                          update('extra_cleaner_ids', [...form.extra_cleaner_ids, c.id])
-                        }
-                      }
-                      return (
-                        <button key={c.id} type="button" onClick={onClick} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${isLead ? 'border-indigo-500 bg-indigo-50' : isExtra ? 'border-indigo-300 bg-indigo-50/60' : c.is_preferred ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 hover:border-gray-300'} text-[#1E2A4A]`}>
-                          <div className="flex items-center justify-between">
-                            <span>
-                              {c.name}
-                              {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
-                              {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
-                              {c.is_preferred && <span className="ml-1.5 text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ YOUR PICK</span>}
-                            </span>
-                            <span className="text-[10px] text-gray-500">{c.reason}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <p className="text-xs text-gray-500">A cleaner will be assigned for this slot.</p>
                 )}
               </div>
 

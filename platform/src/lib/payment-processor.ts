@@ -30,7 +30,7 @@ import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
   Tenant,
-  'id' | 'name' | 'stripe_api_key' | 'telnyx_api_key' | 'telnyx_phone'
+  'id' | 'name' | 'stripe_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'sms_from_number'
 >
 
 export interface ProcessPaymentInput {
@@ -67,7 +67,7 @@ async function hydrateTenant(input: TenantPaymentFields | { id: string }): Promi
   }
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, stripe_api_key, telnyx_api_key, telnyx_phone')
+    .select('id, name, stripe_api_key, telnyx_api_key, telnyx_phone, sms_from_number')
     .eq('id', (input as { id: string }).id)
     .single()
   return data
@@ -369,7 +369,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       to: teamMember.phone,
       body: cleanerSms,
       telnyxApiKey: tenant.telnyx_api_key,
-      telnyxPhone: tenant.telnyx_phone,
+      telnyxPhone: tenant.sms_from_number || tenant.telnyx_phone,
     }).catch(err => console.error('[payment-processor] team member SMS failed:', err))
   }
 
@@ -389,7 +389,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       to: clientRecord.phone as string,
       body: clientSms,
       telnyxApiKey: tenant.telnyx_api_key,
-      telnyxPhone: tenant.telnyx_phone,
+      telnyxPhone: tenant.sms_from_number || tenant.telnyx_phone,
     }).catch(err => console.error('[payment-processor] client SMS failed:', err))
   }
 

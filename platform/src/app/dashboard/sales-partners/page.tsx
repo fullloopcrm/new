@@ -20,6 +20,9 @@ type SalesPartner = {
   created_at: string
   agreement_document_id: string | null
   documents: { status: string } | null
+  stripe_connect_account_id: string | null
+  stripe_ready_at: string | null
+  stripe_ineligible: boolean
 }
 
 type Commission = {
@@ -57,6 +60,8 @@ export default function SalesPartnersPage() {
   const [addBusy, setAddBusy] = useState(false)
   const [addError, setAddError] = useState('')
   const [addResult, setAddResult] = useState<{ signUrl: string; warning?: string } | null>(null)
+  const [payoutError, setPayoutError] = useState('')
+  const [inviteResult, setInviteResult] = useState<Record<string, { ok: boolean; message: string } | null>>({})
 
   useEffect(() => {
     load()
@@ -95,19 +100,51 @@ export default function SalesPartnersPage() {
     setBusyId('')
   }
 
-  async function markPaid(c: Commission) {
+  async function markPaid(c: Commission, paidVia?: 'stripe_connect') {
     setBusyId(c.id)
+    setPayoutError('')
     const res = await fetch('/api/sales-partner-commissions', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: c.id, status: 'paid' }),
+      body: JSON.stringify({ id: c.id, status: 'paid', ...(paidVia ? { paid_via: paidVia } : {}) }),
     })
+    const data = await res.json()
     if (res.ok) {
       setCommissions((prev) => prev.map((x) => (x.id === c.id ? { ...x, status: 'paid' } : x)))
       const partnerId = c.sales_partner_id
       setPartners((prev) => prev.map((p) => (p.id === partnerId ? { ...p, total_paid: p.total_paid + c.commission_cents } : p)))
+    } else {
+      setPayoutError(data.error || 'Payout failed')
     }
     setBusyId('')
+  }
+
+  async function toggleStripeIneligible(p: SalesPartner) {
+    setBusyId(p.id)
+    const res = await fetch('/api/sales-partners', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, stripe_ineligible: !p.stripe_ineligible }),
+    })
+    if (res.ok) setPartners((prev) => prev.map((x) => (x.id === p.id ? { ...x, stripe_ineligible: !x.stripe_ineligible } : x)))
+    setBusyId('')
+  }
+
+  async function sendStripeInvite(p: SalesPartner) {
+    setBusyId(p.id)
+    setInviteResult((prev) => ({ ...prev, [p.id]: null }))
+    try {
+      const res = await fetch(`/api/sales-partners/${p.id}/stripe-invite`, { method: 'POST' })
+      const data = await res.json()
+      setInviteResult((prev) => ({
+        ...prev,
+        [p.id]: res.ok
+          ? { ok: true, message: data.sentSms || data.sentEmail ? 'Invite sent' : 'Link ready (no SMS/email on file)' }
+          : { ok: false, message: data.error || 'Could not send invite' },
+      }))
+    } finally {
+      setBusyId('')
+    }
   }
 
   async function addPartner() {
@@ -275,6 +312,7 @@ export default function SalesPartnersPage() {
                 <th className="px-4 py-3 font-medium">Pending</th>
                 <th className="px-4 py-3 font-medium">Agreement</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Stripe</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
@@ -319,6 +357,48 @@ export default function SalesPartnersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
+                    {p.stripe_ready_at ? (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">Instant pay ready</span>
+                    ) : p.stripe_ineligible ? (
+                      <div>
+                        <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">Stripe-ineligible (manual)</span>
+                        <button
+                          disabled={busyId === p.id}
+                          onClick={() => toggleStripeIneligible(p)}
+                          className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                        >
+                          Unmark
+                        </button>
+                      </div>
+                    ) : !p.active ? (
+                      <span className="text-xs text-slate-300">—</span>
+                    ) : (
+                      <div>
+                        {p.stripe_connect_account_id ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">Onboarding started</span>
+                        ) : (
+                          <button
+                            disabled={busyId === p.id}
+                            onClick={() => sendStripeInvite(p)}
+                            className="text-xs bg-teal-50 text-teal-700 hover:bg-teal-100 px-2.5 py-1 rounded-lg font-medium disabled:opacity-50"
+                          >
+                            Send Connect invite
+                          </button>
+                        )}
+                        {inviteResult[p.id] && (
+                          <p className={`text-[11px] mt-1 ${inviteResult[p.id]?.ok ? 'text-green-600' : 'text-red-600'}`}>{inviteResult[p.id]?.message}</p>
+                        )}
+                        <button
+                          disabled={busyId === p.id}
+                          onClick={() => toggleStripeIneligible(p)}
+                          className="block text-[11px] text-slate-400 hover:text-slate-900 mt-1"
+                        >
+                          Mark Stripe-ineligible
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     <button
                       disabled={busyId === p.id}
                       onClick={() => toggleActive(p)}
@@ -330,7 +410,7 @@ export default function SalesPartnersPage() {
                 </tr>
               ))}
               {searchFiltered.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">{search ? 'No matching partners' : 'No sales partners yet — add one above to send their agreement'}</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">{search ? 'No matching partners' : 'No sales partners yet — add one above to send their agreement'}</td></tr>
               )}
             </tbody>
           </table>
@@ -343,30 +423,53 @@ export default function SalesPartnersPage() {
             <h3 className="font-semibold text-slate-900 text-sm">Pending Payouts</h3>
             <span className="text-xs text-slate-400">{fmt(pendingCommissions.reduce((s, c) => s + c.commission_cents, 0))} pending</span>
           </div>
+          {payoutError && <div className="px-5 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100">{payoutError}</div>}
           {pendingCommissions.length === 0 ? (
             <div className="px-5 py-8 text-center text-slate-400 text-sm">No pending payouts</div>
           ) : (
             <div className="divide-y divide-slate-700/50">
-              {pendingCommissions.map((c) => (
-                <div key={c.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{c.sales_partners?.name || 'Unknown partner'}</p>
-                    <p className="text-xs text-slate-400">
-                      {c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {c.client_name || 'a client'} &middot; {new Date(c.created_at).toLocaleDateString()}
-                    </p>
+              {pendingCommissions.map((c) => {
+                const partner = partners.find((p) => p.id === c.sales_partner_id)
+                const stripeReady = !!partner?.stripe_ready_at
+                // Manual is only reachable for an admin-flagged Stripe-ineligible
+                // partner (CHANNEL.md 16:55) -- not an implicit default for anyone
+                // who simply hasn't connected yet.
+                const manualAllowed = !!partner?.stripe_ineligible
+                return (
+                  <div key={c.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{c.sales_partners?.name || 'Unknown partner'}</p>
+                      <p className="text-xs text-slate-400">
+                        {c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {c.client_name || 'a client'} &middot; {new Date(c.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-900">{fmt(c.commission_cents)}</span>
+                      {stripeReady ? (
+                        <button
+                          disabled={busyId === c.id}
+                          onClick={() => markPaid(c, 'stripe_connect')}
+                          className="text-xs bg-teal-50 text-teal-700 px-3 py-1.5 rounded-lg font-medium hover:bg-teal-100 disabled:opacity-50"
+                        >
+                          Pay via Stripe
+                        </button>
+                      ) : manualAllowed ? (
+                        <button
+                          disabled={busyId === c.id}
+                          onClick={() => markPaid(c)}
+                          className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30 disabled:opacity-50"
+                        >
+                          Pay Out
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400" title="Send them a Connect invite, or mark them Stripe-ineligible on the Partners tab">
+                          Needs Stripe or ineligible flag
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-900">{fmt(c.commission_cents)}</span>
-                    <button
-                      disabled={busyId === c.id}
-                      onClick={() => markPaid(c)}
-                      className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium hover:bg-emerald-500/30"
-                    >
-                      Pay Out
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
           {paidCommissions.length > 0 && (

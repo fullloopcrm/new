@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -61,7 +62,9 @@ export async function GET(request: Request) {
         .select('start_time')
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending'])
-        .gte('start_time', new Date().toISOString())
+        // start_time is naive ET — a real-instant boundary here excluded
+        // this-morning bookings hours before they'd actually happened.
+        .gte('start_time', `${nowNaiveET()}Z`)
         .order('start_time')
         .limit(1)
         .single()
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
   const teamMemberId = team_member_id || cleaner_id || null
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
-  // Auto-apply the recurring discount (weekly 20% / biweekly-monthly 10%)
+  // Auto-apply the recurring discount (weekly 20% / biweekly 10% / monthly 5%)
   // unless the admin explicitly passed a value (including an explicit 0 to
   // override off) — matches the policy already enforced in
   // /api/client/recurring, ported here so admin-created schedules get the
@@ -255,6 +258,7 @@ export async function POST(request: Request) {
       schedule_id: schedule.id,
       discount_percent: finalDiscountPercent || null,
       suggested_team_member_id: teamMemberId ? null : suggestedTeamMemberId,
+      source: 'admin',
     }
   })
 

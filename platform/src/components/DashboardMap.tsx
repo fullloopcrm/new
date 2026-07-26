@@ -1,18 +1,18 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { crewNames, type CrewRow } from '@/lib/crew'
 
 interface MapJob {
   id: string
   start_time: string
   status: string
   service_type: string
-  clients: { name: string; address: string } | null
-  lat: number | null
-  lng: number | null
+  clients: { name: string; address: string; latitude?: number | null; longitude?: number | null } | null
   team_members: { name: string } | null
+  booking_team_members?: CrewRow[] | null
 }
 
 interface Props {
@@ -39,20 +39,7 @@ const icons = {
   cancelled: createIcon('#ef4444')
 }
 
-import { geocodeAddress } from '@/lib/geo'
-
-function FitBounds({ jobs }: { jobs: GeocodedJob[] }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (jobs.length > 0) {
-      const bounds = L.latLngBounds(jobs.map(j => [j.lat, j.lng]))
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 })
-    }
-  }, [jobs, map])
-
-  return null
-}
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 export default function DashboardMap({ jobs }: Props) {
   const [mounted, setMounted] = useState(false)
@@ -64,35 +51,49 @@ export default function DashboardMap({ jobs }: Props) {
   useEffect(() => {
     async function geocodeJobs() {
       setLoading(true)
-      const results: GeocodedJob[] = []
-      const cache: Record<string, { lat: number; lng: number }> = {}
 
+      // Jobs whose client already carries persisted coords (from clients/
+      // client_properties in the DB) skip geocoding entirely — except any
+      // that look like bad historical data (see rejectOutliers), which get
+      // treated as unresolved and re-geocoded instead of trusted as-is.
+      const candidates: (MapJob & { lat: number; lng: number })[] = []
+      const noPersistedCoords: MapJob[] = []
       for (const job of jobs) {
-        // Already geocoded and stored on the client record (the common case —
-        // most addresses were geocoded once, previously) — use it directly,
-        // no network round-trip to Nominatim needed.
-        if (job.lat != null && job.lng != null) {
-          results.push({ ...job, lat: job.lat, lng: job.lng })
-          continue
-        }
+        const lat = job.clients?.latitude
+        const lng = job.clients?.longitude
+        if (lat != null && lng != null) candidates.push({ ...job, lat, lng })
+        else if (job.clients?.address) noPersistedCoords.push(job)
+      }
+      const validCandidates = rejectOutliers(candidates)
+      const validIds = new Set(validCandidates.map(c => c.id))
+      const withCoords: GeocodedJob[] = validCandidates
+      const needsGeocode: MapJob[] = [
+        ...noPersistedCoords,
+        ...candidates.filter(c => !validIds.has(c.id)).filter(c => c.clients?.address),
+      ]
+      setGeocodedJobs(withCoords)
 
-        if (!job.clients?.address) continue
-        const address = job.clients.address
-
-        if (cache[address]) {
-          results.push({ ...job, ...cache[address] })
-          continue
-        }
-
-        const coords = await geocodeAddress(address)
-        if (coords) {
-          cache[address] = coords
-          results.push({ ...job, ...coords })
-        }
-        await new Promise(r => setTimeout(r, 100))
+      if (needsGeocode.length === 0) {
+        setLoading(false)
+        return
       }
 
-      setGeocodedJobs(results)
+      const addresses = needsGeocode.map(j => j.clients!.address)
+      const resolved = await geocodeAddressesCached(addresses, (partial) => {
+        const results = [...withCoords]
+        for (const job of needsGeocode) {
+          const coords = partial[job.clients!.address]
+          if (coords) results.push({ ...job, ...coords })
+        }
+        setGeocodedJobs(rejectOutliers(results))
+      })
+
+      const results = [...withCoords]
+      for (const job of needsGeocode) {
+        const coords = resolved[job.clients!.address]
+        if (coords) results.push({ ...job, ...coords })
+      }
+      setGeocodedJobs(rejectOutliers(results))
       setLoading(false)
     }
 
@@ -108,6 +109,9 @@ export default function DashboardMap({ jobs }: Props) {
     return <div className="h-[250px] md:h-[400px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">Loading map...</div>
   }
 
+  // Fixed preset framing (all 5 boroughs + nearby NJ/Long Island) rather than
+  // auto-fitting to whatever's currently filtered -- a tight fit-to-markers
+  // zoom loses the surrounding context Jeff wants when scanning the board.
   const center: [number, number] = [40.78, -73.97]
   const defaultZoom = 10
 
@@ -129,7 +133,6 @@ export default function DashboardMap({ jobs }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {geocodedJobs.length > 0 && <FitBounds jobs={geocodedJobs} />}
         {geocodedJobs.map((job) => {
           const icon = icons[job.status as keyof typeof icons] || icons.scheduled
           const time = new Date(job.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -142,7 +145,7 @@ export default function DashboardMap({ jobs }: Props) {
                   <p className="font-bold text-base">{job.clients?.name}</p>
                   <p className="text-gray-600">{date} @ {time}</p>
                   <p className="text-gray-600">{job.service_type}</p>
-                  <p className="text-gray-600">{job.team_members?.name || 'Unassigned'}</p>
+                  <p className="text-gray-600">{crewNames(job)}</p>
                   <p className="text-xs text-gray-400 mt-1">{job.clients?.address}</p>
                   <span className={'inline-block mt-2 text-xs px-2 py-1 rounded-full ' +
                     (job.status === 'completed' ? 'bg-green-100 text-green-700' :

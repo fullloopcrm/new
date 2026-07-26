@@ -19,7 +19,9 @@ vi.mock('@/lib/supabase', async () => {
 let currentTenant: { id: string }
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => currentTenant,
+  tenantSiteUrl: () => '',
 }))
+vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { GET, POST } from './route'

@@ -75,16 +75,31 @@ export async function POST(request: Request) {
     price = svc.default_hourly_rate * svc.default_duration_hours * 100
   }
 
-  // Recurring-service discount ("save 20%"): weekly 20% off, biweekly/monthly 10% off.
+  // Recurring-service discount ("save 20%"): weekly 20% off, biweekly 10% off, monthly 5% off.
   const recurringType = body.recurring_type && body.recurring_type !== 'none' ? String(body.recurring_type) : null
   if (price != null && recurringType) {
     price = applyRecurringDiscount(price, recurringType)
+  }
+
+  // Verify the property belongs to THIS client before trusting it — a client
+  // could otherwise pass another client's property_id.
+  let propertyId: string | null = null
+  if (body.property_id) {
+    const { data: prop } = await db
+      .from('client_properties')
+      .select('id')
+      .eq('id', body.property_id)
+      .eq('client_id', auth.id)
+      .single()
+    if (!prop) return NextResponse.json({ error: 'Invalid address' }, { status: 400 })
+    propertyId = prop.id
   }
 
   const { data, error } = await db
     .from('bookings') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
     .insert({
       client_id: auth.id,
+      property_id: propertyId,
       service_type_id: body.service_type_id || null,
       service_type: serviceType,
       start_time: body.start_time,
@@ -94,6 +109,7 @@ export async function POST(request: Request) {
       price,
       recurring_type: recurringType,
       status: 'pending',
+      source: 'client_portal',
     })
     .select()
     .single()

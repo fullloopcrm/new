@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useTeamAuth } from './layout'
 import TranslatedNotes from '@/components/TranslatedNotes'
+import TeamBookingNotes from '@/components/TeamBookingNotes'
 import PushPrompt from '@/components/PushPrompt'
 import { parseTimestamp } from '@/lib/dates'
 
@@ -21,6 +22,7 @@ type Job = {
   check_in_time: string | null
   check_out_time: string | null
   fifteen_min_alert_time: string | null
+  running_late_at: string | null
   hourly_rate: number | null
   clients: {
     name: string
@@ -153,10 +155,11 @@ function CollapsibleSection({ title, badge, defaultOpen = false, children }: {
 // Job Card (expandable, like nycmaid)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingIn, checkingOut, sendingHeadsUp }: {
+function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunningLate, checkingIn, checkingOut, sendingHeadsUp, sendingLate, authToken }: {
   job: Job; t: (en: string, es: string) => string; showDate?: boolean
-  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void
-  checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null
+  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void; onRunningLate: (job: Job) => void
+  checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null; sendingLate: string | null
+  authToken: string
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -236,6 +239,11 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingI
             })()}
           </div>
 
+          {/* Threaded notes — the client/admin/crew conversation, not the
+              static special_instructions field above. Cleaners could only
+              read that flat field before; this is the actual two-way thread. */}
+          <TeamBookingNotes bookingId={job.id} authToken={authToken} t={t} />
+
           {/* Check-in/out status */}
           {job.check_in_time && (
             <p className="text-xs text-green-600">✓ {t('Checked in at', 'Entrada a las')} {formatTime(job.check_in_time)}</p>
@@ -269,6 +277,13 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, checkingI
             <button onClick={() => onCheckIn(job.id)} disabled={checkingIn === job.id}
               className="w-full bg-green-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
               {checkingIn === job.id ? t('Checking In...', 'Registrando...') : t('Check In', 'Registrar Entrada')}
+            </button>
+          )}
+          {/* Running Late — before check-in only; texts the client + admin once */}
+          {canCheckIn && (
+            <button onClick={() => onRunningLate(job)} disabled={sendingLate === job.id || !!job.running_late_at}
+              className="w-full bg-orange-50 text-orange-700 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+              {sendingLate === job.id ? t('Sending...', 'Enviando...') : job.running_late_at ? t('Client Notified', 'Cliente Avisado') : t("Running Late?", 'Voy Tarde')}
             </button>
           )}
           {/* 30-Min Heads Up — after check-in, before check-out */}
@@ -339,7 +354,7 @@ const JobsMap = dynamic(() => import('./jobs-map'), { ssr: false })
 // ---------------------------------------------------------------------------
 
 export default function TeamHomePage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
 
   // Data state
@@ -386,6 +401,8 @@ export default function TeamHomePage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
   const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
+  const [sendingLate, setSendingLate] = useState<string | null>(null)
+  const [confirmHeadsUp, setConfirmHeadsUp] = useState<{ job: Job; message: string } | null>(null)
 
   // Trade-agnostic config: whether this tenant pays hourly, and the payout rails.
   const [cfg, setCfg] = useState<{ has_hourly: boolean; payment_label: string; funnel_mode: string } | null>(null)
@@ -444,21 +461,16 @@ export default function TeamHomePage() {
       })
       .catch(() => {})
 
-    // Guidelines
-    fetch('/api/team-portal/guidelines', { headers })
+    // Announcements — auto-show the latest one if it's newer than last seen
+    fetch('/api/team-portal/announcements', { headers })
       .then((r) => r.json())
       .then((data) => {
-        if (data.sections) {
-          // Convert sections format to en/es strings
-          const en = data.sections.map((s: { title_en: string; content_en: string }) => `${s.title_en}\n${s.content_en}`).join('\n\n')
-          const es = data.sections.map((s: { title_es: string; content_es: string }) => `${s.title_es}\n${s.content_es}`).join('\n\n')
-          setGuidelines({ en, es })
-          // Auto-show if guidelines exist and are newer than last seen
-          if (en || es) {
-            const seenAt = localStorage.getItem('guidelines_seen_at')
-            if (!seenAt || (data.updated_at && new Date(data.updated_at) > new Date(seenAt))) {
-              setShowGuidelines(true)
-            }
+        const latest = data.announcements?.[0]
+        if (latest) {
+          setGuidelines({ en: latest.body_en, es: latest.body_es || latest.body_en })
+          const seenAt = localStorage.getItem('guidelines_seen_at')
+          if (!seenAt || new Date(latest.created_at) > new Date(seenAt)) {
+            setShowGuidelines(true)
           }
         }
       })
@@ -488,6 +500,11 @@ export default function TeamHomePage() {
   }, [auth])
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out -- redirecting
+    // on the former bounces an already-authenticated cleaner back to the PIN
+    // screen on every fresh load of the portal's own start_url.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetchData()
     // Poll notifications every 60 seconds
@@ -503,7 +520,7 @@ export default function TeamHomePage() {
         .catch(() => {})
     }, 60000)
     return () => clearInterval(interval)
-  }, [auth, router, fetchData])
+  }, [auth, authLoaded, router, fetchData])
 
   // ---- Today's stats ----
   const todayStats = useMemo(() => {
@@ -554,7 +571,7 @@ export default function TeamHomePage() {
     }
   }
 
-  async function handleHeadsUp(job: Job) {
+  function handleHeadsUp(job: Job) {
     if (!auth) return
     const checkIn = parseTimestamp(job.check_in_time!) || new Date(job.check_in_time!)
     const now = new Date()
@@ -562,12 +579,21 @@ export default function TeamHomePage() {
     const rate = job.hourly_rate || payRate || 0
     const estimated = Math.round(hoursWorked * rate)
 
-    const msg = t(
+    // In-app confirm instead of window.confirm() — some team-portal webviews
+    // suppress or no-op the native confirm dialog, which silently dropped
+    // the whole action before the request ever fired (no network call, no
+    // server-side trace at all — confirmed 2026-07-23 via the notifications
+    // log once its own tenant_id bug was fixed and still showed nothing).
+    const message = t(
       `Send 30-minute heads up to ${job.clients?.name || 'client'}?\n\nTime worked: ${hoursWorked.toFixed(1)} hrs\nEstimated amount: $${estimated}`,
       `Enviar aviso de 30 minutos a ${job.clients?.name || 'cliente'}?\n\nTiempo trabajado: ${hoursWorked.toFixed(1)} hrs\nMonto estimado: $${estimated}`
     )
-    if (!confirm(msg)) return
+    setConfirmHeadsUp({ job, message })
+  }
 
+  async function sendHeadsUp(job: Job) {
+    if (!auth) return
+    setConfirmHeadsUp(null)
     setSendingHeadsUp(job.id)
     try {
       // Fires the real 30-min alert: admin heads-up SMS + client pay-now text
@@ -587,6 +613,33 @@ export default function TeamHomePage() {
       alert(t('Failed to send', 'Error al enviar'))
     }
     setSendingHeadsUp(null)
+  }
+
+  async function handleRunningLate(job: Job) {
+    if (!auth) return
+    const etaRaw = prompt(
+      t('How many minutes late will you be? (optional)', '¿Cuántos minutos tarde llegarás? (opcional)')
+    )
+    if (etaRaw === null) return // cancelled
+    const eta = etaRaw.trim() ? parseInt(etaRaw.trim(), 10) : undefined
+
+    setSendingLate(job.id)
+    try {
+      const res = await fetch('/api/team-portal/running-late', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ bookingId: job.id, eta: Number.isFinite(eta) ? eta : undefined }),
+      })
+      if (res.ok) {
+        alert(t('Client notified!', '¡Cliente avisado!'))
+        fetchData()
+      } else {
+        alert(t('Failed to send', 'Error al enviar'))
+      }
+    } catch {
+      alert(t('Failed to send', 'Error al enviar'))
+    }
+    setSendingLate(null)
   }
 
   async function claimJob(jobId: string) {
@@ -813,7 +866,31 @@ export default function TeamHomePage() {
         </div>
       )}
 
-      {/* ================ 5. MY JOBS MAP ================ */}
+      {/* ================ 5. TODAY'S JOBS ================ */}
+      <div>
+        <h2 className="font-bold text-slate-800 text-lg mb-1">
+          {t("Today's Jobs", 'Trabajos de Hoy')}{' '}
+          <span className="text-sm font-normal text-slate-400">({todayJobs.length})</span>
+        </h2>
+        <p className="text-sm text-slate-400 mb-3">
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+
+        {todayJobs.length === 0 ? (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
+            <p className="text-lg text-slate-400 mb-1">{t('No jobs today', 'Sin trabajos hoy')}</p>
+            <p className="text-sm text-slate-300">{t('Enjoy your day off!', '¡Disfruta tu día libre!')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todayJobs.map((job) => (
+              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ================ 6. MY JOBS MAP ================ */}
       <CollapsibleSection title={t('My Jobs Map', 'Mapa de Trabajos')}>
         <JobsMap jobs={allJobs} />
         <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
@@ -823,7 +900,7 @@ export default function TeamHomePage() {
         </div>
       </CollapsibleSection>
 
-      {/* ================ 6. MY AVAILABILITY (Inline) ================ */}
+      {/* ================ 7. MY AVAILABILITY (Inline) ================ */}
       <CollapsibleSection title={t('My Availability', 'Mi Disponibilidad')}>
         {/* Working Days */}
         <p className="text-xs text-slate-400 font-medium mb-2">{t('Working Days', 'Días de Trabajo')}</p>
@@ -885,7 +962,7 @@ export default function TeamHomePage() {
         </button>
       </CollapsibleSection>
 
-      {/* ================ 7. MY PHOTO ================ */}
+      {/* ================ 8. MY PHOTO ================ */}
       <CollapsibleSection title={t('My Photo', 'Mi Foto')}>
         <div className="flex items-center gap-4">
           {auth.member.avatar_url ? (
@@ -905,7 +982,7 @@ export default function TeamHomePage() {
         </div>
       </CollapsibleSection>
 
-      {/* ================ 8. NOTIFICATION PREFERENCES ================ */}
+      {/* ================ 9. NOTIFICATION PREFERENCES ================ */}
       <CollapsibleSection title={t('Notification Preferences', 'Preferencias de Notificaciones')}>
         {/* SMS Consent */}
         <div className="flex items-center justify-between mb-4">
@@ -974,7 +1051,7 @@ export default function TeamHomePage() {
         </button>
       </CollapsibleSection>
 
-      {/* ================ 9. CALL / TEXT OFFICE ================ */}
+      {/* ================ 10. CALL / TEXT OFFICE ================ */}
       {tenantPhone && (
         <div className="grid grid-cols-2 gap-3">
           <a href={`tel:${tenantPhone}`} className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl py-4 text-sm font-semibold text-slate-800 active:bg-gray-50">
@@ -986,30 +1063,6 @@ export default function TeamHomePage() {
         </div>
       )}
 
-      {/* ================ 10. TODAY'S JOBS ================ */}
-      <div>
-        <h2 className="font-bold text-slate-800 text-lg mb-1">
-          {t("Today's Jobs", 'Trabajos de Hoy')}{' '}
-          <span className="text-sm font-normal text-slate-400">({todayJobs.length})</span>
-        </h2>
-        <p className="text-sm text-slate-400 mb-3">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-
-        {todayJobs.length === 0 ? (
-          <div className="text-center py-12 bg-white border border-gray-200 rounded-xl">
-            <p className="text-lg text-slate-400 mb-1">{t('No jobs today', 'Sin trabajos hoy')}</p>
-            <p className="text-sm text-slate-300">{t('Enjoy your day off!', '¡Disfruta tu día libre!')}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {todayJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} />
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ================ 11. UPCOMING JOBS ================ */}
       {upcomingJobs.length > 0 && (
         <div>
@@ -1019,7 +1072,7 @@ export default function TeamHomePage() {
           </h2>
           <div className="space-y-2">
             {upcomingJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} />
+              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
             ))}
           </div>
         </div>
@@ -1055,30 +1108,48 @@ export default function TeamHomePage() {
         )}
       </SidePanel>
 
-      {/* Guidelines Panel */}
-      <SidePanel open={showGuidelines} onClose={() => { setShowGuidelines(false); localStorage.setItem('guidelines_seen_at', new Date().toISOString()) }} title={t('Team Guidelines', 'Reglas del Equipo')}>
+      {/* Latest Announcement Panel */}
+      <SidePanel open={showGuidelines} onClose={() => { setShowGuidelines(false); localStorage.setItem('guidelines_seen_at', new Date().toISOString()) }} title={t('New Announcement', 'Nuevo Anuncio')}>
         {guidelines ? (
           <div className="space-y-4">
-            {guidelines.en && (
-              <div>
-                <h3 className="font-semibold text-slate-800 mb-2">English</h3>
-                <div className="text-sm text-slate-600 whitespace-pre-line">{guidelines.en}</div>
-              </div>
-            )}
-            {guidelines.es && (
-              <>
-                <hr className="border-gray-200" />
-                <div>
-                  <h3 className="font-semibold text-slate-800 mb-2">Español</h3>
-                  <div className="text-sm text-slate-600 whitespace-pre-line">{guidelines.es}</div>
-                </div>
-              </>
-            )}
+            <div className="text-sm text-slate-600 whitespace-pre-line">{t(guidelines.en, guidelines.es)}</div>
+            <a href="/team/rules" className="text-sm text-teal-600 font-medium underline">
+              {t('View all announcements', 'Ver todos los anuncios')}
+            </a>
           </div>
         ) : (
-          <p className="text-slate-400 text-center py-8">{t('No guidelines set', 'Sin reglas establecidas')}</p>
+          <p className="text-slate-400 text-center py-8">{t('No announcements yet', 'Aún no hay anuncios')}</p>
         )}
       </SidePanel>
+
+      {/* 30-Min Heads Up confirm — in-app, not window.confirm() (see handleHeadsUp) */}
+      {confirmHeadsUp && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+          onClick={() => setConfirmHeadsUp(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-5 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm text-slate-700 whitespace-pre-line mb-5">{confirmHeadsUp.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmHeadsUp(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-slate-600"
+              >
+                {t('Cancel', 'Cancelar')}
+              </button>
+              <button
+                onClick={() => sendHeadsUp(confirmHeadsUp.job)}
+                className="flex-1 py-2.5 rounded-xl bg-yellow-500 text-white text-sm font-bold"
+              >
+                {t('Send', 'Enviar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

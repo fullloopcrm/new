@@ -19,6 +19,7 @@ interface VisitsResponse {
   devices: Record<string, number>
   ctaBreakdown: Record<string, number>
   topPages: { page: string; count: number }[]
+  topDomains: { domain: string; visits: number; ctas: number }[]
   sources: { source: string; count: number }[]
   feed: {
     id: string
@@ -66,8 +67,12 @@ export default function WebsitesPage() {
       .catch(() => {})
   }, [])
 
-  const snippet = tenantId
-    ? `<script src="https://app.fullloopcrm.com/t.js" data-tenant="${tenantId}"></script>`
+  // Built from the browser's own origin, not a hardcoded host — the dashboard
+  // is served on the tenant's own live domain, so this is guaranteed to
+  // resolve. (t.js's own header comment and fallback endpoint hardcode
+  // app.fullloopcrm.com, which does not resolve at all — do not copy that.)
+  const snippet = tenantId && typeof window !== 'undefined'
+    ? `<script src="${window.location.origin}/t.js" data-tenant="${tenantId}"></script>`
     : null
 
   const copySnippet = () => {
@@ -184,6 +189,35 @@ export default function WebsitesPage() {
                 })}
               </div>
             </div>
+          </div>
+
+          {/* Top domains — the SEO satellite network */}
+          <div className="mb-6 rounded-lg border border-slate-200 p-4">
+            <p className="mb-3 text-xs uppercase tracking-wide text-slate-400">Top Domains by Traffic</p>
+            {data.topDomains.length === 0 ? (
+              <p className="text-sm text-slate-400">No domain data yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="py-2 pr-3">Domain</th>
+                      <th className="py-2 pr-3 text-right">Visits</th>
+                      <th className="py-2 text-right">CTA Clicks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.topDomains.map((d) => (
+                      <tr key={d.domain} className="border-b border-slate-50">
+                        <td className="py-2 pr-3 font-mono text-xs text-slate-700">{d.domain}</td>
+                        <td className="py-2 pr-3 text-right font-mono font-medium text-slate-900">{d.visits}</td>
+                        <td className="py-2 text-right font-mono text-slate-600">{d.ctas}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">

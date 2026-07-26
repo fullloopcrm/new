@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
     const db = tenantDb(tenantId)
-    const { name, type, client_id } = await request.json()
+    const { name, type, client_id, member_ids } = await request.json()
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
 
@@ -83,6 +83,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // member_ids is only meaningful for a group/broadcast 'custom' channel --
+    // verify every id belongs to this tenant before storing membership, same
+    // cross-tenant-injection guard as client_id above.
+    let verifiedMemberIds: string[] = []
+    if (channelType === 'custom' && Array.isArray(member_ids) && member_ids.length > 0) {
+      const { data: owned } = await db
+        .from('team_members')
+        .select('id')
+        .in('id', member_ids)
+      verifiedMemberIds = (owned || []).map((m) => m.id)
+    }
+
     const { data, error } = await db
       .from('connect_channels')
       .insert({
@@ -95,7 +107,13 @@ export async function POST(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ channel: data }, { status: 201 })
+    if (verifiedMemberIds.length > 0) {
+      await db
+        .from('connect_channel_members')
+        .insert(verifiedMemberIds.map((teamMemberId) => ({ channel_id: data.id, team_member_id: teamMemberId })))
+    }
+
+    return NextResponse.json({ channel: data, member_count: verifiedMemberIds.length }, { status: 201 })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e

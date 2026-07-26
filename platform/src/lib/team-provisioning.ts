@@ -12,6 +12,7 @@ export type ApprovedApplication = {
   email: string | null
   phone: string | null
   address: string | null
+  photo_url?: string | null
 }
 
 /**
@@ -60,10 +61,14 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       email: app.email || null,
       phone: cleanPhone || null,
       address: app.address || null,
+      avatar_url: app.photo_url || null,
     }
+    // pay_rate only -- hourly_rate is the CLIENT-facing billing rate (set
+    // per-booking, e.g. $69-99/hr), a different number entirely from what a
+    // cleaner is paid. This previously set both to the same default_pay_rate
+    // value, silently mis-setting every new hire's hourly_rate to their wage.
     if (settings.default_pay_rate > 0) {
       base.pay_rate = settings.default_pay_rate
-      base.hourly_rate = settings.default_pay_rate
     }
     if (settings.default_working_days?.length) {
       base.working_days = settings.default_working_days

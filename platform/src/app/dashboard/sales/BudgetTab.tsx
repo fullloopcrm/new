@@ -23,12 +23,19 @@ import HelpTip from '../_components/HelpTip'
 
 type LineItem = {
   id?: string
+  service_type_id: string | null
   category_id: string | null
   label: string
+  description: string | null
   kind: 'labor' | 'materials' | 'equipment' | 'other'
+  labor_cents: number
+  supplies_cents: number
   budgeted_cents: number
   actual_cents: number
+  margin_bps: number | null
 }
+
+type CatalogItem = { id: string; name: string }
 
 type Budget = {
   id?: string
@@ -91,6 +98,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
   const [templateMsg, setTemplateMsg] = useState('')
   const [savedTemplates, setSavedTemplates] = useState<{ id: string; name: string }[]>([])
   const [applyingTemplateId, setApplyingTemplateId] = useState('')
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
 
   function load() {
     setLoading(true)
@@ -99,10 +107,12 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
       fetch(`/api/quote-budgets${qs}`).then((r) => r.json()).catch(() => ({ quotes: [] })),
       fetch('/api/categories').then((r) => r.json()).catch(() => ({ categories: [] })),
       fetch('/api/budget-templates').then((r) => r.json()).catch(() => ({ templates: [] })),
-    ]).then(([q, c, t]) => {
+      fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
+    ]).then(([q, c, t, cat]) => {
       setQuotes(q?.quotes || [])
       setCategories(c?.categories || [])
       setSavedTemplates(t?.templates || [])
+      setCatalogItems(cat?.items || [])
     }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -115,18 +125,32 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
   const skipNextAutoSave = useRef(false)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function openBudget(row: QuoteRow) {
+  async function openBudget(row: QuoteRow) {
     setErr('')
     setTemplateMsg('')
     setApplyingTemplateId('')
     skipNextAutoSave.current = true
     setOpenId(row.id)
-    const b = row.budget
-    setForm(
-      b
-        ? { line_items: b.line_items, target_margin: b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '', notes: b.notes || '' }
-        : { ...emptyForm }
-    )
+    // The list view's embedded row.budget never carries line_items (only
+    // aggregated totals) -- fetch the single-quote detail endpoint for the
+    // real array, or form.line_items ends up undefined and every render
+    // that maps/reduces over it crashes.
+    if (!row.budget) {
+      setForm({ ...emptyForm })
+      return
+    }
+    try {
+      const res = await fetch(`/api/quote-budgets/${row.id}`)
+      const d = await res.json().catch(() => null)
+      const b = d?.budget
+      setForm(
+        b
+          ? { line_items: b.line_items || [], target_margin: b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '', notes: b.notes || '' }
+          : { ...emptyForm }
+      )
+    } catch {
+      setForm({ ...emptyForm })
+    }
   }
 
   async function applySavedTemplate(quoteId: string, templateId: string) {
@@ -227,7 +251,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
         <li><strong style={{ color: 'var(--sl-ink)' }}>Log actuals</strong> by hand as the job runs <HelpTip text="There's no automated time tracking or job-scoped expense feed yet, so actual costs are entered here manually." /> — Actual vs. Target Gross Margin shows on each row</li>
       </ol>
       <p style={{ fontSize: 11, color: 'var(--sl-muted)', margin: '0 0 14px' }}>
-        This controls <strong>Gross Margin</strong> — revenue minus the direct job costs (COGS) you enter here. It does not cover <strong>Net Margin</strong>, which also subtracts company-wide overhead (rent, insurance, admin) — that's not tracked per-job.
+        This controls <strong>Gross Margin</strong> — revenue minus the direct job costs (COGS) you enter here. It does not cover <strong>Net Margin</strong>, which also subtracts company-wide overhead (rent, insurance, admin) — that&apos;s not tracked per-job.
       </p>
       <button type="button" onClick={onSwitchToTemplates} style={{ fontSize: 12, background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0, marginBottom: 14, display: 'block' }}>Manage templates →</button>
 
@@ -327,23 +351,35 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
                         <div style={{ flex: '2 1 0', ...lbl }}>Line item</div>
                         <div style={{ flex: '1 1 0', ...lbl }}>Kind</div>
                         <div style={{ flex: '1.4 1 0', ...lbl }}>Category</div>
+                        <div style={{ width: 90, ...lbl }}>Labor $</div>
+                        <div style={{ width: 90, ...lbl }}>Supplies $</div>
+                        <div style={{ width: 70, ...lbl }}>Margin</div>
                         <div style={{ width: 100, ...lbl }}>Budgeted $</div>
                         <div style={{ width: 100, ...lbl }}>Actual $</div>
                         <div style={{ width: 24 }} />
                       </div>
-                      {form.line_items.map((li, idx) => (
-                        <div key={li.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                          <div style={{ ...inp, flex: '2 1 0', background: 'var(--sl-canvas,#fafaf8)' }}>{li.label}</div>
-                          <div style={{ ...inp, flex: '1 1 0', background: 'var(--sl-canvas,#fafaf8)' }}>{KIND_LABELS[li.kind]}</div>
-                          <select style={{ ...inp, flex: '1.4 1 0' }} value={li.category_id || ''} onChange={(e) => updateLine(idx, { category_id: e.target.value || null })}>
-                            <option value="">No category</option>
-                            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                          <input style={{ ...inp, width: 100 }} value={(li.budgeted_cents / 100).toString()} onChange={(e) => updateLine(idx, { budgeted_cents: toCents(e.target.value) })} placeholder="0" title="Adjust for this specific job" />
-                          <input style={{ ...inp, width: 100 }} value={(li.actual_cents / 100).toString()} onChange={(e) => updateLine(idx, { actual_cents: toCents(e.target.value) })} placeholder="0" />
-                          <button type="button" onClick={() => removeLine(idx)} title="Remove this line from this job only" style={{ width: 24, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 16 }}>×</button>
-                        </div>
-                      ))}
+                      {form.line_items.map((li, idx) => {
+                        const catalogName = li.service_type_id ? catalogItems.find((c) => c.id === li.service_type_id)?.name : null
+                        return (
+                          <div key={li.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ ...inp, flex: '2 1 0', background: 'var(--sl-canvas,#fafaf8)' }}>
+                              {catalogName || li.label}
+                              {li.description && <div style={{ fontSize: 11, color: 'var(--sl-muted)' }}>{li.description}</div>}
+                            </div>
+                            <div style={{ ...inp, flex: '1 1 0', background: 'var(--sl-canvas,#fafaf8)' }}>{KIND_LABELS[li.kind]}</div>
+                            <select style={{ ...inp, flex: '1.4 1 0' }} value={li.category_id || ''} onChange={(e) => updateLine(idx, { category_id: e.target.value || null })}>
+                              <option value="">No category</option>
+                              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            <div style={{ ...inp, width: 90, background: 'var(--sl-canvas,#fafaf8)' }}>{money(li.labor_cents)}</div>
+                            <div style={{ ...inp, width: 90, background: 'var(--sl-canvas,#fafaf8)' }}>{money(li.supplies_cents)}</div>
+                            <div style={{ ...inp, width: 70, background: 'var(--sl-canvas,#fafaf8)' }}>{pct(li.margin_bps)}</div>
+                            <input style={{ ...inp, width: 100 }} value={(li.budgeted_cents / 100).toString()} onChange={(e) => updateLine(idx, { budgeted_cents: toCents(e.target.value) })} placeholder="0" title="Adjust for this specific job" />
+                            <input style={{ ...inp, width: 100 }} value={(li.actual_cents / 100).toString()} onChange={(e) => updateLine(idx, { actual_cents: toCents(e.target.value) })} placeholder="0" />
+                            <button type="button" onClick={() => removeLine(idx)} title="Remove this line from this job only" style={{ width: 24, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: 16 }}>×</button>
+                          </div>
+                        )
+                      })}
 
                       <div style={{ display: 'flex', gap: 24, fontSize: 12, color: 'var(--sl-muted)', margin: '8px 0 12px' }}>
                         <span>Total budgeted: <strong style={{ color: 'var(--sl-ink)' }}>{money(formBudgetedTotal)}</strong></span>

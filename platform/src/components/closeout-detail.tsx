@@ -5,13 +5,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 interface DiscountLine { label: string; cents: number }
 interface PaymentRow {
   id: string
-  amount: number | null
-  tip: number | null
+  amount_cents: number | null
+  tip_cents: number | null
   method: string | null
   stripe_session_id: string | null
-  stripe_payment_intent: string | null
+  stripe_payment_intent_id: string | null
   reference_id: string | null
-  notes: string | null
   created_at: string
 }
 interface CleanerSummary {
@@ -19,12 +18,14 @@ interface CleanerSummary {
   name: string
   phone: string | null
   is_lead: boolean
+  pay_rate: number
+  billed_hours: number
   base_cents: number
   tip_cents: number
   total_due_cents: number
   total_paid_cents: number
   outstanding_cents: number
-  payouts: Array<{ id: string; amount: number; method: string | null; created_at: string }>
+  payouts: Array<{ id: string; amount_cents: number; method: string | null; created_at: string }>
 }
 interface Summary {
   booking: {
@@ -175,7 +176,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
                 <span className="text-gray-700 whitespace-nowrap">{fmtTime(p.created_at)}</span>
                 <span className="text-gray-500 capitalize whitespace-nowrap">{p.method || '?'}</span>
                 <span className="flex-1 border-b border-dotted border-gray-300 translate-y-[-3px]" aria-hidden />
-                <span className="font-semibold text-gray-900 whitespace-nowrap">{fmtUsd(p.amount || 0)}</span>
+                <span className="font-semibold text-gray-900 whitespace-nowrap">{fmtUsd(p.amount_cents || 0)}</span>
               </div>
             ))}
           </div>
@@ -210,7 +211,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
                   </span>
                 </div>
                 <div className="space-y-0.5">
-                  <KV k="Base" v={fmtUsd(c.base_cents)} />
+                  <KV k={`${c.billed_hours}h × $${c.pay_rate}/hr`} v={fmtUsd(c.base_cents)} />
                   {c.tip_cents > 0 && <KV k="Tip share" v={fmtUsd(c.tip_cents)} />}
                   <KV k={<span className="font-medium">Total due</span>} v={fmtUsd(c.total_due_cents)} valueClass="font-medium" />
                   <KV k="Paid so far" v={fmtUsd(c.total_paid_cents)} />
@@ -221,7 +222,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
                       <div key={p.id} className="flex items-baseline gap-2">
                         <span className="whitespace-nowrap">{fmtTime(p.created_at)} · {p.method || '?'}</span>
                         <span className="flex-1 border-b border-dotted border-gray-300 translate-y-[-3px]" aria-hidden />
-                        <span className="whitespace-nowrap">{fmtUsd(p.amount)}</span>
+                        <span className="whitespace-nowrap">{fmtUsd(p.amount_cents)}</span>
                       </div>
                     ))}
                   </div>

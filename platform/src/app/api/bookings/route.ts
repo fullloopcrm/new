@@ -9,7 +9,6 @@ import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
-import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -43,7 +42,7 @@ async function fetchBookingsList(tenantId: string, filters: BookingsListFilters)
   const db = tenantDb(tenantId)
   let query = db
     .from('bookings')
-    .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
+    .select('*, clients(name, phone, address, customer_number, latitude, longitude), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*), booking_team_members(team_member_id, is_lead, position, team_members(id, name))', { count: 'exact' })
     .order('start_time', { ascending: false })
     .range(filters.offset, filters.offset + filters.limit - 1)
 
@@ -66,7 +65,7 @@ const fetchBookingsListCached = unstable_cache(fetchBookingsList, ['bookings-lis
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
     const url = request.nextUrl
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')
@@ -96,7 +95,7 @@ export async function GET(request: NextRequest) {
       row.duration_class = deriveDurationClass(row)
     }
 
-    return NextResponse.json({ bookings: data, total: count })
+    return NextResponse.json({ bookings: data, total: count, tenant_slug: tenant.slug })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
@@ -311,6 +310,7 @@ export async function POST(request: Request) {
       p_day_start: dayStart,
       p_day_end: dayEnd,
       p_max_jobs_per_day: capLimit,
+      p_source: 'admin',
     })
     if (claimError) {
       return NextResponse.json({ error: claimError.message }, { status: 500 })
@@ -337,7 +337,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .select('*, clients(name, phone, address, customer_number), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
       .eq('id', claim.booking.id)
       .eq('tenant_id', tenantId)
       .single()
@@ -352,30 +352,54 @@ export async function POST(request: Request) {
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
 
+    // Seed the notes thread with whatever was entered at creation — same
+    // reasoning as the client-facing booking route: without this, a note
+    // typed here only lives in bookings.notes (a static field the team
+    // portal can read but not reply to), disconnected from anything added
+    // to the thread later. Fire-and-forget: never block booking creation.
+    if ((validated.notes as string | undefined)?.trim()) {
+      supabaseAdmin
+        .from('booking_notes')
+        .insert({
+          tenant_id: tenantId,
+          booking_id: data.id,
+          job_id: (data as { job_id?: string | null }).job_id ?? null,
+          client_id: validated.client_id,
+          author_type: 'admin',
+          author_name: 'Admin',
+          content: (validated.notes as string).trim(),
+        })
+        .then(() => {}, (err: unknown) => console.error('[bookings] booking_notes seed failed:', err))
+    }
+
     // Send notifications to client + team member
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
-      // Client confirmation email
-      if (data.clients?.phone || true) {
-        await notify({
-          tenantId,
-          type: 'booking_confirmed',
-          title: `Booking Confirmed — ${date}`,
-          message: `Your appointment on ${date} at ${time} with ${memberName} is confirmed.`,
-          channel: 'email',
-          recipientType: 'client',
-          recipientId: data.client_id,
-          bookingId: data.id,
-          metadata: { clientName: data.clients?.name, serviceName: data.service_type },
+      // Client confirmation email — shared Full Loop template (same content
+      // nycmaid's old standalone template had — cleaner photo/rating, PIN,
+      // cancellation policy, prep tips — now on shared branding), sent via
+      // the global multi-contact fan-out (client_contacts) instead of a
+      // single clients.email lookup, so every recipient on the account
+      // hears about the booking, not just the primary contact.
+      if (data.client_id && tenantData) {
+        const { buildBookingConfirmationEmail } = await import('@/lib/notify')
+        const { sendClientEmail } = await import('@/lib/client-contacts')
+        const html = await buildBookingConfirmationEmail(tenantId, data.id, {
+          clientName: data.clients?.name || 'there',
+          serviceName: data.service_type || 'Appointment',
+          dateTime: `${date} at ${time}`,
+          teamMemberName: memberName,
         })
+        await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
+          .catch(err => console.error('client confirmation email error:', err))
       }
 
       // Client confirmation SMS

@@ -28,7 +28,7 @@ type Earnings = {
 }
 
 export default function EarningsPage() {
-  const { auth, t } = useTeamAuth()
+  const { auth, authLoaded, t } = useTeamAuth()
   const router = useRouter()
   const [earnings, setEarnings] = useState<Earnings | null>(null)
   const [jobs, setJobs] = useState<Record<string, Job[]>>({ week: [], month: [], year: [] })
@@ -36,6 +36,9 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // authLoaded gates the redirect: auth is null both while the layout's
+    // localStorage read is pending AND when truly logged out.
+    if (!authLoaded) return
     if (!auth) { router.push('/team/login'); return }
     fetch('/api/team-portal/earnings', {
       headers: { Authorization: `Bearer ${auth.token}` },
@@ -48,7 +51,7 @@ export default function EarningsPage() {
         }
       })
       .finally(() => setLoading(false))
-  }, [auth, router])
+  }, [auth, authLoaded, router])
 
   if (!auth) return null
   if (loading) return <div className="flex items-center justify-center py-20"><p className="text-slate-400">{t('Loading...', 'Cargando...')}</p></div>

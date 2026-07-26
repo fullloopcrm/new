@@ -104,7 +104,7 @@ export async function POST(request: Request) {
           client_id: clientId, team_member_id: staffId,
           service_type: r.service_type || null, start_time: fmt(d), end_time: fmt(end),
           status: 'scheduled', price: priceCents(r.price), team_size: 1,
-          notes: r.notes || null,
+          notes: r.notes || null, source: 'import',
         })
       }
     })

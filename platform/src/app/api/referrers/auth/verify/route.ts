@@ -5,6 +5,7 @@ import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { safeEqual } from '@/lib/secret-compare'
+import { logAuthFailure } from '@/lib/error-tracking'
 
 // Step 2 of referrer login: email + 6-digit code in → session token out.
 export async function POST(request: NextRequest) {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   })
   const rlIp = await rateLimitDb(`referrer_otp_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
   if (!rlEmail.allowed || !rlIp.allowed) {
+    await logAuthFailure({ surface: 'referrers/auth', ip, identifier: email, lockedOut: true })
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
     safeEqual(referrer.otp_hash, hashOtp(code))
 
   if (!valid) {
+    await logAuthFailure({ surface: 'referrers/auth', tenantId: tenant.id, ip, identifier: email, lockedOut: false, remaining: Math.min(rlEmail.remaining, rlIp.remaining) })
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 401 })
   }
 

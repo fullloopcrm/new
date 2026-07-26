@@ -50,22 +50,22 @@ const navMain: Array<{
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [
     { letter: 'A', label: 'Loop Connect', href: '/dashboard/connect' },
   ]},
-  { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
-  { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
+  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Catalog', href: '/dashboard/catalog' },
     { letter: 'B', label: 'Sales Partners', href: '/dashboard/sales-partners' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
   ]},
-  { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
+  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
-    { letter: 'C', label: 'Projects', href: '/dashboard/jobs/projects' },
-    { letter: 'D', label: 'Schedule', href: '/dashboard/calendar' },
-    { letter: 'E', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
+    { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
+    { letter: 'D', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'E', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
+    { letter: 'F', label: 'Announcements', href: '/dashboard/announcements' },
   ]},
-  { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
-  { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
-  { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
+  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
+  { num: '06', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Social', href: '/dashboard/social' },
@@ -80,7 +80,7 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget', '/dashboard/sales/categories', '/dashboard/sales-partners', '/dashboard/referrals'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/find-cleaner'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/jobs/inventory', '/dashboard/jobs/equipment', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/find-cleaner', '/dashboard/announcements'],
   clients: ['/dashboard/clients', '/dashboard/sms', '/dashboard/clients/feedback'],
   hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
@@ -90,7 +90,6 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/analytics',
   ],
   comhub: ['/dashboard/comhub', '/dashboard/connect'],
-  messages: ['/dashboard/messages'],
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
@@ -357,12 +356,13 @@ function DashboardShellInner({
       >
         {/* Brand */}
         <div className="px-[22px] pt-[22px] pb-1">
-          <Link href="/dashboard" className="block" style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.015em', lineHeight: 1.1, color: '#F4F4F1' }}>
-            {tenantName || 'Full Loop'}<i style={{ fontStyle: 'italic', color: '#888', fontWeight: 400 }}>/</i>
+          <Link href="/dashboard" className="flex items-center gap-2" style={{ color: '#F4F4F1', lineHeight: 1.1 }}>
+            <span style={{ fontFamily: 'var(--display)', fontSize: '19px', fontWeight: 500, letterSpacing: '-0.025em' }}>Full Loop</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A8A8A4' }}>CRM</span>
           </Link>
         </div>
         <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#F4F4F1', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          v2.4 · NYC
+          v1.0 - {tenantName}
         </div>
 
         {/* Scroll area */}
@@ -473,7 +473,13 @@ function DashboardShellInner({
                 ← Back to Admin
               </Link>
             ) : (
-              <a href="/api/auth/logout" className="text-sm text-gray-500 hover:text-gray-800">Sign out</a>
+              <button
+                type="button"
+                onClick={() => { fetch('/api/auth/logout', { method: 'POST' }).finally(() => { window.location.href = '/admin-login' }) }}
+                className="text-sm text-gray-500 hover:text-gray-800"
+              >
+                Sign out
+              </button>
             )}
           </div>
         </div>

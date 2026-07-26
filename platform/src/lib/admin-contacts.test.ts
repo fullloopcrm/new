@@ -315,6 +315,28 @@ describe('smsAdmins', () => {
     await smsAdmins('t-1', 'text')
     expect(sendSMS).not.toHaveBeenCalled()
   })
+
+  it('sends from sms_from_number when set, instead of telnyx_phone (voice-only DID case)', async () => {
+    // loadTenant() passes a full object straight through without re-fetching
+    // (email/phone/telnyx_api_key already defined) — so the override has to
+    // be on the object passed in, not just the tenants mock handler.
+    const tenantWithOverride = { ...FULL_TENANT, telnyx_phone: '+18885550000', sms_from_number: '+18885551111' }
+    handlers.tenants = () => tenantWithOverride
+    handlers.tenant_members = () => [{ email: null, phone: '5551234567', name: 'Alice', role: 'owner' }]
+
+    await smsAdmins(tenantWithOverride, 'text')
+
+    expect(sendSMS).toHaveBeenCalledWith(expect.objectContaining({ telnyxPhone: '+18885551111' }))
+  })
+
+  it('falls back to telnyx_phone when sms_from_number is unset', async () => {
+    handlers.tenants = () => FULL_TENANT
+    handlers.tenant_members = () => [{ email: null, phone: '5551234567', name: 'Alice', role: 'owner' }]
+
+    await smsAdmins(FULL_TENANT, 'text')
+
+    expect(sendSMS).toHaveBeenCalledWith(expect.objectContaining({ telnyxPhone: '+15559998888' }))
+  })
 })
 
 describe('getOwnerBccEmails', () => {

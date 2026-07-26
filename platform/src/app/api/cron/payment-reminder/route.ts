@@ -51,12 +51,17 @@ export async function GET(request: Request) {
     const clientNudgeOn = payPrefs.comms.payment_reminder?.sms !== false
 
     try {
-      // Bookings where alert fired 15-60 min ago and still unpaid.
+      // Bookings where alert fired 15-60 min ago and still unpaid. "Still owes"
+      // excludes partial payments and any booking where the client already
+      // claimed payment_method (e.g. told the agent "paid") — matches nycmaid's
+      // proven filter; the old `!= 'paid'` check alone nudged people who'd
+      // already partially paid or self-reported payment.
       const { data: pending } = await supabaseAdmin
         .from('bookings')
         .select('id, start_time, payment_reminder_sent_at, fifteen_min_alert_time, clients(name, phone)')
         .eq('tenant_id', tenantId)
-        .neq('payment_status', 'paid')
+        .not('payment_status', 'in', '("paid","partial")')
+        .is('payment_method', null)
         .not('fifteen_min_alert_time', 'is', null)
         .lte('fifteen_min_alert_time', fifteenAgo)
         .gte('fifteen_min_alert_time', sixtyAgo)
@@ -85,7 +90,16 @@ export async function GET(request: Request) {
             reminded++
           }
         } else {
-          // Escalate to admin past 30 min
+          // Escalate to admin past 30 min — dedup so a booking that stays
+          // unpaid doesn't spam a fresh admin_task + SMS every 5-min cron run.
+          const { count: existingTask } = await supabaseAdmin
+            .from('admin_tasks')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('related_id', b.id)
+            .eq('type', 'payment_overdue')
+          if (existingTask && existingTask > 0) continue
+
           const adminPhone = tenant.owner_phone || tenant.phone
           if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
             await sendSMS({

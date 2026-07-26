@@ -5,9 +5,11 @@ import { notify } from '@/lib/notify'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
 import { getTenantTimezone, getLocalHour, getTenantDayBoundaries, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive, toTenantNaiveString } from '@/lib/tenant-time'
+import { etHour, etToday, formatNaiveET, nowNaiveET, etDayBoundaryUTC } from '@/lib/recurring'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
     // reminder_days drives which day-out reminders fire; the booking_reminder
     // SMS toggle gates the client text. Email is gated centrally in notify().
     const commPrefs = await getCommPrefs(tenantId)
-    const reminderDays = commPrefs.timing.reminder_days.length ? commPrefs.timing.reminder_days : [3, 1]
+    const reminderDays = commPrefs.timing.reminder_days.length ? commPrefs.timing.reminder_days : [7, 3, 1]
     const reminderHoursBefore = commPrefs.timing.reminder_hours_before.length ? commPrefs.timing.reminder_hours_before : [2]
     const reminderSmsOn = commPrefs.comms.booking_reminder?.sms !== false
 
@@ -126,16 +128,19 @@ export async function GET(request: Request) {
               }
             }
 
-            // Client SMS reminder (gated by the booking_reminder SMS toggle)
-            if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Client SMS reminder (gated by the booking_reminder SMS toggle).
+            // Fans out to every contact on this client with receives_sms=true,
+            // not just the single clients.phone value.
+            if (reminderSmsOn && booking.client_id && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {
-                await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
-                sent++
+                const result = await sendClientSMS(tenant, booking.client_id, smsBody)
+                sent += result.sent
+                if (result.sent === 0) failed++
               } catch (smsErr) {
                 failed++
-                errors.push(`SMS to ${client.phone} for booking ${booking.id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+                errors.push(`SMS for booking ${booking.id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
               }
             }
 
@@ -144,73 +149,113 @@ export async function GET(request: Request) {
               sendPushToClient(booking.client_id, daysOut === 1 ? 'Cleaning Tomorrow' : `Cleaning ${label}`, `Your cleaning is ${label}`, '/book/dashboard').catch(() => {})
             }
 
-            // Team member reminder (day before only)
-            if (daysOut === 1 && booking.team_member_id) {
-              const member = booking.team_members
-              if (member) {
-                let teamMsg = `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-
-                // NYC Maid parity: send the cleaner their FULL next-day route with
-                // travel times (property-aware coords). Only the earliest job of the
-                // day sends it, so a multi-job cleaner gets one route text, not N.
-                if (isNycMaid(tenantId)) {
-                  const { calculateDistance, estimateTransitMinutes, geocodeAddress } = await import('@/lib/nycmaid/geo')
-                  const dateStr = booking.start_time.split('T')[0]
-                  const { data: dayJobs } = await supabaseAdmin
-                    .from('bookings')
-                    .select('id, start_time, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude)')
-                    .eq('tenant_id', tenantId).eq('team_member_id', booking.team_member_id)
-                    .gte('start_time', `${dateStr}T00:00:00`).lte('start_time', `${dateStr}T23:59:59`)
-                    .not('status', 'in', '("cancelled")').order('start_time', { ascending: true })
-                  const jobs = dayJobs || []
-                  if (jobs.length && jobs[0].id === booking.id) {
-                    const { data: tm } = await supabaseAdmin.from('team_members').select('has_car').eq('id', booking.team_member_id).single()
-                    const hasCar = Boolean(tm?.has_car)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const coordsOf = async (j: any): Promise<{ lat: number; lng: number } | null> => {
-                      const cp = j.client_properties, c = j.clients
-                      const src = (cp?.latitude != null && cp?.longitude != null) ? cp : (c?.latitude != null && c?.longitude != null) ? c : null
-                      if (src) return { lat: Number(src.latitude), lng: Number(src.longitude) }
-                      const addr = cp?.address || c?.address
-                      if (addr) { const co = await geocodeAddress(addr).catch(() => null); if (co) return co }
-                      return null
-                    }
-                    const lines: string[] = []
-                    for (let i = 0; i < jobs.length; i++) {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const j = jobs[i] as any
-                      const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                      lines.push(`${t} ${j.clients?.name?.split(' ')[0] || 'Client'}`)
-                      if (i < jobs.length - 1) {
-                        const a = await coordsOf(j); const b = await coordsOf(jobs[i + 1])
-                        if (a && b) { const mins = estimateTransitMinutes(calculateDistance(a.lat, a.lng, b.lat, b.lng), hasCar); lines.push(`  ${hasCar ? '🚗' : '🚇'} ~${mins} min`) }
-                      }
-                    }
-                    teamMsg = `Tomorrow's schedule:\n${lines.join('\n')}`
-                  } else if (jobs.length) {
-                    // A later job — the earliest already sent the full route; skip.
-                    teamMsg = ''
-                  }
-                }
-
-                if (teamMsg) {
-                  await notify({
-                    tenantId,
-                    type: 'booking_reminder',
-                    title: 'Job Tomorrow',
-                    message: teamMsg,
-                    channel: 'sms',
-                    recipientType: 'team_member',
-                    recipientId: booking.team_member_id,
-                    bookingId: booking.id,
-                  })
-                }
-              }
-            }
-
             results.push({ type: emailType, booking_id: booking.id, tenant_id: tenantId })
             sent++
           }
+        }
+      }
+
+      // ============================================
+      // TEAM MEMBER "JOB TOMORROW" TEXT — send at 8pm ET
+      // Split out from the 8am client day-based block above so cleaners get
+      // it the night before, not the same morning as the client's reminder.
+      // ============================================
+      if (etHour(now) === 20) {
+        const tomorrowCal = addCalendarDays(etToday(), 1)
+        const tomorrowStartBound = `${formatNaiveET(tomorrowCal)}Z`
+        const tomorrowEndBound = `${formatNaiveET(tomorrowCal, 23, 59, 59)}Z`
+        const teamEmailType = 'team_reminder_1day'
+
+        const { data: tomorrowTeamBookings } = await supabaseAdmin
+          .from('bookings')
+          .select('id, client_id, team_member_id, start_time, end_time, clients(name), team_members!bookings_team_member_id_fkey(name, phone)')
+          .eq('tenant_id', tenantId)
+          .in('status', ['scheduled', 'confirmed'])
+          .not('team_member_id', 'is', null)
+          .gte('start_time', tomorrowStartBound)
+          .lte('start_time', tomorrowEndBound)
+          .limit(500)
+          .returns<BookingWithClientAndTeam[]>()
+
+        for (const booking of tomorrowTeamBookings || []) {
+          const { data: existing } = await supabaseAdmin
+            .from('notifications')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('booking_id', booking.id)
+            .eq('type', teamEmailType)
+            .limit(1)
+          if (existing && existing.length > 0) continue
+
+          const client = booking.clients
+          const member = booking.team_members
+          if (!member || !booking.team_member_id) continue
+
+          let teamMsg = `${client?.name || 'Client'} - tomorrow at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+
+          // NYC Maid parity: send the cleaner their FULL next-day route with
+          // travel times (property-aware coords). Only the earliest job of the
+          // day sends it, so a multi-job cleaner gets one route text, not N.
+          if (isNycMaid(tenantId)) {
+            const { calculateDistance, estimateTransitMinutes, geocodeAddress } = await import('@/lib/nycmaid/geo')
+            const dateStr = booking.start_time.split('T')[0]
+            const { data: dayJobs } = await supabaseAdmin
+              .from('bookings')
+              .select('id, start_time, service_type, clients(name, phone, address, latitude, longitude), client_properties(address, latitude, longitude)')
+              .eq('tenant_id', tenantId).eq('team_member_id', booking.team_member_id)
+              .gte('start_time', `${dateStr}T00:00:00`).lte('start_time', `${dateStr}T23:59:59`)
+              .not('status', 'in', '("cancelled")').order('start_time', { ascending: true })
+            const jobs = dayJobs || []
+            if (jobs.length && jobs[0].id === booking.id) {
+              const { data: tm } = await supabaseAdmin.from('team_members').select('has_car').eq('id', booking.team_member_id).single()
+              const hasCar = Boolean(tm?.has_car)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const coordsOf = async (j: any): Promise<{ lat: number; lng: number } | null> => {
+                const cp = j.client_properties, c = j.clients
+                const src = (cp?.latitude != null && cp?.longitude != null) ? cp : (c?.latitude != null && c?.longitude != null) ? c : null
+                if (src) return { lat: Number(src.latitude), lng: Number(src.longitude) }
+                const addr = cp?.address || c?.address
+                if (addr) { const co = await geocodeAddress(addr).catch(() => null); if (co) return co }
+                return null
+              }
+              const lines: string[] = []
+              for (let i = 0; i < jobs.length; i++) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const j = jobs[i] as any
+                const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                const addr = j.client_properties?.address || j.clients?.address
+                // Full name, phone, address, and service type — not just
+                // first name — so a cleaner still has the booking's real
+                // details in-hand from this one text if the system/portal is
+                // down the next day.
+                lines.push(`${t} ${j.clients?.name || 'Client'}${j.clients?.phone ? ' ' + j.clients.phone : ''}${j.service_type ? ' (' + j.service_type + ')' : ''}${addr ? '\n  ' + addr : ''}`)
+                if (i < jobs.length - 1) {
+                  const a = await coordsOf(j); const b = await coordsOf(jobs[i + 1])
+                  if (a && b) { const mins = estimateTransitMinutes(calculateDistance(a.lat, a.lng, b.lat, b.lng), hasCar); lines.push(`  ${hasCar ? '🚗' : '🚇'} ~${mins} min`) }
+                }
+              }
+              teamMsg = `Tomorrow's schedule:\n${lines.join('\n')}`
+            } else if (jobs.length) {
+              // A later job — the earliest already sent the full route; skip.
+              teamMsg = ''
+            }
+          }
+
+          if (teamMsg) {
+            await notify({
+              tenantId,
+              type: 'booking_reminder',
+              title: 'Job Tomorrow',
+              message: teamMsg,
+              channel: 'sms',
+              recipientType: 'team_member',
+              recipientId: booking.team_member_id,
+              bookingId: booking.id,
+            })
+          }
+
+          results.push({ type: teamEmailType, booking_id: booking.id, tenant_id: tenantId })
+          sent++
         }
       }
 
@@ -251,11 +296,12 @@ export async function GET(request: Request) {
         const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
 
         // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
-        if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (reminderSmsOn && booking.client_id && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
-            await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
-            sent++
+            const result = await sendClientSMS(tenant, booking.client_id, smsBody)
+            sent += result.sent
+            if (result.sent === 0) failed++
           } catch (smsErr) {
             failed++
             errors.push(`2hr SMS to client ${booking.client_id}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
@@ -379,7 +425,9 @@ export async function GET(request: Request) {
           const client = booking.clients
           if (!client?.email || !booking.client_id) continue
 
-          // Check if thank-you already sent to this client (in last year)
+          // Check if thank-you already sent to this client (in last year).
+          // notifications.created_at is a genuine timestamptz (unlike
+          // bookings.start_time/end_time) — a real-instant offset is correct here.
           const oneYearAgo = new Date(now)
           oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
           const { data: alreadySent } = await supabaseAdmin
@@ -519,7 +567,7 @@ export async function GET(request: Request) {
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
+          .select('id, start_time, end_time, price, payment_status, service_type, pay_rate, team_member_pay, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .gte('start_time', todayStartNaive)
           .lte('start_time', todayEndNaive)
@@ -538,7 +586,17 @@ export async function GET(request: Request) {
           .limit(500)
 
         const fmt = (cents: number) => '$' + (cents / 100).toFixed(0)
+        // Labor: use the actual checkout-computed pay if set, else estimate
+        // from booking duration × pay_rate (default $35/hr) — same fallback
+        // nycmaid used for jobs that haven't checked out yet when this fires.
+        const laborCostOf = (b: { start_time: string; end_time: string; pay_rate?: number | null; team_member_pay?: number | null }) => {
+          if (b.team_member_pay != null) return b.team_member_pay
+          const hrs = (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60)
+          return Math.round(hrs * (b.pay_rate || 35) * 100)
+        }
         const todayRevenue = (todayBookings || []).reduce((s: number, b: { price?: number }) => s + (b.price || 0), 0)
+        const todayLabor = (todayBookings || []).reduce((s: number, b: any) => s + laborCostOf(b), 0)
+        const todayProfit = todayRevenue - todayLabor
         const todayPaid = (todayBookings || []).filter((b: { payment_status?: string }) => b.payment_status === 'paid').length
         const todayUnpaid = (todayBookings || []).length - todayPaid
 
@@ -564,13 +622,14 @@ export async function GET(request: Request) {
           tenantId,
           type: 'daily_ops_recap',
           title: `Daily Ops Recap — ${todayDateStr}`,
-          message: `Today: ${todayJobsList.length} jobs, ${fmt(todayRevenue)} revenue · Tomorrow: ${tomorrowJobsList.length} jobs`,
+          message: `Today: ${todayJobsList.length} jobs, ${fmt(todayRevenue)} revenue, ${fmt(todayProfit)} profit · Tomorrow: ${tomorrowJobsList.length} jobs`,
           channel: 'email',
           recipientType: 'admin',
           metadata: {
             todayDate: todayDateStr, tomorrowDate: tomorrowDateStr,
             todayJobs: todayJobsList, tomorrowJobs: tomorrowJobsList,
-            todayRevenue: fmt(todayRevenue), todayJobCount: todayJobsList.length,
+            todayRevenue: fmt(todayRevenue), todayLabor: fmt(todayLabor), todayProfit: fmt(todayProfit),
+            todayJobCount: todayJobsList.length,
             tomorrowJobCount: tomorrowJobsList.length, todayPaid, todayUnpaid,
           },
         })
@@ -584,14 +643,22 @@ export async function GET(request: Request) {
       // ============================================
       if (localHour === 21) {
         const { todayStart, todayEnd } = getTenantDayBoundaries(timezone, now)
+        const todayStartInstant = todayStart
+        const todayEndInstant = todayEnd
 
+        // recipient_type='client' is load-bearing, not decorative — without
+        // it this counted every team_member/admin notification too (team
+        // confirm-request texts alone outnumbered real client sends 10:1 in
+        // production, 2026-07-25), so the digest reported hundreds of
+        // "texts sent" that were never client-facing at all.
         const { data: todayNotifs } = await supabaseAdmin
           .from('notifications')
-          .select('type, channel, recipient_type, created_at, status')
+          .select('type, channel, recipient_type, created_at, status, bookings(clients(name))')
           .eq('tenant_id', tenantId)
           .eq('status', 'sent')
-          .gte('created_at', todayStart.toISOString())
-          .lte('created_at', todayEnd.toISOString())
+          .eq('recipient_type', 'client')
+          .gte('created_at', todayStartInstant.toISOString())
+          .lt('created_at', todayEndInstant.toISOString())
           .not('type', 'in', '("daily_ops_recap","daily_digest")')
           .order('created_at')
           .limit(500)
@@ -601,7 +668,7 @@ export async function GET(request: Request) {
 
         const entries = (todayNotifs || []).map((n: any) => ({
           type: n.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          recipient: n.recipient_type || 'unknown',
+          recipient: n.bookings?.clients?.name || 'Unknown client',
           time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }),
           channel: n.channel || 'email',
         }))

@@ -77,7 +77,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   return (
     <PortalContext value={{ auth, setAuth, lang, setLang, t }}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
         {auth && (
           <header
             className="px-4 py-3 flex items-center justify-between sticky top-0 z-10"

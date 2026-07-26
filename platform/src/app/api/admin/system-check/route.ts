@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
+import { nowNaiveET } from '@/lib/recurring'
 
 async function verifyAdmin() {
   const cookieStore = await cookies()
@@ -110,18 +111,22 @@ export async function POST() {
 
   // 5. BOOKING PIPELINE
   try {
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    // start_time/end_time are naive ET wall-clock columns — a real-instant
+    // cutoff's digits get compared literally against them, silently reading
+    // "4 hours ago"/"now" up to 4-5h later than actual ET time (same bug as
+    // cron/no-show-check). Naive ET digits + a bare 'Z' instead.
+    const fourHoursAgoNaiveBound = `${nowNaiveET(-4 * 60 * 60 * 1000)}Z`
     const { count: stuck } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'in_progress')
-      .lt('end_time', fourHoursAgo)
+      .lt('end_time', fourHoursAgoNaiveBound)
 
     const { count: pendingOld } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .lt('start_time', new Date().toISOString())
+      .lt('start_time', `${nowNaiveET()}Z`)
 
     const msgs: string[] = []
     if ((stuck || 0) > 0) msgs.push(`${stuck} stuck in_progress`)

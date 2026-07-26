@@ -8,7 +8,11 @@
  * GET (bearer sales-partner token) — that partner's own commissions.
  * GET (admin session) — every commission for the tenant.
  * PUT (admin) — mark a commission paid; bumps sales_partners.total_paid and
- *               posts the payout to the finance ledger.
+ *               posts the payout to the finance ledger. paid_via:'stripe_connect'
+ *               moves real money via a Stripe Connect transfer (mirrors the
+ *               claim-before-transfer pattern in lib/finance/cleaner-payout.ts
+ *               + lib/payment-processor.ts) instead of just recording a manual
+ *               Zelle/Apple Cash payout.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -17,6 +21,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { postSalesPartnerCommissionPayment } from '@/lib/finance/post-adjustments'
+import { getStripe } from '@/lib/stripe'
 
 export async function GET(request: Request) {
   try {
@@ -74,16 +79,78 @@ export async function PUT(request: Request) {
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    const updates: Record<string, unknown> = { status }
     const markingPaid = status === 'paid'
+    let effectivePaidVia: string | undefined
+    let viaStripe = false
+
+    if (markingPaid) {
+      // Stripe Connect is now the MANDATORY payout method once a partner is
+      // ready -- Jeff's product decision (CHANNEL.md 16:35): manual Zelle/Apple
+      // Cash is no longer offered as a live option once a partner can connect.
+      // Historical manual payouts and the zelle_email/apple_cash_phone columns
+      // stay untouched -- this only governs which method a NEW payout can use.
+      // A partner who hasn't (or can't) complete onboarding still has manual as
+      // their only option, since there's no Connect account to pay out to.
+      const { data: commissionRow } = await supabaseAdmin
+        .from('sales_partner_commissions')
+        .select('sales_partner_id')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!commissionRow) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+      const { data: partnerForRouting } = await supabaseAdmin
+        .from('sales_partners')
+        .select('stripe_ready_at, stripe_ineligible')
+        .eq('id', commissionRow.sales_partner_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      const partnerReady = !!partnerForRouting?.stripe_ready_at
+      const partnerIneligible = !!partnerForRouting?.stripe_ineligible
+
+      if (partnerReady) {
+        if (paid_via && paid_via !== 'stripe_connect') {
+          return NextResponse.json(
+            { error: 'This partner is Stripe Connect ready -- manual payout is no longer offered, payouts must go through Connect.' },
+            { status: 400 },
+          )
+        }
+        effectivePaidVia = 'stripe_connect'
+        viaStripe = true
+      } else if (partnerIneligible) {
+        // Admin-flagged escape hatch (CHANNEL.md 16:55) -- manual payout is
+        // ONLY reachable here because an admin explicitly marked this partner
+        // unable to complete Connect onboarding, not because they simply
+        // haven't gotten to it yet.
+        if (paid_via === 'stripe_connect') {
+          return NextResponse.json({ error: 'Sales partner has not completed Stripe Connect onboarding' }, { status: 400 })
+        }
+        effectivePaidVia = paid_via || 'zelle'
+      } else {
+        // Not ready AND not flagged ineligible -- manual is no longer offered
+        // as an implicit default. The partner must connect Stripe, or an
+        // admin must explicitly mark them Stripe-ineligible first.
+        return NextResponse.json(
+          { error: 'This partner has not connected Stripe Connect. Either send them a Connect invite, or mark them Stripe-ineligible to pay them manually.' },
+          { status: 400 },
+        )
+      }
+    }
+
+    const updates: Record<string, unknown> = { status }
     if (markingPaid) {
       updates.paid_at = new Date().toISOString()
-      updates.paid_via = paid_via || 'zelle'
+      updates.paid_via = effectivePaidVia
     }
 
     // `.neq('status', 'paid')` — DB-level compare-and-swap so a double-click
     // or retried request can't double-bump total_paid / double-post the
-    // ledger. Same pattern as PUT /api/referral-commissions.
+    // ledger. Same pattern as PUT /api/referral-commissions. For the Stripe
+    // path this update IS the claim (mirrors the insert-based claim in
+    // lib/finance/cleaner-payout.ts): the row flips to 'paid' first, then the
+    // transfer is attempted; a failed transfer reverts the row so a retry can
+    // re-claim it, instead of leaving a commission marked paid with no money
+    // moved.
     let query = supabaseAdmin.from('sales_partner_commissions').update(updates).eq('id', id).eq('tenant_id', tenantId)
     if (markingPaid) query = query.neq('status', 'paid')
     const { data, error } = await query.select().maybeSingle()
@@ -100,6 +167,25 @@ export async function PUT(request: Request) {
       return NextResponse.json(current)
     }
 
+    if (viaStripe) {
+      const transferResult = await transferCommissionViaStripe({ tenantId, commission: data })
+      if (!transferResult.ok) {
+        // Revert the claim -- no money moved, so this commission must not
+        // read as paid. Restores whatever status it was in before this PUT.
+        await supabaseAdmin
+          .from('sales_partner_commissions')
+          .update({ status: 'pending', paid_at: null, paid_via: null })
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+        return NextResponse.json({ error: transferResult.error }, { status: 502 })
+      }
+      await supabaseAdmin
+        .from('sales_partner_commissions')
+        .update({ stripe_transfer_id: transferResult.transferId })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+    }
+
     if (markingPaid) {
       await bumpSalesPartnerTotalOrFlag(tenantId, data.sales_partner_id as string, 'total_paid', data.commission_cents as number, {
         relatedType: 'sales_partner_commission',
@@ -114,5 +200,56 @@ export async function PUT(request: Request) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Sales partner commissions PUT error:', err)
     return NextResponse.json({ error: 'Failed to update commission' }, { status: 500 })
+  }
+}
+
+type StripeTransferResult = { ok: true; transferId: string } | { ok: false; error: string }
+
+/**
+ * Moves the actual money for a paid_via:'stripe_connect' commission. Requires
+ * the partner to have completed onboarding (stripe_ready_at set) -- a
+ * connect_account_id alone only means "started onboarding" (see
+ * stripe-status/route.ts), not "can receive a transfer".
+ */
+async function transferCommissionViaStripe(opts: {
+  tenantId: string
+  commission: Record<string, unknown>
+}): Promise<StripeTransferResult> {
+  const { tenantId, commission } = opts
+  const partnerId = commission.sales_partner_id as string
+  const commissionCents = commission.commission_cents as number
+  if (!commissionCents || commissionCents <= 0) {
+    return { ok: false, error: 'Commission amount must be positive to transfer' }
+  }
+
+  const { data: partner } = await supabaseAdmin
+    .from('sales_partners')
+    .select('id, name, stripe_connect_account_id, stripe_ready_at')
+    .eq('id', partnerId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (!partner?.stripe_connect_account_id || !partner.stripe_ready_at) {
+    return { ok: false, error: 'Sales partner has not completed Stripe Connect onboarding' }
+  }
+
+  const { data: tenantRow } = await supabaseAdmin
+    .from('tenants')
+    .select('stripe_api_key')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  try {
+    const stripe = getStripe((tenantRow as { stripe_api_key?: string | null } | null)?.stripe_api_key || undefined)
+    const transfer = await stripe.transfers.create({
+      amount: commissionCents,
+      currency: 'usd',
+      destination: partner.stripe_connect_account_id,
+      description: `Sales partner commission for ${partner.name}`,
+      metadata: { commission_id: commission.id as string, sales_partner_id: partnerId, tenant_id: tenantId },
+    }, { idempotencyKey: `sales-partner-commission:${commission.id}` })
+    return { ok: true, transferId: transfer.id }
+  } catch (e) {
+    console.error('[sp-comm] stripe transfer failed:', e)
+    return { ok: false, error: e instanceof Error ? e.message : 'Stripe transfer failed' }
   }
 }

@@ -29,11 +29,39 @@ import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
+import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
+import { decryptSecret } from '@/lib/secret-crypto'
+import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { trackError } from '@/lib/error-tracking'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+}
+
+// Each tenant runs its own Stripe account acting as its own Connect platform
+// for its team members/sales partners/referrers — so a tenant's
+// account.updated deliveries arrive signed with THAT tenant's own Connect
+// webhook secret (tenants.stripe_connect_webhook_secret), never the shared
+// platform STRIPE_WEBHOOK_SECRET used for checkout/refund/etc. The delivery
+// URL is always this same platform-registered endpoint regardless of which
+// tenant's Stripe account sent it (Stripe fires Connect webhooks to the
+// destination's configured URL, not the tenant's own domain) — so the tenant
+// can't be resolved from the request, only from the event payload itself.
+// The tenant_id read here (from the UNVERIFIED body, before any signature
+// check succeeds) is only ever used to pick which secret to attempt
+// verification with — it grants no trust; the event is discarded unless
+// constructEvent() below cryptographically verifies against that tenant's
+// real secret.
+function peekConnectAccountTenantId(rawBody: string): string | null {
+  try {
+    const parsed = JSON.parse(rawBody) as { type?: string; data?: { object?: { metadata?: Record<string, string> | null } } }
+    if (parsed.type !== 'account.updated') return null
+    return parsed.data?.object?.metadata?.tenant_id || null
+  } catch {
+    return null
+  }
 }
 
 export async function POST(request: Request) {
@@ -51,8 +79,36 @@ export async function POST(request: Request) {
     stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, sig!, webhookSecret)
   } catch (err) {
-    console.error('Stripe webhook signature failed:', err)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    // Not verifiable against the shared platform secret — try the
+    // per-tenant Connect webhook secret for an account.updated delivery
+    // before giving up. Any failure along this path (no tenant hint, no
+    // tenant found, no secret configured, signature still doesn't verify)
+    // falls through to the same 400 as before — never silently accepted.
+    const tenantId = peekConnectAccountTenantId(body)
+    if (!tenantId) {
+      console.error('Stripe webhook signature failed:', err)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    const { data: tenantRow } = await supabaseAdmin
+      .from('tenants')
+      .select('stripe_connect_webhook_secret')
+      .eq('id', tenantId)
+      .maybeSingle()
+    const connectSecret = (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+
+    if (!connectSecret) {
+      console.error('Stripe webhook signature failed:', err)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    try {
+      stripe = getStripe()
+      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(connectSecret))
+    } catch (connectErr) {
+      console.error('Stripe Connect webhook signature failed:', connectErr)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
   }
 
   switch (event.type) {
@@ -388,10 +444,11 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_size, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_size, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), client_properties(address, latitude, longitude), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
+      if (booking) applyPropertyToBookingClient(booking as never)
 
       if (!booking) {
         console.error(`[stripe] booking ${bookingId} not found for tenant ${tenantId}`)
@@ -599,9 +656,19 @@ export async function POST(request: Request) {
           : ''
         // NYC Maid rule: the cleaner is NOT shown the client's total/details —
         // only that payment landed (+ their own tip). No client charge amount.
+        // NYC Maid parity restore (2026-07-25): the old independent build told
+        // the cleaner to finish up and check out once payment was confirmed —
+        // that's the actual signal the cleaner is waiting on 30 min before the
+        // job ends. Only nycmaid ran the 30-min-warning → checkout flow this
+        // line refers back to, so keep the instruction nycmaid-only.
+        const checkoutLine = isNycMaid(tenantId)
+          ? (isEs
+              ? ' Puede terminar y hacer el check-out cuando esté listo.'
+              : ' You can finish up and check out when ready.')
+          : ''
         const body = isEs
-          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
-          : `Payment received for ${client?.name || 'client'}'s job.${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
+          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
+          : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
         sendSMS({
           to: tm.phone,
           body,
@@ -624,14 +691,36 @@ export async function POST(request: Request) {
 
       // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only
       // the in-app notification fired, so the owner never got a text). Admin DOES
-      // see the total (unlike the cleaner). Gated on the same "Payment received"
-      // toggle as the email leg — previously ungated, so turning the setting off
-      // didn't stop this text.
+      // see the total (unlike the cleaner).
+      const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
+      const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
+      const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
+      // Gated on the same "Payment received" toggle as the email leg —
+      // previously ungated, so turning the setting off didn't stop this text.
+      // adminMsg itself stays unconditional: the Telegram parity block below
+      // (6c) reuses it regardless of the SMS setting.
       if (await isCommEnabled(tenantId, 'owner_payment_received', 'sms')) {
-        const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
-        const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
-        const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
         await smsAdmins(tenantId, adminMsg).catch(err => console.error('[stripe] admin payment SMS failed:', err))
+      }
+
+      // 6c. NYC Maid Telegram parity restore (2026-07-25). The old independent
+      // build posted this exact "payment CONFIRMED ... Client + cleaner
+      // notified" line to Jeff's Telegram owner channel via notify() on every
+      // Stripe payment (src/lib/notify.ts, TELEGRAM_NOTIFY_TYPES has
+      // 'payment_received'). That never got ported when this webhook was
+      // rewritten for Full Loop — only the in-app row (step 7) and the admin
+      // SMS above survived, so the Telegram confirmation silently stopped
+      // after cutover. Gated to NYC Maid: other tenants without their own
+      // telegram_bot_token/telegram_chat_id would otherwise fall back to
+      // posting into Jeff's personal platform bot.
+      if (isNycMaid(tenantId)) {
+        await nycmaidNotify({
+          type: 'payment_received',
+          title: `Payment received — ${client?.name || 'Client'}`,
+          message: adminMsg,
+          booking_id: bookingId,
+          tenantId,
+        }).catch(err => console.error('[stripe] nycmaid telegram notify failed:', err))
       }
 
       // 7. In-app notification
@@ -695,6 +784,12 @@ export async function POST(request: Request) {
       const tenantId = intent.metadata?.tenant_id
 
       if (bookingId && tenantId) {
+        await trackError(new Error(intent.last_payment_error?.message || 'Unknown error'), {
+          source: 'webhooks/stripe:payment_intent.payment_failed',
+          tenantId,
+          severity: 'high',
+          extra: `booking ${bookingId}`,
+        })
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'payment_failed',
@@ -764,6 +859,13 @@ export async function POST(request: Request) {
         .from('tenants')
         .update({ billing_status: 'past_due' })
         .eq('id', tenant.id)
+      // This is a FullLoop tenant failing to pay FullLoop (not a tenant's own
+      // client payment) — always critical, always worth a Telegram ping.
+      await trackError(new Error(`${tenant.name} subscription payment failed, billing_status -> past_due`), {
+        source: 'webhooks/stripe:invoice.payment_failed',
+        tenantId: tenant.id,
+        severity: 'critical',
+      })
       // Alert platform admin + the tenant owner. Don't auto-suspend yet —
       // let Stripe's dunning retry logic run first.
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL

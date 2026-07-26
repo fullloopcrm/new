@@ -40,7 +40,7 @@ const TENANT_TABLES = new Set([
   'client_referral_stats','client_reviews','client_sms_messages','clients','comhub_active_calls',
   'comhub_admin_phones','comhub_admin_presence','comhub_admin_voice_settings','comhub_channel_members','comhub_contacts',
   'comhub_mentions','comhub_messages','comhub_missed_call_sms','comhub_softphone_calls','comhub_templates',
-  'comhub_threads','connect_channels','connect_messages','connect_read_cursors','cpa_access_tokens',
+  'comhub_threads','connect_channel_members','connect_channels','connect_messages','connect_read_cursors','cpa_access_tokens',
   'crews','deal_activities','deals','document_activity','document_fields',
   'document_signers','documents','domain_notes','domains','email_logs',
   'entities','equipment','equipment_bookings','error_logs','expenses','google_posts','google_reviews','hr_document_reminders',

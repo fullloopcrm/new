@@ -1,6 +1,8 @@
 // Lightweight field validation + whitelisting
 // Prevents mass-assignment attacks on all API routes
 
+import { normalizePhone } from './phone'
+
 type FieldType = 'string' | 'number' | 'boolean' | 'array' | 'email' | 'phone' | 'uuid' | 'date' | 'url'
 
 type FieldDef = {
@@ -67,10 +69,13 @@ export function validate<T extends Record<string, unknown>>(body: unknown, schem
         if (typeof val !== 'string' || !EMAIL_RE.test(val)) return { data: null, error: `${field} must be a valid email` }
         result[field] = val.trim().toLowerCase()
         break
-      case 'phone':
+      case 'phone': {
         if (typeof val !== 'string' || !PHONE_RE.test(val)) return { data: null, error: `${field} must be a valid phone number` }
-        result[field] = val.trim()
+        const normalized = normalizePhone(val)
+        if (!normalized) return { data: null, error: `${field} must be a valid phone number` }
+        result[field] = normalized
         break
+      }
       case 'uuid':
         if (typeof val !== 'string' || !UUID_RE.test(val)) return { data: null, error: `${field} must be a valid UUID` }
         result[field] = val

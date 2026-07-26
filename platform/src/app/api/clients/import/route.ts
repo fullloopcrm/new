@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
+import { createPrimaryContact } from '@/lib/client-contacts'
+import { formatName } from '@/lib/format'
+import { normalizePhone } from '@/lib/phone'
+
+// Last-10-digits comparison key, so a pre-backfill 10-digit-raw row and a
+// newly-imported E.164 row (11 digits, leading "1") still dedupe against
+// each other instead of silently double-importing during the transition.
+function phoneDedupeKey(digits: string): string {
+  return digits.slice(-10)
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^[\d\s\-+().]{7,20}$/
@@ -34,8 +44,12 @@ function validateRow(row: ClientRow, index: number): { valid: boolean; data?: Re
   if (!PHONE_RE.test(phone)) {
     return { valid: false, error: `Row ${index + 1}: invalid phone format "${phone}"` }
   }
+  const normalizedPhone = normalizePhone(phone)
+  if (!normalizedPhone) {
+    return { valid: false, error: `Row ${index + 1}: invalid phone format "${phone}"` }
+  }
 
-  const data: Record<string, unknown> = { name, phone }
+  const data: Record<string, unknown> = { name: formatName(name), phone: normalizedPhone }
 
   // Optional: email
   if (row.email && typeof row.email === 'string' && row.email.trim()) {
@@ -124,7 +138,10 @@ export async function POST(request: Request) {
       (existing || []).map(c => c.email?.toLowerCase()).filter(Boolean) as string[]
     )
     const existingPhones = new Set(
-      (existing || []).map(c => c.phone?.replace(/\D/g, '')).filter((p): p is string => !!p && p.length >= 10)
+      (existing || [])
+        .map(c => c.phone?.replace(/\D/g, ''))
+        .filter((p): p is string => !!p && p.length >= 10)
+        .map(phoneDedupeKey)
     )
 
     const validRows: Record<string, unknown>[] = []
@@ -140,20 +157,21 @@ export async function POST(request: Request) {
 
       // Duplicate check
       const email = result.data.email as string | undefined
-      const phone = (result.data.phone as string | undefined)?.replace(/\D/g, '') || ''
+      const phoneDigits = (result.data.phone as string | undefined)?.replace(/\D/g, '') || ''
+      const phoneKey = phoneDigits.length >= 10 ? phoneDedupeKey(phoneDigits) : ''
 
       if (email && existingEmails.has(email)) {
         duplicates.push(`Row ${i + 1}: ${clients[i].name} — email ${email} already exists`)
         continue
       }
-      if (phone.length >= 10 && existingPhones.has(phone)) {
+      if (phoneKey && existingPhones.has(phoneKey)) {
         duplicates.push(`Row ${i + 1}: ${clients[i].name} — phone ${clients[i].phone} already exists`)
         continue
       }
 
       // Track within batch to prevent self-duplication
       if (email) existingEmails.add(email)
-      if (phone.length >= 10) existingPhones.add(phone)
+      if (phoneKey) existingPhones.add(phoneKey)
 
       // tenant_id is stamped by tenantDb on insert (below), not here.
       validRows.push({ ...result.data, source: result.data.source || 'csv_import' })
@@ -173,6 +191,16 @@ export async function POST(request: Request) {
           errors.push(`Database error on batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
         } else {
           imported += data?.length || 0
+          // Every client-creation path must call this or the client silently
+          // never receives any SMS/email — see createPrimaryContact's docstring.
+          // Insert preserves row order, so zip 1:1 against the batch we sent.
+          await Promise.all((data || []).map((row, idx) =>
+            createPrimaryContact(tenantId, row.id, {
+              name: batch[idx]?.name as string | undefined,
+              phone: batch[idx]?.phone as string | undefined,
+              email: batch[idx]?.email as string | undefined,
+            }).catch(() => {})
+          ))
         }
       }
     }

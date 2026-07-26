@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
+import { formatCustomerNumber } from '@/lib/format'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
+import ClientAddresses from '../client-addresses'
+import ClientNotesTimeline from '@/components/ClientNotesTimeline'
 
 type Client = {
   id: string
@@ -26,6 +29,7 @@ type Client = {
   deletion_requested_at?: string | null
   deletion_purge_at?: string | null
   deleted_at?: string | null
+  customer_number: number | null
 }
 
 type TeamMemberOption = { id: string; name: string }
@@ -57,12 +61,13 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [client, setClient] = useState<Client | null>(null)
+  const [tenantSlug, setTenantSlug] = useState('')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Partial<Client>>({})
   const [saving, setSaving] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
-  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms'>('bookings')
+  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms' | 'notes'>('bookings')
   const [activities, setActivities] = useState<Activity[]>([])
   const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
 
@@ -72,6 +77,7 @@ export default function ClientDetailPage() {
       .then((data) => {
         setClient(data.client)
         setForm(data.client)
+        setTenantSlug(data.tenant_slug || '')
       })
     fetch(`/api/bookings?client_id=${id}`)
       .then((r) => r.json())
@@ -150,6 +156,9 @@ export default function ClientDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">{client.name}</h2>
+          {client.customer_number != null && tenantSlug && (
+            <p className="text-xs font-mono text-slate-400">Customer #{formatCustomerNumber(tenantSlug, client.customer_number)}</p>
+          )}
           <p className="text-sm text-slate-400">
             {completedCount} jobs completed
             {totalSpent > 0 && ` \u00b7 $${(totalSpent / 100).toFixed(0)} total spent`}
@@ -243,10 +252,17 @@ export default function ClientDetailPage() {
             )}
           </div>
 
+          {/* ADDRESSES: multi-property add/edit/delete -- the single
+              Contact Info address field above is a denormalized copy; this
+              is the actual source bookings resolve their address from. */}
+          <div className="border border-slate-200 rounded-lg p-6">
+            <ClientAddresses clientId={client.id} showHistory />
+          </div>
+
           {/* TABS: Bookings / Activity / SMS */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="flex border-b border-slate-200">
-              {(['bookings', 'activity', 'sms'] as const).map((t) => (
+              {(['bookings', 'activity', 'sms', 'notes'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -254,7 +270,7 @@ export default function ClientDetailPage() {
                     tab === t ? 'bg-white text-teal-600 border-b-2 border-teal-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : 'SMS Transcript'}
+                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : t === 'sms' ? 'SMS Transcript' : 'Notes'}
                 </button>
               ))}
             </div>
@@ -343,6 +359,10 @@ export default function ClientDetailPage() {
                   </div>
                 )
               )}
+
+              {/* NOTES TAB — the full timestamped thread across every booking
+                  this client has, not just the static notes field above. */}
+              {tab === 'notes' && <ClientNotesTimeline clientId={client.id} />}
             </div>
           </div>
         </div>

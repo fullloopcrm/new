@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { formatET } from '@/lib/dates'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient, bookingCoords, bookingAddress } from '@/lib/client-properties'
+import { notify } from '@/lib/nycmaid/notify'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, status, team_member_id, start_time, check_in_time, notes, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude)')
+    .select('id, status, team_member_id, start_time, check_in_time, notes, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name)')
     .eq('id', booking_id)
     .single()) as {
       data: {
@@ -38,6 +38,8 @@ export async function POST(request: Request) {
         start_time: string
         check_in_time: string | null
         notes: string | null
+        clients: { name: string | null } | null
+        team_members: { name: string | null } | null
       } | null
     }
 
@@ -61,7 +63,8 @@ export async function POST(request: Request) {
   // address. Hard-block if clearly far (abuse); flag-but-allow inside the drift
   // zone so a cleaner at the door is never stranded by NYC GPS jitter.
   let checkInFlagNote = ''
-  if (isNycMaid(auth.tid) && CHECK_IN_GPS_ENABLED) {
+  let checkInDistanceInfo = ''
+  if (CHECK_IN_GPS_ENABLED) {
     const hasLoc = typeof lat === 'number' && typeof lng === 'number'
     if (!hasLoc) {
       return NextResponse.json({ error: 'Check-in needs your location. Enable location/GPS for this site and try again.', code: 'location_required' }, { status: 400 })
@@ -75,10 +78,12 @@ export async function POST(request: Request) {
       if (dist > CHECK_IN_HARD_BLOCK_MILES) {
         return NextResponse.json({ error: `You're ${dist.toFixed(2)} mi from the job address. You must be at the address to check in. Move closer and try again.`, code: 'too_far', distance_miles: Math.round(dist * 100) / 100 }, { status: 400 })
       }
+      checkInDistanceInfo = ` • ${dist.toFixed(2)} mi from address`
       if (dist > CHECK_IN_MAX_MILES) checkInFlagNote = `\n\n[GPS check-in flagged: ${dist.toFixed(2)} mi from address]`
     } else {
       // Couldn't resolve coords (no cache + geocoder down). Allow, but flag.
       checkInFlagNote = `\n\n[GPS check-in unverified: could not resolve job coordinates]`
+      checkInDistanceInfo = ' • location unverified'
     }
   }
 
@@ -97,6 +102,21 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Owner Telegram/dashboard alert — global for every tenant. notify() only
+  // reaches Telegram if this tenant has its own bot configured, and push is
+  // scoped to this tenant's admins — no cross-tenant leak.
+  {
+    const cleanerName = booking.team_members?.name || 'Cleaner'
+    const clientName = booking.clients?.name || 'client'
+    notify({
+      type: 'check_in',
+      title: checkInFlagNote ? 'WARNING: Job Started (GPS Mismatch)' : 'Job Started',
+      message: `${cleanerName} checked in at ${clientName}${checkInDistanceInfo}`,
+      booking_id,
+      tenantId: auth.tid,
+    }).catch((err) => console.error('check-in notify error:', err))
   }
 
   return NextResponse.json({ booking: data })

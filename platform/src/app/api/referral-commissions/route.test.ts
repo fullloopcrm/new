@@ -43,7 +43,11 @@ beforeEach(() => {
       { id: 'booking-1', tenant_id: 'tenant-A', price: 10000, referrer_id: 'referrer-1', clients: { name: 'Jane' } },
     ],
     referrers: [
-      { id: 'referrer-1', tenant_id: 'tenant-A', name: 'Ref Co', email: null, commission_rate: 0.10, total_earned: 0, total_paid: 0 },
+      // stripe_ineligible_at set: the PUT (mark-paid) tests below aren't
+      // about payout-method policy -- an un-ineligible, un-connected
+      // referrer can no longer be marked paid at all since 2026-07-22
+      // (CHANNEL.md 16:35/16:55).
+      { id: 'referrer-1', tenant_id: 'tenant-A', name: 'Ref Co', email: null, commission_rate: 0.10, total_earned: 0, total_paid: 0, stripe_ineligible_at: '2026-01-01T00:00:00.000Z' },
     ],
     referral_commissions: [],
   }

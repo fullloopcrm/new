@@ -7,9 +7,26 @@
 // invariant; some call sites already carry a `tenant-scope-ok` note.
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendSMS } from '@/lib/nycmaid/sms'
+import { sendSMS } from '@/lib/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { decryptSecret } from '@/lib/secret-crypto'
+
+// The DID-resolution above already rejects calls that don't map to exactly
+// one tenant — but the follow-up SMS (missed-call callback, voicemail alert)
+// previously went out through `@/lib/nycmaid/sms`, hardcoded to nycmaid's
+// own Telnyx account regardless of which tenant's call this was. Fixed
+// 2026-07-24: fetch the resolved tenant's own creds; skip the text (voice
+// call itself still completes) if that tenant hasn't configured Telnyx SMS.
+async function getTenantTelnyxCreds(tenantId: string): Promise<{ apiKey: string; phone: string } | null> {
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('telnyx_api_key, telnyx_phone')
+    .eq('id', tenantId)
+    .single()
+  if (!data?.telnyx_api_key || !data?.telnyx_phone) return null
+  return { apiKey: data.telnyx_api_key, phone: data.telnyx_phone }
+}
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -29,11 +46,17 @@ type VoiceTenantResolution =
 async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenantResolution> {
   const did = (toDid || '').trim()
   if (!did) return { ok: false, status: 422, reason: 'missing called number' }
+  const safeDid = sanitizePostgrestValue(did)
 
+  // tenants.telnyx_phone doubles as the SMS "from" address across ~50 call
+  // sites — never repurpose it for a voice-only DID. voice_did is a separate,
+  // optional column for a tenant whose inbound call line isn't the same
+  // number as their SMS-sending number (e.g. a toll-free voice line with no
+  // messaging profile). Matches either column.
   const { data: matches } = await supabaseAdmin
     .from('tenants')
     .select('id, name')
-    .eq('telnyx_phone', did)
+    .or(`telnyx_phone.eq.${safeDid},voice_did.eq.${safeDid}`)
     .order('id', { ascending: true })
     .limit(2)
 
@@ -103,6 +126,50 @@ async function telnyxAction(
   } catch (err) {
     console.error(`[telnyx-voice] action ${action} threw`, err)
     return null
+  }
+}
+
+// Transfer the (already-answered) customer leg to the tenant's xAI Grok voice
+// agent over SIP. xAI answers as Yinez and bridges the audio. Digest auth
+// (xai_sip_username/password) must match what's set on the tenant's Direct
+// SIP number in xAI's console. Returns true on a successful transfer; false
+// lets the caller fall back to ring/voicemail — a down/unconfigured agent
+// never means dead air. Global + tenant-scoped: any tenant with both creds
+// set gets this hand-off, no separate feature flag or number list needed.
+async function transferToAgent(
+  callControlId: string,
+  toNumber: string,
+  fromPhone: string,
+  sipUsername: string,
+  sipPassword: string,
+): Promise<boolean> {
+  if (!TELNYX_API_KEY) return false
+  const d = toNumber.replace(/\D/g, '')
+  const e164 = d.length === 11 && d.startsWith('1') ? `+${d}` : d.length === 10 ? `+1${d}` : `+${d}`
+  const target = `sip:${e164}@sip.voice.x.ai;transport=tls`
+  try {
+    const res = await fetch(
+      `https://api.telnyx.com/v2/calls/${callControlId}/actions/transfer`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TELNYX_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: target,
+          from: fromPhone,
+          from_display_name: 'Yinez',
+          sip_auth_username: sipUsername,
+          sip_auth_password: sipPassword,
+        }),
+      },
+    )
+    if (!res.ok) {
+      console.error('[telnyx-voice] agent transfer failed', await res.text().catch(() => ''))
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[telnyx-voice] agent transfer threw', err)
+    return false
   }
 }
 
@@ -351,11 +418,18 @@ async function maybeSendMissedCallSMS(opts: {
     .limit(1)
   if (cleanerMatch && cleanerMatch.length > 0) return
 
-  const result = await sendSMS(opts.customerPhone, MISSED_CALL_SMS_BODY, {
-    smsType: 'missed_call_callback',
-  })
+  const creds = await getTenantTelnyxCreds(opts.tenantId)
+  if (!creds) return
 
-  if (result.success) {
+  let sendOk = false
+  try {
+    await sendSMS({ to: opts.customerPhone, body: MISSED_CALL_SMS_BODY, telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
+    sendOk = true
+  } catch (err) {
+    console.error('[telnyx-voice] missed-call SMS failed', err)
+  }
+
+  if (sendOk) {
     await supabaseAdmin.from('comhub_missed_call_sms').insert({
       tenant_id: opts.tenantId,
       customer_phone: opts.customerPhone,
@@ -371,8 +445,6 @@ async function maybeSendMissedCallSMS(opts: {
       author: 'system',
       body: `💬 Sent missed-call SMS callback to ${opts.customerPhone}`,
     })
-  } else {
-    console.error('[telnyx-voice] missed-call SMS failed', result.error)
   }
 }
 
@@ -385,16 +457,19 @@ async function notifyVoicemailToAdmin(opts: {
 }): Promise<void> {
   const [notifyPhone] = await getTenantAdminCellPhones(opts.tenantId)
   if (!notifyPhone) return
+  const creds = await getTenantTelnyxCreds(opts.tenantId)
+  if (!creds) return
   const lines = [
     `📞 New voicemail from ${opts.customerPhone}`,
     opts.transcript ? `Transcript: ${opts.transcript.slice(0, 400)}` : null,
     opts.recordingUrl ? `Audio: ${opts.recordingUrl}` : null,
     `Thread: https://www.thenycmaid.com/admin/comhub?thread=${opts.threadId}`,
   ].filter(Boolean) as string[]
-  await sendSMS(notifyPhone, lines.join('\n'), {
-    skipCircuit: true,
-    smsType: 'voicemail_alert',
-  })
+  try {
+    await sendSMS({ to: notifyPhone, body: lines.join('\n'), telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
+  } catch (err) {
+    console.error('[telnyx-voice] voicemail alert SMS failed', err)
+  }
 }
 
 async function startVoicemail(opts: {
@@ -564,6 +639,53 @@ export async function POST(req: NextRequest) {
     // silence while we dial admins. Required for PSTN target dialing;
     // harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
+
+    // ── Voice AI agent: route to Yinez over SIP if this tenant has it set up ──
+    // Tenant-gated (both creds present), not a global flag. On success the
+    // call is handed to xAI and we stop here. On failure/absence we fall
+    // through to the normal ring/voicemail below — built-in failover, a down
+    // or unconfigured agent never means dead air.
+    const { data: agentTenant } = await supabaseAdmin
+      .from('tenants')
+      .select('xai_sip_username, xai_sip_password')
+      .eq('id', tenantId)
+      .single()
+    const xaiUsername = agentTenant?.xai_sip_username || ''
+    const xaiPassword = agentTenant?.xai_sip_password ? decryptSecret(agentTenant.xai_sip_password) : ''
+    if (xaiUsername && xaiPassword) {
+      await startRecordingAndTranscription(callControlId)
+      const routed = await transferToAgent(callControlId, p.to || '', p.from, xaiUsername, xaiPassword)
+      if (routed) {
+        await supabaseAdmin
+          .from('comhub_active_calls')
+          .update({ status: 'bridged', answered_at: new Date().toISOString() })
+          .eq('customer_call_id', callControlId)
+          .eq('tenant_id', tenantId)
+        await logVoiceMessage({
+          tenantId,
+          threadId,
+          contactId,
+          direction: 'system',
+          author: 'yinez',
+          body: '🤖 Routed to Yinez (AI voice agent)',
+          fromAddress: p.from,
+          toAddress: p.to ?? null,
+          externalId: callControlId,
+        })
+        return NextResponse.json({ ok: true, routed: 'agent' })
+      }
+      await logVoiceMessage({
+        tenantId,
+        threadId,
+        contactId,
+        direction: 'system',
+        author: 'system',
+        body: '⚠️ Yinez unavailable — falling back to team/voicemail',
+        fromAddress: p.from,
+        toAddress: p.to ?? null,
+        externalId: callControlId,
+      })
+    }
 
     const ringTargets = await buildRingTargets(tenantId)
     if (ringTargets.length === 0) {

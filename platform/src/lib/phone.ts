@@ -17,3 +17,19 @@ export function formatPhone(value: string): string {
 export function stripPhone(value: string): string {
   return value.replace(/\D/g, '')
 }
+
+/**
+ * Normalize a phone number to E.164 (+1XXXXXXXXXX) for storage. Same
+ * canonical format as client_contacts.phone_e164 and the normalization
+ * lib/sms.ts already applies at the send boundary — see that file's comment
+ * for why E.164 was chosen (Telnyx rejects bare 10-digit numbers). Null if
+ * unparseable so callers can distinguish "no phone" from "bad phone".
+ */
+export function normalizePhone(input: string | null | undefined): string | null {
+  if (!input) return null
+  const digits = input.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (digits.length === 0) return null
+  return `+${digits}`
+}

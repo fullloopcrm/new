@@ -118,8 +118,11 @@ async function sendReply(
     })
     return (res as { id?: string } | null)?.id ?? null
   }
-  // nycmaid env fallback — unchanged behaviour.
-  const html = `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.5">${escapeHtml(text)}</div>`
+  // nycmaid env fallback. Signature ported from the standalone nycmaid app's
+  // own cron/comhub-email route — dropped during the 2026-07-22 FL cutover
+  // port, restored 2026-07-25.
+  const signature = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;margin-top:16px">Yinez | AI Admin (powered by FullLoop CRM)<br>The NYC Maid<br>(212) 202-8400 · thenycmaid.com</div>`
+  const html = `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.5">${escapeHtml(text)}</div>${signature}`
   const send = await sendNycmaidEmail(to, subject, html, undefined, { skipOwnerBcc: true })
   return send?.success ? ((send.data as { id?: string } | undefined)?.id || null) : null
 }
@@ -204,18 +207,51 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           const paused = thread?.bot_paused_until && new Date(thread.bot_paused_until) > new Date()
           const { data: dnsClient } = await supabaseAdmin
             .from('clients')
-            .select('do_not_service')
+            .select('do_not_service, phone')
             .eq('tenant_id', tenantId)
             .ilike('email', fromAddr)
             .limit(1)
             .single()
-          // nycmaid: Yinez/Selena email auto-reply hardcoded off per Jeff
-          // 2026-05-29 (source: cron/comhub-email `if (true || paused ...)`)
-          // — she wasn't checking schedule availability when replying.
-          // Inbound is still mirrored above so admin handles it manually.
-          // Ported tenant-gated rather than dropped; other tenants unaffected.
-          if (!paused && !dnsClient?.do_not_service && tenantId !== NYCMAID_TENANT_ID) {
-            const result = await askSelena('email', text || subject || '', threadId as string, undefined)
+          // nycmaid was excluded here (Yinez/Selena email auto-reply hardcoded
+          // off per Jeff 2026-05-29, ported from the standalone nycmaid app's
+          // own `if (true || paused ...)`) because she wasn't checking real
+          // schedule availability when replying. That's no longer true: Yinez
+          // is self-book-only on every client channel (she never creates a
+          // booking directly here — see CLIENT_TOOLS in selena/tools.ts, she
+          // always directs the client to the tenant's own booking form), and
+          // score_cleaners (the real per-cleaner smart-schedule ground truth)
+          // is mandatory on every channel including email. Re-enabled
+          // 2026-07-25 — confirmed via comhub_messages that this had silently
+          // stopped ALL nycmaid email auto-replies since 2026-07-22 (the FL
+          // cutover), not just "inconsistently."
+          if (!paused && !dnsClient?.do_not_service) {
+            // Channel-parity fix (2026-07-25, Jeff): email used to always pass
+            // phone=undefined, so Yinez's shared loadContext() (prior bookings,
+            // notes, preferred cleaner, remembered facts, owner detection) never
+            // fired for email the way it does for SMS/web -- the client lookup
+            // above already resolves the same clients row by email, so its phone
+            // gets Yinez the identical context SMS/web already get from theirs.
+            // tenantId is passed directly (this cron already knows it per
+            // account) instead of letting askSelena guess it from conversationId
+            // -- see the tenantId param doc on askSelena in selena/agent.ts.
+            const { data: priorInbound } = await supabaseAdmin
+              .from('comhub_messages')
+              .select('body, sent_at')
+              .eq('tenant_id', tenantId)
+              .eq('thread_id', threadId as string)
+              .eq('direction', 'in')
+              .lt('sent_at', sentAt)
+              .order('sent_at', { ascending: false })
+              .limit(5)
+            const recentInbounds = (priorInbound || []).map((m) => ({ message: (m.body as string) || '', created_at: m.sent_at as string }))
+            const result = await askSelena(
+              'email',
+              text || subject || '',
+              threadId as string,
+              dnsClient?.phone || undefined,
+              recentInbounds.length > 0 ? { recent_inbounds: recentInbounds } : undefined,
+              tenantId,
+            )
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
               const externalId = await sendReply(account, fromAddr, replySubject, result.text)

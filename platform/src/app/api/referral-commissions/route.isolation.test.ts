@@ -60,7 +60,11 @@ function seed() {
       { id: 'bk-a', tenant_id: A, price: 10000, referrer_id: 'rf-a' },
       { id: 'bk-b', tenant_id: A, price: 20000, referrer_id: 'rf-a' },
     ],
-    referrers: [{ id: 'rf-a', tenant_id: A, name: 'Ref A', email: 'r@x.com', commission_rate: 0.1, total_earned: 0 }],
+    // stripe_ineligible_at set: this suite is about permission/tenant
+    // isolation, not payout-method policy -- an un-ineligible, un-connected
+    // referrer can no longer be marked paid at all since 2026-07-22
+    // (CHANNEL.md 16:35/16:55).
+    referrers: [{ id: 'rf-a', tenant_id: A, name: 'Ref A', email: 'r@x.com', commission_rate: 0.1, total_earned: 0, stripe_ineligible_at: '2026-01-01T00:00:00.000Z' }],
     referral_commissions: [{ id: 'rc-a', tenant_id: A, booking_id: 'bk-a', referrer_id: 'rf-a', commission_cents: 1000, status: 'pending' }],
   }
 }

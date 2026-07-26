@@ -61,7 +61,7 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
   useEffect(() => {
     let alive = true
     Promise.all([
-      fetch('/api/team-members').then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      fetch('/api/cleaners').then((r) => (r.ok ? r.json() : [])).catch(() => []),
       fetch('/api/clients').then((r) => (r.ok ? r.json() : [])).catch(() => []),
     ]).then(([m, c]) => {
       if (!alive) return
@@ -209,6 +209,14 @@ function MapInner({ members, clients, national, selected }: {
     }
   }, [])
 
+  // deps intentionally exclude `map`/`national`: `map` is only read here to
+  // guard against re-creating an existing instance, not to react to its own
+  // change — listing it made this effect's cleanup (`m.remove()`) fire right
+  // after `setMap(m)` triggered the re-render, destroying the map a tick
+  // after creating it and leaving `map` state pointed at a torn-down
+  // instance. The next effect then called `.addTo(map)` on it, and Leaflet's
+  // internal marker-pane appendChild threw on the undefined pane. `national`
+  // only matters for the one-time initial center/zoom, not for re-runs.
   useEffect(() => {
     if (!L || !mapRef || map) return
     const center: [number, number] = national ? [39.5, -98.35] : [40.73, -73.94]
@@ -217,10 +225,11 @@ function MapInner({ members, clients, national, selected }: {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(m)
     setMap(m)
     return () => { m.remove() }
-  }, [L, mapRef, map, national])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [L, mapRef])
 
   useEffect(() => {
-    if (!L || !map) return
+    if (!L || !map || !map._container) return
     map.eachLayer((layer: any) => { if (layer._isMarker) map.removeLayer(layer) })
 
     clients.forEach((client) => {

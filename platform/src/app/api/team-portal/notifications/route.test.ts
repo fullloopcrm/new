@@ -6,12 +6,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * The mark-single-notification-read branch (`body.id`) only scoped the
  * update to `tenant_id`, with no check that the notification's
  * `recipient_id` actually belonged to the calling team member (or was a
- * tenant-wide broadcast, recipient_id IS NULL). Any authenticated team
- * member could silently mark ANY other member's personal notification as
- * read within the same tenant by guessing/enumerating its id — suppressing
- * their unread badge for e.g. a "you've been reassigned" alert. Fixed by
- * adding an `.or('recipient_id.eq.<caller>,recipient_id.is.null')` ownership
- * check, mirroring the GET branch's existing filter.
+ * genuine team-wide broadcast, recipient_id IS NULL AND recipient_type
+ * 'team_member'). Any authenticated team member could silently mark ANY
+ * other member's personal notification as read within the same tenant by
+ * guessing/enumerating its id — suppressing their unread badge for e.g. a
+ * "you've been reassigned" alert. Fixed by adding an
+ * `.or('recipient_id.eq.<caller>,and(recipient_id.is.null,recipient_type.eq.team_member)')`
+ * ownership check, mirroring the GET branch's existing filter. The
+ * recipient_type leg additionally keeps admin-only/audit rows (which also
+ * leave recipient_id unset) out of a cleaner's reach — see
+ * fullloop_portal_notifications_scoped_2026_07_23.md.
  */
 
 process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
@@ -20,14 +24,43 @@ const h = vi.hoisted(() => ({
   notifications: [] as Array<Record<string, unknown>>,
 }))
 
-// Minimal hand-rolled chain that actually implements `.or()` semantics
-// (the shared fake-supabase.ts explicitly no-ops `.or()`, which would make
-// this regression test pass identically before and after the fix).
-function parseOr(filter: string): Array<{ col: string; op: string; val: string }> {
-  return filter.split(',').map((clause) => {
-    const [col, op, val] = clause.split('.')
-    return { col, op, val }
-  })
+// Minimal hand-rolled chain that actually implements `.or()` semantics,
+// including a top-level `and(...)` group, since PostgREST filters here nest
+// one (recipient_id.is.null AND recipient_type.eq.team_member) inside the
+// OR. (The shared fake-supabase.ts explicitly no-ops `.or()`, which would
+// make this regression test pass identically before and after the fix.)
+function splitTopLevel(filter: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let current = ''
+  for (const ch of filter) {
+    if (ch === '(') depth++
+    if (ch === ')') depth--
+    if (ch === ',' && depth === 0) {
+      parts.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  if (current) parts.push(current)
+  return parts
+}
+
+function matchesClause(clause: string, row: Record<string, unknown>): boolean {
+  if (clause.startsWith('and(')) {
+    const inner = clause.slice(4, -1)
+    return splitTopLevel(inner).every((c) => matchesClause(c, row))
+  }
+  const [col, op, val] = clause.split('.')
+  if (op === 'eq') return row[col] === val
+  if (op === 'is') return val === 'null' ? row[col] === null || row[col] === undefined : false
+  return false
+}
+
+function parseOr(filter: string) {
+  const clauses = splitTopLevel(filter)
+  return (row: Record<string, unknown>) => clauses.some((c) => matchesClause(c, row))
 }
 
 vi.mock('@/lib/supabase', () => ({
@@ -47,14 +80,7 @@ vi.mock('@/lib/supabase', () => ({
           return chain
         },
         or: (filter: string) => {
-          const clauses = parseOr(filter)
-          filters.push((row) =>
-            clauses.some((c) => {
-              if (c.op === 'eq') return row[c.col] === c.val
-              if (c.op === 'is') return c.val === 'null' ? row[c.col] === null || row[c.col] === undefined : false
-              return false
-            })
-          )
+          filters.push(parseOr(filter))
           return chain
         },
         then: (resolve: (v: { data: unknown; error: null }) => void) => {
@@ -87,9 +113,12 @@ function putReq(body: unknown, token: string) {
 
 beforeEach(() => {
   h.notifications = [
-    { id: 'notif-mine', tenant_id: TENANT_A, recipient_id: MEMBER_A, read: false },
-    { id: 'notif-broadcast', tenant_id: TENANT_A, recipient_id: null, read: false },
-    { id: 'notif-someone-elses', tenant_id: TENANT_A, recipient_id: MEMBER_B, read: false },
+    { id: 'notif-mine', tenant_id: TENANT_A, recipient_id: MEMBER_A, recipient_type: 'team_member', read: false },
+    { id: 'notif-broadcast', tenant_id: TENANT_A, recipient_id: null, recipient_type: 'team_member', read: false },
+    { id: 'notif-someone-elses', tenant_id: TENANT_A, recipient_id: MEMBER_B, recipient_type: 'team_member', read: false },
+    // Admin-only audit row (e.g. a job-broadcast delivery summary): no
+    // recipient_id, and recipient_type is 'admin', not 'team_member'.
+    { id: 'notif-admin-only', tenant_id: TENANT_A, recipient_id: null, recipient_type: 'admin', read: false },
   ]
 })
 
@@ -100,7 +129,7 @@ describe('PUT /api/team-portal/notifications — recipient ownership', () => {
     expect(h.notifications.find((n) => n.id === 'notif-mine')?.read).toBe(true)
   })
 
-  it('marks a tenant-wide broadcast (recipient_id IS NULL) read', async () => {
+  it('marks a tenant-wide broadcast (recipient_id IS NULL, recipient_type team_member) read', async () => {
     const token = createToken(MEMBER_A, TENANT_A)
     await PUT(putReq({ id: 'notif-broadcast' }, token))
     expect(h.notifications.find((n) => n.id === 'notif-broadcast')?.read).toBe(true)
@@ -110,5 +139,11 @@ describe('PUT /api/team-portal/notifications — recipient ownership', () => {
     const token = createToken(MEMBER_A, TENANT_A)
     await PUT(putReq({ id: 'notif-someone-elses' }, token))
     expect(h.notifications.find((n) => n.id === 'notif-someone-elses')?.read).toBe(false)
+  })
+
+  it('WITNESS: does NOT mark an admin-only notification (recipient_type=admin) read', async () => {
+    const token = createToken(MEMBER_A, TENANT_A)
+    await PUT(putReq({ id: 'notif-admin-only' }, token))
+    expect(h.notifications.find((n) => n.id === 'notif-admin-only')?.read).toBe(false)
   })
 })
