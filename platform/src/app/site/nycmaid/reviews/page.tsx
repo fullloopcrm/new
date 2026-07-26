@@ -54,7 +54,7 @@ export default function ReviewsPage() {
         {/* CTA below reviews */}
         <div className="text-center mt-12 mb-8">
           <p className="text-gray-500 mb-4">Had a great experience? We&apos;d love to hear from you.</p>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-[#243352] transition-colors">
+          <Link href="/reviews/submit" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-[#243352] transition-colors">
             Write a Review
           </Link>
         </div>
