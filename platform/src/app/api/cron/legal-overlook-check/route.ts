@@ -4,6 +4,9 @@
  * (license expiring/missing, insurance expiring/missing). Deliberately does
  * NOT read comms/messages/free text — that would require interpreting
  * content live, which is the exact liability this feature is built to avoid.
+ * Tips are scoped to the tenant's actual trade (tenants.industry) AND actual
+ * business-address state (entities.state) — a NY plumber only ever sees
+ * NY + plumbing tips, never another trade's or another state's.
  * See src/app/dashboard/legal/page.tsx and migrations/2026_07_27_legal_overlook.sql.
  */
 import { NextResponse } from 'next/server'
@@ -85,6 +88,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, surfaced: 0 })
   }
 
+  // Business address state (entities.state) is the reliable "which state is
+  // this tenant in" signal — every tenant fills in an address, but licensing
+  // is optional. compliance.license_state is only a fallback for tenants
+  // whose default entity has no state on file yet.
+  const { data: entities } = await supabaseAdmin
+    .from('entities')
+    .select('tenant_id, state')
+    .in('tenant_id', tenants.map((t) => t.id))
+    .eq('is_default', true)
+  const entityStateByTenant = new Map((entities || []).map((e) => [e.tenant_id as string, e.state as string | null]))
+
   const triggersByTip = new Map<string, Trigger[]>()
   for (const t of triggers as Trigger[]) {
     const list = triggersByTip.get(t.tip_id) || []
@@ -97,7 +111,7 @@ export async function GET(request: Request) {
   for (const tenant of tenants) {
     const tradeKey = mapIndustry(tenant.industry as string | null)
     const compliance = (tenant.compliance as Compliance) || {}
-    const stateCode = compliance.license_state || null
+    const stateCode = entityStateByTenant.get(tenant.id) || compliance.license_state || null
 
     for (const tip of tips as Tip[]) {
       if (!tipApplies(tip, tradeKey, stateCode)) continue
