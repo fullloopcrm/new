@@ -31,7 +31,7 @@ async function fetchAllLineItems(): Promise<LineItemRow[]> {
   let offset = 0
   for (;;) {
     const { data, error } = await supabaseAdmin
-      .from('budget_line_items')
+      .from('budget_line_items') // tenant-scope-ok: /admin/finance is requireAdmin-gated; platform-wide job-costing rollup, intentionally cross-tenant.
       .select('quote_budget_id, budgeted_cents, actual_cents')
       .range(offset, offset + PAGE - 1)
     if (error) throw error

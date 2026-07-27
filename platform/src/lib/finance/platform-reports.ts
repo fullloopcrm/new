@@ -241,10 +241,11 @@ export interface LedgerIntegrity {
 export async function platformLedgerIntegrity(): Promise<LedgerIntegrity> {
   const todayStr = new Date().toISOString().slice(0, 10)
 
+  // tenant-scope-ok: platform-wide ledger integrity check for /admin/finance (requireAdmin-gated), intentionally cross-tenant — applies to all three queries below.
   const [unposted, futureDated, mostRecent] = await Promise.all([
-    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).eq('posted', false),
-    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).gt('entry_date', todayStr),
-    supabaseAdmin.from('journal_entries').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).eq('posted', false), // tenant-scope-ok: see comment above
+    supabaseAdmin.from('journal_entries').select('id', { count: 'exact', head: true }).gt('entry_date', todayStr), // tenant-scope-ok: see comment above
+    supabaseAdmin.from('journal_entries').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle(), // tenant-scope-ok: see comment above
   ])
 
   return {
