@@ -118,6 +118,11 @@ export async function POST(request: Request) {
       let bookingId = session.metadata?.booking_id
       let tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
+      // Set true only when bookingId resolves via the static/adjustable-amount
+      // Payment Link below (client_reference_id path) — the ONE checkout
+      // surface where the client types their own amount, so a tip can
+      // actually be real. See the tip-math comment further down.
+      let viaAdjustableAmountPayLink = false
 
       // Static pay-link path (NYC Maid parity): the link appends
       // ?client_reference_id=<bookingId> with no metadata. If it matches a real
@@ -158,6 +163,7 @@ export async function POST(request: Request) {
           if (linkMatchesTenant) {
             bookingId = refBooking.id
             tenantId = tenantId || refBooking.tenant_id
+            viaAdjustableAmountPayLink = true
           }
         }
       }
@@ -469,19 +475,37 @@ export async function POST(request: Request) {
       // 6ec48424 parity) apply there, not on top of an already-discounted price.
       const expectedCents = booking.price || (hours && booking.hourly_rate ? applyCredit(applyDiscount(Math.round(hours * booking.hourly_rate * 100), booking.discount_percent as number | null), booking.one_time_credit_cents as number | null) : 0)
 
-      // There is no tip mechanism in the booking checkout (fixed-price line
-      // item, no "add tip" step) -- amountCents can only differ from
-      // expectedCents because booking.price/hours/discount were edited after
-      // the payment link was created, not because a client left a tip.
-      // Treating that drift as a tip falsely told clients/cleaners a tip
-      // happened when it never did, and paid the cleaner the drift amount as
-      // a real Stripe transfer on top of their real rate. tipCents is kept
-      // (always 0) rather than removed outright because payments.tip_cents /
-      // bookings.tip_amount are still written and read elsewhere.
-      const tipCents = 0
+      // Tip is only possible on the static/adjustable-amount Payment Link
+      // (buy.stripe.com/... -- the 30-min-alert text and the daily payment
+      // follow-up send this one). That page literally reads "enter the total
+      // amount... including any tip if desired" and hands the client a blank
+      // box, so amountCents there is a real, client-chosen number and a
+      // positive gap over expectedCents can be a genuine tip.
+      //
+      // The OTHER checkout surface (/api/payments/checkout's fixed-price
+      // Stripe Checkout Session, one locked line item, no amount input) can
+      // NEVER carry a real tip -- there is no way for the client to pay
+      // anything other than the exact amount the session was created with.
+      // A previous version of this fix zeroed tipCents unconditionally for
+      // BOTH paths, which also silently discarded genuine client-entered tips
+      // on the adjustable-link path (and shorted cleaners the real tip
+      // amount on their payout) -- corrected here to only zero it for the
+      // fixed-price path.
+      //
+      // Note this still inherits the pre-existing weakness of the adjustable
+      // -link path: expectedCents is recalculated from booking.price at
+      // webhook time, so a price/hours edit between the 30-min alert and the
+      // client paying still reads as tip here too, same as before this fix
+      // existed. Not solved by this change -- would need the exact quoted
+      // amount stored at alert-time to fully close.
+      let tipCents = 0
       let isPartial = false
-      if (expectedCents > 0 && amountCents < expectedCents * 0.95) {
-        isPartial = true
+      if (expectedCents > 0) {
+        if (viaAdjustableAmountPayLink && amountCents >= expectedCents) {
+          tipCents = amountCents - expectedCents
+        } else if (amountCents < expectedCents * 0.95) {
+          isPartial = true
+        }
       }
 
       // 1. Insert payment row (capture id → post revenue to ledger immediately).
@@ -562,7 +586,8 @@ export async function POST(request: Request) {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
           // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
-          // pay_rate.
+          // pay_rate. A real tip (only possible via the adjustable-amount pay
+          // link — see tipCents above) passes through 100% on top.
           const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
           // Booking-level pay_rate is an admin override and must win over the
           // team member's own default rate (nycmaid 2428c8c4 precedence parity).
@@ -574,7 +599,7 @@ export async function POST(request: Request) {
           const teamSize = Math.max(1, (booking as { team_size?: number | null }).team_size || 1)
           const cleanerHours = applyTeamMinimum(Math.max(0.5, cleanerPaidHours((hours || 0) * 60)), teamSize)
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
-          const cleanerCents = cleanerBaseCents
+          const cleanerCents = cleanerBaseCents + tipCents
 
           // CLAIM the single payout slot BEFORE moving money. A conflict on the
           // UNIQUE(tenant_id, booking_id) index means the cleaner-checkout path
