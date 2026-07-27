@@ -4,6 +4,7 @@ import './schedule.css'
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
 import { Suspense, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
@@ -254,6 +255,7 @@ function BookingsPage() {
   }, [showModal, editingBooking?.client_id])
   const [copied, setCopied] = useState(false)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  const [resendMenuPos, setResendMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
   const [editCheckOutVal, setEditCheckOutVal] = useState<string | null>(null)
   const [showCloseOut, setShowCloseOut] = useState(false)
@@ -1758,15 +1760,34 @@ function BookingsPage() {
                       <div className="flex items-center justify-end gap-1">
                         {b.status !== 'cancelled' && (
                           <div className="relative">
-                            <button onClick={() => setResendMenuId(resendMenuId === b.id ? null : b.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors" title="Resend confirmation">
+                            <button
+                              onClick={(e) => {
+                                if (resendMenuId === b.id) {
+                                  setResendMenuId(null)
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setResendMenuPos({ top: rect.bottom + 4, left: rect.right - 130 })
+                                  setResendMenuId(b.id)
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                              title="Resend confirmation"
+                            >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                             </button>
-                            {resendMenuId === b.id && (
-                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[130px]">
-                                <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Email</button>
-                                <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Text</button>
-                                <button onClick={() => handleSend30MinAlert(b.id)} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors whitespace-nowrap">30-Min Alert</button>
-                              </div>
+                            {resendMenuId === b.id && resendMenuPos && createPortal(
+                              <>
+                                <div className="fixed inset-0 z-[9998]" onClick={() => setResendMenuId(null)} />
+                                <div
+                                  className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] py-1 min-w-[130px]"
+                                  style={{ top: resendMenuPos.top, left: resendMenuPos.left }}
+                                >
+                                  <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Email</button>
+                                  <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors">Text</button>
+                                  <button onClick={() => handleSend30MinAlert(b.id)} className="w-full text-left px-3 py-1.5 text-sm text-[var(--sched-ink)] hover:bg-gray-50 transition-colors whitespace-nowrap">30-Min Alert</button>
+                                </div>
+                              </>,
+                              document.body
                             )}
                           </div>
                         )}
