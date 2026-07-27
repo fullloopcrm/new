@@ -12,6 +12,7 @@ import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/th
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID ?? "";
 
@@ -123,6 +124,7 @@ export default function RootLayout({
         </ConsentGate>
         <ConsentBanner />
         <ClientErrorMonitor slug="the-nyc-exterminator" />
+        <TenantAnalyticsScript slug="the-nyc-exterminator" />
       </body>
     </html>
   );

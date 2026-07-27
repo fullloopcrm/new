@@ -10,6 +10,7 @@ import { PartnerBanner } from "@/app/site/consortium-nyc/_lib/brand";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -143,6 +144,7 @@ export default function RootLayout({
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
         <ClientErrorMonitor slug="consortium-nyc" />
+        <TenantAnalyticsScript slug="consortium-nyc" />
       </body>
     </html>
   );

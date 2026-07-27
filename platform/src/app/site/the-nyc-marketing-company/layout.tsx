@@ -9,6 +9,7 @@ import Footer from "@/app/site/the-nyc-marketing-company/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import ConsentGate from "@/components/consent/ConsentGate";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -138,6 +139,7 @@ export default function RootLayout({
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
         <ClientErrorMonitor slug="the-nyc-marketing-company" />
+        <TenantAnalyticsScript slug="the-nyc-marketing-company" />
       </body>
     </html>
   );
