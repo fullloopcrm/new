@@ -468,15 +468,19 @@ export async function POST(request: Request) {
       // 6ec48424 parity) apply there, not on top of an already-discounted price.
       const expectedCents = booking.price || (hours && booking.hourly_rate ? applyCredit(applyDiscount(Math.round(hours * booking.hourly_rate * 100), booking.discount_percent as number | null), booking.one_time_credit_cents as number | null) : 0)
 
-      // Tip = anything paid above expected (with 95% partial threshold)
-      let tipCents = 0
+      // There is no tip mechanism in the booking checkout (fixed-price line
+      // item, no "add tip" step) -- amountCents can only differ from
+      // expectedCents because booking.price/hours/discount were edited after
+      // the payment link was created, not because a client left a tip.
+      // Treating that drift as a tip falsely told clients/cleaners a tip
+      // happened when it never did, and paid the cleaner the drift amount as
+      // a real Stripe transfer on top of their real rate. tipCents is kept
+      // (always 0) rather than removed outright because payments.tip_cents /
+      // bookings.tip_amount are still written and read elsewhere.
+      const tipCents = 0
       let isPartial = false
-      if (expectedCents > 0) {
-        if (amountCents >= expectedCents) {
-          tipCents = amountCents - expectedCents
-        } else if (amountCents < expectedCents * 0.95) {
-          isPartial = true
-        }
+      if (expectedCents > 0 && amountCents < expectedCents * 0.95) {
+        isPartial = true
       }
 
       // 1. Insert payment row (capture id → post revenue to ledger immediately).
@@ -557,7 +561,7 @@ export async function POST(request: Request) {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
           // (booking.team_member_pay, cents); else compute cleaner-grace hours ×
-          // pay_rate. Tip passes through 100% on top.
+          // pay_rate.
           const storedPay = (booking as { team_member_pay?: number | null }).team_member_pay
           // Booking-level pay_rate is an admin override and must win over the
           // team member's own default rate (nycmaid 2428c8c4 precedence parity).
@@ -569,7 +573,7 @@ export async function POST(request: Request) {
           const teamSize = Math.max(1, (booking as { team_size?: number | null }).team_size || 1)
           const cleanerHours = applyTeamMinimum(Math.max(0.5, cleanerPaidHours((hours || 0) * 60)), teamSize)
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
-          const cleanerCents = cleanerBaseCents + tipCents
+          const cleanerCents = cleanerBaseCents
 
           // CLAIM the single payout slot BEFORE moving money. A conflict on the
           // UNIQUE(tenant_id, booking_id) index means the cleaner-checkout path
@@ -648,14 +652,13 @@ export async function POST(request: Request) {
         }
       }
 
-      // 5. SMS the cleaner with payment + tip (bilingual)
+      // 5. SMS the cleaner with payment confirmation (bilingual). No tip
+      // mention — there is no tip mechanism in this checkout, so any "tip"
+      // language here was always a false positive (see tipCents above).
       if (tm?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const isEs = tm.preferred_language === 'es'
-        const tipNote = tipCents > 0
-          ? (isEs ? `\n\n¡Propina de $${(tipCents / 100).toFixed(0)}! 💰` : `\n\nClient tipped $${(tipCents / 100).toFixed(0)}! 💰`)
-          : ''
         // NYC Maid rule: the cleaner is NOT shown the client's total/details —
-        // only that payment landed (+ their own tip). No client charge amount.
+        // only that payment landed. No client charge amount.
         // NYC Maid parity restore (2026-07-25): the old independent build told
         // the cleaner to finish up and check out once payment was confirmed —
         // that's the actual signal the cleaner is waiting on 30 min before the
@@ -667,8 +670,8 @@ export async function POST(request: Request) {
               : ' You can finish up and check out when ready.')
           : ''
         const body = isEs
-          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}${tipNote}`
-          : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}${tipNote}`
+          ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}`
+          : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}`
         sendSMS({
           to: tm.phone,
           body,
@@ -677,10 +680,10 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[stripe] cleaner SMS failed:', err))
       }
 
-      // 6. SMS client a thank-you
+      // 6. SMS client a thank-you. No tip mention — there is no tip
+      // mechanism in this checkout to have generated one.
       if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
-        const tipLine = tipCents > 0 ? ` and the ${(tipCents / 100).toFixed(0)} tip` : ''
-        const body = `Thanks for the payment of $${(amountCents / 100).toFixed(0)}${tipLine}! 😊 — ${tenant.name || ''}`
+        const body = `Thanks for the payment of $${(amountCents / 100).toFixed(0)}! 😊 — ${tenant.name || ''}`
         sendSMS({
           to: client.phone,
           body,
@@ -692,9 +695,8 @@ export async function POST(request: Request) {
       // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only
       // the in-app notification fired, so the owner never got a text). Admin DOES
       // see the total (unlike the cleaner).
-      const tipNote = tipCents > 0 ? ` (tip $${(tipCents / 100).toFixed(0)})` : ''
       const payoutNote = payoutSent ? ' Cleaner paid out.' : ''
-      const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${tipNote}${payoutNote} Client + cleaner notified.`
+      const adminMsg = `Stripe payment CONFIRMED — ${client?.name || 'Client'} paid $${(amountCents / 100).toFixed(2)}.${payoutNote} Client + cleaner notified.`
       // Gated on the same "Payment received" toggle as the email leg —
       // previously ungated, so turning the setting off didn't stop this text.
       // adminMsg itself stays unconditional: the Telegram parity block below
@@ -728,7 +730,7 @@ export async function POST(request: Request) {
         tenant_id: tenantId,
         type: 'payment_received',
         title: `Payment Received — $${(amountCents / 100).toFixed(2)}`,
-        message: `${client?.name || 'Client'} paid for booking #${bookingId.slice(0, 8)}${tipCents > 0 ? ` (tip: $${(tipCents / 100).toFixed(2)})` : ''}${payoutSent ? ' — cleaner paid out' : ''}`,
+        message: `${client?.name || 'Client'} paid for booking #${bookingId.slice(0, 8)}${payoutSent ? ' — cleaner paid out' : ''}`,
         channel: 'in_app',
       })
 
