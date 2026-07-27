@@ -10,6 +10,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { logQuoteEvent } from '@/lib/quote'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -19,7 +20,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
-      .select('id, tenant_id, quote_number, title, status, contact_email, deposit_cents, deposit_paid_cents, tenants(name, domain, stripe_api_key, stripe_account_id)')
+      .select('id, tenant_id, quote_number, title, status, contact_email, deposit_cents, deposit_paid_cents, tenants(name, slug, domain, stripe_api_key, stripe_account_id)')
       .eq('public_token', token)
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -32,6 +33,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const tenant = quote.tenants as unknown as {
       name: string
+      slug: string | null
       domain: string | null
       stripe_api_key: string | null
       stripe_account_id: string | null
@@ -43,8 +45,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
+    const baseUrl = tenantSiteUrl(tenant)
     const returnUrl = `${baseUrl}/quote/${token}`
 
     const session = await stripe.checkout.sessions.create({

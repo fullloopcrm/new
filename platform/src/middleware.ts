@@ -422,9 +422,15 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // API routes + tenant-scoped app routes that live at the root are NOT
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.
+  // /quote, /invoice, /sign, /photos are public, token-authed pages
+  // (src/app/quote/[token] etc.) — also root-level, not under /site/<slug>.
+  // Without this, a proposal/invoice/agreement/photo-share link sent to a
+  // tenant's own domain rewrote to a nonexistent /site/<slug>/quote/... page
+  // and 404d for every tenant.
   const APP_ROOT_PREFIXES = [
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
+    '/quote', '/invoice', '/sign', '/photos',
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)

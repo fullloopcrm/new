@@ -147,11 +147,26 @@ const ACT_ICON: Record<string, string> = {
   auto_created: '✨',
 }
 
+// Forward-only pipeline order (excludes the terminal 'lost' branch).
+const STAGE_ORDER: Stage[] = ['new', 'qualifying', 'quoted', 'pending', 'sold']
+
+// A deal can only move to its immediate next stage, back to Lost from any
+// open stage, or reopened to Lead from Lost — never skip a stage (e.g. Lead
+// straight to Quote, bypassing Qualify).
+export function nextStageOptions(stage: string): Stage[] {
+  if (stage === 'lost') return ['new']
+  const idx = STAGE_ORDER.indexOf(stage as Stage)
+  const forward = idx > -1 && idx < STAGE_ORDER.length - 1 ? [STAGE_ORDER[idx + 1]] : []
+  return stage === 'sold' ? forward : [...forward, 'lost']
+}
+
 interface StageDropdownProps {
   stage: string
   onSelect: (stage: string) => void
 }
 // Custom-styled replacement for a native <select> — same trigger/position, no OS chrome.
+// Only offers the current stage (display-only) plus valid forward moves — see
+// nextStageOptions() — so this can't be used to skip pipeline steps.
 function StageDropdown({ stage, onSelect }: StageDropdownProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -188,16 +203,16 @@ function StageDropdown({ stage, onSelect }: StageDropdownProps) {
       </button>
       {open && (
         <ul className="sl-row-move-list" role="listbox">
-          {STAGES.map((s) => (
-            <li key={s.key} role="presentation">
+          {nextStageOptions(stage).map((key) => (
+            <li key={key} role="presentation">
               <button
                 type="button"
                 role="option"
-                aria-selected={s.key === stage}
-                className={`sl-row-move-opt ${s.key === stage ? 'active' : ''}`}
-                onClick={() => { setOpen(false); onSelect(s.key) }}
+                aria-selected={false}
+                className="sl-row-move-opt"
+                onClick={() => { setOpen(false); onSelect(key) }}
               >
-                {s.label}
+                {STAGES.find((s) => s.key === key)?.label ?? key}
               </button>
             </li>
           ))}
@@ -529,7 +544,7 @@ function SalesPageInner() {
                       <div className="sl-actions">
                         {d.stage === 'new' && (
                           <>
-                            <button type="button" className="sl-act-btn go" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'qualifying')}>Move to Qualify</button>
+                            <button type="button" className="sl-act-btn go" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'qualifying')}>Go to Qualifying</button>
                             <span className="sl-action-hint">Or log a call/text/email below to move this into Qualify.</span>
                           </>
                         )}
