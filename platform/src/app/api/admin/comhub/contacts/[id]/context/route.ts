@@ -117,7 +117,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (teamMemberId) {
     const { data: tm } = await db
       .from('team_members')
-      .select('id, name, email, phone, active, hourly_rate, avg_rating, rating_count, has_car, created_at')
+      .select('id, name, email, phone, active, pay_rate, avg_rating, rating_count, has_car, created_at')
       .eq('id', teamMemberId)
       .single()
     teamMember = tm
