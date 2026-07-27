@@ -47,36 +47,56 @@ export async function GET(request: NextRequest) {
       booking_count: bookings?.length || 0,
     }
 
-    // Monthly revenue breakdown (last 12 months)
+    // Calendar-year monthly breakdown, Jan through the current month, ledger-
+    // sourced per month (not raw bookings — same ledger-truth rule as the
+    // headline total above). Months after the current one are "pending": no
+    // actual yet, with a forecast so the trailing chart shows a full year
+    // instead of stopping dead at today. Forecast method is deliberately
+    // simple (average of this year's completed months) — flagged as a
+    // starting point, not a real forecasting model.
     if (request.nextUrl.searchParams.get('monthly') === 'true') {
-      const twelveMonthsAgo = new Date(now.getTime() - 366 * 24 * 60 * 60 * 1000)
+      const year = todayCal.year
+      const currentMonthIndex = todayCal.month // 0-indexed, matches todayCal.month usage above
 
-      const { data: monthlyBookings } = await db
-        .from('bookings')
-        .select('price, payment_date')
-        .eq('payment_status', 'paid')
-        .gte('payment_date', twelveMonthsAgo.toISOString())
-
-      const monthMap: Record<string, number> = {}
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: timezone })
-        monthMap[key] = 0
+      const monthBounds = (m: number) => {
+        const from = `${year}-${String(m + 1).padStart(2, '0')}-01`
+        const lastDay = new Date(year, m + 1, 0).getDate()
+        const to = `${year}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+        return { from, to }
       }
+      const monthLabel = (m: number) => new Date(Date.UTC(year, m, 1)).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })
 
-      for (const b of monthlyBookings || []) {
-        if (b.payment_date) {
-          const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: timezone })
-          if (key in monthMap) {
-            monthMap[key] += (b.price || 0) / 100
-          }
+      const actuals = await Promise.all(
+        Array.from({ length: currentMonthIndex + 1 }, (_, m) => monthBounds(m)).map(({ from, to }) =>
+          ledgerProfitAndLoss(tenantId, from, to).then((p) => p.revenue_cents / 100),
+        ),
+      )
+
+      const completedActuals = actuals.slice(0, currentMonthIndex) // strictly before the in-progress current month
+      const avgCompleted = completedActuals.length > 0 ? completedActuals.reduce((s, v) => s + v, 0) / completedActuals.length : null
+
+      const monthly = Array.from({ length: 12 }, (_, m) => {
+        const isPending = m > currentMonthIndex
+        const isCurrent = m === currentMonthIndex
+        return {
+          month: monthLabel(m),
+          actual: isPending ? null : actuals[m],
+          forecast: isCurrent || isPending ? avgCompleted : null,
+          isPending,
+          isCurrent,
         }
-      }
+      })
+
+      const pendingCount = monthly.filter((m) => m.isPending).length
+      const ytdActual = actuals.reduce((s, v) => s + v, 0)
+      const projectedFullYearRevenue = avgCompleted != null ? ytdActual + avgCompleted * pendingCount : null
 
       return NextResponse.json({
         ...existingData,
-        monthly: Object.entries(monthMap).map(([month, amount]) => ({ month, amount }))
+        monthly,
+        forecastMethod: 'average of completed months this year',
+        ytdActual,
+        projectedFullYearRevenue,
       })
     }
 

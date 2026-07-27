@@ -3,6 +3,7 @@ import { unstable_cache } from 'next/cache'
 import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 import { crewNames, type CrewRow } from '@/lib/crew'
@@ -302,13 +303,17 @@ export default async function DashboardPage() {
   const mapRangeStart = new Date(Math.min(startOfWeekNaive.getTime(), startOfMonthNaive.getTime()))
   const mapRangeEnd = new Date(Math.max(endOfWeekNaive.getTime(), endOfMonthNaive.getTime()))
 
-  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows] = await Promise.all([
+  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl] = await Promise.all([
     fetchYearBookingsCached(tenant.id, startOfYearNaive.toISOString(), endOfYearNaive.toISOString()),
     fetchRosterCountCached(tenant.id),
     fetchNewClientsCountCached(tenant.id, startOfMonth.toISOString()),
     fetchLeadVisitsCached(tenant.id),
     fetchQuotesForStatsCached(tenant.id),
     fetchMapRowsCached(tenant.id, mapRangeStart.toISOString(), mapRangeEnd.toISOString()),
+    // Ledger-true YTD, replacing a raw sum() over bookings — same ledger-vs-
+    // raw-table bug already fixed on /dashboard/finance and /admin/finance,
+    // now fixed here too so all three surfaces report the same "Actual".
+    ledgerProfitAndLoss(tenant.id, yearStartYMD, todayYMD),
   ])
 
   const mapJobs = mapRows.map((r) => ({
@@ -345,7 +350,11 @@ export default async function DashboardPage() {
   const ar90 = sum(toCollect.filter(j => ageDays(j) > 60))
 
   const recurringJobs = all2026.filter(j => j.schedule_id != null)
-  const recurringPct = scheduled2026Total > 0 ? Math.round((sum(recurringJobs) / scheduled2026Total) * 100) : 0
+  // Was revenue-weighted (sum($) / sum($)) while the tile's own subtitle
+  // ("N of M jobs") is a job-COUNT ratio — the two disagreed (31% vs the
+  // 42% "377 of 896" implied). Job-count-weighted matches the subtitle it's
+  // displayed next to and is the more standard "recurring rate" definition.
+  const recurringPct = all2026.length > 0 ? Math.round((recurringJobs.length / all2026.length) * 100) : 0
   const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
 
   // nycmaid's V1 build includes a one-off January-actual adjustment (pre-migration
@@ -356,12 +365,15 @@ export default async function DashboardPage() {
     ? NYCMAID_JANUARY_ACTUAL_CENTS + scheduled2026Total
     : scheduled2026Total
 
-  const revenueLadder = [
+  const revenueLadder: Array<{ label: string; val: number; jobs: number; emphasize: boolean; note?: string }> = [
     { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
     { label: 'Week', val: sum(collectedWeek), jobs: collectedWeek.length, emphasize: false },
     { label: monthShort, val: sum(collectedMonth), jobs: collectedMonth.length, emphasize: false },
-    { label: `${yearStr} · Actual`, val: sum(collectedYear), jobs: collectedYear.length, emphasize: true },
-    { label: `${yearStr} · Projected`, val: projectedRevenue, jobs: all2026.length, emphasize: true },
+    { label: `${yearStr} · Actual`, val: ytdPnl.revenue_cents, jobs: collectedYear.length, emphasize: true },
+    {
+      label: `${yearStr} · Projected`, val: projectedRevenue, jobs: all2026.length, emphasize: true,
+      note: tenant.id === NYCMAID_TENANT_ID ? `incl. $${(NYCMAID_JANUARY_ACTUAL_CENTS / 100).toLocaleString()} pre-migration Jan` : undefined,
+    },
   ]
   const volumeLadder = [
     { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
@@ -442,6 +454,7 @@ export default async function DashboardPage() {
             <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
             <div style={{ fontFamily: V.display, fontSize: c.emphasize ? '32px' : '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(c.val)}</div>
             <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.jobs} jobs</div>
+            {c.note && <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.warn, marginTop: 3 }}>{c.note}</div>}
           </div>
         ))}
       </div>

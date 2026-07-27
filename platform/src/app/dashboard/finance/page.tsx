@@ -3,22 +3,30 @@
 import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { useUserPrefs } from '@/lib/use-user-prefs'
-import Link from 'next/link'
 import './finance.css'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import BankTransactionsPage from './transactions/page'
+import ReceiptsPage from './receipts/page'
+import BooksPage from '../books/page'
+import ReconcilePage from './reconcile/page'
+import FinanceReportsPage from './reports/page'
+import FinanceClosePage from './close/page'
+import CpaAccessPage from './cpa-access/page'
 
-type Tab = 'overview'
-// The finance PROCESS, left→right — one connected hub. Overview lives on this
-// page; each other step links to the surface that owns it. No outside stacks.
-const PROCESS: Array<{ letter: string; label: string; href: string }> = [
-  { letter: 'A', label: 'Overview', href: '/dashboard/finance' },
-  { letter: 'B', label: 'Transactions', href: '/dashboard/finance/transactions' },
-  { letter: 'C', label: 'Expenses', href: '/dashboard/finance/receipts' },
-  { letter: 'D', label: 'Ledger & Payroll', href: '/dashboard/books' },
-  { letter: 'E', label: 'Reconcile', href: '/dashboard/finance/reconcile' },
-  { letter: 'F', label: 'Reports', href: '/dashboard/finance/reports' },
-  { letter: 'G', label: 'Close', href: '/dashboard/finance/close' },
-  { letter: 'H', label: 'Accountant', href: '/dashboard/finance/cpa-access' },
+// True in-page tabs — no route change, no navigation, no back button.
+// Content for the 7 non-Overview tabs is each surface's existing, real page
+// component rendered inline (not rebuilt/stubbed) — only the shell around
+// them changed from "separate route" to "same page, swapped content".
+type Tab = 'overview' | 'transactions' | 'expenses' | 'ledger' | 'reconcile' | 'reports' | 'close' | 'accountant'
+const TAB_DEFS: Array<{ key: Tab; letter: string; label: string }> = [
+  { key: 'overview', letter: 'A', label: 'Overview' },
+  { key: 'transactions', letter: 'B', label: 'Transactions' },
+  { key: 'expenses', letter: 'C', label: 'Expenses' },
+  { key: 'ledger', letter: 'D', label: 'Ledger & Payroll' },
+  { key: 'reconcile', letter: 'E', label: 'Reconcile' },
+  { key: 'reports', letter: 'F', label: 'Reports' },
+  { key: 'close', letter: 'G', label: 'Close' },
+  { key: 'accountant', letter: 'H', label: 'Accountant' },
 ]
 
 type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'ytd' | 'custom'
@@ -39,6 +47,9 @@ type Summary = {
   monthLaborPaid?: number
   yearRevenue?: number
   yearLabor?: number
+  yearContracted?: number
+  yearContractedJobs?: number
+  yearContractedGap?: number
   pendingClientPayments?: number
   pendingCleanerPayments?: number
 }
@@ -69,6 +80,10 @@ export default function FinancePage() {
   const [summary, setSummary] = useState<Summary>({})
   const [totals, setTotals] = useState<EnrichedTotals | null>(null)
   const [topClients, setTopClients] = useState<Array<{ name: string; amount_cents: number; meta: string; vip: boolean }>>([])
+  const [monthlyTrend, setMonthlyTrend] = useState<
+    Array<{ month: string; actual: number | null; forecast: number | null; isPending: boolean; isCurrent: boolean }>
+  >([])
+  const [projectedFullYearRevenue, setProjectedFullYearRevenue] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -76,9 +91,12 @@ export default function FinancePage() {
     Promise.all([
       fetch('/api/finance/summary').then((r) => r.json()).catch(() => ({})),
       fetch('/api/clients/enriched').then((r) => r.json()).catch(() => ({ clients: [], totals: null })),
-    ]).then(([s, e]) => {
+      fetch('/api/finance/revenue?monthly=true').then((r) => r.json()).catch(() => ({ monthly: [] })),
+    ]).then(([s, e, rev]) => {
       setSummary(s || {})
       setTotals(e?.totals || null)
+      setMonthlyTrend(rev?.monthly || [])
+      setProjectedFullYearRevenue(rev?.projectedFullYearRevenue ?? null)
       const cs = (e?.clients || []) as Array<{
         name: string
         ltv_actual_cents: number
@@ -131,17 +149,26 @@ export default function FinancePage() {
       </div>
 
       <div className="fin-tabs">
-        {PROCESS.map((t) =>
+        {[
+          { href: '/dashboard/finance', letter: 'A', label: 'Overview' },
+          { href: '/dashboard/finance/transactions', letter: 'B', label: 'Transactions' },
+          { href: '/dashboard/finance/receipts', letter: 'C', label: 'Expenses' },
+          { href: '/dashboard/books', letter: 'D', label: 'Ledger & Payroll' },
+          { href: '/dashboard/finance/reconcile', letter: 'E', label: 'Reconcile' },
+          { href: '/dashboard/finance/reports', letter: 'F', label: 'Reports' },
+          { href: '/dashboard/finance/close', letter: 'G', label: 'Close' },
+          { href: '/dashboard/finance/cpa-access', letter: 'H', label: 'Accountant' },
+        ].map((t) =>
           t.href === '/dashboard/finance' ? (
             <span key={t.label} className="fin-tab active">
               <span className="fin-tab-letter">{t.letter}</span>
               {t.label}
             </span>
           ) : (
-            <Link key={t.label} href={t.href} className="fin-tab">
+            <a key={t.label} href={t.href} className="fin-tab">
               <span className="fin-tab-letter">{t.letter}</span>
               {t.label}
-            </Link>
+            </a>
           ),
         )}
       </div>
@@ -184,16 +211,21 @@ export default function FinancePage() {
 
       {tab === 'overview' && (
         <>
-          {/* HERO CHART (visual mock — TODO: wire trailing 12 months from /api/finance/revenue) */}
+          {/* HERO CHART — calendar-year Jan→now, ledger-sourced actuals; remaining
+              months shown pending with a simple forecast (avg of completed
+              months this year) so the year reads as a whole, not a dead stop. */}
           <div className="fin-chart-section">
             <div className="fin-chart-head">
               <div className="fin-chart-title-block">
-                <span className="fin-chart-title">Revenue · Trailing 12 Months</span>
+                <span className="fin-chart-title">Revenue · {new Date().getFullYear()}</span>
                 <span className="fin-chart-big-num">${fmt(yearRev)}</span>
                 <div className="fin-chart-meta-row">
                   <span><strong>${fmt(monthRev)}</strong> this month</span>
                   <span className="good">↗ live</span>
                   <span><strong>{marginPct}%</strong> net margin</span>
+                  {projectedFullYearRevenue != null && (
+                    <span>projected full year <strong>${Math.round(projectedFullYearRevenue).toLocaleString('en-US')}</strong></span>
+                  )}
                 </div>
               </div>
               <div className="fin-chart-mode">
@@ -204,43 +236,128 @@ export default function FinancePage() {
               </div>
             </div>
             <div className="fin-chart-canvas">
-              <svg className="fin-chart-svg" viewBox="0 0 1200 240" preserveAspectRatio="none">
-                <line x1="0" y1="60" x2="1200" y2="60" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                <line x1="0" y1="120" x2="1200" y2="120" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                <line x1="0" y1="180" x2="1200" y2="180" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
-                {[
-                  { x: 50, h: 14, op: 0.2 },
-                  { x: 138, h: 18, op: 0.2 },
-                  { x: 226, h: 22, op: 0.25 },
-                  { x: 314, h: 28, op: 0.3 },
-                  { x: 402, h: 35, op: 0.35 },
-                  { x: 490, h: 50, op: 0.4 },
-                  { x: 578, h: 70, op: 0.5 },
-                  { x: 666, h: 85, op: 0.6 },
-                  { x: 754, h: 105, op: 0.7 },
-                  { x: 842, h: 120, op: 0.8 },
-                  { x: 930, h: 140, op: 0.9 },
-                  { x: 1018, h: 152, op: 1, current: true },
-                ].map((b, i) => (
-                  <rect
-                    key={i}
-                    x={b.x}
-                    y={230 - b.h}
-                    width="64"
-                    height={b.h}
-                    fill={b.current ? '#1C1C1C' : '#3A3A3A'}
-                    opacity={b.op}
-                    rx="2"
-                  />
-                ))}
+              <svg className="fin-chart-svg" viewBox="0 0 1200 320" preserveAspectRatio="none">
+                <line x1="0" y1="80" x2="1200" y2="80" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                <line x1="0" y1="160" x2="1200" y2="160" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                <line x1="0" y1="240" x2="1200" y2="240" stroke="#E4E2DC" strokeWidth="1" strokeDasharray="2,3" />
+                {(() => {
+                  const maxAmount = Math.max(...monthlyTrend.map((m) => m.actual ?? 0), ...monthlyTrend.map((m) => m.forecast ?? 0), 1)
+                  return monthlyTrend.map((m, i) => {
+                    const value = m.isPending ? m.forecast : m.actual
+                    const h = value && value > 0 ? Math.max((value / maxAmount) * 190, 2) : 0
+                    const x = 50 + i * 88
+                    return (
+                      <g key={m.month}>
+                        {value != null && value > 0 && (
+                          <text
+                            x={x + 32}
+                            y={300 - h - 10}
+                            textAnchor="middle"
+                            fontSize="13"
+                            fontWeight={m.isCurrent ? 700 : 500}
+                            fill={m.isPending ? 'var(--fin-warn, #8B4513)' : 'var(--fin-ink, #1C1C1C)'}
+                          >
+                            ${Math.round(value).toLocaleString('en-US')}
+                          </text>
+                        )}
+                        <rect
+                          x={x}
+                          y={300 - h}
+                          width="64"
+                          height={h}
+                          fill={m.isCurrent ? '#1C1C1C' : '#3A3A3A'}
+                          opacity={m.isPending ? 0.18 : 0.2 + (i / 11) * 0.8}
+                          strokeDasharray={m.isPending ? '4,3' : undefined}
+                          stroke={m.isPending ? '#3A3A3A' : undefined}
+                          strokeWidth={m.isPending ? 1 : undefined}
+                          rx="2"
+                        />
+                      </g>
+                    )
+                  })
+                })()}
               </svg>
             </div>
             <div className="fin-chart-x-labels">
-              {['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'].map((m, i) => (
-                <span key={m} className={`fin-chart-x-label ${i === 11 ? 'current' : ''}`}>{m}{i === 11 ? ' ●' : ''}</span>
+              {monthlyTrend.map((m, i) => (
+                <span key={m.month} className={`fin-chart-x-label ${m.isCurrent ? 'current' : ''}`}>
+                  {m.month}{m.isCurrent ? ' ●' : ''}{m.isPending ? ' (forecast)' : ''}
+                </span>
               ))}
             </div>
           </div>
+
+          {/* MONTH-BY-MONTH BREAKDOWN — actual vs. forecast, side by side */}
+          <div className="fin-panel" style={{ marginBottom: 24 }}>
+            <div className="fin-panel-head">
+              <span className="fin-panel-label">Month-by-Month · {new Date().getFullYear()}</span>
+              <span className="fin-panel-cta" style={{ cursor: 'default' }}>Avg-of-completed-months forecast</span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: 'var(--fin-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <th style={{ padding: '8px 12px' }}>Month</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actual</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Forecast</th>
+                  <th style={{ padding: '8px 12px', textAlign: 'right' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrend.map((m) => (
+                  <tr key={m.month} style={{ borderTop: '1px solid var(--fin-line-soft)' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>{m.month}{m.isCurrent ? ' (in progress)' : ''}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>{m.actual != null ? `$${fmt(m.actual * 100)}` : '—'}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--fin-muted)' }}>
+                      {m.forecast != null ? `$${fmt(m.forecast * 100)}` : '—'}
+                    </td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: m.isPending ? 'rgba(139,69,19,0.1)' : m.isCurrent ? 'rgba(28,28,28,0.06)' : 'rgba(31,77,44,0.1)',
+                          color: m.isPending ? 'var(--fin-warn)' : m.isCurrent ? 'var(--fin-ink)' : 'var(--fin-good)',
+                        }}
+                      >
+                        {m.isPending ? 'Forecast' : m.isCurrent ? 'In progress' : 'Actual'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* CONTRACTED VS COLLECTED — the dashboard homepage's "Jobs · YTD" total
+              (every booked job this year, any payment status) vs. this page's
+              ledger-recognized revenue. Same underlying bookings, two honest
+              different numbers — this is what "the gap" actually is. */}
+          {summary.yearContracted != null && (
+            <div className="fin-panel" style={{ marginBottom: 24, padding: 20 }}>
+              <div className="fin-panel-head" style={{ marginBottom: 12 }}>
+                <span className="fin-panel-label">Contracted vs. Collected · YTD</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--fin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Contracted ({summary.yearContractedJobs} jobs)
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>${fmt(summary.yearContracted)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--fin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Collected (ledger)</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>${fmt(yearRev)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--fin-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Gap (not yet collected)</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, marginTop: 4, color: 'var(--fin-warn)' }}>
+                    ${fmt(summary.yearContractedGap ?? 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* PANEL GRID */}
           <div className="fin-panel-grid">
