@@ -11,6 +11,7 @@ import { smsAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { notify } from '@/lib/nycmaid/notify'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { getSettings } from '@/lib/settings'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -1249,7 +1250,22 @@ async function handleListRecurring(input: { client_id?: string; status?: string 
   return JSON.stringify({ count: (data || []).length, schedules: data || [] })
 }
 
+// Kill switch check shared by every Yinez recurring-write tool. Settings ->
+// Calendar -> "Pause automated recurring writes" -- refuses before any
+// mutation runs, so flipping it off is instant (no deploy) and existing
+// schedules/bookings are never touched by this refusal.
+async function refuseIfRecurringWritesPaused(tid: string): Promise<string | null> {
+  const { recurring_writes_paused } = await getSettings(tid)
+  if (!recurring_writes_paused) return null
+  return JSON.stringify({
+    error: 'recurring_writes_paused',
+    message: 'Automated recurring-schedule changes are paused for this tenant right now. Tell the client you\'ll follow up, or have an admin make this change directly in the dashboard.',
+  })
+}
+
 async function handlePauseRecurring(input: { schedule_id: string; until_date?: string }, tid: string): Promise<string> {
+  const blocked = await refuseIfRecurringWritesPaused(tid)
+  if (blocked) return blocked
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'paused', paused_until: input.until_date || null })
@@ -1260,6 +1276,8 @@ async function handlePauseRecurring(input: { schedule_id: string; until_date?: s
 }
 
 async function handleResumeRecurring(input: { schedule_id: string }, tid: string): Promise<string> {
+  const blocked = await refuseIfRecurringWritesPaused(tid)
+  if (blocked) return blocked
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'active', paused_until: null })
@@ -1270,6 +1288,8 @@ async function handleResumeRecurring(input: { schedule_id: string }, tid: string
 }
 
 async function handleCancelRecurring(input: { schedule_id: string; reason?: string }, tid: string): Promise<string> {
+  const blocked = await refuseIfRecurringWritesPaused(tid)
+  if (blocked) return blocked
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'cancelled' })

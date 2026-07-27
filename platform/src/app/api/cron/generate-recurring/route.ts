@@ -58,6 +58,13 @@ export async function GET(request: Request) {
   let totalGenerated = 0
 
   for (const schedule of schedules) {
+    // Kill switch: Settings -> Calendar -> "Pause automated recurring
+    // writes". Skip this tenant's auto-generation entirely -- no new
+    // bookings, no reassignment, no notifications. Existing bookings/
+    // schedules are untouched; a human admin can still act manually.
+    const { recurring_writes_paused } = await getSettings(schedule.tenant_id)
+    if (recurring_writes_paused) continue
+
     // Find the latest booking for this schedule
     const { data: latest } = await supabaseAdmin
       .from('bookings')

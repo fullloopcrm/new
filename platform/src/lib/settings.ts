@@ -57,6 +57,14 @@ export interface TenantSettings {
   // (preferred member kept if available, else best-scoring member, else
   // unassigned) instead of hard-locking the schedule's member. Default OFF.
   smart_recurring_assign: boolean
+  // Kill switch: when true, every AUTOMATED write to recurring schedules is
+  // refused -- Yinez's pause_recurring/resume_recurring/cancel_recurring
+  // tool calls, and the cron's auto-generation/auto-assignment for this
+  // tenant. Existing bookings/schedules are untouched; a human admin can
+  // still act manually via the dashboard. Toggled from Settings -> Calendar,
+  // takes effect immediately (no deploy) since every gate reads it live via
+  // getSettings(). Default OFF.
+  recurring_writes_paused: boolean
   // Referrals & Policies
   commission_rate: number       // percentage, e.g. 10
   active_client_threshold_days: number
@@ -233,6 +241,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),
     smart_recurring_assign: Boolean(selenaConfig.smart_recurring_assign),
+    recurring_writes_paused: Boolean(selenaConfig.recurring_writes_paused),
     commission_rate: Number(tenant?.commission_rate ?? 10),
     active_client_threshold_days: Number(tenant?.active_client_threshold_days ?? 45),
     at_risk_threshold_days: Number(tenant?.at_risk_threshold_days ?? 90),

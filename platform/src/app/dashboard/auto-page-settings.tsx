@@ -96,6 +96,7 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'allow_same_day', label: 'Allow same-day booking', type: 'toggle', layer: 'tenant_column', default: false, helper: 'Overrides minimum days ahead for today only.' },
       { key: 'open_365', label: 'Open 365 days/year', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'When off, federal holidays block booking/availability.' },
       { key: 'smart_recurring_assign', label: 'Smart-assign recurring jobs', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'Each generated recurring occurrence gets the best-available team member instead of hard-locking the schedule’s original assignee.' },
+      { key: 'recurring_writes_paused', label: 'Pause automated recurring writes', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'Kill switch: instantly blocks Yinez from pausing/resuming/cancelling recurring schedules and stops the auto-generation cron from creating or reassigning bookings. Existing schedules/bookings are untouched, and you can still act manually. Takes effect immediately.' },
     ],
   },
   'changelog': {
