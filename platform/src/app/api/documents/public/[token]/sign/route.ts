@@ -18,6 +18,7 @@ import { sendSMS } from '@/lib/sms'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { activateSalesPartnerForDocument } from '@/lib/sales-partner-agreement'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -56,7 +57,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: doc } = await supabaseAdmin
       .from('documents')
-      .select('*, tenants(name, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from, timezone)')
+      .select('*, tenants(name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from, timezone)')
       .eq('id', signer.document_id)
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
@@ -440,8 +441,7 @@ async function sendSigningInviteToSigner(
 ) {
   const tenant = doc.tenants
   if (!tenant) return
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-  const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
+  const baseUrl = tenantSiteUrl(tenant)
   const { data: tokenRow } = await supabaseAdmin
     .from('document_signers')
     .select('public_token')

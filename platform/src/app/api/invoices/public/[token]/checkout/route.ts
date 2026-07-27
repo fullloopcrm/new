@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logInvoiceEvent } from '@/lib/invoice'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -18,7 +19,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: invoice } = await supabaseAdmin
       .from('invoices')
-      .select('*, tenants(name, domain, stripe_api_key, stripe_account_id)')
+      .select('*, tenants(name, slug, domain, stripe_api_key, stripe_account_id)')
       .eq('public_token', token)
       .maybeSingle()
     if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -28,6 +29,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const tenant = invoice.tenants as {
       name: string
+      slug: string | null
       domain: string | null
       stripe_api_key: string | null
       stripe_account_id: string | null
@@ -42,8 +44,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
+    const baseUrl = tenantSiteUrl(tenant)
     const returnUrl = `${baseUrl}/invoice/${invoice.public_token}`
 
     const session = await stripe.checkout.sessions.create({
