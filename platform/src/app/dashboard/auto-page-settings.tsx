@@ -249,11 +249,13 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'social': {
     page: 'social', title: 'Social Media',
-    tips: ['Which connected platform the composer opens to.'],
+    tips: ['Which connected platform the composer opens to.', 'Auto-post settings control whether completed jobs post to your connected accounts automatically.'],
     fields: [
       { key: 'default_platform', label: 'Default platform', type: 'select', layer: 'user', helper: 'Which platform the post composer opens to.', options: [
         { value: 'facebook', label: 'Facebook' }, { value: 'instagram', label: 'Instagram' },
       ], default: 'facebook' },
+      { key: 'social_autopost_enabled', label: 'Auto-post on job completion', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'When a crew member checks out of a job with an "after" photo, automatically post it to your connected Facebook/Instagram accounts. No client name or address is ever included.' },
+      { key: 'social_autopost_caption_template', label: 'Auto-post caption', type: 'textarea', layer: 'tenant_selena', default: 'Another job done! ✨ {service_type}', helper: 'Use {service_type} to insert the job\'s service type. Kept generic on purpose — never include client details.' },
     ],
   },
   'users': {

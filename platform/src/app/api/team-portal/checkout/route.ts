@@ -14,6 +14,7 @@ import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
 import { notify } from '@/lib/nycmaid/notify'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { autoPostJobCompletion } from '@/lib/social'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -372,6 +373,11 @@ export async function POST(request: Request) {
       tenantId: auth.tid,
     }).catch((err) => console.error('checkout notify error:', err))
   }
+
+  // Opt-in per tenant (Settings → Social). No-ops silently when disabled, no
+  // platform connected, or no after/progress photo exists for this booking yet.
+  autoPostJobCompletion(auth.tid, data.id as string).catch((err) =>
+    console.error('checkout auto-post error:', err))
 
   return NextResponse.json({
     booking: data,
