@@ -97,6 +97,7 @@ const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
   { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
   { label: 'AI (Voice | SMS | Web)', href: '/dashboard/selena', perm: 'settings.view' },
+  { label: 'Legal', href: '/dashboard/legal' },
   { label: 'Platform Docs', href: '/dashboard/docs' },
 ]
 
