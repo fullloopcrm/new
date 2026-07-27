@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 /**
- * Proves the actual reason a proposal/invoice/document-sign link sent to a
- * tenant's own domain 404s: middleware's tenant subdomain/custom-domain
- * routing rewrites EVERY path to /site/<slug>/... (or /site/template/...)
- * except the small APP_ROOT_PREFIXES allowlist. /quote, /invoice, and /sign
- * are public, token-authed, tenant-agnostic pages that live at the app root
- * (src/app/quote/[token]/page.tsx etc.) — not under /site/<slug> — so until
- * they're in that allowlist, a link sent to a tenant's own domain rewrites to
- * a page that doesn't exist.
+ * Proves the actual reason a proposal/invoice/document-sign/photo-share link
+ * sent to a tenant's own domain 404s: middleware's tenant subdomain/custom-
+ * domain routing rewrites EVERY path to /site/<slug>/... (or /site/template/
+ * ...) except the small APP_ROOT_PREFIXES allowlist. /quote, /invoice, /sign,
+ * and /photos are public, token-authed, tenant-agnostic pages that live at
+ * the app root (src/app/quote/[token]/page.tsx etc.) — not under /site/<slug>
+ * — so until they're in that allowlist, a link sent to a tenant's own domain
+ * rewrites to a page that doesn't exist.
  */
 
 const acme = { id: 'tenant-acme', slug: 'acme', name: 'Acme', domain: null, status: 'active' }
@@ -75,6 +75,19 @@ describe('public token-doc links on a tenant domain', () => {
 
     const req = new NextRequest('https://www.acme.com/sign/tok_sig', {
       headers: { host: 'www.acme.com' },
+    })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res!.headers.get('x-middleware-request-x-tenant-id')).toBe('tenant-acme')
+  })
+
+  it('a job-photo share link (/photos/[token]) is not rewritten under /site', async () => {
+    bySlug = async (slug) => (slug === 'acme' ? acme : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://acme.fullloopcrm.com/photos/tok_photos', {
+      headers: { host: 'acme.fullloopcrm.com' },
     })
     const res = await middleware(req)
 
