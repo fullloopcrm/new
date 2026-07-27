@@ -295,6 +295,15 @@ export const COMMS: CommDef[] = [
     locked: true,
     firedBy: 'event: team member provisioned',
   },
+  {
+    key: 'team_new_message',
+    label: 'New Loop Connect message',
+    desc: 'A team member gets a new direct or support message in Loop Connect.',
+    audience: 'team',
+    channels: ['sms'],
+    defaults: { sms: true },
+    firedBy: 'event: connect message (dm/support)',
+  },
 
   // ── Owner / admin alerts ───────────────────────────────────────────────
   {
@@ -332,6 +341,15 @@ export const COMMS: CommDef[] = [
     channels: ['email', 'in_app'],
     defaults: { email: true, in_app: true },
     firedBy: 'event: referrer signup',
+  },
+  {
+    key: 'owner_new_message',
+    label: 'New Loop Connect message',
+    desc: 'A team member sent a new direct or support message in Loop Connect.',
+    audience: 'owner',
+    channels: ['sms', 'in_app'],
+    defaults: { sms: false, in_app: true },
+    firedBy: 'event: connect message (dm/support)',
   },
   {
     key: 'owner_payment_received',

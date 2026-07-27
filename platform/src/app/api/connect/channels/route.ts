@@ -50,11 +50,12 @@ export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
     const db = tenantDb(tenantId)
-    const { name, type, client_id } = await request.json()
-
-    if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
+    const { name, type, client_id, team_member_id } = await request.json()
 
     const channelType = type || 'custom'
+
+    // DM channel name is derived from the team member, not caller-supplied.
+    if (channelType !== 'dm' && !name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
 
     // Auto-create general channel if it doesn't exist
     if (channelType === 'general') {
@@ -83,12 +84,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let dmName = name
+    if (channelType === 'dm') {
+      if (!team_member_id) return NextResponse.json({ error: 'team_member_id required' }, { status: 400 })
+
+      const { data: existing } = await db
+        .from('connect_channels')
+        .select('*')
+        .eq('type', 'dm')
+        .eq('team_member_id', team_member_id)
+        .maybeSingle()
+      if (existing) return NextResponse.json({ channel: existing })
+
+      // Same ownership-verification reasoning as client_id above.
+      const { data: ownedMember } = await db
+        .from('team_members')
+        .select('id, name')
+        .eq('id', team_member_id)
+        .maybeSingle()
+      if (!ownedMember) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      dmName = ownedMember.name || 'Team member'
+    }
+
     const { data, error } = await db
       .from('connect_channels')
       .insert({
-        name,
+        name: dmName,
         type: channelType,
         client_id: client_id || null,
+        team_member_id: channelType === 'dm' ? team_member_id : null,
       })
       .select()
       .single()

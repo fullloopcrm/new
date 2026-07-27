@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { notifyConnectDM } from '@/lib/connect-notify'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const { data: messages } = await supabaseAdmin
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, attachments, created_at')
       .eq('channel_id', channel.id)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -74,19 +75,26 @@ export async function POST(request: NextRequest) {
       .single()
 
     // Never trust a caller-supplied channel_id directly — verify it's this
-    // tenant's own general channel before using it, otherwise a forged id
-    // could inject a message into another tenant's channel, or a specific
+    // tenant's general channel, or this specific team member's own DM channel,
+    // before using it. Otherwise a forged id could inject a message into
+    // another tenant's channel, another team member's private DM, or a
     // client's private channel within this tenant.
     let targetChannelId: string | undefined
+    let targetChannelType: string | undefined
     if (channel_id) {
-      const { data: ownedChannel } = await supabaseAdmin
+      const { data: candidate } = await supabaseAdmin
         .from('connect_channels')
-        .select('id')
+        .select('id, type, team_member_id')
         .eq('id', channel_id)
         .eq('tenant_id', auth.tid)
-        .eq('type', 'general')
         .single()
-      if (ownedChannel) targetChannelId = ownedChannel.id
+      // .or() isn't reliable across the fake test client — check the
+      // general-vs-own-dm business rule in application code instead.
+      const isOwnDm = candidate?.type === 'dm' && candidate.team_member_id === auth.id
+      if (candidate && (candidate.type === 'general' || isOwnDm)) {
+        targetChannelId = candidate.id
+        targetChannelType = candidate.type
+      }
     }
 
     // If no channel_id provided (or it didn't pass ownership), use general channel
@@ -107,6 +115,7 @@ export async function POST(request: NextRequest) {
       }
 
       targetChannelId = channel?.id
+      targetChannelType = 'general'
     }
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
@@ -137,6 +146,16 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: 'channel_id,reader_type,reader_id' }
       )
+
+    if (targetChannelType === 'dm') {
+      notifyConnectDM({
+        tenantId: auth.tid,
+        direction: 'to_owner',
+        teamMemberId: auth.id,
+        senderName: member?.name || 'Team Member',
+        body: body.trim(),
+      }).catch(err => console.error('[team-portal/connect] notify failed:', err))
+    }
 
     return NextResponse.json({ message: data }, { status: 201 })
   } catch {

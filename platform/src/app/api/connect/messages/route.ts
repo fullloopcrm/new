@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { notifyConnectDM } from '@/lib/connect-notify'
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { data: messages, error } = await db
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, attachments, created_at')
       .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -65,11 +66,13 @@ export async function POST(request: NextRequest) {
     // Verify channel belongs to tenant
     const { data: channel } = await db
       .from('connect_channels')
-      .select('id')
+      .select('id, type, team_member_id')
       .eq('id', channel_id)
       .single()
 
     if (!channel) return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+
+    const senderName = tenant.owner_name || tenant.name || 'Owner'
 
     const { data, error } = await db
       .from('connect_messages')
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
         channel_id,
         sender_type: 'owner',
         sender_id: userId,
-        sender_name: tenant.owner_name || tenant.name || 'Owner',
+        sender_name: senderName,
         body: body.trim(),
       })
       .select()
@@ -97,6 +100,16 @@ export async function POST(request: NextRequest) {
         },
         { onConflict: 'channel_id,reader_type,reader_id' }
       )
+
+    if (channel.type === 'dm' && channel.team_member_id) {
+      notifyConnectDM({
+        tenantId,
+        direction: 'to_team',
+        teamMemberId: channel.team_member_id,
+        senderName,
+        body: body.trim(),
+      }).catch(err => console.error('[connect/messages] notify failed:', err))
+    }
 
     return NextResponse.json({ message: data }, { status: 201 })
   } catch (e) {
