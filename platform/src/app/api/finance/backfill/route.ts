@@ -25,7 +25,7 @@ interface BookingRow {
   check_out_time: string | null
   discount_percent: number | null
   one_time_credit_cents: number | null
-  team_members: { hourly_rate?: number | null } | null
+  team_members: { hourly_rate?: number | null; pay_rate?: number | null } | null
 }
 
 export async function POST() {
@@ -36,7 +36,7 @@ export async function POST() {
 
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, discount_percent, one_time_credit_cents, team_members!bookings_team_member_id_fkey(hourly_rate)')
+      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, discount_percent, one_time_credit_cents, team_members!bookings_team_member_id_fkey(hourly_rate, pay_rate)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .is('team_member_pay', null)
@@ -54,7 +54,7 @@ export async function POST() {
         hours = roundToHalfHour((new Date(booking.end_time).getTime() - new Date(booking.start_time).getTime()) / 3_600_000)
       }
 
-      const teamRate = booking.team_members?.hourly_rate ?? 25
+      const teamRate = booking.team_members?.pay_rate ?? booking.team_members?.hourly_rate ?? 25
       const clientRate = booking.hourly_rate ?? 75
       const teamPay = Math.round(hours * teamRate * 100)
       const clientPrice = applyCredit(applyDiscount(Math.round(hours * clientRate * 100), booking.discount_percent), booking.one_time_credit_cents)
