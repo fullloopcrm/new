@@ -8,7 +8,6 @@ interface TenantSocial {
   platforms: {
     facebook: boolean
     instagram: boolean
-    tiktok: boolean
   }
   postCount: number
   lastPostDate: string | null
@@ -36,7 +35,6 @@ export default function AdminSocialPage() {
           platforms: {
             facebook: !!b.facebook_connected,
             instagram: !!b.instagram_connected,
-            tiktok: !!b.tiktok_connected,
           },
           postCount: (b.social_post_count as number) || 0,
           lastPostDate: (b.social_last_post as string) || null,
@@ -50,7 +48,7 @@ export default function AdminSocialPage() {
   }
 
   const hasAnyPlatform = (t: TenantSocial) =>
-    t.platforms.facebook || t.platforms.instagram || t.platforms.tiktok
+    t.platforms.facebook || t.platforms.instagram
 
   const filtered = tenants.filter(t => {
     if (filter === 'connected' && !hasAnyPlatform(t)) return false
@@ -61,7 +59,6 @@ export default function AdminSocialPage() {
 
   const fbCount = tenants.filter(t => t.platforms.facebook).length
   const igCount = tenants.filter(t => t.platforms.instagram).length
-  const tkCount = tenants.filter(t => t.platforms.tiktok).length
   const totalPosts = tenants.reduce((sum, t) => sum + t.postCount, 0)
   const connectedCount = tenants.filter(t => hasAnyPlatform(t)).length
 
@@ -91,7 +88,7 @@ export default function AdminSocialPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-teal-600">Connected</p>
           <p className="text-2xl font-bold text-teal-800 mt-1">{connectedCount}</p>
@@ -106,11 +103,6 @@ export default function AdminSocialPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-pink-600">Instagram</p>
           <p className="text-2xl font-bold text-pink-800 mt-1">{igCount}</p>
           <p className="text-xs text-pink-500">connected</p>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-purple-600">TikTok</p>
-          <p className="text-2xl font-bold text-purple-800 mt-1">{tkCount}</p>
-          <p className="text-xs text-purple-500">connected</p>
         </div>
         <div className="bg-green-50 rounded-xl p-4 border border-green-100 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-green-600">Total Posts</p>
@@ -175,7 +167,6 @@ export default function AdminSocialPage() {
                         <div className="flex gap-1.5 flex-wrap">
                           <PlatformBadge active={t.platforms.facebook} label="FB" color="bg-blue-100 text-blue-800 border-blue-200" />
                           <PlatformBadge active={t.platforms.instagram} label="IG" color="bg-pink-100 text-pink-800 border-pink-200" />
-                          <PlatformBadge active={t.platforms.tiktok} label="TT" color="bg-purple-100 text-purple-800 border-purple-200" />
                         </div>
                       </td>
                       <td className="px-4 py-3 text-slate-900">{t.postCount}</td>
