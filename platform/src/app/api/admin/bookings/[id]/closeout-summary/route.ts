@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { data: booking, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, discount_percent, one_time_credit_cents, one_time_credit_reason, clients(name, email, phone, address), team_members!bookings_team_member_id_fkey(id, name, phone)')
+    .select('id, tenant_id, status, start_time, end_time, service_type, hourly_rate, pay_rate, team_size, actual_hours, check_in_time, check_out_time, fifteen_min_alert_time, price, team_member_pay, payment_status, payment_method, payment_received_at, team_member_paid, team_member_paid_at, notes, client_id, team_member_id, discount_percent, one_time_credit_cents, one_time_credit_reason, clients(name, email, phone, address), team_members!bookings_team_member_id_fkey(id, name, phone, pay_rate)')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
@@ -71,8 +71,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone ?? null, is_lead: r.is_lead, pay_rate: c.pay_rate ?? null })
     }
   } else if (booking.team_member_id) {
-    const c = booking.team_members as unknown as { id: string; name: string; phone: string | null } | null
-    if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone, is_lead: true, pay_rate: null })
+    const c = booking.team_members as unknown as { id: string; name: string; phone: string | null; pay_rate: number | null } | null
+    if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone, is_lead: true, pay_rate: c.pay_rate ?? null })
   }
 
   const { data: payments } = await db
