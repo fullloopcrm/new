@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import CatalogSettings from './catalog-settings'
 import Breadcrumb from '../_components/Breadcrumb'
 import CatalogTab from '../sales/CatalogTab'
 import BudgetTab from '../sales/BudgetTab'
@@ -63,6 +64,7 @@ export default function CatalogPage() {
 
   return (
     <div className="sl-scope">
+      <CatalogSettings />
       <Breadcrumb items={[{ label: 'Sales', href: '/dashboard/sales' }, { label: 'Catalog' }]} />
 
       <div style={{ display: 'flex', borderBottom: '1px solid var(--sl-line,#e6e6e0)', marginTop: 14 }}>
