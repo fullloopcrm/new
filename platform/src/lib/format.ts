@@ -64,8 +64,10 @@ export function formatPhone(phone: string): string {
 // Capitalize first letter of each word
 export function formatName(name: string): string {
   return name
+    .replace(/[^\p{L}\p{N}\s'.-]/gu, '')
     .toLowerCase()
     .split(' ')
+    .filter(Boolean)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
     .trim()
