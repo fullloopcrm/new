@@ -105,7 +105,7 @@ type CleanerRow = {
   email: string | null
   phone: string | null
   active: boolean | null
-  hourly_rate: number | null
+  pay_rate: number | null
   avg_rating: number | null
   rating_count: number | null
 }
@@ -1327,7 +1327,7 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
         <div className="p-4 border-b border-[#E4E2DC] space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-[#7A7A78] text-xs">Hourly rate</span>
-            <span>${cleaner.hourly_rate ?? '—'}</span>
+            <span>${cleaner.pay_rate ?? '—'}</span>
           </div>
           {typeof cleaner.avg_rating === 'number' && cleaner.rating_count ? (
             <div className="flex justify-between">
