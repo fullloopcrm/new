@@ -488,19 +488,32 @@ export function paymentReceiptEmail(data: TemplateData & {
   rows.push(row('Method', data.paymentMethod))
   if (data.bookingRef) rows.push(row('Reference', data.bookingRef))
 
-  const referralPs = data.referralLink
-    ? `<p style="color:#9ca3af;font-size:12px;margin:16px 0 0;">P.S. Love us? Refer friends and earn ${data.referralCommissionPercent ?? 10}% of every booking they make: <a href="${safeUrl(data.referralLink)}" style="color:${escapeHtml(data.primaryColor || '#111827')};">${escapeHtml(data.referralLink.replace(/^https?:\/\//, ''))}</a></p>`
-    : ''
+  const commission = data.referralCommissionPercent ?? 10
+  const referralBlock = `
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:20px;margin-top:8px;">
+      <p style="margin:0 0 6px;color:#166534;font-size:15px;font-weight:700;">Know someone who'd love us too?</p>
+      <p style="margin:0 0 ${data.referralLink ? '14px' : '0'};color:#166534;font-size:13px;line-height:1.6;">
+        Send them our way and earn <strong>${commission}% commission</strong> — you get paid ${commission}% of every service your referral books with us, for as long as they stay a client.
+      </p>
+      ${data.referralLink ? ctaButton('Refer a Friend, Get Paid', data.referralLink, '#166534') : ''}
+    </div>
+  `
 
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Payment Receipt</h2>
-    <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, here's your detailed receipt from ${escapeHtml(data.tenantName)}.
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 8px;">
+      Hi ${escapeHtml(data.clientName)} — thank you! We really appreciate you trusting ${escapeHtml(data.tenantName)} with your home, and we don't take that lightly.
     </p>
-    <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
+      Here's the detailed breakdown of what you paid:
+    </p>
+    <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px;">
     ${rows.join('\n')}
     </table>
-    ${referralPs}
+    ${referralBlock}
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:20px 0 0;">
+      Thanks again for the business — we'll see you next time.
+    </p>
   `, data)
 }
 
