@@ -65,11 +65,11 @@ export async function POST(req: NextRequest) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data: booking } = (await tenantDb(tenantId)
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, team_member_id, client_id, payment_status, fifteen_min_alert_time, discount_percent, one_time_credit_cents, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+      .select('id, tenant_id, status, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, team_member_id, client_id, payment_status, fifteen_min_alert_time, discount_percent, one_time_credit_cents, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .eq('tenant_id', tenantId)
       .single()) as { data: {
-        id: string; tenant_id: string; team_member_id: string | null; start_time: string; end_time: string | null
+        id: string; tenant_id: string; status: string | null; team_member_id: string | null; start_time: string; end_time: string | null
         check_in_time: string | null; check_out_time: string | null; service_type: string | null
         hourly_rate: number | null; pay_rate: number | null; price: number | null; notes: string | null
         max_hours: number | null; team_size: number | null; client_id: string | null
@@ -81,6 +81,14 @@ export async function POST(req: NextRequest) {
     // Cross-tenant: never confirm a foreign booking even exists.
     if (!booking || booking.tenant_id !== tenantId) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    // A cancelled booking should never trigger a real payment-collection SMS
+    // with a live Stripe pay link — this route previously had no status check
+    // at all, so cancelling a job didn't stop the 30-min alert from still
+    // demanding payment from the client.
+    if (booking.status === 'cancelled') {
+      return NextResponse.json({ success: true, skipped: 'booking cancelled' })
     }
 
     // Ownership within the tenant: a cleaner caller must have visibility of

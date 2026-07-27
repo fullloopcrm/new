@@ -143,3 +143,15 @@ describe('POST /api/team-portal/30min-alert — auth gate', () => {
     expect(body.error).toBe('Tenant not found')
   })
 })
+
+describe('POST /api/team-portal/30min-alert — cancelled booking', () => {
+  it('skips a cancelled booking instead of sending a real payment-collection SMS, no mutation', async () => {
+    h.bookings = [{ id: BOOKING_ID, tenant_id: TENANT_A, team_member_id: MEMBER_A, status: 'cancelled', fifteen_min_alert_time: null, payment_status: 'unpaid' }]
+    const token = createToken(MEMBER_A, TENANT_A, 25, 'worker')
+    const res = await POST(req({ bookingId: BOOKING_ID }, token) as never)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({ success: true, skipped: 'booking cancelled' })
+    expect(h.bookingUpdates).toHaveLength(0)
+  })
+})

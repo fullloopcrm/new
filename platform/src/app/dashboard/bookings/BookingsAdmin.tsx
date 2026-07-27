@@ -1018,13 +1018,13 @@ function BookingsPage() {
   }
 
   // Manual trigger for the same "30-min heads up" flow a cleaner fires from
-  // the team portal (/api/team-portal/15min-alert) — admin + client SMS with
+  // the team portal (/api/team-portal/30min-alert) — admin + client SMS with
   // pay link, hours worked, and amount owed. force:true bypasses the 30-min
   // dedupe window since this is an explicit manual resend, not the automatic
   // cleaner-triggered path.
   const handleSend30MinAlert = async (bookingId: string) => {
     setResendMenuId(null)
-    const res = await fetch('/api/team-portal/15min-alert', {
+    const res = await fetch('/api/team-portal/30min-alert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId, force: true })
