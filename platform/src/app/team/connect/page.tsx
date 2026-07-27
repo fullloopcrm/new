@@ -94,6 +94,24 @@ export default function TeamConnectPage() {
     }
   }
 
+  const sendPhoto = async (file: File) => {
+    if (!auth || !activeChannelId || sending) return
+    setSending(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('channel_id', activeChannelId)
+      await fetch('/api/team-portal/connect/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.token}` },
+        body: form,
+      })
+      fetchMessages()
+    } finally {
+      setSending(false)
+    }
+  }
+
   if (!auth) {
     return (
       <div className="text-center py-12 text-slate-400 text-sm">
@@ -149,6 +167,7 @@ export default function TeamConnectPage() {
           value={draft}
           onChange={setDraft}
           onSend={sendMessage}
+          onAttach={sendPhoto}
           placeholder={activeChannel ? `${t('Message', 'Mensaje')} ${activeChannel.name}…` : t('Message #general...', 'Mensaje #general...')}
           disabled={sending}
         />

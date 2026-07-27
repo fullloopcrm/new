@@ -168,6 +168,21 @@ export default function LoopConnectPage() {
     }
   }
 
+  const sendPhoto = async (file: File) => {
+    if (isSupportActive || !activeChannelId || sending) return
+    setSending(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('channel_id', activeChannelId)
+      const res = await fetch('/api/connect/messages/upload', { method: 'POST', body: form })
+      if (!res.ok) throw new Error('upload failed')
+      fetchMessages()
+    } finally {
+      setSending(false)
+    }
+  }
+
   const createChannel = async () => {
     if (!newChannelName.trim()) return
     try {
@@ -350,6 +365,7 @@ export default function LoopConnectPage() {
                   value={draft}
                   onChange={setDraft}
                   onSend={sendMessage}
+                  onAttach={isSupportActive ? undefined : sendPhoto}
                   placeholder={isSupportActive ? 'Message the Full Loop team…' : `Message ${activeChannel!.type === 'general' ? '#' + activeChannel!.name : activeChannel!.name}…`}
                   disabled={sending}
                 />

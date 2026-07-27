@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { translateToEnEs } from '@/lib/connect-translate'
+import { resolveTeamConnectChannel } from '@/lib/connect-team-channel'
 
 // Loop Connect, field-team side. Each team member gets their OWN private
 // channel with admin (type='team', scoped to team_member_id) -- this is a
@@ -11,59 +12,8 @@ import { translateToEnEs } from '@/lib/connect-translate'
 // returns display_body = body_es, since the team member's device shows Spanish.
 // An explicit ?channel_id targets one of the worker's admin-created group/
 // broadcast channels instead (see channels/route.ts) -- membership is
-// verified via connect_channel_members before any read/write.
-async function resolveChannel(auth: { tid: string; id: string }, requestedChannelId: string | null) {
-  if (requestedChannelId) {
-    // The worker's own default 1:1 channel has no connect_channel_members
-    // row -- ownership is implicit via team_member_id, not membership. Only
-    // a group/broadcast 'custom' channel needs the membership check below.
-    const { data: ownChannel } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
-      .select('id')
-      .eq('id', requestedChannelId)
-      .eq('type', 'team')
-      .eq('team_member_id', auth.id)
-      .maybeSingle()
-    if (ownChannel) return ownChannel
-
-    const { data: membership } = await tenantDb(auth.tid)
-      .from('connect_channel_members') // tenant-scope-ok: tenantDb() scopes the select
-      .select('channel_id')
-      .eq('channel_id', requestedChannelId)
-      .eq('team_member_id', auth.id)
-      .maybeSingle()
-    if (!membership) return null
-    const { data: channel } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
-      .select('id')
-      .eq('id', requestedChannelId)
-      .single()
-    return channel || null
-  }
-
-  let { data: channel } = await tenantDb(auth.tid)
-    .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
-    .select('id')
-    .eq('type', 'team')
-    .eq('team_member_id', auth.id)
-    .single()
-
-  if (!channel) {
-    const { data: member } = await tenantDb(auth.tid)
-      .from('team_members')
-      .select('name')
-      .eq('id', auth.id)
-      .single()
-    const { data: created } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() stamps tenant_id on insert
-      .insert({ type: 'team', name: member?.name || 'Team Member', team_member_id: auth.id })
-      .select('id')
-      .single()
-    channel = created
-  }
-
-  return channel || null
-}
+// verified via connect_channel_members before any read/write. Channel
+// resolution is shared with upload/route.ts via connect-team-channel.ts.
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -74,13 +24,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const requestedChannelId = request.nextUrl.searchParams.get('channel_id')
-    const channel = await resolveChannel(auth, requestedChannelId)
+    const channel = await resolveTeamConnectChannel(auth, requestedChannelId)
 
     if (!channel) return NextResponse.json({ messages: [] })
 
     const { data: messages } = await supabaseAdmin
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, body_es, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, body_es, attachments, created_at')
       .eq('channel_id', channel.id)
       .order('created_at', { ascending: true })
       .limit(200)
@@ -117,7 +67,7 @@ export async function POST(request: NextRequest) {
       .eq('id', auth.id)
       .single()
 
-    const channel = await resolveChannel(auth, requestedChannelId || null)
+    const channel = await resolveTeamConnectChannel(auth, requestedChannelId || null)
 
     if (!channel) return NextResponse.json({ error: 'No channel' }, { status: 400 })
 
