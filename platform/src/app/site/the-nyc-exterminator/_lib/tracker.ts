@@ -56,8 +56,29 @@ function detectDevice(ua: string): string {
   return "desktop";
 }
 
-async function send(body: Record<string, unknown>) {
+async function send(rawBody: Record<string, unknown>) {
   try {
+    // /api/track requires `domain` + `action` on every row (it predates this
+    // tracker and serves ~100 other tenant scripts on that contract) — this
+    // tracker's kind/session/type payload shape never carried either field,
+    // so every request has been silently rejected with a 400 since launch
+    // (lead_clicks has zero rows for this tenant). Map onto the required
+    // shape here, once, rather than touching every call site.
+    const session = rawBody.session as Record<string, unknown> | undefined;
+    const kind = rawBody.kind as string | undefined;
+    const body: Record<string, unknown> = {
+      domain: window.location.hostname,
+      action: kind === "event" ? (rawBody.type as string) || "event" : "visit",
+      page: (rawBody.path as string) || (session?.landing_path as string) || undefined,
+      referrer: (rawBody.referrer as string) || (session?.referrer as string) || undefined,
+      device: session?.device,
+      screen_w: session?.screen_w,
+      screen_h: session?.screen_h,
+      utm_source: session?.utm_source,
+      utm_medium: session?.utm_medium,
+      utm_campaign: session?.utm_campaign,
+      ...rawBody,
+    };
     const payload = JSON.stringify(body);
     const url = "/api/track";
     if (navigator.sendBeacon) {
