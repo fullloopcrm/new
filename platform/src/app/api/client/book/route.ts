@@ -67,6 +67,12 @@ export async function POST(request: Request) {
     if (typeof body.notes === 'string') {
       body.notes = sanitizeInput(body.notes)
     }
+    if (typeof body.address === 'string') {
+      body.address = sanitizeInput(body.address)
+    }
+    if (typeof body.unit === 'string') {
+      body.unit = sanitizeInput(body.unit)
+    }
 
     if (!body.client_id && !body.email && !body.phone) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
