@@ -40,6 +40,7 @@ const navPlatform = [
   { label: 'Announcements', href: '/admin/announcements' },
   { label: 'Legal Tips', href: '/admin/legal-tips' },
   { label: 'Settings', href: '/admin/settings' },
+  { label: 'Docs', href: '/admin/docs' },
 ]
 
 export default async function AdminLayout({
