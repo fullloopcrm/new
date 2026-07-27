@@ -489,15 +489,10 @@ export function paymentReceiptEmail(data: TemplateData & {
   if (data.bookingRef) rows.push(row('Reference', data.bookingRef))
 
   const commission = data.referralCommissionPercent ?? 10
-  const referralBlock = `
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:20px;margin-top:8px;">
-      <p style="margin:0 0 6px;color:#166534;font-size:15px;font-weight:700;">Know someone who'd love us too?</p>
-      <p style="margin:0 0 ${data.referralLink ? '14px' : '0'};color:#166534;font-size:13px;line-height:1.6;">
-        Send them our way and earn <strong>${commission}% commission</strong> — you get paid ${commission}% of every service your referral books with us, for as long as they stay a client.
-      </p>
-      ${data.referralLink ? ctaButton('Refer a Friend, Get Paid', data.referralLink, '#166534') : ''}
-    </div>
-  `
+  const referralBlock = noteBox(
+    `<strong>Know someone who'd love us too?</strong> Send them our way and earn ${commission}% commission — you get paid ${commission}% of every service your referral books with us, for as long as they stay a client.`,
+    'success',
+  ) + (data.referralLink ? ctaButton('Refer a Friend, Get Paid', data.referralLink, data.primaryColor) : '')
 
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Payment Receipt</h2>
