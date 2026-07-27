@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { data: messages, error } = await db
       .from('connect_messages')
-      .select('id, sender_type, sender_id, sender_name, body, body_en, created_at')
+      .select('id, sender_type, sender_id, sender_name, body, body_en, attachments, created_at')
       .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
       .limit(200)
