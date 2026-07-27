@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { sendEmail } from '@/lib/nycmaid/email'
+import { logCommsFail } from '@/lib/comms-fail'
 
 export interface ClientContact {
   id: string
@@ -197,10 +198,10 @@ async function logZeroContactFanout(
       eventType ? `type=${eventType}` : '',
       bookingId ? `booking=${bookingId}` : '',
     ].filter(Boolean).join(' | ')
-    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
-      tenant_id: '00000000-0000-0000-0000-000000000001', // nycmaid — see src/lib/nycmaid/sms.ts NYCMAID_TENANT_ID note
-      type: 'comms_fail',
+    await logCommsFail({
+      tenantId: '00000000-0000-0000-0000-000000000001', // nycmaid — see src/lib/nycmaid/sms.ts NYCMAID_TENANT_ID note
       title: `Zero ${channel} contacts for client`,
+      dedupKey: `zero-contacts:${channel}:${clientId}`,
       message: `${channel} fan-out found no contacts — ${ctx}`,
     })
   } catch {

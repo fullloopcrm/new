@@ -3,25 +3,45 @@ import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 /**
  * alertOwner() is the single choke point every platform monitoring alert
  * (error-tracking, system-check, comms/health monitors, Jefe pillars) already
- * calls. Re-added email as a second channel here (2026-07-26) instead of at
- * each call site, so this locks in: email fires alongside Telegram when
- * configured, is skipped when not, and a failing email never blocks or
- * throws through the Telegram send.
+ * calls. Email fan-out was removed 2026-07-27 (Jeff's call) — monitoring
+ * alerts route to the monitoring system (error_logs/notifications) and this
+ * Telegram channel only, never to his inbox. This locks in: Telegram-only,
+ * no email regardless of ADMIN_NOTIFICATION_EMAIL.
+ *
+ * alertOwnerCritical() is the new "major error" channel — SMS via NYC Maid's
+ * own Telnyx number to NYC Maid's owner_phone. This locks in: fires when NYC
+ * Maid's Telnyx/owner-phone is configured, no-ops silently when it isn't.
  *
  * Module-level env reads mean each test re-imports fresh via vi.resetModules()
  * after setting env vars, same pattern as otp-send-code-failclosed.test.ts.
  */
 
-type SendEmailArgs = { to: string; subject: string; html: string }
-const sendEmailMock = vi.fn(async (_args: SendEmailArgs) => ({ success: true }))
-vi.mock('./email', () => ({ sendEmail: sendEmailMock }))
+let tenantRow: Record<string, unknown> | null
+
+const sendSMSMock = vi.fn(async (_args: unknown) => ({}))
+vi.mock('./sms', () => ({ sendSMS: (args: unknown) => sendSMSMock(args as never) }))
+
+vi.mock('./supabase', () => ({
+  supabaseAdmin: {
+    from: (table: string) => ({
+      select: () => ({
+        eq: (_col: string, _val: unknown) => ({
+          single: async () => {
+            if (table !== 'tenants') return { data: null, error: null }
+            return { data: tenantRow, error: null }
+          },
+        }),
+      }),
+    }),
+  },
+}))
 
 const originalFetch = global.fetch
 
 beforeEach(() => {
   vi.resetModules()
-  sendEmailMock.mockClear()
-  sendEmailMock.mockResolvedValue({ success: true })
+  sendSMSMock.mockClear()
+  tenantRow = null
   global.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 })) as typeof fetch
   delete process.env.ADMIN_NOTIFICATION_EMAIL
   delete process.env.JEFE_OWNER_CHAT_ID
@@ -33,55 +53,62 @@ afterAll(() => {
   global.fetch = originalFetch
 })
 
-describe('alertOwner — email + Telegram fan-out', () => {
-  it('sends both email and Telegram when both are configured', async () => {
+describe('alertOwner — Telegram only, never email', () => {
+  it('sends Telegram and never touches email even when ADMIN_NOTIFICATION_EMAIL is set', async () => {
     process.env.ADMIN_NOTIFICATION_EMAIL = 'jeff@example.com'
     process.env.JEFE_OWNER_CHAT_ID = '-100'
     process.env.JEFE_BOT_TOKEN = 'bot-token'
     const { alertOwner } = await import('./telegram')
 
-    await alertOwner('Site down', 'nycmaid is unreachable')
-
-    expect(sendEmailMock).toHaveBeenCalledTimes(1)
-    expect(sendEmailMock.mock.calls[0][0]).toMatchObject({
-      to: 'jeff@example.com',
-      subject: '[FL] Site down',
-    })
-    expect(global.fetch).toHaveBeenCalledTimes(1)
-  })
-
-  it('skips email entirely when ADMIN_NOTIFICATION_EMAIL is not set', async () => {
-    process.env.JEFE_OWNER_CHAT_ID = '-100'
-    process.env.JEFE_BOT_TOKEN = 'bot-token'
-    const { alertOwner } = await import('./telegram')
-
-    await alertOwner('Site down')
-
-    expect(sendEmailMock).not.toHaveBeenCalled()
-    expect(global.fetch).toHaveBeenCalledTimes(1)
-  })
-
-  it('still sends Telegram when the email send rejects', async () => {
-    process.env.ADMIN_NOTIFICATION_EMAIL = 'jeff@example.com'
-    process.env.JEFE_OWNER_CHAT_ID = '-100'
-    process.env.JEFE_BOT_TOKEN = 'bot-token'
-    sendEmailMock.mockRejectedValueOnce(new Error('resend down'))
-    const { alertOwner } = await import('./telegram')
-
-    const result = await alertOwner('Site down')
+    const result = await alertOwner('Site down', 'nycmaid is unreachable')
 
     expect(result?.ok).toBe(true)
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
-  it('still emails even when Telegram is not configured', async () => {
+  it('no-ops when Telegram is not configured', async () => {
     process.env.ADMIN_NOTIFICATION_EMAIL = 'jeff@example.com'
     const { alertOwner } = await import('./telegram')
 
     const result = await alertOwner('Site down')
 
     expect(result).toBeNull()
-    expect(sendEmailMock).toHaveBeenCalledTimes(1)
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('alertOwnerCritical — SMS via NYC Maid Telnyx', () => {
+  it('sends SMS to NYC Maid owner_phone via NYC Maid Telnyx when configured', async () => {
+    tenantRow = {
+      telnyx_api_key: 'key-123',
+      telnyx_phone: '+18883164019',
+      owner_phone: '+12125551212',
+    }
+    const { alertOwnerCritical } = await import('./telegram')
+
+    await alertOwnerCritical('CRITICAL Error: cron/comms-monitor', 'boom')
+
+    expect(sendSMSMock).toHaveBeenCalledTimes(1)
+    expect(sendSMSMock.mock.calls[0][0]).toMatchObject({
+      to: '+12125551212',
+      telnyxApiKey: 'key-123',
+      telnyxPhone: '+18883164019',
+    })
+  })
+
+  it('no-ops silently when NYC Maid Telnyx/owner-phone is not configured', async () => {
+    tenantRow = { telnyx_api_key: null, telnyx_phone: null, owner_phone: null }
+    const { alertOwnerCritical } = await import('./telegram')
+
+    await expect(alertOwnerCritical('CRITICAL Error: cron/comms-monitor', 'boom')).resolves.toBeUndefined()
+    expect(sendSMSMock).not.toHaveBeenCalled()
+  })
+
+  it('never throws when the tenant lookup or send fails', async () => {
+    tenantRow = { telnyx_api_key: 'key-123', telnyx_phone: '+18883164019', owner_phone: '+12125551212' }
+    sendSMSMock.mockRejectedValueOnce(new Error('telnyx down'))
+    const { alertOwnerCritical } = await import('./telegram')
+
+    await expect(alertOwnerCritical('CRITICAL Error: cron/comms-monitor', 'boom')).resolves.toBeUndefined()
   })
 })

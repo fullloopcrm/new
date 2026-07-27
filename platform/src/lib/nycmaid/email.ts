@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { logCommsFail } from '@/lib/comms-fail'
 
 let _resend: Resend | null = null
 
@@ -20,9 +21,14 @@ async function logEmailFailure(to: string, subject: string, error: unknown) {
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
-    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
-      type: 'comms_fail',
+    // tenant_id was previously omitted here — notifications.tenant_id is
+    // NOT NULL, so this insert has been silently throwing into the catch
+    // below on every call since this was written. Every nycmaid email-send
+    // failure has been invisible until this fix (2026-07-27).
+    await logCommsFail({
+      tenantId: NYCMAID_TENANT_ID,
       title: 'Email send failed',
+      dedupKey: `email-send:${subject.slice(0, 40)}`,
       message: `email to ${to} | subject=${subject.slice(0, 80)} | error=${truncated}`,
     })
   } catch {

@@ -1,8 +1,8 @@
 // Telegram bot helpers — shared between the webhook route (inbound from Jeff)
 // and notify() (outbound operational events to Jeff).
-import { sendEmail } from './email'
-
-const ADMIN_NOTIFICATION_EMAIL = (process.env.ADMIN_NOTIFICATION_EMAIL || '').trim()
+import { supabaseAdmin } from './supabase'
+import { sendSMS } from './sms'
+import { NYCMAID_TENANT_ID } from './nycmaid/tenant'
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
@@ -76,32 +76,40 @@ export async function notifyOwnerOnTelegram(text: string): Promise<TelegramSendR
 // platform alert lands in one place. Plain text, no HTML. No-ops silently if
 // the Jefe channel isn't configured.
 //
-// Also fans out to ADMIN_NOTIFICATION_EMAIL when set (re-added 2026-07-26 —
-// email had been dropped in favor of Telegram-only, per Jeff: every platform
-// alert should land in both). This is every existing alertOwner() call site's
-// single choke point, so adding it here covers all of them at once instead of
-// touching each one individually. Email is fire-and-forget and never blocks
-// or fails the Telegram send.
+// Email fan-out was removed 2026-07-27 (Jeff's call): monitoring alerts route
+// to the monitoring system (error_logs/notifications, surfaced on
+// /admin/monitoring) and this Telegram channel only, never to his inbox.
+// Critical-severity errors additionally go out via alertOwnerCritical() below.
 export async function alertOwner(subject: string, detail?: string): Promise<TelegramSendResult | null> {
-  if (ADMIN_NOTIFICATION_EMAIL) {
-    const html = `
-      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
-        <div style="background: #1E2A4A; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0; font-size: 16px;">${subject.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h2>
-        </div>
-        <div style="background: #fff; border: 1px solid #e5e7eb; border-top: 0; padding: 20px; border-radius: 0 0 8px 8px;">
-          ${detail ? `<pre style="white-space: pre-wrap; font-family: sans-serif; font-size: 14px; color: #111; margin: 0 0 16px 0;">${detail.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>` : ''}
-          <p style="color: #999; font-size: 12px; margin: 0;">${new Date().toLocaleString('en-US')} ET</p>
-        </div>
-      </div>
-    `
-    sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: `[FL] ${subject}`, html })
-      .catch((e) => console.error('Failed to send owner alert email:', e))
-  }
-
   const chatId = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
   const token = (process.env.JEFE_BOT_TOKEN || '').trim()
   if (!chatId || !token) return null
   const text = detail ? `${subject}\n\n${detail}` : subject
   return sendTelegram(chatId, text, token)
+}
+
+// "Major error" channel (2026-07-27, Jeff's call): critical-severity platform
+// errors also go out as SMS via NYC Maid's own Telnyx number to NYC Maid's
+// owner_phone. NYC Maid is used as the delivery channel because it's the
+// fully-configured tenant — this isn't limited to errors about NYC Maid
+// specifically, it's the platform's chosen "major alert" pipe. No-ops
+// silently if NYC Maid's Telnyx/owner-phone isn't configured.
+export async function alertOwnerCritical(subject: string, detail?: string): Promise<void> {
+  try {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('telnyx_api_key, telnyx_phone, owner_phone')
+      .eq('id', NYCMAID_TENANT_ID)
+      .single()
+    if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone || !tenant?.owner_phone) return
+    const text = detail ? `${subject}\n\n${detail}` : subject
+    await sendSMS({
+      to: tenant.owner_phone,
+      body: text.slice(0, 1500),
+      telnyxApiKey: tenant.telnyx_api_key,
+      telnyxPhone: tenant.telnyx_phone,
+    })
+  } catch (err) {
+    console.error('Failed to send critical SMS alert:', err)
+  }
 }

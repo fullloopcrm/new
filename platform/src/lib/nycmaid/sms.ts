@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { logCommsFail } from '@/lib/comms-fail'
 
 // Resolve nycmaid's OWN Telnyx credentials from its tenant row — the same
 // number/account every other send path (bookings route, crons) already reads
@@ -35,10 +36,10 @@ async function logSMSFailure(to: string, smsType: string | undefined, error: unk
   try {
     const errMsg = typeof error === 'string' ? error : (error as any)?.message || JSON.stringify(error)
     const truncated = (errMsg || 'unknown error').slice(0, 400)
-    await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
-      tenant_id: NYCMAID_TENANT_ID,
-      type: 'comms_fail',
+    await logCommsFail({
+      tenantId: NYCMAID_TENANT_ID,
       title: 'SMS send failed',
+      dedupKey: `sms-send:${smsType || 'unspecified'}`,
       message: `sms to ${to} | type=${smsType || 'unspecified'} | error=${truncated}`,
     })
   } catch {

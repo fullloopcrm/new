@@ -8,7 +8,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * straight, piling up 2,500+ rows and burying real signal.
  */
 
-vi.mock('@/lib/telegram', () => ({ alertOwner: vi.fn(async () => null) }))
+vi.mock('@/lib/telegram', () => ({
+  alertOwner: vi.fn(async () => null),
+  alertOwnerCritical: vi.fn(async () => undefined),
+}))
 
 type Row = Record<string, unknown>
 const rows: Row[] = []

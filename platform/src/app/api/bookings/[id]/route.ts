@@ -8,6 +8,7 @@ import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
+import { logCommsFail } from '@/lib/comms-fail'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
@@ -479,14 +480,13 @@ export async function DELETE(
         }
       } catch (notifErr) {
         console.error('Cancellation notification error:', notifErr)
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'comms_fail',
+        await logCommsFail({
+          tenantId,
           title: 'Cancellation notification failed',
           message: notifErr instanceof Error ? `${notifErr.message}\n${notifErr.stack}` : String(notifErr),
           channel: 'email',
           status: 'failed',
-        }).then(() => {}, () => {})
+        })
       }
     }
 

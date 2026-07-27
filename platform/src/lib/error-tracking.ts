@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { alertOwner } from '@/lib/telegram'
+import { alertOwner, alertOwnerCritical } from '@/lib/telegram'
 
 // Rate limit: track last alert time per error type to avoid spamming
 const alertCooldowns = new Map<string, number>()
@@ -96,10 +96,13 @@ export async function trackError(error: unknown, context: ErrorContext) {
         context.url ? `URL: ${context.url}` : '',
         stack ? `\n${stack.slice(0, 500)}` : '',
       ].filter(Boolean).join('\n')
-      await alertOwner(
-        `${severity === 'critical' ? '🔴 CRITICAL' : '🟠 HIGH'} Error: ${context.source}`,
-        detail,
-      ).catch((e) => console.error('Failed to send error alert to Telegram:', e))
+      const subject = `${severity === 'critical' ? '🔴 CRITICAL' : '🟠 HIGH'} Error: ${context.source}`
+      await alertOwner(subject, detail)
+        .catch((e) => console.error('Failed to send error alert to Telegram:', e))
+      if (severity === 'critical') {
+        await alertOwnerCritical(subject, detail)
+          .catch((e) => console.error('Failed to send critical SMS alert:', e))
+      }
     }
   }
 

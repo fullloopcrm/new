@@ -17,6 +17,7 @@
 import { tenantDb } from './tenant-db'
 import { sendSMS } from './sms'
 import { sendEmail, tenantSender } from './email'
+import { logCommsFail } from './comms-fail'
 
 export interface ClientContact {
   id: string
@@ -163,9 +164,10 @@ async function logZeroContactFanout(
     const db = tenantDb(tenantId)
     const { data: client } = await db.from('clients').select('name, do_not_service').eq('id', clientId).single()
     if (client?.do_not_service) return // DNS clients are intentionally skipped
-    await db.from('notifications').insert({
-      type: 'comms_fail',
+    await logCommsFail({
+      tenantId,
       title: `Zero ${channel} contacts for client`,
+      dedupKey: `zero-contacts:${channel}:${clientId}`,
       message: `${channel} fan-out found no contacts — client=${client?.name || clientId}`,
     })
   } catch {

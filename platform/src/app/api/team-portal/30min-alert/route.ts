@@ -25,6 +25,7 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { logCommsFail } from '@/lib/comms-fail'
 
 export const maxDuration = 300
 
@@ -333,14 +334,13 @@ export async function POST(req: NextRequest) {
           bookingId,
         }).catch(async err => {
           console.error(`Client 30min SMS attempt ${i + 1} failed:`, err)
-          // Temporary trace (2026-07-23): persist the exception so it's
-          // queryable — the prior silent .catch() left zero DB trace when
-          // sendClientSMS threw before reaching sendSMS's own logging.
-          await tenantDb(tenantId).from('notifications').insert({
-            type: 'comms_fail',
+          await logCommsFail({
+            tenantId,
             title: '30min client SMS threw',
+            dedupKey: `30min-sms:${bookingId}`,
             message: `booking=${bookingId} attempt=${i + 1} error=${err instanceof Error ? err.message : String(err)}`,
-          }).then(() => {}, () => {})
+            bookingId,
+          })
           return { sent: 0, skipped: 0 }
         })
         if (smsResult?.sent && smsResult.sent > 0) { confirmedVia.push('SMS'); break }

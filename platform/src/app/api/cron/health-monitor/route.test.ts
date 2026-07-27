@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('@/lib/telegram', () => ({
   alertOwner: vi.fn(async () => null),
+  alertOwnerCritical: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/error-tracking', () => ({
   trackError: vi.fn(async () => {}),
