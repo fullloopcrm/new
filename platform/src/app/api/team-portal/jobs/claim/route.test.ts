@@ -37,6 +37,7 @@ const holder = vi.hoisted(() => ({
   members: new Map<string, { max_jobs_per_day: number | null; pay_rate: number | null; status: string }>(),
   bookings: new Map<string, BookingRow>(),
   tenants: new Map<string, { selena_config: unknown }>(),
+  terminated: new Set<string>(),
   rpcCalls: 0,
 }))
 
@@ -96,6 +97,22 @@ vi.mock('@/lib/supabase', () => ({
             eq: () => ({
               single: async () => ({ data: { selena_config: holder.tenants.get(TENANT)?.selena_config ?? null }, error: null }),
               maybeSingle: async () => ({ data: { timezone: null }, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'hr_employee_profiles') {
+        return {
+          select: () => ({
+            eq: (_c1: string, tenantId: string) => ({
+              eq: (_c2: string, memberId: string) => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: tenantId === TENANT && holder.terminated.has(memberId) ? { id: 'hrp-1' } : null,
+                    error: null,
+                  }),
+                }),
+              }),
             }),
           }),
         }
@@ -161,6 +178,7 @@ beforeEach(() => {
   holder.members.clear()
   holder.bookings.clear()
   holder.tenants.clear()
+  holder.terminated.clear()
   holder.rpcCalls = 0
 })
 
@@ -213,5 +231,18 @@ describe('team-portal/jobs/claim — daily-cap race closed', () => {
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body.error).toBe('Job already taken')
+  })
+
+  it('blocks a claim from an HR-terminated member before the atomic RPC even runs', async () => {
+    const { dayStart } = dayRange()
+    holder.members.set(MEMBER, { max_jobs_per_day: 5, pay_rate: 25, status: 'active' })
+    holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, team_member_id: null, start_time: dayStart, status: 'scheduled', pay_rate: null })
+    holder.terminated.add(MEMBER)
+
+    const res = await claimReq('bk-1')
+    expect(res.status).toBe(403)
+    expect(holder.rpcCalls).toBe(0)
+    const booking = holder.bookings.get('bk-1')!
+    expect(booking.team_member_id).toBeNull()
   })
 })

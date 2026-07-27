@@ -3,6 +3,8 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { getArAging } from '@/lib/finance/ar-aging'
+import { getTotalPendingPayrollCents, getLaborCostCentsForPeriod } from '@/lib/finance/payroll-pending'
 
 // Same "what's booked" definition the /dashboard homepage uses (SCHEDULED),
 // so Finance's "Contracted YTD" and the homepage's "Jobs · YTD" agree.
@@ -61,22 +63,17 @@ export async function GET() {
 
     const baseSelect = 'price, team_member_pay, team_member_paid'
 
-    const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }, yearContracted] = await Promise.all([
+    const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: recentPayments }, yearContracted] = await Promise.all([
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
-      db.from('bookings').select('price, team_member_pay, payment_status, team_member_paid').eq('status', 'completed').or('payment_status.neq.paid,team_member_paid.neq.true'),
       db.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
       fetchYearContracted(db, yearStart.toISOString(), yearEnd.toISOString()),
     ])
 
-    const sum = (arr: { price?: number | null; team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null, key: 'price' | 'team_member_pay') =>
-      (arr || []).reduce((s, b) => s + (b[key] || 0), 0)
-    const sumPaidLabor = (arr: { team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null) =>
-      (arr || []).filter(b => b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
-
     // Revenue from the LEDGER (single source of truth, matches the books).
-    // Labor stays from bookings — it's operational owed/paid tracking.
+    // Labor is real hours × rate (getLaborCostCentsForPeriod), not raw
+    // bookings.team_member_pay — see that function's docstring for why.
     const d = (x: Date) => x.toISOString().slice(0, 10)
     // Every period end above (weekEnd/monthEnd/yearEnd) is the NATURAL end of
     // that calendar period, which for the current week/month/year is in the
@@ -88,26 +85,41 @@ export async function GET() {
     // reflects what's actually happened so far.
     const todayStr = d(now)
     const cappedTo = (periodEnd: Date) => (d(periodEnd) < todayStr ? d(periodEnd) : todayStr)
-    const [ledgerWeek, ledgerMonth, ledgerYear] = await Promise.all([
+    const [ledgerWeek, ledgerMonth, ledgerYear, arAging, totalPendingPayrollCents, weekLaborCost, monthLaborCost, yearLaborCost] = await Promise.all([
       ledgerProfitAndLoss(tenantId, d(weekStart), cappedTo(weekEnd)),
       ledgerProfitAndLoss(tenantId, d(monthStart), cappedTo(monthEnd)),
       ledgerProfitAndLoss(tenantId, d(yearStart), cappedTo(yearEnd)),
+      getArAging(tenantId),
+      getTotalPendingPayrollCents(tenantId),
+      // Real hours × rate, not a sum of the mostly-unset bookings.team_member_pay
+      // column (same fix as pendingCleanerPayments below — see that comment).
+      getLaborCostCentsForPeriod(tenantId, weekStart.toISOString(), weekEnd.toISOString()),
+      getLaborCostCentsForPeriod(tenantId, monthStart.toISOString(), monthEnd.toISOString()),
+      getLaborCostCentsForPeriod(tenantId, yearStart.toISOString(), yearEnd.toISOString()),
     ])
 
     const weekRevenue = ledgerWeek.revenue_cents
-    const weekLabor = sum(weekBookings, 'team_member_pay')
-    const weekLaborPaid = sumPaidLabor(weekBookings)
+    const weekLabor = weekLaborCost.totalCents
+    const weekLaborPaid = weekLaborCost.paidCents
 
     const monthRevenue = ledgerMonth.revenue_cents
-    const monthLabor = sum(monthBookings, 'team_member_pay')
-    const monthLaborPaid = sumPaidLabor(monthBookings)
+    const monthLabor = monthLaborCost.totalCents
+    const monthLaborPaid = monthLaborCost.paidCents
 
     const yearRevenue = ledgerYear.revenue_cents
-    const yearLabor = sum(yearBookings, 'team_member_pay')
-    const yearLaborPaid = sumPaidLabor(yearBookings)
+    const yearLabor = yearLaborCost.totalCents
+    const yearLaborPaid = yearLaborCost.paidCents
 
-    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => s + (b.price || 0), 0)
-    const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
+    // AR outstanding — same authoritative invoices+bookings aging used by
+    // /api/finance/ar-aging, not a separate raw booking-price sum (that
+    // used to disagree: it counted refunded completed bookings as still
+    // owed and ignored unpaid invoices entirely).
+    const pendingClientPayments = arAging.total_cents
+    // Same hours × rate source /api/finance/payroll (the Payroll tab) uses —
+    // not a sum of bookings.team_member_pay, a column that's mostly unset on
+    // real bookings and undercounted what cleaners were owed by ~770x on a
+    // real tenant's live data (checked against production 2026-07-27).
+    const pendingCleanerPayments = totalPendingPayrollCents
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
       db.from('referral_commissions').select('commission_cents').gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),

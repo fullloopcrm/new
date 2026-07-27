@@ -122,6 +122,9 @@ export default function ScheduleDetailPage() {
           {schedule.clients?.name || 'Schedule'} — {schedule.recurring_type.replace('_', ' ')}
         </h2>
         <div className="flex gap-2">
+          <Link href={`/dashboard/sales/budget?schedule_id=${id}`} className="px-4 py-2 text-sm text-slate-400 border border-slate-200 rounded-lg hover:text-slate-900 hover:border-slate-500">
+            Budget
+          </Link>
           <button onClick={startEditing} className="px-4 py-2 text-sm text-slate-400 border border-slate-200 rounded-lg hover:text-slate-900 hover:border-slate-500">
             Edit
           </button>

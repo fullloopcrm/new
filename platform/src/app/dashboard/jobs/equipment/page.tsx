@@ -5,12 +5,16 @@ import '../../sales/sales.css'
 
 // Equipment — depreciable physical assets (dumpsters, generators,
 // skid-steers) that get checked out and returned rather than consumed.
-// Depreciation itself posts to Finance on its own schedule; this page is
-// asset tracking + booking, not the depreciation run.
+// Depreciation posts monthly via cron/post-depreciation (see
+// src/lib/finance/post-depreciation.ts) straight-line, DR 5110 Depreciation
+// Expense / CR 1510 Accumulated Depreciation; this page is asset tracking +
+// booking, not the depreciation run itself.
 type ServiceType = { id: string; name: string; item_type: string }
+type Category = { id: string; name: string }
 type Equipment = {
   id: string
   service_type_id: string | null
+  category_id: string | null
   name: string
   asset_tag: string | null
   acquisition_cost_cents: number
@@ -27,10 +31,10 @@ type Booking = {
 }
 
 type Draft = {
-  name: string; service_type_id: string; asset_tag: string; acquisition_cost: string
+  name: string; service_type_id: string; category_id: string; asset_tag: string; acquisition_cost: string
   acquisition_date: string; useful_life_months: string; salvage_value: string; notes: string
 }
-const EMPTY_DRAFT: Draft = { name: '', service_type_id: '', asset_tag: '', acquisition_cost: '', acquisition_date: '', useful_life_months: '', salvage_value: '', notes: '' }
+const EMPTY_DRAFT: Draft = { name: '', service_type_id: '', category_id: '', asset_tag: '', acquisition_cost: '', acquisition_date: '', useful_life_months: '', salvage_value: '', notes: '' }
 
 function money(cents: number): string {
   return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -53,6 +57,7 @@ const STATUS_STYLES: Record<string, React.CSSProperties> = {
 export default function EquipmentPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [saving, setSaving] = useState(false)
@@ -68,16 +73,19 @@ export default function EquipmentPage() {
     Promise.all([
       fetch('/api/equipment').then((r) => r.json()).catch(() => ({ equipment: [] })),
       fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
+      fetch('/api/categories').then((r) => r.json()).catch(() => ({ categories: [] })),
     ])
-      .then(([e, c]) => {
+      .then(([e, c, cat]) => {
         setEquipment(e?.equipment || [])
         setServiceTypes((c?.items || []).filter((i: ServiceType) => i.item_type === 'equipment'))
+        setCategories(cat?.categories || [])
       })
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 
   const catalogName = (id: string | null) => serviceTypes.find((s) => s.id === id)?.name || null
+  const categoryName = (id: string | null) => categories.find((c) => c.id === id)?.name || null
 
   async function createEquipment() {
     setErr('')
@@ -87,7 +95,7 @@ export default function EquipmentPage() {
       const res = await fetch('/api/equipment', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: draft.name, service_type_id: draft.service_type_id || null, asset_tag: draft.asset_tag || null,
+          name: draft.name, service_type_id: draft.service_type_id || null, category_id: draft.category_id || null, asset_tag: draft.asset_tag || null,
           acquisition_cost_cents: toCents(draft.acquisition_cost), acquisition_date: draft.acquisition_date || null,
           useful_life_months: draft.useful_life_months ? Number(draft.useful_life_months) : null,
           salvage_value_cents: toCents(draft.salvage_value), notes: draft.notes || null,
@@ -101,7 +109,7 @@ export default function EquipmentPage() {
   function startEdit(e: Equipment) {
     setEditingId(e.id)
     setEditDraft({
-      name: e.name, service_type_id: e.service_type_id || '', asset_tag: e.asset_tag || '',
+      name: e.name, service_type_id: e.service_type_id || '', category_id: e.category_id || '', asset_tag: e.asset_tag || '',
       acquisition_cost: (e.acquisition_cost_cents / 100).toFixed(2), acquisition_date: e.acquisition_date || '',
       useful_life_months: e.useful_life_months != null ? String(e.useful_life_months) : '',
       salvage_value: (e.salvage_value_cents / 100).toFixed(2), notes: e.notes || '',
@@ -209,9 +217,16 @@ export default function EquipmentPage() {
             <input style={inp} type="number" step="0.01" value={draft.salvage_value} onChange={(e) => setDraft({ ...draft, salvage_value: e.target.value })} placeholder="0.00" />
           </div>
           <div>
-            <label style={label}>Notes</label>
-            <input style={inp} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+            <label style={label}>Category <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(ties depreciation to the right ledger account)</span></label>
+            <select style={inp} value={draft.category_id} onChange={(e) => setDraft({ ...draft, category_id: e.target.value })}>
+              <option value="">No category</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={label}>Notes</label>
+          <input style={inp} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
         </div>
         {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 10 }}>{err}</div>}
         <button type="button" className="sl-newlead-btn" disabled={saving} onClick={createEquipment}>{saving ? 'Adding…' : '+ Add equipment'}</button>
@@ -240,7 +255,7 @@ export default function EquipmentPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'var(--sl-display)', fontSize: 16, fontWeight: 600, color: 'var(--sl-ink)', minWidth: 200 }}>{e.name}</span>
                 <span style={{ flex: 1, fontSize: 13, color: 'var(--sl-muted)' }}>
-                  {[catalogName(e.service_type_id), e.asset_tag, `book value ${money(bookValue(e))}`].filter(Boolean).join(' · ')}
+                  {[catalogName(e.service_type_id), categoryName(e.category_id), e.asset_tag, `book value ${money(bookValue(e))}`].filter(Boolean).join(' · ')}
                 </span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, ...(STATUS_STYLES[e.status] || {}) }}>
                   {e.status.toUpperCase()}

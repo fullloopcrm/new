@@ -77,4 +77,17 @@ describe('bookings/broadcast POST — tenantDb isolation', () => {
       .maybeSingle()
     expect((data as { pay_rate: number }).pay_rate).toBe(99)
   })
+
+  it('a terminated team member (HR status, separate from roster status=active) is excluded from the broadcast even though team_members.status still says active', async () => {
+    fake._seed('team_members', [
+      { id: 'tm-a2', tenant_id: A_ID, name: 'Terminated Worker', phone: '+15551110003', email: 'gone@x.com', status: 'active' },
+    ])
+    fake._seed('hr_employee_profiles', [
+      { id: 'hrp-1', tenant_id: A_ID, team_member_id: 'tm-a2', hr_status: 'terminated' },
+    ])
+    const res = await POST(postReq(A_BOOKING))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.reports).toEqual([{ name: 'A Worker', sms: true, email: true }])
+  })
 })

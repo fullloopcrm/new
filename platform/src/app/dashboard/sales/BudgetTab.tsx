@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import HelpTip from '../_components/HelpTip'
 
 /**
@@ -56,6 +57,48 @@ type QuoteRow = {
   client_id: string | null
   clients: { id: string; name: string } | null
   budget: Budget | null
+  // 'quote' = a real proposal; 'recurring' = a recurring_schedules row with no
+  // originating quote (see 2026_07_27_recurring_schedule_budgets.sql) — same
+  // budget UI, different backing API base.
+  kind: 'quote' | 'recurring'
+}
+
+type RecurringApiRow = {
+  id: string
+  recurring_type: string
+  status: string
+  hourly_rate: number | null
+  duration_hours: number | null
+  client_id: string | null
+  clients: { id: string; name: string } | null
+  budget: Budget | null
+}
+
+const RECURRING_TYPE_LABELS: Record<string, string> = {
+  weekly: 'Weekly', biweekly: 'Biweekly', triweekly: 'Every 3 wks', monthly_date: 'Monthly', monthly_weekday: 'Monthly',
+}
+
+function normalizeRecurringRow(s: RecurringApiRow): QuoteRow {
+  const perVisitCents = Math.round((s.hourly_rate || 0) * (s.duration_hours || 0) * 100)
+  return {
+    id: s.id,
+    quote_number: RECURRING_TYPE_LABELS[s.recurring_type] || s.recurring_type,
+    title: 'Recurring — no quote',
+    status: s.status,
+    total_cents: perVisitCents,
+    client_id: s.client_id,
+    clients: s.clients,
+    budget: s.budget,
+    kind: 'recurring',
+  }
+}
+
+function budgetApiBase(row: Pick<QuoteRow, 'id' | 'kind'>): string {
+  return row.kind === 'recurring' ? `/api/quote-budgets/recurring/${row.id}` : `/api/quote-budgets/${row.id}`
+}
+function applyTemplateApiBase(row: Pick<QuoteRow, 'id' | 'kind'>, templateId: string): string {
+  const segment = row.kind === 'recurring' ? 'apply-to-recurring' : 'apply-to-quote'
+  return `/api/budget-templates/${templateId}/${segment}/${row.id}`
 }
 
 type Category = { id: string; name: string }
@@ -86,6 +129,9 @@ function pct(bps: number | null | undefined): string {
 const emptyForm = { line_items: [] as LineItem[], target_margin: '', notes: '' }
 
 export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates: () => void }) {
+  const searchParams = useSearchParams()
+  const deepLinkQuoteId = searchParams.get('quote_id') || searchParams.get('schedule_id')
+  const autoOpened = useRef(false)
   const [quotes, setQuotes] = useState<QuoteRow[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -105,17 +151,35 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
     const qs = statusFilter ? `?status=${statusFilter}` : ''
     Promise.all([
       fetch(`/api/quote-budgets${qs}`).then((r) => r.json()).catch(() => ({ quotes: [] })),
+      // Recurring schedules have their own status vocabulary (active/paused/
+      // inactive, not sent/viewed/accepted) — the quote status filter above
+      // doesn't apply to them, always fetch the full set.
+      fetch('/api/quote-budgets/recurring').then((r) => r.json()).catch(() => ({ schedules: [] })),
       fetch('/api/categories').then((r) => r.json()).catch(() => ({ categories: [] })),
       fetch('/api/budget-templates').then((r) => r.json()).catch(() => ({ templates: [] })),
       fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
-    ]).then(([q, c, t, cat]) => {
-      setQuotes(q?.quotes || [])
+    ]).then(([q, rs, c, t, cat]) => {
+      const quoteRows: QuoteRow[] = (q?.quotes || []).map((row: Omit<QuoteRow, 'kind'>) => ({ ...row, kind: 'quote' as const }))
+      const recurringRows: QuoteRow[] = (rs?.schedules || []).map(normalizeRecurringRow)
+      setQuotes([...quoteRows, ...recurringRows])
       setCategories(c?.categories || [])
       setSavedTemplates(t?.templates || [])
       setCatalogItems(cat?.items || [])
     }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deep link from a quote/deal's own "Budget" button (?quote_id=...) —
+  // auto-open that quote's budget once its row has loaded, instead of
+  // making the rep hunt for it in the full list.
+  useEffect(() => {
+    if (!deepLinkQuoteId || autoOpened.current || loading) return
+    const row = quotes.find((q) => q.id === deepLinkQuoteId)
+    if (row) {
+      autoOpened.current = true
+      openBudget(row)
+    }
+  }, [deepLinkQuoteId, quotes, loading])
 
   const visibleQuotes = useMemo(
     () => (statusFilter ? quotes : quotes.filter((q) => !HIDDEN_BY_DEFAULT.includes(q.status))),
@@ -140,7 +204,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
       return
     }
     try {
-      const res = await fetch(`/api/quote-budgets/${row.id}`)
+      const res = await fetch(budgetApiBase(row))
       const d = await res.json().catch(() => null)
       const b = d?.budget
       setForm(
@@ -153,17 +217,17 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
     }
   }
 
-  async function applySavedTemplate(quoteId: string, templateId: string) {
+  async function applySavedTemplate(row: QuoteRow, templateId: string) {
     if (!templateId) return
     setTemplateMsg('')
-    const res = await fetch(`/api/budget-templates/${templateId}/apply-to-quote/${quoteId}`, { method: 'POST' })
+    const res = await fetch(applyTemplateApiBase(row, templateId), { method: 'POST' })
     if (!res.ok) {
       const d = await res.json().catch(() => null)
       setTemplateMsg((d && d.error) || 'Could not apply template.')
       return
     }
     skipNextAutoSave.current = true
-    const budgetRes = await fetch(`/api/quote-budgets/${quoteId}`)
+    const budgetRes = await fetch(budgetApiBase(row))
     const d = await budgetRes.json().catch(() => null)
     if (d?.budget) {
       setForm({
@@ -193,8 +257,9 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
   async function save(quoteId: string, opts?: { silent?: boolean }) {
     if (!opts?.silent) setErr('')
     setSaving(true)
+    const row = quotes.find((q) => q.id === quoteId)
     try {
-      const res = await fetch(`/api/quote-budgets/${quoteId}`, {
+      const res = await fetch(row ? budgetApiBase(row) : `/api/quote-budgets/${quoteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -238,7 +303,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
       <div className="sl-section-head">
         <h2 className="sl-section-title">Budgets<em>.</em></h2>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="sl-section-meta">{visibleQuotes.length} proposal{visibleQuotes.length === 1 ? '' : 's'}</span>
+          <span className="sl-section-meta">{visibleQuotes.length} proposal{visibleQuotes.length === 1 ? '' : 's'}/schedule{visibleQuotes.length === 1 ? '' : 's'}</span>
           <button type="button" className="sl-newlead-btn" onClick={onSwitchToTemplates}>
             + New Budget
           </button>
@@ -262,7 +327,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
       </div>
 
       {loading && <div className="sl-empty">Loading…</div>}
-      {!loading && visibleQuotes.length === 0 && <div className="sl-empty">No proposals to budget yet.</div>}
+      {!loading && visibleQuotes.length === 0 && <div className="sl-empty">No proposals or recurring schedules to budget yet.</div>}
       {!loading && visibleQuotes.length > 0 && savedTemplates.length === 0 && (
         <div className="sl-empty">No Budget Templates yet — <button type="button" onClick={onSwitchToTemplates} style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0, font: 'inherit' }}>build one first</button>, then come back to apply it to a proposal.</div>
       )}
@@ -282,13 +347,18 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer', background: isOpen ? 'var(--sl-canvas,#fafaf8)' : '#fff' }}
                 onClick={() => (isOpen ? setOpenId(null) : openBudget(row))}
               >
-                <span className={`sl-deal-status ${row.status === 'accepted' || row.status === 'converted' ? 'sold' : row.status === 'declined' || row.status === 'expired' ? 'lost' : 'pending'}`} style={{ minWidth: 76, textAlign: 'center' }}>{row.status}</span>
+                <span className={`sl-deal-status ${row.status === 'accepted' || row.status === 'converted' || row.status === 'active' ? 'sold' : row.status === 'declined' || row.status === 'expired' ? 'lost' : 'pending'}`} style={{ minWidth: 76, textAlign: 'center' }}>{row.status}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{row.quote_number}{row.title ? ` — ${row.title}` : ''}</span>
+                  {row.kind === 'recurring' && (
+                    <span style={{ marginLeft: 8, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 6px', borderRadius: 3, background: 'rgba(0,0,0,0.06)', color: 'var(--sl-muted)' }}>
+                      Recurring, no quote
+                    </span>
+                  )}
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-muted)' }}>{row.clients?.name || 'No client'}</span>
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--sl-muted)', minWidth: 90, textAlign: 'right' }}>
-                  Contract<br /><strong style={{ color: 'var(--sl-ink)', fontSize: 14 }}>{money(row.total_cents)}</strong>
+                  {row.kind === 'recurring' ? 'Est./visit' : 'Contract'}<br /><strong style={{ color: 'var(--sl-ink)', fontSize: 14 }}>{money(row.total_cents)}</strong>
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--sl-muted)', minWidth: 90, textAlign: 'right' }}>
                   Budgeted<br /><strong style={{ color: 'var(--sl-ink)', fontSize: 14 }}>{b ? money(budgetedTotal) : '—'}</strong>
@@ -333,7 +403,7 @@ export default function BudgetTab({ onSwitchToTemplates }: { onSwitchToTemplates
                       style={{ ...inp, width: 240 }}
                       value={applyingTemplateId}
                       disabled={!savedTemplates.length}
-                      onChange={(e) => { setApplyingTemplateId(e.target.value); applySavedTemplate(row.id, e.target.value) }}
+                      onChange={(e) => { setApplyingTemplateId(e.target.value); applySavedTemplate(row, e.target.value) }}
                     >
                       <option value="">{savedTemplates.length ? 'Choose a template…' : 'No templates yet'}</option>
                       {savedTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

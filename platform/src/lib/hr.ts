@@ -115,6 +115,34 @@ export async function seedHrDefaults(tenantId: string): Promise<{
   return { requirementsSeeded, profilesBackfilled }
 }
 
+/**
+ * team_member_ids on this tenant whose HR profile is 'terminated' — used to
+ * keep terminated people out of scheduling/broadcast even though
+ * team_members.status (the roster active/inactive flag) is a separate column
+ * that HR termination doesn't touch. A member with no HR profile yet is never
+ * excluded (fail-open, matches the rest of HR being additive/optional).
+ */
+export async function getTerminatedTeamMemberIds(tenantId: string): Promise<Set<string>> {
+  const { data } = await supabaseAdmin
+    .from('hr_employee_profiles')
+    .select('team_member_id')
+    .eq('tenant_id', tenantId)
+    .eq('hr_status', 'terminated')
+  return new Set((data || []).map((r) => r.team_member_id as string))
+}
+
+/** Single-member version of getTerminatedTeamMemberIds, for auth-path checks. */
+export async function isTeamMemberTerminated(tenantId: string, teamMemberId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('hr_employee_profiles')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('team_member_id', teamMemberId)
+    .eq('hr_status', 'terminated')
+    .maybeSingle()
+  return !!data
+}
+
 export interface HrEmployee {
   team_member_id: string
   name: string

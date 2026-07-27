@@ -6,6 +6,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { sendEmail, tenantSender } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -56,12 +57,20 @@ export async function POST(request: Request) {
   }
 
   // Get all active team members
-  const { data: members } = (await db
+  const { data: allActiveMembers } = (await db
     .from('team_members')
     .select('id, name, phone, email')
     .eq('status', 'active')) as {
       data: { id: string; name: string; phone: string | null; email: string | null }[] | null
     }
+
+  // team_members.status is the roster flag; HR termination is a separate
+  // column (hr_employee_profiles.hr_status) that this query doesn't see —
+  // exclude terminated people explicitly so they stop getting broadcast to
+  // the moment HR marks them terminated, not whenever someone remembers to
+  // flip the roster status too.
+  const terminatedIds = await getTerminatedTeamMemberIds(tenantId)
+  const members = (allActiveMembers || []).filter((m) => !terminatedIds.has(m.id))
 
   if (!members || members.length === 0) {
     return NextResponse.json({ error: 'No active team members' }, { status: 400 })
