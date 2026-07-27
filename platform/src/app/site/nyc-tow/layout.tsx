@@ -8,6 +8,7 @@ import { MobileStickyBar } from "@/app/site/nyc-tow/_components/MobileStickyBar"
 import { JsonLd, organizationSchema } from "@/app/site/nyc-tow/_lib/schema";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
@@ -70,6 +71,7 @@ export default function RootLayout({
         </ConsentGate>
         <ConsentBanner />
         <ClientErrorMonitor slug="nyc-tow" />
+        <TenantAnalyticsScript slug="nyc-tow" />
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import Footer from "@/app/site/the-nyc-seo/_components/Footer";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/the-nyc-seo/_lib/seo";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const inter = Inter({
@@ -93,6 +94,7 @@ s0.parentNode.insertBefore(s1,s0);
         </ConsentGate>
         <ConsentBanner />
         <ClientErrorMonitor slug="the-nyc-seo" />
+        <TenantAnalyticsScript slug="the-nyc-seo" />
       </body>
     </html>
   );

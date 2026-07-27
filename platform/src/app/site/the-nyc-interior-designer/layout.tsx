@@ -6,6 +6,7 @@ import Navbar from "@/app/site/the-nyc-interior-designer/_components/Navbar";
 import Footer from "@/app/site/the-nyc-interior-designer/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
@@ -137,6 +138,7 @@ export default function RootLayout({
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
         <ClientErrorMonitor slug="the-nyc-interior-designer" />
+        <TenantAnalyticsScript slug="the-nyc-interior-designer" />
       </body>
     </html>
   );

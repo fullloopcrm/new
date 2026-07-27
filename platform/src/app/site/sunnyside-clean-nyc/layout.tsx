@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 import MarketingNav from '@/app/site/sunnyside-clean-nyc/_components/marketing/MarketingNav'
 import MarketingFooter from '@/app/site/sunnyside-clean-nyc/_components/marketing/MarketingFooter'
 import ClientErrorMonitor from '@/components/monitoring/ClientErrorMonitor'
+import TenantAnalyticsScript from '@/components/analytics/TenantAnalyticsScript'
 
 export const metadata = {
   title: {
@@ -29,6 +30,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <main id="main-content">{children}</main>
       <MarketingFooter />
       <ClientErrorMonitor slug="sunnyside-clean-nyc" />
+      <TenantAnalyticsScript slug="sunnyside-clean-nyc" />
     </div>
   )
 }

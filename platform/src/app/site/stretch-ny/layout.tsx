@@ -7,6 +7,7 @@ import Navbar from "@/app/site/stretch-ny/_components/Navbar";
 import Footer from "@/app/site/stretch-ny/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
@@ -144,6 +145,7 @@ s0.parentNode.insertBefore(s1,s0);
         </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
         <ClientErrorMonitor slug="stretch-ny" />
+        <TenantAnalyticsScript slug="stretch-ny" />
       </body>
     </html>
   );

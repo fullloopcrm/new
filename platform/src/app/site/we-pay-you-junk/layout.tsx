@@ -8,6 +8,7 @@ import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
 import { localBusinessLd, websiteLd } from "@/app/site/we-pay-you-junk/_lib/schema";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
 import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
@@ -92,6 +93,7 @@ s0.parentNode.insertBefore(s1,s0);
         </ConsentGate>
         <ConsentBanner />
         <ClientErrorMonitor slug="we-pay-you-junk" />
+        <TenantAnalyticsScript slug="we-pay-you-junk" />
       </body>
     </html>
   );
