@@ -1,10 +1,8 @@
--- Connect: DM channels (admin <-> individual team member) and message
--- attachments. Additive to migrations/connect-chat.sql — safe to run after it.
--- Team <-> FullLoop platform admin already exists via tenant_owner_messages
--- (/admin/tenant-chats, /dashboard/messages) — not duplicated here.
+-- Connect: DM channels (admin to individual team member) and message
+-- attachments. Additive to migrations/connect-chat.sql, safe to run after it.
+-- Team to FullLoop platform admin already exists via tenant_owner_messages
+-- (/admin/tenant-chats, /dashboard/messages), not duplicated here.
 
--- Widen the type check constraint (name is unnamed/auto-generated in the
--- original migration, so look it up instead of guessing it).
 DO $$
 DECLARE con_name text;
 BEGIN
@@ -24,19 +22,12 @@ ALTER TABLE connect_channels
 ALTER TABLE connect_channels
   ADD COLUMN IF NOT EXISTS team_member_id UUID REFERENCES team_members(id) ON DELETE CASCADE;
 
--- One DM channel per (tenant, team member) — admin <-> that specific employee.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_connect_channels_dm
   ON connect_channels(tenant_id, team_member_id) WHERE type = 'dm' AND team_member_id IS NOT NULL;
 
 ALTER TABLE connect_messages
   ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb;
 
--- tenant_owner_messages.sender_role is documented (CLAUDE.md) as
--- admin|owner|jefe|tenant_agent. Widen it to admit 'team' so field staff can
--- post into the same per-tenant platform-support thread as the owner
--- (src/app/api/team-portal/support/route.ts). Same lookup-by-definition
--- approach as the connect_channels constraint above, since this table's
--- original CREATE TABLE isn't checked into this repo.
 DO $$
 DECLARE con_name text;
 BEGIN
@@ -51,6 +42,4 @@ BEGIN
       con_name, 'admin', 'owner', 'jefe', 'tenant_agent', 'team'
     );
   END IF;
-  -- If no such constraint exists at all, sender_role is unconstrained and
-  -- 'team' already inserts fine — nothing to do.
 END $$;
