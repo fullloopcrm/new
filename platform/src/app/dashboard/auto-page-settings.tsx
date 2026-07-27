@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'bookings', 'campaigns', 'clients', 'notifications', 'referrals', 'reviews', 'sms', 'team',
+  'bookings', 'campaigns', 'catalog', 'clients', 'notifications', 'referrals', 'reviews', 'sms', 'team',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -96,15 +96,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'allow_same_day', label: 'Allow same-day booking', type: 'toggle', layer: 'tenant_column', default: false, helper: 'Overrides minimum days ahead for today only.' },
       { key: 'open_365', label: 'Open 365 days/year', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'When off, federal holidays block booking/availability.' },
       { key: 'smart_recurring_assign', label: 'Smart-assign recurring jobs', type: 'toggle', layer: 'tenant_selena', default: false, helper: 'Each generated recurring occurrence gets the best-available team member instead of hard-locking the schedule’s original assignee.' },
-    ],
-  },
-  'catalog': {
-    page: 'catalog', title: 'Catalog',
-    tips: ['Which tab the Catalog page opens to.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Catalog opens to.', options: [
-        { value: 'services', label: 'Services' }, { value: 'budgets', label: 'Budgets' }, { value: 'vendors', label: 'Vendors' }, { value: 'categories', label: 'Categories' }, { value: 'inventory', label: 'Inventory' }, { value: 'equipment', label: 'Equipment' },
-      ], default: 'services' },
     ],
   },
   'changelog': {
