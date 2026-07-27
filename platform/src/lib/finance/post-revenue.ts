@@ -47,6 +47,19 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
     .maybeSingle()
   if (!payment) return { posted: false, reason: 'not_found' }
 
+  // Same guard as backfillRevenueFromBookings below -- a payment can
+  // reference a booking that was cancelled after the payment succeeded
+  // (refund not yet reconciled). Never recognize revenue for a job that
+  // didn't happen, regardless of the payment record's own status.
+  if (payment.booking_id) {
+    const { data: bkg } = await supabaseAdmin
+      .from('bookings')
+      .select('status')
+      .eq('id', payment.booking_id as string)
+      .maybeSingle()
+    if (bkg?.status === 'cancelled') return { posted: false, reason: 'booking_cancelled' }
+  }
+
   // Unify the idempotency key with the bookings backfill: a booking-linked
   // payment keys on the BOOKING, so the real-time post and backfillRevenueFromBookings
   // can never double-count the same job. Invoice-only payments key on the payment.
@@ -131,6 +144,14 @@ export async function backfillRevenueFromBookings(
       .select('id, price, team_member_pay, tip_amount, payment_date, start_time')
       .eq('tenant_id', tenantId)
       .in('payment_status', ['paid', 'partial'])
+      // A booking can carry a stale 'paid'/'partial' payment_status from
+      // before it was cancelled (refund never reconciled, or payment_status
+      // just never got reset on cancel) -- this filter was missing entirely,
+      // so a cancelled booking that happened to still read 'paid' got its
+      // revenue posted to the ledger as if the job actually happened. Found
+      // live on nycmaid: 19 entries, $5,501 recognized for jobs that never
+      // ran, including two 2027-dated cancelled bookings.
+      .neq('status', 'cancelled')
       .gt('price', 0)
       .order('start_time', { ascending: true })
       .range(offset, offset + PAGE - 1)
@@ -188,6 +209,71 @@ export async function backfillRevenueFromBookings(
   }
 
   return { scanned, revenuePosted, cogsPosted }
+}
+
+/**
+ * Corrective reversal for revenue already wrongly posted for bookings that
+ * were cancelled (the gap backfillRevenueFromBookings/postPaymentRevenue now
+ * guard against going forward). Journal entries are append-only -- this never
+ * edits or deletes the original wrong entry, it posts an equal-and-opposite
+ * reversing entry (swap debit/credit on every line) under a distinct
+ * source='booking_reversal' so the mistake and its correction are both
+ * visible in the audit trail, and it's idempotent (unique on
+ * tenant_id+source+source_id, same as every other posting path).
+ */
+export async function reverseCancelledBookingRevenue(
+  tenantId: string,
+): Promise<{ scanned: number; reversed: number; reversedCents: number }> {
+  const { data: entries } = await supabaseAdmin
+    .from('journal_entries')
+    .select('id, source_id')
+    .eq('tenant_id', tenantId)
+    .eq('source', 'booking')
+  let scanned = 0
+  let reversed = 0
+  let reversedCents = 0
+
+  for (const entry of entries || []) {
+    if (!entry.source_id) continue
+    const { data: booking } = await supabaseAdmin
+      .from('bookings')
+      .select('status')
+      .eq('id', entry.source_id as string)
+      .maybeSingle()
+    if (booking?.status !== 'cancelled') continue
+    scanned++
+
+    if (await journalEntryExists(tenantId, 'booking_reversal', entry.source_id as string)) continue
+
+    const { data: lines } = await supabaseAdmin
+      .from('journal_lines')
+      .select('coa_id, debit_cents, credit_cents')
+      .eq('tenant_id', tenantId)
+      .eq('entry_id', entry.id as string)
+    if (!lines || lines.length === 0) continue
+
+    const reversedLines: JournalLineInput[] = lines.map((l) => ({
+      coa_id: l.coa_id as string,
+      debit_cents: l.credit_cents || 0,
+      credit_cents: l.debit_cents || 0,
+      memo: 'Reversal: booking cancelled after revenue was posted',
+    }))
+    const cents = lines.reduce((s, l) => s + (l.credit_cents || 0), 0)
+
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: `Reversal — booking ${String(entry.source_id).slice(0, 8)} cancelled`,
+      source: 'booking_reversal',
+      source_id: entry.source_id as string,
+      lines: reversedLines,
+    })
+    if (entryId) {
+      reversed++
+      reversedCents += cents
+    }
+  }
+  return { scanned, reversed, reversedCents }
 }
 
 /**
