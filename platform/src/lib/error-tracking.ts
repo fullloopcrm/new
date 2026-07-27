@@ -22,17 +22,47 @@ export async function trackError(error: unknown, context: ErrorContext) {
   const stack = error instanceof Error ? error.stack : undefined
   const severity = context.severity || 'medium'
 
-  // 1. Log to error_logs table (persistent, queryable, resolvable)
+  // 1. Log to error_logs — deduped against the same still-open (route,
+  // message, tenant) within the last 24h instead of inserting a fresh row
+  // every time. Recurring checks (e.g. an hourly cron that's been broken for
+  // two weeks) used to pile up hundreds of identical rows, burying real
+  // signal under noise nobody was triaging. A repeat now bumps
+  // occurrence_count and created_at on the existing row (so "when" reads as
+  // "last seen", which is the more useful signal for an ongoing problem)
+  // instead of creating a duplicate.
   try {
-    await supabaseAdmin.from('error_logs').insert({
-      severity,
-      message: message.slice(0, 1000),
-      stack: stack?.slice(0, 2000) || null,
-      tenant_id: context.tenantId || null,
-      route: context.source || null,
-      action: context.source || null,
-      metadata: context.extra ? { extra: context.extra } : null,
-    })
+    const route = context.source || null
+    const truncatedMessage = message.slice(0, 1000)
+    const { data: existing } = await supabaseAdmin
+      .from('error_logs')
+      .select('id, metadata')
+      .eq('resolved', false)
+      .is('dismissed_at', null)
+      .eq('message', truncatedMessage)
+      .eq('route', route as string)
+      .eq('tenant_id', context.tenantId || null)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      const priorCount = (existing.metadata as { occurrence_count?: number } | null)?.occurrence_count || 1
+      await supabaseAdmin.from('error_logs').update({
+        created_at: new Date().toISOString(),
+        metadata: { ...(existing.metadata as object | null), occurrence_count: priorCount + 1, extra: context.extra },
+      }).eq('id', existing.id)
+    } else {
+      await supabaseAdmin.from('error_logs').insert({
+        severity,
+        message: truncatedMessage,
+        stack: stack?.slice(0, 2000) || null,
+        tenant_id: context.tenantId || null,
+        route,
+        action: context.source || null,
+        metadata: { occurrence_count: 1, ...(context.extra ? { extra: context.extra } : {}) },
+      })
+    }
   } catch (e) {
     console.error('Failed to log to error_logs:', e)
   }
