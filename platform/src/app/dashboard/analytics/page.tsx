@@ -23,15 +23,18 @@ export default function AnalyticsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [bookingsRes, clientsRes, financeRes] = await Promise.all([
+        const [bookingsRes, clientsRes, financeRes, financeMonthlyRes] = await Promise.all([
           fetch('/api/bookings?limit=1000'),
           fetch('/api/clients'),
           fetch('/api/finance/revenue'),
+          fetch('/api/finance/revenue?monthly=true'),
         ])
 
         const bookingsData = bookingsRes.ok ? await bookingsRes.json() : []
         const clientsData = clientsRes.ok ? await clientsRes.json() : { clients: [] }
         const financeData = financeRes.ok ? await financeRes.json() : {}
+        const financeMonthlyData = financeMonthlyRes.ok ? await financeMonthlyRes.json() : { monthly: [] }
+        const ledgerMonthly = (financeMonthlyData.monthly || []) as Array<{ month: string; actual: number | null; isCurrent: boolean }>
 
         const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || []
         const clients = clientsData.clients || []
@@ -57,17 +60,23 @@ export default function AnalyticsPage() {
           serviceCount[svc].revenue += b.final_price || b.price || 0
         })
 
-        // Monthly trend (last 6 months)
+        // Monthly trend (last 6 months) — revenue is ledger-sourced (same
+        // pipeline as the Finance Overview page), so this never disagrees
+        // with the headline "Total Revenue" above it. Booking counts stay
+        // from raw bookings (created_at) — that's a legitimate operational
+        // count, not a ledger concern.
         const monthlyTrend: { month: string; bookings: number; revenue: number }[] = []
+        const trailingLedger = ledgerMonthly.slice(-6)
         for (let i = 5; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
           const mStart = d.toISOString()
           const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString()
           const mBookings = bookings.filter((b: { created_at: string }) => b.created_at >= mStart && b.created_at <= mEnd)
+          const ledgerPoint = trailingLedger[5 - i]
           monthlyTrend.push({
             month: d.toLocaleDateString('en-US', { month: 'short' }),
             bookings: mBookings.length,
-            revenue: mBookings.reduce((s: number, b: { final_price?: number; price?: number }) => s + (b.final_price || b.price || 0), 0),
+            revenue: Math.round((ledgerPoint?.actual ?? 0) * 100),
           })
         }
 
@@ -77,8 +86,8 @@ export default function AnalyticsPage() {
             totalRevenue,
             totalClients: clients.length,
             avgBookingValue: bookings.length > 0 ? Math.round(totalRevenue / bookings.length) : 0,
-            thisMonth: { bookings: thisMonthBookings.length, revenue: thisMonthBookings.reduce((s: number, b: { final_price?: number; price?: number }) => s + (b.final_price || b.price || 0), 0), clients: 0 },
-            lastMonth: { bookings: lastMonthBookings.length, revenue: lastMonthBookings.reduce((s: number, b: { final_price?: number; price?: number }) => s + (b.final_price || b.price || 0), 0), clients: 0 },
+            thisMonth: { bookings: thisMonthBookings.length, revenue: monthlyTrend[5]?.revenue ?? 0, clients: 0 },
+            lastMonth: { bookings: lastMonthBookings.length, revenue: monthlyTrend[4]?.revenue ?? 0, clients: 0 },
           },
           byStatus: Object.entries(byStatus).map(([status, count]) => ({ status, count })),
           monthlyTrend,

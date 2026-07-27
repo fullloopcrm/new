@@ -4,6 +4,38 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 
+// Same "what's booked" definition the /dashboard homepage uses (SCHEDULED),
+// so Finance's "Contracted YTD" and the homepage's "Jobs · YTD" agree.
+const PIPELINE_STATUSES = ['pending', 'scheduled', 'confirmed', 'completed', 'in_progress']
+
+// Paginated — a busy tenant's year can exceed Supabase's 1000-row default cap.
+async function fetchYearContracted(
+  db: ReturnType<typeof tenantDb>,
+  startISO: string,
+  endISO: string,
+): Promise<{ total_cents: number; count: number }> {
+  let total = 0
+  let count = 0
+  let offset = 0
+  for (;;) {
+    const { data, error } = await db
+      .from('bookings')
+      .select('price')
+      .in('status', PIPELINE_STATUSES)
+      .gte('start_time', startISO)
+      .lte('start_time', endISO)
+      .range(offset, offset + 999)
+    if (error) throw error
+    for (const b of data || []) {
+      total += b.price || 0
+      count++
+    }
+    if (!data || data.length < 1000) break
+    offset += 1000
+  }
+  return { total_cents: total, count }
+}
+
 export async function GET() {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
@@ -29,12 +61,13 @@ export async function GET() {
 
     const baseSelect = 'price, team_member_pay, team_member_paid'
 
-    const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }] = await Promise.all([
+    const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }, yearContracted] = await Promise.all([
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
       db.from('bookings').select(baseSelect).eq('status', 'completed').gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
       db.from('bookings').select('price, team_member_pay, payment_status, team_member_paid').eq('status', 'completed').or('payment_status.neq.paid,team_member_paid.neq.true'),
       db.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
+      fetchYearContracted(db, yearStart.toISOString(), yearEnd.toISOString()),
     ])
 
     const sum = (arr: { price?: number | null; team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null, key: 'price' | 'team_member_pay') =>
@@ -45,10 +78,20 @@ export async function GET() {
     // Revenue from the LEDGER (single source of truth, matches the books).
     // Labor stays from bookings — it's operational owed/paid tracking.
     const d = (x: Date) => x.toISOString().slice(0, 10)
+    // Every period end above (weekEnd/monthEnd/yearEnd) is the NATURAL end of
+    // that calendar period, which for the current week/month/year is in the
+    // future relative to today. Some journal entries carry a future
+    // entry_date (recurring revenue posted ahead of when it actually
+    // happens — a real anomaly, not fixed here), so querying to the natural
+    // period end would count not-yet-real revenue as already collected.
+    // Cap every ledger query at today so "this week/month/year" only ever
+    // reflects what's actually happened so far.
+    const todayStr = d(now)
+    const cappedTo = (periodEnd: Date) => (d(periodEnd) < todayStr ? d(periodEnd) : todayStr)
     const [ledgerWeek, ledgerMonth, ledgerYear] = await Promise.all([
-      ledgerProfitAndLoss(tenantId, d(weekStart), d(weekEnd)),
-      ledgerProfitAndLoss(tenantId, d(monthStart), d(monthEnd)),
-      ledgerProfitAndLoss(tenantId, d(yearStart), d(yearEnd)),
+      ledgerProfitAndLoss(tenantId, d(weekStart), cappedTo(weekEnd)),
+      ledgerProfitAndLoss(tenantId, d(monthStart), cappedTo(monthEnd)),
+      ledgerProfitAndLoss(tenantId, d(yearStart), cappedTo(yearEnd)),
     ])
 
     const weekRevenue = ledgerWeek.revenue_cents
@@ -98,6 +141,14 @@ export async function GET() {
 
     return NextResponse.json({
       weekRevenue, monthRevenue, yearRevenue,
+      // "Contracted" = every booked job this year regardless of payment
+      // status (same SCHEDULED definition the /dashboard homepage's Jobs
+      // ladder uses); "Revenue" above is ledger-recognized/collected. The
+      // gap between them is real pipeline that hasn't converted to
+      // recognized revenue yet — not a discrepancy to reconcile away.
+      yearContracted: yearContracted.total_cents,
+      yearContractedJobs: yearContracted.count,
+      yearContractedGap: yearContracted.total_cents - yearRevenue,
       weekLabor, monthLabor, yearLabor,
       weekLaborPaid, monthLaborPaid, yearLaborPaid,
       weekLaborOwed: weekLabor - weekLaborPaid,

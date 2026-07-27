@@ -171,6 +171,16 @@ function BookingsPage() {
   const timezone = useTenantTimezone()
   useEffect(() => { document.title = 'Bookings' }, []);
 
+  // Ledger-true YTD revenue, shown as the "Revenue" stat only when no filters
+  // are active — same figure as the Finance Overview/dashboard homepage, so
+  // the unfiltered view agrees with the rest of the app. When a filter IS
+  // active, the stat should reflect that filtered slice instead (see
+  // totalRevenue below), which the raw ledger can't do at this granularity.
+  const [ledgerYtdRevenue, setLedgerYtdRevenue] = useState<number | null>(null)
+  useEffect(() => {
+    fetch('/api/finance/summary').then(r => r.ok ? r.json() : null).then(d => { if (d?.yearRevenue != null) setLedgerYtdRevenue(d.yearRevenue) }).catch(() => {})
+  }, [])
+
   const [bookings, setBookings] = useState<Booking[]>([])
   const [tenantSlug, setTenantSlug] = useState('')
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
@@ -1100,8 +1110,16 @@ function BookingsPage() {
     pending: bookings.filter(b => b.status === 'pending').length,
   }
 
-  // Summary stats
-  const totalRevenue = bookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + b.price, 0)
+  // Summary stats. Previously always summed `bookings` (the full, unfiltered
+  // all-time set) regardless of active filters, so changing a filter never
+  // moved this number. Now: no filters -> ledger-true YTD (agrees with
+  // Finance/dashboard); filters active -> sum the actually-filtered slice,
+  // since the ledger can't answer "revenue for this cleaner/date range" at
+  // that granularity.
+  const filteredCompletedRevenue = filteredBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + b.price, 0)
+  // ledgerYtdRevenue (from /api/finance/summary's yearRevenue) is already in
+  // cents, same as bookings[].price — no conversion needed.
+  const totalRevenue = activeFilterCount === 0 && ledgerYtdRevenue != null ? ledgerYtdRevenue : filteredCompletedRevenue
   const upcomingCount = bookings.filter(b => b.status === 'scheduled' && new Date(b.start_time) > new Date()).length
   const thisWeekCount = bookings.filter(b => {
     const d = new Date(b.start_time)
