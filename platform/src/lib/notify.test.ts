@@ -166,16 +166,31 @@ describe('notify — communications gate', () => {
     expect(skippedUpdate).toBeDefined()
   })
 
-  it('an UNMAPPED type (payment_received has no NOTIFY_COMM_MAP entry) bypasses the gate entirely', async () => {
+  it('an UNMAPPED type+recipient combo (payment_received:team_member has no NOTIFY_COMM_MAP entry) bypasses the gate entirely', async () => {
     isCommEnabledMock.mockResolvedValue(false) // would block if consulted
-    tableData['clients'] = { email: 'client@example.com', phone: null }
+    tableData['team_members'] = { email: 'crew@example.com', phone: null }
     const r = await notify({
       tenantId: TENANT_ID, type: 'payment_received', title: 'Paid', message: 'thanks',
-      recipientType: 'client', recipientId: 'client-1',
+      recipientType: 'team_member', recipientId: 'team-1',
     })
     expect(r.success).toBe(true)
     expect(isCommEnabledMock).not.toHaveBeenCalled()
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('payment_received:client is mapped to payment_receipt and honors isCommEnabled=false (client receipt gate)', async () => {
+    tableData['clients'] = { email: 'client@example.com', phone: null }
+    isCommEnabledMock.mockResolvedValue(false)
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'payment_received', title: 'Paid', message: 'thanks',
+      recipientType: 'client', recipientId: 'client-1',
+    })
+    expect(r).toEqual({ success: true })
+    expect(isCommEnabledMock).toHaveBeenCalledWith(TENANT_ID, 'payment_receipt', 'email')
+    expect(sendEmailMock).not.toHaveBeenCalled()
+    const updateCalls = calls.filter((c) => c.table === 'notifications' && c.op === 'update')
+    const skippedUpdate = updateCalls.find((c) => (c.payload as { status: string }).status === 'skipped')
+    expect(skippedUpdate).toBeDefined()
   })
 })
 

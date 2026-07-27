@@ -458,30 +458,57 @@ export function paymentReceiptEmail(data: TemplateData & {
   amount: string
   date: string
   paymentMethod: string
+  /** Optional itemized breakdown — degrades to the old Service/Amount/Date/Method shape when omitted. */
+  hours?: number
+  hourlyRate?: string
+  subtotal?: string
+  discountLabel?: string
+  tipAmount?: string
+  bookingRef?: string
+  referralLink?: string
 }): string {
-  return baseTemplate(`
-    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Payment Receipt</h2>
-    <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, here's your receipt from ${escapeHtml(data.tenantName)}.
-    </p>
-    <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
-    <tr style="background:#f9fafb;">
+  const row = (label: string, value: string, bold?: boolean) =>
+    `<tr>
+      <td style="padding:12px 16px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">${escapeHtml(label)}</td>
+      <td style="padding:12px 16px;color:#111827;font-size:14px;${bold ? 'font-weight:700;' : ''}text-align:right;border-top:1px solid #e5e7eb;">${escapeHtml(value)}</td>
+    </tr>`
+
+  const rows: string[] = [
+    `<tr style="background:#f9fafb;">
       <td style="padding:12px 16px;color:#6b7280;font-size:12px;text-transform:uppercase;">Service</td>
       <td style="padding:12px 16px;color:#111827;font-size:14px;font-weight:600;text-align:right;">${escapeHtml(data.serviceName)}</td>
-    </tr>
-    <tr>
-      <td style="padding:12px 16px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">Amount</td>
-      <td style="padding:12px 16px;color:#111827;font-size:14px;font-weight:600;text-align:right;border-top:1px solid #e5e7eb;">${escapeHtml(data.amount)}</td>
-    </tr>
-    <tr>
-      <td style="padding:12px 16px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">Date</td>
-      <td style="padding:12px 16px;color:#111827;font-size:14px;text-align:right;border-top:1px solid #e5e7eb;">${escapeHtml(data.date)}</td>
-    </tr>
-    <tr>
-      <td style="padding:12px 16px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">Method</td>
-      <td style="padding:12px 16px;color:#111827;font-size:14px;text-align:right;border-top:1px solid #e5e7eb;">${escapeHtml(data.paymentMethod)}</td>
-    </tr>
+    </tr>`,
+  ]
+  if (data.hours && data.hourlyRate) rows.push(row('Rate', `${data.hours} hr × ${data.hourlyRate}`))
+  if (data.subtotal) rows.push(row('Subtotal', data.subtotal))
+  if (data.discountLabel) rows.push(row('Discount', data.discountLabel))
+  if (data.tipAmount) rows.push(row('Tip', data.tipAmount))
+  rows.push(row('Total Paid', data.amount, true))
+  rows.push(row('Date', data.date))
+  rows.push(row('Method', data.paymentMethod))
+  if (data.bookingRef) rows.push(row('Reference', data.bookingRef))
+
+  const commission = data.referralCommissionPercent ?? 10
+  const referralBlock = noteBox(
+    `<strong>Know someone who'd love us too?</strong> Send them our way and earn ${commission}% commission — you get paid ${commission}% of every service your referral books with us, for as long as they stay a client.`,
+    'success',
+  ) + (data.referralLink ? ctaButton('Refer a Friend, Get Paid', data.referralLink, data.primaryColor) : '')
+
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Payment Receipt</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 8px;">
+      Hi ${escapeHtml(data.clientName)} — thank you! We really appreciate you trusting ${escapeHtml(data.tenantName)} with your home, and we don't take that lightly.
+    </p>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
+      Here's the detailed breakdown of what you paid:
+    </p>
+    <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px;">
+    ${rows.join('\n')}
     </table>
+    ${referralBlock}
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:20px 0 0;">
+      Thanks again for the business — we'll see you next time.
+    </p>
   `, data)
 }
 

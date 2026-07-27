@@ -389,4 +389,5 @@ export const NOTIFY_COMM_MAP: Record<string, string> = {
   'daily_ops_recap:admin': 'owner_daily_summary',
   'daily_summary:admin': 'owner_daily_summary',
   'payment_received:admin': 'owner_payment_received',
+  'payment_received:client': 'payment_receipt',
 }

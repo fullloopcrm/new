@@ -30,6 +30,7 @@ import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
 import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
+import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { trackError } from '@/lib/error-tracking'
@@ -444,7 +445,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_size, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), client_properties(address, latitude, longitude), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, discount_percent, one_time_credit_cents, team_size, service_type, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), client_properties(address, latitude, longitude), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -690,6 +691,36 @@ export async function POST(request: Request) {
           telnyxApiKey: tenant.telnyx_api_key,
           telnyxPhone: tenant.telnyx_phone,
         }).catch(err => console.error('[stripe] client SMS failed:', err))
+      }
+
+      // 6a. Email the client a detailed payment receipt — itemized rate ×
+      // hours, discount, tip, total. Gated by the tenant's `payment_receipt`
+      // comm pref (comms-registry.ts, default on) via notify()'s NOTIFY_COMM_MAP.
+      if (booking.client_id) {
+        const discountPercent = booking.discount_percent as number | null
+        notify({
+          tenantId,
+          type: 'payment_received',
+          recipientType: 'client',
+          recipientId: booking.client_id,
+          channel: 'email',
+          title: `Payment Receipt — $${(amountCents / 100).toFixed(2)}`,
+          message: `Thanks for your payment of $${(amountCents / 100).toFixed(2)}.`,
+          bookingId,
+          metadata: {
+            clientName: client?.name || 'Client',
+            serviceName: booking.service_type || 'Service',
+            amount: `$${(amountCents / 100).toFixed(2)}`,
+            date: new Date().toLocaleDateString(),
+            paymentMethod: 'Card',
+            hours: hours || undefined,
+            hourlyRate: booking.hourly_rate ? `$${Number(booking.hourly_rate).toFixed(2)}/hr` : undefined,
+            subtotal: expectedCents ? `$${(expectedCents / 100).toFixed(2)}` : undefined,
+            discountLabel: discountPercent ? `${discountPercent}% off` : undefined,
+            tipAmount: tipCents > 0 ? `$${(tipCents / 100).toFixed(2)}` : undefined,
+            bookingRef: bookingId.slice(0, 8),
+          },
+        }).catch(err => console.error('[stripe] client payment receipt email failed:', err))
       }
 
       // 6b. Admin "payment CONFIRMED" SMS (NYC Maid parity — was missing; only

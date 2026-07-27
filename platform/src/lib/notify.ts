@@ -413,6 +413,13 @@ export async function notify({
         amount: (metadata?.amount as string) || '$0',
         date: (metadata?.date as string) || new Date().toLocaleDateString(),
         paymentMethod: (metadata?.paymentMethod as string) || 'Card',
+        hours: metadata?.hours as number | undefined,
+        hourlyRate: metadata?.hourlyRate as string | undefined,
+        subtotal: metadata?.subtotal as string | undefined,
+        discountLabel: metadata?.discountLabel as string | undefined,
+        tipAmount: metadata?.tipAmount as string | undefined,
+        bookingRef: metadata?.bookingRef as string | undefined,
+        referralLink: (templateData as { referralUrl?: string }).referralUrl,
       })
       break
     case 'booking_confirmed':

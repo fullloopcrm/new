@@ -51,6 +51,7 @@ export interface CommPolicy {
   supportPhone?: string
   reviewUrl?: string
   bookingUrl?: string
+  referralUrl?: string
   cancellationPolicyOneTime?: string
   cancellationPolicyRecurring?: string
   /** Newline-separated. Booking-confirmation "how to prepare" list. */
@@ -135,9 +136,9 @@ export function normalizePrefs(raw: unknown): CommPreferences {
   }
 
   const storedPolicy = (obj.policy as Record<string, unknown>) || {}
-  type StringPolicyKey = 'supportPhone' | 'reviewUrl' | 'bookingUrl' | 'cancellationPolicyOneTime' | 'cancellationPolicyRecurring' | 'prepTips'
+  type StringPolicyKey = 'supportPhone' | 'reviewUrl' | 'bookingUrl' | 'referralUrl' | 'cancellationPolicyOneTime' | 'cancellationPolicyRecurring' | 'prepTips'
   const stringPolicyKeys: StringPolicyKey[] = [
-    'supportPhone', 'reviewUrl', 'bookingUrl', 'cancellationPolicyOneTime', 'cancellationPolicyRecurring', 'prepTips',
+    'supportPhone', 'reviewUrl', 'bookingUrl', 'referralUrl', 'cancellationPolicyOneTime', 'cancellationPolicyRecurring', 'prepTips',
   ]
   for (const key of stringPolicyKeys) {
     const v = storedPolicy[key]
@@ -207,6 +208,7 @@ export function buildTemplateData(tenant: TenantForTemplateData, policy: CommPol
     supportPhone: policy.supportPhone,
     reviewUrl: policy.reviewUrl,
     bookingUrl: policy.bookingUrl,
+    referralUrl: policy.referralUrl,
     cancellationPolicyOneTime: policy.cancellationPolicyOneTime,
     cancellationPolicyRecurring: policy.cancellationPolicyRecurring,
     prepTips: policy.prepTips,
