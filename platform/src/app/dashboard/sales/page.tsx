@@ -153,7 +153,7 @@ const STAGE_ORDER: Stage[] = ['new', 'qualifying', 'quoted', 'pending', 'sold']
 // A deal can only move to its immediate next stage, back to Lost from any
 // open stage, or reopened to Lead from Lost — never skip a stage (e.g. Lead
 // straight to Quote, bypassing Qualify).
-function nextStageOptions(stage: string): Stage[] {
+export function nextStageOptions(stage: string): Stage[] {
   if (stage === 'lost') return ['new']
   const idx = STAGE_ORDER.indexOf(stage as Stage)
   const forward = idx > -1 && idx < STAGE_ORDER.length - 1 ? [STAGE_ORDER[idx + 1]] : []
