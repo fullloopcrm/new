@@ -15,6 +15,7 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
+import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -139,6 +140,8 @@ export default async function HomePage() {
   const content = homepageContent(toBrand(siteConfig))
 
   const profile = industryProfile(siteConfig.industry)
+  // Weekend (Sat/Sun) new-client surcharge is NYC Maid only (Jeff, 2026-07-27).
+  const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
 
   // Virtual-assistant tenants get a dedicated, remote+national landing.
   if (profile.isVirtualAssistant) {
@@ -212,6 +215,7 @@ export default async function HomePage() {
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$59<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">You provide the cleaning supplies and equipment. We bring the expertise.</p>
               <p className="text-[rgb(var(--accent-rgb)/0.8)] text-xs mt-2 font-medium">10% off weekly &middot; 5% off biweekly &amp; monthly</p>
+              {isNycmaid && <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>}
             </div>
             <div className="bg-[rgb(var(--accent-rgb)/0.1)] backdrop-blur-sm border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8 relative">
               <div className="absolute -top-3 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
@@ -219,15 +223,18 @@ export default async function HomePage() {
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$69<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
               <p className="text-[rgb(var(--accent-rgb)/0.8)] text-xs mt-2 font-medium">20% off weekly &middot; 10% off biweekly &amp; monthly</p>
+              {isNycmaid && <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>}
             </div>
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
               <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$89<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
+              {isNycmaid && <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_EMERGENCY_RATE}/hr for new clients)</p>}
             </div>
           </div>
           <p className="text-blue-200/50 text-xs mt-5 max-w-3xl leading-relaxed">
             2-hour minimum on all bookings (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at emergency pricing ($89/hr).
+            {isNycmaid && ' New clients booking Saturday or Sunday are billed at the weekend rate shown above; Friday is not a weekend day.'}
           </p>
         </div>
       </section>
@@ -349,6 +356,7 @@ export default async function HomePage() {
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[var(--brand)] tracking-wide leading-none mb-1">$59<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
+              {isNycmaid && <p className="text-gray-400 text-xs">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>}
               <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 You provide all cleaning supplies, equipment, and products. We bring an experienced, background-checked professional cleaner who does the work.
@@ -383,6 +391,7 @@ export default async function HomePage() {
               <div className="absolute -top-3.5 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none mb-1">$69<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
+              {isNycmaid && <p className="text-blue-200/40 text-xs">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>}
               <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-blue-200/60 text-sm leading-relaxed mb-5">
                 We bring all professional-grade supplies, equipment, vacuums, mops, and cleaning products. Just open the door — we handle everything from start to finish.
@@ -416,6 +425,7 @@ export default async function HomePage() {
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Same-Day &amp; Emergency</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[var(--brand)] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
+              {isNycmaid && <p className="text-gray-400 text-xs">(Weekends: ${WEEKEND_EMERGENCY_RATE}/hr for new clients)</p>}
               <div className="w-10 h-[2px] bg-[var(--accent)] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">same-day cleaning</Link> when you need it most.

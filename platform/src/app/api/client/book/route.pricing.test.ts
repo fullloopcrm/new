@@ -28,6 +28,12 @@ const CLIENT = 'client-a'
 const holder = vi.hoisted(() => ({
   rpcCalls: [] as Array<Record<string, unknown>>,
   bookings: new Map<string, Record<string, unknown>>(),
+  // New-vs-existing client resolution (email/phone lookup, then
+  // insert-if-absent) — configurable per test, defaulting to "no match" so
+  // the creation branch (isNewClient = true) runs unless a test opts a
+  // client in as already-existing.
+  clientLookup: { emailMatchId: null as string | null, phoneMatchId: null as string | null },
+  nextNewClientId: 0,
 }))
 
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => TENANT }))
@@ -52,6 +58,7 @@ vi.mock('@/lib/email-templates', () => ({
   referralSignupNotifyEmail: () => ({ subject: 's', html: 'h' }),
 }))
 vi.mock('@/lib/nycmaid/recurring-discount', () => ({ applyRecurringDiscount: (price: number) => price }))
+vi.mock('@/lib/client-contacts', () => ({ createPrimaryContact: vi.fn(async () => {}) }))
 
 function stubChain(result: { data: unknown; error: unknown } = { data: null, error: null }) {
   const chain: Record<string, unknown> = {
@@ -93,8 +100,38 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'clients') {
-        const clientResult = { data: { do_not_service: false }, error: null }
-        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => clientResult, maybeSingle: async () => clientResult }) }) }) }
+        // Three distinct callers share this one table mock:
+        //  1. Ownership check (body.client_id path):
+        //     .select('do_not_service').eq('id',..).eq('tenant_id',..).maybeSingle()
+        //  2/3. New-vs-existing resolution (no body.client_id), via tenantDb —
+        //     same underlying supabaseAdmin.from('clients') — email lookup
+        //     (.ilike + .maybeSingle), phone lookup (.eq('phone',..) +
+        //     .maybeSingle), then .insert(...).select().single() if neither hit.
+        const ownerResult = { data: { do_not_service: false }, error: null }
+        let mode: 'owner' | 'email' | 'phone' | 'insert' = 'owner'
+        let insertedRow: Record<string, unknown> | null = null
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: (col: string) => {
+            if (col === 'phone') mode = 'phone'
+            return chain
+          },
+          ilike: () => { mode = 'email'; return chain },
+          insert: (data: Record<string, unknown>) => { mode = 'insert'; insertedRow = data; return chain },
+          maybeSingle: async () => {
+            if (mode === 'email') return { data: holder.clientLookup.emailMatchId ? { id: holder.clientLookup.emailMatchId } : null, error: null }
+            if (mode === 'phone') return { data: holder.clientLookup.phoneMatchId ? { id: holder.clientLookup.phoneMatchId } : null, error: null }
+            return ownerResult
+          },
+          single: async () => {
+            if (mode === 'insert') {
+              holder.nextNewClientId += 1
+              return { data: { id: `new-client-${holder.nextNewClientId}`, ...insertedRow }, error: null }
+            }
+            return ownerResult
+          },
+        }
+        return chain
       }
       if (table === 'bookings') return bookingsSelectBuilder()
       return stubChain()
@@ -129,9 +166,27 @@ function bookReq(body: Record<string, unknown>) {
   )
 }
 
+// No client_id — exercises the email/phone-lookup-then-create path, so
+// isNewClient is true unless a test pre-registers a match via
+// holder.clientLookup. 2026-08-01 is a Saturday, 2026-08-02 a Sunday.
+function bookReqNewClient(body: Record<string, unknown>) {
+  return POST(
+    new Request('http://t/api/client/book', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Nora NewClient', email: 'nora@example.com', phone: '5551234567', address: '1 Main St',
+        start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00',
+        ...body,
+      }),
+    }),
+  )
+}
+
 beforeEach(() => {
   holder.rpcCalls.length = 0
   holder.bookings.clear()
+  holder.clientLookup = { emailMatchId: null, phoneMatchId: null }
+  holder.nextNewClientId = 0
   nycMaidFlag.current = false
 })
 
@@ -189,6 +244,63 @@ describe('NYC Maid tenant — hourly_rate clamped to the published {59, 69} tier
 
   it('the legitimate $69 (we-bring) tier is honored', async () => {
     const res = await bookReq({ hourly_rate: 69, estimated_hours: 2 })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(69)
+  })
+})
+
+describe('NYC Maid tenant — weekend (Sat/Sun) surcharge, new clients only', () => {
+  beforeEach(() => {
+    nycMaidFlag.current = true
+  })
+
+  it('a brand-new client booking Saturday at the we-bring rate is charged $79/hr, not $69', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 79, estimated_hours: 2, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(79)
+  })
+
+  it('a brand-new client booking Sunday at the client-supplies rate is charged $69/hr, not $59', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 69, estimated_hours: 2, start_time: '2026-08-02T10:00:00', end_time: '2026-08-02T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(69)
+  })
+
+  it('a tampered $1/hr submission on a new-client weekend booking falls back to the $79/hr default, not honored', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 1, estimated_hours: 2, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(79)
+  })
+
+  it('a stale weekday rate ($59) sent for a new-client weekend booking is rejected in favor of the $79 weekend default — the weekday and weekend tiers are never cross-honored', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 59, estimated_hours: 2, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(79)
+  })
+
+  it('an EXISTING client (client_id provided) booking Saturday keeps the old $59/$69 tiers — the weekend surcharge never applies to them', async () => {
+    const res = await bookReq({ hourly_rate: 79, estimated_hours: 2, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00' })
+    expect(res.status).toBe(200)
+    // 79 isn't a valid weekday tier, so it falls back to the $69 weekday default — never honored as-is.
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(69)
+  })
+
+  it('a returning client matched by email on a weekend booking also keeps the old tiers, not the surcharge', async () => {
+    holder.clientLookup.emailMatchId = 'existing-client-1'
+    const res = await bookReqNewClient({ hourly_rate: 79, estimated_hours: 2, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_client_id).toBe('existing-client-1')
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(69)
+  })
+
+  it('Friday is NOT a weekend day — a new client booking Friday gets the normal weekday tiers', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 59, estimated_hours: 2, start_time: '2026-08-07T10:00:00', end_time: '2026-08-07T12:00:00' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(59)
+  })
+
+  it('a new client booking a weekday (Monday) is unaffected by the weekend surcharge', async () => {
+    const res = await bookReqNewClient({ hourly_rate: 69, estimated_hours: 2, start_time: '2026-08-03T10:00:00', end_time: '2026-08-03T12:00:00' })
     expect(res.status).toBe(200)
     expect(holder.rpcCalls[0].p_hourly_rate).toBe(69)
   })
