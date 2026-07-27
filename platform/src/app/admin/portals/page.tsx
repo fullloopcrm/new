@@ -12,7 +12,7 @@ type Business = {
 }
 
 /**
- * Landing page after a fresh master-PIN (020179) login — one click into any
+ * Landing page after a fresh master-PIN login — one click into any
  * tenant's operator dashboard, team portal, or client portal, instead of
  * needing to already be on that tenant's own domain to log in there.
  *
