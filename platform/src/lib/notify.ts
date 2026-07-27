@@ -310,6 +310,17 @@ export async function notify({
     })
   }
 
+  // Internal monitoring signals, never a tenant-facing business notification.
+  // The dashboard row (above) and Telegram (above) are the full delivery —
+  // never fall through to the email/SMS channel logic below, regardless of
+  // what `channel` the caller passed (or defaulted to).
+  if (type === 'error' || type === 'selena_error') {
+    if (notifId) {
+      await supabaseAdmin.from('notifications').update({ status: 'sent' }).eq('id', notifId)
+    }
+    return { success: true }
+  }
+
   // Get recipient contact info
   let email: string | null = null
   let phone: string | null = null
