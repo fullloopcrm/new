@@ -32,7 +32,21 @@ export type ChatMessage = {
   sender_id: string
   sender_name: string
   body: string
+  attachments?: string[]
   created_at: string
+}
+
+function Attachments({ urls }: { urls?: string[] }) {
+  if (!urls || urls.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {urls.map((url) => (
+        <a key={url} href={url} target="_blank" rel="noopener noreferrer">
+          <img src={url} alt="Attachment" className="w-32 h-32 object-cover rounded-lg border border-slate-200" />
+        </a>
+      ))}
+    </div>
+  )
 }
 
 export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; variant?: 'slack' | 'imessage-mine' | 'imessage-theirs' }) {
@@ -40,7 +54,8 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
     return (
       <div className="flex justify-end mb-2">
         <div className="bg-teal-500 text-white px-3 py-2 rounded-2xl rounded-br-sm max-w-[75%]">
-          <p className="text-sm">{msg.body}</p>
+          {msg.body && <p className="text-sm">{msg.body}</p>}
+          <Attachments urls={msg.attachments} />
           <p className="text-[10px] text-white/60 mt-0.5 text-right">{formatTime(msg.created_at)}</p>
         </div>
       </div>
@@ -52,7 +67,8 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
       <div className="flex justify-start mb-2">
         <div className="bg-gray-200 text-slate-800 px-3 py-2 rounded-2xl rounded-bl-sm max-w-[75%]">
           <p className="text-xs font-medium text-slate-500 mb-0.5">{msg.sender_name}</p>
-          <p className="text-sm">{msg.body}</p>
+          {msg.body && <p className="text-sm">{msg.body}</p>}
+          <Attachments urls={msg.attachments} />
           <p className="text-[10px] text-slate-400 mt-0.5">{formatTime(msg.created_at)}</p>
         </div>
       </div>
@@ -75,7 +91,8 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
             {formatTime(msg.created_at)}
           </span>
         </div>
-        <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap break-words">{msg.body}</p>
+        {msg.body && <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap break-words">{msg.body}</p>}
+        <Attachments urls={msg.attachments} />
       </div>
     </div>
   )
@@ -119,17 +136,35 @@ export function ChatInput({
   value,
   onChange,
   onSend,
+  onAttach,
   placeholder = 'Type a message...',
   disabled,
 }: {
   value: string
   onChange: (v: string) => void
   onSend: () => void
+  onAttach?: (file: File) => void
   placeholder?: string
   disabled?: boolean
 }) {
   return (
     <div className="flex gap-2 items-end">
+      {onAttach && (
+        <label className="shrink-0 w-9 h-9 flex items-center justify-center border border-slate-300 rounded-lg text-slate-500 hover:bg-slate-50 cursor-pointer disabled:opacity-40">
+          📷
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            className="hidden"
+            disabled={disabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onAttach(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      )}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

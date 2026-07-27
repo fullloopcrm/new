@@ -10,8 +10,11 @@ type Channel = {
   name: string
   type: string
   client_id: string | null
+  team_member_id?: string | null
   last_message: { body: string; sender_name: string; created_at: string } | null
 }
+
+type TeamMember = { id: string; name: string }
 
 function formatPreviewTime(iso: string): string {
   const d = new Date(iso)
@@ -54,6 +57,8 @@ export default function LoopConnectPage() {
   const [search, setSearch] = useState('')
   const [newChannelName, setNewChannelName] = useState('')
   const [showNewChannel, setShowNewChannel] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [showNewDm, setShowNewDm] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastReadRef = useRef<string | null>(null)
 
@@ -91,6 +96,13 @@ export default function LoopConnectPage() {
   useEffect(() => { fetchChannels() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    fetch('/api/team')
+      .then((r) => r.json())
+      .then((data) => setTeamMembers((data.team || []).map((m: { id: string; name: string }) => ({ id: m.id, name: m.name }))))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (!activeChannelId) return
     fetchMessages()
     const interval = setInterval(fetchMessages, 5000)
@@ -125,6 +137,36 @@ export default function LoopConnectPage() {
     }
   }
 
+  const sendPhoto = async (file: File) => {
+    if (!activeChannelId || sending) return
+    setSending(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('channel_id', activeChannelId)
+      await fetch('/api/connect/messages/upload', { method: 'POST', body: form })
+      fetchMessages()
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const startDm = async (teamMemberId: string) => {
+    try {
+      const res = await fetch('/api/connect/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'dm', team_member_id: teamMemberId }),
+      })
+      const data = await res.json()
+      if (data.channel) {
+        setShowNewDm(false)
+        fetchChannels()
+        setActiveChannelId(data.channel.id)
+      }
+    } catch { /* ignore */ }
+  }
+
   const createChannel = async () => {
     if (!newChannelName.trim()) return
     try {
@@ -148,8 +190,11 @@ export default function LoopConnectPage() {
     ? channels.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : channels
   const generalChannels = filteredChannels.filter((c) => c.type === 'general')
+  const dmChannels = filteredChannels.filter((c) => c.type === 'dm')
   const clientChannels = filteredChannels.filter((c) => c.type === 'client')
   const customChannels = filteredChannels.filter((c) => c.type === 'custom')
+  const dmMemberIds = new Set(channels.filter((c) => c.type === 'dm').map((c) => c.team_member_id))
+  const availableForDm = teamMembers.filter((m) => !dmMemberIds.has(m.id))
   const grouped = groupMessagesByDate(messages)
 
   return (
@@ -187,6 +232,28 @@ export default function LoopConnectPage() {
               {generalChannels.map((ch) => (
                 <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
               ))}
+              <div className="lc-channel-section">Direct Messages</div>
+              {dmChannels.map((ch) => (
+                <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
+              ))}
+              {showNewDm ? (
+                <div className="lc-new-row">
+                  <select
+                    className="lc-new-input"
+                    autoFocus
+                    defaultValue=""
+                    onChange={(e) => e.target.value && startDm(e.target.value)}
+                  >
+                    <option value="" disabled>Select a team member…</option>
+                    {availableForDm.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                  <button className="lc-new-cancel" type="button" onClick={() => setShowNewDm(false)}>×</button>
+                </div>
+              ) : (
+                <button className="lc-new-btn" type="button" onClick={() => setShowNewDm(true)}>+ Message a team member</button>
+              )}
               {clientChannels.length > 0 && <div className="lc-channel-section">Clients</div>}
               {clientChannels.map((ch) => (
                 <ChannelItem key={ch.id} channel={ch} active={ch.id === activeChannelId} onClick={() => { setActiveChannelId(ch.id); lastReadRef.current = null }} />
@@ -225,7 +292,7 @@ export default function LoopConnectPage() {
                   {activeChannel.name}
                 </span>
                 <span className="lc-channel-head-meta">
-                  {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
+                  {activeChannel.type === 'client' ? 'Private channel' : activeChannel.type === 'dm' ? 'Direct message' : activeChannel.type === 'general' ? 'Everyone' : 'Custom'}
                 </span>
               </div>
             )}
@@ -258,6 +325,7 @@ export default function LoopConnectPage() {
                   value={draft}
                   onChange={setDraft}
                   onSend={sendMessage}
+                  onAttach={sendPhoto}
                   placeholder={`Message ${activeChannel.type === 'general' ? '#' + activeChannel.name : activeChannel.name}…`}
                   disabled={sending}
                 />
