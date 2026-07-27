@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Catalog size (active service types), platform total.
     const { count: catalogCount } = await supabaseAdmin
-      .from('service_types')
+      .from('service_types') // tenant-scope-ok: /admin/finance is requireAdmin-gated; intentionally cross-tenant.
       .select('id', { count: 'exact', head: true })
       .eq('active', true)
 
