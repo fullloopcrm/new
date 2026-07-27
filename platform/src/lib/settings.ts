@@ -118,6 +118,9 @@ export interface TenantSettings {
   campaign_sender_name: string
   campaign_auto_unsubscribe: boolean
   campaign_approval_required: boolean
+  // Social auto-post (selena_config jsonb)
+  social_autopost_enabled: boolean
+  social_autopost_caption_template: string
   // User invites (selena_config jsonb)
   default_invite_role: string
   require_2fa_for_new_users: boolean
@@ -135,6 +138,7 @@ const DEFAULT_FALLBACKS = {
   client_reminder_email: true,
   client_reminder_sms: true,
   chatbot_greeting: 'Hi! Thank you for reaching out. How can we help?',
+  social_autopost_caption_template: 'Another job done! ✨ {service_type}',
 }
 
 // Parse "09:00" / "9" / "09" → 9
@@ -295,6 +299,8 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     campaign_sender_name: (selenaConfig.campaign_sender_name as string) || (tenant?.name as string) || '',
     campaign_auto_unsubscribe: selenaConfig.campaign_auto_unsubscribe !== false,
     campaign_approval_required: Boolean(selenaConfig.campaign_approval_required),
+    social_autopost_enabled: Boolean(selenaConfig.social_autopost_enabled),
+    social_autopost_caption_template: (selenaConfig.social_autopost_caption_template as string) || DEFAULT_FALLBACKS.social_autopost_caption_template,
     default_invite_role: (selenaConfig.default_invite_role as string) || 'staff',
     require_2fa_for_new_users: Boolean(selenaConfig.require_2fa_for_new_users),
     team_guidelines: (tenant?.guidelines_en as string) || null,

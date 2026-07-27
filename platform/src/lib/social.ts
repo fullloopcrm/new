@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secret-crypto'
+import { getSettings } from '@/lib/settings'
 
 export type SocialPlatform = 'facebook' | 'instagram'
 
@@ -292,4 +293,68 @@ export async function refreshFacebookToken(
   })
 
   return { success: true }
+}
+
+/**
+ * Auto-post a job's photo to the tenant's connected Facebook/Instagram
+ * accounts when a booking is checked out. Opt-in per tenant
+ * (social_autopost_enabled). Deliberately generic — never includes client
+ * name, address, or any other PII, only the service type.
+ *
+ * No-ops silently (not an error) when: auto-post is off, no platform is
+ * connected, or the job has no 'after'/'progress' photo yet — this runs
+ * fire-and-forget off the checkout path and must never fail loud there.
+ */
+export async function autoPostJobCompletion(tenantId: string, bookingId: string): Promise<void> {
+  const settings = await getSettings(tenantId)
+  if (!settings.social_autopost_enabled) return
+
+  const accounts = await getSocialAccounts(tenantId)
+  if (accounts.length === 0) return
+
+  const photo = await pickAutoPostPhoto(tenantId, bookingId)
+  if (!photo) return
+
+  const { data: booking } = await supabaseAdmin
+    .from('bookings')
+    .select('service_type')
+    .eq('id', bookingId)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  const serviceType = (booking?.service_type as string | null) || 'job'
+  const caption = settings.social_autopost_caption_template.replace(/\{service_type\}/g, serviceType)
+
+  const hasFacebook = accounts.some(a => a.platform === 'facebook')
+  const hasInstagram = accounts.some(a => a.platform === 'instagram')
+
+  // Independent try/catch per platform — one failing (e.g. an expired IG
+  // token) must not block the other from posting.
+  if (hasFacebook) {
+    await postToFacebook(tenantId, caption, photo.url).catch((err) =>
+      console.error(`[social] auto-post to Facebook failed for booking ${bookingId}:`, err))
+  }
+  if (hasInstagram) {
+    await postToInstagram(tenantId, caption, photo.url).catch((err) =>
+      console.error(`[social] auto-post to Instagram failed for booking ${bookingId}:`, err))
+  }
+}
+
+async function pickAutoPostPhoto(tenantId: string, bookingId: string): Promise<{ url: string } | null> {
+  // 'after' photos are the marketing-worthy shot; fall back to 'progress'.
+  // Deliberately excludes 'before' — a messy pre-job photo isn't something
+  // a tenant wants auto-published to their public feed.
+  for (const photoType of ['after', 'progress'] as const) {
+    const { data } = await supabaseAdmin
+      .from('job_photos')
+      .select('url')
+      .eq('tenant_id', tenantId)
+      .eq('booking_id', bookingId)
+      .eq('photo_type', photoType)
+      .order('taken_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data?.url) return { url: data.url as string }
+  }
+  return null
 }
