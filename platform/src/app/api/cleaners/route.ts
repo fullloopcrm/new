@@ -8,6 +8,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etToday, addCalendarDays, formatNaiveET, calendarDayOfWeek } from '@/lib/recurring'
+import { seedHrDefaults } from '@/lib/hr'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -111,6 +112,12 @@ export async function POST(request: NextRequest) {
       }
     }).catch(() => {})
   }
+
+  // Best-effort: HR profile for the new hire (+ backfill any other
+  // un-profiled members on this tenant — seedHrDefaults is idempotent).
+  seedHrDefaults(tenant.tenantId).catch((hrError) => {
+    console.error('seedHrDefaults after cleaner created', hrError)
+  })
 
   return NextResponse.json(data)
 }

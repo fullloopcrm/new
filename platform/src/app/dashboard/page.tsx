@@ -4,6 +4,7 @@ import { getCurrentTenant } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 import { crewNames, type CrewRow } from '@/lib/crew'
@@ -303,7 +304,7 @@ export default async function DashboardPage() {
   const mapRangeStart = new Date(Math.min(startOfWeekNaive.getTime(), startOfMonthNaive.getTime()))
   const mapRangeEnd = new Date(Math.max(endOfWeekNaive.getTime(), endOfMonthNaive.getTime()))
 
-  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl] = await Promise.all([
+  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl, arAging] = await Promise.all([
     fetchYearBookingsCached(tenant.id, startOfYearNaive.toISOString(), endOfYearNaive.toISOString()),
     fetchRosterCountCached(tenant.id),
     fetchNewClientsCountCached(tenant.id, startOfMonth.toISOString()),
@@ -314,6 +315,10 @@ export default async function DashboardPage() {
     // raw-table bug already fixed on /dashboard/finance and /admin/finance,
     // now fixed here too so all three surfaces report the same "Actual".
     ledgerProfitAndLoss(tenant.id, yearStartYMD, todayYMD),
+    // Same AR-aging source /api/finance/ar-aging and Finance Overview use —
+    // replacing a raw "completed + payment_status=pending" booking sum that
+    // double-counted refunded bookings as owed and ignored unpaid invoices.
+    getArAging(tenant.id),
   ])
 
   const mapJobs = mapRows.map((r) => ({
@@ -339,15 +344,11 @@ export default async function DashboardPage() {
   // Remaining (booked, future months through year-end)
   const remaining = allJobs.filter(j => ['scheduled', 'confirmed'].includes(j.status) && inRange(j, endOfMonthNaive, endOfYearNaive))
 
-  // AR aging on completed-but-unpaid
-  const toCollect = allJobs.filter(j => j.status === 'completed' && j.payment_status === 'pending')
-  // zonedNow, not now: parseNaive(j.start_time) is a fake-UTC reading of
-  // naive ET digits, so "now" needs the same fake-UTC treatment to diff
-  // correctly against it — see parseNaive()'s comment above.
-  const ageDays = (j: Booking) => Math.floor((zonedNow.getTime() - parseNaive(j.start_time).getTime()) / 86400000)
-  const ar30 = sum(toCollect.filter(j => ageDays(j) <= 30))
-  const ar60 = sum(toCollect.filter(j => { const a = ageDays(j); return a > 30 && a <= 60 }))
-  const ar90 = sum(toCollect.filter(j => ageDays(j) > 60))
+  // AR aging — same ledger-backed source as /api/finance/ar-aging and
+  // Finance Overview (see arAging fetched above).
+  const ar30 = arAging.buckets.find(b => b.label === 'Current')?.total_cents ?? 0
+  const ar60 = arAging.buckets.find(b => b.label === '31-60')?.total_cents ?? 0
+  const ar90 = (arAging.buckets.find(b => b.label === '61-90')?.total_cents ?? 0) + (arAging.buckets.find(b => b.label === '90+')?.total_cents ?? 0)
 
   const recurringJobs = all2026.filter(j => j.schedule_id != null)
   // Was revenue-weighted (sum($) / sum($)) while the tile's own subtitle
@@ -422,7 +423,7 @@ export default async function DashboardPage() {
     }
   })
   const kpis = [
-    { label: 'AR Outstanding', val: formatMoney(sum(toCollect)), sub: `${toCollect.length} jobs · ${formatMoney(ar30)} 0-30 · ${formatMoney(ar60)} 31-60 · ${formatMoney(ar90)} 60+` },
+    { label: 'AR Outstanding', val: formatMoney(arAging.total_cents), sub: `${arAging.rows.length} items · ${formatMoney(ar30)} 0-30 · ${formatMoney(ar60)} 31-60 · ${formatMoney(ar90)} 60+` },
     { label: `New Clients · ${monthShort}`, val: String(newThisMonth), sub: `Roster ${roster}` },
     { label: 'Recurring %', val: `${recurringPct}%`, sub: `${recurringJobs.length} of ${all2026.length} jobs` },
     { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },

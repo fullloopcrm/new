@@ -9,7 +9,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 
-const COLUMNS = 'id, name, sku, category, unit_label, quantity_on_hand, unit_cost_cents, reorder_threshold, notes, active, created_at'
+const COLUMNS = 'id, name, sku, category, category_id, unit_label, quantity_on_hand, unit_cost_cents, reorder_threshold, notes, active, created_at'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('bookings.view')
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
         name,
         sku: (body.sku as string) || null,
         category: (body.category as string) || null,
+        category_id: (body.category_id as string) || null,
         unit_label: (body.unit_label as string) || 'unit',
         quantity_on_hand: Number(body.quantity_on_hand) || 0,
         unit_cost_cents: Number(body.unit_cost_cents) || 0,
@@ -77,6 +78,7 @@ export async function PATCH(request: Request) {
     if (typeof body.name === 'string') patch.name = body.name.trim()
     if ('sku' in body) patch.sku = (body.sku as string) || null
     if ('category' in body) patch.category = (body.category as string) || null
+    if ('category_id' in body) patch.category_id = (body.category_id as string) || null
     if ('unit_label' in body) patch.unit_label = (body.unit_label as string) || 'unit'
     if ('quantity_on_hand' in body) patch.quantity_on_hand = Number(body.quantity_on_hand) || 0
     if ('unit_cost_cents' in body) patch.unit_cost_cents = Number(body.unit_cost_cents) || 0

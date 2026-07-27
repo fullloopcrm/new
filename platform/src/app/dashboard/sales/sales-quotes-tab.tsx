@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 
 type Quote = {
   id: string
@@ -169,7 +170,14 @@ export default function SalesQuotesTab() {
               </div>
               <div style={{ fontFamily: 'var(--sl-mono)', fontSize: 11, color: 'var(--sl-muted)' }}>{ageLabel(q.sent_at || q.created_at)}</div>
               <div style={{ fontFamily: 'var(--sl-mono)', fontSize: 11, color: exp.warn ? 'var(--sl-warn)' : 'var(--sl-muted)', fontWeight: exp.warn ? 600 : 400 }}>{exp.label}</div>
-              <div><button type="button" style={{ fontFamily: 'inherit', fontSize: 11, padding: '5px 10px', border: '1px solid var(--sl-line)', borderRadius: 3, background: 'var(--sl-canvas)', cursor: 'pointer' }}>View</button></div>
+              <div>
+                <Link
+                  href={`/dashboard/sales/budget?quote_id=${q.id}`}
+                  style={{ fontFamily: 'inherit', fontSize: 11, padding: '5px 10px', border: '1px solid var(--sl-line)', borderRadius: 3, background: 'var(--sl-canvas)', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'inline-block' }}
+                >
+                  Budget
+                </Link>
+              </div>
             </div>
           )
         })}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
+import { createTenantDbHarness, type Harness, type Row } from '@/test/tenant-isolation-harness'
 
 /**
  * finance/payroll POST — tenant isolation.
@@ -76,5 +76,44 @@ describe('finance/payroll POST — tenant isolation', () => {
     const res = await POST(postReq({ amount: 100, method: 'zelle' }))
     expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'payroll_payments')).toBeUndefined()
+  })
+})
+
+describe('finance/payroll POST — partial payment does not silently clear the full balance', () => {
+  it('a payment under what is owed records the payment but leaves bookings completed (not paid)', async () => {
+    h = createTenantDbHarness({
+      ...seed(),
+      bookings: [
+        { id: 'bk-1', tenant_id: CTX_TENANT, team_member_id: 'tm-a1', status: 'completed', check_in_time: '2026-07-01T09:00:00Z', check_out_time: '2026-07-01T19:00:00Z', pay_rate: null },
+      ],
+    })
+    holder.from = h.from
+    // 10 hours * $20/hr pay_rate = $200 owed; pay only $50.
+    const res = await POST(postReq({ team_member_id: 'tm-a1', amount: 50, method: 'zelle' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.bookings_marked_paid).toBe(false)
+
+    const bookingUpdate = h.capture.updates.find((u) => u.table === 'bookings')
+    expect(bookingUpdate).toBeUndefined()
+    const booking = h.seed.bookings.find((b: Row) => b.id === 'bk-1') as Row
+    expect(booking.status).toBe('completed')
+  })
+
+  it('a payment that covers the full amount owed marks the bookings paid', async () => {
+    h = createTenantDbHarness({
+      ...seed(),
+      bookings: [
+        { id: 'bk-1', tenant_id: CTX_TENANT, team_member_id: 'tm-a1', status: 'completed', check_in_time: '2026-07-01T09:00:00Z', check_out_time: '2026-07-01T19:00:00Z', pay_rate: null },
+      ],
+    })
+    holder.from = h.from
+    const res = await POST(postReq({ team_member_id: 'tm-a1', amount: 200, method: 'zelle' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.bookings_marked_paid).toBe(true)
+
+    const booking = h.seed.bookings.find((b: Row) => b.id === 'bk-1') as Row
+    expect(booking.status).toBe('paid')
   })
 })

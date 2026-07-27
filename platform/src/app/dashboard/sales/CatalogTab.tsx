@@ -473,7 +473,7 @@ export default function CatalogTab() {
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--sl-line,#eee)' }}>
                   <label style={lbl}>Materials (bill of materials)</label>
                   <p style={{ fontSize: 11, color: 'var(--sl-muted)', margin: '0 0 8px' }}>
-                    What this item consumes per {unitShort(editForm.per_unit, editForm.unit_label)}. Feeds the budget template with real inventory cost instead of the flat Cost $ above.
+                    What this item consumes per {unitShort(editForm.per_unit, editForm.unit_label)} — tracks real COGS for this item. Budgets are template-driven and don&apos;t pull from this automatically; use it to keep the Cost $ above accurate.
                   </p>
                   {materials.map((m) => (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '4px 0' }}>

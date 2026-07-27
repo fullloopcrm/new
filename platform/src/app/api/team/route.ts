@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
+import { seedHrDefaults } from '@/lib/hr'
 
 export async function GET() {
   try {
@@ -78,6 +79,16 @@ export async function POST(request: Request) {
     }
 
     await audit({ tenantId, action: 'team.created', entityType: 'team_member', entityId: data.id, details: { name: fields!.name } })
+
+    // Best-effort: give the new hire an HR profile (and backfill any other
+    // un-profiled members on this tenant while we're at it — seedHrDefaults
+    // is idempotent/tenant-wide, not scoped to just this one member). Never
+    // block team-member creation on HR bookkeeping.
+    try {
+      await seedHrDefaults(tenantId)
+    } catch (hrError) {
+      console.error('seedHrDefaults after team.created', hrError)
+    }
 
     return NextResponse.json({ member: data }, { status: 201 })
   } catch (e) {

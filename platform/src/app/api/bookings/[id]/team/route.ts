@@ -16,6 +16,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Booking = {
   id: string
@@ -76,11 +77,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // then leaks that employee's name/phone/email via this booking's joins.
   const requestedMemberIds = Array.from(new Set([newLead, ...newExtras].filter((x): x is string => !!x)))
   if (requestedMemberIds.length > 0) {
-    const { data: validMembers } = (await db
-      .from('team_members')
-      .select('id, active')
-      .in('id', requestedMemberIds)) as { data: { id: string; active: boolean | null }[] | null }
-    const validIds = new Set((validMembers || []).filter((m) => m.active !== false).map((m) => m.id))
+    const [{ data: validMembers }, terminatedIds] = await Promise.all([
+      db.from('team_members').select('id, active').in('id', requestedMemberIds) as unknown as Promise<{ data: { id: string; active: boolean | null }[] | null }>,
+      getTerminatedTeamMemberIds(ctx.tenantId),
+    ])
+    // Roster "active" and HR "terminated" are separate columns (HR
+    // termination doesn't touch team_members.active) — a terminated person
+    // must not be assignable to a job even if nobody flipped the roster flag.
+    const validIds = new Set((validMembers || []).filter((m) => m.active !== false && !terminatedIds.has(m.id)).map((m) => m.id))
     const invalidIds = requestedMemberIds.filter((id) => !validIds.has(id))
     if (invalidIds.length > 0) {
       return NextResponse.json({ error: 'One or more team members are not available' }, { status: 400 })

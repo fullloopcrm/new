@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
 import { getTenantTimezone, getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
+import { isTeamMemberTerminated } from '@/lib/hr'
 
 export async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.claim')
@@ -10,6 +11,13 @@ export async function POST(request: Request) {
 
   const { booking_id } = await request.json().catch(() => ({}))
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
+
+  // A terminated member's portal session may still be valid (nothing revokes
+  // it on termination today) — block claiming new jobs at this last gate even
+  // if the roster/session cleanup hasn't caught up yet.
+  if (await isTeamMemberTerminated(auth.tid, auth.id)) {
+    return NextResponse.json({ error: 'Account is no longer active' }, { status: 403 })
+  }
 
   // claim_job_atomic compares these against bookings.start_time, a naive
   // tenant-local column — pass the tenant's own naive day-boundary digits

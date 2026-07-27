@@ -118,4 +118,15 @@ describe('bookings/[id]/team PUT — tenantDb isolation', () => {
     const res = await PUT(req, paramsFor(SHARED_ID))
     expect(res.status).toBe(400)
   })
+
+  it('rejects an HR-terminated team member even though team_members.active is still true', async () => {
+    fake._seed('hr_employee_profiles', [
+      { id: 'hrp-1', tenant_id: A_ID, team_member_id: 'tm-a2', hr_status: 'terminated' },
+    ])
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ lead_id: 'tm-a2', extra_team_member_ids: [], team_size: 1 }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(400)
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.team_member_id).toBe('tm-a')
+  })
 })
