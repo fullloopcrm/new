@@ -21,6 +21,7 @@ type CatalogViewPrefs = {
 }
 
 const selectCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900'
+const inputCls = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900'
 
 export default function CatalogSettings() {
   const settings = usePageSettings('catalog')
@@ -29,6 +30,8 @@ export default function CatalogSettings() {
   const paymentMethods: string[] = Array.isArray(tenantSettings.tenant?.payment_methods)
     ? (tenantSettings.tenant?.payment_methods as string[])
     : ['zelle', 'stripe']
+  const zelleEmail = (tenantSettings.tenant?.zelle_email as string) || ''
+  const appleCashPhone = (tenantSettings.tenant?.apple_cash_phone as string) || ''
 
   function togglePaymentMethod(value: string) {
     const next = paymentMethods.includes(value)
@@ -82,6 +85,34 @@ export default function CatalogSettings() {
                 </label>
               ))}
             </div>
+            {(paymentMethods.includes('zelle') || paymentMethods.includes('apple_pay')) && (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {paymentMethods.includes('zelle') && (
+                  <label className="block">
+                    <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Zelle email/phone</span>
+                    <input
+                      type="text"
+                      value={zelleEmail}
+                      onChange={(e) => tenantSettings.updateField('zelle_email', e.target.value)}
+                      placeholder="you@business.com"
+                      className={inputCls}
+                    />
+                  </label>
+                )}
+                {paymentMethods.includes('apple_pay') && (
+                  <label className="block">
+                    <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Apple Cash phone</span>
+                    <input
+                      type="text"
+                      value={appleCashPhone}
+                      onChange={(e) => tenantSettings.updateField('apple_cash_phone', e.target.value)}
+                      placeholder="(555) 555-5555"
+                      className={inputCls}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
             {tenantSettings.saveMsg && <p className="text-xs text-emerald-400 mt-1">{tenantSettings.saveMsg}</p>}
           </div>
         </div>
