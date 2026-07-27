@@ -337,3 +337,36 @@ describe('notify — Telegram delivery', () => {
     expect(r).toEqual({ success: true })
   })
 })
+
+// error/selena_error are internal monitoring signals, not business
+// notifications — they must never reach a tenant's inbox even though
+// `channel` defaults to 'email' and these types aren't gated by
+// NOTIFY_COMM_MAP. Dashboard row + Telegram (already covered above by
+// TELEGRAM_NOTIFY_TYPES) are the intended full delivery.
+describe('notify — error/selena_error never email or SMS', () => {
+  it('does not call sendEmail for type "error" even though channel defaults to email', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    const r = await notify({ tenantId: TENANT_ID, type: 'error', title: 'Email Failed', message: 'Booking email error' })
+    expect(r).toEqual({ success: true })
+    expect(sendEmailMock).not.toHaveBeenCalled()
+    expect(sendSMSMock).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(sendTelegramMock).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not call sendEmail for type "selena_error" even when channel is explicitly "email"', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    const r = await notify({ tenantId: TENANT_ID, type: 'selena_error', title: 'Selena Error', message: 'boom', channel: 'email' })
+    expect(r).toEqual({ success: true })
+    expect(sendEmailMock).not.toHaveBeenCalled()
+    expect(sendSMSMock).not.toHaveBeenCalled()
+  })
+
+  it('marks the notification row as sent (not left pending) for error types', async () => {
+    seedTenant({ telegram_bot_token: null, telegram_chat_id: null })
+    await notify({ tenantId: TENANT_ID, type: 'error', title: 'Health Check Issues', message: 'db down' })
+    const update = calls.find((c) => c.table === 'notifications' && c.op === 'update')
+    expect(update?.payload).toEqual({ status: 'sent' })
+  })
+})
