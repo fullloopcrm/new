@@ -1161,7 +1161,8 @@ function BookingsPage() {
     // affect profit or margin.
     const profitCents = revenueCents - laborTotalCents
     const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
-    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct }
+    const avgTicketCents = todaysJobs.length > 0 ? revenueCents / todaysJobs.length : 0
+    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
   })()
 
   // Pagination
@@ -1461,10 +1462,14 @@ function BookingsPage() {
               {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
               <div className="mb-4">
                 <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   <div className="bg-white rounded-xl border border-emerald-200/60 p-3">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Revenue Today</p>
                     <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.revenueCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-teal-200/60 p-3">
+                    <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1">Avg Ticket</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.avgTicketCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-white rounded-xl border border-amber-200/60 p-3">
                     <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-1">Labor Owed</p>
