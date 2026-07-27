@@ -172,7 +172,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const overpaymentCents = paidCents - finalCents
   const isOverpaid = overpaymentCents > 0
   const isUnderpaid = overpaymentCents < 0
-  const tipCents = isOverpaid ? overpaymentCents : 0
+  // Tip comes from payments.tip_cents, NOT re-derived from overpayment here.
+  // The Stripe webhook already computes tip_cents correctly per payment --
+  // 0 for the fixed-price Checkout Session path (no tip is ever possible
+  // there), a real client-entered amount for the adjustable-amount Payment
+  // Link path (the only surface where a tip is real). Re-deriving "tip =
+  // any overpayment" here, blind to which path was used, would show a fake
+  // tip (and inflate what a cleaner is shown as owed) any time booking.price
+  // was edited after the fixed-price link was created -- the exact bug
+  // already fixed at the webhook; recomputing it independently here just
+  // reintroduces it in the closeout screen.
+  const tipCents = (payments || []).reduce((s, p) => s + (p.tip_cents || 0), 0)
 
   // Per-member payout shares — each team member is paid on THEIR OWN rate,
   // not the lead's. A single stored booking.team_member_pay (from the

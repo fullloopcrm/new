@@ -353,17 +353,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     }
   }
 
-  // Team member finish-up SMS (bilingual)
+  // Team member finish-up SMS (bilingual). No tip mention, per standing policy
+  // -- the cleaner still receives the real tip amount in their payout above,
+  // just isn't texted about it.
   if (teamMember?.phone && teamMember.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
     const isEs = teamMember.preferred_language === 'es'
-    const tipLine = tipCents > 0
-      ? (isEs
-        ? `\n¡El cliente dejó $${tipAmount} de propina!`
-        : `\nClient left a $${tipAmount} tip!`)
-      : ''
     const cleanerSms = isEs
-      ? `Pago confirmado para ${clientName}. Por favor termine y haga check-out en los próximos 30 minutos. ¡Gracias!${tipLine}`
-      : `Payment confirmed for ${clientName}. Please finish up and check out within the next 30 minutes. Thank you!${tipLine}`
+      ? `Pago confirmado para ${clientName}. Por favor termine y haga check-out en los próximos 30 minutos. ¡Gracias!`
+      : `Payment confirmed for ${clientName}. Please finish up and check out within the next 30 minutes. Thank you!`
 
     sendSMS({
       to: teamMember.phone,
@@ -381,10 +378,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .eq('tenant_id', tenantId)
     .single()
   if (clientRecord?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-    const tipThank = tipCents > 0
-      ? ` Your generous tip of $${tipAmount} has been passed along — thank you!`
-      : ''
-    const clientSms = `Payment confirmed — $${(amountCents / 100).toFixed(0)} received via ${label}. Thank you, ${clientName}!${tipThank} 😊`
+    const clientSms = `Payment confirmed — $${(amountCents / 100).toFixed(0)} received via ${label}. Thank you, ${clientName}! 😊`
     sendSMS({
       to: clientRecord.phone as string,
       body: clientSms,
@@ -393,15 +387,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     }).catch(err => console.error('[payment-processor] client SMS failed:', err))
   }
 
-  // Admin notification
-  const tipNote = tipCents > 0 ? ` Tip: $${tipAmount}.` : ''
+  // Admin notification. No tip mention, per standing policy.
   const payoutNote = cleanerPaidCents > 0
-    ? ` Team member auto-paid $${(cleanerPaidCents / 100).toFixed(2)}${tipCents > 0 ? ' (includes tip)' : ''}.`
+    ? ` Team member auto-paid $${(cleanerPaidCents / 100).toFixed(2)}.`
     : teamMember?.stripe_account_id ? '' : ' Team member not on Stripe — pay manually.'
 
   const adminMessage =
     `${label} payment CONFIRMED — ${clientName} paid $${(amountCents / 100).toFixed(2)}` +
-    `${input.senderName ? ` (from ${input.senderName})` : ''}.${tipNote}${payoutNote}` +
+    `${input.senderName ? ` (from ${input.senderName})` : ''}.${payoutNote}` +
     ` Client + team notified.`
 
   smsAdmins(tenant, adminMessage).catch(err => console.error('[payment-processor] admin SMS failed:', err))

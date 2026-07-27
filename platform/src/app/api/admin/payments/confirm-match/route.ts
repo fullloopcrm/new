@@ -96,7 +96,9 @@ export async function POST(req: Request) {
       })
       .eq('id', bookingId)
 
-    // 4. Notify team member of tip if any (bilingual)
+    // 4. Notify team member (bilingual). No tip mention, per standing policy
+    // -- a real tip here still credits to the team member's pay, just isn't
+    // texted about.
     const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string } | null
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
@@ -109,12 +111,9 @@ export async function POST(req: Request) {
     if (tm?.phone && tenantRow?.telnyx_api_key && tenantRow.telnyx_phone) {
       const isEs = tm.preferred_language === 'es'
       const clientLabel = client?.name || (isEs ? 'cliente' : 'client')
-      const tipLine = tipCents > 0
-        ? (isEs ? ` ¡Propina de $${(tipCents / 100).toFixed(0)}! 💰` : ` Client tipped $${(tipCents / 100).toFixed(0)}! 💰`)
-        : ''
       const body = isEs
-        ? `Pago recibido de ${clientLabel}: $${(amountCents / 100).toFixed(0)}.${tipLine}`
-        : `Payment received from ${clientLabel}: $${(amountCents / 100).toFixed(0)}.${tipLine}`
+        ? `Pago recibido de ${clientLabel}: $${(amountCents / 100).toFixed(0)}.`
+        : `Payment received from ${clientLabel}: $${(amountCents / 100).toFixed(0)}.`
       sendSMS({
         to: tm.phone,
         body,
