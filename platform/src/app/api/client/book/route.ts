@@ -25,6 +25,7 @@ import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { formatName } from '@/lib/format'
 import { normalizePhone } from '@/lib/phone'
+import { sanitizeInput } from '@/lib/sanitize'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -63,6 +64,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+    if (typeof body.notes === 'string') {
+      body.notes = sanitizeInput(body.notes)
+    }
+    if (typeof body.address === 'string') {
+      body.address = sanitizeInput(body.address)
+    }
+    if (typeof body.unit === 'string') {
+      body.unit = sanitizeInput(body.unit)
+    }
 
     if (!body.client_id && !body.email && !body.phone) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
