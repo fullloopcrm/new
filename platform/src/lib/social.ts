@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secret-crypto'
 
-export type SocialPlatform = 'facebook' | 'instagram' | 'tiktok'
+export type SocialPlatform = 'facebook' | 'instagram'
 
 interface SocialAccount {
   id: string
@@ -24,7 +25,20 @@ export async function getSocialAccounts(tenantId: string): Promise<SocialAccount
     .eq('tenant_id', tenantId)
     .order('connected_at', { ascending: false })
 
-  return (data || []) as SocialAccount[]
+  const accounts = (data || []) as SocialAccount[]
+
+  // Decrypt access_token if encrypted; legacy plaintext rows pass through
+  // unchanged (decryptSecret is a no-op on non-"v1:" values). A single
+  // corrupt/undecryptable row shouldn't break the whole list.
+  return accounts.map((a) => {
+    if (!a.access_token || !isEncrypted(a.access_token)) return a
+    try {
+      return { ...a, access_token: decryptSecret(a.access_token) }
+    } catch (err) {
+      console.error(`[social] access_token decrypt failed for account ${a.id}:`, err)
+      return { ...a, access_token: '' }
+    }
+  })
 }
 
 /**
@@ -41,6 +55,22 @@ export async function saveSocialAccount(
     page_id?: string
   },
 ): Promise<void> {
+  // Encrypt the long-lived OAuth token at rest, matching the tenants-table
+  // vendor-secret pattern (encryptTenantSecrets) -- Facebook/Instagram page
+  // tokens derived from a long-lived user token don't expire on a fixed
+  // refresh_token, so a plaintext DB row is a standing credential. Degrade
+  // to plaintext in dev where SECRET_ENCRYPTION_KEY isn't set, same as
+  // google.ts's saveGoogleTokens.
+  let accessToken = accountData.access_token
+  if (accessToken) {
+    try {
+      accessToken = encryptSecret(accessToken)
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') throw err
+      console.warn('[social] SECRET_ENCRYPTION_KEY not set — storing access_token in plaintext (dev only)')
+    }
+  }
+
   await supabaseAdmin
     .from('social_accounts')
     .upsert({
@@ -48,7 +78,7 @@ export async function saveSocialAccount(
       platform,
       account_id: accountData.account_id,
       account_name: accountData.account_name,
-      access_token: accountData.access_token,
+      access_token: accessToken,
       token_expires_at: accountData.token_expires_at || null,
       page_id: accountData.page_id || null,
       connected_at: new Date().toISOString(),
@@ -198,4 +228,68 @@ export async function getSocialPosts(tenantId: string) {
     .limit(50)
 
   return data || []
+}
+
+/**
+ * Accounts (across all tenants) whose token expires within `withinMs`.
+ * Used by the token-refresh cron; access_token comes back decrypted.
+ */
+export async function getExpiringSocialAccounts(withinMs: number): Promise<SocialAccount[]> {
+  const cutoff = new Date(Date.now() + withinMs).toISOString()
+  const { data } = await supabaseAdmin
+    .from('social_accounts')
+    .select('*')
+    .not('token_expires_at', 'is', null)
+    .lte('token_expires_at', cutoff)
+
+  const accounts = (data || []) as SocialAccount[]
+  return accounts.map((a) => {
+    if (!a.access_token || !isEncrypted(a.access_token)) return a
+    try {
+      return { ...a, access_token: decryptSecret(a.access_token) }
+    } catch (err) {
+      console.error(`[social] access_token decrypt failed for account ${a.id}:`, err)
+      return { ...a, access_token: '' }
+    }
+  })
+}
+
+/**
+ * Extend a Facebook/Instagram page token before it expires. Meta's
+ * long-lived page tokens (~60 days) can only be re-extended while still
+ * valid -- once fully expired the tenant has to reconnect via OAuth.
+ */
+export async function refreshFacebookToken(
+  account: SocialAccount,
+): Promise<{ success: boolean; error?: string }> {
+  const appId = process.env.FACEBOOK_APP_ID
+  const appSecret = process.env.FACEBOOK_APP_SECRET
+  if (!appId || !appSecret) {
+    return { success: false, error: 'Facebook app not configured' }
+  }
+  if (!account.access_token) {
+    return { success: false, error: 'No access token to extend' }
+  }
+
+  const res = await fetch(
+    `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${account.access_token}`
+  )
+  const data = await res.json()
+
+  if (!res.ok || !data.access_token) {
+    console.error(`[social] token extend failed for account ${account.id}:`, data)
+    return { success: false, error: 'Token extend failed' }
+  }
+
+  await saveSocialAccount(account.tenant_id, account.platform, {
+    account_id: account.account_id,
+    account_name: account.account_name,
+    access_token: data.access_token,
+    page_id: account.page_id || undefined,
+    token_expires_at: data.expires_in
+      ? new Date(Date.now() + data.expires_in * 1000).toISOString()
+      : undefined,
+  })
+
+  return { success: true }
 }
