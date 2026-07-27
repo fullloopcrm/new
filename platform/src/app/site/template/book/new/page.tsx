@@ -23,5 +23,10 @@ export default async function BookNewPage() {
     redirect('/book/standard')
   }
 
-  return <BookFormClient services={config.services} businessName={config.identity.legalName ?? config.identity.name} />
+  // Weekend (Sat/Sun) new-client surcharge is NYC Maid only (Jeff,
+  // 2026-07-27) — resolved server-side from the tenant's own domain so the
+  // shared template renders correctly for every other tenant unchanged.
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+
+  return <BookFormClient services={config.services} businessName={config.identity.legalName ?? config.identity.name} isNycmaid={isNycmaid} />
 }

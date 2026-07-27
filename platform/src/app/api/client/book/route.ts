@@ -29,6 +29,7 @@ import { sanitizeInput } from '@/lib/sanitize'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
@@ -283,22 +284,33 @@ export async function POST(request: Request) {
       const isUnder48 = hoursUntilBooking < 48
       const isMultiCleaner = bkTeamSize >= 2
       bkIsEmergency = isSameDay || (isUnder48 && isMultiCleaner)
-      // NYC Maid's only two legitimate non-emergency rates are the published
-      // supplies tiers. Anything else in the request is rejected in favor of
-      // the higher (we-bring) default, closing the direct "set hourly_rate=1"
-      // underpay exploit for this tenant precisely.
-      const NYCMAID_VALID_RATES = new Set([59, 69])
-      const effectiveRate = bkIsEmergency ? 89 : (NYCMAID_VALID_RATES.has(rawHourlyRate) ? rawHourlyRate : 69)
+      // Weekend (Sat/Sun) surcharge — NEW clients only (Jeff, 2026-07-27).
+      // isNewClient is only true above when no existing clients row matched
+      // this booking's email/phone, so a returning client booking a weekend
+      // slot falls through to the normal $59/$69/$89 tiers below, unchanged.
+      const isWeekendBooking = isNewClient && isWeekendDate(bookingDate)
+      // NYC Maid's only legitimate non-emergency rates are the published
+      // supplies tiers for the applicable day. Anything else in the request
+      // is rejected in favor of the higher (we-bring) default, closing the
+      // direct "set hourly_rate=1" underpay exploit for this tenant precisely.
+      const NYCMAID_VALID_RATES = isWeekendBooking
+        ? new Set([WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE])
+        : new Set([59, 69])
+      const emergencyRate = isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89
+      const defaultRate = isWeekendBooking ? WEEKEND_SUPPLIES_PROVIDED_RATE : 69
+      const effectiveRate = bkIsEmergency ? emergencyRate : (NYCMAID_VALID_RATES.has(rawHourlyRate) ? rawHourlyRate : defaultRate)
       const minHours = isMultiCleaner ? 4 : 2
       const billableHours = Math.max(Number(body.estimated_hours) || 2, minHours)
       bkHourlyRate = effectiveRate
       bkPrice = Math.round(effectiveRate * billableHours * bkTeamSize * 100)
-      const discountEligible = !bkIsEmergency && !isMultiCleaner
+      const discountEligible = !bkIsEmergency && !isMultiCleaner && !isWeekendBooking
       bkNotes = ((body.notes as string) || '') + (discountEligible
         ? `\n\n[Promo: $${SELF_BOOKING_DISCOUNT_DOLLARS} self-booking discount applies at billing]`
         : isMultiCleaner
-          ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
-          : '\n\n[Same-day emergency booking — no discount, $89/hr]')
+          ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? `, under-48hr emergency $${emergencyRate}/hr` : ''}]`
+          : isWeekendBooking
+            ? `\n\n[Weekend new-client rate — no discount, $${effectiveRate}/hr]`
+            : '\n\n[Same-day emergency booking — no discount, $89/hr]')
 
       // Form-recap consent: when the client clicks Confirm in the recap modal we
       // record an audit line so the confirmation-reminder cron knows terms were

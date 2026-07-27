@@ -14,6 +14,7 @@ import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } fro
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import { formatPhone } from '@/lib/format'
 import { applyDiscount, applyCredit } from '@/lib/discount'
+import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE } from '@/lib/nycmaid/weekend-pricing'
 import NewClientModal, { type NewClientResult } from './NewClientModal'
 import {
   SuggestionStrip,
@@ -57,6 +58,15 @@ export interface CreateBookingFormProps {
 }
 
 export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, initialValues, onCreated, onCancel }: CreateBookingFormProps) {
+  // Weekend (Sat/Sun) new-client surcharge is NYC Maid only (Jeff, 2026-07-27).
+  // This is a global/shared component with no tenant prop threaded in, so it
+  // reads the operator's own domain — each tenant's dashboard is served on
+  // its own domain (see src/middleware.ts), same as the public site. This
+  // only gates a UI note + a rate suggestion; the booking API is unauthenticated-
+  // client-safe pricing enforcement doesn't apply to admin-created bookings the
+  // way it does to the public /api/client/book endpoint, so there's no separate
+  // server-side override here — the admin sets the real rate directly.
+  const isNycmaid = typeof window !== 'undefined' && window.location.hostname.includes('thenycmaid.com')
   const worker = useWorkerLabel()
   const serviceTypesData = useServiceTypes()
   // Catalog-driven only -- no cleaning fallback. Shows the tenant's own services.
@@ -265,7 +275,15 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
   // it stays open afterward for the add-contacts/address step.
   const handleNewClientCreated = (newClient: NewClientResult) => {
     setKnownClients(prev => ({ ...prev, [newClient.id]: newClient as Client }))
-    setCreateForm({ ...createForm, client_id: newClient.id })
+    // Suggest (not force) the weekend new-client rate when this brand-new
+    // client's booking falls on a Sat/Sun and the admin hasn't already typed
+    // a custom rate — still just a default, freely overridable below.
+    const suggestWeekendRate = isNycmaid && isWeekendDate(createForm.start_date) && createForm.hourly_rate === 69
+    setCreateForm({
+      ...createForm,
+      client_id: newClient.id,
+      hourly_rate: suggestWeekendRate ? WEEKEND_SUPPLIES_PROVIDED_RATE : createForm.hourly_rate,
+    })
     setClientSearch(newClient.name + ' - ' + newClient.phone)
   }
 
@@ -523,6 +541,11 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
               <input type="time" required min="07:00" max="19:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" />
             </div>
           </div>
+          {isNycmaid && (
+            <p className="text-xs text-gray-500 -mt-2">
+              Weekends (Sat &amp; Sun) are ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr (we bring supplies) or ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr (their supplies) for new clients only — Friday is not a weekend day.
+            </p>
+          )}
           {!hideCleanerPicker && (createForm.is_emergency ? (
             <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-700 mb-3">🚨 Broadcasts to all team - first to claim gets it</p>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
+import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import type { ServiceOption } from '../../_config/types'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
@@ -27,7 +28,7 @@ function trackBookingEvent(action: string, sessionId: string, extra: Record<stri
 
 const TIME_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] as const
 
-function BookFormContent({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
+function BookFormContent({ services, businessName, isNycmaid }: { services: ServiceOption[]; businessName: string; isNycmaid: boolean }) {
   // Vertical-specific options come from tenant config, not hardcoded here.
   const standardValue = services.find(s => !s.emergency)?.value ?? services[0]?.value ?? 'Standard Service'
   const emergencyValue = services.find(s => s.emergency)?.value ?? 'Same-Day Emergency'
@@ -138,7 +139,16 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
   const hoursUntilBooking = bookingStart && !isNaN(bookingStart.getTime()) ? (bookingStart.getTime() - Date.now()) / 3_600_000 : Infinity
   const isUnder48 = hoursUntilBooking < 48
   const isEmergency = isSameDay || (isUnder48 && isMultiCleaner)
-  const hourlyRate = isEmergency ? 89 : form.supplies === 'we_bring' ? 69 : 59
+  // Weekend (Sat/Sun) surcharge — NYC Maid, new clients only (Jeff,
+  // 2026-07-27). This form has no live existing-client lookup, so it shows
+  // the weekend estimate for any Sat/Sun date on this tenant; the booking API
+  // (/api/client/book) is the actual authority and silently keeps a matched
+  // existing client on their old rate regardless of what's estimated here —
+  // see the isNewClient / isWeekendBooking gate there.
+  const isWeekendBooking = isNycmaid && !!form.date && isWeekendDate(form.date)
+  const hourlyRate = isWeekendBooking
+    ? (isEmergency ? WEEKEND_EMERGENCY_RATE : form.supplies === 'we_bring' ? WEEKEND_SUPPLIES_PROVIDED_RATE : WEEKEND_CLIENT_SUPPLIES_RATE)
+    : isEmergency ? 89 : form.supplies === 'we_bring' ? 69 : 59
   // Minimums: 2hr standard, 4hr for multi-cleaner. Floor the billable estimate.
   const minHours = isMultiCleaner ? 4 : 2
   const estimatedHours = Math.max(form.estimated_hours, minHours)
@@ -401,19 +411,19 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
               onClick={() => pickServiceType(isSameDay ? standardValue : emergencyValue)}
               className="mt-2 text-xs text-amber-700 hover:text-amber-900 underline underline-offset-2"
             >
-              {isSameDay ? '← Back to standard service' : 'Need it today? Same-day +$89/hr →'}
+              {isSameDay ? '← Back to standard service' : `Need it today? Same-day +$${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr →`}
             </button>
           </div>
 
           {isSameDay && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-              <p className="text-amber-800 text-sm">Same-day service is <strong>$89/hr</strong> — we bring everything. Subject to availability.</p>
+              <p className="text-amber-800 text-sm">Same-day service is <strong>${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr</strong> — we bring everything. Subject to availability.</p>
             </div>
           )}
 
           {isUnder48 && isMultiCleaner && !isSameDay && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-              <p className="text-amber-800 text-sm">Heads up — multi-cleaner bookings need 48 hours notice. This date is under 48 hours away, so your 2+ cleaner booking is billed at <strong>emergency pricing ($89/hr)</strong> with no discounts. Pick a date 48+ hours out, or book a single cleaner, for standard rates.</p>
+              <p className="text-amber-800 text-sm">Heads up — multi-cleaner bookings need 48 hours notice. This date is under 48 hours away, so your 2+ cleaner booking is billed at <strong>emergency pricing (${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr)</strong> with no discounts. Pick a date 48+ hours out, or book a single cleaner, for standard rates.</p>
             </div>
           )}
 
@@ -456,6 +466,11 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
               )}
             </div>
           </div>
+          {isNycmaid && (
+            <p className="text-[11px] text-gray-500 -mt-1">
+              Weekends (Sat &amp; Sun) are ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr (we bring supplies) or ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr (your supplies) for new clients — Friday is not a weekend day.
+            </p>
+          )}
 
           {/* Name + phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -531,11 +546,11 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => update('supplies', 'we_bring')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'we_bring' ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
                       <div>We bring</div>
-                      <div className="text-xs opacity-70">$69/hr</div>
+                      <div className="text-xs opacity-70">${isWeekendBooking ? WEEKEND_SUPPLIES_PROVIDED_RATE : 69}/hr</div>
                     </button>
                     <button type="button" onClick={() => update('supplies', 'client')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'client' ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
                       <div>I provide</div>
-                      <div className="text-xs opacity-70">$59/hr</div>
+                      <div className="text-xs opacity-70">${isWeekendBooking ? WEEKEND_CLIENT_SUPPLIES_RATE : 59}/hr</div>
                     </button>
                   </div>
                 </div>
@@ -795,10 +810,10 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
   )
 }
 
-export default function BookFormClient({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
+export default function BookFormClient({ services, businessName, isNycmaid = false }: { services: ServiceOption[]; businessName: string; isNycmaid?: boolean }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[var(--brand)] flex items-center justify-center text-white">Loading…</div>}>
-      <BookFormContent services={services} businessName={businessName} />
+      <BookFormContent services={services} businessName={businessName} isNycmaid={isNycmaid} />
     </Suspense>
   )
 }
