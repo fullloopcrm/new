@@ -147,8 +147,20 @@ export async function POST(request: Request) {
 
     const bookings: Record<string, unknown>[] = []
     for (const d of dates) {
-      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-      const startHHMM = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false }).slice(0, 5)
+      // Plain local getters, NOT toLocaleDateString/toLocaleTimeString with an
+      // explicit America/New_York timeZone. `d` was built via naive Date math
+      // (setHours/setDate, no timezone awareness -- same convention as every
+      // other recurring date-generation call site), so its LOCAL components
+      // already ARE the intended wall-clock digits, self-consistent regardless
+      // of the runtime's actual timezone. Converting through an explicit ET
+      // Intl call only round-trips correctly when the runtime's local timezone
+      // already happens to be America/New_York (true in local dev, NOT true on
+      // Vercel, which runs UTC with no TZ override configured) -- on a UTC
+      // runtime this silently shifted the conflict-check time by 4-5h,
+      // checking e.g. a real 9am booking against 5am and missing/inventing
+      // conflicts. Verified directly: `TZ=UTC node` reproduces the skew.
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const startHHMM = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
       const endTime = new Date(d)
       endTime.setHours(endTime.getHours() + durH)
 
