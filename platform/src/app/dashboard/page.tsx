@@ -358,12 +358,18 @@ export default async function DashboardPage() {
   const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
 
   // nycmaid's V1 build includes a one-off January-actual adjustment (pre-migration
-  // revenue not present in `bookings`) in its Projected total. Not a general formula —
-  // gated to that tenant only, same pattern as other nycmaid-specific adjustments.
+  // jobs/revenue not present in `bookings` — nycmaid didn't start on this platform
+  // until February). Not a general formula — gated to that tenant only, same pattern
+  // as other nycmaid-specific adjustments.
+  const isNycmaid = tenant.id === NYCMAID_TENANT_ID
   const NYCMAID_JANUARY_ACTUAL_CENTS = 600000
-  const projectedRevenue = tenant.id === NYCMAID_TENANT_ID
+  const NYCMAID_JANUARY_ACTUAL_JOBS = 30
+  const projectedRevenue = isNycmaid
     ? NYCMAID_JANUARY_ACTUAL_CENTS + scheduled2026Total
     : scheduled2026Total
+  const projectedJobs = isNycmaid
+    ? NYCMAID_JANUARY_ACTUAL_JOBS + all2026.length
+    : all2026.length
 
   const revenueLadder: Array<{ label: string; val: number; jobs: number; emphasize: boolean; note?: string }> = [
     { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
@@ -371,14 +377,14 @@ export default async function DashboardPage() {
     { label: monthShort, val: sum(collectedMonth), jobs: collectedMonth.length, emphasize: false },
     { label: `${yearStr} · Actual`, val: ytdPnl.revenue_cents, jobs: collectedYear.length, emphasize: true },
     {
-      label: `${yearStr} · Projected`, val: projectedRevenue, jobs: all2026.length, emphasize: true,
-      note: tenant.id === NYCMAID_TENANT_ID ? `incl. $${(NYCMAID_JANUARY_ACTUAL_CENTS / 100).toLocaleString()} pre-migration Jan` : undefined,
+      label: `${yearStr} · Projected`, val: projectedRevenue, jobs: projectedJobs, emphasize: true,
+      note: isNycmaid ? `incl. $${(NYCMAID_JANUARY_ACTUAL_CENTS / 100).toLocaleString()} pre-migration Jan (${NYCMAID_JANUARY_ACTUAL_JOBS} jobs)` : undefined,
     },
   ]
   const volumeLadder = [
     { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
     { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: formatMoney(sum(scheduledMonth)) },
-    { label: 'Jobs · YTD', val: all2026.length, sub: formatMoney(scheduled2026Total) },
+    { label: 'Jobs · YTD', val: projectedJobs, sub: formatMoney(projectedRevenue) },
     { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
   ]
 
@@ -405,9 +411,13 @@ export default async function DashboardPage() {
     const mStart = naiveMidnight(ymd)
     const mEnd = naiveMidnight(monthIdx === 11 ? `${Number(yearStr) + 1}-01-01` : `${yearStr}-${String(monthIdx + 2).padStart(2, '0')}-01`)
     const jobs = allJobs.filter(j => SCHEDULED(j) && inRange(j, mStart, mEnd))
+    // January is pre-migration for nycmaid — no `bookings` rows exist for it,
+    // so fold in the same known actuals used in the Projected ladder above.
+    const isNycmaidJan = isNycmaid && monthIdx === 0
     return {
       label: mStart.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
-      count: jobs.length, revenue: sum(jobs),
+      count: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_JOBS + jobs.length : jobs.length,
+      revenue: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_CENTS + sum(jobs) : sum(jobs),
       isCurrent: monthIdx === zonedNow.getMonth(), isFuture: monthIdx > zonedNow.getMonth(),
     }
   })
