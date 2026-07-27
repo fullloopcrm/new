@@ -38,6 +38,7 @@ const navPlatform = [
   { label: 'AI Usage', href: '/admin/ai-usage' },
   { label: 'Security', href: '/admin/security' },
   { label: 'Announcements', href: '/admin/announcements' },
+  { label: 'Legal Tips', href: '/admin/legal-tips' },
   { label: 'Settings', href: '/admin/settings' },
 ]
 
