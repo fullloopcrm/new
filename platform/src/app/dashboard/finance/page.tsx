@@ -6,6 +6,7 @@ import { useUserPrefs } from '@/lib/use-user-prefs'
 import Link from 'next/link'
 import './finance.css'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import FinanceSettings from './finance-settings'
 
 type Tab = 'overview'
 // The finance PROCESS, left→right — one connected hub. Overview lives on this
@@ -115,6 +116,7 @@ export default function FinancePage() {
 
   return (
     <div className="fin-scope">
+      <FinanceSettings />
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
         <div className="fin-date-range">
           {DATE_OPTS.map((d) => (

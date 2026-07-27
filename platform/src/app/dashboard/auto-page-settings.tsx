@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'bookings', 'campaigns', 'catalog', 'clients', 'notifications', 'referrals', 'reviews', 'sms', 'team',
+  'bookings', 'campaigns', 'catalog', 'clients', 'finance', 'notifications', 'referrals', 'reviews', 'sms', 'team',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -138,19 +138,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
       ], default: 'all' },
     ],
   },
-  'finance': {
-    page: 'finance', title: 'Finance',
-    tips: ['Which date range Finance opens to.', 'Fiscal year and tax rate feed reporting and tax-line calculations tenant-wide.'],
-    fields: [
-      { key: 'default_range', label: 'Default date range', type: 'select', layer: 'user', helper: 'Which date range Finance opens showing.', options: [
-        { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'This Quarter' }, { value: 'ytd', label: 'Year-to-date' },
-      ], default: 'month' },
-      { key: 'fiscal_year_start', label: 'Fiscal year start month', type: 'select', layer: 'tenant_selena', helper: 'Which month your fiscal year begins.', options: [
-        { value: '1', label: 'January' }, { value: '2', label: 'February' }, { value: '3', label: 'March' }, { value: '4', label: 'April' }, { value: '5', label: 'May' }, { value: '6', label: 'June' }, { value: '7', label: 'July' }, { value: '8', label: 'August' }, { value: '9', label: 'September' }, { value: '10', label: 'October' }, { value: '11', label: 'November' }, { value: '12', label: 'December' },
-      ], default: '1' },
-      { key: 'tax_rate', label: 'Tax rate (%)', type: 'number', layer: 'tenant_selena', min: 0, max: 100, step: 0.1, default: 0, helper: 'Applied to tax-line calculations in reporting.' },
-    ],
-  },
   'find-cleaner': {
     page: 'find-cleaner', title: 'Find a Team Member',
     tips: ['Broadcasts a job to available team members — nothing configurable here yet.'],
@@ -163,11 +150,13 @@ const PAGE_MAP: Record<string, PageEntry> = {
   },
   'google': {
     page: 'google', title: 'Google Profile',
-    tips: ['Which tab the Google Profile page opens to.'],
+    tips: ['Which tab the Google Profile page opens to.', 'Place ID and review link power review pulls and the review-request comm.'],
     fields: [
       { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Reviews or Posts — which tab opens by default.', options: [
         { value: 'reviews', label: 'Reviews' }, { value: 'posts', label: 'Posts' },
       ], default: 'reviews' },
+      { key: 'google_place_id', label: 'Google Place ID', type: 'text', layer: 'tenant_column', default: '', helper: 'Your business’s Google Place ID — used to pull reviews and posts.' },
+      { key: 'google_review_link', label: 'Review link', type: 'text', layer: 'tenant_selena', default: '', helper: 'Direct link clients use to leave a Google review — sent in review-request messages.' },
     ],
   },
   'hr': {
