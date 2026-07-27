@@ -63,6 +63,7 @@ export async function POST(request: Request, { params }: Params) {
       caption: ((form.get('caption') as string) || '').trim() || null,
       lat: form.get('lat') ? Number(form.get('lat')) : null,
       lng: form.get('lng') ? Number(form.get('lng')) : null,
+      shareable: form.get('shareable') === 'true',
     })
 
     return NextResponse.json({ photo })

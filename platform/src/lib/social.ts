@@ -302,8 +302,9 @@ export async function refreshFacebookToken(
  * name, address, or any other PII, only the service type.
  *
  * No-ops silently (not an error) when: auto-post is off, no platform is
- * connected, or the job has no 'after'/'progress' photo yet — this runs
- * fire-and-forget off the checkout path and must never fail loud there.
+ * connected, or the job has no 'after'/'progress' photo explicitly marked
+ * shareable yet — this runs fire-and-forget off the checkout path and must
+ * never fail loud there.
  */
 export async function autoPostJobCompletion(tenantId: string, bookingId: string): Promise<void> {
   const settings = await getSettings(tenantId)
@@ -343,7 +344,10 @@ export async function autoPostJobCompletion(tenantId: string, bookingId: string)
 async function pickAutoPostPhoto(tenantId: string, bookingId: string): Promise<{ url: string } | null> {
   // 'after' photos are the marketing-worthy shot; fall back to 'progress'.
   // Deliberately excludes 'before' — a messy pre-job photo isn't something
-  // a tenant wants auto-published to their public feed.
+  // a tenant wants auto-published to their public feed. shareable=true is
+  // required regardless of type — whoever captured the photo must have
+  // explicitly opted it in (see PhotoCapture.tsx), tenant-level auto-post
+  // being on is not itself consent for any specific photo.
   for (const photoType of ['after', 'progress'] as const) {
     const { data } = await supabaseAdmin
       .from('job_photos')
@@ -351,6 +355,7 @@ async function pickAutoPostPhoto(tenantId: string, bookingId: string): Promise<{
       .eq('tenant_id', tenantId)
       .eq('booking_id', bookingId)
       .eq('photo_type', photoType)
+      .eq('shareable', true)
       .order('taken_at', { ascending: false })
       .limit(1)
       .maybeSingle()

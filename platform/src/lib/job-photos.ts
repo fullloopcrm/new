@@ -30,6 +30,7 @@ export interface SaveJobPhotoInput {
   caption?: string | null
   lat?: number | null
   lng?: number | null
+  shareable?: boolean
 }
 
 export class JobPhotoError extends Error {
@@ -78,6 +79,10 @@ export async function saveJobPhoto(input: SaveJobPhotoInput) {
       caption: input.caption ?? null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
+      // Defaults to false -- a photo is only eligible for auto-post (see
+      // lib/social.ts pickAutoPostPhoto) once whoever captured it explicitly
+      // marks it OK to share publicly.
+      shareable: input.shareable ?? false,
     })
     .select('*')
     .single()
