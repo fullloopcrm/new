@@ -9,6 +9,7 @@ import SelenaBar from './selena-bar'
 import AnnouncementBanner from './announcement-banner'
 import { WorkerLabelProvider } from './worker-label-context'
 import { PageSettingsOpenProvider, usePageSettingsOpen } from '@/components/page-settings'
+import { KnowledgePanelButton } from '@/components/knowledge-panel'
 
 type SidebarCounts = {
   clients: number
@@ -505,6 +506,7 @@ function DashboardShellInner({
             <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {meta}
             </span>
+            <KnowledgePanelButton />
             <button
               type="button"
               onClick={() => pageSettings.setOpen(!pageSettings.open)}
