@@ -108,17 +108,17 @@ const faqCategories: FaqCategory[] = [
       {
         question: "How much does Full Loop CRM cost?",
         answer:
-          "Full Loop is currently invite-only — pricing is shared with waitlist members once we open a slot in your trade and city. One operator gets exclusive territory, so we don't list public pricing. Join the waitlist and we'll send the details when an opening matches you.",
+          "$25,000 one-time setup, then $2,500/month flat — unlimited users, every feature included, no tiers. Join the waitlist to check territory availability for your trade and city.",
       },
       {
         question: "Are there any setup fees?",
         answer:
-          "Yes — a $25,000 one-time setup & onboarding fee. It covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, integrate payments and your phone/email, and test everything end-to-end before you go live. After that it's $2,500/mo per admin + $250/mo per field team member.",
+          "Yes — a $25,000 one-time setup & onboarding fee. It covers white-glove setup: we build your custom website, configure Yinez AI for your trade, import your existing clients, set up your service areas, integrate payments and your phone/email, and test everything end-to-end before you go live. After that it's $2,500/month flat, with unlimited users.",
       },
       {
         question: "What are microsites?",
         answer:
-          "Microsites are standalone landing pages targeting specific services or neighborhoods (e.g., 'Carpet Cleaning in Astoria'). You own them outright — they are yours to keep even if you cancel. Pricing for additional microsites is shared with waitlist members.",
+          "Microsites are standalone landing pages targeting specific services or neighborhoods (e.g., 'Carpet Cleaning in Astoria'). You own them outright — they are yours to keep even if you cancel. See the pricing page for microsite add-on rates.",
       },
       {
         question: "Is there a long-term contract?",
