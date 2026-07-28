@@ -104,7 +104,7 @@ vi.mock('@/lib/supabase', () => ({
         //  1. Ownership check (body.client_id path):
         //     .select('do_not_service').eq('id',..).eq('tenant_id',..).maybeSingle()
         //  2/3. New-vs-existing resolution (no body.client_id), via tenantDb —
-        //     same underlying supabaseAdmin.from('clients') — email lookup
+        //     same underlying supabaseAdmin clients-table mock — email lookup
         //     (.ilike + .maybeSingle), phone lookup (.eq('phone',..) +
         //     .maybeSingle), then .insert(...).select().single() if neither hit.
         const ownerResult = { data: { do_not_service: false }, error: null }

@@ -23,13 +23,14 @@ export default function PricingModel() {
       <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Home service CRM pricing"
-          heading="Home Service CRM Pricing: How Full Loop's Operating Partnership Compares to Per-Seat SaaS"
+          heading="Home Service CRM Pricing: $2,500/Month Flat, Unlimited Users"
           description={
             <>
               Home service CRM pricing, done differently: Full Loop isn&apos;t a per-seat app,
               because it doesn&apos;t do what a per-seat app does. It replaces your lead-gen spend,
-              your whole software stack, and a chunk of office labor at once &mdash; so it&apos;s priced
-              as an operating partnership, per territory.
+              your whole software stack, and a chunk of office labor at once &mdash; so it&apos;s one
+              flat monthly rate, $25,000 one-time setup, no matter how many admins or field
+              team members you add.
             </>
           }
         />
@@ -65,22 +66,23 @@ export default function PricingModel() {
           </p>
 
           <h3 style={subhead}>
-            Why exclusive territory pricing is set per market
+            One flat number, whether you&apos;re solo or running five crews
           </h3>
           <p>
-            Because Full Loop is licensed to one operator per trade per city, pricing is set
-            for your specific trade and market rather than published as a flat number for
-            everyone. A territory is a real asset &mdash; it locks competitors out of the
-            platform in your market &mdash; so the conversation is direct and specific to what
-            your city is worth. Start with a{" "}
-            <a href="#lead-form" style={link}>application</a> and we&apos;ll walk through the
-            numbers for your trade, or read{" "}
+            $25,000 one-time setup, then $2,500/month flat &mdash; unlimited admins, unlimited
+            field team members, every feature included. The number doesn&apos;t change as your
+            team grows, which is the opposite of the per-seat SaaS you&apos;re used to. What does
+            stay exclusive is the territory: Full Loop is licensed to one operator per trade
+            per city, so claiming your city locks competitors out of the platform in your
+            market. Start with an{" "}
+            <a href="#lead-form" style={link}>application</a> to check territory availability,
+            or read{" "}
             <Link href="/about-full-loop-crm" style={link}>how the partnership model works</Link>{" "}
             first.
           </p>
         </div>
 
-        <SectionCloser href="/about-full-loop-crm" label="Understand the partnership model" formLabel="Get My Territory Price — Apply" />
+        <SectionCloser href="/about-full-loop-crm" label="Understand the partnership model" formLabel="See Pricing & Apply" />
       </div>
     </section>
   );
