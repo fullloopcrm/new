@@ -13,7 +13,7 @@ import { askSelena } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { handleReviewRating } from '@/lib/review-engine'
 import { handleFeedbackReply } from '@/lib/feedback-reply'
@@ -21,8 +21,22 @@ import { insertConversationMessage } from '@/lib/sms-messages'
 import { getTenantTimezone } from '@/lib/tenant-time'
 import { nowNaiveET } from '@/lib/recurring'
 import { sendTenantTelegram } from '@/lib/notify'
+import { trackError } from '@/lib/error-tracking'
 
 export const maxDuration = 60
+
+// NYC Maid's branded number, (212) 202-8400, forwards to the registered
+// Telnyx mainline for voice; (212) 202-9030 is the paired forward leg. Telnyx
+// echoes inbound SMS sent directly to either forward leg with the ORIGINAL
+// dialed number in `payload.to`, not the mainline — so a plain telnyx_phone
+// lookup never matches and real client texts sent to the branded number were
+// silently dropped (confirmed live 2026-07-27: 17 distinct real senders in 5
+// days). Outbound replies are unaffected — sendSMS() always sends from the
+// tenant's registered telnyx_phone (the mainline), never these aliases.
+const TENANT_PHONE_ALIASES: Record<string, string> = {
+  '+12122028400': NYCMAID_TENANT_ID,
+  '+12122029030': NYCMAID_TENANT_ID,
+}
 
 // Handle inbound SMS + delivery status from Telnyx
 export async function POST(request: Request) {
@@ -33,16 +47,6 @@ export async function POST(request: Request) {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx webhook] rejected:', result.reason)
-      // Temporary trace (2026-07-23): inbound SMS replies have zero DB
-      // footprint anywhere (sms_logs, client_sms_messages, notifications) —
-      // this 401 is the prime suspect since it returns before any write.
-      // Remove once root cause is confirmed.
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: '00000000-0000-0000-0000-000000000001',
-        type: 'comms_fail',
-        title: 'Inbound Telnyx webhook rejected',
-        message: `reason=${result.reason} body_snippet=${rawBody.slice(0, 300)}`,
-      }).then(() => {}, () => {})
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
@@ -126,16 +130,6 @@ export async function POST(request: Request) {
     const text = payload?.text
 
     if (!from || !to || !text) {
-      // Temporary trace (2026-07-23): this branch silently drops the whole
-      // message with zero DB footprint if Telnyx's real payload shape
-      // doesn't match what's destructured above. Logging the raw payload
-      // until inbound-reply handling is confirmed working end-to-end.
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: '00000000-0000-0000-0000-000000000001',
-        type: 'comms_fail',
-        title: 'Inbound Telnyx webhook missing from/to/text',
-        message: `from=${from} to=${to} text=${text} payload=${JSON.stringify(payload).slice(0, 500)}`,
-      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -153,17 +147,18 @@ export async function POST(request: Request) {
     if (tenantMatches && tenantMatches.length > 1) {
       console.error(`[telnyx] telnyx_phone ${to} matches ${tenantMatches.length} tenants — dedupe needed; routing to ${tenantMatches[0].name}`)
     }
-    const tenant = tenantMatches?.[0] || null
+    let tenant = tenantMatches?.[0] || null
+
+    if (!tenant && TENANT_PHONE_ALIASES[to]) {
+      const { data: aliasTenant } = await supabaseAdmin
+        .from('tenants')
+        .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone, telegram_bot_token, telegram_chat_id')
+        .eq('id', TENANT_PHONE_ALIASES[to])
+        .maybeSingle()
+      tenant = aliasTenant || null
+    }
 
     if (!tenant) {
-      // Temporary trace (2026-07-23): silent drop if `to` doesn't exactly
-      // match any tenant's telnyx_phone.
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: '00000000-0000-0000-0000-000000000001',
-        type: 'comms_fail',
-        title: 'Inbound Telnyx webhook — no tenant matched',
-        message: `to=${to} from=${from}`,
-      }).then(() => {}, () => {})
       return NextResponse.json({ received: true })
     }
 
@@ -213,7 +208,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (client) {
         // Set sms_opt_out on client
@@ -240,7 +236,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (member) {
         await supabaseAdmin.from('notifications').insert({
@@ -276,7 +273,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (client) {
         await supabaseAdmin
@@ -316,7 +314,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (client) {
         // Find their next upcoming booking and confirm it
@@ -379,7 +378,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (member) {
         // Find their next unconfirmed job
@@ -461,7 +461,8 @@ export async function POST(request: Request) {
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('phone', from)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (ratingClient) {
         // Find recently completed booking with [FOLLOWUP_SENT] in notes (last 48hrs)
@@ -570,14 +571,16 @@ export async function POST(request: Request) {
       .select('id, name')
       .eq('tenant_id', tenantId)
       .eq('phone', from)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     const { data: member } = await supabaseAdmin
       .from('team_members')
       .select('id, name')
       .eq('tenant_id', tenantId)
       .eq('phone', from)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     const senderName = client?.name || member?.name || from
 
@@ -835,6 +838,7 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         console.error('Chatbot error:', err)
+        await trackError(err, { source: 'webhooks/telnyx/chatbot', tenantId, severity: 'high' }).catch(() => {})
         // Fall through — chatbot failure shouldn't block the webhook
       }
     }

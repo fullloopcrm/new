@@ -394,7 +394,7 @@ export function getNextStep(cl: BookingChecklist, isReturning: boolean): NextSte
   // For returning clients, skip fields we already have
   if (!cl.service_type) return { field: 'service_type', instruction: 'Ask what type of cleaning they need. Use numbered options on SMS.' }
   if (cl.bedrooms === null || cl.bathrooms === null) return { field: 'bedrooms', instruction: 'Ask how many bedrooms and bathrooms.' }
-  if (!cl.rate) return { field: 'rate', instruction: 'Give time estimate RANGE for their size, then pricing: $69/hr (we supply everything) or $59/hr (client provides supplies). $89/hr for same-day. Do NOT mention recurring discount — that only applies after their first visit. Use numbered options on SMS.' }
+  if (!cl.rate) return { field: 'rate', instruction: 'Give time estimate RANGE for their size, then pricing: $69/hr (we supply everything) or $59/hr (client provides supplies). $89/hr for same-day. Their first visit is always at full price — no discount applies yet. But if they mention wanting recurring/weekly/biweekly/monthly service (in any form, not just asking about it), proactively mention the recurring discount as an incentive: $69/hr tier saves 20% weekly or 10% biweekly/monthly after the first visit; $59/hr tier saves 10% weekly or 5% biweekly/monthly. Use numbered options on SMS.' }
   if (!cl.day) return { field: 'day', instruction: 'Ask what day works best. Our default slots are 8am, 12pm, and 4pm but we adjust as needed.' }
   if (!cl.time) return { field: 'time', instruction: 'Ask what time works. Our default slots are 8am, 12pm, and 4pm but we can adjust.' }
 
@@ -940,7 +940,7 @@ function buildStepPrompt(intent: Intent, cl: BookingChecklist, next: NextStep, i
     case 'bedrooms':
       return `${summary} Ask how many bedrooms and bathrooms.`
     case 'rate':
-      return `${summary}${est ? ` That typically runs ${est}.` : ''} Present TWO options clearly: 1) $69/hr — WE bring all cleaning supplies and equipment 2) $59/hr — THEY provide their own cleaning supplies and equipment. Also $89/hr for same-day emergency. NEVER mix up which is which. $69 = we supply, $59 = they supply. No discounts on first booking.`
+      return `${summary}${est ? ` That typically runs ${est}.` : ''} Present TWO options clearly: 1) $69/hr — WE bring all cleaning supplies and equipment 2) $59/hr — THEY provide their own cleaning supplies and equipment. Also $89/hr for same-day emergency. NEVER mix up which is which. $69 = we supply, $59 = they supply. No discount on the first booking itself, but if they've mentioned wanting recurring/weekly/biweekly/monthly service, proactively mention it unlocks a discount after visit 1: 20% off weekly / 10% off biweekly/monthly at $69/hr, 10% off weekly / 5% off biweekly/monthly at $59/hr.`
     case 'day':
       return `${summary} Ask what day works best.`
     case 'time':

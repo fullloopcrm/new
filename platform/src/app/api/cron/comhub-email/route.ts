@@ -8,6 +8,7 @@ import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { trackError } from '@/lib/error-tracking'
 
 // Automated/notification senders (payment processors, banks, dev-tool alerts,
 // marketing blasts) should be mirrored into comhub for visibility but never
@@ -309,8 +310,13 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
               }
             }
           }
-        } catch {
+        } catch (err) {
           // Best-effort — never let Yinez auto-reply break the IMAP poll.
+          // But this was swallowing every real failure with zero trace —
+          // confirmed live 2026-07-27: genuine customer inquiries (a 3x/week
+          // recurring lead, a time-change request, a booking-confirmation
+          // reply) got no Yinez reply and no record of why anywhere.
+          await trackError(err, { source: 'cron/comhub-email/yinez-reply', tenantId, severity: 'high' }).catch(() => {})
         }
 
         const { data: cur } = await supabaseAdmin
