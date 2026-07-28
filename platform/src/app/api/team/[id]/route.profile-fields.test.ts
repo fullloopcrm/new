@@ -101,6 +101,28 @@ describe('GET /api/team/[id]', () => {
     expect(res.status).toBe(200)
     expect(body.member.address).toBe('150 W 47th St, New York, NY')
   })
+
+  it('includes recurring-retention stats alongside the existing KPIs', async () => {
+    h.store.recurring_schedules = [
+      { id: 's1', tenant_id: 'tenant-A', team_member_id: 'tm-1', status: 'active' },
+      { id: 's2', tenant_id: 'tenant-A', team_member_id: 'tm-1', status: 'cancelled', cancelled_team_member_id: 'tm-1' },
+    ]
+    const res = await GET(new Request('http://x'), paramsFor('tm-1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.stats.retention_ever_assigned).toBe(2)
+    expect(body.stats.retention_still_active).toBe(1)
+    expect(body.stats.retention_lapsed).toBe(1)
+    expect(body.stats.retention_rate).toBe(50)
+  })
+
+  it('reports retention_rate: null when the member has no recurring history', async () => {
+    const res = await GET(new Request('http://x'), paramsFor('tm-1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.stats.retention_ever_assigned).toBe(0)
+    expect(body.stats.retention_rate).toBeNull()
+  })
 })
 
 describe('DELETE /api/team/[id]', () => {

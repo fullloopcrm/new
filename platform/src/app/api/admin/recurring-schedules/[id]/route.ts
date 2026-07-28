@@ -103,9 +103,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params
   const db = tenantDb(tenantId)
 
+  // Snapshot who's actually assigned right now, before the status flip —
+  // team_member_id is live/mutable (reassign, unassign) and nothing else
+  // records who held the relationship at the moment of cancellation. See
+  // migrations/2026_07_28_recurring_schedule_cancellation_attribution.sql.
+  const { data: preCancel } = await db
+    .from('recurring_schedules')
+    .select('team_member_id')
+    .eq('id', id)
+    .single()
+
   const { data: schedule, error: sErr } = await db
     .from('recurring_schedules')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString(),
+      cancelled_team_member_id: preCancel?.team_member_id ?? null,
+      cancelled_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .select('*, clients(name)')
     .single()
