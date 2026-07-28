@@ -10,7 +10,8 @@ import './schedule.css'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
-import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
+import { RecurringOptions } from './_RecurringOptions'
+import { generateInitialBatchDates, getRecurringDisplayName, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import { formatPhone } from '@/lib/format'
 import { applyDiscount, applyCredit } from '@/lib/discount'
@@ -344,10 +345,15 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     return ranges[hours] || hours + '-' + (hours + 2)
   }
 
-  const recurringDates = generateRecurringDates(
-    createForm.start_date, createForm.repeat_enabled, createForm.repeat_type,
-    createForm.repeat_end, createForm.repeat_end_count, createForm.repeat_end_date, createForm.custom_interval
-  )
+  const recurringDates = generateInitialBatchDates({
+    recurringType: rawRecurringType(createForm.repeat_type) as RecurringType,
+    startDate: createForm.start_date,
+    repeatEnabled: createForm.repeat_enabled,
+    repeatEnd: createForm.repeat_end as RepeatEnd,
+    repeatEndCount: createForm.repeat_end_count,
+    repeatEndDate: createForm.repeat_end_date,
+    customIntervalWeeks: createForm.custom_interval,
+  })
 
   // Build naive datetime string from date + time + hours (no Date object, no TZ shift)
   const buildNaiveTime = (date: string, time: string, addHours: number = 0) => {

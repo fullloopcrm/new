@@ -1,14 +1,5 @@
 'use client'
 
-// Re-export from shared utilities so existing imports from this file still
-// work. generateRecurringDates stays local (./_recurring's "repeat end"-aware
-// initial-batch generator, not a duplicate -- see that file's header).
-// getRecurringDisplayName comes from the canonical src/lib/recurring.ts --
-// dashboard/bookings/_recurring.ts's own copy was retired 2026-07-28 as the
-// actual duplicate docs/RECURRING-REBUILD-DESIGN.md flagged.
-export { generateRecurringDates } from './_recurring'
-export { getRecurringDisplayName } from '@/lib/recurring'
-
 interface RecurringOptionsProps {
   startDate: string
   enabled: boolean
