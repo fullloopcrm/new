@@ -1,68 +1,11 @@
 import { randomInt } from 'crypto'
-import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
-import { yinezError, NYCMAID_TENANT_ID, type Intent, type YinezResult } from './core-types'
+import { yinezError, NYCMAID_TENANT_ID, type YinezResult } from './core-types'
 import { loadChecklist, updateChecklist } from './core-intent'
-
-// ─── Tool Definitions (grouped by mode) ─────────────────────────────────────
-
-export const ALL_TOOLS: Anthropic.Tool[] = [
-  // BOOKING
-  { name: 'create_booking', description: 'Create a PENDING booking. ONLY after client confirms recap. For brand-new clients with no profile on file, also pass client_name (REQUIRED) plus client_email and client_address if known — the booking handler will auto-create the client record.', input_schema: { type: 'object' as const, properties: { date: { type: 'string' }, time: { type: 'string' }, service_type: { type: 'string' }, hourly_rate: { type: 'number' }, estimated_hours: { type: 'number' }, recurring_type: { type: 'string' }, client_name: { type: 'string' }, client_email: { type: 'string' }, client_address: { type: 'string' } }, required: ['date', 'time', 'service_type', 'hourly_rate'] } },
-  { name: 'add_to_waitlist', description: 'Add to waiting list when no availability.', input_schema: { type: 'object' as const, properties: { preferred_date: { type: 'string' }, preferred_time: { type: 'string' } }, required: ['preferred_date'] } },
-  { name: 'get_quote', description: 'Give price estimate without starting a booking.', input_schema: { type: 'object' as const, properties: { service_type: { type: 'string' }, bedrooms: { type: 'number' }, bathrooms: { type: 'number' } }, required: ['service_type'] } },
-  // ACCOUNT
-  { name: 'get_account', description: 'Full account summary — bookings, payments, preferences.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
-  { name: 'update_account', description: 'Update client address, email, phone, or name.', input_schema: { type: 'object' as const, properties: { field: { type: 'string', description: 'address, email, phone, or name' }, value: { type: 'string' } }, required: ['field', 'value'] } },
-  { name: 'send_pin', description: 'Look up and send client their portal PIN.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
-  { name: 'resend_confirmation', description: 'Resend booking confirmation email.', input_schema: { type: 'object' as const, properties: { booking_id: { type: 'string', description: 'Optional — defaults to next upcoming' } }, required: [] } },
-  // PAYMENT
-  { name: 'check_payment', description: 'Balance, what\'s owed, payment history.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
-  { name: 'confirm_payment', description: 'Client says they paid. Triggers verification. Include sender_name if payment is coming from someone other than the client (spouse, partner, etc).', input_schema: { type: 'object' as const, properties: { method: { type: 'string', description: 'zelle, venmo, or card' }, sender_name: { type: 'string', description: 'Full name of the actual payer if different from client (e.g. spouse). Omit if client is paying from their own account.' } }, required: ['method'] } },
-  { name: 'get_invoice', description: 'Send receipt/invoice to client email.', input_schema: { type: 'object' as const, properties: { booking_id: { type: 'string', description: 'Optional — defaults to last payment' } }, required: [] } },
-  // SCHEDULE
-  { name: 'lookup_bookings', description: 'Client\'s upcoming or past bookings.', input_schema: { type: 'object' as const, properties: { status_filter: { type: 'string', description: 'upcoming, completed, all' } }, required: [] } },
-  { name: 'reschedule_booking', description: 'Move booking to new date/time. Recurring only, 7 days notice.', input_schema: { type: 'object' as const, properties: { booking_id: { type: 'string' }, new_date: { type: 'string' }, new_time: { type: 'string' } }, required: ['booking_id', 'new_date', 'new_time'] } },
-  { name: 'cancel_booking', description: 'Cancel a booking. First-time = refuse. Recurring = 7 days notice.', input_schema: { type: 'object' as const, properties: { booking_id: { type: 'string' }, reason: { type: 'string' } }, required: ['booking_id'] } },
-  { name: 'manage_recurring', description: 'Pause, resume, or change recurring schedule.', input_schema: { type: 'object' as const, properties: { action: { type: 'string', description: 'pause, resume, change_day, cancel' }, schedule_id: { type: 'string' }, new_day: { type: 'string' }, pause_until: { type: 'string', description: 'YYYY-MM-DD for pause' } }, required: ['action'] } },
-  // DISPUTE / DETAILS
-  { name: 'booking_details', description: 'Get full booking details including check-in/out times, GPS locations, actual hours, and payment math. Use when client disputes time, price, or arrival.', input_schema: { type: 'object' as const, properties: { booking_id: { type: 'string', description: 'Optional — defaults to most recent completed booking' } }, required: [] } },
-  // ISSUE
-  { name: 'report_issue', description: 'Log a complaint or issue. Notifies admin.', input_schema: { type: 'object' as const, properties: { description: { type: 'string' }, severity: { type: 'string', description: 'low, medium, high' } }, required: ['description'] } },
-  { name: 'request_callback', description: 'Client wants to talk to a human. Notifies admin with context.', input_schema: { type: 'object' as const, properties: { reason: { type: 'string' } }, required: [] } },
-  // MEMORY
-  { name: 'remember', description: 'Save a fact about this client for future conversations.', input_schema: { type: 'object' as const, properties: { content: { type: 'string' }, type: { type: 'string', description: 'preference, instruction, issue, payment, observation' } }, required: ['content', 'type'] } },
-]
-
-// Mode-specific tool selection
-export function getToolsForIntent(intent: Intent): Anthropic.Tool[] {
-  const toolNames: Record<string, string[]> = {
-    greeting: ['remember'],
-    booking: ['create_booking', 'remember'],
-    rebook: ['lookup_bookings', 'score_cleaners', 'create_booking', 'remember'],
-    emergency: ['score_cleaners', 'create_booking', 'remember'],
-    payment_confirm: ['confirm_payment', 'check_payment', 'remember'],
-    payment_question: ['check_payment', 'get_invoice', 'booking_details', 'remember'],
-    account_help: ['get_account', 'update_account', 'send_pin', 'resend_confirmation', 'remember'],
-    schedule_change: ['lookup_bookings', 'reschedule_booking', 'cancel_booking', 'manage_recurring', 'remember'],
-    cleaner_request: ['lookup_bookings', 'score_cleaners', 'remember'],
-    feedback_positive: ['remember'],
-    dispute: ['booking_details', 'check_payment', 'remember'],
-    feedback_negative: ['report_issue', 'booking_details', 'remember'],
-    referral: ['remember'],
-    casual: ['remember'],
-    not_interested: ['remember'],
-    human_request: ['request_callback'],
-    question: ['get_quote', 'score_cleaners', 'remember'],
-  }
-
-  const names = toolNames[intent] || ['remember']
-  return ALL_TOOLS.filter(t => names.includes(t.name))
-}
 
 // ─── Phone/Time Helpers ─────────────────────────────────────────────────────
 
@@ -241,22 +184,6 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     result.debug = `create_booking failed: ${errMsg}`
     await smsAdmins(tid, `YINEZ BOOKING FAILED — ${errMsg}. Convo ${conversationId}.`).catch(() => {})
     return JSON.stringify({ error: 'booking_failed', success: false, message: errMsg })
-  }
-}
-
-export async function handleAddToWaitlist(input: Record<string, unknown>, conversationId: string): Promise<string> {
-  try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, name, booking_checklist, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
-    await supabaseAdmin.from('sms_conversations').update({
-      outcome: 'waitlisted', updated_at: new Date().toISOString(),
-      summary: `Waitlisted for ${input.preferred_date}${input.preferred_time ? ' ' + input.preferred_time : ''}`,
-    }).eq('id', conversationId).eq('tenant_id', tid)
-    await notify({ type: 'waitlist', title: 'New Waitlist', message: `${convo?.name || convo?.phone || 'Client'} waitlisted for ${input.preferred_date}` }).catch(() => {})
-    return JSON.stringify({ success: true })
-  } catch (err) {
-    await yinezError('add_to_waitlist', err, conversationId)
-    return JSON.stringify({ success: true })
   }
 }
 

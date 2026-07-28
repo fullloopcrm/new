@@ -1,26 +1,44 @@
 // Yinez "core" engine — barrel module.
 //
-// This file used to be a single 2729-line file. Split (2026-07-28) into
+// This file used to be a single 2729-line file, split (2026-07-28) into
 // cohesive modules by responsibility, same directory, `core-` prefix:
 //
 //   core-types.ts            shared types/constants, sendSMS, yinezError, isCleanerPhone
 //   core-intent.ts           intent detection + checklist state machine
 //   core-extraction.ts       deterministic field extraction from chat messages
-//   core-tools-booking.ts    tool defs (ALL_TOOLS) + booking/waitlist/quote handlers
+//   core-tools-booking.ts    booking/quote tool handlers
 //   core-tools-account.ts    account/payment tool handlers
 //   core-tools-schedule.ts   schedule/dispute/callback tool handlers + handleTool dispatch
-//   core-profile.ts          client profile + calendar context builders
-//   core-responses.ts        deterministic non-booking/booking response generators
-//   core-ask.ts              buildMessages + askSelena (main entry point)
 //
-// Pure refactor — behavior unchanged. This barrel re-exports exactly the
-// same public surface `@/lib/selena/core` had before the split, so every
-// existing import path (`import { X } from '@/lib/selena/core'`) keeps
-// working unchanged; nothing outside this directory needed to change.
-// Symbols that were already module-private (e.g. NYCMAID_TENANT_ID,
-// sendSMS, several tool handlers) are now exported from their new home
-// file so sibling modules here can import them, but are NOT re-exported
-// here — the external public API is unchanged.
+// Dead-code cleanup (2026-07-28, same day): the original split also produced
+// core-ask.ts (buildMessages + this module's OWN askSelena/tool loop),
+// core-profile.ts (getClientProfile/buildCalendarContext, used only by
+// core-ask's askSelena), and core-responses.ts (deterministic response
+// generators, same), plus ALL_TOOLS/getToolsForIntent in core-tools-booking.ts
+// (the Anthropic tool-schema list core-ask's askSelena fed the model) and four
+// tool handlers only reachable via that same dead loop's dynamic dispatch
+// (add_to_waitlist, get_invoice, manage_recurring, booking_details). All of
+// that was verified to have ZERO callers anywhere in the repo — the real,
+// production askSelena is `@/lib/selena/agent.ts`, which dispatches tools
+// through `@/lib/selena/tools.ts`'s runTool, not through this module's now-
+// removed askSelena. That verification (grepping the whole repo, not trusting
+// the original dead-code claim) is what's captured in this doc note — a
+// version of this file's askSelena/ALL_TOOLS/handleTool/getToolsForIntent
+// path was ALSO the subject of an earlier audit claim that turned out to be
+// wrong for `handleTool` and several of its tool branches (still live via
+// this module's `handleTool`, called directly by
+// `src/lib/voice-agent/customer-tools.ts` for the voice channel AND bridged
+// from `tools.ts`'s CLIENT_TOOLS set for the main SMS/web/telegram channel) —
+// only the pieces listed above were confirmed to have no live caller either
+// way before being deleted.
+//
+// This barrel re-exports the CURRENT public surface of `@/lib/selena/core` —
+// narrower than before the cleanup. `handleTool` and `EMPTY_CHECKLIST` (plus
+// the `YinezResult` type) are the only symbols any file outside this
+// directory actually imports from `@/lib/selena/core`; the rest are kept
+// exported here only because sibling modules in this directory import them
+// via the barrel-adjacent relative paths, not because of a real external
+// caller.
 
 export {
   yinezError,
@@ -48,27 +66,9 @@ export {
 } from './core-extraction'
 
 export {
-  ALL_TOOLS,
-  getToolsForIntent,
   handleCreateBooking,
 } from './core-tools-booking'
 
 export {
-  handleBookingDetails,
   handleTool,
 } from './core-tools-schedule'
-
-export {
-  getClientProfile,
-  buildCalendarContext,
-} from './core-profile'
-
-export {
-  generateNonBookingResponse,
-  generateBookingResponse,
-} from './core-responses'
-
-export {
-  buildMessages,
-  askSelena,
-} from './core-ask'
