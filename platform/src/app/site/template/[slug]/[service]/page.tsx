@@ -18,6 +18,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import NearbyNeighborhoods from '@/app/site/template/_components/NearbyNeighborhoods'
+import { WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -71,15 +72,18 @@ export default async function NeighborhoodServicePage({ params }: Props) {
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)
   if (!neighborhood || !service) notFound()
-  const biz = buildBusiness(await getSiteConfig())
+  const siteConfig = await getSiteConfig()
+  const biz = buildBusiness(siteConfig)
+  const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
+  const wk = isNycmaid ? WEEKEND_PRICING_NOTE : ''
 
   const area = getArea(neighborhood.area)!
   const content = neighborhoodServiceContent(neighborhood, service, area)
 
   // Build 25 FAQs: neighborhood-specific + service-specific + common (deduplicated)
   const nFaqs = neighborhoodFAQs(neighborhood, area)
-  const sFaqs = serviceFAQs(service)
-  const cFaqs = commonServiceFAQs(service)
+  const sFaqs = serviceFAQs(service, isNycmaid)
+  const cFaqs = commonServiceFAQs(service, isNycmaid)
   const seen = new Set<string>()
   const allFaqs: { question: string; answer: string }[] = []
   for (const f of [...nFaqs, ...sFaqs, ...cFaqs]) {
@@ -273,7 +277,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           <div>
             <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">{service.name} Pricing in {neighborhood.name}</h3>
             <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
-              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service. No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+              {service.name} in {neighborhood.name} typically costs {service.priceRange} and takes {service.duration}. We charge a flat hourly rate — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service.{wk} No travel fees, no surge pricing, no hidden costs. {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
             </p>
             <Link href="/pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
           </div>

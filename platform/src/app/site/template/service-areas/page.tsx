@@ -9,20 +9,24 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
+import { WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 const allNeighborhoods = AREAS.flatMap(a => getNeighborhoodsByArea(a.slug))
 const totalNeighborhoods = allNeighborhoods.length
 
-const areaFAQs = [
+function buildAreaFAQs(isNycmaid: boolean) {
+  const wk = isNycmaid ? WEEKEND_PRICING_NOTE : ''
+  return [
   { question: 'What areas does Your Business serve?', answer: `We serve ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Same rates and same quality everywhere.` },
-  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
+  { question: 'Do you charge extra for certain neighborhoods?', answer: `No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service.${wk} No travel fees, no surge pricing.` },
   { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available in all neighborhoods we serve.' },
   { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, text (555) 555-5555 and we\'ll let you know. We\'re always expanding.' },
   { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },
-  { question: 'How quickly can you schedule a cleaning in my area?', answer: 'We typically schedule within 24–48 hours for standard service. Same-day cleaning is available in most areas — text (555) 555-5555 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
+  { question: 'How quickly can you schedule a cleaning in my area?', answer: `We typically schedule within 24–48 hours for standard service. Same-day cleaning is available in most areas — text (555) 555-5555 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).${isNycmaid ? ' (Saturdays & Sundays: $99/hr same-day for new clients.)' : ''}` },
   { question: 'Do your cleaners use public transit or drive?', answer: 'It depends on the area. In Manhattan, Brooklyn, Queens, and the Bronx, many of our cleaners use public transit. For Staten Island, Long Island, Westchester, and New Jersey, cleaners typically drive.' },
   { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
-]
+  ]
+}
 
 const pageTitle = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | Your Business`
 const pageDescription = `Your Business serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (555) 555-5555`
@@ -54,7 +58,10 @@ export const metadata: Metadata = {
 
 export default async function AreasIndexPage() {
   await requireCleaningTenant()
-  const biz = buildBusiness(await getSiteConfig())
+  const siteConfig = await getSiteConfig()
+  const biz = buildBusiness(siteConfig)
+  const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
+  const areaFAQs = buildAreaFAQs(isNycmaid)
   const areasUrl = `${biz.url}/service-areas`
   return (
     <>
@@ -91,10 +98,11 @@ export default async function AreasIndexPage() {
             {totalNeighborhoods}+ Neighborhoods Across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
-            Professional house cleaning from $59/hr in every neighborhood we serve. Same rates, same quality, same background-checked cleaners — whether you&apos;re in Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, or New Jersey.
+            Professional house cleaning from $59/hr in every neighborhood we serve.{isNycmaid ? ' (Weekends higher for new clients.)' : ''} Same rates, same quality, same background-checked cleaners — whether you&apos;re in Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, or New Jersey.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <span className="text-[var(--accent)] text-sm font-medium">&#10003; From $59/hr</span>
+            {isNycmaid && <span className="text-[var(--accent)]/60 text-xs font-medium self-center">(weekends higher for new clients)</span>}
             <span className="text-[var(--accent)] text-sm font-medium">&#10003; Same rate everywhere</span>
             <span className="text-[var(--accent)] text-sm font-medium">&#10003; No travel fees</span>
             <span className="text-[var(--accent)] text-sm font-medium">&#10003; All services available</span>

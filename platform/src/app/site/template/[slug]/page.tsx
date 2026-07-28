@@ -17,6 +17,7 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { areaPageSchemas, neighborhoodPageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { pickLifestylePhoto } from '@/app/site/template/_lib/seo/photos'
+import { WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
@@ -81,6 +82,8 @@ export default async function SlugPage({ params }: Props) {
   const config = await getSiteConfig()
   const brand = toBrand(config)
   const biz = buildBusiness(config)
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+  const wk = isNycmaid ? WEEKEND_PRICING_NOTE : ''
 
   // ============ AREA PAGE ============
   const area = getAreaByUrlSlug(slug)
@@ -130,11 +133,13 @@ export default async function SlugPage({ params }: Props) {
                       <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand)] tracking-wide leading-none">$59<span className="text-xl text-gray-400">/hr</span></p>
                       <p className="text-gray-500 text-xs mt-2">Your supplies</p>
                       <p className="text-[var(--brand)] text-[10px] font-semibold mt-1">10% off weekly &middot; 5% biweekly/monthly</p>
+                      {isNycmaid && <p className="text-gray-400 text-[10px] mt-1">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>}
                     </div>
                     <div className="flex-1 bg-[var(--brand)] rounded-xl py-5 px-4 text-center">
                       <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$69<span className="text-xl text-blue-200/40">/hr</span></p>
                       <p className="text-[rgb(var(--accent-rgb)/0.7)] text-xs mt-2">We bring everything</p>
                       <p className="text-[var(--accent)] text-[10px] font-semibold mt-1">20% off weekly &middot; 10% biweekly/monthly</p>
+                      {isNycmaid && <p className="text-blue-200/50 text-[10px] mt-1">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>}
                     </div>
                   </div>
                   <div className="border border-[rgb(var(--accent-rgb)/0.4)] bg-[#E8F8F1] rounded-xl p-4 mb-5 text-center">
@@ -264,7 +269,7 @@ export default async function SlugPage({ params }: Props) {
     const neighborhoodArea = getArea(neighborhood.area)!
     const content = neighborhoodContent(neighborhood, neighborhoodArea, brand)
     const baseFaqs = neighborhoodFAQs(neighborhood, neighborhoodArea)
-    const common = commonServiceFAQs(SERVICES[0])
+    const common = commonServiceFAQs(SERVICES[0], isNycmaid)
     const seen = new Set(baseFaqs.map(f => f.question))
     const combined = [...baseFaqs, ...common.filter(f => !seen.has(f.question))]
     const faqs = combined.slice(0, 25)
@@ -323,6 +328,7 @@ export default async function SlugPage({ params }: Props) {
                     <span className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--accent)] tracking-wide">$69</span>
                     <span className="text-blue-200/50 text-sm">/hr &middot; we bring everything</span>
                   </div>
+                  {isNycmaid && <span className="text-blue-200/40 text-xs">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/${WEEKEND_SUPPLIES_PROVIDED_RATE} for new clients)</span>}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-yellow-400 text-sm">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
@@ -462,7 +468,7 @@ export default async function SlugPage({ params }: Props) {
             <div>
               <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-2">{neighborhood.name} Cleaning Costs</h3>
               <p className="text-[rgb(var(--brand-rgb)/0.8)] leading-relaxed">
-                House cleaning in {neighborhood.name} starts at $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service. A typical {neighborhood.name} apartment cleaning runs $98–$276 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
+                House cleaning in {neighborhood.name} starts at $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), or $89/hr for same-day emergency service.{wk} A typical {neighborhood.name} apartment cleaning runs $98–$276 depending on size and service type. Deep cleans, move-in/move-out, and post-renovation jobs take longer but use the same flat hourly rate. No travel fees, no surge pricing — {neighborhood.name} residents pay the same rate as every other neighborhood we serve.
               </p>
               <Link href="/pricing" className="inline-block mt-3 text-[var(--brand)] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
             </div>

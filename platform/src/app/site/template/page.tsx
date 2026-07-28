@@ -15,7 +15,7 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
-import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE, WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,14 +61,15 @@ const testimonials = [
 
 // Config-derived so the contact answer ships the tenant's real phone/email,
 // never a placeholder domain. Email line omitted when config email is unset.
-function buildHomepageFAQs(contact: { phone: string; email: string }) {
+function buildHomepageFAQs(contact: { phone: string; email: string }, isNycmaid: boolean) {
+  const wk = isNycmaid ? WEEKEND_PRICING_NOTE : ''
   return [
   // Pricing & Booking
-  { question: 'How much does house cleaning cost in NYC?', answer: 'Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour. Final cost depends on home size and service type.' },
+  { question: 'How much does house cleaning cost in NYC?', answer: `Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour.${wk} Final cost depends on home size and service type.` },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
-  { question: 'Is there a minimum number of hours?', answer: 'Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts; a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
+  { question: 'Is there a minimum number of hours?', answer: `Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts; a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).${wk}` },
   { question: 'How do I book a cleaning?', answer: 'Text (555) 555-5555. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
-  { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.' },
+  { question: 'Do you offer same-day cleaning?', answer: `Yes. Same-day and emergency cleaning is available at $89/hour.${wk} We dispatch a professional cleaner to your door within hours.` },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Apple Pay, and Cash App through our secure online payment link, plus cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
@@ -83,10 +84,10 @@ function buildHomepageFAQs(contact: { phone: string; email: string }) {
   { question: 'Can I customize what gets cleaned?', answer: 'Of course. Just let us know your priorities and we will tailor the cleaning to focus on what matters most to you.' },
 
   // Supplies & Equipment
-  { question: 'Do you bring your own cleaning supplies?', answer: 'We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day emergency service is $89/hour, supplies included.' },
+  { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day emergency service is $89/hour, supplies included.${wk}` },
   { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective cleaning products. If you have preferences for eco-friendly or specific brands, just let us know and we will accommodate.' },
   { question: 'Can I request eco-friendly or green products?', answer: 'Yes. We are happy to use eco-friendly, non-toxic, or hypoallergenic products. Just mention your preference when booking.' },
-  { question: 'Do I need to provide a vacuum or mop?', answer: 'If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. Same-day emergency service at $89/hour also includes all supplies.' },
+  { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. Same-day emergency service at $89/hour also includes all supplies.${wk}` },
 
   // Trust & Safety
   { question: 'Are your cleaners background-checked and insured?', answer: 'Yes. Every cleaner on our team is fully background-checked, licensed, and insured. We carry general liability insurance and bonding for your complete peace of mind.' },
@@ -142,6 +143,9 @@ export default async function HomePage() {
   const profile = industryProfile(siteConfig.industry)
   // Weekend (Sat/Sun) new-client surcharge is NYC Maid only (Jeff, 2026-07-27).
   const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
+  // Shared inline-append for every remaining pricing mention on this page —
+  // see buildHomepageFAQs above for the same pattern applied to FAQ answers.
+  const wk = isNycmaid ? WEEKEND_PRICING_NOTE : ''
 
   // Virtual-assistant tenants get a dedicated, remote+national landing.
   if (profile.isVirtualAssistant) {
@@ -156,7 +160,7 @@ export default async function HomePage() {
     return <GenericHome config={siteConfig} />
   }
 
-  const homepageFAQs = buildHomepageFAQs(siteConfig.contact)
+  const homepageFAQs = buildHomepageFAQs(siteConfig.contact, isNycmaid)
   const schemas = [...homepageSchemas(buildBusiness(siteConfig)), faqSchema(homepageFAQs)]
   const homepagePhoto = pickLifestylePhoto('homepage')
 
@@ -313,6 +317,7 @@ export default async function HomePage() {
                   <div>
                     <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">$59</p>
                     <p className="text-gray-500 text-sm">Starting Rate/Hr</p>
+                    {isNycmaid && <p className="text-gray-400 text-[10px] mt-0.5">(Weekends higher for new clients)</p>}
                   </div>
                 </div>
               </div>
@@ -461,11 +466,11 @@ export default async function HomePage() {
               <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">NYC Cleaning Cost Tips — How to Get the Best Value</h3>
               <ul className="space-y-4">
                 {[
-                  { tip: 'Book recurring service for the best rate', detail: 'Recurring discounts vary by tier. $69/hr (we supply): 20% weekly, 10% biweekly/monthly. $59/hr (you supply): 10% weekly, 5% biweekly/monthly. A weekly 2-hour clean at $59/hr drops to ~$106/visit with the recurring discount.' },
+                  { tip: 'Book recurring service for the best rate', detail: `Recurring discounts vary by tier. $69/hr (we supply): 20% weekly, 10% biweekly/monthly. $59/hr (you supply): 10% weekly, 5% biweekly/monthly. A weekly 2-hour clean at $59/hr drops to ~$106/visit with the recurring discount.${wk}` },
                   { tip: 'First cleaning always takes longer', detail: 'Your initial deep clean may run 4–6 hours. After that, recurring maintenance cleanings are typically 2–3 hours because we\'re maintaining — not catching up.' },
-                  { tip: 'Provide your own supplies to save 25%', detail: 'The difference between $59/hour and $69/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $20/hr — that\'s $40+ per visit.' },
+                  { tip: 'Provide your own supplies to save 25%', detail: `The difference between $59/hour and $69/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $20/hr — that's $40+ per visit.${wk}` },
                   { tip: 'Declutter before we arrive', detail: 'Our cleaners are most efficient when surfaces are accessible. Less time moving items means more time actually cleaning — better results, lower cost.' },
-                  { tip: 'Bundle services for new apartments', detail: 'Moving in? Book a move-in deep clean at $69/hr, then transition to weekly or biweekly at $59/hour with your own supplies for ongoing maintenance — and stack the recurring discount on top.' },
+                  { tip: 'Bundle services for new apartments', detail: `Moving in? Book a move-in deep clean at $69/hr, then transition to weekly or biweekly at $59/hour with your own supplies for ongoing maintenance — and stack the recurring discount on top.${wk}` },
                 ].map(item => (
                   <li key={item.tip}>
                     <p className="text-[var(--brand)] font-semibold text-sm mb-1">{item.tip}</p>
@@ -482,8 +487,8 @@ export default async function HomePage() {
                   { factor: 'Apartment size', detail: 'A studio takes 2 hours. A 3-bedroom may take 5–6. We charge by the hour so you only pay for the time your space actually needs — no inflated flat rates.' },
                   { factor: 'Cleaning type', detail: 'A regular maintenance clean is faster than a deep clean. Deep cleans cover inside appliances, baseboards, window tracks, and behind furniture — expect 2x the time.' },
                   { factor: 'Condition of the space', detail: 'A well-maintained home that gets cleaned weekly takes less time than a first-time clean or post-construction job. Recurring clients see lower bills over time.' },
-                  { factor: 'Supplies', detail: 'At $59/hour you provide supplies. At $69/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.' },
-                  { factor: 'Urgency', detail: 'Same-day and emergency service is $89/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
+                  { factor: 'Supplies', detail: `At $59/hour you provide supplies. At $69/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.${wk}` },
+                  { factor: 'Urgency', detail: `Same-day and emergency service is $89/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.${isNycmaid ? ' (Saturdays & Sundays: $99/hr same-day for new clients.)' : ''}` },
                 ].map(item => (
                   <li key={item.factor}>
                     <p className="text-[var(--brand)] font-semibold text-sm mb-1">{item.factor}</p>
@@ -508,6 +513,7 @@ export default async function HomePage() {
               <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-4">
                 <p className="text-xs text-[var(--accent)] font-semibold tracking-wide uppercase mb-1">Your Business</p>
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">$59–$89/hr</p>
+                {isNycmaid && <p className="text-gray-400 text-[10px] mt-0.5">(Weekends higher for new clients)</p>}
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-xs text-gray-400 font-semibold tracking-wide uppercase mb-1">You Save</p>
@@ -664,7 +670,7 @@ export default async function HomePage() {
                 { icon: '\u{1F4CB}', text: 'Every cleaner is thoroughly background-checked before hire' },
                 { icon: '\u{1F3E0}', text: 'Trained in NYC apartment care — pre-war to high-rise' },
                 { icon: '\u2B50', text: '5.0-star rating with 27 verified client reviews' },
-                { icon: '\u{1F4B0}', text: 'Transparent hourly pricing starting at $59/hour' },
+                { icon: '\u{1F4B0}', text: `Transparent hourly pricing starting at $59/hour${isNycmaid ? ' (weekends higher for new clients)' : ''}` },
                 { icon: '\u2705', text: 'Satisfaction guaranteed — we come back if you are not happy' },
               ].map(item => (
                 <li key={item.text} className="flex items-start gap-3">

@@ -3,6 +3,7 @@ import type { Service } from './services'
 import type { Area } from './data/areas'
 import { industryProfile } from './industry'
 import { type BrandContext, DEFAULT_BRAND } from './brand'
+import { WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 // Deterministic hash for consistent but varied content selection
 function hashCode(str: string): number {
@@ -927,8 +928,28 @@ const defaultRichContent: ServiceRichContent = {
   faqs: [],
 }
 
-export function getServiceRichContent(slug: string): ServiceRichContent | null {
-  return richContentMap[slug] || null
+/**
+ * `isNycmaid` (Jeff, 2026-07-27: "anywhere on the website where it mentions
+ * pricing"): appends the weekend note to this service's one authoritative
+ * cost statement (pricingNote) and its primary "How much does X cost"
+ * FAQ, rather than every incidental $XX/hr mention scattered through tips
+ * and education sections — that would repeat the same parenthetical half
+ * a dozen times on one page. Returns a shallow copy; richContentMap itself
+ * stays tenant-neutral.
+ */
+export function getServiceRichContent(slug: string, isNycmaid = false): ServiceRichContent | null {
+  const base = richContentMap[slug]
+  if (!base) return null
+  if (!isNycmaid) return base
+  return {
+    ...base,
+    pricingNote: base.pricingNote ? `${base.pricingNote}${WEEKEND_PRICING_NOTE}` : base.pricingNote,
+    faqs: base.faqs.map(f =>
+      f.question.toLowerCase().startsWith('how much does')
+        ? { ...f, answer: `${f.answer}${WEEKEND_PRICING_NOTE}` }
+        : f
+    ),
+  }
 }
 
 // ============ FAQ CONTENT ============
@@ -958,7 +979,7 @@ export function neighborhoodFAQs(neighborhood: Neighborhood, area: Area): { ques
   ]
 }
 
-export function serviceFAQs(service: Service): { question: string; answer: string }[] {
+export function serviceFAQs(service: Service, isNycmaid = false): { question: string; answer: string }[] {
   return [
     {
       question: `What does ${service.name.toLowerCase()} include?`,
@@ -966,7 +987,7 @@ export function serviceFAQs(service: Service): { question: string; answer: strin
     },
     {
       question: `How much does ${service.name.toLowerCase()} cost?`,
-      answer: `${service.name} pricing ranges from ${service.priceRange}, depending on your home size and condition. We provide accurate quotes after understanding your specific needs.`,
+      answer: `${service.name} pricing ranges from ${service.priceRange}, depending on your home size and condition. We provide accurate quotes after understanding your specific needs.${isNycmaid ? WEEKEND_PRICING_NOTE : ''}`,
     },
     {
       question: `How long does ${service.name.toLowerCase()} take?`,
@@ -980,8 +1001,8 @@ export function serviceFAQs(service: Service): { question: string; answer: strin
 }
 
 // Common FAQs that apply to any service — used to pad to 25 total
-export function commonServiceFAQs(service: Service): { question: string; answer: string }[] {
-  return [
+export function commonServiceFAQs(service: Service, isNycmaid = false): { question: string; answer: string }[] {
+  const faqs = [
     { question: 'Are your cleaners background-checked?', answer: 'Yes. Every cleaner on our team undergoes a comprehensive background check before their first assignment. We also carry general liability insurance and bonding for your protection. You can trust that the person entering your home has been fully vetted.' },
     { question: 'Do I need to be home during the cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman or building management. You\'re welcome to be home or away — whatever is most comfortable. We\'ll text you when we arrive and when we\'re done.' },
     { question: 'How do I book a cleaning?', answer: 'Text (555) 555-5555. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour.' },
@@ -1003,4 +1024,8 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'What happens if something is damaged during cleaning?', answer: 'We carry general liability insurance specifically for this reason. If a cleaner accidentally damages something in your home, report it within 24 hours and we\'ll work with you to resolve it through our insurance coverage.' },
     { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit our referral page or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
   ]
+  if (!isNycmaid) return faqs
+  // Only the two FAQs that actually state the $59/$69 rate get the weekend
+  // note — not every FAQ in this shared list (e.g. booking/insurance/pets).
+  return faqs.map(f => f.answer.includes('$69/hr') ? { ...f, answer: `${f.answer}${WEEKEND_PRICING_NOTE}` } : f)
 }
