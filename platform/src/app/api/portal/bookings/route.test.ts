@@ -28,6 +28,13 @@ vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
+// bookings table calls now go through tenantClient() (RLS Stage 3) instead of
+// tenantDb() — same underlying fake store, filtered by this route's own
+// explicit .eq('tenant_id') calls rather than tenantDb's auto-injection.
+vi.mock('@/lib/tenant-supabase', async () => {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  return { tenantClient: async () => supabaseAdmin }
+})
 vi.mock('../auth/token', () => ({ verifyPortalToken: (...a: unknown[]) => h.verifyPortalToken(...a) }))
 vi.mock('@/lib/settings', () => ({ getSettings: (...a: unknown[]) => h.getSettings(...a) }))
 

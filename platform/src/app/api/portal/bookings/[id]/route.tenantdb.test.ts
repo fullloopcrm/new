@@ -45,6 +45,10 @@ function chain(table: string) {
 }
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+// bookings table calls now go through tenantClient() (RLS Stage 3) instead of
+// tenantDb() — same fake chain, so cross-tenant behavior stays testable
+// without a real JWT/network round-trip.
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => chain(t) }) }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
 
 process.env.PORTAL_SECRET = 'unit-test-portal-secret'

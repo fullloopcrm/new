@@ -15,6 +15,13 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabaseAdmin: fake }
 })
+// bookings table calls now go through tenantClient() (RLS Stage 3) instead of
+// tenantDb() — same underlying fake store, so cross-tenant behavior stays
+// testable without a real JWT/network round-trip.
+vi.mock('@/lib/tenant-supabase', async () => {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  return { tenantClient: async () => supabaseAdmin }
+})
 
 let currentAuth: { id: string; tid: string } | null
 vi.mock('../auth/token', () => ({
