@@ -117,6 +117,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/expire-conversations",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/rating-prompt",
       "schedule": "*/5 * * * *"
     },
