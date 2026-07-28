@@ -102,7 +102,7 @@ export default function AIAgent() {
           </p>
         </div>
 
-        <SectionCloser href="/full-loop-crm-service-features" label="See how the AI agent works" formLabel="I Want This AI — Apply" />
+        <SectionCloser href="/full-loop-crm-service-features" label="See how the AI agent works" formLabel="Join Waitlist" />
       </div>
     </section>
   );

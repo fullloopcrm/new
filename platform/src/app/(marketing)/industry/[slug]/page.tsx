@@ -6,8 +6,13 @@ import {
   webPageSchema,
   breadcrumbSchema,
   localBusinessSchema,
+  organizationSchema,
+  websiteSchema,
+  serviceSchema,
+  softwareApplicationSchema,
+  itemListSchema,
 } from "@/lib/schema";
-import { industries as comboIndustries, metros, generateIndustrySlug, generateComboSlug, findIndustryByPageSlug } from "@/lib/marketing/combos";
+import { industries as comboIndustries, metros, industryPath, comboPath } from "@/lib/marketing/combos";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
 import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
@@ -15,6 +20,8 @@ import { faqs as globalFaqs } from "@/lib/marketing/faqs";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
 import LiveProofBand from "@/components/LiveProofBand";
 import { RelatedLinksHub } from "@/components/marketing/SeoSection";
+import { ComparisonTable } from "@/components/marketing/ComparisonTable";
+import { PageHero } from "@/components/marketing/PageHero";
 
 // ---------------------------------------------------------------------------
 // Static params — generates all 51 industry pages at build time
@@ -25,7 +32,7 @@ export function generateStaticParams() { return [] }
 // Find industry from slug
 // ---------------------------------------------------------------------------
 function findIndustry(slug: string) {
-  return findIndustryByPageSlug(slug);
+  return comboIndustries.find((i) => i.slug === slug) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +153,19 @@ export default async function IndustryPage({
       <JsonLd
         data={localBusinessSchema(industry.name, "AdministrativeArea")}
       />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
+      <JsonLd data={serviceSchema(`${industry.name} CRM`, `industry/${industry.slug}`, industry.description)} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
+      <JsonLd
+        data={itemListSchema(
+          `${industry.name} CRM — Available Markets`,
+          topMetros.map((m) => ({
+            name: `${industry.name} CRM in ${m.city}, ${m.stateAbbr}`,
+            url: `https://homeservicesbusinesscrm.com${comboPath(industry, m)}`,
+          }))
+        )}
+      />
 
       {/* FAQPage schema for SEO */}
       {content?.faqs && (
@@ -166,60 +186,36 @@ export default async function IndustryPage({
       )}
 
       {/* ================================================================= */}
-      {/* 1. HERO                                                           */}
+      {/* 1. HERO — same chrome as the homepage, page-specific content       */}
       {/* ================================================================= */}
-      <section className="bg-slate-900 py-24 px-6">
-        <div className="mx-auto max-w-4xl text-center">
-          <p className="text-teal-400 font-cta text-sm uppercase tracking-wider mb-4">
-            Exclusive Territory CRM
-          </p>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white font-heading mb-6">
-            Best CRM for{" "}
-            <span className="text-teal-400">{industry.name}</span>{" "}
-            Businesses
-          </h1>
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-4">
-            {industry.description}
-          </p>
-          <p className="text-base text-teal-300 max-w-2xl mx-auto mb-4 font-cta">
-            Live-proven: The NYC Maid runs ~200 services a month on Full Loop — one person, under an hour a day.
-          </p>
-          {richData && (
-            <p className="text-base text-slate-400 max-w-2xl mx-auto mb-8">
-              {richData.longDescription}
-            </p>
-          )}
+      <PageHero
+        topbarRight={`Industry · ${industry.name}`}
+        preHeadline="Exclusive Territory CRM"
+        h1={<>Best CRM for {industry.name} Businesses</>}
+        h2={richData ? richData.longDescription : undefined}
+        subhead={industry.description}
+        proofLine={<>Live-proven: <span style={{ color: "#1F4D2C" }}>The NYC Maid runs ~200 services a month on Full Loop</span> — one person, under an hour a day.</>}
+        ctaText="Join Waitlist"
+        badges={[
+          { label: `${industry.name} CRM`, href: "/full-loop-crm-service-features" },
+          { label: "One Operator Per City", href: "/waitlist" },
+          { label: "All Industries", href: "/full-loop-crm-service-business-industries" },
+          { label: "Case Study", href: "/case-study/the-nyc-maid" },
+        ]}
+      />
 
-          {/* Stat cards */}
-          {content?.stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
-              {content.stats.slice(0, 4).map((stat) => (
-                <div
-                  key={stat.label}
-                  className="bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3"
-                >
-                  <p className="text-2xl font-bold text-teal-400 font-heading">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs text-slate-400">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="font-mono text-sm text-teal-400 mb-6 tracking-wide">
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/waitlist"
-              className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
-            >
-              Inquire about the platform
-            </Link>
-            
+      {content?.stats && (
+        <section className="py-10 px-6 bg-white border-b border-slate-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {content.stats.slice(0, 4).map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-2xl font-bold text-teal-700 font-heading">{stat.value}</p>
+                <p className="text-xs text-slate-500">{stat.label}</p>
+              </div>
+            ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <LiveProofBand live={live} />
 
@@ -418,8 +414,24 @@ export default async function IndustryPage({
             href="/waitlist"
             className="inline-block bg-teal-600 text-white font-cta px-8 py-3 rounded-lg hover:bg-teal-700 transition-colors"
           >
-            Inquire
+            Join Waitlist
           </Link>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* 7b. COMPARISON TABLE                                              */}
+      {/* ================================================================= */}
+      <section className="py-20 px-6 bg-white">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
+            Full Loop CRM vs. a Generic {industry.name} CRM
+          </h2>
+          <p className="text-slate-600 text-center mb-10 max-w-2xl mx-auto">
+            The difference isn&apos;t a feature list — it&apos;s what the software actually does
+            without you touching it.
+          </p>
+          <ComparisonTable trade={industry.name} />
         </div>
       </section>
 
@@ -594,7 +606,7 @@ export default async function IndustryPage({
             {topMetros.map((metro) => (
               <Link
                 key={metro.slug}
-                href={`/${generateComboSlug(industry, metro)}`}
+                href={comboPath(industry, metro)}
                 className="text-sm text-teal-700 hover:text-teal-900 hover:bg-teal-50 rounded px-3 py-2 transition-colors border border-slate-200 bg-white text-center"
               >
                 {metro.city}, {metro.stateAbbr}
@@ -604,7 +616,7 @@ export default async function IndustryPage({
 
           <div className="text-center mt-6">
             <Link
-              href="/full-loop-crm-service-business-industries"
+              href="/home-service-crm-locations"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 font-cta text-sm"
             >
               View All {metros.length}+ Available Markets &rarr;
@@ -631,7 +643,7 @@ export default async function IndustryPage({
               href="/waitlist"
               className="inline-block bg-yellow-300 text-slate-900 font-cta px-8 py-3 rounded-lg hover:bg-yellow-400 transition-colors"
             >
-              Inquire
+              Join Waitlist
             </Link>
             
             
@@ -653,7 +665,7 @@ export default async function IndustryPage({
             {relatedIndustries.map((rel) => (
               <Link
                 key={rel.slug}
-                href={`/industry/${generateIndustrySlug(rel)}`}
+                href={industryPath(rel)}
                 className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-sm"
               >
                 Best CRM for {rel.name} Businesses

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { industries as allIndustries, generateIndustrySlug } from "@/lib/marketing/combos";
+import { industries as allIndustries, industryPath } from "@/lib/marketing/combos";
 
 // Curated flagship trades for the homepage. Each slug MUST exist in combos so
 // every link resolves to a real /industry page (no drift, no 404s). The full
@@ -32,7 +32,7 @@ const industries = FEATURED.map((f) => {
     name: data.name,
     slug: data.slug,
     desc: f.desc,
-    href: `/industry/${generateIndustrySlug(data)}`,
+    href: industryPath(data),
   };
 }).filter((x): x is { name: string; slug: string; desc: string; href: string } => x !== null);
 

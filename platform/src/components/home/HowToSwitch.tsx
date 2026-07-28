@@ -107,7 +107,7 @@ export default function HowToSwitch() {
           ))}
         </div>
 
-        <SectionCloser href="/about-full-loop-crm" label="Learn how onboarding works" formLabel="Start My Onboarding — Apply" />
+        <SectionCloser href="/about-full-loop-crm" label="Learn how onboarding works" formLabel="Join Waitlist" />
       </div>
     </section>
   );

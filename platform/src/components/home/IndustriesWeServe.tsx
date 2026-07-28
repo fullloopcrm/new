@@ -2,7 +2,7 @@ import Link from "next/link";
 import { C, display, mono, proseStyle } from "./editorial";
 import SectionHead from "./SectionHead";
 import SectionCloser from "./SectionCloser";
-import { industries, generateIndustrySlug } from "@/lib/marketing/combos";
+import { industries, industryPath } from "@/lib/marketing/combos";
 
 const link = { color: C.good, textDecoration: "underline", textUnderlineOffset: "2px" };
 
@@ -19,7 +19,7 @@ const subhead: React.CSSProperties = {
 
 // "Industries we work with" — long-tail head + bold description + content with
 // inner links, then a chip grid linking to every industry CRM page (slugs from
-// combos.generateIndustrySlug so they match the routes exactly).
+// combos.industryPath so they match the routes exactly).
 export default function IndustriesWeServe() {
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
@@ -42,11 +42,11 @@ export default function IndustriesWeServe() {
           </h3>
           <p>
             The loop is the same in every trade, but the details aren&apos;t. A{" "}
-            <Link href="/industry/crm-for-house-cleaning-businesses" style={link}>house cleaning company</Link>{" "}
+            <Link href="/industry/house-cleaning" style={link}>house cleaning company</Link>{" "}
             lives on recurring schedules and crew dispatch. A{" "}
-            <Link href="/industry/crm-for-plumbing-businesses" style={link}>plumber</Link>{" "}
+            <Link href="/industry/plumbing" style={link}>plumber</Link>{" "}
             lives on emergency speed-to-lead at 2&nbsp;a.m. A{" "}
-            <Link href="/industry/crm-for-roofing-businesses" style={link}>roofer</Link>{" "}
+            <Link href="/industry/roofing" style={link}>roofer</Link>{" "}
             lives on storm-season surges and insurance follow-up. Full Loop is tuned for
             the way each of these businesses actually runs &mdash; the pricing logic, the
             booking cadence, the field workflow, the seasonal patterns &mdash; instead of
@@ -59,14 +59,14 @@ export default function IndustriesWeServe() {
           <p>
             That&apos;s why the platform ships with deep, trade-specific pages for more than
             fifty industries, from{" "}
-            <Link href={`/industry/${generateIndustrySlug(industries[0])}`} style={link}>
+            <Link href={industryPath(industries[0])} style={link}>
               cleaning services
             </Link>{" "}
             and{" "}
-            <Link href="/industry/crm-for-hvac-businesses" style={link}>HVAC</Link> to{" "}
-            <Link href="/industry/crm-for-pest-control-businesses" style={link}>pest control</Link>,{" "}
-            <Link href="/industry/crm-for-landscaping-businesses" style={link}>landscaping</Link>,{" "}
-            <Link href="/industry/crm-for-junk-removal-businesses" style={link}>junk removal</Link>,
+            <Link href="/industry/hvac" style={link}>HVAC</Link> to{" "}
+            <Link href="/industry/pest-control" style={link}>pest control</Link>,{" "}
+            <Link href="/industry/landscaping" style={link}>landscaping</Link>,{" "}
+            <Link href="/industry/junk-removal" style={link}>junk removal</Link>,
             and the restoration and specialty trades. Each page shows how the seven stages
             of the loop &mdash; lead generation, AI sales, booking, dispatch, payments, reviews,
             and retention &mdash; map to the specific economics of that business.
@@ -98,7 +98,7 @@ export default function IndustriesWeServe() {
           {industries.map((ind) => (
             <Link
               key={ind.slug}
-              href={`/industry/${generateIndustrySlug(ind)}`}
+              href={industryPath(ind)}
               style={{
                 fontFamily: mono,
                 fontSize: "11px",

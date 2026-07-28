@@ -12,7 +12,7 @@ import {
   itemListSchema,
   howToSchema,
 } from "@/lib/schema";
-import { industries, generateIndustrySlug } from "@/lib/marketing/combos";
+import { industries, industryPath } from "@/lib/marketing/combos";
 
 export const metadata: Metadata = {
   title: "Home Service Business CRM | Full Loop — AI Phone, Lead Gen, Sales & Scheduling",
@@ -79,7 +79,7 @@ const breadcrumbs = [{ name: "Home", url: SITE }];
 
 const industryListItems = industries.map((i) => ({
   name: `${i.name} CRM`,
-  url: `${SITE}/industry/${generateIndustrySlug(i)}`,
+  url: `${SITE}${industryPath(i)}`,
   description: i.description,
 }));
 

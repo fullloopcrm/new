@@ -2,7 +2,7 @@ import Link from "next/link";
 import { C, display, mono, proseStyle } from "./editorial";
 import SectionHead from "./SectionHead";
 import SectionCloser from "./SectionCloser";
-import { metros, generateLocationSlug } from "@/lib/marketing/combos";
+import { metros, locationPath } from "@/lib/marketing/combos";
 
 const link = { color: C.good, textDecoration: "underline", textUnderlineOffset: "2px" };
 
@@ -18,7 +18,7 @@ const subhead: React.CSSProperties = {
 };
 
 // Local / city content block — long-tail head + bold description + content with
-// inner links, then a city-link grid (slugs from combos.generateLocationSlug).
+// inner links, then a city-link grid (slugs from combos.locationPath).
 export default function LocalLeadGen() {
   const cities = metros.slice(0, 48);
   return (
@@ -84,7 +84,7 @@ export default function LocalLeadGen() {
           {cities.map((m) => (
             <Link
               key={m.slug}
-              href={`/location/${generateLocationSlug(m)}`}
+              href={locationPath(m)}
               style={{ fontFamily: mono, fontSize: "12px", letterSpacing: "0.02em", color: C.graphite, lineHeight: 1.9 }}
               className="transition-colors hover:text-[#1F4D2C]"
             >

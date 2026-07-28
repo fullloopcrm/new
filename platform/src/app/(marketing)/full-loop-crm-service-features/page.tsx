@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, webPageSchema, breadcrumbSchema, serviceSchema, localBusinessSchema } from "@/lib/schema";
 import { features } from "@/lib/marketing/features";
+import { DASHBOARD_MODULES as dashboardSections } from "@/lib/marketing/dashboardModules";
 
 export const metadata: Metadata = {
   title:
@@ -46,69 +47,6 @@ export const metadata: Metadata = {
 const breadcrumbs = [
   { name: "Home", url: "https://homeservicesbusinesscrm.com" },
   { name: "Features", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features" },
-];
-
-const dashboardSections = [
-  {
-    num: "00",
-    name: "The Loop",
-    desc: "Executive home — revenue, today's jobs, hot leads, conversion, system status, day-of-building.",
-  },
-  {
-    num: "01",
-    name: "Sales",
-    desc: "Leads · Pipeline · Quotes · E-signature documents · Invoices · Route optimization · Deals at-risk.",
-  },
-  {
-    num: "02",
-    name: "Schedule",
-    desc: "Bookings · Calendar (drag-drop) · Recurring (7 patterns) · Smart-schedule scoring · Travel time.",
-  },
-  {
-    num: "03",
-    name: "Clients",
-    desc: "All Clients · SMS Inbox · Per-client transcript · Activity feed · Lifecycle status · LTV.",
-  },
-  {
-    num: "04",
-    name: "Team",
-    desc: "Members · GPS field portal · Earnings · Applications · Stripe Connect onboarding.",
-  },
-  {
-    num: "05",
-    name: "Finance",
-    desc: "Overview · Transactions · Receipts · P&L · AR aging · Cash flow · Audit log.",
-  },
-  {
-    num: "06",
-    name: "Books",
-    desc: "Ledger · Bank import + ML reconcile · Chart of accounts · Payroll · 1099-ready exports · CPA portal.",
-  },
-  {
-    num: "07",
-    name: "Marketing",
-    desc: "Campaigns · Reviews · Referrals · Social (FB + IG) · Google Business Profile · Websites · Autonomous SEO engine · Analytics · Map.",
-  },
-  {
-    num: "—",
-    name: "Our AI receptionist",
-    desc: "Live conversation feed, conversion rate, channel mix, scoring, error log, one-click reset, persona editor.",
-  },
-  {
-    num: "—",
-    name: "Loop Connect",
-    desc: "Slack-style channels — your team, each client, each crew member — direct messaging across the platform.",
-  },
-  {
-    num: "—",
-    name: "Notifications + Activity + Docs + Feedback",
-    desc: "Real-time alerts, full audit trail, in-product documentation, and feedback widget — every platform surface in one nav.",
-  },
-  {
-    num: "—",
-    name: "Settings",
-    desc: "Services, hours, brand, hero, SEO meta, policies, integrations, page configs, vendor keys (encrypted).",
-  },
 ];
 
 export default function FeaturesPage() {
@@ -779,10 +717,11 @@ export default function FeaturesPage() {
             </h2>
             <p className="text-lg text-slate-300 max-w-3xl mx-auto">
               The locked Full Loop dashboard collapses your entire business into
-              eight numbered sections — Loop, Sales, Schedule, Clients, Team,
-              Finance, Books, Marketing — plus a Platform tray for the AI,
-              Connect, Settings, and audit. Every aspect of your operation lives
-              in one nav. No more logging into 5 different apps.
+              numbered sections — The Loop, Clients, ComHub, Sales, Production,
+              Finance, HR, and Marketing — plus a Platform tray for the AI
+              receptionist, onboarding, settings, users, and legal. Every aspect
+              of your operation lives in one nav. No more logging into 5
+              different apps.
             </p>
           </div>
 
@@ -790,13 +729,23 @@ export default function FeaturesPage() {
             {dashboardSections.map((page) => (
               <div
                 key={page.name}
-                className="rounded-xl border border-slate-700 bg-slate-800 p-6"
+                id={page.id}
+                className="rounded-xl border border-slate-700 bg-slate-800 p-6 scroll-mt-24"
               >
                 <p className="font-mono text-xs text-teal-400 mb-2">{page.num}</p>
                 <h3 className="font-heading text-lg font-bold text-white mb-2">
                   {page.name}
                 </h3>
                 <p className="text-sm text-slate-400">{page.desc}</p>
+                {page.children.length > 0 && (
+                  <ul className="mt-3 space-y-1.5 border-t border-slate-700 pt-3">
+                    {page.children.map((child) => (
+                      <li key={child} className="text-xs text-slate-500 leading-relaxed">
+                        {child}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>

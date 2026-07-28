@@ -7,6 +7,8 @@ import {
   faqSchema,
   localBusinessSchema,
   softwareApplicationSchema,
+  organizationSchema,
+  websiteSchema,
 } from "@/lib/schema";
 
 /* ------------------------------------------------------------------ */
@@ -107,6 +109,31 @@ const pricingFaqs = [
     answer:
       "Add them in your Team page. Users are unlimited, so your invoice doesn't change — no per-seat charge, no tier upgrades, no renegotiation, no feature gates.",
   },
+  {
+    question: "What if my trade is already claimed in my city?",
+    answer:
+      "Then that specific license is gone — Full Loop only ever runs one operator per trade per city, so there's no version of the platform where two competitors in the same trade share the same market. You can check nearby markets, join the waitlist in case the current license holder churns, or look at a different trade you also operate in. There's no negotiating a second license into an already-claimed city.",
+  },
+  {
+    question: "How does $2,500/month compare to hiring for the same roles?",
+    answer:
+      "A single answering service alone typically runs $300–$400/month and only covers the phone. Add a part-time office admin for scheduling and follow-up, a bookkeeper for reconciliation and payroll, and a marketing person for reviews and social — and the fully-loaded monthly cost of those roles is usually several times $2,500, before benefits, before turnover, before the person who quits and needs replacing. The platform doesn't call in sick, doesn't need training, and runs the same way at 11pm as it does at 11am.",
+  },
+  {
+    question: "Is HR included in the $2,500?",
+    answer:
+      "The HR module exists in the dashboard today, but it's genuinely the newest and least-built-out piece of the platform — team documents and onboarding paperwork, not yet a full automated HR agent. It's included at no extra cost, and it's actively being built out, but it shouldn't be the reason you sign up. The booking, dispatch, payments, AI front office, and acquisition engine are the mature, load-bearing parts of what $2,500/month buys today.",
+  },
+  {
+    question: "Can I run more than one location or brand on one subscription?",
+    answer:
+      "Each subscription is scoped to one trade in one city — that's the exclusivity the license is built around. Operators who want to run a second trade, or the same trade in a second city, apply for that as a separate license, subject to the same one-per-city rule everyone else operates under.",
+  },
+  {
+    question: "How am I billed, and when does the setup fee happen?",
+    answer:
+      "The $25,000 setup fee is billed once, up front, and covers the entire white-glove build before you go live. The $2,500/month subscription starts once your platform is live and begins running your business — you're not paying the monthly fee while your site and AI agent are still being configured.",
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -128,6 +155,8 @@ export default function PricingPage() {
       <JsonLd data={faqSchema(pricingFaqs)} />
       <JsonLd data={localBusinessSchema("United States", "Country")} />
       <JsonLd data={softwareApplicationSchema(String(MONTHLY_PRICE), "USD")} />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
 
       {/* -- 1. Hero ------------------------------------------------ */}
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
@@ -137,7 +166,11 @@ export default function PricingPage() {
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
             $2,500 a month.{" "}
-            <span className="text-yellow-300">Unlimited users.</span>
+            {/* Explicit color, not the text-yellow-300 utility class — that
+                class is globally remapped to a brown "warn" tone in
+                globals.css for other contexts, which read wrong here on a
+                dark hero where it needs to actually read as yellow. */}
+            <span style={{ color: "#FDE047" }}>Unlimited users.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
             One simple model: $2,500/mo flat, no matter how many admins or
@@ -444,6 +477,46 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* -- 5b. What $2,500/month actually runs, module by module -- */}
+      <section className="py-20 px-6 bg-white" id="whats-included">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
+              What You&apos;re Actually Paying For
+            </p>
+            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
+              Every Dashboard Module, Included
+            </h2>
+            <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+              This isn&apos;t a feature list written for a sales page — it&apos;s the actual dashboard nav
+              an operator logs into, at no extra cost per module.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { name: "The Loop", desc: "Executive home — revenue, today's jobs, hot leads, conversion, system status." },
+              { name: "Clients", desc: "All clients, SMS inbox, per-client feedback, lifecycle status, lifetime value." },
+              { name: "ComHub", desc: "Every conversation surface in one hub, including Loop Connect's Slack-style channels." },
+              { name: "Sales", desc: "Leads, pipeline, quotes, e-signature, invoices — plus Catalog, Sales Partners, and Referrals." },
+              { name: "Production", desc: "Bookings, multi-day Projects, Schedule, Crews, staffing lookup, announcements." },
+              { name: "Finance", desc: "Ledger, bank-import reconciliation, P&L, AR aging, payroll, 1099-ready exports." },
+              { name: "HR", desc: "Team documents and onboarding — the newest module, still actively expanding." },
+              { name: "Marketing", desc: "Campaigns, reviews, social, Google Business Profile, your website, analytics." },
+              { name: "Platform", desc: "Onboarding checklist, settings, users, the AI agent's own admin surface, legal." },
+            ].map((m) => (
+              <div key={m.name} className="rounded-xl border border-slate-200 p-6">
+                <h3 className="font-heading text-lg font-bold text-slate-900 mb-2">{m.name}</h3>
+                <p className="text-sm text-slate-600">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-slate-500 max-w-2xl mx-auto">
+            No module here is a paid add-on or a higher-tier unlock. The $2,500/month price includes
+            all nine, for every user you add, from day one.
+          </p>
+        </div>
+      </section>
+
       {/* -- 6. Why this price ------------------------------------- */}
       <section className="py-20 px-6 bg-slate-900" id="why-this-price">
         <div className="mx-auto max-w-4xl">
@@ -615,6 +688,62 @@ export default function PricingPage() {
             <p className="mt-3 text-2xl sm:text-3xl font-extrabold font-heading text-teal-600 max-w-3xl mx-auto leading-snug">
               It&apos;s how is it not $5,000.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* -- 7b. What the $25,000 setup actually buys, week by week -- */}
+      <section className="py-20 px-6 bg-slate-50" id="onboarding-timeline">
+        <div className="mx-auto max-w-4xl">
+          <div className="text-center mb-12">
+            <p className="mb-2 text-sm font-mono uppercase tracking-widest text-teal-600">
+              White-Glove Onboarding
+            </p>
+            <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
+              What Happens Before You Go Live
+            </h2>
+            <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+              The $25,000 setup fee isn&apos;t a black box — here&apos;s the actual sequence between
+              signing and your first AI-booked job.
+            </p>
+          </div>
+          <div className="space-y-6">
+            {[
+              {
+                week: "Week 1",
+                title: "Territory lock + intake",
+                detail:
+                  "Your trade and city are confirmed exclusive the moment your license is signed — no other operator in that trade can claim your city afterward. We collect your service areas, pricing, existing client list, and brand assets.",
+              },
+              {
+                week: "Week 2",
+                title: "Website + AI agent build",
+                detail:
+                  "Your custom Next.js marketing site goes into production — services, service-area, neighborhood, and careers pages generated for your specific trade and territory. Yinez is configured with your price book, your service rules, and your business's actual policies, not a generic template.",
+              },
+              {
+                week: "Week 3",
+                title: "Integration + data import",
+                detail:
+                  "Payments, phone, and email get connected. Your existing client list is imported into the CRM so you're not starting from zero. Your team is set up with mobile portal access, PIN logins, and GPS check-in configured for your service radius.",
+              },
+              {
+                week: "Week 4",
+                title: "End-to-end test, then go live",
+                detail:
+                  "We run a full test of the loop — a lead comes in, Yinez answers it, a job gets booked, dispatched, completed, and paid — before your real customers ever touch it. Once it passes, you're live, and the $2,500/month subscription begins.",
+              },
+            ].map((step) => (
+              <div key={step.week} className="flex gap-6 bg-white border border-slate-200 rounded-lg p-6">
+                <div className="shrink-0 w-24">
+                  <p className="font-mono text-xs uppercase tracking-widest text-teal-600">{step.week}</p>
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-bold text-slate-900 mb-1">{step.title}</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">{step.detail}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

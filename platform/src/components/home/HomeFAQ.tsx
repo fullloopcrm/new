@@ -488,7 +488,7 @@ export default function HomeFAQ() {
 
         <SectionCloser
           href="/full-loop-crm-frequently-asked-questions"
-          label="Read every question answered" formLabel="I'm In — Submit Application"
+          label="Read every question answered" formLabel="Join Waitlist"
         />
       </div>
     </section>

@@ -3,17 +3,20 @@ import { C, mono, barLabel } from "./editorial";
 import {
   industries,
   metros,
-  generateIndustrySlug,
-  generateLocationSlug,
-  generateComboSlug,
+  industryPath,
+  locationPath,
+  comboPath,
 } from "@/lib/marketing/combos";
 
+// Colors match src/components/Footer.tsx exactly (text-teal-400 headings,
+// text-slate-300 links, hover:text-teal-400) — this section sits directly
+// above the real footer and must read as one continuous block, not two.
 const colTitle: React.CSSProperties = {
   fontFamily: mono,
   fontSize: "10px",
   letterSpacing: "0.16em",
   textTransform: "uppercase",
-  color: C.muted,
+  color: "#2dd4bf",
   marginBottom: "14px",
 };
 
@@ -21,7 +24,7 @@ const linkStyle: React.CSSProperties = {
   fontFamily: mono,
   fontSize: "12px",
   letterSpacing: "0.02em",
-  color: C.graphite,
+  color: "#cbd5e1",
   lineHeight: 1.9,
   display: "block",
 };
@@ -38,13 +41,13 @@ const hubs: { href: string; label: string }[] = [
   { href: "/full-loop-crm-101-educational-tips", label: "Full Loop 101" },
   { href: "/home-service-business-blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
-  { href: "#lead-form", label: "Submit Application" },
+  { href: "#lead-form", label: "Join Waitlist" },
 ];
 
 // Curated combos: first 5 industries × first 4 metros = 20 valid combo pages.
 const comboLinks = industries.slice(0, 5).flatMap((ind) =>
   metros.slice(0, 4).map((m) => ({
-    href: `/${generateComboSlug(ind, m)}`,
+    href: comboPath(ind, m),
     label: `${ind.name} · ${m.city}`,
   }))
 );
@@ -77,9 +80,9 @@ export default function InnerLinks() {
               {industries.map((ind) => (
                 <Link
                   key={ind.slug}
-                  href={`/industry/${generateIndustrySlug(ind)}`}
+                  href={industryPath(ind)}
                   style={linkStyle}
-                  className="transition-colors hover:text-[#6FB58A]"
+                  className="transition-colors hover:text-teal-400"
                 >
                   {ind.name}
                 </Link>
@@ -93,9 +96,9 @@ export default function InnerLinks() {
             {cityLinks.map((m) => (
               <Link
                 key={m.slug}
-                href={`/location/${generateLocationSlug(m)}`}
+                href={locationPath(m)}
                 style={linkStyle}
-                className="transition-colors hover:text-[#6FB58A]"
+                className="transition-colors hover:text-teal-400"
               >
                 {m.city}, {m.stateAbbr}
               </Link>
@@ -110,7 +113,7 @@ export default function InnerLinks() {
                 key={c.href}
                 href={c.href}
                 style={linkStyle}
-                className="transition-colors hover:text-[#6FB58A]"
+                className="transition-colors hover:text-teal-400"
               >
                 {c.label}
               </Link>
@@ -122,7 +125,7 @@ export default function InnerLinks() {
                 key={h.href}
                 href={h.href}
                 style={linkStyle}
-                className="transition-colors hover:text-[#6FB58A]"
+                className="transition-colors hover:text-teal-400"
               >
                 {h.label}
               </Link>

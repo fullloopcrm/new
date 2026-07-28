@@ -8,12 +8,19 @@ import {
   useScroll,
   useMotionValueEvent,
 } from "framer-motion";
+import { CaseStudyDesktopPanel, CaseStudyMobileList } from "@/components/marketing/nav/CaseStudyMenu";
+import { IndustriesDesktopPanel, IndustriesMobileList } from "@/components/marketing/nav/IndustriesMenu";
+import { LocationsDesktopPanel, LocationsMobileList } from "@/components/marketing/nav/LocationsMenu";
+import { FeaturesDesktopPanel, FeaturesMobileList } from "@/components/marketing/nav/FeaturesMenu";
 
-const navLinks = [
-  { label: "Case Study", href: "/case-study/the-nyc-maid" },
-  { label: "Features", href: "/full-loop-crm-service-features" },
+type PanelKey = "caseStudy" | "features" | "industries" | "locations" | "more" | null;
+
+const navLinks: { label: string; href: string; panel?: PanelKey }[] = [
+  { label: "Case Study", href: "/case-study/the-nyc-maid", panel: "caseStudy" },
+  { label: "Features", href: "/full-loop-crm-service-features", panel: "features" },
   { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
-  { label: "Industries", href: "/full-loop-crm-service-business-industries" },
+  { label: "Industries", href: "/full-loop-crm-service-business-industries", panel: "industries" },
+  { label: "Locations", href: "/home-service-crm-locations", panel: "locations" },
   { label: "Pricing", href: "/full-loop-crm-pricing" },
 ];
 
@@ -29,9 +36,10 @@ const moreLinks = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<PanelKey>(null);
+  const [mobileExpanded, setMobileExpanded] = useState<PanelKey>(null);
 
-  const moreRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
@@ -40,8 +48,8 @@ export default function Navbar() {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenPanel(null);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -95,8 +103,33 @@ export default function Navbar() {
     </svg>
   );
 
+  function renderPanel(panel: PanelKey) {
+    if (panel === "caseStudy") return <CaseStudyDesktopPanel />;
+    if (panel === "features") return <FeaturesDesktopPanel />;
+    if (panel === "industries") return <IndustriesDesktopPanel />;
+    if (panel === "locations") return <LocationsDesktopPanel />;
+    if (panel === "more") {
+      return (
+        <div className="w-52 p-1">
+          {moreLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpenPanel(null)}
+              className="block px-4 py-2.5 text-[13px] transition-colors hover:bg-[#FBFBF8]"
+              style={{ color: "#1C1C1C" }}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  }
+
   return (
-    <div className="sticky top-0 left-0 right-0 z-50">
+    <div className="sticky top-0 left-0 right-0 z-50" ref={navRef}>
       <motion.nav
         className="transition-all duration-300"
         style={{
@@ -118,46 +151,62 @@ export default function Navbar() {
 
           {/* Desktop Nav — centered */}
           <div className="hidden items-center justify-center gap-6 lg:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) =>
+              link.panel ? (
+                <div key={link.href} className="relative">
+                  <button
+                    onClick={() => setOpenPanel(openPanel === link.panel ? null : link.panel!)}
+                    className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                  >
+                    {link.label}
+                    {chevron(openPanel === link.panel)}
+                  </button>
+                  <AnimatePresence>
+                    {openPanel === link.panel && (
+                      <motion.div
+                        variants={dropdownVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="absolute left-1/2 top-full mt-3 -translate-x-1/2 border bg-white"
+                        style={{ borderColor: "#1C1C1C", borderRadius: 4 }}
+                      >
+                        {renderPanel(link.panel)}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
 
             {/* More Dropdown */}
-            <div ref={moreRef} className="relative">
+            <div className="relative">
               <button
-                onClick={() => setMoreOpen(!moreOpen)}
+                onClick={() => setOpenPanel(openPanel === "more" ? null : "more")}
                 className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono"
               >
                 More
-                {chevron(moreOpen)}
+                {chevron(openPanel === "more")}
               </button>
               <AnimatePresence>
-                {moreOpen && (
+                {openPanel === "more" && (
                   <motion.div
                     variants={dropdownVariants}
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="absolute left-1/2 top-full mt-3 w-52 -translate-x-1/2 border bg-white p-1"
+                    className="absolute left-1/2 top-full mt-3 -translate-x-1/2 border bg-white"
                     style={{ borderColor: "#1C1C1C", borderRadius: 4 }}
                   >
-                    {moreLinks.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMoreOpen(false)}
-                        className="block px-4 py-2.5 text-[13px] transition-colors hover:bg-[#FBFBF8]"
-                        style={{ color: "#1C1C1C" }}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
+                    {renderPanel("more")}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -173,7 +222,7 @@ export default function Navbar() {
                 className="inline-block bg-white px-5 py-2 text-[10.5px] uppercase tracking-[0.18em] font-mono transition-colors hover:bg-[#F4F4F1]"
                 style={{ color: "#1C1C1C", borderRadius: 4 }}
               >
-                Submit Application
+                Join Waitlist
               </motion.span>
             </Link>
           </div>
@@ -228,19 +277,57 @@ export default function Navbar() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="fixed right-0 top-0 z-50 flex h-full w-[80vw] max-w-sm flex-col bg-white px-6 pt-24 pb-8 shadow-2xl lg:hidden"
+              className="fixed right-0 top-0 z-50 flex h-full w-[85vw] max-w-sm flex-col bg-white px-6 pt-24 pb-8 shadow-2xl lg:hidden"
             >
               <div className="flex flex-col gap-1 overflow-y-auto">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {navLinks.map((link) =>
+                  link.panel ? (
+                    <div key={link.href}>
+                      <button
+                        onClick={() => setMobileExpanded(mobileExpanded === link.panel ? null : link.panel!)}
+                        className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                      >
+                        {link.label}
+                        {chevron(mobileExpanded === link.panel)}
+                      </button>
+                      <AnimatePresence>
+                        {mobileExpanded === link.panel && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pb-2">
+                              {link.panel === "caseStudy" && (
+                                <CaseStudyMobileList onNavigate={() => setMobileOpen(false)} />
+                              )}
+                              {link.panel === "features" && (
+                                <FeaturesMobileList onNavigate={() => setMobileOpen(false)} />
+                              )}
+                              {link.panel === "industries" && (
+                                <IndustriesMobileList onNavigate={() => setMobileOpen(false)} />
+                              )}
+                              {link.panel === "locations" && (
+                                <LocationsMobileList onNavigate={() => setMobileOpen(false)} />
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                    >
+                      {link.label}
+                    </Link>
+                  )
+                )}
 
                 <div className="my-2 h-px bg-slate-200" />
 
@@ -261,7 +348,7 @@ export default function Navbar() {
                   className="mt-6"
                 >
                   <span className="block rounded-lg bg-teal-600 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-teal-700 font-cta">
-                    Submit Application
+                    Join Waitlist
                   </span>
                 </Link>
 

@@ -9,8 +9,9 @@ import {
 } from "@/lib/schema";
 import {
   industries,
-  generateIndustrySlug,
+  industryPath,
 } from "@/lib/marketing/combos";
+import { INDUSTRY_CATEGORIES } from "@/lib/marketing/industryCategories";
 
 export const metadata: Metadata = {
   title:
@@ -94,7 +95,7 @@ export default function IndustriesPage() {
           "Home Service Industries Supported by Full Loop CRM",
           industries.map((ind) => ({
             name: ind.name,
-            url: `https://homeservicesbusinesscrm.com/industry/${generateIndustrySlug(ind)}`,
+            url: `https://homeservicesbusinesscrm.com${industryPath(ind)}`,
             description: ind.description,
           }))
         )}
@@ -115,7 +116,7 @@ export default function IndustriesPage() {
         </div>
       </section>
 
-      {/* Industry Grid */}
+      {/* Industry Grid — grouped by category, same taxonomy as the nav dropdown */}
       <section className="py-20 px-6 bg-white">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-3xl font-bold text-slate-900 font-heading text-center mb-4">
@@ -126,20 +127,29 @@ export default function IndustriesPage() {
             Each partner gets an exclusive city territory for their industry.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {industries.map((industry) => (
-              <Link
-                key={industry.name}
-                href={`/industry/${generateIndustrySlug(industry)}`}
-                className="block border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
-              >
-                <h3 className="text-base font-bold text-slate-900 font-heading mb-1">
-                  {industry.name}
+          <div className="space-y-14">
+            {INDUSTRY_CATEGORIES.map((category) => (
+              <div key={category.name}>
+                <h3 className="text-lg font-bold text-slate-900 font-heading mb-4 pb-2 border-b border-slate-200">
+                  {category.name}
                 </h3>
-                <p className="text-sm text-slate-500 leading-snug">
-                  {industry.description}
-                </p>
-              </Link>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {category.industries.map((industry) => (
+                    <Link
+                      key={industry.name}
+                      href={industryPath(industry)}
+                      className="block border border-slate-200 rounded-lg p-5 hover:border-teal-400 hover:shadow-md transition-all"
+                    >
+                      <h4 className="text-base font-bold text-slate-900 font-heading mb-1">
+                        {industry.name}
+                      </h4>
+                      <p className="text-sm text-slate-500 leading-snug">
+                        {industry.description}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 

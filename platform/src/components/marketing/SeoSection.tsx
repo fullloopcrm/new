@@ -2,8 +2,8 @@ import Link from "next/link";
 import {
   industries,
   metros,
-  generateIndustrySlug,
-  generateLocationSlug,
+  industryPath,
+  locationPath,
 } from "@/lib/marketing/combos";
 import type { LocationSection } from "@/lib/marketing/locationContent";
 
@@ -71,10 +71,10 @@ export function RelatedLinksHub({
   excludeLocationSlug?: string;
 }) {
   const inds = industries
-    .filter((i) => generateIndustrySlug(i) !== excludeIndustrySlug)
+    .filter((i) => i.slug !== excludeIndustrySlug)
     .slice(0, 24);
   const cities = metros
-    .filter((m) => generateLocationSlug(m) !== excludeLocationSlug)
+    .filter((m) => m.slug !== excludeLocationSlug)
     .slice(0, 24);
 
   const hubs: { href: string; label: string }[] = [
@@ -108,7 +108,7 @@ export function RelatedLinksHub({
             </div>
             <div className="grid grid-cols-1 gap-2">
               {inds.map((i) => (
-                <Link key={i.slug} href={`/industry/${generateIndustrySlug(i)}`} className={linkCls}>
+                <Link key={i.slug} href={industryPath(i)} className={linkCls}>
                   {i.name} CRM
                 </Link>
               ))}
@@ -121,7 +121,7 @@ export function RelatedLinksHub({
             </div>
             <div className="grid grid-cols-1 gap-2">
               {cities.map((m) => (
-                <Link key={m.slug} href={`/location/${generateLocationSlug(m)}`} className={linkCls}>
+                <Link key={m.slug} href={locationPath(m)} className={linkCls}>
                   {m.city}, {m.stateAbbr}
                 </Link>
               ))}

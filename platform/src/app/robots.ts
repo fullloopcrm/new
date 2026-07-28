@@ -34,6 +34,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/onboarding/',
     '/unsubscribe',
     '/stripe-onboard/',
+    // Build assets — GSC showed hashed _next/static/*.js and *.css chunk URLs
+    // in "Crawled - currently not indexed". Nothing intentionally links to
+    // them, but nothing blocked them either. Explicit disallow closes it.
+    '/_next/',
   ]
 
   // /join is invite-acceptance (private) on most hosts, so it's blocked by

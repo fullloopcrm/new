@@ -106,7 +106,9 @@ export default function Hero() {
         >
           Autonomous lead gen. Autonomous sales.
           <br />
-          Autonomous operations. Autonomous payments.
+          Autonomous operations. Autonomous payments. Autonomous reviews.
+          <br />
+          <span style={{ color: "#2563EB" }}>AI: From Leads To Reviews.</span>
         </h2>
 
         {/* Subhead */}
@@ -212,7 +214,7 @@ export default function Hero() {
               boxShadow: "0 2px 0 rgba(0,0,0,0.18)",
             }}
           >
-            I Want This — Submit Application →
+            Join Waitlist →
           </a>
           <a
             href="tel:+18445667276"

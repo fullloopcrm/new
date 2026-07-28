@@ -7,7 +7,8 @@ import {
   localBusinessSchema,
   itemListSchema,
 } from "@/lib/schema";
-import { metros, generateLocationSlug } from "@/lib/marketing/combos";
+import { metros, locationPath } from "@/lib/marketing/combos";
+import { groupMetrosByState } from "@/lib/marketing/metroGroups";
 
 const URL = "https://homeservicesbusinesscrm.com/home-service-crm-locations";
 
@@ -43,19 +44,8 @@ const breadcrumbs = [
   { name: "Locations", url: URL },
 ];
 
-// Group cities by state for scannable, crawlable internal links.
-function groupByState() {
-  const map = new Map<string, typeof metros>();
-  for (const m of metros) {
-    const list = map.get(m.state) ?? [];
-    list.push(m);
-    map.set(m.state, list);
-  }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-}
-
 export default function LocationsHubPage() {
-  const grouped = groupByState();
+  const grouped = groupMetrosByState();
 
   return (
     <>
@@ -74,7 +64,7 @@ export default function LocationsHubPage() {
           "Home Service CRM by City",
           metros.map((m) => ({
             name: `Home Service CRM in ${m.city}, ${m.stateAbbr}`,
-            url: `https://homeservicesbusinesscrm.com/location/${generateLocationSlug(m)}`,
+            url: `https://homeservicesbusinesscrm.com${locationPath(m)}`,
           }))
         )}
       />
@@ -103,16 +93,16 @@ export default function LocationsHubPage() {
       {/* City directory grouped by state */}
       <section className="bg-white py-16 px-6">
         <div className="mx-auto max-w-6xl">
-          {grouped.map(([state, cities]) => (
-            <div key={state} className="mb-10">
+          {grouped.map((group) => (
+            <div key={group.stateAbbr} className="mb-10">
               <h2 className="text-lg font-bold font-heading text-slate-900 mb-3 border-b border-slate-200 pb-2">
-                {state}
+                {group.state}
               </h2>
               <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2">
-                {cities.map((m) => (
+                {group.metros.map((m) => (
                   <li key={m.slug}>
                     <Link
-                      href={`/location/${generateLocationSlug(m)}`}
+                      href={locationPath(m)}
                       className="text-sm text-slate-600 hover:text-teal-600 transition-colors"
                     >
                       Home Service CRM in {m.city}, {m.stateAbbr}

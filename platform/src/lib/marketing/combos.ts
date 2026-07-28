@@ -556,6 +556,35 @@ export function findIndustryByPageSlug(slug: string): ComboIndustry | null {
 }
 
 // Find metro from location page slug
+// ---------------------------------------------------------------------------
+// New slug/path scheme (2026-07-28 redesign) — each page type gets a
+// genuinely different URL shape, not just different words:
+//   Industry: flat,  /industry/{industry-slug}                (short-tail)
+//   Location: nested, /locations/{state}/{city-slug}            (short-tail)
+//   Combo:    nested under industry, /industry/{slug}/{city}-{state}
+// Old generator functions above are kept as-is — they're what parses legacy
+// URLs for the 301 redirect layer in middleware.ts, not dead code.
+// ---------------------------------------------------------------------------
+
+export function citySlug(metro: ComboMetro): string {
+  return metro.city
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+export function industryPath(industry: ComboIndustry): string {
+  return `/industry/${industry.slug}`;
+}
+
+export function locationPath(metro: ComboMetro): string {
+  return `/locations/${metro.stateAbbr.toLowerCase()}/${citySlug(metro)}`;
+}
+
+export function comboPath(industry: ComboIndustry, metro: ComboMetro): string {
+  return `/industry/${industry.slug}/${citySlug(metro)}-${metro.stateAbbr.toLowerCase()}`;
+}
+
 export function findMetroByPageSlug(slug: string): ComboMetro | null {
   // Format: home-service-crm-in-{metro-slug}
   const prefix = "home-service-crm-in-";

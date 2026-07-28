@@ -15,7 +15,7 @@ interface SectionCloserProps {
 export default function SectionCloser({
   href,
   label,
-  formLabel = "I Want This — Submit Application",
+  formLabel = "Join Waitlist",
 }: SectionCloserProps) {
   return (
     <div className="mt-10 flex flex-col sm:flex-row sm:items-center gap-3">
