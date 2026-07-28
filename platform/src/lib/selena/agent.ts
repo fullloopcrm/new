@@ -7,11 +7,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runTool } from '@/lib/selena/tools'
 import { getCurrentTenantId } from '@/lib/tenant'
-import { buildPlaybook } from './build-playbook'
-import { getAgentConfig } from './agent-config-loader'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { logAnthropicUsage } from '@/lib/ai-usage'
-import { getPersona, applyPersonaToConfig, renderPersonaExtras } from './persona-file'
+import { resolveBasePlaybook } from './resolve-base-prompt'
 
 export type Channel = 'sms' | 'web' | 'email' | 'telegram'
 
@@ -212,81 +211,9 @@ export async function isOwnerOfTenant(phone: string | null | undefined, tenantId
   return false
 }
 
-// nycmaid's well-known UUID — when the tenant being served IS nycmaid, the
-// hardcoded references inside YINEZ_PROMPT are correct as-is.
-const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
-
-/**
- * Build a brand-override preamble for non-nycmaid tenants. Yinez's main
- * system prompt was authored for The NYC Maid and contains hardcoded
- * references (company name, phone, domain, payment handles). Rather than
- * rewrite the prompt and risk regressing tested behavior, we PREPEND a
- * brand override that instructs Yinez to substitute tenant-specific
- * values everywhere.
- *
- * For the nycmaid tenant the override is empty — the original prompt is
- * already correct.
- */
-async function buildBrandOverride(tenantId: string): Promise<string> {
-  if (tenantId === NYCMAID_TENANT_ID) return ''
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color, agent_name')
-    .eq('id', tenantId)
-    .single()
-
-  if (!tenant) return ''
-
-  const cfg = (tenant as { brand_config?: Record<string, unknown> }).brand_config || {}
-  const phone = tenant.phone || (cfg.phone as string) || '<not configured>'
-  const email = tenant.email || (cfg.email as string) || '<not configured>'
-  const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '<not configured>'
-  const portal = `${tenant.website_url || `https://${tenant.domain || ''}`}/portal`
-  const industry = tenant.industry || 'home services'
-  // FullLoop platform default agent is "Jefe"; each tenant may override via
-  // tenants.agent_name. The template prompt below names the agent "Yinez" 40+
-  // times (nycmaid's persona) — substitute the tenant's agent name everywhere.
-  const agentName = tenant.agent_name || 'Jefe'
-
-  return `=== BRAND OVERRIDE — READ FIRST, APPLY THROUGHOUT ===
-
-You are working for ${tenant.name} — NOT The NYC Maid. The system prompt below
-was originally written for The NYC Maid and contains hardcoded references that
-must be SUBSTITUTED with the values below for every interaction.
-
-Your name is ${agentName}. The template prompt below calls the agent "Yinez"
-everywhere — that is The NYC Maid's persona, NOT yours. Whenever the prompt says
-"Yinez" (introductions, "I'm Yinez", "me llamo Yinez", "are you a bot" answer,
-every example), use "${agentName}" instead. Introduce yourself as ${agentName}.
-You are NOT Yinez and you never call yourself Yinez.
-
-Substitution table (apply mentally on every reference):
-  Agent name        "Yinez"                  →  "${agentName}"
-  Company name      "The NYC Maid"          →  "${tenant.name}"
-  Phone             "(212) 202-8400"         →  "${phone}"
-  Domain            "thenycmaid.com"         →  "${domain}"
-  Email             "hi@thenycmaid.com"      →  "${email}"
-  Venmo handle      "@thenycmaid"            →  (use ${tenant.name}'s configured handle, or omit)
-  Portal            "thenycmaid.com/portal"  →  "${portal}"
-  Industry          "cleaning service"       →  "${industry}"
-  ${tenant.tagline ? `Tagline                                          →  "${tenant.tagline}"` : ''}
-
-When you'd quote any nycmaid-specific value above, substitute the right column.
-NEVER quote The NYC Maid, the (212) 202-8400 number, thenycmaid.com, or
-hi@thenycmaid.com to a ${tenant.name} client. Those are template artifacts.
-
-Pricing, policies, and tools that are nycmaid-specific (cleaning rates,
-"Insured up to $1 million", etc) DO NOT APPLY here. If a tool or response
-would only make sense for nycmaid, ask the owner instead of inventing.
-
-If anything in the prompt below conflicts with this override, the override
-wins. Period.
-
-=== END BRAND OVERRIDE — ORIGINAL TEMPLATE PROMPT FOLLOWS ===
-
-`
-}
+// Dead code removed here (2026-07-28): a `buildBrandOverride()` function that
+// was never called anywhere in the codebase — superseded by the config-driven
+// playbook system (see resolve-base-prompt.ts) before it was ever wired in.
 
 export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
   const parts: string[] = []
@@ -474,19 +401,10 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
     // isCleanerPhone now requires tenantId. Yinez runs for every tenant, each on
     // its own tenant-scoped data + its own assembled playbook (below).
 
-    // nyc-maid keeps its authored prompt verbatim. Every other tenant now gets
-    // the shared discipline preamble + its OWN config-driven playbook — replacing
-    // the old "ship nyc-maid's prompt + pretend you're {tenant}" brandOverride hack.
-    // nyc-maid short-circuits to its verbatim authored prompt (byte-identical).
-    // Every other tenant: shared discipline + config-driven playbook, now with
-    // its authored personality file (selena_config) folded in and appended.
-    let basePrompt: string
-    if (tenantId === NYCMAID_TENANT_ID) {
-      basePrompt = SHARED_PREAMBLE + NYCMAID_PLAYBOOK
-    } else {
-      const [cfg, persona] = await Promise.all([getAgentConfig(tenantId), getPersona(tenantId)])
-      basePrompt = SHARED_PREAMBLE + buildPlaybook(applyPersonaToConfig(cfg, persona)) + renderPersonaExtras(persona)
-    }
+    // One call path for every tenant — nyc-maid's verbatim authored playbook
+    // vs. every other tenant's config-driven one is resolved as DATA inside
+    // resolveBasePlaybook(), not as a branch in this shared reasoning loop.
+    const basePrompt = SHARED_PREAMBLE + await resolveBasePlaybook(tenantId)
     const context = await loadContext(tenantId, lookupPhone, conversationId)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
