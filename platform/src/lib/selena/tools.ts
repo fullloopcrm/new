@@ -1305,11 +1305,18 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
   const cents = Math.round(input.amount_dollars * 100)
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id')
+    .select('id, client_id, payment_status')
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
+
+  // Idempotency guard, same pattern as approve_refund/mark_payout_paid: a
+  // retried/duplicate call must not insert a second payments row for a
+  // booking already marked paid.
+  if (booking.payment_status === 'paid') {
+    return JSON.stringify({ ok: true, booking_id: input.booking_id, note: 'already marked paid — not re-recording payment', amount: input.amount_dollars, method: input.method })
+  }
 
   await supabaseAdmin.from('payments').insert({
     tenant_id: tid,

@@ -6,16 +6,16 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * coverage and, unlike its money-handling siblings in this file
  * (mark_payout_paid, approve_refund, process_stripe_refund — see
  * tools.owner-tool-idempotency.test.ts / tools.refund-idempotency.test.ts),
- * handleMarkPaymentReceived has NO idempotency guard: it unconditionally
- * inserts a new `payments` row every call, with no pre-check on the
+ * handleMarkPaymentReceived had NO idempotency guard: it unconditionally
+ * inserted a new `payments` row every call, with no pre-check on the
  * booking's current payment_status the way approve_refund/mark_payout_paid
- * both have.
+ * both have. A retried/duplicate tool call (agent timeout, duplicate
+ * dispatch, owner repeating themselves) would double-record the same
+ * payment.
  *
- * These are CHARACTERIZATION tests — they document current behavior
- * (including the double-insert on retry) rather than asserting what the
- * "correct" behavior should be. Flagged to the team; not fixed here since
- * changing production money-recording behavior is outside a test-coverage
- * pass's scope.
+ * Fixed (2026-07-28) with the exact same DB-state pre-check pattern already
+ * proven on approve_refund/mark_payout_paid: if the booking is already
+ * `payment_status: 'paid'`, return a no-op note instead of inserting again.
  */
 
 const TENANT_ID = 'tenant-1'
@@ -82,8 +82,8 @@ describe('mark_payment_received — happy path', () => {
   })
 })
 
-describe('mark_payment_received — CHARACTERIZATION: no idempotency guard (unlike its siblings)', () => {
-  it('a retried/duplicate call inserts a SECOND payment row for the same booking+amount — this is current behavior, not a spec', async () => {
+describe('mark_payment_received — duplicate call does not double-record the payment', () => {
+  it('a retried/duplicate call is a no-op against an already-paid booking — exactly one payments row', async () => {
     fake._seed('bookings', [{ id: 'booking_1', tenant_id: TENANT_ID, client_id: 'client_1', payment_status: 'pending' }])
 
     const args = { booking_id: 'booking_1', amount_dollars: 89, method: 'cash' }
@@ -91,12 +91,15 @@ describe('mark_payment_received — CHARACTERIZATION: no idempotency guard (unli
     expect(JSON.parse(first).ok).toBe(true)
 
     const second = await runTool('mark_payment_received', args, 'convo-1', 'owner-phone', stubResult(), TENANT_ID)
-    expect(JSON.parse(second).ok).toBe(true)
+    const secondParsed = JSON.parse(second)
+    expect(secondParsed.ok).toBe(true)
+    expect(secondParsed.note).toMatch(/already marked paid/)
 
-    // Unlike approve_refund/mark_payout_paid (which pre-check DB state and
-    // no-op on a retry), this handler has no such guard: two identical
-    // tool calls double-record the payment.
+    // The real effect at risk — a payments row — was written exactly once.
     const payments = fake._all('payments').filter((r) => r.booking_id === 'booking_1')
-    expect(payments).toHaveLength(2)
+    expect(payments).toHaveLength(1)
+
+    const booking = fake._all('bookings').find((r) => r.id === 'booking_1')!
+    expect(booking.payment_status).toBe('paid')
   })
 })
