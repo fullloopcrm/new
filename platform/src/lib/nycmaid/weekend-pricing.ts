@@ -31,3 +31,14 @@ export function weekendHourlyRate(supplies: 'we_bring' | 'client', isEmergency: 
   if (isEmergency) return WEEKEND_EMERGENCY_RATE
   return supplies === 'we_bring' ? WEEKEND_SUPPLIES_PROVIDED_RATE : WEEKEND_CLIENT_SUPPLIES_RATE
 }
+
+/**
+ * Canonical parenthetical for every marketing/SEO pricing mention on the
+ * nycmaid site (Jeff, 2026-07-27: "anywhere on the website where it
+ * mentions pricing"). One shared string so ~100+ call sites across the
+ * template/SEO content tree stay textually identical and easy to update.
+ * Leading space so it drops in right after a rate/sentence with no extra
+ * punctuation fuss at the call site.
+ */
+export const WEEKEND_PRICING_NOTE =
+  ` (Saturdays & Sundays: $${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr our supplies, $${WEEKEND_CLIENT_SUPPLIES_RATE}/hr your supplies, $${WEEKEND_EMERGENCY_RATE}/hr same-day — new clients only)`

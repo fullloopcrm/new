@@ -14,6 +14,7 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
+import { WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -80,12 +81,14 @@ export default async function ServicePage({ params }: Props) {
   const { slug } = await params
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
-  const biz = buildBusiness(await getSiteConfig())
+  const siteConfig = await getSiteConfig()
+  const biz = buildBusiness(siteConfig)
+  const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
 
   const content = serviceContent(service)
-  const baseFaqs = serviceFAQs(service)
-  const rich = getServiceRichContent(service.slug)
-  const common = commonServiceFAQs(service)
+  const baseFaqs = serviceFAQs(service, isNycmaid)
+  const rich = getServiceRichContent(service.slug, isNycmaid)
+  const common = commonServiceFAQs(service, isNycmaid)
   // Combine rich FAQs + common FAQs to hit 25, deduplicating by question
   const richFaqs = rich?.faqs.length ? rich.faqs : baseFaqs
   const seen = new Set(richFaqs.map(f => f.question))
@@ -131,17 +134,20 @@ export default async function ServicePage({ params }: Props) {
                     <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand)] tracking-wide leading-none">$59<span className="text-xl text-gray-400">/hr</span></p>
                     <p className="text-gray-500 text-xs mt-2">Your supplies</p>
                     <p className="text-[var(--brand)] text-[10px] font-semibold mt-1">10% off weekly &middot; 5% biweekly/monthly</p>
+                    {isNycmaid && <p className="text-gray-400 text-[10px] mt-1">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>}
                   </div>
                   <div className="flex-1 bg-[var(--brand)] rounded-xl py-5 px-4 text-center">
                     <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide leading-none">$69<span className="text-xl text-blue-200/40">/hr</span></p>
                     <p className="text-[rgb(var(--accent-rgb)/0.7)] text-xs mt-2">We bring everything</p>
                     <p className="text-[var(--accent)] text-[10px] font-semibold mt-1">20% off weekly &middot; 10% biweekly/monthly</p>
+                    {isNycmaid && <p className="text-blue-200/50 text-[10px] mt-1">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>}
                   </div>
                 </div>
                 {service.slug === 'same-day-cleaning' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-center">
                     <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">$89<span className="text-sm text-gray-400">/hr</span></p>
                     <p className="text-amber-700 text-xs">Same-day dispatch</p>
+                    {isNycmaid && <p className="text-amber-700 text-[10px] mt-1">(${WEEKEND_EMERGENCY_RATE}/hr on Saturdays &amp; Sundays for new clients)</p>}
                   </div>
                 )}
                 <div className="border border-[rgb(var(--accent-rgb)/0.4)] bg-[#E8F8F1] rounded-xl p-4 mb-5 text-center">
