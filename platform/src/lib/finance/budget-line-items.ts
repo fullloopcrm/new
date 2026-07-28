@@ -38,7 +38,7 @@ export async function fetchBudgetLineItems(quoteBudgetId: string) {
 
 /** Replace-all: the budget is edited as a whole, not per-line (see route comments). */
 export async function replaceBudgetLineItems(tenantId: string, quoteBudgetId: string, inputLines: LineItemInput[]) {
-  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', quoteBudgetId)
+  await supabaseAdmin.from('budget_line_items').delete().eq('tenant_id', tenantId).eq('quote_budget_id', quoteBudgetId)
   if (inputLines.length) {
     const rows = inputLines.map((li, idx) => ({
       tenant_id: tenantId,
@@ -55,7 +55,7 @@ export async function replaceBudgetLineItems(tenantId: string, quoteBudgetId: st
       margin_bps: li.margin_bps != null && li.margin_bps !== ('' as unknown) ? Math.round(Number(li.margin_bps)) : null,
       sort_order: idx,
     }))
-    await supabaseAdmin.from('budget_line_items').insert(rows)
+    await supabaseAdmin.from('budget_line_items').insert(rows) // tenant-scope-ok: every row is stamped with tenant_id above; audit heuristic doesn't parse insert() payloads
   }
   return fetchBudgetLineItems(quoteBudgetId)
 }
@@ -113,8 +113,8 @@ export async function applyTemplateToBudget(
     margin_bps: li.margin_bps,
     sort_order: idx,
   }))
-  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', budget.id)
-  if (rows.length) await supabaseAdmin.from('budget_line_items').insert(rows)
+  await supabaseAdmin.from('budget_line_items').delete().eq('tenant_id', tenantId).eq('quote_budget_id', budget.id)
+  if (rows.length) await supabaseAdmin.from('budget_line_items').insert(rows) // tenant-scope-ok: every row is stamped with tenant_id above; audit heuristic doesn't parse insert() payloads
 
   return { budgetId: budget.id, lineItemCount: rows.length }
 }

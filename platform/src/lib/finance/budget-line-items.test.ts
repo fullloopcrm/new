@@ -50,7 +50,7 @@ describe('fetchBudgetLineItems', () => {
 
 describe('replaceBudgetLineItems', () => {
   it('deletes existing rows for the budget before inserting the new set (replace-all)', async () => {
-    h.seed.budget_line_items.push({ id: 'stale', quote_budget_id: 'qb-1', label: 'Old line' })
+    h.seed.budget_line_items.push({ id: 'stale', tenant_id: TENANT, quote_budget_id: 'qb-1', label: 'Old line' })
     await replaceBudgetLineItems(TENANT, 'qb-1', [{ label: 'New line', kind: 'labor', budgeted_cents: 1000 }])
     expect(h.seed.budget_line_items.find((r) => r.id === 'stale')).toBeUndefined()
     expect(h.seed.budget_line_items.some((r) => r.label === 'New line')).toBe(true)
@@ -63,7 +63,7 @@ describe('replaceBudgetLineItems', () => {
   })
 
   it('inserts nothing when the new line-item list is empty (still clears old rows)', async () => {
-    h.seed.budget_line_items.push({ id: 'stale', quote_budget_id: 'qb-1', label: 'Old' })
+    h.seed.budget_line_items.push({ id: 'stale', tenant_id: TENANT, quote_budget_id: 'qb-1', label: 'Old' })
     const result = await replaceBudgetLineItems(TENANT, 'qb-1', [])
     expect(result).toEqual([])
     expect(h.seed.budget_line_items).toHaveLength(0)
@@ -107,6 +107,12 @@ describe('replaceBudgetLineItems', () => {
   it('an empty-string margin_bps is treated as null, not coerced to 0', async () => {
     await replaceBudgetLineItems(TENANT, 'qb-1', [{ label: 'A', margin_bps: '' as unknown as number }])
     expect(h.seed.budget_line_items[0].margin_bps).toBeNull()
+  })
+
+  it('a cross-tenant quoteBudgetId does not delete another tenant\'s line items (tenant-scope regression)', async () => {
+    h.seed.budget_line_items.push({ id: 'victim', tenant_id: 'tid-other', quote_budget_id: 'qb-shared', label: 'Not yours' })
+    await replaceBudgetLineItems(TENANT, 'qb-shared', [{ label: 'Mine' }])
+    expect(h.seed.budget_line_items.find((r) => r.id === 'victim')).toBeDefined()
   })
 })
 
