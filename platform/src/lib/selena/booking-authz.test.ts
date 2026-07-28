@@ -1,26 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * Client-tool booking-ownership boundary — reschedule/cancel/resend/details.
+ * Client-tool booking-ownership boundary — reschedule/cancel/resend.
  *
- * reschedule_booking, cancel_booking, resend_confirmation and booking_details
- * are all CLIENT_TOOLS (src/lib/selena/tools.ts CLIENT_TOOLS set) — reachable
- * by any ordinary client texting the tenant's SMS assistant, with booking_id
- * supplied as a free-form tool argument. All four fetched the referenced
+ * reschedule_booking, cancel_booking and resend_confirmation are all
+ * CLIENT_TOOLS (src/lib/selena/tools.ts CLIENT_TOOLS set) — reachable by any
+ * ordinary client texting the tenant's SMS assistant, with booking_id
+ * supplied as a free-form tool argument. All three fetched the referenced
  * booking WITHOUT checking it belonged to the calling client:
  *
  *   - reschedule_booking / cancel_booking didn't even scope the initial
  *     SELECT by tenant_id (booking.tenant_id was read back FROM the row and
  *     used only for the later UPDATE) — any client, in ANY tenant, could
  *     reschedule or CANCEL any booking system-wide just by supplying its id.
- *   - resend_confirmation / booking_details scoped the SELECT by tenant_id
- *     but never checked client_id — an intra-tenant cross-client read
- *     (another client's address/GPS/payment details, or a triggered
- *     confirmation email disclosing the victim's address in the tool result).
+ *   - resend_confirmation scoped the SELECT by tenant_id but never checked
+ *     client_id — an intra-tenant cross-client read (a triggered
+ *     confirmation email disclosing the victim's PIN in the tool result).
  *
  * Fixed by loading the conversation's own client_id/tenant_id FIRST, scoping
  * the booking lookup to that tenant, and rejecting with 'not_your_booking'
  * when booking.client_id doesn't match.
+ *
+ * (booking_details had the identical bug and its own ownership coverage
+ * lived here too, but the handler was deleted 2026-07-28 as confirmed-dead
+ * code — despite the CLIENT_TOOLS-adjacent framing above, `booking_details`
+ * was never actually in tools.ts's CLIENT_TOOLS set and had no other live
+ * caller anywhere in the repo.)
  */
 
 type Eqs = Record<string, unknown>
@@ -176,52 +181,5 @@ describe('resend_confirmation — client ownership', () => {
     expect(JSON.parse(out).success).toBe(true)
     expect(emailMock.calls).toHaveLength(1)
     expect(emailMock.calls[0].to).toBe('a@example.com')
-  })
-})
-
-describe('booking_details — client ownership', () => {
-  it('REJECTS a same-tenant booking owned by a different client (no data returned)', async () => {
-    selectResolver = (table) => {
-      if (table === 'sms_conversations') return { data: { client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
-      if (table === 'bookings') {
-        return {
-          data: {
-            id: 'bk-OTHER', client_id: CLIENT_OTHER, start_time: '2026-01-01T10:00:00', end_time: '2026-01-01T12:00:00',
-            check_in_time: null, check_out_time: null, check_in_location: null, check_out_location: null,
-            actual_hours: null, hourly_rate: 69, price: 13800, cleaner_pay: 5000, payment_status: 'unpaid',
-            payment_method: null, status: 'completed', service_type: 'standard',
-            cleaners: { name: 'Cleaner' }, clients: { name: 'Victim', address: '123 Secret Ave' }, client_properties: null,
-          },
-          error: null,
-        }
-      }
-      return { data: null, error: null }
-    }
-    const out = await handleTool('booking_details', { booking_id: 'bk-OTHER' }, 'convo-A', coreResult(), TENANT_A)
-    const parsed = JSON.parse(out)
-    expect(parsed.error).toBe('not_your_booking')
-    expect(JSON.stringify(parsed)).not.toContain('Secret Ave')
-  })
-
-  it('ALLOWS the owning client to read their own booking details', async () => {
-    selectResolver = (table) => {
-      if (table === 'sms_conversations') return { data: { client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
-      if (table === 'bookings') {
-        return {
-          data: {
-            id: 'bk-A', client_id: CLIENT_A, start_time: '2026-01-01T10:00:00', end_time: '2026-01-01T12:00:00',
-            check_in_time: null, check_out_time: null, check_in_location: null, check_out_location: null,
-            actual_hours: null, hourly_rate: 69, price: 13800, cleaner_pay: 5000, payment_status: 'unpaid',
-            payment_method: null, status: 'completed', service_type: 'standard',
-            cleaners: { name: 'Cleaner' }, clients: { name: 'A Client', address: '1 Main St' }, client_properties: null,
-          },
-          error: null,
-        }
-      }
-      return { data: null, error: null }
-    }
-    const out = await handleTool('booking_details', { booking_id: 'bk-A' }, 'convo-A', coreResult(), TENANT_A)
-    const parsed = JSON.parse(out)
-    expect(parsed.error).toBeUndefined()
   })
 })

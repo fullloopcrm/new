@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -23,10 +24,11 @@ export async function GET(
     const { tenantId, tenant } = await getTenantForRequest()
     const { id } = await params
 
-    const { data, error } = await tenantDb(tenantId)
+    const { data, error } = await (await tenantClient(tenantId))
       .from('clients')
       .select('*')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !data) {
@@ -57,7 +59,7 @@ export async function PUT(
     // NYC Maid parity: send/reset a client's portal PIN via email/SMS.
     // Gated to this tenant only — see src/lib/nycmaid/tenant.ts.
     if (isNycMaid(tenantId) && body.send_pin) {
-      const { data: client } = await tenantDb(tenantId).from('clients').select('name, pin').eq('id', id).single()
+      const { data: client } = await (await tenantClient(tenantId)).from('clients').select('name, pin').eq('id', id).eq('tenant_id', tenantId).single()
       if (!client?.pin) return NextResponse.json({ error: 'Client has no PIN' }, { status: 400 })
 
       const portalUrl = tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined
@@ -80,12 +82,12 @@ export async function PUT(
     }
 
     if (isNycMaid(tenantId) && body.reset_pin) {
-      const { data: client } = await tenantDb(tenantId).from('clients').select('id, name, email').eq('id', id).single()
+      const { data: client } = await (await tenantClient(tenantId)).from('clients').select('id, name, email').eq('id', id).eq('tenant_id', tenantId).single()
       if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
       if (!client.email) return NextResponse.json({ error: 'Client has no email on file' }, { status: 400 })
 
       const newPin = generatePin()
-      const { error: updateError } = await tenantDb(tenantId).from('clients').update({ pin: newPin }).eq('id', id)
+      const { error: updateError } = await (await tenantClient(tenantId)).from('clients').update({ pin: newPin }).eq('id', id).eq('tenant_id', tenantId)
       if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
       const result = await notify({
@@ -127,10 +129,11 @@ export async function PUT(
       }
     }
 
-    const { data, error } = await tenantDb(tenantId)
+    const { data, error } = await (await tenantClient(tenantId))
       .from('clients')
       .update(fields)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -178,10 +181,11 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
-    const { data, error } = await tenantDb(tenantId)
+    const { data, error } = await (await tenantClient(tenantId))
       .from('clients')
       .delete()
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .select('id')
 
     if (error) {

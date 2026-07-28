@@ -1,6 +1,4 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { getOwnerUserId } from '@/lib/owner-session'
-import { redirect } from 'next/navigation'
 import JoinClient from './join-client'
 
 export default async function JoinPage({
@@ -53,48 +51,14 @@ export default async function JoinPage({
     )
   }
 
-  // Check if user is already signed in
-  const userId = await getOwnerUserId()
-
-  if (userId) {
-    // Already signed in — accept the invite directly
-    // Check if already a member
-    const { data: existingMember } = await supabaseAdmin
-      .from('tenant_members')
-      .select('id')
-      .eq('tenant_id', invite.tenant_id)
-      .eq('clerk_user_id', userId)
-      .single()
-
-    if (!existingMember) {
-      // Add them as a member
-      await supabaseAdmin.from('tenant_members').insert({
-        tenant_id: invite.tenant_id,
-        clerk_user_id: userId,
-        role: invite.role || 'owner',
-      })
-    }
-
-    // Mark invite as accepted
-    await supabaseAdmin
-      .from('tenant_invites')
-      .update({ accepted: true })
-      .eq('id', invite.id)
-
-    redirect('/dashboard')
-  }
-
-  // Not signed in — show invite details with sign-up option
+  // Accepting mints a real, working credential (a PIN on tenant_members,
+  // the same mechanism every other white-glove-onboarded operator uses —
+  // see /api/invites/[token]/accept). There is no Clerk-style session to
+  // check here; that path was dormant (lib/owner-session.ts) and could
+  // never actually resolve for a fresh invitee.
   const tenantName = invite.tenants?.name || 'your business'
 
   return (
-    <JoinClient
-      token={token}
-      inviteEmail={invite.email}
-      tenantName={tenantName}
-      tenantId={invite.tenant_id}
-      inviteId={invite.id}
-      role={invite.role}
-    />
+    <JoinClient token={token} inviteEmail={invite.email} tenantName={tenantName} />
   )
 }
