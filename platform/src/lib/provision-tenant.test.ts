@@ -156,7 +156,8 @@ describe('provisionTenant — agent_name seeding', () => {
   })
 
   it('does not overwrite an already-customized agent_name', async () => {
-    tenantRow.agent_name = 'Maria'
+    // Non-null: beforeEach (line 96) always assigns a fresh object before every test.
+    tenantRow!.agent_name = 'Maria'
     const result = await provisionTenant({ tenantId: 't1', industry: 'general' })
     expect(updateCalls.find((c) => c.table === 'tenants' && 'agent_name' in c.patch)).toBeUndefined()
     expect(result.seeded.agent_name).toBe(false)

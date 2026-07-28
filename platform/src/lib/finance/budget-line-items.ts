@@ -38,7 +38,10 @@ export async function fetchBudgetLineItems(quoteBudgetId: string) {
 
 /** Replace-all: the budget is edited as a whole, not per-line (see route comments). */
 export async function replaceBudgetLineItems(tenantId: string, quoteBudgetId: string, inputLines: LineItemInput[]) {
-  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', quoteBudgetId)
+  // tenant_id scope is load-bearing, not decorative: quote_budget_id alone doesn't
+  // prove the caller owns this budget, so without it a cross-tenant quoteBudgetId
+  // would delete another tenant's line items.
+  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', quoteBudgetId).eq('tenant_id', tenantId)
   if (inputLines.length) {
     const rows = inputLines.map((li, idx) => ({
       tenant_id: tenantId,
@@ -113,7 +116,10 @@ export async function applyTemplateToBudget(
     margin_bps: li.margin_bps,
     sort_order: idx,
   }))
-  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', budget.id)
+  // Same tenant_id scope as replaceBudgetLineItems — budget.id was just
+  // upserted under tenantId above, but scope the delete explicitly rather
+  // than relying on that invariant holding forever.
+  await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', budget.id).eq('tenant_id', tenantId)
   if (rows.length) await supabaseAdmin.from('budget_line_items').insert(rows)
 
   return { budgetId: budget.id, lineItemCount: rows.length }
