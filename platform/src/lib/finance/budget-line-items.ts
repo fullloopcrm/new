@@ -55,7 +55,7 @@ export async function replaceBudgetLineItems(tenantId: string, quoteBudgetId: st
       margin_bps: li.margin_bps != null && li.margin_bps !== ('' as unknown) ? Math.round(Number(li.margin_bps)) : null,
       sort_order: idx,
     }))
-    await supabaseAdmin.from('budget_line_items').insert(rows)
+    await supabaseAdmin.from('budget_line_items').insert(rows) // tenant-scope-ok: every row above carries tenant_id explicitly
   }
   return fetchBudgetLineItems(quoteBudgetId)
 }
@@ -114,7 +114,7 @@ export async function applyTemplateToBudget(
     sort_order: idx,
   }))
   await supabaseAdmin.from('budget_line_items').delete().eq('quote_budget_id', budget.id)
-  if (rows.length) await supabaseAdmin.from('budget_line_items').insert(rows)
+  if (rows.length) await supabaseAdmin.from('budget_line_items').insert(rows) // tenant-scope-ok: every row above carries tenant_id explicitly
 
   return { budgetId: budget.id, lineItemCount: rows.length }
 }
