@@ -22,15 +22,18 @@
 3. **Tenant differences come from config/data**, resolved server-side (`getTenantForRequest`, tenant row, `getSettings`). Not from forked files.
 4. **The `/site/<tenant>` tree is for public marketing + customer/cleaner portals only** — never operator tooling.
 
-### Known debt (migrate to global, do NOT extend)
+### Known debt (RESOLVED 2026-07-28 — kept here as the record, not a to-do)
 
-These predate the rule and VIOLATE it — they are full per-tenant operator clones:
-- `src/app/site/wash-and-fold-nyc/(app)/admin/*` + `/dashboard/*` — ~22 cloned pages
-- `src/app/site/the-florida-maid/clients/dashboard` — 1 client dashboard
+This section used to list `wash-and-fold-nyc` and `the-florida-maid` as full per-tenant operator clones needing a cutover. Re-verified from source + git history during the 2026-07-28 hardening pass; both were stale/inaccurate:
+
+- **`src/app/site/wash-and-fold-nyc/(app)/admin/*` + `/dashboard/*`** (the "~22 cloned pages") was already deleted on 2026-06-29 (commit `a1cea0ba5`, "remove per-tenant operator dashboard clones") — this entry was never removed from this doc afterward. Nothing left to migrate.
+- **`src/app/site/the-florida-maid/clients/dashboard`** was never actually an operator clone — it's a customer-facing "My Bookings" portal (same shape as `wash-and-fold-nyc/(app)/book/dashboard`), which is exactly the allowed "Customer/cleaner portals" row in the table above. Mischaracterized as debt from the start.
+
+What WAS real and got fixed this pass: both tenants' own `(app)/login` / `/login` pages rendered `SiteAdminLoginClient`, which authenticates via `/api/auth/login` (sets the `admin_session` cookie) — but a tenant custom domain's `/admin`→`/dashboard` rewrite gates on the `admin_token` cookie (`/api/admin-auth`), a completely different credential system. A correct password/PIN entry silently failed to reach the dashboard and bounced to `/fullloop` with no error shown. Both pages now redirect straight to `/fullloop` (the real, working, global tenant login) instead of maintaining a second, broken login form. `wash-and-fold-nyc/_lib/auth.ts` + `_lib/roles.ts` (the admin clone's own now-orphaned RBAC helpers, zero real callers left after the June 29 deletion) were deleted alongside.
+
+`nyc-mobile-salon/login` has the identical `SiteAdminLoginClient`-is-broken bug and was NOT touched — out of scope for this pass, flagged for whoever owns that tenant next.
 
 `wash-and-fold-hoboken` was removed entirely (2026-07-25) — it had no `tenants` row and its marketing content was still unswapped nycmaid boilerplate (hardcoded `thenycmaid.com` referral links, nycmaid blog routes). Not a real tenant; deleted rather than migrated.
-
-Cutover required: repoint these tenants' operators to the global `/dashboard` + `/admin` (they currently use their own `(app)/login`), verify, THEN delete the clones. Do not delete before the auth/routing cutover — it would dark a live tenant's admin.
 
 Until migrated, **do not add features to these clones.** Build in global only.
 
