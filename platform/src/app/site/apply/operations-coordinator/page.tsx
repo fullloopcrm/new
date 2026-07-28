@@ -89,8 +89,8 @@ export default function ApplyCoordinatorPage() {
       setError('Please select a JPEG, PNG, or WebP image. / Por favor seleccione una imagen JPEG, PNG o WebP.')
       return
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Photo must be under 10MB. / La foto debe ser menor de 10MB.')
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Photo must be under 20MB. / La foto debe ser menor de 20MB.')
       return
     }
     setPhotoFile(file)
@@ -106,8 +106,8 @@ export default function ApplyCoordinatorPage() {
       setError('Please select a video file (MP4, MOV, or WebM). / Por favor seleccione un archivo de video (MP4, MOV o WebM).')
       return
     }
-    if (file.size > 100 * 1024 * 1024) {
-      setError('Video must be under 100MB. / El video debe ser menor de 100MB.')
+    if (file.size > 150 * 1024 * 1024) {
+      setError('Video must be under 150MB. / El video debe ser menor de 150MB.')
       return
     }
     setVideoFile(file)
@@ -362,7 +362,7 @@ export default function ApplyCoordinatorPage() {
           {/* Photo Upload */}
           <div>
             <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Photo of Yourself / Foto Suya *</label>
-            <p className="text-xs text-gray-500 mb-2">Clear photo. JPEG, PNG, or WebP, under 10MB.</p>
+            <p className="text-xs text-gray-500 mb-2">Clear photo. JPEG, PNG, or WebP, under 20MB.</p>
             <div className="flex items-center gap-4">
               {photoPreview ? (
                 <img src={photoPreview} alt="Preview" className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 flex-shrink-0" />
@@ -391,7 +391,7 @@ export default function ApplyCoordinatorPage() {
           {/* Selfie Video */}
           <div>
             <label className="block text-sm font-medium text-[#1E2A4A] mb-1">60-Second Selfie Video / Video Selfie de 60 Segundos *</label>
-            <p className="text-xs text-gray-500 mb-1">Tell us who you are and why this gig is a fit. If bilingual, speak in both. MP4, MOV, or WebM, under 100MB.</p>
+            <p className="text-xs text-gray-500 mb-1">Tell us who you are and why this gig is a fit. If bilingual, speak in both. MP4, MOV, or WebM, under 150MB.</p>
             <p className="text-xs text-gray-400 italic mb-2">Cuéntanos quién eres y por qué este trabajo es para ti. Si eres bilingüe, habla en ambos idiomas.</p>
             <div className="flex items-center gap-4">
               {(videoFile || draftVideoUrl) ? (

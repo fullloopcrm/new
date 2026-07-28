@@ -4,6 +4,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
+import { uploadViaSignedUrl } from '@/lib/client-upload'
 
 export default function ApplyPage() {
   const [form, setForm] = useState({
@@ -42,8 +43,8 @@ export default function ApplyPage() {
       setError('Please select a JPEG, PNG, or WebP image / Por favor seleccione una imagen JPEG, PNG o WebP')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Photo must be under 5MB / La foto debe ser menor de 5MB')
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Photo must be under 20MB / La foto debe ser menor de 20MB')
       return
     }
     setPhotoFile(file)
@@ -89,18 +90,13 @@ export default function ApplyPage() {
     try {
       // Upload photo first
       let photo_url = ''
-      const uploadData = new FormData()
-      uploadData.append('file', photoFile)
-      uploadData.append('folder', 'applications')
-      const uploadRes = await fetch('/api/public-upload', { method: 'POST', body: uploadData })
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}))
-        setError(errData.error || 'Failed to upload photo / Error al subir la foto')
+      try {
+        photo_url = await uploadViaSignedUrl(photoFile, 'photo')
+      } catch (uploadErr) {
+        setError(uploadErr instanceof Error ? uploadErr.message : 'Failed to upload photo / Error al subir la foto')
         setLoading(false)
         return
       }
-      const uploadJson = await uploadRes.json()
-      photo_url = uploadJson.url
 
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',

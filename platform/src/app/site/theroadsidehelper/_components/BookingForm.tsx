@@ -22,7 +22,7 @@ interface PendingFile {
   previewUrl: string;
 }
 
-const MAX_BYTES = 100 * 1024 * 1024;
+const MAX_BYTES = 150 * 1024 * 1024;
 const ALLOWED_TYPES = /^(image\/(jpeg|png|webp|heic|heif)|video\/(mp4|quicktime|webm))$/;
 
 const SERVICE_OPTIONS = [
@@ -179,46 +179,66 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
 
   function uploadOne(pf: PendingFile): Promise<void> {
     return new Promise((resolve) => {
-      const fd = new FormData();
-      fd.append("file", pf.file);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/public-upload");
-
-      xhr.upload.onprogress = (e) => {
-        if (!e.lengthComputable) return;
-        const pct = Math.round((e.loaded / e.total) * 100);
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, progress: pct } : p)));
-      };
-
-      xhr.onload = () => {
+      (async () => {
+        let signedUrl: string;
+        let publicUrl: string;
         try {
-          const data = JSON.parse(xhr.responseText) as { success: boolean; url?: string; error?: string };
-          if (xhr.status >= 200 && xhr.status < 300 && data.success && data.url) {
+          const signedRes = await fetch("/api/upload/signed-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "media", filename: pf.file.name, contentType: pf.file.type }),
+          });
+          if (!signedRes.ok) {
+            const errData = await signedRes.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to prepare upload.");
+          }
+          const signedData = await signedRes.json();
+          signedUrl = signedData.signedUrl;
+          publicUrl = signedData.publicUrl;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Upload failed";
+          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: msg } : p)));
+          return resolve();
+        }
+
+        // Direct PUT to the Supabase signed URL bypasses Vercel's ~4.5MB
+        // serverless body limit, which a POST through this route would hit.
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", signedUrl);
+        xhr.setRequestHeader("Content-Type", pf.file.type);
+        xhr.setRequestHeader("x-upsert", "false");
+
+        xhr.upload.onprogress = (e) => {
+          if (!e.lengthComputable) return;
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, progress: pct } : p)));
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
             setFiles((prev) =>
-              prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: data.url } : p))
+              prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: publicUrl } : p))
             );
           } else {
-            const msg = data.error || `Upload failed (${xhr.status})`;
-            setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: msg } : p)));
+            setFiles((prev) =>
+              prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: `Upload failed (${xhr.status})` } : p))
+            );
           }
-        } catch {
-          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Bad response" } : p)));
-        }
-        resolve();
-      };
+          resolve();
+        };
 
-      xhr.onerror = () => {
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Network error" } : p)));
-        resolve();
-      };
+        xhr.onerror = () => {
+          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Network error" } : p)));
+          resolve();
+        };
 
-      xhr.onabort = () => {
-        setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Aborted" } : p)));
-        resolve();
-      };
+        xhr.onabort = () => {
+          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Aborted" } : p)));
+          resolve();
+        };
 
-      xhr.send(fd);
+        xhr.send(pf.file);
+      })();
     });
   }
 
@@ -231,7 +251,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
         continue;
       }
       if (file.size > MAX_BYTES) {
-        setError(`${file.name}: too large (max 100MB)`);
+        setError(`${file.name}: too large (max 150MB)`);
         continue;
       }
       accepted.push({

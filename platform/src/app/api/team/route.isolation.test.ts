@@ -51,6 +51,12 @@ function seed() {
       { id: 'tm-a1', tenant_id: A, name: 'Ana', status: 'active', created_at: '2026-01-02' },
       { id: 'tm-b1', tenant_id: B, name: 'Foreign Ben', status: 'active', created_at: '2026-01-01' },
     ],
+    ratings: [
+      { id: 'r1', tenant_id: A, team_member_id: 'tm-a1', cleaner_rating: 5, created_at: '2026-01-01' },
+      { id: 'r2', tenant_id: A, team_member_id: 'tm-a1', cleaner_rating: 3, created_at: '2026-01-05' },
+      // foreign tenant's rating on the SAME member id — must never bleed into A's trend
+      { id: 'r3', tenant_id: B, team_member_id: 'tm-a1', cleaner_rating: 1, created_at: '2026-01-06' },
+    ],
     audit_logs: [],
   }
 }
@@ -69,6 +75,16 @@ describe('team — tenant isolation', () => {
     const ids = (body.team as Array<{ id: string }>).map((m) => m.id)
     expect(ids).toEqual(['tm-a1'])
     expect(ids).not.toContain('tm-b1')
+  })
+
+  it('includes each card a rating trend, scoped to the acting tenant only', async () => {
+    const res = await GET()
+    const body = await res.json()
+    const ana = (body.team as Array<{ id: string; trend_avg_rating: number | null; trend_rating_count: number }>)
+      .find((m) => m.id === 'tm-a1')
+    // (5 + 3) / 2 = 4, NOT including tenant B's 1-star row on the same member id
+    expect(ana?.trend_avg_rating).toBe(4)
+    expect(ana?.trend_rating_count).toBe(2)
   })
 
   it('POST stamps the acting tenant (ignores a forged body tenant_id)', async () => {

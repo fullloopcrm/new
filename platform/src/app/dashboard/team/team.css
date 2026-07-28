@@ -247,6 +247,17 @@
   color: var(--tm-muted-2);
   white-space: nowrap;
 }
+.tm-rating-trend {
+  font-family: var(--tm-mono);
+  font-size: 10px;
+  color: var(--tm-muted-2);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.tm-rating-trend.tm-rating-trend-down {
+  color: #d97706;
+  font-weight: 600;
+}
 .tm-name {
   font-family: var(--tm-display);
   font-size: 16px;

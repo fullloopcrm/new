@@ -45,3 +45,42 @@ export async function getTeamMemberRatingTrend(
     trend_avg_rating: Math.round((sum / ratings.length) * 100) / 100,
   }
 }
+
+function toTrend(rows: { cleaner_rating: unknown }[], lastN: number): RatingTrend {
+  const ratings = rows.slice(0, lastN).map((r) => Number(r.cleaner_rating))
+  if (ratings.length === 0) return { trend_rating_count: 0, trend_avg_rating: null }
+  const sum = ratings.reduce((a, b) => a + b, 0)
+  return { trend_rating_count: ratings.length, trend_avg_rating: Math.round((sum / ratings.length) * 100) / 100 }
+}
+
+/**
+ * Same trend as getTeamMemberRatingTrend, for every team member on a tenant
+ * at once — one query instead of N, for list views (team roster cards) where
+ * looping the single-member function would be an N+1. Members with zero
+ * ratings simply have no entry; callers should treat a missing key the same
+ * as { trend_rating_count: 0, trend_avg_rating: null }.
+ */
+export async function getTenantRatingTrends(
+  tenantId: string,
+  lastN = 10,
+): Promise<Map<string, RatingTrend>> {
+  const { data } = await supabaseAdmin
+    .from('ratings')
+    .select('team_member_id, cleaner_rating, created_at')
+    .eq('tenant_id', tenantId)
+
+  const byMember = new Map<string, { cleaner_rating: unknown; created_at: unknown }[]>()
+  for (const r of data || []) {
+    if (r.cleaner_rating == null || !r.team_member_id) continue
+    const list = byMember.get(r.team_member_id as string) || []
+    list.push(r)
+    byMember.set(r.team_member_id as string, list)
+  }
+
+  const result = new Map<string, RatingTrend>()
+  for (const [memberId, rows] of byMember) {
+    rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    result.set(memberId, toTrend(rows, lastN))
+  }
+  return result
+}

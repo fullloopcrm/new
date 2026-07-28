@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import { uploadViaSignedUrl } from '@/lib/client-upload'
 
 const SERVICE_TYPES = [
   { value: '', label: 'Select a service (optional)' },
@@ -38,21 +39,9 @@ export default function ReviewForm() {
   const hasVideo = media.some(m => m.type === 'video')
   const imageCount = media.filter(m => m.type === 'image').length
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const res = await fetch('/api/reviews/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!res.ok) {
-      const data = await res.json()
-      throw new Error(data.error || 'Upload failed')
-    }
-
-    return await res.json() as UploadedMedia
+  const uploadFile = async (file: File): Promise<UploadedMedia> => {
+    const url = await uploadViaSignedUrl(file, 'media')
+    return { url, type: file.type.startsWith('video/') ? 'video' : 'image' }
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,7 +338,7 @@ export default function ReviewForm() {
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-2">Up to 5 photos (10MB each) and 1 video (100MB max). JPEG, PNG, WebP, MP4, MOV, or WebM.</p>
+          <p className="text-xs text-gray-400 mt-2">Up to 5 photos (20MB each) and 1 video (150MB max). JPEG, PNG, WebP, MP4, MOV, or WebM.</p>
         </div>
 
         {/* Optional fields row */}

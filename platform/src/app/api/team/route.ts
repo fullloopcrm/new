@@ -6,6 +6,7 @@ import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
 import { seedHrDefaults } from '@/lib/hr'
+import { getTenantRatingTrends } from '@/lib/team-rating-trend'
 
 export async function GET() {
   try {
@@ -20,7 +21,21 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ team: data })
+    // Smart-scheduling upgrade spec, Part 4 item 3 — same rating-trend signal
+    // as the individual profile page, here for every card in one query
+    // (getTenantRatingTrends) instead of looping the single-member lookup,
+    // which would be an N+1 across the whole roster.
+    const trends = await getTenantRatingTrends(tenantId)
+    const team = (data || []).map((m) => {
+      const trend = trends.get(m.id as string)
+      return {
+        ...m,
+        trend_rating_count: trend?.trend_rating_count ?? 0,
+        trend_avg_rating: trend?.trend_avg_rating ?? null,
+      }
+    })
+
+    return NextResponse.json({ team })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { track } from "@vercel/analytics";
 import { track as localTrack, getSessionId } from "@/app/site/the-nyc-exterminator/_lib/tracker";
+import { uploadViaSignedUrl } from "@/lib/client-upload";
 
 interface JobApplicationFormProps {
   position?: string;
@@ -31,20 +32,15 @@ export default function JobApplicationForm({
       setPhotoError("Photo must be an image.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setPhotoError("Photo too large (max 10MB).");
+    if (file.size > 20 * 1024 * 1024) {
+      setPhotoError("Photo too large (max 20MB).");
       return;
     }
     setPhotoError(null);
     setPhotoUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("folder", "job-applications");
-      const res = await fetch("/api/public-upload", { method: "POST", body });
-      const uploadData = (await res.json()) as { success: boolean; url?: string; error?: string };
-      if (!res.ok || !uploadData.success || !uploadData.url) throw new Error(uploadData.error || "Upload failed");
-      setPhotoUrl(uploadData.url);
+      const url = await uploadViaSignedUrl(file, "photo");
+      setPhotoUrl(url);
       setPhotoName(file.name);
     } catch (err: unknown) {
       setPhotoError(err instanceof Error ? err.message : "Photo upload failed");
