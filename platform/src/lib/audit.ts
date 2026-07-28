@@ -2,7 +2,7 @@ import { supabaseAdmin } from './supabase'
 import { alertOwner } from './telegram'
 
 type AuditAction =
-  | 'client.created' | 'client.updated' | 'client.deleted' | 'client.data_exported'
+  | 'client.created' | 'client.updated' | 'client.deleted' | 'client.data_exported' | 'client.merged'
   | 'client.gdpr_deletion_requested' | 'client.gdpr_deletion_cancelled' | 'client.gdpr_deletion_purged'
   | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.status_changed' | 'booking.batch_updated'
   | 'team.created' | 'team.updated' | 'team.deleted' | 'team.deactivated'
@@ -26,6 +26,7 @@ type AuditAction =
 const SENSITIVE_AUDIT_ACTIONS = new Set<AuditAction>([
   'permissions.updated',
   'client.deleted',
+  'client.merged',
   'client.gdpr_deletion_requested',
   'client.gdpr_deletion_purged',
   'client.data_exported',
