@@ -41,6 +41,7 @@ export const CROSS_TENANT_TABLES: ReadonlySet<string> = new Set([
   'impersonation_events', // platform audit log (admin-only)
   'waitlist', // pre-tenant signup funnel
   'prospects', // pre-tenant sales funnel
+  'legal_tips', // platform-authored content shipped to every tenant, admin-only; no tenant_id column
 ])
 
 // A scoped-db root (tenantDb(...).from / a `db` alias) auto-injects tenant_id and
