@@ -129,7 +129,6 @@ export default async function ServicePage({ params }: Props) {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl p-7 shadow-xl">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-5">Flat Hourly Rate — No Hidden Fees</p>
-                <p data-debug-isnycmaid={String(isNycmaid)} data-debug-url={siteConfig.identity.url}>DEBUG isNycmaid={String(isNycmaid)} url={siteConfig.identity.url}</p>
                 <div className="flex items-center gap-4 mb-5">
                   <div className="flex-1 bg-gray-100 rounded-xl py-5 px-4 text-center">
                     <p className="font-[family-name:var(--font-bebas)] text-5xl text-[var(--brand)] tracking-wide leading-none">$59<span className="text-xl text-gray-400">/hr</span></p>
