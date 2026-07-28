@@ -52,8 +52,8 @@ export default function ApplicationForm() {
       setError('Please select a video file (MP4, MOV, or WebM).')
       return
     }
-    if (file.size > 100 * 1024 * 1024) {
-      setError('Video must be under 100MB.')
+    if (file.size > 150 * 1024 * 1024) {
+      setError('Video must be under 150MB.')
       return
     }
     setVideoFile(file)
@@ -297,7 +297,7 @@ export default function ApplicationForm() {
       {/* Video Selfie */}
       <div>
         <label className={labelClass}>Video Selfie * <span className="text-purple-500">(min 30 seconds)</span></label>
-        <p className="text-xs text-gray-400 mb-2">Tell us about yourself, your experience, and why you want to join. MP4, MOV, or WebM, under 100MB.</p>
+        <p className="text-xs text-gray-400 mb-2">Tell us about yourself, your experience, and why you want to join. MP4, MOV, or WebM, under 150MB.</p>
         <div className="flex items-center gap-3">
           {videoFile ? (
             <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg flex-1 min-w-0">

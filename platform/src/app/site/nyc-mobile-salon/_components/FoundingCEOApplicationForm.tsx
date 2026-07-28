@@ -89,8 +89,8 @@ export default function FoundingCEOApplicationForm() {
       setError('Please select a video file (MP4, MOV, or WebM).')
       return
     }
-    if (file.size > 100 * 1024 * 1024) {
-      setError('Video must be under 100MB.')
+    if (file.size > 150 * 1024 * 1024) {
+      setError('Video must be under 150MB.')
       return
     }
     setVideoFile(file)
@@ -498,7 +498,7 @@ export default function FoundingCEOApplicationForm() {
           2-3 Minute Video Intro <span className="text-purple-500">*</span>
         </label>
         <p className="text-xs text-gray-400 mb-2">
-          Record on your phone. Horizontal or vertical, it doesn&rsquo;t matter. Tell us: who you are, what you&rsquo;ve built, and why this specific role — not a generic operator role — is the one you want. No slides, no editing, no production value. Just you talking. MP4, MOV, or WebM, under 100MB.
+          Record on your phone. Horizontal or vertical, it doesn&rsquo;t matter. Tell us: who you are, what you&rsquo;ve built, and why this specific role — not a generic operator role — is the one you want. No slides, no editing, no production value. Just you talking. MP4, MOV, or WebM, under 150MB.
         </p>
         <div className="flex items-center gap-3">
           {videoFile ? (

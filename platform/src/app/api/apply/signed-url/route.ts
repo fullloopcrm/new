@@ -13,12 +13,12 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 const ALLOWED_TYPES: Record<string, { mimes: string[]; maxSize: number; folder: string }> = {
   photo: {
     mimes: ['image/jpeg', 'image/png', 'image/webp'],
-    maxSize: 10 * 1024 * 1024,
+    maxSize: 20 * 1024 * 1024,
     folder: 'photos',
   },
   video: {
     mimes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'],
-    maxSize: 100 * 1024 * 1024,
+    maxSize: 150 * 1024 * 1024,
     folder: 'videos',
   },
   resume: {

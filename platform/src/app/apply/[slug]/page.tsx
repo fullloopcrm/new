@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { uploadTeamApplicationPhoto } from '@/lib/client-upload'
 
 type TenantInfo = {
   name: string
@@ -93,8 +94,8 @@ export default function ApplyPage() {
       setError('Please upload a JPEG, PNG, or WebP image.')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Photo must be under 5MB.')
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Photo must be under 20MB.')
       return
     }
 
@@ -126,17 +127,11 @@ export default function ApplyPage() {
 
     try {
       // Upload photo first
-      const photoFormData = new FormData()
-      photoFormData.append('file', photo)
-
-      const uploadRes = await fetch('/api/team-applications/upload', {
-        method: 'POST',
-        body: photoFormData,
-      })
-      const uploadData = await uploadRes.json()
-
-      if (!uploadRes.ok) {
-        setError(uploadData.error || 'Failed to upload photo.')
+      let photoUrl: string
+      try {
+        photoUrl = await uploadTeamApplicationPhoto(photo)
+      } catch (uploadErr) {
+        setError(uploadErr instanceof Error ? uploadErr.message : 'Failed to upload photo.')
         setSubmitting(false)
         return
       }
@@ -162,7 +157,7 @@ export default function ApplyPage() {
           referral_source: form.referral_source.trim(),
           references,
           notes: form.notes.trim() || null,
-          photo_url: uploadData.url,
+          photo_url: photoUrl,
         }),
       })
 

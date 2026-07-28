@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { uploadViaSignedUrl } from "@/lib/client-upload";
 
 export function JobApplicationForm({ city, state }: { city?: string; state?: string }) {
   const [submitted, setSubmitted] = useState(false);
@@ -19,20 +20,15 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       setError("Profile photo must be an image.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Profile photo too large (max 10MB).");
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Profile photo too large (max 20MB).");
       return;
     }
     setError(null);
     setPhotoUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("folder", "job-applications");
-      const res = await fetch("/api/public-upload", { method: "POST", body });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
-      if (!res.ok || !data.success || !data.url) throw new Error(data.error || "Upload failed");
-      setPhotoUrl(data.url);
+      const url = await uploadViaSignedUrl(file, "photo");
+      setPhotoUrl(url);
       setPhotoName(file.name);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Photo upload failed");
