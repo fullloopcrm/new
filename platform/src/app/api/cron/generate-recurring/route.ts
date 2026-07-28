@@ -46,14 +46,29 @@ export async function GET(request: Request) {
       .eq('id', s.id)
   }
 
-  const { data: schedules } = await supabaseAdmin
+  const { data: rawSchedules } = await supabaseAdmin
     .from('recurring_schedules')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
     .select('*')
     .eq('status', 'active')
 
-  if (!schedules || schedules.length === 0) {
+  if (!rawSchedules || rawSchedules.length === 0) {
     return NextResponse.json({ generated: 0 })
   }
+
+  // A cancelled/suspended/deleted tenant's recurring schedules must stop
+  // generating new bookings — offboarding a tenant does not (by itself)
+  // pause their schedules, so without this check they generate forever.
+  // Status values must match middleware.ts's NON_SERVING_STATUSES.
+  const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'])
+  const tenantIds = [...new Set(rawSchedules.map((s) => s.tenant_id as string))]
+  const { data: tenantRows } = await supabaseAdmin
+    .from('tenants')  // tenant-scope-ok: cross-tenant status lookup by design, filters the loop below
+    .select('id, status')
+    .in('id', tenantIds)
+  const nonServingTenantIds = new Set(
+    (tenantRows || []).filter((t) => NON_SERVING_STATUSES.has(t.status ?? '')).map((t) => t.id as string),
+  )
+  const schedules = rawSchedules.filter((s) => !nonServingTenantIds.has(s.tenant_id as string))
 
   let totalGenerated = 0
 
