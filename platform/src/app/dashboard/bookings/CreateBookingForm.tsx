@@ -7,7 +7,7 @@
 // Self-contained: fetches its own cleaners/team-colors/referrers/sales-partners
 // instead of requiring the caller's page-level state as props.
 import './schedule.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
@@ -110,6 +110,23 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
   const [smartScores, setSmartScores] = useState<Record<string, SmartScore>>({})
   const [smartScoresKey, setSmartScoresKey] = useState<string>('')
   const [suggestions, setSuggestions] = useState<SlotSuggestion[]>([])
+
+  // Weekend (Sat/Sun) rate auto-adjust — mirrors the self-booking form's
+  // reactive hourlyRate calc (Jeff, 2026-07-27: "it has to adjust
+  // automatically... like it does on the front-end"). Tracks the last value
+  // WE set so an admin's manual override is never clobbered by a later date
+  // change — the effect only follows the date while hourly_rate still equals
+  // our own prior suggestion.
+  const lastAutoRateRef = useRef(69)
+  useEffect(() => {
+    if (!isNycmaid) return
+    const expected = isWeekendDate(createForm.start_date) ? WEEKEND_SUPPLIES_PROVIDED_RATE : 69
+    if (createForm.hourly_rate === lastAutoRateRef.current && expected !== createForm.hourly_rate) {
+      lastAutoRateRef.current = expected
+      setCreateForm(prev => ({ ...prev, hourly_rate: expected }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createForm.start_date, isNycmaid])
 
   useEffect(() => {
     fetch('/api/cleaners').then(r => r.ok ? r.json() : null).then(j => {
@@ -275,15 +292,9 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
   // it stays open afterward for the add-contacts/address step.
   const handleNewClientCreated = (newClient: NewClientResult) => {
     setKnownClients(prev => ({ ...prev, [newClient.id]: newClient as Client }))
-    // Suggest (not force) the weekend new-client rate when this brand-new
-    // client's booking falls on a Sat/Sun and the admin hasn't already typed
-    // a custom rate — still just a default, freely overridable below.
-    const suggestWeekendRate = isNycmaid && isWeekendDate(createForm.start_date) && createForm.hourly_rate === 69
-    setCreateForm({
-      ...createForm,
-      client_id: newClient.id,
-      hourly_rate: suggestWeekendRate ? WEEKEND_SUPPLIES_PROVIDED_RATE : createForm.hourly_rate,
-    })
+    // Weekend rate suggestion is handled by the start_date-watching effect
+    // above, which already covers this — no need to duplicate it here.
+    setCreateForm({ ...createForm, client_id: newClient.id })
     setClientSearch(newClient.name + ' - ' + newClient.phone)
   }
 
