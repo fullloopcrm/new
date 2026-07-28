@@ -25,6 +25,13 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabase: fake, supabaseAdmin: fake, __fake: fake }
 })
+// payments insert now goes through tenantClient() (RLS Stage 3) — reuse the
+// SAME fake instance (via @/lib/supabase's __fake export) so writes made
+// through tenantClient are visible to this test's assertions.
+vi.mock('@/lib/tenant-supabase', async () => {
+  const mod = await import('@/lib/supabase') as unknown as { __fake: FakeSupabase }
+  return { tenantClient: async () => mod.__fake }
+})
 
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: TENANT_ID, role: 'owner', tenant: {} }, error: null }),

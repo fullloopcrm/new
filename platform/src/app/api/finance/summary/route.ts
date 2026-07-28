@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
@@ -125,7 +126,7 @@ export async function GET() {
       db.from('referral_commissions').select('commission_cents').gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
       db.from('referral_commissions').select('commission_cents').gte('created_at', yearStart.toISOString()).lte('created_at', yearEnd.toISOString()),
       db.from('bookings').select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name)').eq('status', 'completed').or('team_member_paid.is.null,team_member_paid.eq.false').not('team_member_pay', 'is', null),
-      db.from('payments').select('amount_cents, tip_cents, method').gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      (await tenantClient(tenantId)).from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
       db.from('team_member_payouts').select('amount_cents, instant').gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
     ])
 

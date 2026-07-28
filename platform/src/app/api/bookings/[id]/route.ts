@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { pick } from '@/lib/validate'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
@@ -400,7 +401,7 @@ export async function DELETE(
     // actions — every booking with any payment/review/payout history failed
     // to delete, with no way to actually cancel it instead.
     const [{ count: paymentCount }, { count: reviewCount }, { count: payoutCount }] = await Promise.all([
-      db.from('payments').select('id', { count: 'exact', head: true }).eq('booking_id', id),
+      (await tenantClient(tenantId)).from('payments').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('booking_id', id),
       db.from('reviews').select('id', { count: 'exact', head: true }).eq('booking_id', id),
       db.from('team_member_payouts').select('id', { count: 'exact', head: true }).eq('booking_id', id),
     ])

@@ -8,6 +8,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { logInvoiceEvent } from '@/lib/invoice'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -42,9 +43,13 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     // Insert payment — DB trigger recomputes invoice.amount_paid_cents and status.
-    const { data: payment, error: pErr } = await db
+    // tenant_id is stamped explicitly here (tenantClient does not auto-stamp
+    // inserts the way tenantDb did) — required both for the NOT NULL column
+    // and to satisfy the payments RLS policy's WITH CHECK.
+    const { data: payment, error: pErr } = await (await tenantClient(tenantId))
       .from('payments')
       .insert({
+        tenant_id: tenantId,
         invoice_id: id,
         booking_id: invoice.booking_id,
         client_id: invoice.client_id,

@@ -10,6 +10,7 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
@@ -89,7 +90,10 @@ export async function POST(request: Request, { params }: Params) {
       }
 
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
-      const { error: pErr } = await tenantDb(tenantId).from('payments').insert({
+      // tenant_id stamped explicitly — tenantClient doesn't auto-stamp inserts
+      // the way tenantDb did, and it's required for the payments RLS check.
+      const { error: pErr } = await (await tenantClient(tenantId)).from('payments').insert({
+        tenant_id: tenantId,
         invoice_id: inv.id,
         booking_id: inv.booking_id,
         client_id: inv.client_id,
@@ -114,7 +118,8 @@ export async function POST(request: Request, { params }: Params) {
       }
 
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
-      await tenantDb(tenantId).from('payments').insert({
+      await (await tenantClient(tenantId)).from('payments').insert({
+        tenant_id: tenantId,
         booking_id: b.id,
         client_id: b.client_id,
         amount_cents: txn.amount_cents,
