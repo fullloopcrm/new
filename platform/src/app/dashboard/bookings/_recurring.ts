@@ -66,7 +66,12 @@ export function generateRecurringDates(
       const lastDay = new Date(year, month + 1, 0).getDate()
 
       if (targetDate <= lastDay) {
-        const date = new Date(year, month, targetDate)
+        // Noon-anchored to match `start` (also noon-anchored above) -- a
+        // midnight-anchored `date` here compares less-than a same-day noon
+        // `start`, which silently dropped the anchor month's own occurrence
+        // (the Nth-weekday-of-month this branch derives FROM `start` always
+        // resolves to `start` itself in the anchor month).
+        const date = new Date(year, month, targetDate, 12, 0, 0)
         if (date >= start) {
           if (endDate && date > endDate) break
           dates.push(date.toISOString().split('T')[0])
