@@ -412,7 +412,7 @@ export default async function ServicePage({ params }: Props) {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book in 3 Simple Steps</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { n: '01', t: 'Text Us', d: 'Reach us at (212) 202-8400 with your address, preferred date, and any special requests.' },
+              { n: '01', t: 'Self-Book', d: 'Book online with your address, preferred date, and any special requests — takes about 2 minutes.' },
               { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
               { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
             ].map(s => (
