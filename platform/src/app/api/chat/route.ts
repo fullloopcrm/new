@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
+import { EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
@@ -81,23 +80,14 @@ export async function POST(req: NextRequest) {
       { expectedTenantId: tenantId },
     )
 
-    // NYC Maid runs the REAL Yinez agent (src/lib/selena/agent) — warm voice,
-    // self-book redirect, memory/skills. Other tenants stay on the legacy
-    // deterministic engine. Tenant-scoped parity (isNycMaid), not global.
-    let reply: string
-    let quickReplies: string[] = []
-    let bookingCreated = false
-    if (isNycMaid(tenantId)) {
-      const yz = await askYinez('web', message, conversationId, phone || undefined)
-      reply = yz.text || 'Something went wrong. Please try again or call us directly.'
-      bookingCreated = !!yz.bookingCreated
-    } else {
-      const result = await askSelena(tenantId, 'web', message, conversationId, phone || undefined)
-      reply = result.text || 'Something went wrong. Please try again or call us directly.'
-      const checklist = result.checklist || EMPTY_CHECKLIST
-      quickReplies = getQuickReplies(checklist, getNextStep(checklist))
-      bookingCreated = !!result.bookingCreated
-    }
+    // Every tenant runs the shared Yinez agent (src/lib/selena/agent) — warm
+    // voice, self-book redirect, memory/skills. NYC Maid via her own verbatim
+    // playbook, every other tenant via the config-driven one. Pass tenantId
+    // explicitly (already resolved above from the signed header).
+    const quickReplies: string[] = []
+    const yz = await askYinez('web', message, conversationId, phone || undefined, undefined, tenantId)
+    const reply = yz.text || 'Something went wrong. Please try again or call us directly.'
+    const bookingCreated = !!yz.bookingCreated
 
     // Log outbound
     await insertConversationMessage(
