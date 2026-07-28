@@ -123,6 +123,25 @@ describe('GET /api/team/[id]', () => {
     expect(body.stats.retention_ever_assigned).toBe(0)
     expect(body.stats.retention_rate).toBeNull()
   })
+
+  it('includes a last-10-jobs rating trend alongside the lifetime average', async () => {
+    h.store.ratings = [
+      { id: 'r1', tenant_id: 'tenant-A', team_member_id: 'tm-1', cleaner_rating: 5, created_at: '2026-01-01' },
+      { id: 'r2', tenant_id: 'tenant-A', team_member_id: 'tm-1', cleaner_rating: 3, created_at: '2026-07-01' },
+    ]
+    const res = await GET(new Request('http://x'), paramsFor('tm-1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.stats.trend_rating_count).toBe(2)
+    expect(body.stats.trend_avg_rating).toBe(4)
+  })
+
+  it('reports trend_avg_rating: null when the member has no ratings yet', async () => {
+    const res = await GET(new Request('http://x'), paramsFor('tm-1'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.stats.trend_avg_rating).toBeNull()
+  })
 })
 
 describe('DELETE /api/team/[id]', () => {
