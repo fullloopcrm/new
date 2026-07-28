@@ -1214,6 +1214,13 @@ async function handleApproveRefund(input: { booking_id: string; amount_dollars: 
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
+  // Idempotency guard (same pattern as process_stripe_refund's DB-state
+  // pre-check): a retried/duplicate approve_refund call must not re-notify
+  // admins by SMS a second time for the same approval.
+  if (booking.payment_status === 'refund_pending' || booking.payment_status === 'refunded') {
+    return JSON.stringify({ ok: true, status: booking.payment_status, note: 'already approved — not re-notifying admins', amount: input.amount_dollars })
+  }
+
   const note = `[REFUND APPROVED ${new Date().toISOString().slice(0, 10)} $${input.amount_dollars} — ${input.reason}]`
   await supabaseAdmin
     .from('bookings')
@@ -1250,6 +1257,19 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
 }
 
 async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): Promise<string> {
+  // Idempotency guard, same pattern as process_stripe_refund: pre-check
+  // current state so a duplicate/retried call doesn't silently overwrite
+  // paid_at with a second timestamp for a payout already marked paid.
+  const { data: existing } = await supabaseAdmin
+    .from('team_member_payouts')
+    .select('status, paid_at')
+    .eq('id', input.payout_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (existing?.status === 'paid') {
+    return JSON.stringify({ ok: true, payout_id: input.payout_id, note: 'already marked paid — not re-writing paid_at', paid_at: existing.paid_at })
+  }
+
   const { error } = await supabaseAdmin
     .from('team_member_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
@@ -1262,10 +1282,15 @@ async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): 
 async function handleBlockClient(input: { client_id: string; reason: string }, tid: string): Promise<string> {
   const { data: client } = await supabaseAdmin
     .from('clients')
-    .select('notes')
+    .select('notes, do_not_service')
     .eq('id', input.client_id)
     .eq('tenant_id', tid)
     .maybeSingle()
+  // Idempotency guard, same pattern as process_stripe_refund: a client
+  // already blocked shouldn't accumulate a duplicate DNS note per retry.
+  if (client?.do_not_service) {
+    return JSON.stringify({ ok: true, client_id: input.client_id, status: 'do_not_service', note: 'already blocked — not appending a duplicate note' })
+  }
   const note = `[DNS ${new Date().toISOString().slice(0, 10)} — ${input.reason}]`
   await supabaseAdmin
     .from('clients')
@@ -1306,6 +1331,19 @@ async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<s
 }
 
 async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }, tid: string): Promise<string> {
+  // Idempotency guard, same pattern as process_stripe_refund: pre-check
+  // current state so a duplicate/retried call is a clear no-op, not a
+  // silent re-write.
+  const { data: existing } = await supabaseAdmin
+    .from('team_members')
+    .select('status')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (existing?.status === 'inactive') {
+    return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', note: 'already inactive — no-op' })
+  }
+
   const { error } = await supabaseAdmin.from('team_members').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', reason: input.reason })
@@ -1618,9 +1656,26 @@ async function handleSeoStatus(tid: string): Promise<string> {
   })
 }
 
+// Idempotency guard for trigger_cron: unlike the other 4 tools, this one has
+// no DB row to pre-check — the "state" is whatever the cron endpoint just did
+// (often a bulk SMS/email blast to every client, e.g. reminders/outreach). A
+// retried or duplicate tool call within the window must NOT re-fire the cron
+// a second time. In-memory cooldown Map, same mechanism already proven in
+// this codebase by audit.ts's sensitiveAuditCooldowns.
+const cronTriggerCooldowns = new Map<string, number>()
+const CRON_TRIGGER_COOLDOWN_MS = 60 * 1000
+
 async function handleTriggerCron(input: { name: string }): Promise<string> {
   const allowed = ['reminders', 'rating-prompt', 'payment-reminder', 'confirmation-reminder', 'late-check-in', 'schedule-monitor', 'sales-follow-ups', 'outreach', 'generate-recurring', 'health-check', 'health-monitor']
   if (!allowed.includes(input.name)) return JSON.stringify({ error: `cron not allowed: ${input.name}` })
+
+  const now = Date.now()
+  const last = cronTriggerCooldowns.get(input.name) || 0
+  if (now - last < CRON_TRIGGER_COOLDOWN_MS) {
+    return JSON.stringify({ ok: false, error: 'cron_recently_triggered', note: `${input.name} was already fired in the last ${CRON_TRIGGER_COOLDOWN_MS / 1000}s — not firing again to avoid a duplicate bulk send`, retry_after_ms: CRON_TRIGGER_COOLDOWN_MS - (now - last) })
+  }
+  cronTriggerCooldowns.set(input.name, now)
+
   const url = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thenycmaid.com'}/api/cron/${input.name}`
   const secret = process.env.CRON_SECRET || ''
   try {
