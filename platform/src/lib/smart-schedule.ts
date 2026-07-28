@@ -108,7 +108,7 @@ export async function scoreTeamForBooking(opts: {
   // Active team members for this tenant. Schema uses `status`, not `active` boolean.
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status')
+    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status, retention_rate, clients_served')
     .eq('tenant_id', tenantId)
     .neq('status', 'inactive')
 
@@ -277,6 +277,17 @@ export async function scoreTeamForBooking(opts: {
     const hasCar = Boolean(member.has_car)
     if (zoneMatch) score += 50
     if (!zoneMatch && memberZones.length > 0) score -= 30
+
+    // 0c. Cleaner retention — negative-only signal (never a bonus). Requires
+    // a minimum sample (clients_served >= 3) so a new hire with one served
+    // client isn't penalized off a single data point. Mirrors the same
+    // good/warn/bad bands shown on the team card.
+    const retentionRate = (member as { retention_rate?: number | null }).retention_rate ?? null
+    const clientsServed = (member as { clients_served?: number | null }).clients_served ?? 0
+    if (retentionRate != null && clientsServed >= 3) {
+      if (retentionRate < 50) score -= 40
+      else if (retentionRate < 70) score -= 15
+    }
 
     // Supplies vs labor-only: a supply job ($69/hr+) can't go to a labor-only
     // member. (nycmaid cleaning rule.)

@@ -39,6 +39,8 @@ type TeamMember = {
   ltv_total_cents?: number
   avg_rating?: number | null
   rating_count?: number | null
+  retention_rate?: number | null
+  clients_served?: number | null
 }
 
 type EnrichedMember = TeamMember & {
@@ -541,6 +543,11 @@ export default function TeamPage() {
               const utilNumClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'low' : ''
               const utilFillClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct >= 75 ? 'full' : m.utilization_pct >= 40 ? 'med' : 'low'
               const statusClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'idle' : ''
+              // Same minimum-sample gate as the smart-schedule scoring penalty
+              // (clientsServed >= 3) — a cleaner with 1-2 served clients showing
+              // a raw 0%/100% badge reads as a verdict off a single data point.
+              const hasEnoughRetentionData = (m.clients_served ?? 0) >= 3 && m.retention_rate != null
+              const retentionClass = !hasEnoughRetentionData ? '' : m.retention_rate! >= 70 ? 'good' : m.retention_rate! >= 50 ? 'warn' : 'bad'
               const statusLabel = m.utilization_pct >= 100 ? 'OVERCAP' : m.utilization_pct < 30 ? 'IDLE' : 'ACTIVE'
               return (
                 <div
@@ -582,6 +589,23 @@ export default function TeamPage() {
                         </>
                       ) : (
                         <div className="tm-rating-none">No ratings yet</div>
+                      )}
+                    </div>
+                    <div
+                      className={`tm-retention ${retentionClass}`}
+                      title={
+                        m.clients_served
+                          ? `${m.clients_served} client${m.clients_served === 1 ? '' : 's'} served, all-time`
+                          : 'Not enough completed jobs yet'
+                      }
+                    >
+                      {hasEnoughRetentionData ? (
+                        <>
+                          <div className="tm-retention-pct">{m.retention_rate!.toFixed(0)}%</div>
+                          <div className="tm-retention-label">retention</div>
+                        </>
+                      ) : (
+                        <div className="tm-retention-none">No retention data yet</div>
                       )}
                     </div>
                   </div>

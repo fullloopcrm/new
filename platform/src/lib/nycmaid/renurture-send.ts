@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS, sendClientEmail } from '@/lib/nycmaid/client-contacts'
 import { generateRenurtureCode, getRenurtureCopy, IMMEDIATE_SAVE_TOUCH, type RenurtureTouch } from '@/lib/nycmaid/renurture'
 import { trackError } from '@/lib/error-tracking'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 const POSTGRES_UNIQUE_VIOLATION = '23505'
 
@@ -37,9 +38,16 @@ export async function sendRenurtureTouch(tenantId: string, client: RenurtureClie
   const smsOk = !!client.phone && !client.sms_marketing_opt_out
   if (!emailOk && !smsOk) return 'no_contact_method'
 
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('name, phone, domain, slug')
+    .eq('id', tenantId)
+    .single()
+  const baseUrl = tenantSiteUrl(tenant) || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thenycmaid.com'
+  const businessName = tenant?.name || 'your cleaning team'
+
   const code = generateRenurtureCode(touch)
-  const copy = getRenurtureCopy(touch, client.name || 'there', code)
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thenycmaid.com'
+  const copy = getRenurtureCopy(touch, client.name || 'there', code, { businessName, phone: tenant?.phone ?? null, siteUrl: baseUrl })
 
   let channelSent: 'email' | 'sms' | 'both' | 'none' = 'none'
 

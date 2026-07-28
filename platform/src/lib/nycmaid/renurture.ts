@@ -93,14 +93,26 @@ export interface RenurtureCopy {
   emailBody: string
 }
 
-const CTA_BUTTON = (label: string) =>
-  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 32px 0;"><tr><td align="center"><a href="https://www.thenycmaid.com/book" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">${label}</a></td></tr></table>`
+// Tenant-specific values the copy needs — resolved by the caller (renurture-send.ts)
+// via tenantSiteUrl() + the tenants row, same pattern every other tenant-aware
+// surface uses. No more hardcoded thenycmaid.com/phone/brand-name.
+export interface RenurtureTenantInfo {
+  businessName: string
+  phone: string | null
+  siteUrl: string // e.g. https://www.example.com — no trailing slash
+}
 
-const FEEDBACK_SMS = '\n\nFeedback | Suggestions? Save $10 next service  https://www.thenycmaid.com/feedback'
-const FEEDBACK_EMAIL = '<p style="color: #333; font-size: 13px; line-height: 1.6; margin: 24px 0 0 0; text-align: center;"><a href="https://www.thenycmaid.com/feedback" style="color: #2563eb; text-decoration: underline;">Feedback | Suggestions? Save $10 next service</a></p>'
+const bookUrl = (siteUrl: string) => `${siteUrl}/book`
+const displayUrl = (siteUrl: string) => siteUrl.replace(/^https?:\/\//, '')
 
-const REFERRAL_SMS = '\n\nKnow someone who needs a cleaner? Refer them at thenycmaid.com/referral and earn 10% on every booking they make.'
-const REFERRAL_EMAIL = '<p style="color: #333; font-size: 13px; line-height: 1.6; margin: 8px 0 0 0; text-align: center;"><a href="https://www.thenycmaid.com/referral" style="color: #2563eb; text-decoration: underline;">Know someone who needs a cleaner? Refer them and earn 10% on every booking they make</a></p>'
+const CTA_BUTTON = (label: string, siteUrl: string) =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 32px 0;"><tr><td align="center"><a href="${bookUrl(siteUrl)}" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">${label}</a></td></tr></table>`
+
+const FEEDBACK_SMS = (siteUrl: string) => `\n\nFeedback | Suggestions? Save $10 next service  ${siteUrl}/feedback`
+const FEEDBACK_EMAIL = (siteUrl: string) => `<p style="color: #333; font-size: 13px; line-height: 1.6; margin: 24px 0 0 0; text-align: center;"><a href="${siteUrl}/feedback" style="color: #2563eb; text-decoration: underline;">Feedback | Suggestions? Save $10 next service</a></p>`
+
+const REFERRAL_SMS = (siteUrl: string) => `\n\nKnow someone who needs a cleaner? Refer them at ${displayUrl(siteUrl)}/referral and earn 10% on every booking they make.`
+const REFERRAL_EMAIL = (siteUrl: string) => `<p style="color: #333; font-size: 13px; line-height: 1.6; margin: 8px 0 0 0; text-align: center;"><a href="${siteUrl}/referral" style="color: #2563eb; text-decoration: underline;">Know someone who needs a cleaner? Refer them and earn 10% on every booking they make</a></p>`
 
 // Short, human-typeable redemption code — not cryptographically sensitive
 // (worst case someone guesses another client's win-back code and gets a
@@ -120,40 +132,47 @@ function codeBlock(code: string): { sms: string; email: string } {
   }
 }
 
-export function getRenurtureCopy(touch: RenurtureTouch, clientName: string, code: string): RenurtureCopy {
+export function getRenurtureCopy(touch: RenurtureTouch, clientName: string, code: string, tenant: RenurtureTenantInfo): RenurtureCopy {
   const firstName = clientName?.split(' ')[0] || 'there'
   const isOnetime = touch.segment === 'onetime'
   const isLastTouch = touch.touchNum === 3
   const codeText = codeBlock(code)
+  const { businessName, siteUrl } = tenant
+  const phoneLine = tenant.phone ? ` at ${tenant.phone}` : ''
+  const bookDisplay = `${displayUrl(siteUrl)}/book`
+  const feedbackSms = FEEDBACK_SMS(siteUrl)
+  const feedbackEmail = FEEDBACK_EMAIL(siteUrl)
+  const referralSms = REFERRAL_SMS(siteUrl)
+  const referralEmail = REFERRAL_EMAIL(siteUrl)
 
   if (touch.touchNum === 0) {
     const subject = 'Sorry to see you pause — here\'s 10% to come back'
-    const smsBody = `Hi ${firstName}, sorry to see your cleanings paused. If you come back on a monthly schedule, we'll give you 10% off every visit. thenycmaid.com/book${codeText.sms}${REFERRAL_SMS}${FEEDBACK_SMS}`
-    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Sorry to see you pause</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We hope everything's okay. If and when you're ready to come back, resume on a monthly schedule (once every 30 days) and we'll give you <strong>10% off</strong> every visit.</p>${codeText.email}${CTA_BUTTON('Book Now')}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Or just text us back at (212) 202-8400.</p>${REFERRAL_EMAIL}${FEEDBACK_EMAIL}`
+    const smsBody = `Hi ${firstName}, sorry to see your cleanings paused. If you come back on a monthly schedule, we'll give you 10% off every visit. ${bookDisplay}${codeText.sms}${referralSms}${feedbackSms}`
+    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Sorry to see you pause</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We hope everything's okay. If and when you're ready to come back, resume on a monthly schedule (once every 30 days) and we'll give you <strong>10% off</strong> every visit.</p>${codeText.email}${CTA_BUTTON('Book Now', siteUrl)}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Or just text us back${phoneLine}.</p>${referralEmail}${feedbackEmail}`
     return { subject, smsBody, emailBody }
   }
 
   if (touch.touchNum === 1) {
     const subject = isOnetime ? 'Ready for round two?' : 'We miss having you on the schedule'
     const smsBody = isOnetime
-      ? `Hi ${firstName}, it's The NYC Maid 😊 Hope your place is still sparkling! Set up a cleaning once a month and save ${touch.discountPct}% every visit. Book: thenycmaid.com/book or text us back.`
-      : `Hi ${firstName}, we noticed your cleanings paused. Come back on a monthly schedule (once every 30 days) and save ${touch.discountPct}% every visit. thenycmaid.com/book`
+      ? `Hi ${firstName}, it's ${businessName} 😊 Hope your place is still sparkling! Set up a cleaning once a month and save ${touch.discountPct}% every visit. Book: ${bookDisplay} or text us back.`
+      : `Hi ${firstName}, we noticed your cleanings paused. Come back on a monthly schedule (once every 30 days) and save ${touch.discountPct}% every visit. ${bookDisplay}`
     const intro = isOnetime
       ? `<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hope your place is still as spotless as we left it. When you're ready for another visit, know that a lot of our clients set up a monthly cleaning so they never have to think about it again — and it comes with a standing discount.</p>`
       : `<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We noticed your recurring cleanings paused, and we wanted to check in. Your spot on the schedule is easy to pick back up whenever you're ready.</p>`
-    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">${isOnetime ? 'Ready for round two?' : 'We miss having you on the schedule'}</h1>${intro}<div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 24px 0;"><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Book a cleaning once every 30 days and save <strong>${touch.discountPct}%</strong> on every visit.</p></div>${CTA_BUTTON('Book Now')}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Or just text us back at (212) 202-8400 and we'll get you set up.</p>`
-    return { subject, smsBody: smsBody + codeText.sms + REFERRAL_SMS + FEEDBACK_SMS, emailBody: emailBody + codeText.email + REFERRAL_EMAIL + FEEDBACK_EMAIL }
+    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">${isOnetime ? 'Ready for round two?' : 'We miss having you on the schedule'}</h1>${intro}<div style="background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 24px 0;"><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Book a cleaning once every 30 days and save <strong>${touch.discountPct}%</strong> on every visit.</p></div>${CTA_BUTTON('Book Now', siteUrl)}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Or just text us back${phoneLine} and we'll get you set up.</p>`
+    return { subject, smsBody: smsBody + codeText.sms + referralSms + feedbackSms, emailBody: emailBody + codeText.email + referralEmail + feedbackEmail }
   }
 
   if (!isLastTouch) {
     const subject = `${touch.discountPct}% off — still time to grab this`
-    const smsBody = `Hi ${firstName}, The NYC Maid here. Still thinking about it? Book a cleaning once every 30 days and lock in ${touch.discountPct}% off every visit. thenycmaid.com/book`
-    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">${touch.discountPct}% off, just for you</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">${isOnetime ? "Still thinking about your next cleaning?" : "Your spot is still open."} Set up a monthly cleaning (once every 30 days) and we'll lock in <strong>${touch.discountPct}% off</strong> every visit.</p>${CTA_BUTTON('Book Now & Save')}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Questions? Text us at (212) 202-8400.</p>`
-    return { subject, smsBody: smsBody + codeText.sms + REFERRAL_SMS + FEEDBACK_SMS, emailBody: emailBody + codeText.email + REFERRAL_EMAIL + FEEDBACK_EMAIL }
+    const smsBody = `Hi ${firstName}, ${businessName} here. Still thinking about it? Book a cleaning once every 30 days and lock in ${touch.discountPct}% off every visit. ${bookDisplay}`
+    const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">${touch.discountPct}% off, just for you</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">${isOnetime ? "Still thinking about your next cleaning?" : "Your spot is still open."} Set up a monthly cleaning (once every 30 days) and we'll lock in <strong>${touch.discountPct}% off</strong> every visit.</p>${CTA_BUTTON('Book Now & Save', siteUrl)}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">Questions? Text us${phoneLine}.</p>`
+    return { subject, smsBody: smsBody + codeText.sms + referralSms + feedbackSms, emailBody: emailBody + codeText.email + referralEmail + feedbackEmail }
   }
 
   const subject = `Last call: ${touch.discountPct}% off, just for you`
-  const smsBody = `Hi ${firstName}, last call from The NYC Maid — set up a cleaning once every 30 days and save ${touch.discountPct}% every visit, guaranteed. Book: thenycmaid.com/book`
-  const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Last call — ${touch.discountPct}% off</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We haven't heard back, so this is our last check-in. Set up a monthly cleaning (once every 30 days) and we'll guarantee <strong>${touch.discountPct}% off</strong> every visit going forward.</p>${CTA_BUTTON('Book Now & Save')}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">No hard feelings if now's not the time — text STOP anytime to stop hearing from us.</p>`
-  return { subject, smsBody: smsBody + FEEDBACK_SMS, emailBody: emailBody + FEEDBACK_EMAIL }
+  const smsBody = `Hi ${firstName}, last call from ${businessName} — set up a cleaning once every 30 days and save ${touch.discountPct}% every visit, guaranteed. Book: ${bookDisplay}`
+  const emailBody = `<h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Last call — ${touch.discountPct}% off</h1><p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">We haven't heard back, so this is our last check-in. Set up a monthly cleaning (once every 30 days) and we'll guarantee <strong>${touch.discountPct}% off</strong> every visit going forward.</p>${CTA_BUTTON('Book Now & Save', siteUrl)}<p style="color: #333; font-size: 15px; line-height: 1.6; margin: 0;">No hard feelings if now's not the time — text STOP anytime to stop hearing from us.</p>`
+  return { subject, smsBody: smsBody + feedbackSms, emailBody: emailBody + feedbackEmail }
 }

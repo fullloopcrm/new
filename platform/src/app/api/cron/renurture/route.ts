@@ -3,18 +3,19 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
-import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { pickNextTouch, RENURTURE_TOUCHES, type RenurtureTouch } from '@/lib/nycmaid/renurture'
 import { sendRenurtureTouch, type RenurtureClient } from '@/lib/nycmaid/renurture-send'
-import { parseNaiveET } from '@/lib/recurring'
+import { computeChurnFactsByClient } from '@/lib/client-churn-facts'
+import { computeAndSaveCleanerRetention } from '@/lib/cleaner-retention'
+import { trackError } from '@/lib/error-tracking'
 
 export const maxDuration = 300
 
-// Renurture win-back — tenant-aware port from nycmaid (fully automated,
-// Jeff's call 2026-07-17 on the source). Runs weekly (see vercel.json), no
-// per-batch human review. Gated to nycmaid only for now — same
-// isNycMaid() scoping pattern as the rest of this parity copy-over; this is
-// not yet generalized as a global platform feature. Carries the same three
+// Renurture win-back — originally a nycmaid-only parity port (Jeff's call
+// 2026-07-17), globalized 2026-07-27 now that the nycmaid cutover is
+// complete. Runs weekly (see vercel.json), no per-batch human review.
+// Copy/branding is resolved per-tenant in renurture-send.ts (tenantSiteUrl,
+// tenants.name/phone) — no tenant gating left. Carries the same three
 // safety nets the source cron does:
 //   1. Balance check up front — fails closed (sends nothing) if Telnyx
 //      funds look thin, instead of discovering it mid-run.
@@ -57,7 +58,12 @@ export async function GET(request: Request) {
   const perTenant: Record<string, unknown> = {}
 
   for (const tenant of tenants || []) {
-    if (!isNycMaid(tenant.id)) continue // gated, not yet global — see file header
+    // Retention is a DB rollup, not a send — runs for every active tenant
+    // regardless of SMS config, decoupled from the balance/cap gates below.
+    await computeAndSaveCleanerRetention(tenant.id).catch(err =>
+      trackError(err, { source: 'cron/renurture:retention_failed', tenantId: tenant.id, severity: 'medium' }),
+    )
+
     if (!tenant.telnyx_api_key) continue
 
     const balanceCheck = await checkTelnyxBalance(tenant.telnyx_api_key)
@@ -116,32 +122,17 @@ async function processTenant(tenantId: string): Promise<number> {
   }
 
   const now = Date.now()
+  const factsByClient = computeChurnFactsByClient(clients, bookings || [], schedules || [], now)
   let sent = 0
 
   for (const client of clients as RenurtureClient[]) {
     if (sent >= PER_RUN_CAP) break
 
-    const clientBookings = (bookings || []).filter(b => b.client_id === client.id)
-    const completedCount = clientBookings.filter(b => b.status === 'completed').length
-    // bookings.start_time is a naive America/New_York wall-clock string, not
-    // real UTC -- new Date(b.start_time) silently misreads it as UTC and
-    // skews every comparison against `now` (a real instant) by the ET/UTC
-    // gap (4-5h), same bug class as cron/no-show-check et al.
-    const hasUpcoming = clientBookings.some(b => (b.status === 'scheduled' || b.status === 'in_progress') && parseNaiveET(b.start_time).getTime() > now)
-    const lastServiceDate = clientBookings
-      .filter(b => b.status === 'completed')
-      .map(b => parseNaiveET(b.start_time).getTime())
-      .sort((a, b) => b - a)[0] ?? null
-
-    const clientSchedules = (schedules || []).filter(s => s.client_id === client.id)
-    const scheduleCount = clientSchedules.length
-    const hasActiveSchedule = clientSchedules.some(s => s.status === 'active')
+    const facts = factsByClient.get(client.id)
+    if (!facts) continue
 
     const alreadySentKeys = sentByClient.get(client.id) || new Set<string>()
-    const touch: RenurtureTouch | null = pickNextTouch(
-      { completedCount, lastServiceDate, hasUpcoming, scheduleCount, hasActiveSchedule },
-      alreadySentKeys,
-    )
+    const touch: RenurtureTouch | null = pickNextTouch(facts, alreadySentKeys)
     if (!touch) continue
 
     const result = await sendRenurtureTouch(tenantId, client, touch)
