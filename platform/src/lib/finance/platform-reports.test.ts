@@ -21,6 +21,11 @@
  *     (never a divide-by-zero NaN)
  *   - SIM-prefixed tenants are excluded by default from platformProfitAndLoss
  *   - platformLedgerIntegrity reads unposted/future-dated counts + most recent entry
+ *   - platformMonthlyTrend (previously zero coverage) always returns exactly 12
+ *     buckets Jan..Dec for the requested year, revenue/net_profit computed with
+ *     the same income/expense math as platformProfitAndLoss, SIM tenants excluded
+ *     by default UNLESS a specific tenantId is passed (explicit pick overrides the
+ *     filter), and a tenantId scopes the query to just that tenant
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
@@ -28,7 +33,7 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('../supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
-import { isTestTenant, platformProfitAndLoss, platformLedgerIntegrity } from './platform-reports'
+import { isTestTenant, platformProfitAndLoss, platformLedgerIntegrity, platformMonthlyTrend } from './platform-reports'
 
 let h: Harness
 beforeEach(() => {
@@ -158,5 +163,72 @@ describe('platformLedgerIntegrity', () => {
   it('reads zero counts and a null timestamp on an empty ledger', async () => {
     const result = await platformLedgerIntegrity()
     expect(result).toEqual({ unpostedCount: 0, futureDatedCount: 0, mostRecentEntryAt: null })
+  })
+})
+
+describe('platformMonthlyTrend', () => {
+  it('always returns 12 buckets Jan..Dec in order, zeroed when there is no data', async () => {
+    const result = await platformMonthlyTrend(2026)
+    expect(result.map((p) => p.month)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+    expect(result.every((p) => p.revenue_cents === 0 && p.net_profit_cents === 0)).toBe(true)
+  })
+
+  it('buckets a line into the month of its journal_entries.entry_date', async () => {
+    h.seed.tenants.push({ id: 't-1', name: 'Acme' })
+    h.seed.journal_lines.push(
+      line('t-1', { credit: 10000, type: 'income', name: 'Revenue', date: '2026-03-15' }),
+      line('t-1', { debit: 4000, type: 'expense', subtype: 'opex', name: 'Rent', date: '2026-03-15' }),
+    )
+    const result = await platformMonthlyTrend(2026)
+    const mar = result.find((p) => p.month === 'Mar')!
+    expect(mar.revenue_cents).toBe(10000)
+    expect(mar.net_profit_cents).toBe(6000) // 10000 revenue - 0 cogs - 4000 opex
+    const other = result.filter((p) => p.month !== 'Mar')
+    expect(other.every((p) => p.revenue_cents === 0 && p.net_profit_cents === 0)).toBe(true)
+  })
+
+  it('net_profit_cents = revenue - cogs - opex', async () => {
+    h.seed.tenants.push({ id: 't-1', name: 'Acme' })
+    h.seed.journal_lines.push(
+      line('t-1', { credit: 10000, type: 'income', name: 'Revenue', date: '2026-06-01' }),
+      line('t-1', { debit: 2000, type: 'expense', subtype: 'cogs', name: 'Supplies', date: '2026-06-01' }),
+      line('t-1', { debit: 1500, type: 'expense', subtype: 'opex', name: 'Rent', date: '2026-06-01' }),
+    )
+    const result = await platformMonthlyTrend(2026)
+    const jun = result.find((p) => p.month === 'Jun')!
+    expect(jun.revenue_cents).toBe(10000)
+    expect(jun.net_profit_cents).toBe(6500) // 10000 - 2000 - 1500
+  })
+
+  it('excludes a "SIM " tenant by default; includeTest:true brings it back', async () => {
+    h.seed.tenants.push({ id: 't-real', name: 'Acme' }, { id: 't-sim', name: 'SIM Demo' })
+    h.seed.journal_lines.push(
+      line('t-real', { credit: 1000, type: 'income', name: 'Revenue', date: '2026-05-10' }),
+      line('t-sim', { credit: 9000, type: 'income', name: 'Revenue', date: '2026-05-10' }),
+    )
+    const excluded = await platformMonthlyTrend(2026)
+    expect(excluded.find((p) => p.month === 'May')!.revenue_cents).toBe(1000)
+    const included = await platformMonthlyTrend(2026, undefined, { includeTest: true })
+    expect(included.find((p) => p.month === 'May')!.revenue_cents).toBe(10000)
+  })
+
+  it('a tenantId scopes to that tenant only and overrides the SIM-exclusion default', async () => {
+    h.seed.tenants.push({ id: 't-sim', name: 'SIM Demo' }, { id: 't-other', name: 'Other Co' })
+    h.seed.journal_lines.push(
+      line('t-sim', { credit: 5000, type: 'income', name: 'Revenue', date: '2026-04-01' }),
+      line('t-other', { credit: 7000, type: 'income', name: 'Revenue', date: '2026-04-01' }),
+    )
+    const result = await platformMonthlyTrend(2026, 't-sim')
+    // Even though t-sim is SIM-prefixed, an explicit tenantId pick still includes it
+    // (per the source comment: "an explicit pick overrides the default filter"),
+    // and t-other's revenue must not leak in.
+    expect(result.find((p) => p.month === 'Apr')!.revenue_cents).toBe(5000)
+  })
+
+  it('a line dated outside the requested year is not counted', async () => {
+    h.seed.tenants.push({ id: 't-1', name: 'Acme' })
+    h.seed.journal_lines.push(line('t-1', { credit: 10000, type: 'income', name: 'Revenue', date: '2025-12-31' }))
+    const result = await platformMonthlyTrend(2026)
+    expect(result.every((p) => p.revenue_cents === 0)).toBe(true)
   })
 })
