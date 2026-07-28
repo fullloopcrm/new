@@ -95,7 +95,7 @@ beforeEach(() => {
   failOn = null
   tenantRow = {
     id: 't1', name: 'Test Co',
-    business_hours: null, payment_methods: null, guidelines_en: null, selena_config: null,
+    business_hours: null, payment_methods: null, guidelines_en: null, selena_config: null, agent_name: null,
   }
 })
 
@@ -144,6 +144,29 @@ describe('provisionTenant — funnel seeding (F1)', () => {
   it('seeds a booking trade (dumpster) as booking', async () => {
     await provisionTenant({ tenantId: 't1', industry: 'dumpster' })
     expect(selenaUpdate?.funnel_mode).toBe('booking')
+  })
+})
+
+describe('provisionTenant — agent_name seeding', () => {
+  it('seeds tenants.agent_name (the real source of truth agent.ts/selena-legacy.ts read) when unset', async () => {
+    const result = await provisionTenant({ tenantId: 't1', industry: 'general' })
+    const agentNameUpdate = updateCalls.find((c) => c.table === 'tenants' && 'agent_name' in c.patch)
+    expect(agentNameUpdate?.patch.agent_name).toBe('Selena')
+    expect(result.seeded.agent_name).toBe(true)
+  })
+
+  it('does not overwrite an already-customized agent_name', async () => {
+    tenantRow.agent_name = 'Maria'
+    const result = await provisionTenant({ tenantId: 't1', industry: 'general' })
+    expect(updateCalls.find((c) => c.table === 'tenants' && 'agent_name' in c.patch)).toBeUndefined()
+    expect(result.seeded.agent_name).toBe(false)
+    expect(result.skipped).toContain('agent_name (already set)')
+  })
+
+  it('uses an overridden selena_config.ai_name for agent_name instead of the "Selena" default', async () => {
+    await provisionTenant({ tenantId: 't1', industry: 'general', overrides: { selena_config: { ai_name: 'Rosa' } } })
+    const agentNameUpdate = updateCalls.find((c) => c.table === 'tenants' && 'agent_name' in c.patch)
+    expect(agentNameUpdate?.patch.agent_name).toBe('Rosa')
   })
 })
 
