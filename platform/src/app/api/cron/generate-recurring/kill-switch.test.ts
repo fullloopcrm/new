@@ -106,7 +106,7 @@ beforeEach(() => {
   ]
   h.tables.clients = [{ id: 'client-1', tenant_id: 'tenant-1', name: 'Taylor Client' }]
   h.tables.tenants = [
-    { id: 'tenant-1', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
+    { id: 'tenant-1', status: 'active', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
   ]
   h.tables.recurring_exceptions = []
   h.tables.notifications = []

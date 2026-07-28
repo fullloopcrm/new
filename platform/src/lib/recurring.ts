@@ -206,6 +206,157 @@ export function generateRecurringDates({
   return dates
 }
 
+export type RepeatEnd = 'never' | 'after' | 'on_date'
+
+/** How many generateRecurringDates iterations ("weeksToGenerate") are needed
+ * to get at least `desiredCount` raw candidate dates back out, accounting
+ * for the types whose iteration count isn't 1:1 with dates produced --
+ * 'daily' generates 7 dates per iteration, multi-day weekly/biweekly
+ * generate daysOfWeek.length dates per cycle. The +1 is a cheap safety
+ * margin against rounding. */
+function rawCandidateCount(recurringType: RecurringType, daysOfWeek: number[] | null | undefined, desiredCount: number): number {
+  if (recurringType === 'daily') return Math.ceil(desiredCount / 7) + 1
+  const perCycle = (recurringType === 'weekly' || recurringType === 'biweekly') && daysOfWeek && daysOfWeek.length > 0
+    ? daysOfWeek.length
+    : 1
+  return Math.ceil(desiredCount / perCycle) + 1
+}
+
+/**
+ * Generate the INITIAL batch of occurrence dates for a new or edited
+ * recurring booking series, honoring "repeat end" semantics -- never
+ * (open-ended, through the end of next calendar year), after N occurrences,
+ * or on a specific end date. This is the admin New/Edit Booking UI's
+ * client-side date preview, and the array POSTed to
+ * /api/admin/recurring-schedules (create) and .../regenerate (pattern-
+ * changed edit) as the initial occurrence batch.
+ *
+ * Distinct from generateRecurringDates' `weeksToGenerate` (a fixed iteration
+ * count with no "repeat end" concept, used by refill/cron paths that always
+ * top up a fixed few weeks at a time regardless of how the series was
+ * originally configured to end) -- ported from the retired
+ * dashboard/bookings/_recurring.ts as part of making this module the single
+ * source of truth for recurring-type semantics (docs/RECURRING-REBUILD-DESIGN.md).
+ *
+ * Reuses generateRecurringDates for every per-type date-stepping calculation
+ * unchanged -- this function only decides how many raw occurrences to
+ * request and how to truncate them by the end condition, and never
+ * reimplements date-stepping math itself. That also means it cannot
+ * reintroduce the midnight-vs-noon anchor-month bug the retired
+ * _recurring.ts had in its own separate monthly_day loop (fixed there in
+ * afdb66214) -- there is no separate loop here to have that bug; the
+ * anchor-month occurrence comes straight from generateRecurringDates'
+ * monthly_weekday branch, which always emits `startDate` itself as its
+ * first result with no date comparison involved.
+ *
+ * One deliberate behavior difference from the retired generator: when a
+ * monthly_weekday anchor's target week-of-month doesn't exist in a later
+ * month (e.g. a "5th Friday" anchor in a month with only 4 Fridays), this
+ * falls back to that month's last occurrence of the weekday (generateRecurringDates'
+ * existing, already-tested behavior) instead of the retired generator's old
+ * behavior of silently skipping that month entirely.
+ *
+ * Returns 'YYYY-MM-DD' strings (not Date objects) to match the retired
+ * function's return shape every admin-UI call site already expects.
+ */
+export function generateInitialBatchDates({
+  recurringType,
+  startDate,
+  repeatEnabled,
+  repeatEnd,
+  repeatEndCount,
+  repeatEndDate,
+  dayOfWeek,
+  daysOfWeek,
+  customIntervalWeeks,
+}: {
+  recurringType: RecurringType
+  /** 'YYYY-MM-DD' */
+  startDate: string
+  repeatEnabled: boolean
+  repeatEnd: RepeatEnd
+  /** Only read when repeatEnd === 'after'. */
+  repeatEndCount: number
+  /** 'YYYY-MM-DD', only read when repeatEnd === 'on_date'. */
+  repeatEndDate: string
+  dayOfWeek?: number
+  daysOfWeek?: number[] | null
+  /** Only read for recurringType 'custom'. The admin UI's custom-interval
+   * stepper is in WEEKS (not days like generateRecurringDates'
+   * customIntervalDays, which mirrors the DB column
+   * recurring_schedules.custom_interval_days) -- converted to days here. */
+  customIntervalWeeks?: number | null
+}): string[] {
+  if (!repeatEnabled || !startDate) return [startDate]
+
+  const start = new Date(startDate + 'T12:00:00')
+  // "Never" = through the end of NEXT calendar year, matching the retired
+  // generator's own convention for an open-ended series. "After" = exactly N
+  // occurrences, no date bound. "On date" = bounded by the chosen end date --
+  // or, if none chosen yet, unbounded by date (same edge case the retired
+  // generator had; only the count cap below applies).
+  const endOfNextYear = new Date(start.getFullYear() + 1, 11, 31, 12, 0, 0)
+  const endDate = repeatEnd === 'never'
+    ? endOfNextYear
+    : (repeatEnd === 'on_date' && repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null)
+  const HARD_CAP = 500 // matches the retired generator's own safety cap for open-ended series
+  const maxDates = repeatEnd === 'after' ? repeatEndCount : HARD_CAP
+
+  const raw = generateRecurringDates({
+    recurringType,
+    startDate: start,
+    dayOfWeek,
+    daysOfWeek,
+    weeksToGenerate: rawCandidateCount(recurringType, daysOfWeek, Math.max(maxDates, 0)),
+    customIntervalDays: recurringType === 'custom' && customIntervalWeeks
+      ? customIntervalWeeks * 7
+      : undefined,
+  })
+
+  const bounded = (endDate ? raw.filter(d => d <= endDate) : raw).slice(0, Math.max(maxDates, 0))
+  return bounded.map(d => d.toISOString().split('T')[0])
+}
+
+/**
+ * Payload for PUT /api/bookings/batch-update's "pattern unchanged, apply to
+ * all future occurrences" edit in BookingsAdmin.tsx/EditBookingForm.tsx.
+ * That route spreads this object straight into a tenant-scoped `bookings`
+ * table update with no field allowlist/aliasing (unlike its single-booking,
+ * /regenerate, and recurring-schedules PUT siblings, which all alias the
+ * nycmaid-era `cleaner_id` body key to the real `bookings.team_member_id`
+ * column). bookings has never had a `cleaner_id` column -- only the legacy
+ * per-tenant site booking tables ported in from nycmaid do -- so sending
+ * `cleaner_id` here 400s every row in the batch on an unknown-column error,
+ * and the resulting `if (!res.ok)` early-return silently skips BOTH the
+ * schedule-record PUT and the per-booking team save that follow it, breaking
+ * the entire "apply to all future" edit (price/notes/hours/lead
+ * reassignment) whenever the recurring pattern itself wasn't also changed.
+ * Ported from the retired dashboard/bookings/_recurring.ts unchanged.
+ */
+export function buildSeriesUpdateData(opts: {
+  startTime: string
+  endTime: string
+  teamMemberId: string | null
+  price: number
+  hourlyRate: number | null
+  serviceType: string
+  notes: string | null
+  recurringType: string | null
+  discountPercent?: number | null
+}): Record<string, unknown> {
+  return {
+    start_time: opts.startTime,
+    end_time: opts.endTime,
+    team_member_id: opts.teamMemberId,
+    price: opts.price,
+    hourly_rate: opts.hourlyRate,
+    service_type: opts.serviceType,
+    notes: opts.notes,
+    recurring_type: opts.recurringType,
+    discount_percent: opts.discountPercent ?? null,
+  }
+}
+
 /**
  * Compute the occurrence dates a refill pass (cron/generate-recurring) should
  * ADD, given the date of the LAST already-materialized booking for a

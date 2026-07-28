@@ -350,9 +350,10 @@ export default async function middleware(req: NextRequest) {
         return
       }
     }
-    // Owner login is dormant (moved off Clerk). Protected owner routes that
-    // aren't admin-impersonated redirect to sign-in until the session-based
-    // owner login is wired (P5).
+    // Owner self-serve login is intentionally not built (FullLoop is
+    // white-glove onboarded — see lib/owner-session.ts, 2026-07-28 decision).
+    // Protected owner routes that aren't admin-impersonated redirect to
+    // /sign-in, which explains the real (PIN, per-tenant-domain) login path.
     return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 }
@@ -567,7 +568,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|webm|mov|m4v|mp3|wav)).*)',
+    '/((?!_next|sentry-tunnel|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|webm|mov|m4v|mp3|wav)).*)',
     '/(api|trpc)(.*)',
   ],
 }

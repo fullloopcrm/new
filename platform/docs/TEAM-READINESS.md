@@ -19,8 +19,12 @@ until it's verified.
   is **fixed and covered by a regression test**.
 - There is now **CI** (`.github/workflows/ci.yml`) gating type errors, failing
   tests, and new unscoped queries. Before this, nothing enforced the gates.
-- Big gaps remain for multi-dev comfort: no RLS backstop, thin test coverage,
-  no migration system, ~45 cloned dashboards, sparse onboarding docs.
+- Big gaps remain for multi-dev comfort: no RLS backstop, coverage still under
+  the 80% target (see Phase B for the current measured number — corrected
+  2026-07-28; this line previously claimed "thin test coverage… ~10 test
+  files," which was stale by roughly 800 files and had never been re-checked
+  against the repo), no migration system, ~45 cloned dashboards, sparse
+  onboarding docs.
 
 ---
 
@@ -58,7 +62,14 @@ already written and verified against prod: `docs/tenant-isolation-rls-plan.md`.
 - [ ] Characterization tests on the money paths (Stripe webhook, invoices,
       deposits, payouts) **before** anyone refactors them.
 - [ ] Isolation tests for the top tenant-facing flows (bookings, clients, deals).
-- [ ] Raise coverage toward the 80% target (currently ~10 test files).
+- [ ] Raise coverage toward the 80% target. **Coverage (statements, src/lib + src/app/api, measured 2026-07-28): 40.7%** — 842 test files.
+      Money-path characterization tests added this pass (payroll-prep,
+      ar-aging, platform-ar-aging, platform-reports, budget-line-items) —
+      see the finance dir for before/after numbers on those specific files.
+      This line is checked in CI against the real, re-measured numbers by
+      `scripts/check-team-readiness-currency.mjs` — if you see a CI failure
+      naming this file, re-run `npm run test:coverage` and update the number
+      above, don't just silence the check.
 - [x] ✅ Lint is a **blocking** gate (`eslint src --quiet` is error-clean today).
 - [ ] Add pre-push hook mirroring CI (fast feedback before push).
 

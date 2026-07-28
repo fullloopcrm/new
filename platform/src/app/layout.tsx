@@ -50,13 +50,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // ClerkProvider is intentionally NOT mounted here. Clerk's production key is
-  // bound to the custom frontend-API domain clerk.fullloopcrm.com; when that
-  // domain fails to serve clerk-js, ClerkProvider throws after a ~4s timeout and
-  // takes the WHOLE page down. Admin, /site, team, and client portals are all
-  // PIN/phone-auth and never touch Clerk, so they must not depend on it. Clerk is
-  // now mounted only in the four segments that actually use it (dashboard,
-  // sign-in, sign-up, join) via their own layouts.
+  // ClerkProvider is intentionally NOT mounted here — and, as of the
+  // 2026-07-28 onboarding-model cleanup, not mounted ANYWHERE: Clerk has
+  // been fully removed (no @clerk/nextjs dependency; dashboard/sign-in/
+  // sign-up/join all now have plain passthrough layouts, see each one's own
+  // comment). FullLoop is white-glove onboarded — every tenant is
+  // provisioned by a platform admin (/admin/businesses) and every real
+  // login is PIN-based (admin PIN impersonation, or a tenant member's own
+  // PIN at their tenant domain's /fullloop). This comment used to describe
+  // routing Clerk away from a flaky custom frontend-API domain; that's now
+  // moot since nothing here calls Clerk at all.
   return (
     <html lang="en">
       <body className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable} ${fraunces.variable} antialiased`}>
