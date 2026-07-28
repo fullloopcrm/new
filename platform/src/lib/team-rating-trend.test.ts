@@ -14,7 +14,7 @@ const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<s
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeSupabaseFake(h) }))
 
-import { getTeamMemberRatingTrend } from './team-rating-trend'
+import { getTeamMemberRatingTrend, getTenantRatingTrends } from './team-rating-trend'
 
 const rating = (id: string, tenantId: string, teamMemberId: string, stars: number | null, createdAt: string) => ({
   id, tenant_id: tenantId, team_member_id: teamMemberId, cleaner_rating: stars, created_at: createdAt,
@@ -69,5 +69,51 @@ describe('getTeamMemberRatingTrend', () => {
 
     expect(trend.trend_rating_count).toBe(1)
     expect(trend.trend_avg_rating).toBe(4)
+  })
+})
+
+describe('getTenantRatingTrends (bulk, for list-view cards)', () => {
+  it('computes the same trend as the single-member function, for every member in one pass', async () => {
+    h.store.ratings = [
+      rating('r1', 'tenant-A', 'member-1', 5, '2026-01-01'),
+      rating('r2', 'tenant-A', 'member-1', 1, '2026-07-01'),
+      rating('r3', 'tenant-A', 'member-2', 4, '2026-06-01'),
+    ]
+
+    const trends = await getTenantRatingTrends('tenant-A', 10)
+
+    expect(trends.get('member-1')).toEqual({ trend_rating_count: 2, trend_avg_rating: 3 })
+    expect(trends.get('member-2')).toEqual({ trend_rating_count: 1, trend_avg_rating: 4 })
+  })
+
+  it('has no entry for a member with zero ratings (caller treats missing as null trend)', async () => {
+    h.store.ratings = [rating('r1', 'tenant-A', 'member-1', 5, '2026-01-01')]
+
+    const trends = await getTenantRatingTrends('tenant-A', 10)
+
+    expect(trends.has('member-never-rated')).toBe(false)
+  })
+
+  it("never counts another tenant's ratings", async () => {
+    h.store.ratings = [
+      rating('r1', 'tenant-A', 'member-1', 5, '2026-01-01'),
+      rating('r2', 'tenant-B', 'member-1', 1, '2026-01-02'),
+    ]
+
+    const trends = await getTenantRatingTrends('tenant-A', 10)
+
+    expect(trends.get('member-1')).toEqual({ trend_rating_count: 1, trend_avg_rating: 5 })
+  })
+
+  it('honors lastN, keeping only the most recent ratings per member', async () => {
+    h.store.ratings = [
+      rating('r1', 'tenant-A', 'member-1', 5, '2026-01-01'),
+      rating('r2', 'tenant-A', 'member-1', 5, '2026-02-01'),
+      rating('r3', 'tenant-A', 'member-1', 1, '2026-07-01'),
+    ]
+
+    const trends = await getTenantRatingTrends('tenant-A', 2)
+
+    expect(trends.get('member-1')).toEqual({ trend_rating_count: 2, trend_avg_rating: 3 })
   })
 })

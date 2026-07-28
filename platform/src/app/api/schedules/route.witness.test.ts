@@ -61,6 +61,18 @@ vi.mock('@/lib/validate', () => ({
 
 vi.mock('@/lib/audit', () => ({ audit: async () => {} }))
 
+// The CONTROL test's per-occurrence rescoring (route.ts calls
+// scoreTeamForBooking for every generated date when team_member_id is
+// given) falls through to geocodeAddress when the seeded client has no
+// address/lat-long — a real, unmocked network call that hangs past
+// vitest's default timeout in a sandboxed test run. Same mock as
+// smart-schedule.test.ts: only the network-hitting geocoder is stubbed,
+// every other scoring/matching function stays real.
+vi.mock('@/lib/geo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/geo')>()
+  return { ...actual, geocodeAddress: async () => null }
+})
+
 import { POST } from './route'
 
 function seed() {
