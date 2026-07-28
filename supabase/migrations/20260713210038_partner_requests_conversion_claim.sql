@@ -1,0 +1,15 @@
+-- Adopted from legacy hand-run migration: 2026_07_13_partner_requests_conversion_claim.sql
+-- Original commit date (git first-add): 2026-07-13T17:00:37-04:00
+-- STATUS: part of the baseline. Assumed already live in prod as of
+-- the 2026-07-28 cutover -- marked applied without re-running, per
+-- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+-- TOCTOU fix: createTenantFromLead() used to guard duplicate tenant creation
+-- with a plain select-then-branch on partner_requests.converted_tenant_id —
+-- two concurrent callers (e.g. an admin double-clicking "convert" while a
+-- paid-proposal webhook fires for the same lead) could both read
+-- converted_tenant_id: null and both create a full duplicate tenant
+-- (billing, seats, territory claim, owner PIN — the works) before either
+-- write landed. This column is an atomic claim marker, set in one UPDATE
+-- gated on both converted_tenant_id AND conversion_claimed_at being NULL —
+-- the loser's UPDATE matches zero rows and backs off instead of proceeding.
+ALTER TABLE partner_requests ADD COLUMN IF NOT EXISTS conversion_claimed_at timestamptz;

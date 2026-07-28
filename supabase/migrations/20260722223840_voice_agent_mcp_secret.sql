@@ -1,0 +1,11 @@
+-- Adopted from legacy hand-run migration: 2026_07_22_voice_agent_mcp_secret.sql
+-- Original commit date (git first-add): 2026-07-22T18:38:40-04:00
+-- STATUS: part of the baseline. Assumed already live in prod as of
+-- the 2026-07-28 cutover -- marked applied without re-running, per
+-- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+-- Per-tenant secret for the customer-facing xAI voice-agent MCP endpoint
+-- (src/app/api/voice/customer-mcp/[secret]/[transport]/route.ts) and its
+-- companion call-lifecycle webhook. Global column, NULL for every tenant
+-- except the ones actually wired up in xAI's console — that's what scopes
+-- this feature to specific tenants without forking any code.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS voice_agent_mcp_secret text;

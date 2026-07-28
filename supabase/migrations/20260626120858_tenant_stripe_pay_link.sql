@@ -1,0 +1,15 @@
+-- Adopted from legacy hand-run migration: 050_tenant_stripe_pay_link.sql
+-- Original commit date (git first-add): 2026-06-26T08:08:58-04:00
+-- STATUS: part of the baseline. Assumed already live in prod as of
+-- the 2026-07-28 cutover -- marked applied without re-running, per
+-- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+-- Per-tenant static Stripe Payment Link (NYC Maid parity).
+-- nycmaid hardcodes one link (buy.stripe.com/8x2aEZ...) and appends
+-- ?client_reference_id=<bookingId>; the Stripe webhook ties payment -> booking.
+-- FullLoop stores it per tenant so each business collects to its own account
+-- and its existing Stripe tracking/reporting/marketing pipeline stays intact.
+--
+-- Set for nycmaid after applying:
+--   UPDATE tenants SET stripe_pay_link = 'https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03'
+--   WHERE slug = 'nycmaid';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_pay_link TEXT;

@@ -1,5 +1,33 @@
 # SAFE SCHEMA-MIGRATION RUNBOOK
 
+## NEW WORKFLOW (2026-07-28 cutover — read this first)
+
+Per `docs/adr/0008-migration-tool-cutover.md`, `platform/src/lib/migrations/`
+(158 hand-run files, untracked) is now **frozen**. New migrations go through
+the Supabase CLI instead:
+
+1. `supabase migration new <descriptive_name>` from the repo root — creates
+   `supabase/migrations/<timestamp>_<descriptive_name>.sql`.
+2. Author the DDL in that file. Same idempotency + no-unguarded-destructive-op
+   rules as always (see "THE PROCEDURE" below — unchanged).
+3. Same peer review + PRE/POST assertion authoring as always — unchanged.
+4. **Apply is still GATED.** Instead of a Management API curl call, the
+   LEADER runs `supabase db push` after Jeff's explicit go for that specific
+   migration. `supabase migration list` shows exactly which migrations are
+   applied vs pending at any time — this replaces "hope everyone remembers
+   which ones landed."
+5. Rollback pointer: still the authoritative table in
+   `deploy-prep/deploy-runbook.md` — unchanged.
+
+The rest of this document (below) describes the pre-cutover process and
+remains accurate for historical migrations already in
+`platform/src/lib/migrations/` — do not delete, it's the record of how the
+157-file baseline was actually applied.
+
+---
+
+# SAFE SCHEMA-MIGRATION RUNBOOK (pre-cutover / historical)
+
 **Reusable procedure for applying a DDL / data migration to the FullLoop prod
 Postgres (Supabase project `cetnrttgtoajzjacfbhe`) via the Management API.**
 
@@ -12,7 +40,8 @@ Postgres (Supabase project `cetnrttgtoajzjacfbhe`) via the Management API.**
 > - Phased release order + rollback table: `deploy-prep/deploy-runbook.md`
 > - Read-only PRE/POST probe pack for 060/061/062: `deploy-prep/migration-verify.sql`
 > - Drift gate (read-only, same Mgmt-API shape): `platform/scripts/reconcile-tenant-config.mjs`
-> - Rationale for the DB changes: ADR `0004-tenantdb-adoption.md`, `0005-rls-defense-in-depth.md`
+> - Rationale for the DB changes: ADR `0004-tenantdb-adoption.md`, `0005-rls-defense-in-depth.md`,
+>   `0008-migration-tool-cutover.md`
 
 ## GATED ACTIONS (Jeff-approval required, each time, individually)
 1. **Any prod DB write** — apply a migration, run a backfill, create/drop an index, GRANT/REVOKE.
