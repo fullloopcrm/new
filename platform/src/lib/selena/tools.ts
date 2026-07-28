@@ -100,6 +100,62 @@ function extractEntityId(input: Record<string, unknown>): string | undefined {
   return undefined
 }
 
+// Ambiguous-target guard. Investigated: neither core.ts's detectIntent (always
+// resolves to some intent, never "unclear") nor agent.ts/tools.ts had any
+// confidence-threshold or clarification-request mechanism — a tool call whose
+// target id is missing/empty just silently proceeded (typically hitting
+// "not found" downstream, or in a couple of handlers, writing null/undefined
+// into a mutation). Claude's tool schema `required` array is a hint to the
+// model, not an enforced contract — it can still emit a tool_use with a
+// required field blank or omitted rather than asking. This refuses BEFORE
+// dispatch and tells the model to ask instead of guessing/inventing an id.
+//
+// Scoped deliberately to id-shaped target fields (the ENTITY_ID_KEYS above,
+// reusing the same list) rather than every field a schema marks required —
+// some non-id required fields have a real default in the handler (e.g.
+// report_issue's "severity" defaults to 'medium' if omitted; agent.ts's
+// schema over-declares it required) and would false-positive as "missing"
+// under a blanket check. An id has no such default: there is never a
+// reasonable target to fall back to, so requiring it is always safe.
+//
+// Hand-verified against agent.ts's TOOLS schema (grep `required: [.*_id`)
+// rather than importing TOOLS at runtime — several existing tests fully
+// mock '@/lib/selena/agent' down to just { isOwnerOfTenant }, and importing
+// TOOLS here would break every one of them on a module they don't even
+// exercise. A static list is also immune to that class of test breakage.
+const TOOL_REQUIRED_ID_FIELDS: Record<string, string[]> = {
+  reschedule_booking: ['booking_id'],
+  cancel_booking: ['booking_id'],
+  assign_cleaner_to_booking: ['booking_id', 'cleaner_id'],
+  update_booking: ['booking_id'],
+  approve_refund: ['booking_id'],
+  mark_payout_paid: ['payout_id'],
+  block_client: ['client_id'],
+  update_cleaner: ['cleaner_id'],
+  deactivate_cleaner: ['cleaner_id'],
+  pause_recurring: ['schedule_id'],
+  resume_recurring: ['schedule_id'],
+  cancel_recurring: ['schedule_id'],
+  create_deal: ['client_id'],
+  update_deal: ['deal_id'],
+  mark_notification_read: ['notification_id'],
+  approve_cleaner_application: ['application_id'],
+  reject_cleaner_application: ['application_id'],
+  process_stripe_refund: ['booking_id'],
+  block_cleaner_dates: ['cleaner_id'],
+  get_smart_suggestion: ['booking_id'],
+}
+function isMissing(val: unknown): boolean {
+  if (val === undefined || val === null) return true
+  if (typeof val === 'string' && val.trim() === '') return true
+  if (typeof val === 'number' && Number.isNaN(val)) return true
+  return false
+}
+function firstMissingRequiredIdField(name: string, input: Record<string, unknown>): string | undefined {
+  const required = TOOL_REQUIRED_ID_FIELDS[name] || []
+  return required.find((field) => isMissing(input[field]))
+}
+
 // Every tool call — client and owner alike — goes through this one function
 // (SMS, web chat, and Telegram all call runTool for every tool the model
 // invokes), so it's the single choke point for audit logging: wrap the real
@@ -185,6 +241,18 @@ async function dispatchTool(
     return JSON.stringify({
       error: 'owner_only_tool',
       message: `Tool ${name} is owner-only. You're talking to a client right now — answer their question without this tool.`,
+    })
+  }
+
+  // Ambiguous-target guard — refuse rather than let the model act on a
+  // missing/guessed id. See firstMissingRequiredIdField's comment above.
+  const missingIdField = firstMissingRequiredIdField(name, input)
+  if (missingIdField) {
+    console.warn('[Yinez:missing_required_id]', { name, missingIdField, conversationId })
+    return JSON.stringify({
+      error: 'missing_required_field',
+      field: missingIdField,
+      message: `Cannot call ${name} — "${missingIdField}" is required but wasn't provided. Ask for it (or look it up first) instead of guessing or inventing a value.`,
     })
   }
 
