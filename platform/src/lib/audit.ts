@@ -16,6 +16,8 @@ type AuditAction =
   | 'team_portal.login' | 'team_portal.checkin' | 'team_portal.checkout'
   | 'portal.login' | 'portal.booking_created' | 'portal.booking_cancelled'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'
+  | 'yinez.tool_call' | 'yinez.tool_blocked'
+  | 'tenant.offboarded'
 
 // Audit actions that warrant an immediate ping to the owner — irreversible,
 // access-changing, or data-exfiltration-shaped. Everything else in

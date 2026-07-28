@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { offboardTenant, type TenantOffboardResult } from '@/lib/tenant-offboarding'
 
 export async function GET(
   _request: Request,
@@ -77,6 +78,17 @@ export async function PUT(
     if (body[key] !== undefined) updates[key] = body[key]
   }
 
+  // Capture the prior status before the update so the offboarding cascade
+  // below fires only on the transition INTO 'cancelled', not on every
+  // subsequent save while the tenant already sits cancelled (idempotent
+  // either way, but this avoids a repeat export + audit row on every
+  // unrelated branding edit).
+  let previousStatus: string | null = null
+  if (updates.status !== undefined) {
+    const { data: existing } = await supabaseAdmin.from('tenants').select('status').eq('id', id).single()
+    previousStatus = existing?.status ?? null
+  }
+
   const { error } = await supabaseAdmin
     .from('tenants')
     .update(updates)
@@ -102,5 +114,19 @@ export async function PUT(
     })
   }
 
-  return NextResponse.json({ success: true })
+  // Cancelling a tenant used to be a no-op beyond the status flag itself —
+  // their recurring_schedules stayed 'active' and cron/generate-recurring
+  // kept generating new bookings for them forever (it never checked tenant
+  // status at all). This cascades: cancel the tenant's recurring schedules,
+  // notify affected clients their recurring service ended, and produce a
+  // data export before the tenant goes inactive. See lib/tenant-offboarding.ts.
+  let offboarding: TenantOffboardResult | null = null
+  if (updates.status === 'cancelled' && previousStatus !== 'cancelled') {
+    offboarding = await offboardTenant(id).catch((err) => {
+      console.error('PUT /api/admin/tenants/[id]: offboarding cascade failed', err)
+      return null
+    })
+  }
+
+  return NextResponse.json({ success: true, offboarding })
 }

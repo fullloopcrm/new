@@ -1,17 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /**
- * Kill switch (Settings -> Calendar -> "Pause automated recurring writes")
- * for the auto-generation cron. When on for a tenant, that tenant's
- * schedules are skipped entirely -- no bookings generated, no reassignment,
- * no notifications, no writes of any kind. Existing bookings/schedules are
- * untouched.
+ * Tenant-status guard for the auto-generation cron. Before this existed the
+ * cron never checked tenant status at all -- only recurring_schedules.status
+ * -- so a cancelled tenant whose schedule row was still (or became again)
+ * 'active' kept getting new bookings generated forever. Cancelling a tenant
+ * now cascades to cancel its recurring_schedules (lib/tenant-offboarding.ts),
+ * but this is the independent second guard against the tenant row itself:
+ * even if a schedule is 'active' for a non-active tenant, no booking should
+ * be generated.
  */
 
 vi.mock('@/lib/cron-auth', () => ({ verifyCronSecret: () => null }))
-
-let paused = false
-vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ smart_recurring_assign: false, recurring_writes_paused: paused }) }))
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ smart_recurring_assign: false, recurring_writes_paused: false }) }))
 vi.mock('@/lib/recurring-team-suggest', () => ({ suggestTeamMemberForRecurring: async () => null }))
 vi.mock('@/lib/client-properties', () => ({ getBookingAddress: async () => null }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [], pickBestTeam: () => ({ lead: null }) }))
@@ -87,34 +88,34 @@ vi.mock('@/lib/supabase', () => ({
 
 import { GET } from './route'
 
+function baseSchedule() {
+  return {
+    id: 'sched-1', tenant_id: 'tenant-1', status: 'active', client_id: 'client-1',
+    team_member_id: 'member-1', property_id: null, service_type_id: null,
+    recurring_type: 'weekly', day_of_week: new Date().getDay(), preferred_time: '09:00',
+    duration_hours: 2, hourly_rate: 40, pay_rate: 20, discount_percent: 0, notes: null,
+    special_instructions: null,
+  }
+}
+
 beforeEach(() => {
-  paused = false
   h.tables = {}
   sendSMSMock.mockClear()
-  h.tables.recurring_schedules = [
-    {
-      id: 'sched-1', tenant_id: 'tenant-1', status: 'active', client_id: 'client-1',
-      team_member_id: 'member-1', property_id: null, service_type_id: null,
-      recurring_type: 'weekly', day_of_week: new Date().getDay(), preferred_time: '09:00',
-      duration_hours: 2, hourly_rate: 40, pay_rate: 20, discount_percent: 0, notes: null,
-      special_instructions: null,
-    },
-  ]
+  h.tables.recurring_schedules = [baseSchedule()]
   h.tables.bookings = []
   h.tables.team_members = [
     { id: 'member-1', tenant_id: 'tenant-1', name: 'Jordan Cleaner', phone: '2125551234', pin: '4321', status: 'active', working_days: null, schedule: null, unavailable_dates: null },
   ]
   h.tables.clients = [{ id: 'client-1', tenant_id: 'tenant-1', name: 'Taylor Client' }]
-  h.tables.tenants = [
-    { id: 'tenant-1', status: 'active', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
-  ]
   h.tables.recurring_exceptions = []
   h.tables.notifications = []
 })
 
-describe('cron/generate-recurring — kill switch', () => {
-  it('paused: generates zero bookings, sends zero SMS, leaves the schedule untouched', async () => {
-    paused = true
+describe('cron/generate-recurring — tenant status guard', () => {
+  it('cancelled tenant: an active schedule generates zero bookings and sends zero SMS', async () => {
+    h.tables.tenants = [
+      { id: 'tenant-1', status: 'cancelled', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
+    ]
     const res = await GET(new Request('http://x'))
     const json = await res.json()
     expect(json.generated).toBe(0)
@@ -122,8 +123,28 @@ describe('cron/generate-recurring — kill switch', () => {
     expect(sendSMSMock).not.toHaveBeenCalled()
   })
 
-  it('CONTROL: not paused generates the booking normally', async () => {
-    paused = false
+  it('suspended tenant: also generates zero bookings', async () => {
+    h.tables.tenants = [
+      { id: 'tenant-1', status: 'suspended', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
+    ]
+    const res = await GET(new Request('http://x'))
+    const json = await res.json()
+    expect(json.generated).toBe(0)
+    expect(h.tables.bookings).toHaveLength(0)
+  })
+
+  it('tenant row missing entirely: fails closed, generates zero bookings', async () => {
+    h.tables.tenants = []
+    const res = await GET(new Request('http://x'))
+    const json = await res.json()
+    expect(json.generated).toBe(0)
+    expect(h.tables.bookings).toHaveLength(0)
+  })
+
+  it('CONTROL: active tenant generates the booking normally', async () => {
+    h.tables.tenants = [
+      { id: 'tenant-1', status: 'active', slug: 'test-co', industry: 'cleaning', name: 'Test Co', telnyx_api_key: 'fake-key', telnyx_phone: '+15005550006' },
+    ]
     const res = await GET(new Request('http://x'))
     const json = await res.json()
     expect(json.generated).toBeGreaterThan(0)
