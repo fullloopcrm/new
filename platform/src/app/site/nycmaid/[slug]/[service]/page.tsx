@@ -210,8 +210,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
                     <p className="text-gray-400 text-xs mt-1">Duration</p>
                   </div>
                 </div>
-                <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors w-full">
-                  Text (212) 202-8400
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors w-full">
+                  Self-book, save $10
                 </a>
               </div>
             </div>
@@ -334,8 +334,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (212) 202-8400
+            <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Self-book, save $10
             </a>
           </div>
         </div>

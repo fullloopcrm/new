@@ -56,9 +56,9 @@ export default function MarketingNav() {
               <span className="text-white/20 hidden sm:inline">-</span>
               <span className="text-white/80 font-semibold hidden sm:inline">Open 24/7</span>
               <span className="text-white/20 hidden sm:inline">·</span>
-              <a href="sms:2122028400" className="inline-flex items-center gap-1 text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">
+              <a href="/book/new" className="inline-flex items-center gap-1 text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">
                 <svg aria-hidden="true" className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>
-                <span>Sales &amp; Customer Service: (212) 202-8400</span>
+                <span>Self-book, save $10</span>
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
