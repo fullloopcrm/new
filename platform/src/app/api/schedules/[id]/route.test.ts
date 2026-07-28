@@ -54,8 +54,8 @@ beforeEach(() => {
   h.audit.mockResolvedValue(undefined)
   h.store = {
     recurring_schedules: [
-      { id: 'sched-A1', tenant_id: 'tenant-A', client_id: 'client-A1', recurring_type: 'weekly', status: 'active' },
-      { id: 'sched-B1', tenant_id: 'tenant-B', client_id: 'client-B1', recurring_type: 'weekly', status: 'active' },
+      { id: 'sched-A1', tenant_id: 'tenant-A', client_id: 'client-A1', recurring_type: 'weekly', status: 'active', team_member_id: 'member-1' },
+      { id: 'sched-B1', tenant_id: 'tenant-B', client_id: 'client-B1', recurring_type: 'weekly', status: 'active', team_member_id: 'member-2' },
     ],
     bookings: [
       { id: 'book-future', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: FUTURE },
@@ -162,5 +162,23 @@ describe('DELETE /api/schedules/:id', () => {
     expect(res.status).toBe(200)
     expect(h.store.bookings.find((b) => b.id === 'book-B1')?.status).toBe('scheduled')
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-B1')?.status).toBe('active')
+  })
+
+  it('snapshots the assigned team member into cancelled_team_member_id and stamps cancelled_at', async () => {
+    const res = await DELETE(new Request('http://x'), params('sched-A1'))
+
+    expect(res.status).toBe(200)
+    const row = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')
+    expect(row?.cancelled_team_member_id).toBe('member-1')
+    expect(row?.cancelled_at).toBeTruthy()
+  })
+
+  it('snapshots null when the schedule had no assigned team member at cancellation', async () => {
+    h.store.recurring_schedules.push({ id: 'sched-A2', tenant_id: 'tenant-A', client_id: 'client-A1', recurring_type: 'weekly', status: 'active', team_member_id: null })
+
+    const res = await DELETE(new Request('http://x'), params('sched-A2'))
+
+    expect(res.status).toBe(200)
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A2')?.cancelled_team_member_id).toBeNull()
   })
 })
