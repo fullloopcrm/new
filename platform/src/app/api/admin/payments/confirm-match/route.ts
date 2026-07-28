@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { sendSMS } from '@/lib/sms'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
@@ -72,8 +73,10 @@ export async function POST(req: Request) {
       .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
       .eq('id', unmatchedPaymentId)
 
-    // 2. Insert payment row
-    await db.from('payments').insert({
+    // 2. Insert payment row. tenant_id stamped explicitly — tenantClient
+    // doesn't auto-stamp inserts the way tenantDb did.
+    await (await tenantClient(tenantId)).from('payments').insert({
+      tenant_id: tenantId,
       booking_id: bookingId,
       client_id: booking.client_id,
       amount_cents: amountCents,

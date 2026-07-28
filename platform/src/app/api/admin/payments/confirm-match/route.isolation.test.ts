@@ -23,6 +23,10 @@ vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
+// payments now goes through tenantClient() (RLS Stage 3) instead of tenantDb()
+// — same underlying fake store (both wrap the same hoisted `h`), so
+// cross-tenant behavior stays testable without a real JWT/network round trip.
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => makeTenantDbFake(h) }))
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error { status = 401 }
   return {
