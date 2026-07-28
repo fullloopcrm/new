@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   images: {
@@ -87,4 +88,19 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "full-loop-crm",
+  project: "javascript-nextjs",
+
+  // Build-time source-map upload token — not set yet, source maps won't
+  // upload until it exists. See docs/adr/0006-error-tracking-sentry-plan.md.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  widenClientFileUpload: true,
+
+  // Distinct from the existing /admin/monitoring dashboard — this is
+  // Sentry's own ad-blocker-bypass proxy route, unrelated to that system.
+  tunnelRoute: "/sentry-tunnel",
+
+  silent: !process.env.CI,
+});

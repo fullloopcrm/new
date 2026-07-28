@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -11,9 +12,10 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data, error } = await tenantDb(auth.tid)
+  const { data, error } = await (await tenantClient(auth.tid))
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
+    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .order('start_time', { ascending: false })
 
@@ -95,9 +97,10 @@ export async function POST(request: Request) {
     propertyId = prop.id
   }
 
-  const { data, error } = await db
-    .from('bookings') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
+  const { data, error } = await (await tenantClient(auth.tid))
+    .from('bookings')
     .insert({
+      tenant_id: auth.tid, // tenantClient() does NOT auto-stamp like tenantDb() did; RLS WITH CHECK requires this to match the JWT's tenant_id
       client_id: auth.id,
       property_id: propertyId,
       service_type_id: body.service_type_id || null,

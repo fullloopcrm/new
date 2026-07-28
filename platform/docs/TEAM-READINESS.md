@@ -62,12 +62,24 @@ already written and verified against prod: `docs/tenant-isolation-rls-plan.md`.
 - [x] ✅ Lint is a **blocking** gate (`eslint src --quiet` is error-clean today).
 - [ ] Add pre-push hook mirroring CI (fast feedback before push).
 
-## Phase C — Reproducible database — 🧱 ⬜
+## Phase C — Reproducible database — 🧱 ⬜ (tooling built 2026-07-28, prod cutover pending)
 
-- [ ] Replace 34 hand-run `.sql` files with a real migration tool (schema-in-code,
-      up/down, applied-state tracking).
-- [ ] Snapshot current prod schema as the baseline migration.
-- [ ] **Done means:** a dev can rebuild the schema from the repo and know it matches prod.
+- [x] ✅ Replace hand-run `.sql` files (158 total, not 34) with a real migration
+      tool: Supabase CLI adopted (`supabase migration new` / `db push`,
+      tracked via `supabase_migrations.schema_migrations`). See
+      `docs/adr/0008-migration-tool-cutover.md`.
+- [x] ✅ Baseline generated: all 157 pre-2026-07-28 files converted into
+      `supabase/migrations/` in git-history chronological order
+      (`platform/scripts/migrate-legacy-to-cli.mjs`, re-runnable).
+- [ ] Baseline marked "applied" against real prod — **BLOCKED on Jeff's go**
+      (`supabase migration repair --status applied ...`, see
+      `supabase/BASELINE_VERSIONS.txt`). Also blocked on explaining an
+      orphaned pre-existing row (`20260727160000`) already in prod's
+      tracking table with no matching file — investigate before repairing.
+- [ ] **Done means:** a dev can rebuild the schema from the repo and know it
+      matches prod. Not yet true — local rebuild is untested (no Docker in
+      this session, same gap ADR 0007 hit) and the baseline isn't marked
+      applied on prod yet.
 
 ## Phase D — One codebase, not forks — 🧱 ⬜
 

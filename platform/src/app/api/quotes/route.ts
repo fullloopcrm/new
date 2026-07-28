@@ -3,6 +3,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import {
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     // tenant's quote via the GET join, a cross-tenant PII leak.
     const clientId = typeof body.client_id === 'string' && body.client_id ? body.client_id : null
     if (clientId) {
-      const { data: c } = await supabaseAdmin.from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
+      const { data: c } = await (await tenantClient(tenantId)).from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
       if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 

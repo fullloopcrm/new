@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { createPrimaryContact } from '@/lib/client-contacts'
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       if (!c?.name) { failed++; continue }
       const pin = String(100000 + crypto.randomInt(0, 900000))
 
-      const { data, error } = await supabaseAdmin.from('clients').insert({
+      const { data, error } = await (await tenantClient(tenantId)).from('clients').insert({
         tenant_id: tenantId,
         name: c.name,
         phone: c.phone || null,

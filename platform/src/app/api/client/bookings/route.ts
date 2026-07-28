@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { nowNaiveET } from '@/lib/recurring'
@@ -60,17 +61,21 @@ export async function GET(request: Request) {
     }
   }
 
-  const { data: upcoming } = await tenantDb(tenant.id)
+  const bookingsClient = await tenantClient(tenant.id)
+
+  const { data: upcoming } = await bookingsClient
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
+    .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .gte('start_time', now)
     .neq('status', 'cancelled')
     .order('start_time', { ascending: true })
 
-  const { data: past } = await tenantDb(tenant.id)
+  const { data: past } = await bookingsClient
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
+    .eq('tenant_id', tenant.id)
     .in('client_id', clientIds)
     .lt('start_time', now)
     .order('start_time', { ascending: false })

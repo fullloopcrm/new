@@ -1,0 +1,11 @@
+-- Adopted from legacy hand-run migration: 2026_07_23_tenant_voice_did.sql
+-- Original commit date (git first-add): 2026-07-22T20:32:23-04:00
+-- STATUS: part of the baseline. Assumed already live in prod as of
+-- the 2026-07-28 cutover -- marked applied without re-running, per
+-- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+-- Separate, optional voice-only DID for tenants whose inbound call number
+-- differs from tenants.telnyx_phone (SMS "from" address, used across ~50
+-- call sites — never repurpose it). resolveVoiceTenant() in
+-- webhooks/telnyx-voice/route.ts matches either column. NULL for every
+-- tenant that answers calls on the same number they text from.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS voice_did text;

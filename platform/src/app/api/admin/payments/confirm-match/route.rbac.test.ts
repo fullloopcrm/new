@@ -14,7 +14,11 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
+  return { supabaseAdmin: fake, __fake: fake }
+})
+vi.mock('@/lib/tenant-supabase', async () => {
+  const mod = await import('@/lib/supabase') as unknown as { __fake: unknown }
+  return { tenantClient: async () => mod.__fake }
 })
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 

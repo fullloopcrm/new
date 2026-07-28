@@ -138,6 +138,15 @@ beforeEach(() => {
   selectResolver = baseResolver
 })
 
+// runTool() now writes one audit_logs row per call (Yinez tool-call audit
+// logging) regardless of whether the underlying business write happened —
+// that's a real insert() through this same mocked builder, so it shows up
+// in insertCalls too. These tests are about the FK tenant-ownership guard on
+// the BUSINESS table, so assert against inserts with the audit row excluded.
+function businessInserts() {
+  return insertCalls.filter((c) => c.table !== 'audit_logs')
+}
+
 afterEach(() => {
   vi.unstubAllEnvs()
 })
@@ -150,20 +159,20 @@ describe('create_manual_booking — FK tenant-ownership', () => {
   it("REJECTS a client_id from another tenant (no booking inserted)", async () => {
     const out = await runTool('create_manual_booking', { ...base, client_id: FOREIGN_CLIENT }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).error).toBe('client not found')
-    expect(insertCalls).toHaveLength(0)
+    expect(businessInserts()).toHaveLength(0)
   })
 
   it("REJECTS a foreign cleaner_id even when the client is own-tenant (no insert)", async () => {
     const out = await runTool('create_manual_booking', { ...base, client_id: OWN_CLIENT, cleaner_id: FOREIGN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect(insertCalls).toHaveLength(0)
+    expect(businessInserts()).toHaveLength(0)
   })
 
   it('ALLOWS own-tenant client + cleaner (booking inserted, tenant-scoped)', async () => {
     const out = await runTool('create_manual_booking', { ...base, client_id: OWN_CLIENT, cleaner_id: OWN_CLEANER }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).ok).toBe(true)
-    expect(insertCalls).toHaveLength(1)
-    const values = insertCalls[0].values as Record<string, unknown>
+    expect(businessInserts()).toHaveLength(1)
+    const values = businessInserts()[0].values as Record<string, unknown>
     expect(values.tenant_id).toBe(TENANT_A)
     expect(values.client_id).toBe(OWN_CLIENT)
   })
@@ -175,14 +184,14 @@ describe('create_deal — FK tenant-ownership', () => {
   it("REJECTS a client_id from another tenant (no deal inserted)", async () => {
     const out = await runTool('create_deal', { client_id: FOREIGN_CLIENT, value_dollars: 500 }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).error).toBe('client not found')
-    expect(insertCalls).toHaveLength(0)
+    expect(businessInserts()).toHaveLength(0)
   })
 
   it('ALLOWS an own-tenant client (deal inserted, tenant-scoped)', async () => {
     const out = await runTool('create_deal', { client_id: OWN_CLIENT, value_dollars: 500 }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
     expect(JSON.parse(out).ok).toBe(true)
-    expect(insertCalls).toHaveLength(1)
-    expect((insertCalls[0].values as Record<string, unknown>).tenant_id).toBe(TENANT_A)
+    expect(businessInserts()).toHaveLength(1)
+    expect((businessInserts()[0].values as Record<string, unknown>).tenant_id).toBe(TENANT_A)
   })
 })
 

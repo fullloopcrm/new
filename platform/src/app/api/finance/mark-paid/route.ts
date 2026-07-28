@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
   // that already posted). Then post revenue. Best-effort — never fail the flip.
   if (type === 'client') {
     try {
-      const { data: existing } = await supabaseAdmin
+      const payments = await tenantClient(tenantId)
+      const { data: existing } = await payments
         .from('payments')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
           .maybeSingle()
         const amountCents = Number(booking?.price) || 0
         if (amountCents > 0) {
-          const { data: paymentRow } = await supabaseAdmin
+          const { data: paymentRow } = await payments
             .from('payments')
             .insert({
               tenant_id: tenantId,

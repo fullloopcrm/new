@@ -40,6 +40,7 @@ function chain(table: string) {
 }
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => chain(t) }) }))
 
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({

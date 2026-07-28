@@ -6,6 +6,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * rows from BOTH sources GET unions (dedicated `waitlist` table + legacy
  * `sms_conversations` waitlist rows), and that POST inserts are stamped with
  * the tenant resolved from the signed middleware header, not any body value.
+ *
+ * RLS Stage 3 (docs/tenant-isolation-rls-plan.md): the sms_conversations leg
+ * of GET now runs through tenantClient(tid), not tenantDb -- mocked below
+ * against the same fake `store`/`builder` so this isolation proof still
+ * covers it end to end.
  */
 
 type Row = Record<string, unknown>
@@ -48,6 +53,10 @@ function builder(table: string) {
 
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: { from: (table: string) => builder(table) },
+}))
+
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => ({ from: (table: string) => builder(table) }),
 }))
 
 let currentTenant: string

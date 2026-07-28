@@ -3,6 +3,7 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logInvoiceEvent } from '@/lib/invoice'
@@ -34,9 +35,10 @@ export async function GET(_request: Request, { params }: Params) {
         .eq('invoice_id', id)
         .order('created_at', { ascending: false })
         .limit(100),
-      db
+      (await tenantClient(tenantId))
         .from('payments')
         .select('id, amount_cents, tip_cents, method, status, reference_id, sender_name, received_at, created_at')
+        .eq('tenant_id', tenantId)
         .eq('invoice_id', id)
         .order('created_at', { ascending: false }),
     ])

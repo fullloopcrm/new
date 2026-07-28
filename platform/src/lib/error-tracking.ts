@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner, alertOwnerCritical } from '@/lib/telegram'
+import * as Sentry from '@sentry/nextjs'
 
 // Rate limit: track last alert time per error type to avoid spamming
 const alertCooldowns = new Map<string, number>()
@@ -108,6 +109,18 @@ export async function trackError(error: unknown, context: ErrorContext) {
 
   // Always console.error for Vercel logs
   console.error(`[${severity.toUpperCase()}] ${context.source}:`, message, stack || '')
+
+  // Dual-write to Sentry alongside error_logs (docs/adr/0006) — real stack
+  // traces + fingerprint-based grouping, while error_logs stays the fast
+  // at-a-glance + Telegram/SMS alerting surface. Never let this throw.
+  try {
+    Sentry.captureException(error instanceof Error ? error : new Error(message), {
+      tags: { source: context.source, tenantId: context.tenantId },
+      level: severity === 'critical' ? 'fatal' : severity === 'high' ? 'error' : severity === 'low' ? 'info' : 'warning',
+    })
+  } catch (e) {
+    console.error('Failed to send error to Sentry:', e)
+  }
 }
 
 // ---- Auth-failure logging (platform-wide monitoring, Phase 1) ------------
@@ -164,4 +177,15 @@ export async function logAuthFailure(ctx: AuthFailureContext): Promise<void> {
 
   await alertOwner(`🔒 Login lockout: ${ctx.surface}`, detail)
     .catch((e) => console.error('Failed to send auth lockout alert to Telegram:', e))
+
+  // Only the lockout crossing goes to Sentry, not every failed attempt —
+  // same log-everything/alert-on-signal split as the Telegram cooldown above.
+  try {
+    Sentry.captureMessage(`Login lockout: ${ctx.surface}`, {
+      level: 'warning',
+      tags: { source: ctx.surface, tenantId: ctx.tenantId },
+    })
+  } catch (e) {
+    console.error('Failed to send lockout to Sentry:', e)
+  }
 }

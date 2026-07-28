@@ -36,6 +36,7 @@ vi.mock('@/lib/supabase', () => {
   }
   return { supabaseAdmin: fake, supabase: fake }
 })
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => makeTenantDbFake(h) }))
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: (...a: unknown[]) => h.requirePermission(...a),
 }))

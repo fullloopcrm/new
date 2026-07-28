@@ -9,6 +9,7 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
@@ -84,9 +85,10 @@ export async function GET() {
   }
 
   // Legacy SMS-conversation waitlist.
-  const { data: convos } = await tenantDb(tenantId)
+  const { data: convos } = await (await tenantClient(tenantId))
     .from('sms_conversations')
     .select('id, name, phone, service_type, booking_checklist, created_at, client_id')
+    .eq('tenant_id', tenantId)
     .eq('outcome', 'waitlisted')
     .eq('expired', false)
     .order('created_at', { ascending: false })

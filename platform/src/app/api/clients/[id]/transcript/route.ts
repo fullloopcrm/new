@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { AuthError } from '@/lib/tenant-query'
 
 export async function GET(
@@ -32,7 +33,9 @@ export async function GET(
     }
 
     // Fallback: check sms_conversation_messages via sms_conversations
-    const { data: conversations, error: convError } = await supabaseAdmin
+    // (sms_conversation_messages itself stays on supabaseAdmin -- RLS Stage 3
+    // migration blocked on that table, see docs/tenant-isolation-rls-plan.md)
+    const { data: conversations, error: convError } = await (await tenantClient(tenantId))
       .from('sms_conversations')
       .select('id')
       .eq('client_id', id)

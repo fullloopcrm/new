@@ -58,6 +58,26 @@ vi.mock('@/lib/supabase', () => {
   }
   return { supabaseAdmin: fake, supabase: fake }
 })
+// payments insert now goes through tenantClient() (RLS Stage 3) instead of
+// tenantDb() — same trigger-simulation wrapper (both wrap the same hoisted
+// `h`), so the invoice-recompute-on-payment-insert behavior stays testable.
+vi.mock('@/lib/tenant-supabase', () => {
+  const raw = makeTenantDbFake(h)
+  const fake = {
+    from(table: string) {
+      const chain = raw.from(table) as Record<string, unknown>
+      if (table !== 'payments') return chain
+      const origSingle = chain.single as () => Promise<{ data: Record<string, unknown> | null; error: unknown }>
+      chain.single = () =>
+        origSingle().then((res) => {
+          if (res.data) applyPaymentTrigger(res.data)
+          return res
+        })
+      return chain
+    },
+  }
+  return { tenantClient: async () => fake }
+})
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: (...a: unknown[]) => h.requirePermission(...a),
 }))
