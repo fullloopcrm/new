@@ -12,6 +12,8 @@ import { sendEmail } from '@/lib/nycmaid/email'
 import { notify } from '@/lib/nycmaid/notify'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getSettings } from '@/lib/settings'
+import { hasPermission, type Role, type RolePermissionOverrides } from '@/lib/rbac'
+import { SHARED_TOOL_PERMISSIONS } from '@/lib/selena/tool-permissions'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -90,18 +92,34 @@ export async function runTool(
   phone: string | null,
   result: YinezResult,
   tenantId?: string,
+  // Optional dashboard-user context (2026-07-28, #3 prep). Undefined for
+  // every existing caller (SMS/email/Telegram/admin-chat) — behavior for
+  // them is byte-identical, still gated by isOwnerOfTenant below. When a
+  // future dashboard caller passes role, tools mapped in
+  // SHARED_TOOL_PERMISSIONS are additionally checked against it — this is
+  // NOT yet called from anywhere; it exists so wiring the dashboard in
+  // later doesn't require touching this gate again.
+  role?: Role,
+  roleOverrides?: RolePermissionOverrides,
 ): Promise<string> {
   // tenantId is REQUIRED for safe multi-tenant routing. Older callers may not
   // pass it yet (sweep in progress) — fall back to the default tenant rather
   // than throwing, so a missing param doesn't break a live SMS reply.
   const tid = tenantId || (await getCurrentTenantId())
 
+  if (role) {
+    const required = SHARED_TOOL_PERMISSIONS[name]
+    if (required && !hasPermission(role, required, roleOverrides)) {
+      return JSON.stringify({ error: 'permission_denied', message: `You don't have permission to do that (requires ${required}).` })
+    }
+  }
+
   // Owner-only gate. Anything not in CLIENT_TOOLS or SELF_TOOLS is an admin
   // tool (cross-client lookups, broadcasts, ops dashboards, refunds, etc).
   // If the caller isn't the owner, refuse before the side-effect runs.
   // Returning an error string (not throwing) lets the model see "not allowed"
   // and recover with a normal client-facing reply instead of dumping ops data.
-  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(await isOwnerOfTenant(phone, tid))) {
+  if (!role && !CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(await isOwnerOfTenant(phone, tid))) {
     console.warn('[Yinez:owner_tool_blocked]', { name, phone, conversationId })
     return JSON.stringify({
       error: 'owner_only_tool',
