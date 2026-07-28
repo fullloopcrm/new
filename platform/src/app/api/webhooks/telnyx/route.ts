@@ -155,7 +155,15 @@ export async function POST(request: Request) {
         .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone, telegram_bot_token, telegram_chat_id')
         .eq('id', TENANT_PHONE_ALIASES[to])
         .maybeSingle()
-      tenant = aliasTenant || null
+      // Telnyx's forward-leg setup on these aliases echoes the tenant's OWN
+      // outbound SMS (e.g. an internal ops alert sent from the mainline) back
+      // as a second inbound event between the alias legs — `from` being the
+      // tenant's own mainline or either alias number means this is that echo,
+      // not a real customer. Confirmed live 2026-07-28: an internal "30-Min
+      // Heads Up" ops alert got fed to Yinez as if a client sent it, and she
+      // tried to act on it. Drop these; only accept a genuine outside sender.
+      const isSelfEcho = !!aliasTenant && (from === aliasTenant.telnyx_phone || from in TENANT_PHONE_ALIASES)
+      tenant = (!isSelfEcho && aliasTenant) || null
     }
 
     if (!tenant) {
