@@ -135,8 +135,13 @@ function reseed() {
     { id: 'bk-b-assigned', tenant_id: B_ID, client_id: ids.client.b, status: 'confirmed', start_time: '2099-02-02', team_member_id: ids.member.b },
   ])
   fake._seed('team_members', [
-    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null, name: 'Worker A', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-08-01'] } }) },
-    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null, name: 'Worker B', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-09-01'] } }) },
+    // unavailable_dates is the real column team-portal/availability's GET
+    // actually reads (canonical scheduler model, see that route's own
+    // comment) — notes JSON is legacy history some rows still carry
+    // alongside it, kept here so the isolation assertion on member b's
+    // notes (below) still has something to check.
+    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null, name: 'Worker A', unavailable_dates: ['2026-08-01'], notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-08-01'] } }) },
+    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null, name: 'Worker B', unavailable_dates: ['2026-09-01'], notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-09-01'] } }) },
     { id: ids.member.a2, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 21, max_jobs_per_day: null, name: 'Worker A2', notes: null },
     { id: ids.member.aManager, tenant_id: A_ID, status: 'active', role: 'manager', pay_rate: 30, max_jobs_per_day: null, name: 'Manager A', notes: null },
   ])

@@ -41,6 +41,8 @@ type TeamMember = {
   ltv_total_cents?: number
   avg_rating?: number | null
   rating_count?: number | null
+  trend_avg_rating?: number | null
+  trend_rating_count?: number
 }
 
 type EnrichedMember = TeamMember & {
@@ -586,6 +588,18 @@ export default function TeamPage() {
                         <>
                           <div className="tm-rating-stars">★ {Number(m.avg_rating).toFixed(1)}</div>
                           <div className="tm-rating-count">{m.rating_count} rating{m.rating_count === 1 ? '' : 's'}</div>
+                          {m.trend_avg_rating != null && (
+                            <div
+                              className={`tm-rating-trend${
+                                m.avg_rating != null && m.trend_avg_rating < m.avg_rating - 0.3
+                                  ? ' tm-rating-trend-down'
+                                  : ''
+                              }`}
+                              title={`Average of the last ${m.trend_rating_count} ratings`}
+                            >
+                              Last {m.trend_rating_count}: {m.trend_avg_rating.toFixed(1)}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="tm-rating-none">No ratings yet</div>
