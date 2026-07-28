@@ -34,6 +34,7 @@ function chain(table: string) {
 }
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => chain(t) }) }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/tenant-query', () => ({
