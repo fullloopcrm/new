@@ -16,6 +16,13 @@ export default defineConfig({
       // coverage provider can't parse and threw on for every one of them.
       include: ['src/lib/**/*.{ts,tsx}', 'src/app/api/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/lib/migrations/**'],
+      // Without this, a single failing test anywhere in the suite (this repo
+      // has 800+ test files touched by many concurrent authors) silently
+      // skips writing coverage/coverage-summary.json entirely — the report
+      // isn't "wrong", it just never gets generated. The doc-currency check
+      // (scripts/check-team-readiness-currency.mjs) needs that file to exist
+      // regardless of unrelated test failures elsewhere in the suite.
+      reportOnFailure: true,
     },
   },
   resolve: {
