@@ -88,6 +88,7 @@ export interface ProvisionResult {
   seeded: {
     services: number
     selena_config: boolean
+    agent_name: boolean
     guidelines: boolean
     payment_methods: boolean
     business_hours: boolean
@@ -106,7 +107,7 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
   const { tenantId } = opts
   const industry: IndustryKey = opts.industry || 'general'
   const result: ProvisionResult = {
-    seeded: { services: 0, selena_config: false, guidelines: false, payment_methods: false, business_hours: false },
+    seeded: { services: 0, selena_config: false, agent_name: false, guidelines: false, payment_methods: false, business_hours: false },
     skipped: [],
   }
 
@@ -125,7 +126,7 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
 
   const { data: tenant, error: tenantErr } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, business_hours, payment_methods, guidelines_en, selena_config')
+    .select('id, name, business_hours, payment_methods, guidelines_en, selena_config, agent_name')
     .eq('id', tenantId)
     .single()
 
@@ -184,6 +185,24 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
       })
     } else {
       result.skipped.push('selena_config (already populated)')
+    }
+
+    // Agent name — tenants.agent_name is the real source of truth read by both
+    // agent brains (selena-legacy.ts and selena/agent.ts); selena_config.ai_name
+    // above is a legacy mirror only. Leaving this column unset here was the gap:
+    // agent.ts falls back to a hardcoded 'Jefe' when it's empty, so a tenant
+    // could seed selena_config.ai_name='Selena' and still get called Jefe on
+    // any channel routed through agent.ts. Only seed if not already customized.
+    if (!tenant.agent_name) {
+      const agentName = (opts.overrides?.selena_config?.ai_name as string | undefined) || 'Selena'
+      const { error } = await supabaseAdmin.from('tenants').update({ agent_name: agentName }).eq('id', tenantId)
+      if (error) throw new Error(`agent_name update failed: ${error.message}`)
+      result.seeded.agent_name = true
+      compensations.push(async () => {
+        await supabaseAdmin.from('tenants').update({ agent_name: tenant.agent_name }).eq('id', tenantId)
+      })
+    } else {
+      result.skipped.push('agent_name (already set)')
     }
 
     // Business hours
