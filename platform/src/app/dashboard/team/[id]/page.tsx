@@ -143,6 +143,10 @@ export default function TeamMemberDetailPage() {
     rating_count: number
     ytd_earnings_cents: number
     lifetime_earnings_cents: number
+    retention_ever_assigned: number
+    retention_still_active: number
+    retention_lapsed: number
+    retention_rate: number | null
   } | null>(null)
   const [application, setApplication] = useState<TeamApplication | null>(null)
   const [transportMsg, setTransportMsg] = useState('')
@@ -698,6 +702,17 @@ export default function TeamMemberDetailPage() {
                 <div>
                   <p className="text-2xl font-bold text-slate-900">${(stats.ytd_earnings_cents / 100).toFixed(0)}</p>
                   <p className="text-xs text-slate-400">YTD Earnings</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats.retention_rate != null ? `${stats.retention_rate}%` : '—'}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Recurring Retention
+                    {stats.retention_ever_assigned > 0
+                      ? ` (${stats.retention_still_active} active / ${stats.retention_lapsed} lapsed)`
+                      : ' (no recurring history yet)'}
+                  </p>
                 </div>
               </div>
             ) : (
