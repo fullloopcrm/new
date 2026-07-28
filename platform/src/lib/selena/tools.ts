@@ -4,6 +4,7 @@
 
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS as sendTelnyxSMS } from '@/lib/sms'
@@ -83,6 +84,27 @@ const SELF_TOOLS = new Set(['recall'])
 // hallucinable summary. Yinez must use it for every slot quote on every channel.
 const CLIENT_LOCAL_TOOLS = new Set(['score_cleaners'])
 
+// Best-effort real target id for the audit row's entity_id column (a real
+// UUID column — arbitrary strings fail the insert). Checked in priority
+// order across the id-ish args every tool handler actually uses.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ENTITY_ID_KEYS = [
+  'booking_id', 'client_id', 'cleaner_id', 'payout_id', 'schedule_id',
+  'deal_id', 'application_id', 'notification_id', 'exclude_booking_id',
+]
+function extractEntityId(input: Record<string, unknown>): string | undefined {
+  for (const key of ENTITY_ID_KEYS) {
+    const val = input[key]
+    if (typeof val === 'string' && UUID_RE.test(val)) return val
+  }
+  return undefined
+}
+
+// Every tool call — client and owner alike — goes through this one function
+// (SMS, web chat, and Telegram all call runTool for every tool the model
+// invokes), so it's the single choke point for audit logging: wrap the real
+// dispatcher (dispatchTool, unchanged logic) and write one audit_logs row
+// per call, success or failure, before returning/rethrowing.
 export async function runTool(
   name: string,
   input: Record<string, unknown>,
@@ -91,10 +113,67 @@ export async function runTool(
   result: YinezResult,
   tenantId?: string,
 ): Promise<string> {
-  // tenantId is REQUIRED for safe multi-tenant routing. Older callers may not
-  // pass it yet (sweep in progress) — fall back to the default tenant rather
-  // than throwing, so a missing param doesn't break a live SMS reply.
   const tid = tenantId || (await getCurrentTenantId())
+
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(name, input, conversationId, phone, result, tid)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let blocked = false
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+      blocked = toolError === 'owner_only_tool'
+    }
+  } catch {
+    // Non-JSON tool output (plain text) — treat as success, nothing to parse.
+  }
+
+  // Best-effort attribution without an extra DB round trip per call: tools
+  // reachable on a client channel (CLIENT_TOOLS/SELF_TOOLS/CLIENT_LOCAL_TOOLS)
+  // are attributed to the client; a blocked call means the owner-only gate
+  // rejected a non-owner caller, so it's neither — flag it distinctly rather
+  // than falsely crediting the owner with an attempt they didn't make.
+  // Everything else only executes after dispatchTool's own isOwnerOfTenant
+  // gate passes, so it's owner-initiated.
+  const onBehalfOf = blocked
+    ? 'blocked_non_owner'
+    : (CLIENT_TOOLS.has(name) || SELF_TOOLS.has(name) || CLIENT_LOCAL_TOOLS.has(name)) ? 'client' : 'owner'
+
+  audit({
+    tenantId: tid,
+    action: blocked ? 'yinez.tool_blocked' : 'yinez.tool_call',
+    entityType: name,
+    entityId: extractEntityId(input),
+    details: {
+      actor: 'agent',
+      on_behalf_of: onBehalfOf,
+      conversation_id: conversationId,
+      phone: phone || undefined,
+      success: !toolError,
+      error: toolError,
+    },
+  }).catch((e) => console.error('[Yinez] audit log failed for tool', name, e))
+
+  if (threw) throw threw
+  return out
+}
+
+async function dispatchTool(
+  name: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  phone: string | null,
+  result: YinezResult,
+  tid: string,
+): Promise<string> {
 
   // Owner-only gate. Anything not in CLIENT_TOOLS or SELF_TOOLS is an admin
   // tool (cross-client lookups, broadcasts, ops dashboards, refunds, etc).
