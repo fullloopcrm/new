@@ -21,7 +21,7 @@ const serviceFAQs = [
   { question: 'What does move-in/move-out cleaning include?', answer: 'We clean every inch of the empty space: inside all cabinets, drawers, and shelves. Inside the oven, fridge, and dishwasher. All closet interiors. Wall spot-cleaning and scuff removal. Window interiors. Baseboard scrubbing. All floors scrubbed and polished. Final walk-through inspection.' },
   { question: 'Do you clean offices and commercial spaces?', answer: 'Yes. We provide professional office cleaning for small offices, co-working spaces, medical offices, and retail spaces. Same rates, same quality. Desk and workstation wipe-down, common areas, restrooms, and kitchen/break room included.' },
   { question: 'Do you offer Airbnb turnover cleaning?', answer: 'Yes. We follow a strict checklist for short-term rental turnovers: strip and remake beds, amenity restocking check, photo-ready staging, full bathroom scrub, kitchen reset, and spot-check for damage. Fast turnovers between guests.' },
-  { question: 'What cleaning products do you use?', answer: 'We use professional-grade, eco-friendly cleaning products that are safe for children, pets, and all surfaces. If you have specific product preferences or allergies, let us know and we\'ll accommodate.' },
+  { question: 'What cleaning products do you use?', answer: 'We use professional-grade standard cleaning products. If you want eco-friendly, non-toxic, or hypoallergenic products used instead, just provide them and we\'ll use them on your cleaning.' },
 ]
 
 const schedulingFAQs = [
@@ -29,7 +29,7 @@ const schedulingFAQs = [
   { question: 'Can I get the same cleaner each time?', answer: 'Yes. For recurring clients, we assign the same dedicated cleaner to your home so they learn your preferences and layout. Consistency is one of the things our clients value most.' },
   { question: 'Do you offer same-day cleaning?', answer: 'Yes. Text (212) 202-8400 and we\'ll dispatch a professional cleaner within hours. Same-day service is $89/hr.' },
   { question: 'How do I reschedule or cancel?', answer: 'First-time and one-time services cannot be cancelled or rescheduled once confirmed. Recurring services (weekly, bi-weekly, monthly) require 7 days notice to reschedule, and cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t take payment upfront — we hold your spot and turn away other clients, so late changes directly affect our team members who depend on this income.' },
-  { question: 'What hours do you operate?', answer: 'Office hours are Monday through Saturday 7am to 7pm. Sales and booking inquiries are available 24/7 — text (212) 202-8400 anytime.' },
+  { question: 'What hours do you operate?', answer: 'Office hours are Monday through Saturday 7am to 7pm. Self-booking is available 24/7 online anytime.' },
 ]
 
 const trustFAQs = [

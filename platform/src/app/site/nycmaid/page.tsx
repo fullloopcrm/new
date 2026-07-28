@@ -69,8 +69,8 @@ const homepageFAQs = [
 
   // Supplies & Equipment
   { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day emergency service is $89/hour, supplies included.${WEEKEND_PRICING_NOTE}` },
-  { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective cleaning products. If you have preferences for eco-friendly or specific brands, just let us know and we will accommodate.' },
-  { question: 'Can I request eco-friendly or green products?', answer: 'Yes. We are happy to use eco-friendly, non-toxic, or hypoallergenic products. Just mention your preference when booking.' },
+  { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective standard cleaning products. If you want eco-friendly, non-toxic, or hypoallergenic products used instead, just provide them and we will use them.' },
+  { question: 'Can I request eco-friendly or green products?', answer: 'Yes — provide your own eco-friendly, non-toxic, or hypoallergenic products and we will use them on your cleaning. We don\'t stock these ourselves; our standard supplies are professional-grade, not eco-specific.' },
   { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. Same-day emergency service at $89/hour also includes all supplies.${WEEKEND_PRICING_NOTE}` },
 
   // Trust & Safety
@@ -85,7 +85,7 @@ const homepageFAQs = [
   { question: 'How far in advance should I book?', answer: 'We recommend booking 2-3 days in advance for regular cleanings. For same-day service, contact us as early as possible and we will do our best to accommodate.' },
   { question: 'What is your cancellation policy?', answer: 'First-time and one-time services cannot be cancelled or rescheduled once confirmed. Recurring services (weekly, bi-weekly, monthly) require 7 days notice to reschedule, and cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t take payment upfront — we hold your spot on our busy schedule, turning away other clients. Late cancellations directly affect our team members who depend on this income.' },
   { question: 'Can I reschedule my cleaning?', answer: 'Recurring clients can reschedule with 7 days notice. First-time and one-time services cannot be rescheduled. We hold your spot without collecting payment upfront and turn away other clients to do so — rescheduling leaves our cleaners without the income they were counting on.' },
-  { question: 'What days and hours are you available?', answer: 'Our office is open Monday through Saturday 7am–7pm. Our sales and booking line is available 24/7 — text (212) 202-8400 anytime.' },
+  { question: 'What days and hours are you available?', answer: 'Our office is open Monday through Saturday 7am–7pm. Self-booking is available 24/7 online anytime.' },
   { question: 'Do you clean on weekends?', answer: 'Yes, we offer Saturday appointments from 7am–7pm. Sunday availability may be limited — contact us to check.' },
   { question: 'Do you offer recurring cleaning schedules?', answer: 'Yes. We offer weekly, bi-weekly, and monthly recurring cleaning. Recurring clients get priority scheduling and a consistent cleaner.' },
 
