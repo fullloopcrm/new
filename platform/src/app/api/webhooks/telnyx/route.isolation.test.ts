@@ -55,7 +55,7 @@ vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ success: true })) })
 vi.mock('@/lib/selena-legacy', () => ({ askSelena: vi.fn(async () => ({})) }))
 vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({})) }))
 vi.mock('@/lib/settings', () => ({ getSettings: vi.fn(async () => ({})) }))
-vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: vi.fn(() => false) }))
+vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: vi.fn(() => false), NYCMAID_TENANT_ID: '00000000-0000-0000-0000-000000000001' }))
 vi.mock('@/lib/nycmaid/review-engine', () => ({ handleNycMaidReview: vi.fn(async () => null) }))
 
 import { POST } from './route'

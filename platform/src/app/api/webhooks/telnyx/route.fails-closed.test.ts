@@ -27,7 +27,7 @@ vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ success: true })) })
 vi.mock('@/lib/selena-legacy', () => ({ askSelena: vi.fn() }))
 vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn() }))
 vi.mock('@/lib/settings', () => ({ getSettings: vi.fn() }))
-vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false }))
+vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false, NYCMAID_TENANT_ID: '00000000-0000-0000-0000-000000000001' }))
 vi.mock('@/lib/nycmaid/review-engine', () => ({ handleNycMaidReview: vi.fn() }))
 vi.mock('@/lib/sms-messages', () => ({ insertConversationMessage: vi.fn() }))
 
