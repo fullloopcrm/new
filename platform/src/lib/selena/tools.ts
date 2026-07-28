@@ -1200,6 +1200,26 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
+  // Idempotency: an agent tool call can be retried (timeout, duplicate
+  // dispatch) — unlike process_stripe_refund, this writes straight to our own
+  // DB with no external API to hand a dedup key to, so check for an existing
+  // payment matching booking+amount+method before inserting a second one. A
+  // single booking legitimately receiving the exact same amount via the same
+  // method twice is rare enough that a genuinely separate second payment
+  // should get a distinct amount/method (or the admin dashboard, which has no
+  // such guard) — not this retry-prone tool-call path.
+  const { data: existing } = await supabaseAdmin
+    .from('payments')
+    .select('id')
+    .eq('tenant_id', tid)
+    .eq('booking_id', input.booking_id)
+    .eq('amount', cents)
+    .eq('method', input.method)
+    .maybeSingle()
+  if (existing) {
+    return JSON.stringify({ ok: true, duplicate: true, payment_id: existing.id })
+  }
+
   await supabaseAdmin.from('payments').insert({
     tenant_id: tid,
     booking_id: input.booking_id,
