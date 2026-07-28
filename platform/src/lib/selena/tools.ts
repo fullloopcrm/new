@@ -117,6 +117,49 @@ export async function runTool(
     return out
   }
 
+  const output = await dispatchOwnerTool(name, input, conversationId, phone, tid)
+  // Best-effort actor-attribution log for every owner-gated tool call. Without
+  // this, nothing records that YINEZ (vs. a human via the dashboard) performed
+  // a destructive/money-moving action — the DB-trigger audit_log only covers
+  // 12 finance tables (migrations/035_close_audit.sql) and never sets actor_id
+  // regardless. Logging here is the one choke point every owner tool passes
+  // through, so one call site covers all of them instead of instrumenting
+  // each of the 53 handlers individually.
+  // AWAITED, not fire-and-forget: a Vercel serverless function's execution
+  // context can freeze the instant the response is sent, silently killing any
+  // promise the handler didn't wait on — an un-awaited log write here would
+  // work in local dev (long-lived process) and vanish unpredictably in prod.
+  // Failure still never blocks the tool's own result (try/catch, not rethrow).
+  try {
+    await logYinezToolCall(tid, name, input, conversationId, phone)
+  } catch (e) {
+    console.error('[Yinez:audit_log_failed]', { name, tenantId: tid, err: e })
+  }
+  return output
+}
+
+async function logYinezToolCall(
+  tenantId: string,
+  name: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  phone: string | null,
+): Promise<void> {
+  await supabaseAdmin.from('audit_log').insert({
+    tenant_id: tenantId,
+    table_name: 'yinez_tool_call',
+    event: 'UPDATE',
+    new_data: { actor: 'yinez', tool: name, conversation_id: conversationId, phone, input },
+  })
+}
+
+async function dispatchOwnerTool(
+  name: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  phone: string | null,
+  tid: string,
+): Promise<string> {
   switch (name) {
     case 'recall':
       return await handleRecall(phone, tid)
