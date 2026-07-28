@@ -1,5 +1,25 @@
 'use client'
 
+// File-split status (2026-07-28): types (_booking-types.ts), ET/naive time
+// helpers (_time-helpers.ts), and the row-level ContactChips component
+// (ContactChips.tsx) have been extracted -- all zero-risk (pure functions /
+// small presentational component with a 2-prop surface), verified via
+// tsc --noEmit + the existing bookings/schedules/recurring test suites.
+//
+// The remaining ~2450 lines are BookingsPage(): one function component with
+// 40+ useState hooks and dozens of inline handlers/JSX all closed over the
+// same state (form/setForm alone is read-or-written at 100+ call sites).
+// That density means splitting the JSX further (e.g. the ~580-line edit
+// modal) isn't a mechanical "move this text" refactor -- it's 50+ props of
+// tightly-coupled two-way-bound state threaded into a new component, on a
+// live admin tool with a documented history of subtle production bugs from
+// exactly this kind of logic (see the nycmaid-6ec48424/a8efe43f references
+// throughout this file), with no existing component test and no way in this
+// session to click-test the result in a browser. Attempting that blind was
+// judged too risky to ship unverified; it's flagged as follow-up work that
+// needs either Playwright coverage of the edit-booking flow first, or a
+// state-consolidation pass (e.g. a useBookingEditForm hook) before the JSX
+// can be safely lifted out.
 import './schedule.css'
 import SidePanel from '@/components/SidePanel'
 import { useWorkerLabel } from '../worker-label-context'
@@ -23,10 +43,13 @@ import { applyTeamMinimum } from '@/lib/billing-hours'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
-import { crewNames, type CrewRow } from '@/lib/crew'
+import { crewNames } from '@/lib/crew'
 import CreateBookingForm from './CreateBookingForm'
 import NewClientModal from './NewClientModal'
 import { SuggestionStrip, getCleanerAvailability, type SmartScore, type SlotSuggestion } from './_create-booking-shared'
+import type { Booking, Client, Cleaner, Referrer, SalesPartner } from './_booking-types'
+import { ContactChips } from './ContactChips'
+import { toEST, toDateTimeLocalET, fromDateTimeLocalET } from './_time-helpers'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -50,121 +73,9 @@ export default function BookingsPageWrapper() {
   )
 }
 
-interface Booking {
-  id: string
-  start_time: string
-  end_time: string
-  service_type: string
-  price: number
-  status: string
-  payment_status: string
-  payment_method: string | null
-  notes: string | null
-  client_id: string
-  team_member_id: string
-  team_member_token: string | null
-  hourly_rate: number | null
-  recurring_type: string | null
-  schedule_id: string | null
-  actual_hours: number | null
-  team_member_pay: number | null
-  tip_amount: number | null
-  partial_payment_cents: number | null
-  check_in_time: string | null
-  fifteen_min_alert_time: string | null
-  check_out_time: string | null
-  check_in_location: Record<string, unknown> | null
-  check_out_location: Record<string, unknown> | null
-  job_seq: number | null
-  clients: { id: string; name: string; phone: string; address: string; customer_number: number | null } | null
-  team_members: { id: string; name: string } | null
-  booking_team_members?: CrewRow[] | null
-  team_member_paid: boolean | null
-  team_member_paid_at: string | null
-  pay_rate: number | null
-  discount_percent: number | null
-  one_time_credit_cents: number | null
-  one_time_credit_reason: string | null
-  walkthrough_video_url: string | null
-  final_video_url: string | null
-  suggested_team_member_id: string | null
-  suggested_reason: string | null
-  created_at: string
-  source: string
-}
-
-// Row-level Call/Text/Directions — lets the list be worked from without opening
-// the edit panel. Call routes through the comhub dialer (matches the edit
-// panel's own Call link); Text and Directions are plain sms:/maps deep links.
-// stopPropagation so tapping these doesn't also fire the row's onClick(openEdit).
-function ContactChips({ phone, address }: { phone?: string | null; address?: string | null }) {
-  if (!phone && !address) return null
-  return (
-    <div
-      className="flex items-center gap-1.5 mt-1 flex-wrap"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {phone && (
-        <>
-          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
-            {formatPhone(phone)}
-          </a>
-          <a href={`sms:${phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100" title="Text">Text</a>
-        </>
-      )}
-      {address && (
-        <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[11px] text-gray-400 hover:text-blue-600 hover:underline truncate max-w-[160px]"
-          title="Get directions"
-        >
-          {address}
-        </a>
-      )}
-    </div>
-  )
-}
-
-interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_team_member_id?: string | null }
-interface Cleaner { id: string; name: string; pay_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; status?: string; max_jobs_per_day?: number }
-interface Referrer { id: string; name: string; ref_code: string; active: boolean }
-interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
-// Parse timestamp as UTC — Supabase may return without timezone offset
-const toEST = (ts: string) => {
-  const d = new Date(ts.endsWith('Z') || ts.includes('+') ? ts : ts + 'Z')
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
-}
-
-// Convert a stored timestamp to the value an <input type="datetime-local"> wants
-// (YYYY-MM-DDTHH:MM, rendered in ET).
-const toDateTimeLocalET = (ts: string): string => {
-  const d = new Date(ts.endsWith('Z') || ts.includes('+') ? ts : ts + 'Z')
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(d)
-  const g = (t: string) => parts.find(p => p.type === t)?.value || '00'
-  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
-}
-
-// Convert a datetime-local input value (treated as ET wall clock) to a UTC ISO string.
-const fromDateTimeLocalET = (val: string): string => {
-  const m = val.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
-  if (!m) return new Date().toISOString()
-  const [, y, mo, d, hh, mm] = m
-  const utcMs = Date.UTC(+y, +mo - 1, +d, +hh, +mm)
-  // Probe the ET offset for THIS specific datetime (handles DST correctly)
-  const probe = new Date(utcMs)
-  const probeETHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }).format(probe))
-  const probeUTCHour = probe.getUTCHours()
-  let offsetHours = probeETHour - probeUTCHour
-  if (offsetHours > 12) offsetHours -= 24
-  if (offsetHours < -12) offsetHours += 24
-  return new Date(utcMs - offsetHours * 3600000).toISOString()
-}
+// Booking/Client/Cleaner/Referrer/SalesPartner moved to _booking-types.ts;
+// ContactChips moved to ContactChips.tsx; toEST/toDateTimeLocalET/
+// fromDateTimeLocalET moved to _time-helpers.ts -- all re-imported above.
 
 function BookingsPage() {
   const searchParams = useSearchParams()

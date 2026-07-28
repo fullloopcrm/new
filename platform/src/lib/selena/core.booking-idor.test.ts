@@ -8,10 +8,14 @@
  * cancel ANY booking belonging to ANY tenant just by supplying that booking's
  * UUID — the read wasn't even tenant-filtered, let alone client-filtered.
  *
- * handleResendConfirmation / handleBookingDetails had a narrower version of
- * the same bug: tenant-scoped but not client-scoped, so a customer could pull
- * another client's PIN/email/GPS check-in-out/payment history within the
- * same tenant by guessing/knowing their booking UUID.
+ * handleResendConfirmation had a narrower version of the same bug:
+ * tenant-scoped but not client-scoped, so a customer could pull another
+ * client's PIN/confirmation email within the same tenant by guessing/knowing
+ * their booking UUID. (handleBookingDetails had the identical narrower bug —
+ * its own IDOR coverage lived here too — but that handler was deleted
+ * 2026-07-28 as confirmed-dead code: the `booking_details` tool was never
+ * reachable from any live production caller, unlike resend_confirmation
+ * which IS live via tools.ts's CLIENT_TOOLS bridge.)
  *
  * Fix: every explicit booking_id lookup now derives tenant_id AND client_id
  * from the conversation row (sms_conversations.tenant_id / .client_id), not
@@ -128,27 +132,11 @@ describe('Yinez SMS agent — cross-tenant/cross-client booking IDOR', () => {
     expect((booking as { start_time: string }).start_time).not.toContain('2027-01-01')
   })
 
-  it('booking_details refuses to leak another client\'s booking via explicit booking_id (cross-tenant)', async () => {
-    const out = JSON.parse(
-      await handleTool('booking_details', { booking_id: BOOKING_B }, CONVO_A, dummyResult())
-    )
-    expect(out.error).toBe('Booking not found')
-  })
-
   it('resend_confirmation refuses to email another client\'s PIN via explicit booking_id (cross-tenant)', async () => {
     const out = JSON.parse(
       await handleTool('resend_confirmation', { booking_id: BOOKING_B }, CONVO_A, dummyResult())
     )
     expect(out.error).toBe('Booking not found')
-  })
-
-  it('booking_details refuses to leak a same-tenant sibling client\'s booking via explicit booking_id', async () => {
-    const out = JSON.parse(
-      await handleTool('booking_details', { booking_id: BOOKING_C }, CONVO_A, dummyResult())
-    )
-    // Distinct from the cross-tenant "not found" case above: the booking DOES
-    // exist (same tenant), it just doesn't belong to this conversation's client.
-    expect(out.error).toBe('not_your_booking')
   })
 
   it('resend_confirmation refuses to email a same-tenant sibling client\'s PIN via explicit booking_id', async () => {

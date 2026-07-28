@@ -2,8 +2,11 @@
  * Admin users — tenant-scoped thin wrapper over tenant_members.
  * Ported from nycmaid `/api/admin/users`. Owner-only list.
  *
- * Creation goes through /api/admin/invites (Clerk invite flow) — direct
- * password creation is not supported, by design.
+ * POST creates a PIN-based member directly (see below) — there is no
+ * password creation. /api/admin/invites is a separate, email-token path for
+ * inviting someone not yet in the dashboard (accepted at
+ * /api/invites/[token]/accept, which mints a PIN the same way this route
+ * does); it does not run through here.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'

@@ -1,14 +1,20 @@
-// Owner self-serve sign-up is dormant — it moved off Clerk and will be wired
-// onto the session system in P5. Placeholder, not a live form.
+import { redirect } from 'next/navigation'
+
+// Onboarding model decision (2026-07-28): FullLoop CRM is white-glove, not
+// self-serve. There is no email/password account creation anywhere in this
+// codebase — Clerk was removed (no @clerk/nextjs dependency, no
+// ClerkProvider mounted) and never replaced with an equivalent self-serve
+// signup. Every real tenant is provisioned by a platform admin via
+// /admin/businesses (new -> wizard -> provision -> activate), which mints an
+// owner PIN handed to the business out of band; that owner then logs in at
+// their own tenant domain's /fullloop page. See lib/owner-session.ts for the
+// full picture and src/app/admin/docs (Tenants & Settings section) for the
+// step-by-step admin process.
+//
+// This page used to be a static "account creation coming soon" placeholder
+// that could never actually create an account. A prospective customer
+// landing here has one real next step today: apply, the same as every other
+// "Apply Now" CTA on the marketing site.
 export default function SignUpPage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="max-w-sm text-center">
-        <h1 className="text-xl font-semibold text-gray-900">Create an owner account</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Owner onboarding is being set up. Contact your FullLoop admin to get started.
-        </p>
-      </div>
-    </div>
-  )
+  redirect('/waitlist')
 }
