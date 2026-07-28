@@ -24,14 +24,8 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.
 vi.mock('@/lib/tenant-header-sig', () => ({
   verifyTenantHeaderSig: (_id: string, sig: string | null | undefined) => sig === 'goodsig',
 }))
-vi.mock('@/lib/selena-legacy', () => ({
-  EMPTY_CHECKLIST: {},
-  getNextStep: () => null,
-  getQuickReplies: () => [],
-  askSelena: vi.fn(async () => ({ text: 'hello from selena', checklist: {}, bookingCreated: false })),
-}))
+vi.mock('@/lib/selena-legacy', () => ({ EMPTY_CHECKLIST: {} }))
 vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({ text: 'yinez', bookingCreated: false })) }))
-vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/sms-messages', () => ({ insertConversationMessage: vi.fn(async () => ({ data: null, error: null })) }))
 
@@ -51,7 +45,7 @@ describe('chat POST — resolver tenant isolation', () => {
   it('positive control: a validly-signed header stamps the conversation with the signed tenant', async () => {
     const res = await chat({ 'x-tenant-id': A, 'x-tenant-sig': 'goodsig' }, { message: 'hi' })
     expect(res.status).toBe(200)
-    expect((await res.json()).reply).toBe('hello from selena')
+    expect((await res.json()).reply).toBe('yinez')
     const ins = h.capture.inserts.find((i) => i.table === 'sms_conversations')
     expect(ins).toBeDefined()
     expect(ins!.rows.every((r) => r.tenant_id === A)).toBe(true)
