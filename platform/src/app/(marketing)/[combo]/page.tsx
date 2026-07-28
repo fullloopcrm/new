@@ -189,7 +189,7 @@ export default async function ComboPage({
       : "Claim This Territory";
   const primaryCtaHref = isClaimed
     ? `/location/home-service-crm-in-${metro.shortSlug}`
-    : "/contact";
+    : "/waitlist";
 
   // Find deep page content via slug mapping
   const contentSlug = getIndustryContentSlug(industry.slug);

@@ -574,10 +574,10 @@ export default function PartnershipForm() {
             </p>
             <p className="text-4xl font-extrabold text-white font-heading mb-1">
               $2,500
-              <span className="text-lg font-normal text-slate-400">/admin/mo</span>
+              <span className="text-lg font-normal text-slate-400">/mo</span>
             </p>
             <p className="text-sm text-slate-400 mb-6">
-              + $250/mo per team member. All features included. $25,000 setup. You own everything we build. Cancel anytime.
+              Flat rate, unlimited users. All features included. $25,000 setup. You own everything we build. Cancel anytime.
             </p>
             <ul className="space-y-2 text-sm text-slate-300 text-left">
               {[

@@ -283,7 +283,7 @@ export default function CRM101Page() {
           new Date().toISOString().split("T")[0]
         )}
       />
-      <JsonLd data={softwareApplicationSchema()} />
+      <JsonLd data={softwareApplicationSchema("2500", "USD")} />
       <JsonLd
         data={itemListSchema(
           "CRM 101: 101 Educational Tips for Service Businesses",
