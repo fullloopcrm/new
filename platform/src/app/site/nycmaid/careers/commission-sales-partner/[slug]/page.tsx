@@ -148,7 +148,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
               Apply Now
             </Link>
             <a href="sms:2122028400" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
-              or Text (212) 202-8400
+              Text us for questions
             </a>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
               Apply Now
             </Link>
             <a href="sms:2122028400" className="text-[#1E2A4A]/60 font-medium text-sm hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
-              or Text (212) 202-8400
+              Text us for questions
             </a>
           </div>
         </section>

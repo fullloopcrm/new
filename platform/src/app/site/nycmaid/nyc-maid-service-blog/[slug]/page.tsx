@@ -183,8 +183,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-white tracking-wide mb-2">Need Help With This?</h3>
           <p className="text-white/70 mb-6">Our professional team handles all of this and more — starting at $59/hr.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (212) 202-8400
+            <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Self-book, save $10
             </a>
           </div>
         </div>

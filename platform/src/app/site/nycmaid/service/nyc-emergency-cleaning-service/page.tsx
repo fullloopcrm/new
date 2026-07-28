@@ -272,11 +272,11 @@ export default function EmergencyCleaningPage() {
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in NYC</h1>
           <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="sms:2122028400" className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
-              Text Now — (212) 202-8400
+            <a href="/book/new" className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
+              Self-book, save $10
             </a>
             <a href="sms:2122028400" className="text-white font-semibold text-lg hover:underline underline-offset-4">
-              or Text (212) 202-8400
+              Text us for questions
             </a>
           </div>
         </div>
@@ -369,8 +369,8 @@ export default function EmergencyCleaningPage() {
         <div className="bg-red-600 rounded-xl p-8 md:p-10 mb-20 text-center">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-2">Dealing With an Emergency Right Now?</h2>
           <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
-          <a href="sms:2122028400" className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
-            Text (212) 202-8400
+          <a href="/book/new" className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
+            Self-book, save $10
           </a>
         </div>
 
@@ -481,7 +481,7 @@ export default function EmergencyCleaningPage() {
         </section>
       </div>
 
-      <CTABlock title="Emergency? Call Now — We're Here 24/7" />
+      <CTABlock title="Emergency? Self-Book Now — We're Here 24/7" />
     </>
   )
 }

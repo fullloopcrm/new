@@ -127,8 +127,8 @@ export default function PricingPage() {
             </div>
 
             <div className="flex justify-center mt-8">
-              <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                Text (212) 202-8400
+              <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                Self-book, save $10
               </a>
             </div>
           </div>
@@ -252,8 +252,8 @@ export default function PricingPage() {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:2122028400" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
-              Text (212) 202-8400
+            <a href="/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              Self-book, save $10
             </a>
           </div>
         </div>

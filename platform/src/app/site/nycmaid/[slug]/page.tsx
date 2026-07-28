@@ -135,8 +135,8 @@ export default async function SlugPage({ params }: Props) {
                     <p className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide">Same Rate Everywhere</p>
                     <p className="text-[#1E2A4A]/60 text-xs mt-1">No travel fees &middot; No surge pricing</p>
                   </div>
-                  <a href="sms:2122028400" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Text (212) 202-8400
+                  <a href="/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                    Self-book, save $10
                   </a>
                 </div>
               </div>
@@ -171,8 +171,8 @@ export default async function SlugPage({ params }: Props) {
                 <div className="w-10 h-[3px] bg-[#A8F0DC] mb-5" />
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{area.name} Neighborhoods We Serve</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">Every neighborhood below gets the same rates, the same quality, and the same background-checked cleaners. Click any neighborhood to see services available in your area.</p>
-                <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Text (212) 202-8400
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  Self-book, save $10
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -239,8 +239,8 @@ export default async function SlugPage({ params }: Props) {
               ))}
             </div>
             <div className="flex justify-center mt-10">
-              <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                Text (212) 202-8400
+              <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                Self-book, save $10
               </a>
             </div>
           </div>
@@ -294,11 +294,11 @@ export default async function SlugPage({ params }: Props) {
             </div>
             {/* CTA row */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <a href="sms:2122028400" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
-                Text (212) 202-8400
+              <a href="/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+                Self-book, save $10
               </a>
               <a href="sms:2122028400" className="text-[#1E2A4A] font-semibold py-4 hover:underline underline-offset-4">
-                or Text (212) 202-8400
+                Text us for questions
               </a>
             </div>
           </div>
@@ -369,11 +369,11 @@ export default async function SlugPage({ params }: Props) {
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                  <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                    Text (212) 202-8400
+                  <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                    Self-book, save $10
                   </a>
                   <a href="sms:2122028400" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
-                    or Text (212) 202-8400
+                    Text us for questions
                   </a>
                 </div>
               </div>
@@ -509,8 +509,8 @@ export default async function SlugPage({ params }: Props) {
               ))}
             </div>
             <div className="flex justify-center mt-10">
-              <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                Text (212) 202-8400
+              <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                Self-book, save $10
               </a>
             </div>
           </div>

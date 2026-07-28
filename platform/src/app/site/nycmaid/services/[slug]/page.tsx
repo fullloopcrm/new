@@ -143,8 +143,8 @@ export default async function ServicePage({ params }: Props) {
                   <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">{service.duration}</p>
                   <p className="text-[#1E2A4A]/60 text-xs mt-1">Pay only for time worked &middot; No upfront cost</p>
                 </div>
-                <a href="sms:2122028400" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Text (212) 202-8400
+                <a href="/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  Self-book, save $10
                 </a>
               </div>
             </div>
@@ -284,8 +284,8 @@ export default async function ServicePage({ params }: Props) {
                 <div className="w-10 h-[3px] bg-[#A8F0DC] mb-5" />
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{rich.whenToBook.title}</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">If any of these apply to you, a professional {service.name.toLowerCase()} is the move. Text us and we&apos;ll get you on the schedule.</p>
-                <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Text (212) 202-8400
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  Self-book, save $10
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -396,8 +396,8 @@ export default async function ServicePage({ params }: Props) {
               <div className="bg-gray-50 rounded-xl p-6 text-center">
                 <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-1">{service.priceRange}</p>
                 <p className="text-gray-500 text-sm mb-4">{service.duration}</p>
-                <a href="sms:2122028400" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  Text (212) 202-8400
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  Self-book, save $10
                 </a>
               </div>
             </div>
@@ -424,8 +424,8 @@ export default async function ServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:2122028400" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (212) 202-8400
+            <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Self-book, save $10
             </a>
           </div>
         </div>

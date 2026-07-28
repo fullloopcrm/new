@@ -253,8 +253,8 @@ export default function TipsPage() {
             {(cat.id === 'bedroom' || cat.id === 'laundry' || cat.id === 'pets') && (
               <div className="bg-[#A8F0DC]/15 border border-[#A8F0DC]/30 rounded-xl p-6 mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
                 <p className="text-[#1E2A4A] font-medium">Rather have a pro handle it? We start at $59/hr.</p>
-                <a href="sms:2122028400" className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors flex-shrink-0">
-                  Text (212) 202-8400
+                <a href="/book/new" className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors flex-shrink-0">
+                  Self-book, save $10
                 </a>
               </div>
             )}
