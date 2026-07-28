@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
+import { dayTokenToIndex } from '@/lib/day-availability'
 import { verifyToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -10,21 +11,26 @@ export async function GET(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  // Read the SAME columns the scheduler reads (working_days / unavailable_dates
+  // on team_members) — this used to read a `notes` JSON blob that nothing else
+  // in the app ever looked at, so what a cleaner set here silently never
+  // affected their real scheduling availability.
   // tenantDb's select() takes a non-literal `columns` param, which widens
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
-    .select('notes')
+    .select('working_days, unavailable_dates')
     .eq('id', auth.id)
-    .single()) as { data: { notes: string | null } | null }
+    .single()) as { data: { working_days: string[] | null; unavailable_dates: string[] | null } | null }
 
-  // Store availability in member notes as JSON for now
-  let availability = { working_days: [1, 2, 3, 4, 5], blocked_dates: [] as string[] }
-  if (member?.notes) {
-    try {
-      const parsed = JSON.parse(member.notes)
-      if (parsed.availability) availability = parsed.availability
-    } catch { /* not JSON, ignore */ }
+  const workingDays = (member?.working_days || [])
+    .map(dayTokenToIndex)
+    .filter((d): d is number => d !== null)
+    .sort()
+
+  const availability = {
+    working_days: workingDays.length > 0 ? workingDays : [1, 2, 3, 4, 5],
+    blocked_dates: member?.unavailable_dates || [],
   }
 
   return NextResponse.json({ availability })
@@ -41,20 +47,17 @@ export async function PUT(request: NextRequest) {
 
   const db = tenantDb(auth.tid)
 
-  // Get current availability to detect NEW blocked dates
+  // Get current availability to detect NEW blocked dates — read from the same
+  // working_days/unavailable_dates columns the scheduler reads, not `notes`.
   // tenantDb's select() takes a non-literal `columns` param, which widens
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: member } = (await db
     .from('team_members')
-    .select('name, notes')
+    .select('name, unavailable_dates')
     .eq('id', auth.id)
-    .single()) as { data: { name: string | null; notes: string | null } | null }
+    .single()) as { data: { name: string | null; unavailable_dates: string[] | null } | null }
 
-  let currentObj: Record<string, unknown> = {}
-  if (member?.notes) {
-    try { currentObj = JSON.parse(member.notes) } catch { currentObj = { text: member.notes } }
-  }
-  const currentDates = new Set((currentObj.availability as any)?.blocked_dates || [])
+  const currentDates = new Set(member?.unavailable_dates || [])
   const newDatesRequested = (availability?.blocked_dates || []).filter((d: string) => !currentDates.has(d))
 
   // Check if team member has bookings on any newly requested dates
@@ -89,11 +92,13 @@ export async function PUT(request: NextRequest) {
     }
   }
 
-  currentObj.availability = availability
+  // Write to the canonical scheduler columns so this actually affects the
+  // cleaner's real availability (see comment in GET above).
+  const workingDays = (availability?.working_days || []).map((d: number) => String(d)).sort()
 
   await db
     .from('team_members')
-    .update({ notes: JSON.stringify(currentObj) })
+    .update({ working_days: workingDays, unavailable_dates: availability?.blocked_dates || [] })
     .eq('id', auth.id)
 
   // Notify admin about new time-off requests
