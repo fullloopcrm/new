@@ -14,8 +14,8 @@ import './schedule.css'
 import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
-import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
-import { buildSeriesUpdateData } from './_recurring'
+import { RecurringOptions } from './_RecurringOptions'
+import { generateInitialBatchDates, getRecurringDisplayName, buildSeriesUpdateData, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import {
@@ -243,10 +243,15 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
     return ranges[hours] || hours + '-' + (hours + 2)
   }
 
-  const editRecurringDates = generateRecurringDates(
-    form.start_date, form.repeat_enabled, form.repeat_type,
-    form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
-  )
+  const editRecurringDates = generateInitialBatchDates({
+    recurringType: rawRecurringType(form.repeat_type) as RecurringType,
+    startDate: form.start_date,
+    repeatEnabled: form.repeat_enabled,
+    repeatEnd: form.repeat_end as RepeatEnd,
+    repeatEndCount: form.repeat_end_count,
+    repeatEndDate: form.repeat_end_date,
+    customIntervalWeeks: form.custom_interval,
+  })
 
   const buildNaiveTime = (date: string, time: string, addHours: number = 0) => {
     const [h, m] = time.split(':').map(Number)
@@ -311,10 +316,15 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
       if (patternChanged && booking.schedule_id && form.repeat_enabled) {
         const startDateObj = new Date(form.start_date + 'T12:00:00')
-        const newDates = generateRecurringDates(
-          form.start_date, true, form.repeat_type,
-          form.repeat_end, form.repeat_end_count, form.repeat_end_date, form.custom_interval
-        )
+        const newDates = generateInitialBatchDates({
+          recurringType: rawRecurringType(form.repeat_type) as RecurringType,
+          startDate: form.start_date,
+          repeatEnabled: true,
+          repeatEnd: form.repeat_end as RepeatEnd,
+          repeatEndCount: form.repeat_end_count,
+          repeatEndDate: form.repeat_end_date,
+          customIntervalWeeks: form.custom_interval,
+        })
         const res = await fetch('/api/admin/recurring-schedules/' + booking.schedule_id + '/regenerate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

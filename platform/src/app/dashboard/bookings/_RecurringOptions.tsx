@@ -1,8 +1,5 @@
 'use client'
 
-// Re-export from shared utility so existing imports from this file still work
-export { generateRecurringDates, getRecurringDisplayName } from './_recurring'
-
 interface RecurringOptionsProps {
   startDate: string
   enabled: boolean
