@@ -9,12 +9,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * (RLS denial, constraint violation, transient error) -- it resolves with
  * `{data: null, error: {...}}` -- so the `catch` block never fires and the
  * client is told an action succeeded (cancelled/rescheduled/paused/resumed/
- * account field updated) when nothing changed in the DB. cancel_booking and
- * manage_recurring are the highest-stakes instances: a client who is told
- * their cleaning is cancelled has no reason to expect the crew to still
- * show up. Fixed by checking `error` on every write in these handlers and
- * returning a failure JSON (routed through yinezError, same as every other
- * failure path in this file) instead of a false success.
+ * account field updated) when nothing changed in the DB. cancel_booking was
+ * the highest-stakes instance: a client who is told their cleaning is
+ * cancelled has no reason to expect the crew to still show up. Fixed by
+ * checking `error` on every write in these handlers and returning a failure
+ * JSON (routed through yinezError, same as every other failure path in this
+ * file) instead of a false success.
+ *
+ * (manage_recurring's own "update error is no longer swallowed" coverage
+ * was removed here 2026-07-28 — the handler itself was deleted as
+ * confirmed-dead code: the `manage_recurring` tool was never reachable from
+ * any live production caller.)
  */
 
 vi.mock('@/lib/supabase', async () => {
@@ -92,21 +97,6 @@ beforeEach(() => {
 // handler's write path at all, since it never calls that anymore. The
 // insert-failure path has its own real error handling (see handleCancelBooking's
 // `if (taskError)` branch) but isn't covered by this specific test shape.
-
-describe('manage_recurring cancel — update error is no longer swallowed', () => {
-  it('does not report success when the recurring_schedules.update write fails', async () => {
-    fake._seed('sms_conversations', [{ id: CONVO_ID, tenant_id: TENANT, client_id: CLIENT_ID }])
-    fake._seed('recurring_schedules', [{ id: 'sched-1', tenant_id: TENANT, client_id: CLIENT_ID, status: 'active' }])
-    forceUpdateError('recurring_schedules')
-
-    const out = await handleTool('manage_recurring', { action: 'cancel', schedule_id: 'sched-1' }, CONVO_ID, freshResult())
-    const parsed = JSON.parse(out)
-
-    expect(parsed.success).not.toBe(true)
-    expect(parsed.error).toBeTruthy()
-    expect(notifyMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'recurring_cancelled' }))
-  })
-})
 
 describe('update_account — update error is no longer swallowed', () => {
   it('does not report success when the clients.update write fails', async () => {

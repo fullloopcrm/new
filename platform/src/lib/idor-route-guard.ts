@@ -41,7 +41,11 @@ export const CROSS_TENANT_TABLES: ReadonlySet<string> = new Set([
   'impersonation_events', // platform audit log (admin-only)
   'waitlist', // pre-tenant signup funnel
   'prospects', // pre-tenant sales funnel
-  'legal_tips', // platform-authored content shipped to every tenant, admin-only; no tenant_id column
+  'legal_tips', // Legal Overlook attorney-approved tip library -- global content,
+  // admin-authored/edited, no tenant_id column at all (see
+  // migrations/2026_07_27_legal_overlook.sql). Applies across tenants by
+  // trade_key/state_code, not ownership; per-tenant surfaced state lives in
+  // the separate, genuinely tenant-scoped legal_tip_notifications table.
 ])
 
 // A scoped-db root (tenantDb(...).from / a `db` alias) auto-injects tenant_id and

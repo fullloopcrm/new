@@ -55,9 +55,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ generated: 0 })
   }
 
+  // Tenant-status guard. Offboarding a tenant (lib/tenant-offboarding.ts)
+  // already cancels their recurring_schedules rows, so in the normal case
+  // this cron never even sees a cancelled tenant's schedules here. This is a
+  // second, independent check straight against the tenant row itself, so a
+  // schedule that somehow stayed/became 'active' for a cancelled or
+  // suspended tenant (manual DB edit, a bug elsewhere, a race with the
+  // offboarding cascade) still can't generate a new booking. Prior to this
+  // check the cron never looked at tenant status at all.
+  const tenantIds = Array.from(new Set(schedules.map((s) => s.tenant_id)))
+  const { data: tenantStatusRows } = await supabaseAdmin
+    .from('tenants')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+    .select('id, status')
+    .in('id', tenantIds)
+  const tenantStatusById = new Map((tenantStatusRows || []).map((t) => [t.id, t.status]))
+
   let totalGenerated = 0
 
   for (const schedule of schedules) {
+    // Not 'active' (cancelled, suspended, or the tenant row is missing
+    // entirely) -- never generate new bookings for it.
+    if (tenantStatusById.get(schedule.tenant_id) !== 'active') continue
+
     // Kill switch: Settings -> Calendar -> "Pause automated recurring
     // writes". Skip this tenant's auto-generation entirely -- no new
     // bookings, no reassignment, no notifications. Existing bookings/
