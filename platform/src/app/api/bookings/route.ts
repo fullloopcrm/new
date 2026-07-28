@@ -14,8 +14,9 @@ import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { getSettings } from '@/lib/settings'
-import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { applyPropertyToBookingClient, getBookingAddress } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
+import { logSchedulingOverrideIfAny } from '@/lib/scheduling-override-log'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -351,6 +352,40 @@ export async function POST(request: Request) {
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
+
+    // Smart-scheduling upgrade spec, Part 4 item 4 — this route never runs
+    // the scorer server-side today (unlike client self-book/recurring
+    // creation), so an admin's pick here is otherwise never compared against
+    // what the system would have suggested. Fire-and-forget: wrapped in a
+    // synchronous try so even a call-site failure (not just a downstream one
+    // inside the logging module itself) can never take down booking
+    // creation — this is best-effort training signal, not part of the
+    // request's contract.
+    if (validated.team_member_id) {
+      try {
+        getBookingAddress({ propertyId: (validated.property_id as string) || null, clientId: validated.client_id as string })
+          .then((addr) => {
+            if (!addr.address) return
+            const start = new Date(data.start_time as string)
+            const end = new Date(data.end_time as string)
+            return logSchedulingOverrideIfAny({
+              tenantId,
+              bookingId: data.id,
+              chosenTeamMemberId: validated.team_member_id as string,
+              date: (data.start_time as string).split('T')[0],
+              startTime: `${String(start.getUTCHours()).padStart(2, '0')}:${String(start.getUTCMinutes()).padStart(2, '0')}`,
+              durationHours: Math.max(0.5, (end.getTime() - start.getTime()) / 3_600_000),
+              clientAddress: addr.address,
+              clientId: validated.client_id as string,
+              hourlyRate: (data.hourly_rate as number | null) ?? undefined,
+              source: 'admin_booking',
+            })
+          })
+          .catch((err: unknown) => console.error('[bookings] override-log lookup failed:', err))
+      } catch (err) {
+        console.error('[bookings] override-log lookup failed:', err)
+      }
+    }
 
     // Seed the notes thread with whatever was entered at creation — same
     // reasoning as the client-facing booking route: without this, a note

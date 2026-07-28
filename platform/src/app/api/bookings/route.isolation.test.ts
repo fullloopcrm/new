@@ -83,7 +83,7 @@ vi.mock('@/lib/notify', () => ({ notify: async () => ({}) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => ({}) }))
 vi.mock('@/lib/messaging/client-sms', () => ({ clientSmsTemplatesFor: async () => ({ bookingConfirmation: () => 'sms' }) }))
 vi.mock('@/lib/messaging/team-sms-resolver', () => ({ teamSmsTemplates: () => ({ jobAssignment: () => 'sms' }) }))
-vi.mock('@/lib/client-properties', () => ({ applyPropertyToBookingClient: () => {} }))
+vi.mock('@/lib/client-properties', () => ({ applyPropertyToBookingClient: () => {}, getBookingAddress: async () => ({ propertyId: null, address: null, latitude: null, longitude: null }) }))
 vi.mock('@/lib/schedule/duration-class', () => ({ deriveDurationClass: () => null }))
 vi.mock('@/lib/audit', () => ({ audit: async () => ({}) }))
 
