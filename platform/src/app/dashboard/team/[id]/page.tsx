@@ -143,6 +143,12 @@ export default function TeamMemberDetailPage() {
     rating_count: number
     ytd_earnings_cents: number
     lifetime_earnings_cents: number
+    retention_ever_assigned: number
+    retention_still_active: number
+    retention_lapsed: number
+    retention_rate: number | null
+    trend_rating_count: number
+    trend_avg_rating: number | null
   } | null>(null)
   const [application, setApplication] = useState<TeamApplication | null>(null)
   const [transportMsg, setTransportMsg] = useState('')
@@ -690,6 +696,15 @@ export default function TeamMemberDetailPage() {
                   <p className="text-xs text-slate-400">
                     Avg Rating{stats.rating_count > 0 ? ` (${stats.rating_count})` : ''}
                   </p>
+                  {stats.trend_avg_rating != null && (
+                    <p className={`text-[11px] mt-0.5 ${
+                      stats.avg_rating != null && stats.trend_avg_rating < stats.avg_rating - 0.3
+                        ? 'text-amber-600 font-medium'
+                        : 'text-slate-400'
+                    }`}>
+                      Last {stats.trend_rating_count}: {stats.trend_avg_rating.toFixed(1)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className={`text-2xl font-bold ${stats.no_show_count > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{stats.no_show_count}</p>
@@ -698,6 +713,17 @@ export default function TeamMemberDetailPage() {
                 <div>
                   <p className="text-2xl font-bold text-slate-900">${(stats.ytd_earnings_cents / 100).toFixed(0)}</p>
                   <p className="text-xs text-slate-400">YTD Earnings</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stats.retention_rate != null ? `${stats.retention_rate}%` : '—'}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Recurring Retention
+                    {stats.retention_ever_assigned > 0
+                      ? ` (${stats.retention_still_active} active / ${stats.retention_lapsed} lapsed)`
+                      : ' (no recurring history yet)'}
+                  </p>
                 </div>
               </div>
             ) : (

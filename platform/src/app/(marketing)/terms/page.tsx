@@ -89,7 +89,7 @@ export default async function TermsPage() {
             geographic city. Partnership terms include:
           </p>
           <ul>
-            <li>Monthly fee of $2,500 per admin + $250 per team member, billed monthly (no tiers)</li>
+            <li>Monthly fee of $2,500 flat, unlimited users, billed monthly (no tiers)</li>
             <li>One-time setup &amp; onboarding fee of $25,000</li>
             <li>Month-to-month from day one &mdash; no minimum commitment, no lock-in</li>
             <li>Cancel anytime; you keep everything we built for you, website included</li>

@@ -9,7 +9,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { askSelena } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
@@ -155,7 +154,15 @@ export async function POST(request: Request) {
         .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, timezone, telegram_bot_token, telegram_chat_id')
         .eq('id', TENANT_PHONE_ALIASES[to])
         .maybeSingle()
-      tenant = aliasTenant || null
+      // Telnyx's forward-leg setup on these aliases echoes the tenant's OWN
+      // outbound SMS (e.g. an internal ops alert sent from the mainline) back
+      // as a second inbound event between the alias legs — `from` being the
+      // tenant's own mainline or either alias number means this is that echo,
+      // not a real customer. Confirmed live 2026-07-28: an internal "30-Min
+      // Heads Up" ops alert got fed to Yinez as if a client sent it, and she
+      // tried to act on it. Drop these; only accept a genuine outside sender.
+      const isSelfEcho = !!aliasTenant && (from === aliasTenant.telnyx_phone || from in TENANT_PHONE_ALIASES)
+      tenant = (!isSelfEcho && aliasTenant) || null
     }
 
     if (!tenant) {
@@ -749,12 +756,12 @@ export async function POST(request: Request) {
             { expectedTenantId: tenantId },
           )
 
-          // NYC Maid runs the REAL Yinez agent (warm voice, self-book redirect,
-          // memory/skills). Other tenants stay on the legacy engine. Pass the
+          // Every tenant runs the shared Yinez core (warm voice, self-book
+          // redirect, memory/skills) — NYC Maid via her own verbatim playbook,
+          // every other tenant via the config-driven one (resolveBasePlaybook).
+          // Pass tenantId explicitly (this webhook already knows it) and the
           // sender phone so Yinez does owner-detection + client lookup.
-          const aiResult = isNycMaid(tenantId)
-            ? await askYinez('sms', text, convo.id, from)
-            : await askSelena(tenantId, 'sms', text, convo.id)
+          const aiResult = await askYinez('sms', text, convo.id, from, undefined, tenantId)
 
           // Prevent silent failure — if Selena returns nothing, send a fallback
           if (aiResult && !aiResult.text) {
@@ -785,29 +792,12 @@ export async function POST(request: Request) {
                 direction: 'outbound',
                 message: aiResult.text,
               })
-
-              // If client was just created by chatbot, backfill prior messages.
-              // clientCreated exists only on the legacy engine's result; the
-              // Yinez engine (YinezResult) doesn't set it, so guard with `in`.
-              if ('clientCreated' in aiResult && aiResult.clientCreated && !client) {
-                const { data: priorMsgs } = await supabaseAdmin
-                  .from('sms_conversation_messages')
-                  .select('direction, message, created_at')
-                  .eq('conversation_id', convo.id)
-                  .order('created_at', { ascending: true })
-
-                if (priorMsgs) {
-                  const backfill = priorMsgs.slice(0, -1).map(m => ({
-                    tenant_id: tenantId,
-                    client_id: clientId,
-                    direction: m.direction,
-                    message: m.message,
-                  }))
-                  if (backfill.length > 0) {
-                    await supabaseAdmin.from('client_sms_messages').insert(backfill)
-                  }
-                }
-              }
+              // The legacy-engine "just created by chatbot, backfill prior
+              // messages" branch was removed here (2026-07-28) — YinezResult
+              // never carried that flag, and it's now unreachable for every
+              // tenant since all of them run Yinez. Not a functional gap:
+              // Yinez's own create_client tool already links the conversation
+              // to the new client record at creation time, not after the fact.
             }
 
             // If booking was created, mark conversation complete and notify admin

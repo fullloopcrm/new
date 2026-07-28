@@ -5,6 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { etDayBoundaryUTC, etToday } from '@/lib/recurring'
+import { getTeamMemberRetentionStats } from '@/lib/team-retention'
+import { getTeamMemberRatingTrend } from '@/lib/team-rating-trend'
 
 export async function GET(
   _request: Request,
@@ -29,7 +31,7 @@ export async function GET(
     // from the (capped at 50) bookings list the page also fetches, so a
     // long-tenured member's lifetime totals aren't silently undercounted.
     const yearStart = etDayBoundaryUTC({ ...etToday(), month: 0, day: 1 }).toISOString()
-    const [{ count: jobsCompleted }, { count: noShowCount }, { data: ytdBookings }, { data: lifetimeBookings }] = await Promise.all([
+    const [{ count: jobsCompleted }, { count: noShowCount }, { data: ytdBookings }, { data: lifetimeBookings }, retention, ratingTrend] = await Promise.all([
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('team_member_id', id).in('status', ['completed', 'paid']),
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
@@ -38,6 +40,8 @@ export async function GET(
         .eq('team_member_id', id).in('status', ['completed', 'paid']).gte('start_time', yearStart),
       supabaseAdmin.from('bookings').select('team_member_pay')
         .eq('team_member_id', id).in('status', ['completed', 'paid']),
+      getTeamMemberRetentionStats(tenantId, id),
+      getTeamMemberRatingTrend(tenantId, id),
     ])
     const ytdEarningsCents = (ytdBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
     const lifetimeEarningsCents = (lifetimeBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
@@ -51,6 +55,15 @@ export async function GET(
         rating_count: data.rating_count || 0,
         ytd_earnings_cents: ytdEarningsCents,
         lifetime_earnings_cents: lifetimeEarningsCents,
+        // Smart-scheduling upgrade spec Part 4 item 1 — see lib/team-retention.ts
+        // for what "ever_assigned" does and doesn't capture.
+        retention_ever_assigned: retention.ever_assigned,
+        retention_still_active: retention.still_active,
+        retention_lapsed: retention.lapsed,
+        retention_rate: retention.retention_rate,
+        // Smart-scheduling upgrade spec Part 4 item 3 — see lib/team-rating-trend.ts.
+        trend_rating_count: ratingTrend.trend_rating_count,
+        trend_avg_rating: ratingTrend.trend_avg_rating,
       },
     })
   } catch (e) {

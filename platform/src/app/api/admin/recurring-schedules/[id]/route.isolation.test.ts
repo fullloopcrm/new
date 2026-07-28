@@ -104,4 +104,12 @@ describe('DELETE /api/admin/recurring-schedules/:id — tenant isolation', () =>
     const bookX = h.store.bookings.find((b) => b.id === 'book-X1')
     expect(bookX?.status).toBe('scheduled')
   })
+
+  it('snapshots the assigned team member into cancelled_team_member_id and stamps cancelled_at', async () => {
+    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('sched-A1'))
+    expect(res.status).toBe(200)
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')
+    expect(sched?.cancelled_team_member_id).toBe('tm-old')
+    expect(sched?.cancelled_at).toBeTruthy()
+  })
 })

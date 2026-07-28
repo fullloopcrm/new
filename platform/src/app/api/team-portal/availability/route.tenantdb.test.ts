@@ -55,8 +55,8 @@ import { GET, PUT } from './route'
 
 beforeEach(() => {
   DB.team_members = [
-    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own', notes: JSON.stringify({ availability: { working_days: [1, 2, 3], blocked_dates: [] } }) },
-    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign', notes: JSON.stringify({ availability: { working_days: [4, 5], blocked_dates: [] } }) },
+    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own', working_days: ['1', '2', '3'], unavailable_dates: [] },
+    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign', working_days: ['4', '5'], unavailable_dates: [] },
   ]
   // A foreign-tenant booking for a colliding member id on the date being
   // requested off — must NOT block tenant A's request.
@@ -91,9 +91,7 @@ describe('PUT /api/team-portal/availability — tenantDb scoping', () => {
 
     const memberA = DB.team_members.find((r) => r.tenant_id === TENANT_A)!
     const memberB = DB.team_members.find((r) => r.tenant_id === TENANT_B)!
-    const parsedA = JSON.parse(memberA.notes as string)
-    const parsedB = JSON.parse(memberB.notes as string)
-    expect(parsedA.availability.blocked_dates).toEqual(['2026-08-05'])
-    expect(parsedB.availability.blocked_dates).toEqual([])
+    expect(memberA.unavailable_dates).toEqual(['2026-08-05'])
+    expect(memberB.unavailable_dates).toEqual([])
   })
 })
