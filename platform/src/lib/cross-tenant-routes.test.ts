@@ -135,8 +135,8 @@ function reseed() {
     { id: 'bk-b-assigned', tenant_id: B_ID, client_id: ids.client.b, status: 'confirmed', start_time: '2099-02-02', team_member_id: ids.member.b },
   ])
   fake._seed('team_members', [
-    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null, name: 'Worker A', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-08-01'] } }) },
-    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null, name: 'Worker B', notes: JSON.stringify({ availability: { working_days: [1, 2, 3, 4, 5], blocked_dates: ['2026-09-01'] } }) },
+    { id: ids.member.a, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 20, max_jobs_per_day: null, name: 'Worker A', working_days: ['1', '2', '3', '4', '5'], unavailable_dates: ['2026-08-01'] },
+    { id: ids.member.b, tenant_id: B_ID, status: 'active', role: 'worker', pay_rate: 22, max_jobs_per_day: null, name: 'Worker B', working_days: ['1', '2', '3', '4', '5'], unavailable_dates: ['2026-09-01'] },
     { id: ids.member.a2, tenant_id: A_ID, status: 'active', role: 'worker', pay_rate: 21, max_jobs_per_day: null, name: 'Worker A2', notes: null },
     { id: ids.member.aManager, tenant_id: A_ID, status: 'active', role: 'manager', pay_rate: 30, max_jobs_per_day: null, name: 'Manager A', notes: null },
   ])
@@ -633,7 +633,7 @@ describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/availab
     expect(body.availability.blocked_dates).toEqual(['2026-08-01'])
   })
 
-  it("worker A's PUT updates only worker A's own team_members row — worker B's notes stay untouched", async () => {
+  it("worker A's PUT updates only worker A's own team_members row — worker B's unavailable_dates stay untouched", async () => {
     const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
     const req = new Request('http://x', {
       method: 'PUT',
@@ -643,7 +643,6 @@ describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/availab
     const res = await availabilityPUT(req)
     expect(res.status).toBe(200)
     const bRow = fake._all('team_members').find((r) => r.id === ids.member.b)!
-    const bNotes = JSON.parse(bRow.notes as string)
-    expect(bNotes.availability.blocked_dates).toEqual(['2026-09-01'])
+    expect(bRow.unavailable_dates).toEqual(['2026-09-01'])
   })
 })
