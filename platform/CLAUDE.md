@@ -31,7 +31,7 @@ This section used to list `wash-and-fold-nyc` and `the-florida-maid` as full per
 
 What WAS real and got fixed this pass: both tenants' own `(app)/login` / `/login` pages rendered `SiteAdminLoginClient`, which authenticates via `/api/auth/login` (sets the `admin_session` cookie) — but a tenant custom domain's `/admin`→`/dashboard` rewrite gates on the `admin_token` cookie (`/api/admin-auth`), a completely different credential system. A correct password/PIN entry silently failed to reach the dashboard and bounced to `/fullloop` with no error shown. Both pages now redirect straight to `/fullloop` (the real, working, global tenant login) instead of maintaining a second, broken login form. `wash-and-fold-nyc/_lib/auth.ts` + `_lib/roles.ts` (the admin clone's own now-orphaned RBAC helpers, zero real callers left after the June 29 deletion) were deleted alongside.
 
-`nyc-mobile-salon/login` has the identical `SiteAdminLoginClient`-is-broken bug and was NOT touched — out of scope for this pass, flagged for whoever owns that tenant next.
+`nyc-mobile-salon/login` had the identical `SiteAdminLoginClient`-is-broken bug, fixed the same way in a follow-up pass the same day: redirects straight to `/fullloop`, and its own now-orphaned `_lib/auth.ts` + `_lib/roles.ts` (zero real callers — this tenant never had a forked `/admin` or `/dashboard` tree under `src/app/site/` to begin with) were deleted alongside.
 
 `wash-and-fold-hoboken` was removed entirely (2026-07-25) — it had no `tenants` row and its marketing content was still unswapped nycmaid boilerplate (hardcoded `thenycmaid.com` referral links, nycmaid blog routes). Not a real tenant; deleted rather than migrated.
 
