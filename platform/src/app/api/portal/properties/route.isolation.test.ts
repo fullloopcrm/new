@@ -13,6 +13,13 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabaseAdmin: fake }
 })
+// requireOwnClient() now goes through tenantClient() (RLS Stage 3), not
+// tenantDb() — reuse the same mocked supabaseAdmin fake store so existing
+// isolation scenarios stay valid without duplicating the seed data.
+vi.mock('@/lib/tenant-supabase', async () => {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  return { tenantClient: async () => supabaseAdmin }
+})
 
 let currentAuth: { id: string; tid: string } | null
 vi.mock('../auth/token', () => ({

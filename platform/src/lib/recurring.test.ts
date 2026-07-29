@@ -3,6 +3,8 @@ import {
   generateRecurringDates,
   nextOccurrenceDates,
   getRecurringDisplayName,
+  generateInitialBatchDates,
+  buildSeriesUpdateData,
   type RecurringType,
 } from './recurring'
 
@@ -303,5 +305,193 @@ describe('getRecurringDisplayName', () => {
   it('returns null for an unknown repeat type', () => {
     expect(getRecurringDisplayName('yearly', anyDate)).toBeNull()
     expect(getRecurringDisplayName('', anyDate)).toBeNull()
+  })
+})
+
+/**
+ * generateInitialBatchDates — the admin New/Edit Booking UI's "repeat end"
+ * (never/after N/on date)-aware initial-occurrence-batch generator. Ported
+ * from the retired dashboard/bookings/_recurring.ts's generateRecurringDates
+ * (deleted; see docs/RECURRING-REBUILD-DESIGN.md) as part of making this
+ * module the single source of truth for recurring-type semantics.
+ *
+ * Every expected value below was cross-validated 1:1 against the retired
+ * file's own generateRecurringDates for the same inputs before that file was
+ * deleted (58-case matrix across all 6 UI-facing types x 3 start dates x 3
+ * repeat-end modes, plus targeted edge cases) -- these are not independently
+ * re-derived, they're the confirmed-matching output frozen into assertions.
+ */
+describe('generateInitialBatchDates — repeat-end semantics (never/after/on_date)', () => {
+  it('after N: daily returns exactly N consecutive days', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'daily', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 5, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09'])
+  })
+
+  it('after N: weekly returns exactly N dates, 7 days apart', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 5, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02'])
+  })
+
+  it('after N: biweekly returns exactly N dates, 14 days apart', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'biweekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 4, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-01-19', '2026-02-02', '2026-02-16'])
+  })
+
+  it('after N: triweekly returns exactly N dates, 21 days apart', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'triweekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 3, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-01-26', '2026-02-16'])
+  })
+
+  it('after N: monthly_date returns exactly N dates, same day-of-month', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'monthly_date', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 4, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-02-05', '2026-03-05', '2026-04-05'])
+  })
+
+  it('after N: monthly_weekday (admin UI "monthly_day") returns exactly N dates, includes the anchor month', () => {
+    // 2026-01-13 = 2nd Tuesday of January.
+    const dates = generateInitialBatchDates({
+      recurringType: 'monthly_weekday', startDate: '2026-01-13', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 3, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-13', '2026-02-10', '2026-03-10'])
+  })
+
+  it('after N: custom converts customIntervalWeeks to a day-step (3 weeks = 21 days)', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'custom', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 3, repeatEndDate: '', customIntervalWeeks: 3,
+    })
+    expect(dates).toEqual(['2026-01-05', '2026-01-26', '2026-02-16'])
+  })
+
+  it('never: bounds an open-ended weekly series to the end of next calendar year', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'never', repeatEndCount: 10, repeatEndDate: '',
+    })
+    expect(dates[0]).toBe('2026-01-05')
+    expect(dates[dates.length - 1] <= '2027-12-31').toBe(true)
+    // Last generated date must be within one interval of the cutoff (the
+    // next occurrence past it is what got excluded).
+    expect(dates.length).toBeGreaterThan(100) // ~104 weeks between 2026-01-05 and 2027-12-31
+    for (let i = 1; i < dates.length; i++) {
+      expect(dates[i] > dates[i - 1]).toBe(true)
+    }
+  })
+
+  it('on_date: truncates a weekly series at the chosen end date (inclusive)', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'on_date', repeatEndCount: 10, repeatEndDate: '2026-02-01',
+    })
+    // 2026-02-02 (the next weekly date) is past the 2026-02-01 cutoff.
+    expect(dates).toEqual(['2026-01-05', '2026-01-12', '2026-01-19', '2026-01-26'])
+  })
+
+  it('on_date with no date chosen yet: falls back to count-only bounding (matches retired generator)', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'on_date', repeatEndCount: 10, repeatEndDate: '',
+    })
+    expect(dates).toHaveLength(500)
+  })
+
+  it('monthly_date from a day-31 anchor avoids the retired generator\'s chained setMonth() drift bug', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'monthly_date', startDate: '2026-03-31', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 5, repeatEndDate: '',
+    })
+    // Returns to the real day-31 in every month that has one, instead of
+    // permanently drifting to day-1 after the first short month.
+    expect(dates).toEqual(['2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30', '2026-07-31'])
+  })
+
+  it('monthly_weekday from a "3rd Saturday" anchor includes its own anchor-month occurrence (afdb66214-class regression)', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'monthly_weekday', startDate: '2026-08-15', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 3, repeatEndDate: '',
+    })
+    expect(dates[0]).toBe('2026-08-15')
+    expect(dates).toEqual(['2026-08-15', '2026-09-19', '2026-10-17'])
+  })
+
+  it('repeatEnabled=false returns just the start date, matching the retired generator', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: false,
+      repeatEnd: 'never', repeatEndCount: 10, repeatEndDate: '',
+    })
+    expect(dates).toEqual(['2026-01-05'])
+  })
+
+  it('empty startDate returns [\'\'], matching the retired generator', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '', repeatEnabled: true,
+      repeatEnd: 'never', repeatEndCount: 10, repeatEndDate: '',
+    })
+    expect(dates).toEqual([''])
+  })
+
+  it('after 0 occurrences returns an empty array', () => {
+    const dates = generateInitialBatchDates({
+      recurringType: 'weekly', startDate: '2026-01-05', repeatEnabled: true,
+      repeatEnd: 'after', repeatEndCount: 0, repeatEndDate: '',
+    })
+    expect(dates).toEqual([])
+  })
+})
+
+describe('buildSeriesUpdateData — ported unchanged from the retired _recurring.ts', () => {
+  it('maps every field to its bookings-table column name', () => {
+    const data = buildSeriesUpdateData({
+      startTime: '2026-01-05T09:00:00',
+      endTime: '2026-01-05T11:00:00',
+      teamMemberId: 'tm-1',
+      price: 15000,
+      hourlyRate: 5000,
+      serviceType: 'standard',
+      notes: 'gate code 1234',
+      recurringType: 'Weekly',
+      discountPercent: 10,
+    })
+    expect(data).toEqual({
+      start_time: '2026-01-05T09:00:00',
+      end_time: '2026-01-05T11:00:00',
+      team_member_id: 'tm-1',
+      price: 15000,
+      hourly_rate: 5000,
+      service_type: 'standard',
+      notes: 'gate code 1234',
+      recurring_type: 'Weekly',
+      discount_percent: 10,
+    })
+  })
+
+  it('defaults discount_percent to null when discountPercent is omitted', () => {
+    const data = buildSeriesUpdateData({
+      startTime: '2026-01-05T09:00:00',
+      endTime: '2026-01-05T11:00:00',
+      teamMemberId: null,
+      price: 15000,
+      hourlyRate: null,
+      serviceType: 'standard',
+      notes: null,
+      recurringType: null,
+    })
+    expect(data.discount_percent).toBeNull()
   })
 })

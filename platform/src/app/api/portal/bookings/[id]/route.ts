@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 
@@ -15,10 +16,11 @@ export async function GET(
 
   const { id } = await params
 
-  const { data, error } = await tenantDb(auth.tid)
+  const { data, error } = await (await tenantClient(auth.tid))
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .eq('id', id)
+    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .single()
 
@@ -44,10 +46,12 @@ export async function PUT(
   const { start_time, end_time, notes, status, special_instructions } = body
 
   // Get old booking for notification context
-  const { data: oldBooking } = await tenantDb(auth.tid)
+  const bookingsClient = await tenantClient(auth.tid)
+  const { data: oldBooking } = await bookingsClient
     .from('bookings')
     .select('start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
+    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .single<{ start_time: string; end_time: string | null; team_member_id: string | null; clients: { name?: string | null } | null }>()
 
@@ -62,10 +66,11 @@ export async function PUT(
   if (special_instructions !== undefined) update.special_instructions = special_instructions
   if (status === 'cancelled') update.status = 'cancelled'
 
-  const { data, error } = await tenantDb(auth.tid)
+  const { data, error } = await bookingsClient
     .from('bookings')
     .update(update)
     .eq('id', id)
+    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .single()

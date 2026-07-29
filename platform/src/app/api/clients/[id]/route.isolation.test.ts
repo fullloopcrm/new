@@ -14,6 +14,11 @@ const B = 'tid-b'
 
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+// clients table calls now go through tenantClient() (RLS Stage 3) instead of
+// tenantDb() — same underlying fake store, so cross-tenant behavior stays
+// testable without a real JWT/network round-trip. Real RLS enforcement
+// itself was verified live against prod (see tenant-supabase.ts's commit).
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => holder.from!(t) }) }))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {

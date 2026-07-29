@@ -19,6 +19,9 @@ const OTHER_TENANT = 'tid-b'
 
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+// payments now goes through tenantClient() (RLS Stage 3) — same underlying
+// fake table dispatch, so cross-tenant behavior stays testable.
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => holder.from!(t) }) }))
 
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: vi.fn(async () => ({
@@ -73,6 +76,21 @@ describe('finance/mark-paid POST — tenant isolation', () => {
   it("wrong-tenant probe (client type): a foreign booking_id 404s and no payment row is planted", async () => {
     const res = await POST(postReq({ booking_id: 'bk-b', type: 'client' }))
     expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'payments')).toBeUndefined()
+  })
+
+  it("idempotency (post-migration): marking an already-paid booking as client-paid again does not insert a second payment row", async () => {
+    // Booking already has a completed payment on file (e.g. Stripe/Zelle
+    // already posted one) — mirrors the route's own "avoids double-recording"
+    // comment. Same select-then-insert guard, now running through
+    // tenantClient() instead of supabaseAdmin.
+    h.seed.payments.push({ id: 'pay-existing', tenant_id: CTX_TENANT, booking_id: 'bk-a', status: 'completed' })
+
+    const res = await POST(postReq({ booking_id: 'bk-a', type: 'client' }))
+    expect(res.status).toBe(200)
+
+    const paymentsForBooking = h.seed.payments.filter((p) => p.booking_id === 'bk-a')
+    expect(paymentsForBooking.length).toBe(1)
     expect(h.capture.inserts.find((i) => i.table === 'payments')).toBeUndefined()
   })
 })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 
 type ChecklistItem = {
   key: string
@@ -29,7 +30,7 @@ export async function GET() {
       { count: campaignCount },
       { data: recentReviewReq },
     ] = await Promise.all([
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
+      (await tenantClient(tenant.id)).from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
       supabaseAdmin.from('service_types').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('active', true),
       supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('status', 'active'),
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),

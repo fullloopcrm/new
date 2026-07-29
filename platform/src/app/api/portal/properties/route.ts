@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { listProperties, addProperty, updateProperty, setPrimaryProperty, deactivateProperty } from '@/lib/client-properties'
 import { verifyPortalToken } from '../auth/token'
 
@@ -9,7 +10,7 @@ import { verifyPortalToken } from '../auth/token'
 // aren't a comms channel, so there's no impersonation risk like phone/email.
 
 async function requireOwnClient(tenantId: string, clientId: string): Promise<boolean> {
-  const { data } = await tenantDb(tenantId).from('clients').select('id').eq('id', clientId).single()
+  const { data } = await (await tenantClient(tenantId)).from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
   return !!data
 }
 

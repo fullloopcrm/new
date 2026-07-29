@@ -4,6 +4,7 @@
 
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS as sendTelnyxSMS } from '@/lib/sms'
@@ -85,6 +86,83 @@ const SELF_TOOLS = new Set(['recall'])
 // hallucinable summary. Yinez must use it for every slot quote on every channel.
 const CLIENT_LOCAL_TOOLS = new Set(['score_cleaners'])
 
+// Best-effort real target id for the audit row's entity_id column (a real
+// UUID column — arbitrary strings fail the insert). Checked in priority
+// order across the id-ish args every tool handler actually uses.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ENTITY_ID_KEYS = [
+  'booking_id', 'client_id', 'cleaner_id', 'payout_id', 'schedule_id',
+  'deal_id', 'application_id', 'notification_id', 'exclude_booking_id',
+]
+function extractEntityId(input: Record<string, unknown>): string | undefined {
+  for (const key of ENTITY_ID_KEYS) {
+    const val = input[key]
+    if (typeof val === 'string' && UUID_RE.test(val)) return val
+  }
+  return undefined
+}
+
+// Ambiguous-target guard. Investigated: neither core.ts's detectIntent (always
+// resolves to some intent, never "unclear") nor agent.ts/tools.ts had any
+// confidence-threshold or clarification-request mechanism — a tool call whose
+// target id is missing/empty just silently proceeded (typically hitting
+// "not found" downstream, or in a couple of handlers, writing null/undefined
+// into a mutation). Claude's tool schema `required` array is a hint to the
+// model, not an enforced contract — it can still emit a tool_use with a
+// required field blank or omitted rather than asking. This refuses BEFORE
+// dispatch and tells the model to ask instead of guessing/inventing an id.
+//
+// Scoped deliberately to id-shaped target fields (the ENTITY_ID_KEYS above,
+// reusing the same list) rather than every field a schema marks required —
+// some non-id required fields have a real default in the handler (e.g.
+// report_issue's "severity" defaults to 'medium' if omitted; agent.ts's
+// schema over-declares it required) and would false-positive as "missing"
+// under a blanket check. An id has no such default: there is never a
+// reasonable target to fall back to, so requiring it is always safe.
+//
+// Hand-verified against agent.ts's TOOLS schema (grep `required: [.*_id`)
+// rather than importing TOOLS at runtime — several existing tests fully
+// mock '@/lib/selena/agent' down to just { isOwnerOfTenant }, and importing
+// TOOLS here would break every one of them on a module they don't even
+// exercise. A static list is also immune to that class of test breakage.
+const TOOL_REQUIRED_ID_FIELDS: Record<string, string[]> = {
+  reschedule_booking: ['booking_id'],
+  cancel_booking: ['booking_id'],
+  assign_cleaner_to_booking: ['booking_id', 'cleaner_id'],
+  update_booking: ['booking_id'],
+  approve_refund: ['booking_id'],
+  mark_payout_paid: ['payout_id'],
+  block_client: ['client_id'],
+  update_cleaner: ['cleaner_id'],
+  deactivate_cleaner: ['cleaner_id'],
+  pause_recurring: ['schedule_id'],
+  resume_recurring: ['schedule_id'],
+  cancel_recurring: ['schedule_id'],
+  create_deal: ['client_id'],
+  update_deal: ['deal_id'],
+  mark_notification_read: ['notification_id'],
+  approve_cleaner_application: ['application_id'],
+  reject_cleaner_application: ['application_id'],
+  process_stripe_refund: ['booking_id'],
+  block_cleaner_dates: ['cleaner_id'],
+  get_smart_suggestion: ['booking_id'],
+}
+function isMissing(val: unknown): boolean {
+  if (val === undefined || val === null) return true
+  if (typeof val === 'string' && val.trim() === '') return true
+  if (typeof val === 'number' && Number.isNaN(val)) return true
+  return false
+}
+function firstMissingRequiredIdField(name: string, input: Record<string, unknown>): string | undefined {
+  const required = TOOL_REQUIRED_ID_FIELDS[name] || []
+  return required.find((field) => isMissing(input[field]))
+}
+
+// Every tool call — client and owner alike — goes through this one function
+// (SMS, web chat, and Telegram all call runTool for every tool the model
+// invokes), so it's the single choke point for audit logging: wrap the real
+// dispatcher (dispatchTool, unchanged logic) and write one audit_logs row
+// per call, success or failure, before returning/rethrowing.
 export async function runTool(
   name: string,
   input: Record<string, unknown>,
@@ -102,9 +180,6 @@ export async function runTool(
   role?: Role,
   roleOverrides?: RolePermissionOverrides,
 ): Promise<string> {
-  // tenantId is REQUIRED for safe multi-tenant routing. Older callers may not
-  // pass it yet (sweep in progress) — fall back to the default tenant rather
-  // than throwing, so a missing param doesn't break a live SMS reply.
   const tid = tenantId || (await getCurrentTenantId())
 
   if (role) {
@@ -113,6 +188,67 @@ export async function runTool(
       return JSON.stringify({ error: 'permission_denied', message: `You don't have permission to do that (requires ${required}).` })
     }
   }
+
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(name, input, conversationId, phone, result, tid, role)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let blocked = false
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+      blocked = toolError === 'owner_only_tool'
+    }
+  } catch {
+    // Non-JSON tool output (plain text) — treat as success, nothing to parse.
+  }
+
+  // Best-effort attribution without an extra DB round trip per call: tools
+  // reachable on a client channel (CLIENT_TOOLS/SELF_TOOLS/CLIENT_LOCAL_TOOLS)
+  // are attributed to the client; a blocked call means the owner-only gate
+  // rejected a non-owner caller, so it's neither — flag it distinctly rather
+  // than falsely crediting the owner with an attempt they didn't make.
+  // Everything else only executes after dispatchTool's own isOwnerOfTenant
+  // gate passes, so it's owner-initiated.
+  const onBehalfOf = blocked
+    ? 'blocked_non_owner'
+    : (CLIENT_TOOLS.has(name) || SELF_TOOLS.has(name) || CLIENT_LOCAL_TOOLS.has(name)) ? 'client' : 'owner'
+
+  audit({
+    tenantId: tid,
+    action: blocked ? 'yinez.tool_blocked' : 'yinez.tool_call',
+    entityType: name,
+    entityId: extractEntityId(input),
+    details: {
+      actor: 'agent',
+      on_behalf_of: onBehalfOf,
+      conversation_id: conversationId,
+      phone: phone || undefined,
+      success: !toolError,
+      error: toolError,
+    },
+  }).catch((e) => console.error('[Yinez] audit log failed for tool', name, e))
+
+  if (threw) throw threw
+  return out
+}
+
+async function dispatchTool(
+  name: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  phone: string | null,
+  result: YinezResult,
+  tid: string,
+  role?: Role,
+): Promise<string> {
 
   // Owner-only gate. Anything not in CLIENT_TOOLS or SELF_TOOLS is an admin
   // tool (cross-client lookups, broadcasts, ops dashboards, refunds, etc).
@@ -124,6 +260,18 @@ export async function runTool(
     return JSON.stringify({
       error: 'owner_only_tool',
       message: `Tool ${name} is owner-only. You're talking to a client right now — answer their question without this tool.`,
+    })
+  }
+
+  // Ambiguous-target guard — refuse rather than let the model act on a
+  // missing/guessed id. See firstMissingRequiredIdField's comment above.
+  const missingIdField = firstMissingRequiredIdField(name, input)
+  if (missingIdField) {
+    console.warn('[Yinez:missing_required_id]', { name, missingIdField, conversationId })
+    return JSON.stringify({
+      error: 'missing_required_field',
+      field: missingIdField,
+      message: `Cannot call ${name} — "${missingIdField}" is required but wasn't provided. Ask for it (or look it up first) instead of guessing or inventing a value.`,
     })
   }
 
@@ -1153,6 +1301,13 @@ async function handleApproveRefund(input: { booking_id: string; amount_dollars: 
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
+  // Idempotency guard (same pattern as process_stripe_refund's DB-state
+  // pre-check): a retried/duplicate approve_refund call must not re-notify
+  // admins by SMS a second time for the same approval.
+  if (booking.payment_status === 'refund_pending' || booking.payment_status === 'refunded') {
+    return JSON.stringify({ ok: true, status: booking.payment_status, note: 'already approved — not re-notifying admins', amount: input.amount_dollars })
+  }
+
   const note = `[REFUND APPROVED ${new Date().toISOString().slice(0, 10)} $${input.amount_dollars} — ${input.reason}]`
   await supabaseAdmin
     .from('bookings')
@@ -1169,11 +1324,18 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
   const cents = Math.round(input.amount_dollars * 100)
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id')
+    .select('id, client_id, payment_status')
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
+
+  // Idempotency guard, same pattern as approve_refund/mark_payout_paid: a
+  // retried/duplicate call must not insert a second payments row for a
+  // booking already marked paid.
+  if (booking.payment_status === 'paid') {
+    return JSON.stringify({ ok: true, booking_id: input.booking_id, note: 'already marked paid — not re-recording payment', amount: input.amount_dollars, method: input.method })
+  }
 
   await supabaseAdmin.from('payments').insert({
     tenant_id: tid,
@@ -1189,6 +1351,19 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
 }
 
 async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): Promise<string> {
+  // Idempotency guard, same pattern as process_stripe_refund: pre-check
+  // current state so a duplicate/retried call doesn't silently overwrite
+  // paid_at with a second timestamp for a payout already marked paid.
+  const { data: existing } = await supabaseAdmin
+    .from('team_member_payouts')
+    .select('status, paid_at')
+    .eq('id', input.payout_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (existing?.status === 'paid') {
+    return JSON.stringify({ ok: true, payout_id: input.payout_id, note: 'already marked paid — not re-writing paid_at', paid_at: existing.paid_at })
+  }
+
   const { error } = await supabaseAdmin
     .from('team_member_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
@@ -1201,10 +1376,15 @@ async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): 
 async function handleBlockClient(input: { client_id: string; reason: string }, tid: string): Promise<string> {
   const { data: client } = await supabaseAdmin
     .from('clients')
-    .select('notes')
+    .select('notes, do_not_service')
     .eq('id', input.client_id)
     .eq('tenant_id', tid)
     .maybeSingle()
+  // Idempotency guard, same pattern as process_stripe_refund: a client
+  // already blocked shouldn't accumulate a duplicate DNS note per retry.
+  if (client?.do_not_service) {
+    return JSON.stringify({ ok: true, client_id: input.client_id, status: 'do_not_service', note: 'already blocked — not appending a duplicate note' })
+  }
   const note = `[DNS ${new Date().toISOString().slice(0, 10)} — ${input.reason}]`
   await supabaseAdmin
     .from('clients')
@@ -1245,6 +1425,19 @@ async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<s
 }
 
 async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }, tid: string): Promise<string> {
+  // Idempotency guard, same pattern as process_stripe_refund: pre-check
+  // current state so a duplicate/retried call is a clear no-op, not a
+  // silent re-write.
+  const { data: existing } = await supabaseAdmin
+    .from('team_members')
+    .select('status')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (existing?.status === 'inactive') {
+    return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', note: 'already inactive — no-op' })
+  }
+
   const { error } = await supabaseAdmin.from('team_members').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', reason: input.reason })
@@ -1557,9 +1750,26 @@ async function handleSeoStatus(tid: string): Promise<string> {
   })
 }
 
+// Idempotency guard for trigger_cron: unlike the other 4 tools, this one has
+// no DB row to pre-check — the "state" is whatever the cron endpoint just did
+// (often a bulk SMS/email blast to every client, e.g. reminders/outreach). A
+// retried or duplicate tool call within the window must NOT re-fire the cron
+// a second time. In-memory cooldown Map, same mechanism already proven in
+// this codebase by audit.ts's sensitiveAuditCooldowns.
+const cronTriggerCooldowns = new Map<string, number>()
+const CRON_TRIGGER_COOLDOWN_MS = 60 * 1000
+
 async function handleTriggerCron(input: { name: string }): Promise<string> {
   const allowed = ['reminders', 'rating-prompt', 'payment-reminder', 'confirmation-reminder', 'late-check-in', 'schedule-monitor', 'sales-follow-ups', 'outreach', 'generate-recurring', 'health-check', 'health-monitor']
   if (!allowed.includes(input.name)) return JSON.stringify({ error: `cron not allowed: ${input.name}` })
+
+  const now = Date.now()
+  const last = cronTriggerCooldowns.get(input.name) || 0
+  if (now - last < CRON_TRIGGER_COOLDOWN_MS) {
+    return JSON.stringify({ ok: false, error: 'cron_recently_triggered', note: `${input.name} was already fired in the last ${CRON_TRIGGER_COOLDOWN_MS / 1000}s — not firing again to avoid a duplicate bulk send`, retry_after_ms: CRON_TRIGGER_COOLDOWN_MS - (now - last) })
+  }
+  cronTriggerCooldowns.set(input.name, now)
+
   const url = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thenycmaid.com'}/api/cron/${input.name}`
   const secret = process.env.CRON_SECRET || ''
   try {

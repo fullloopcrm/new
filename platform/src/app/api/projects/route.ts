@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantClient } from '@/lib/tenant-supabase'
 
 // Projects = long jobs (weeks-to-year). A project owns a span and one or more
 // booking touchpoints. This creates a project row plus a single span booking
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 
     // Confirm the client (if given) belongs to this tenant.
     if (clientId) {
-      const { data: c } = await supabaseAdmin.from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
+      const { data: c } = await (await tenantClient(tenantId)).from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
       if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 

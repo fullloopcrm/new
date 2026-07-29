@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { supabaseAdmin } from '@/lib/supabase'
 import {
   listProperties,
@@ -14,7 +15,7 @@ import {
 // Distinct from the client-portal-facing equivalent — this always authenticates
 // as the operator, never the client, so every write is stamped changedBy:'admin'.
 async function verifyOwnership(tenantId: string, clientId: string): Promise<boolean> {
-  const { data } = await tenantDb(tenantId).from('clients').select('id').eq('id', clientId).single()
+  const { data } = await (await tenantClient(tenantId)).from('clients').select('id').eq('id', clientId).eq('tenant_id', tenantId).single()
   return !!data
 }
 

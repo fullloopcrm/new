@@ -18,6 +18,7 @@ const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: { from: (t: string) => holder.from!(t) },
 }))
+vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => ({ from: (t: string) => holder.from!(t) }) }))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {

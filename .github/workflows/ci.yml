@@ -30,13 +30,22 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit --pretty false
 
-      - name: Unit tests (vitest)
-        run: npx vitest run
+      - name: Unit tests (vitest, with coverage)
+        # --coverage also produces coverage/coverage-summary.json, consumed by the
+        # doc-currency check below — one full-suite run does both jobs instead of two.
+        run: npx vitest run --coverage
 
       - name: Tenant-isolation guard
         # Fails if a NEW tenant-owned query is added without .eq('tenant_id', …).
         # The 91 baselined legacy candidates are triaged separately; new leaks can't merge.
         run: node scripts/audit-tenant-scope.mjs
+
+      - name: TEAM-READINESS.md doc-currency check
+        # Fails if docs/TEAM-READINESS.md's stated test-file-count or coverage %
+        # has drifted from what the repo actually measures (see script header —
+        # this doc's own coverage claim was found silently stale by 800+ test
+        # files before this gate existed).
+        run: node scripts/check-team-readiness-currency.mjs
 
       - name: Lint
         # Blocking: `eslint src --quiet` is error-clean today (verified 2026-07-04),

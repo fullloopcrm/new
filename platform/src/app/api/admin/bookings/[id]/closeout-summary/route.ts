@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
+import { tenantClient } from '@/lib/tenant-supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
@@ -75,11 +76,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (c?.id) teamMembers.push({ team_member_id: c.id, name: c.name, phone: c.phone, is_lead: true, pay_rate: c.pay_rate ?? null })
   }
 
-  const { data: payments } = await db
+  const { data: payments } = await (await tenantClient(booking.tenant_id))
     .from('payments')
     .select('id, amount_cents, tip_cents, method, stripe_session_id, stripe_payment_intent_id, reference_id, created_at')
     .eq('booking_id', id)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', booking.tenant_id)
     .order('created_at', { ascending: true })
 
   const { data: payouts } = await db
