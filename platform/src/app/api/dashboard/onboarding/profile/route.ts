@@ -230,6 +230,8 @@ export async function POST(request: Request) {
       onboarding_draft: null,
       onboarding_completed_at: new Date().toISOString(),
     }
+    if (str(d.businessName)) tenantUpdate.name = str(d.businessName)
+    if (str(d.address)) tenantUpdate.address = str(d.address)
     if (str(d.phone)) tenantUpdate.phone = str(d.phone)
     if (str(d.email)) tenantUpdate.email = str(d.email)
     if (str(d.websiteUrl)) tenantUpdate.website_url = str(d.websiteUrl)
