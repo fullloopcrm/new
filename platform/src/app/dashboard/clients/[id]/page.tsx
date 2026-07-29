@@ -9,6 +9,7 @@ import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
 import ClientAddresses from '../client-addresses'
 import ClientNotesTimeline from '@/components/ClientNotesTimeline'
+import DocumentsPanel from '@/components/DocumentsPanel'
 
 type Client = {
   id: string
@@ -429,6 +430,10 @@ export default function ClientDetailPage() {
               </Link>
             </div>
           </div>
+
+          {/* DOCUMENTS: generic file attachments for this client (contracts,
+              signed forms, photos of a property, etc.) */}
+          <DocumentsPanel clientId={client.id} />
 
           {/* PRIVACY & DATA (GDPR/CCPA deletion request) */}
           <GdprDeletionPanel

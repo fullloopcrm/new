@@ -5,6 +5,7 @@ import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { NotesPanel } from '@/components/admin/NotesPanel'
 import { TenantUsers } from '@/components/admin/TenantUsers'
 import { LaunchPanel } from '@/components/admin/LaunchPanel'
+import DocumentsPanel from '@/components/DocumentsPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -1122,8 +1123,13 @@ export default function BusinessDetailPage() {
       )}
 
       {tab === 'notes' && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-6">
           <NotesPanel subjectType="tenant" subjectId={id} />
+          {/* Tenant-level document attachments (client_id omitted) -- e.g. a
+              signed sales proposal. No dashboard session exists on this page
+              (admin_token only), so tenantId is passed explicitly; the API
+              route falls back to requireAdmin() when it sees tenant_id. */}
+          <DocumentsPanel tenantId={id} title="Tenant Documents" />
         </div>
       )}
 
