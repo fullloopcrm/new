@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { UNIVERSAL_PIN } from '@/lib/universal-pin'
+import { isUniversalPin } from '@/lib/universal-pin'
 import { createToken } from './token'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { audit } from '@/lib/audit'
 
 // Brute-force throttle for team-portal login. Counts FAILED PIN attempts on TWO
 // compound buckets — per TENANT and per IP — never per (tenant, pin). The old
@@ -67,7 +68,8 @@ export async function POST(request: Request) {
   // in as the oldest member on file for WHATEVER tenant, deliberate bypass,
   // still gated by the same rate limits as a normal PIN attempt.
   type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null }
-  const memberQuery = pin === UNIVERSAL_PIN
+  const usedUniversalPin = isUniversalPin(pin)
+  const memberQuery = usedUniversalPin
     ? tenantDb(tenant.id)
         .from('team_members')
         .select('id, name, preferred_language, pay_rate, avatar_url, role')
@@ -100,6 +102,13 @@ export async function POST(request: Request) {
   }
 
   const token = createToken(member.id, tenant.id, member.pay_rate, member.role)
+
+  if (usedUniversalPin) {
+    // Visible-by-default trail for the master PIN — this bypass produces no
+    // record otherwise, so support access to a tenant's team portal would
+    // otherwise be invisible to that tenant and to platform audits.
+    await audit({ tenantId: tenant.id, action: 'auth.universal_pin_login', entityType: 'team_member', entityId: member.id, ip })
+  }
 
   return NextResponse.json({
     token,

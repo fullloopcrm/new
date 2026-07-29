@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 
 type Business = {
@@ -16,20 +17,29 @@ type Business = {
  * tenant's operator dashboard, team portal, or client portal, instead of
  * needing to already be on that tenant's own domain to log in there.
  *
- * The deep links pass the same master PIN through as a query param so the
- * target domain's own login form auto-submits it (see the `?pin=` handling
- * in LoginForm/TeamLoginForm/portal login page) -- there's no separate
- * cross-domain session/cookie exchange, since the PIN already works
- * domain-independently (verified: /api/admin-auth's ADMIN_PIN check runs
- * before any tenant is resolved). httpOnly cookies and localStorage tokens
- * are both origin-scoped, so re-submitting the PIN on arrival is the only
- * way in short of building a signed handoff-token exchange -- not worth the
- * extra surface for a value that's already a deliberate platform-wide key.
+ * "Dashboard" uses the platform's own admin-impersonation system
+ * (POST /api/admin/impersonate → signed cookie on THIS origin, same pattern
+ * as admin/businesses/[id]) instead of the master PIN: no PIN in a URL/
+ * browser-history/referrer, and every subsequent request is already logged
+ * to impersonation_events. This only works for the operator dashboard
+ * because it's global code resolvable via a cookie on this origin.
+ *
+ * "Team" and "Client" still deep-link the master PIN as a `?pin=` query
+ * param (see the `?pin=` handling in TeamLoginForm/portal login page) --
+ * those surfaces are served on the TENANT'S OWN domain and authenticate via
+ * a completely separate PIN-only system (team_members/clients tables) with
+ * no cookie-based impersonation equivalent, so re-submitting the PIN on
+ * arrival is still the only way in. Every use of it now writes an
+ * audit_logs row (action: 'auth.universal_pin_login') from the consuming
+ * route, closing the "invisible bypass" gap even though the URL exposure
+ * for these two links remains.
  */
 export default function PortalsPickerPage() {
+  const router = useRouter()
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [enteringId, setEnteringId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/businesses')
@@ -50,6 +60,20 @@ export default function PortalsPickerPage() {
     const url = new URL(`https://${domain}${path}`)
     url.searchParams.set('pin', UNIVERSAL_PIN)
     return url.toString()
+  }
+
+  async function enterDashboard(tenantId: string) {
+    setEnteringId(tenantId)
+    const res = await fetch('/api/admin/impersonate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId }),
+    })
+    if (res.ok) {
+      router.push('/dashboard')
+    } else {
+      setEnteringId(null)
+    }
   }
 
   if (loading) return <p className="text-slate-500">Loading portals...</p>
@@ -94,14 +118,14 @@ export default function PortalsPickerPage() {
                 <td className="px-4 py-3">
                   {b.domain ? (
                     <div className="flex gap-2">
-                      <a
-                        href={portalUrl(b.domain, '/fullloop?next=%2Fdashboard')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2 py-1 rounded text-xs font-medium bg-teal-50 text-teal-700 hover:bg-teal-100"
+                      <button
+                        type="button"
+                        onClick={() => enterDashboard(b.id)}
+                        disabled={enteringId === b.id}
+                        className="px-2 py-1 rounded text-xs font-medium bg-teal-50 text-teal-700 hover:bg-teal-100 disabled:opacity-50"
                       >
-                        Dashboard
-                      </a>
+                        {enteringId === b.id ? 'Entering...' : 'Dashboard'}
+                      </button>
                       <a
                         href={portalUrl(b.domain, '/team/login')}
                         target="_blank"

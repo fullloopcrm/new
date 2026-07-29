@@ -3,9 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-import { UNIVERSAL_PIN } from '@/lib/universal-pin'
+import { isUniversalPin } from '@/lib/universal-pin'
 import { generateCode, createToken } from './token'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { audit } from '@/lib/audit'
 
 // Brute-force throttle for PIN login. Mirrors /api/team-portal/auth: buckets are
 // keyed by TENANT and by IP, never by the guessed PIN itself — a bucket keyed on
@@ -77,8 +78,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
+    const usedUniversalPin = isUniversalPin(pin)
     let client: { id: string; name: string } | null = null
-    if (pin === UNIVERSAL_PIN) {
+    if (usedUniversalPin) {
       const { data } = (await tenantDb(tenant.id)
         .from('clients')
         .select('id, name')
@@ -112,6 +114,13 @@ export async function POST(request: Request) {
     }
 
     const token = createToken(client.id, tenant.id)
+
+    if (usedUniversalPin) {
+      // Visible-by-default trail for the master PIN — this bypass produces no
+      // record otherwise, so support access to a tenant's client portal would
+      // otherwise be invisible to that tenant and to platform audits.
+      await audit({ tenantId: tenant.id, action: 'auth.universal_pin_login', entityType: 'client', entityId: client.id, ip })
+    }
 
     return NextResponse.json({
       token,

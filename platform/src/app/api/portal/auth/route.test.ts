@@ -139,6 +139,25 @@ describe('POST /api/portal/auth — login', () => {
     expect(res.status).toBe(401)
   })
 
+  it('writes a distinct audit_logs row on a successful universal-PIN login', async () => {
+    const res = await POST(loginReq('020179'))
+    expect(res.status).toBe(200)
+    const rows = fake._all('audit_logs')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      tenant_id: TENANT_ID,
+      action: 'auth.universal_pin_login',
+      entity_type: 'client',
+      entity_id: CLIENT_ID,
+    })
+  })
+
+  it('does not write an audit_logs row for a normal (non-universal) login', async () => {
+    const res = await POST(loginReq(REAL_PIN))
+    expect(res.status).toBe(200)
+    expect(fake._all('audit_logs')).toHaveLength(0)
+  })
+
   it('a client with no PIN set yet can never be matched by a guess', async () => {
     const res = await POST(loginReq('123123'))
     expect(res.status).toBe(401)
