@@ -5,6 +5,9 @@ import { generateToken } from '@/lib/tokens'
 import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 import { nowNaiveET } from '@/lib/recurring'
+import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { getBookingAddress } from '@/lib/client-properties'
+import { getSettings } from '@/lib/settings'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -233,44 +236,100 @@ export async function POST(request: Request) {
   }
 
   const { h, m } = parseTime(preferred_time)
-  const rows = dates.map((date: string) => {
+
+  // Per-date availability check -- a requested team_member_id used to get
+  // written onto every generated date with zero verification, which could
+  // double-book them or assign them to a day they're not actually available
+  // for. Mirrors /api/schedules and the cron refill job exactly: score each
+  // date individually, keep the requested member if they're actually free
+  // that date, otherwise fall back to the best-scoring available alternate
+  // (smart_recurring_assign flag, same semantics as the cron refill) or
+  // leave that one occurrence unassigned+flagged for manual review.
+  const { smart_recurring_assign: smartAssign } = await getSettings(tenantId)
+  let jobAddr: { address: string | null; latitude: number | null; longitude: number | null } | null = null
+  if (teamMemberId) {
+    jobAddr = await getBookingAddress({ propertyId: property_id || null, clientId: client_id })
+  }
+
+  const rows: Record<string, unknown>[] = []
+  for (const date of dates) {
     const startISO = `${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
     const endTotalMin = h * 60 + m + hours * 60
     const endISO = `${date}T${String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}:00`
     const token = generateToken()
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
-    return {
+
+    let assignedId: string | null = teamMemberId
+    let unassignedNote: string | null = null
+    if (teamMemberId) {
+      const startHHMM = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      const scores = await scoreTeamForBooking({
+        tenantId,
+        date,
+        startTime: startHHMM,
+        durationHours: hours,
+        clientAddress: jobAddr?.address || '',
+        clientId: client_id,
+        hourlyRate: hourly_rate != null ? Number(hourly_rate) : undefined,
+        jobCoords: jobAddr?.latitude != null && jobAddr?.longitude != null
+          ? { lat: Number(jobAddr.latitude), lng: Number(jobAddr.longitude) }
+          : undefined,
+      })
+      const requestedStillFree = scores.find((s) => s.id === teamMemberId && s.available)
+      if (!requestedStillFree) {
+        const alternate = smartAssign ? pickBestTeam(scores, 1).lead : null
+        assignedId = alternate?.id ?? null
+        unassignedNote = alternate
+          ? null
+          : `[Auto: requested team member unavailable ${date} — needs reassignment]`
+      }
+    }
+
+    rows.push({
       client_id,
       property_id: property_id || null,
-      team_member_id: teamMemberId,
+      team_member_id: assignedId,
       start_time: startISO,
       end_time: endISO,
       service_type: service_type || 'Standard Cleaning',
       price: price || 0,
       hourly_rate: hourly_rate || null,
       pay_rate: payRate,
-      notes: notes || null,
+      notes: unassignedNote ? `${notes ? notes + ' — ' : ''}${unassignedNote}` : (notes || null),
       recurring_type,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',
       schedule_id: schedule.id,
       discount_percent: finalDiscountPercent || null,
-      suggested_team_member_id: teamMemberId ? null : suggestedTeamMemberId,
+      suggested_team_member_id: assignedId ? null : suggestedTeamMemberId,
       source: 'admin',
-    }
-  })
+    })
+  }
 
-  const { data: bookings, error: batchError } = await db
+  // The fn_block_booking_overlap trigger fires BEFORE INSERT and aborts the
+  // whole batch statement on any single conflicting row. The per-occurrence
+  // check above should already keep conflicting rows out, but fall back to
+  // per-row inserts on any batch error so a conflict slipping through (race
+  // condition, stale score) still lands every non-conflicting occurrence
+  // instead of silently creating zero bookings — mirrors /api/schedules and
+  // cron/generate-recurring's existing fallback.
+  let bookingsCreated = 0
+  const skippedDates: string[] = []
+  const { error: batchError } = await db
     .from('bookings')  // tenant-scope-ok: insert rows carry tenant_id (built above)
     .insert(rows)
-    .select('id')
-
-  if (batchError) {
-    return NextResponse.json({ error: batchError.message, schedule }, { status: 500 })
+  if (!batchError) {
+    bookingsCreated = rows.length
+  } else {
+    for (const row of rows) {
+      const { error: rowErr } = await db.from('bookings').insert(row)  // tenant-scope-ok: row carries tenant_id (built above)
+      if (rowErr) skippedDates.push(String(row.start_time))
+      else bookingsCreated++
+    }
   }
 
   // No client/team notifications here by design (admin-only flow).
-  return NextResponse.json({ schedule, bookings_created: bookings?.length || 0 })
+  return NextResponse.json({ schedule, bookings_created: bookingsCreated, skipped_dates: skippedDates })
 }

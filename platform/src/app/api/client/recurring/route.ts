@@ -11,6 +11,9 @@ import { isCommEnabled } from '@/lib/comms-prefs'
 import { suggestTeamMemberForRecurring } from '@/lib/recurring-team-suggest'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
+import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { getBookingAddress } from '@/lib/client-properties'
+import { getSettings } from '@/lib/settings'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -47,6 +50,7 @@ export async function POST(request: Request) {
     team_size,
     max_hours,
     notes,
+    days_of_week, // optional multi-day cadence (e.g. [1,3,5] for Mon/Wed/Fri)
   } = body
 
   // `/api/client(.*)` is exempted from the platform's Clerk/session middleware
@@ -174,10 +178,19 @@ export async function POST(request: Request) {
   // bookings created upfront instead of the intended ~6-week starter batch.
   const sixWeeksOut = new Date(startDt)
   sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
+  // Multi-day cadence (e.g. Mon/Wed/Fri) — generateRecurringDates already
+  // supports a daysOfWeek array (see lib/recurring.ts), but this route never
+  // wired it through at creation time; a client could only get it applied via
+  // a follow-up PUT to /api/client/recurring/[id]. Trivial to pass through
+  // here since we're already at this call site for the availability fix.
+  const daysOfWeek: number[] | null = Array.isArray(days_of_week) && days_of_week.length > 0
+    ? days_of_week.filter((d: unknown): d is number => typeof d === 'number' && d >= 0 && d <= 6)
+    : null
   const dates = generateRecurringDates({
     recurringType,
     startDate: startDt,
     dayOfWeek,
+    daysOfWeek,
     weeksToGenerate: 6,
   })
     .filter((d) => d <= sixWeeksOut)
@@ -219,15 +232,33 @@ export async function POST(request: Request) {
       status: 'active',
       next_generate_after: lastInitialDate,
       discount_percent: discountPercent,
+      ...(daysOfWeek ? { days_of_week: daysOfWeek } : {}),
     })
     .select()
     .single()
 
   if (scheduleErr) return NextResponse.json({ error: scheduleErr.message }, { status: 500 })
 
+  // Per-date availability check -- a requested cleaner_id used to get written
+  // onto every generated date with zero verification, which could double-book
+  // them or assign them to a day they're not actually available for. Mirrors
+  // /api/schedules and the cron refill job exactly: score each date
+  // individually, keep the requested lead if they're actually free that date,
+  // otherwise fall back to the best-scoring available alternate
+  // (smart_recurring_assign flag, same semantics as the cron refill) or leave
+  // that one occurrence unassigned+flagged for manual review. Extras
+  // (extra_cleaner_ids) aren't scored per-date here -- neither sibling route
+  // supports multi-tech per-date availability today either.
+  const { smart_recurring_assign: smartAssign } = await getSettings(tenantId)
+  let jobAddr: { address: string | null; latitude: number | null; longitude: number | null } | null = null
+  if (cleaner_id) {
+    jobAddr = await getBookingAddress({ propertyId: property_id || null, clientId: client_id })
+  }
+
   // Insert bookings
   const [hh, mm] = time.split(':').map(Number)
-  const rows = dates.map((date: string) => {
+  const rows: Record<string, unknown>[] = []
+  for (const date of dates) {
     const startISO = `${date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`
     const endTotalMin = hh * 60 + mm + hours * 60
     const endH = String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')
@@ -236,41 +267,100 @@ export async function POST(request: Request) {
     const token = generateToken()
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
-    return {
+
+    let assignedId: string | null = cleaner_id || null
+    let unassignedNote: string | null = null
+    if (cleaner_id) {
+      const scores = await scoreTeamForBooking({
+        tenantId,
+        date,
+        startTime: time,
+        durationHours: hours,
+        clientAddress: jobAddr?.address || '',
+        clientId: client_id,
+        hourlyRate: baseRate,
+        jobCoords: jobAddr?.latitude != null && jobAddr?.longitude != null
+          ? { lat: Number(jobAddr.latitude), lng: Number(jobAddr.longitude) }
+          : undefined,
+      })
+      const requestedStillFree = scores.find((s) => s.id === cleaner_id && s.available)
+      if (!requestedStillFree) {
+        const alternate = smartAssign ? pickBestTeam(scores, 1).lead : null
+        assignedId = alternate?.id ?? null
+        unassignedNote = alternate
+          ? null
+          : `[Auto: requested team member unavailable ${date} — needs reassignment]`
+      }
+    }
+
+    rows.push({
       client_id,
       property_id: property_id || null,
-      team_member_id: cleaner_id || null,
+      team_member_id: assignedId,
       start_time: startISO,
       end_time: endISO,
       service_type: service_type || 'Standard Cleaning',
       price,
       hourly_rate: baseRate,
-      notes: notes || null,
+      notes: unassignedNote ? `${notes ? notes + ' — ' : ''}${unassignedNote}` : (notes || null),
       recurring_type: recurringType,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: cleaner_id ? 'scheduled' : 'pending',
       schedule_id: schedule.id,
       team_size: finalTeamSize,
-      suggested_team_member_id: cleaner_id ? null : suggestedTeamMemberId,
+      suggested_team_member_id: assignedId ? null : suggestedTeamMemberId,
       source: 'client_portal',
-    }
-  })
+    })
+  }
 
-  const { data: bookings, error: bookErr } = await tenantDb(tenantId)
+  // The fn_block_booking_overlap trigger fires BEFORE INSERT and aborts the
+  // whole batch statement on any single conflicting row. The per-occurrence
+  // check above should already keep conflicting rows out, but fall back to
+  // per-row inserts on any batch error so a conflict slipping through (race
+  // condition, stale score) still lands every non-conflicting occurrence
+  // instead of silently creating zero bookings -- mirrors /api/schedules and
+  // cron/generate-recurring's existing fallback.
+  type BookingRow = Record<string, unknown> & {
+    id: string
+    status?: string | null
+    service_type?: string | null
+    start_time: string
+    team_member_id: string | null
+    clients?: { name?: string | null } | null
+  }
+  let bookings: BookingRow[] = []
+  const skippedDates: string[] = []
+  const { data: batchBookings, error: batchErr } = await tenantDb(tenantId)
     .from('bookings')
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
+  if (!batchErr && batchBookings) {
+    bookings = batchBookings
+  } else {
+    for (const row of rows) {
+      const { data: rowData, error: rowErr } = await tenantDb(tenantId)
+        .from('bookings')
+        .insert(row)
+        .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
+        .single()
+      if (rowErr) skippedDates.push(String(row.start_time))
+      else if (rowData) bookings.push(rowData)
+    }
+  }
 
-  if (bookErr) return NextResponse.json({ error: bookErr.message, schedule }, { status: 500 })
-
-  // booking_team_members rows (lead + extras)
-  if (bookings && bookings.length > 0 && (cleaner_id || extras.length > 0)) {
+  // booking_team_members rows (lead + extras). Lead uses each booking's OWN
+  // resolved team_member_id (which may differ per date from the originally
+  // requested cleaner_id after the per-date reassignment above), not the
+  // blanket cleaner_id -- otherwise a date reassigned to an alternate (or
+  // left unassigned) would still get the original cleaner wired in here.
+  if (bookings.length > 0 && (cleaner_id || extras.length > 0)) {
     const teamRows: { booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
     for (const b of bookings) {
-      if (cleaner_id) teamRows.push({ booking_id: b.id, team_member_id: cleaner_id, is_lead: true, position: 1 })
+      const leadId = b.team_member_id as string | null
+      if (leadId) teamRows.push({ booking_id: b.id as string, team_member_id: leadId, is_lead: true, position: 1 })
       extras.forEach((cid: string, i: number) => {
-        teamRows.push({ booking_id: b.id, team_member_id: cid, is_lead: false, position: i + 2 })
+        teamRows.push({ booking_id: b.id as string, team_member_id: cid, is_lead: false, position: i + 2 })
       })
     }
     if (teamRows.length > 0) {
@@ -307,6 +397,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     schedule_id: schedule.id,
     bookings_created: bookings?.length || 0,
+    skipped_dates: skippedDates,
     discount_applied: discountPercent,
     price_per_visit: price / 100,
   })

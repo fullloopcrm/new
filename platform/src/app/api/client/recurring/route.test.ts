@@ -29,6 +29,15 @@ vi.mock('next/headers', () => ({
 // just return the fixed tenant every request expects.
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ id: TENANT_ID }) }))
 
+// POST now runs a per-date scoreTeamForBooking availability check when
+// cleaner_id is set. Without a resolved address, that call falls through to a
+// REAL geocoding network request (lib/geo.ts) — mock a fixed address/coords
+// here so the check runs deterministically offline, same pattern as
+// route.conflict-handling.test.ts on the sibling /api/schedules route.
+vi.mock('@/lib/client-properties', () => ({
+  getBookingAddress: async () => ({ propertyId: null, address: '123 Test St', latitude: 40.7, longitude: -73.9 }),
+}))
+
 import { supabaseAdmin } from '@/lib/supabase'
 import { createClientSession } from '@/lib/client-auth'
 import { POST } from './route'

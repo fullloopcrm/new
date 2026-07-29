@@ -62,6 +62,35 @@ vi.mock('@/lib/nycmaid/client-contacts', () => ({ sendClientEmail: async () => {
 vi.mock('@/lib/messaging/client-email', () => ({ confirmationEmailFor: async () => ({ subject: 's', html: 'h' }) }))
 vi.mock('@/lib/messaging/client-sms', () => ({ clientSmsTemplatesFor: async () => ({ bookingConfirmation: () => 'msg' }) }))
 
+// POST now runs a per-date scoreTeamForBooking availability check when
+// cleaner_id is set. The local `chain()` fake above only implements the
+// filter methods this file's own assertions need (eq/in) — scoreTeamForBooking
+// also chains .gte/.lte/.neq, which `chain()` doesn't support, and would
+// otherwise fall through to real geocoding (lib/geo.ts) besides. Mock the
+// scorer directly: every seeded team_members row comes back "available" so
+// the requested cleaner_id is kept, matching this file's own intent (proving
+// tenant scoping on the ownership checks, not availability logic).
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => (DB.team_members || []).map((m) => ({
+    id: m.id,
+    name: (m.name as string) || '',
+    score: 100,
+    available: true,
+    home_by: 'No limit',
+    zone_match: false,
+    has_car: false,
+    is_preferred: false,
+    day_jobs: [],
+    reason: 'Available',
+  })),
+  pickBestTeam: (scores: Array<{ id: string; available: boolean; score: number }>, teamSize: number) => {
+    const available = scores.filter((s) => s.available).sort((a, b) => b.score - a.score)
+    const want = Math.max(1, teamSize)
+    const team = available.slice(0, want)
+    return { lead: team[0] || null, extras: team.slice(1), short: Math.max(0, want - team.length) }
+  },
+}))
+
 import { POST } from './route'
 
 function req(body: Record<string, unknown>) {
