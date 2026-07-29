@@ -189,7 +189,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       key: 'finance_hr',
       label: 'Bookkeeping + HR seeded',
       status: 'done',
-      detail: `Entity: ${createdEntity ? 'created default' : 'already set'} · Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsSeeded} doc rule(s), ${hr.profilesBackfilled} profile(s)`,
+      detail: `Entity: ${createdEntity ? 'created default' : 'already set'} · Ledger: ${accounts > 0 ? `${accounts} accounts` : 'already set'} · HR: ${hr.requirementsTotal} doc rule(s)${hr.requirementsSeeded === 0 ? ' (already set)' : ''}, ${hr.profilesTotal} profile(s)${hr.profilesBackfilled === 0 ? ' (already set)' : ''}`,
     })
   } catch (e) {
     steps.push({ key: 'finance_hr', label: 'Bookkeeping + HR seeded', status: 'failed', detail: msg(e) })
