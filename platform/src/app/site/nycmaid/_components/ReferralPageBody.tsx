@@ -6,7 +6,7 @@ const en = {
   benefits: [
     { big: '10%', label: 'Commission', body: 'On every cleaning your referral books — not just the first one.' },
     { big: 'Recurring', label: 'Income', body: 'Every time they book, you earn. Weekly clients mean weekly payouts.' },
-    { big: 'Fast', label: 'Payouts', body: 'Paid via Zelle or Apple Cash after each completed cleaning.' },
+    { big: 'Fast', label: 'Payouts', body: 'Paid via Stripe after each completed cleaning.' },
   ],
   howItWorksLabel: 'How It Works',
   howItWorksTitle: 'Three Simple Steps',
@@ -38,7 +38,7 @@ const es = {
   benefits: [
     { big: '10%', label: 'Comisión', body: 'En cada limpieza que reserve tu referido — no solo la primera.' },
     { big: 'Recurrente', label: 'Ingreso', body: 'Cada vez que reservan, tú ganas. Clientes semanales significan pagos semanales.' },
-    { big: 'Rápido', label: 'Pagos', body: 'Se paga por Zelle o Apple Cash después de cada limpieza completada.' },
+    { big: 'Rápido', label: 'Pagos', body: 'Se paga por Stripe después de cada limpieza completada.' },
   ],
   howItWorksLabel: 'Cómo Funciona',
   howItWorksTitle: 'Tres Pasos Simples',

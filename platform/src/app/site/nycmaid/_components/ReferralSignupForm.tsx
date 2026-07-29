@@ -12,8 +12,6 @@ export default function ReferralSignupForm() {
     name: '',
     email: '',
     phone: '',
-    zelle_email: '',
-    preferred_payout: 'zelle'
   })
   const [honeypot, setHoneypot] = useState('')
   const [loadedAt] = useState(Date.now())
@@ -29,7 +27,6 @@ export default function ReferralSignupForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          zelle_email: form.zelle_email || form.email,
           website: honeypot,
           _t: loadedAt
         })
@@ -160,31 +157,7 @@ export default function ReferralSignupForm() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Payout Method / Método de Pago Preferido *</label>
-          <select
-            value={form.preferred_payout}
-            onChange={(e) => setForm({ ...form, preferred_payout: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
-          >
-            <option value="zelle">Zelle</option>
-            <option value="apple_cash">Apple Cash</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {form.preferred_payout === 'zelle' ? 'Zelle Email or Phone / Correo o Teléfono de Zelle' : 'Apple Cash Phone / Teléfono de Apple Cash'}
-          </label>
-          <input
-            type="text"
-            value={form.zelle_email}
-            onChange={(e) => setForm({ ...form, zelle_email: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
-            placeholder={form.preferred_payout === 'zelle' ? 'Same as email if blank' : 'Your Apple Cash phone number'}
-          />
-          <p className="text-xs text-gray-500 mt-1">We&apos;ll send your commissions here / Aquí te enviaremos tus comisiones</p>
-        </div>
+        <p className="text-xs text-gray-500">You&apos;ll connect Stripe from your dashboard to get paid / Conectarás Stripe desde tu panel para recibir tus pagos</p>
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-600 leading-relaxed">

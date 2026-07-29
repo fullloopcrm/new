@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
         ref_code: referralCode,
         zelle_email: zelle_email || email,
         apple_cash_phone: apple_cash_phone || null,
-        preferred_payout: preferred_payout || 'zelle',
+        preferred_payout: preferred_payout || 'stripe',
         // Stored as a fraction (0.10 = 10%), matching the schema default and the
         // existing rows. The old code wrote `10` here (into the wrong table), which
         // would read as 1000% wherever commission_rate is applied to a gross amount.
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
     <div style="font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px">
       <h2 style="color:${color};margin:0 0 8px">Welcome to the ${brand} referral program!</h2>
       <p style="color:#475569;font-size:14px;margin:0 0 16px">Your referral code is <strong>${referralCode}</strong>. You'll earn a commission on every booking you refer.</p>
-      <p style="color:#475569;font-size:14px;margin:0 0 20px">Want commissions sent straight to your bank instead of Zelle or Apple Cash? Log in and connect Stripe for instant pay.</p>
+      <p style="color:#475569;font-size:14px;margin:0 0 20px">Log in and connect Stripe to get commissions sent straight to your bank.</p>
       <a href="${loginUrl}" style="display:inline-block;background:${color};color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px">Log In &amp; Set Up Instant Pay</a>
     </div>`
 

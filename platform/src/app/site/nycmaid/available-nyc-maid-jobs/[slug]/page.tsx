@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!n) return {}
 
   const title = `🧹 Cleaning Jobs in ${n.name} — Starting $30/hr + Bonuses | Trabajo de Limpieza`
-  const description = `💰 Now hiring cleaners in ${n.name}! Starting $30/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7 🇺🇸🇪🇸 | Contratando en ${n.name} — desde $30/hr + bonos. (212) 202-8400`
+  const description = `💰 Now hiring cleaners in ${n.name}! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7 🇺🇸🇪🇸 | Contratando en ${n.name} — desde $30/hr + bonos. (212) 202-8400`
 
   return {
     title,
@@ -81,7 +81,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
     '@type': 'JobPosting',
     image: photoUrl,
     title: `Professional House Cleaner — ${n.name}, ${areaName}`,
-    description: `<p>Now hiring experienced house cleaners in ${n.name}, ${areaName}${landmarkPhrase}. We serve ${housingPhrase} throughout ${n.name}, and we need reliable team members who can handle ${challengePhrase}.</p><p>Starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs for retention, client satisfaction, and five-star reviews. 100% of tips are yours. Flexible schedule 24/7. Full bilingual team portal (English/Spanish) with GPS, job details, and payment tracking.</p><p>Apply at thenycmaid.com/apply or text (212) 202-8400.</p>`,
+    description: `<p>Now hiring experienced house cleaners in ${n.name}, ${areaName}${landmarkPhrase}. We serve ${housingPhrase} throughout ${n.name}, and we need reliable team members who can handle ${challengePhrase}.</p><p>Starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs for retention, client satisfaction, and five-star reviews. 100% of tips are yours. Flexible schedule 24/7. Full bilingual team portal (English/Spanish) with GPS, job details, and payment tracking.</p><p>Apply at thenycmaid.com/apply or text (212) 202-8400.</p>`,
     identifier: {
       '@type': 'PropertyValue',
       name: 'The NYC Maid',
@@ -131,7 +131,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
     responsibilities: `Perform professional residential cleaning in ${n.name} including regular apartment cleaning, deep cleaning, move-in/move-out cleaning, post-renovation cleanup, Airbnb turnovers, and office cleaning.`,
     skills: 'Professional cleaning, attention to detail, time management, reliability, customer service',
     incentiveCompensation: 'Bonus programs for client retention, satisfaction ratings, and verified five-star reviews. Tier system unlocks higher bonuses as you accumulate reviews. 100% of client tips go directly to you.',
-    jobBenefits: 'Same-day Zelle pay within 30 minutes, bonus programs for retention and client satisfaction and five-star reviews, 100% of tips, flexible scheduling 24/7, bilingual team portal (English/Spanish), GPS directions, steady recurring clients',
+    jobBenefits: 'Same-day Stripe pay within 30 minutes, bonus programs for retention and client satisfaction and five-star reviews, 100% of tips, flexible scheduling 24/7, bilingual team portal (English/Spanish), GPS directions, steady recurring clients',
     workHours: 'Flexible — set your own schedule',
     experienceRequirements: {
       '@type': 'OccupationalExperienceRequirements',
@@ -164,10 +164,10 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             Cleaning Jobs in {n.name} — Starting $30/hr + Bonuses
           </h1>
           <p className="text-white/60 text-lg max-w-2xl leading-relaxed mb-4">
-            We need experienced cleaners in {n.name}, {areaName}. You bring your skills and supplies — we bring steady clients, starting at $30/hr paid via Zelle within 30 minutes, bonus programs for top performers, and 100% of tips go directly to you.
+            We need experienced cleaners in {n.name}, {areaName}. You bring your skills and supplies — we bring steady clients, starting at $30/hr paid via Stripe within 30 minutes, bonus programs for top performers, and 100% of tips go directly to you.
           </p>
           <p className="text-white/60 text-lg max-w-2xl leading-relaxed mb-4">
-            Necesitamos limpiadores experimentados en {n.name}. Trae tus habilidades y suministros — nosotros traemos clientes estables, desde $30/hr por Zelle en menos de 30 minutos, programas de bonos, y el 100% de las propinas son tuyas.
+            Necesitamos limpiadores experimentados en {n.name}. Trae tus habilidades y suministros — nosotros traemos clientes estables, desde $30/hr por Stripe en menos de 30 minutos, programas de bonos, y el 100% de las propinas son tuyas.
           </p>
           <div className="flex flex-col sm:flex-row items-start gap-5 mt-8">
             <Link href="/apply" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
@@ -207,7 +207,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             </div>
             <div>
               <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">&lt;30 Min</p>
-              <p className="text-[#1E2A4A]/60 text-xs font-medium">Zelle Pay</p>
+              <p className="text-[#1E2A4A]/60 text-xs font-medium">Stripe Pay</p>
             </div>
             <div>
               <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">100%</p>
@@ -256,7 +256,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">What You Get</h2>
             <div className="space-y-3">
               {[
-                { icon: '💰', en: '$25–$30/hr — $30 if you bring your own supplies, $25 for labor-only jobs. Paid via Zelle within 30 minutes.', es: '$25–$30/hr — $30 si traes tus suministros, $25 para trabajos solo de mano de obra. Pagado por Zelle en 30 minutos.' },
+                { icon: '💰', en: '$25–$30/hr — $30 if you bring your own supplies, $25 for labor-only jobs. Paid via Stripe within 30 minutes.', es: '$25–$30/hr — $30 si traes tus suministros, $25 para trabajos solo de mano de obra. Pagado por Stripe en 30 minutos.' },
                 { icon: '💵', en: '100% of tips are yours — we never take a cut', es: '100% de las propinas son tuyas — nunca tomamos nada' },
                 { icon: '📱', en: 'Full team portal — track jobs, payments, GPS directions, client notes', es: 'Portal completo del equipo — trabajos, pagos, GPS, notas de clientes' },
                 { icon: '🗓️', en: 'Flexible schedule — you choose your days and hours', es: 'Horario flexible — tú eliges tus días y horas' },

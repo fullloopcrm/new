@@ -205,14 +205,14 @@ export function clientReviewRequestEmail(booking: any) {
     <div style="background: #f8f9fb; border-left: 4px solid #1E2A4A; padding: 16px 20px; margin: 20px 0; border-radius: 6px;">
       <p style="margin: 0 0 8px 0; font-weight: 600; font-size: 15px;">Our thank-you to you:</p>
       <ul style="margin: 0; padding-left: 20px; color: #444; font-size: 14px; line-height: 1.7;">
-        <li><strong>$10 Zelle payment</strong> for a written Google review</li>
+        <li><strong>$10 Stripe payment</strong> for a written Google review</li>
       </ul>
     </div>
     <div style="text-align: center; margin: 28px 0;">
       <a href="${safeUrl(reviewUrl)}" style="display: inline-block; background: #1E2A4A; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Leave a Google review</a>
     </div>
     <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
-      Once it's posted, just text us back <strong>DONE</strong> with the link or a screenshot at <a href="sms:6464900130" style="color: #1E2A4A;">(646) 490-0130</a> and we'll send your Zelle payment straight away.
+      Once it's posted, just text us back <strong>DONE</strong> with the link or a screenshot at <a href="sms:6464900130" style="color: #1E2A4A;">(646) 490-0130</a> and we'll send your Stripe payment straight away.
     </p>
     <p style="color: #999; font-size: 12px; margin: 24px 0 0 0; line-height: 1.5;">
       Thank you again for choosing The NYC Maid.<br/>
@@ -648,7 +648,7 @@ export function referralWelcomeEmail(referrer: { name: string; ref_code: string;
       <p style="margin: 0 0 8px 0; color: #166534; font-weight: 600;">How you earn</p>
       <p style="margin: 0; color: #166534; font-size: 14px;">
         <strong>10% commission</strong> on every booking from your referrals.<br>
-        Paid weekly via ${referrer.preferred_payout === 'apple_cash' ? 'Apple Cash' : 'Zelle'}.
+        Paid weekly via Stripe.
       </p>
     </div>
 
@@ -706,7 +706,7 @@ export function newReferrerAdminEmail(referrer: { name: string; email: string; p
       ${infoRow('Email', escapeHtml(referrer.email))}
       ${infoRow('Phone', escapeHtml(referrer.phone || 'Not provided'))}
       ${infoRow('Code', `<code style="background:#f5f5f5;padding:4px 8px;border-radius:4px;">${escapeHtml(referrer.ref_code)}</code>`)}
-      ${infoRow('Payout', `${referrer.preferred_payout === 'apple_cash' ? 'Apple Cash' : 'Zelle'} – ${escapeHtml(referrer.zelle_email || referrer.email)}`)}
+      ${infoRow('Payout', 'Stripe (connect pending)')}
     `)}
 
     ${primaryButton('View Referrals', 'https://www.thenycmaid.com/admin/referrals')}

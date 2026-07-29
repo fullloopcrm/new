@@ -250,8 +250,8 @@ export default function ApplyCoordinatorPage() {
           <div>
             <h2 className="text-xl font-bold text-[#1E2A4A]">Apply for Operations Admin</h2>
             <p className="text-gray-400 text-sm italic">Solicite el Puesto de Coordinador de Operaciones</p>
-            <p className="text-gray-500 text-sm mt-1">Part-Time | 10% Per Job | Averaged ~$40/hr Last Month | Paid Per Job via Zelle</p>
-            <p className="text-gray-400 text-xs italic">Medio Tiempo | 10% Por Trabajo | Promedio ~$40/hr el mes pasado | Pago por trabajo vía Zelle</p>
+            <p className="text-gray-500 text-sm mt-1">Part-Time | 10% Per Job | Averaged ~$40/hr Last Month | Paid Per Job via Stripe</p>
+            <p className="text-gray-400 text-xs italic">Medio Tiempo | 10% Por Trabajo | Promedio ~$40/hr el mes pasado | Pago por trabajo vía Stripe</p>
             <p className="text-gray-400 text-xs mt-2">All fields marked with * are required. / Todos los campos marcados con * son obligatorios.</p>
           </div>
 

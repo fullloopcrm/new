@@ -293,7 +293,7 @@ function ReferralDashboard() {
               <p className="text-xs text-slate-400 mb-3">
                 {referrer.stripe_connected
                   ? 'You started Stripe setup but haven’t finished. Pick up where you left off.'
-                  : 'Connect Stripe so your commissions land in your bank automatically instead of waiting on Zelle or Apple Cash.'}
+                  : 'Connect Stripe so your commissions land in your bank automatically.'}
               </p>
               <button
                 onClick={startStripeOnboarding}

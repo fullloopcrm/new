@@ -7,7 +7,7 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 
 const pageUrl = 'https://www.thenycmaid.com/careers/operations-coordinator'
 const pageTitle = 'Part-Time Operations Admin — 10% Per Job, ~$40/hr Last Month | The NYC Maid'
-const pageDescription = 'The NYC Maid is hiring a part-time operations coordinator. Earn 10% of every completed job — paid per job via Zelle. Last month 10% averaged out to about $40/hr. Own the calendar, cleaners, and collections. Aiming for 100 services/week. Apply now.'
+const pageDescription = 'The NYC Maid is hiring a part-time operations coordinator. Earn 10% of every completed job — paid per job via Stripe. Last month 10% averaged out to about $40/hr. Own the calendar, cleaners, and collections. Aiming for 100 services/week. Apply now.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -61,10 +61,10 @@ function coordinatorJobPostingSchema() {
     datePosted,
     validThrough,
     description: `<h2>Part-Time Operations Admin — The NYC Maid — Remote</h2>
-<p>The NYC Maid is hiring a <strong>part-time operations coordinator</strong> to own the calendar, the cleaners, and the collections. You earn <strong>10% of every completed and paid job</strong> — paid per job via Zelle within minutes of completion, same as the cleaners. No base salary. No hourly rate. You earn when the business earns.</p>
+<p>The NYC Maid is hiring a <strong>part-time operations coordinator</strong> to own the calendar, the cleaners, and the collections. You earn <strong>10% of every completed and paid job</strong> — paid per job via Stripe within minutes of completion, same as the cleaners. No base salary. No hourly rate. You earn when the business earns.</p>
 
 <h3>Compensation</h3>
-<p><strong>10% of total revenue per completed job, paid via Zelle within minutes.</strong> February: 36 jobs. March: 81 jobs, $17,000 revenue = $1,700 earned — 10% averaged out to about $40/hr. We are aiming for 100 services per week, which would be $80K/month in revenue and around $8,000/month for you. Average job is ~$210, so you earn ~$21 per job. The business is doubling — more jobs means more money, automatically.</p>
+<p><strong>10% of total revenue per completed job, paid via Stripe within minutes.</strong> February: 36 jobs. March: 81 jobs, $17,000 revenue = $1,700 earned — 10% averaged out to about $40/hr. We are aiming for 100 services per week, which would be $80K/month in revenue and around $8,000/month for you. Average job is ~$210, so you earn ~$21 per job. The business is doubling — more jobs means more money, automatically.</p>
 
 <h3>Time Commitment</h3>
 <p>About 40 hours per month. Average 2-5 services per day. Each job takes minutes of your time — the platform handles automations. This is a perfect second job that could become full-time if you want it to.</p>
@@ -76,7 +76,7 @@ function coordinatorJobPostingSchema() {
 <li>Cleaner arrives and checks in via the portal. You monitor check-ins in real time.</li>
 <li>30 minutes before completion, cleaner hits the 30-min button. You are notified and reach out to the client to collect payment.</li>
 <li>If client is happy, offer $10 off for a review on our platform and send the link: g.page/r/CSX9IqciUG9SEAE/review</li>
-<li>Payment via Zelle. You get the confirmation email, thank the client, pay the cleaner, take your 10%, discuss next services.</li>
+<li>Payment via Stripe. You get the confirmation email, thank the client, pay the cleaner, take your 10%, discuss next services.</li>
 </ul>
 
 <h3>Beyond the Daily Jobs</h3>
@@ -175,7 +175,7 @@ function coordinatorJobPostingSchema() {
     occupationalCategory: '43-5032.00',
 
     qualifications: 'Bilingual English and Spanish strongly preferred. Responsive and reliable. Comfortable working from a phone and dashboard. Available 8 AM–6 PM ET to respond within 15 minutes. Trustworthy with payment information.',
-    responsibilities: 'Respond to client texts and calls. Handle scheduling, reschedules, and complaints. Assign jobs to cleaners from the dashboard. Manage cleaner time-off, no-shows, and coverage swaps. Confirm payment received after every job via Zelle and Apple Pay. Chase unpaid balances. Keep the schedule full and clients happy.',
+    responsibilities: 'Respond to client texts and calls. Handle scheduling, reschedules, and complaints. Assign jobs to cleaners from the dashboard. Manage cleaner time-off, no-shows, and coverage swaps. Confirm payment received after every job via Stripe. Chase unpaid balances. Keep the schedule full and clients happy.',
     skills: 'Customer service, scheduling, payment coordination, bilingual English and Spanish, text communication, problem solving, reliability, attention to detail',
 
     educationRequirements: {
@@ -184,8 +184,8 @@ function coordinatorJobPostingSchema() {
     },
     experienceInPlaceOfEducation: true,
 
-    incentiveCompensation: '10% of total revenue per completed and paid job, paid per job via Zelle within minutes of completion. February: 36 jobs = $756. March: 81 jobs, $17,000 revenue = $1,700 earned, averaging about $40/hr. Aiming for 100 services per week = $80K/month revenue = $8,000/month for you. 1099 independent contractor position.',
-    jobBenefits: 'Work from home or your phone. About 40 hours per month. Perfect second job or side gig. No commute. Paid per job via Zelle within minutes. Income grows automatically as business grows. Could become full-time if desired. Bilingual work environment. 1099 independent contractor — you are your own boss.',
+    incentiveCompensation: '10% of total revenue per completed and paid job, paid per job via Stripe within minutes of completion. February: 36 jobs = $756. March: 81 jobs, $17,000 revenue = $1,700 earned, averaging about $40/hr. Aiming for 100 services per week = $80K/month revenue = $8,000/month for you. 1099 independent contractor position.',
+    jobBenefits: 'Work from home or your phone. About 40 hours per month. Perfect second job or side gig. No commute. Paid per job via Stripe within minutes. Income grows automatically as business grows. Could become full-time if desired. Bilingual work environment. 1099 independent contractor — you are your own boss.',
     workHours: 'Available 8 AM–6 PM ET to respond within 15 minutes. About 40 hours per month, 2-5 services per day.',
 
     applicationContact: {
@@ -202,17 +202,17 @@ const faqs = [
   {
     question: 'How much will I actually earn?',
     questionEs: '¿Cuánto voy a ganar realmente?',
-    answer: 'You earn 10% of every completed and paid job — paid per job via Zelle, just like the cleaners. The average job is about $210, so you earn roughly $21 per job. February we did 36 services. March we did 81 — that\'s $1,700. April target is 100+. The business is doubling. More jobs, more money, automatically.',
+    answer: 'You earn 10% of every completed and paid job — paid per job via Stripe, just like the cleaners. The average job is about $210, so you earn roughly $21 per job. February we did 36 services. March we did 81 — that\'s $1,700. April target is 100+. The business is doubling. More jobs, more money, automatically.',
   },
   {
     question: 'How many hours per day is this?',
     questionEs: '¿Cuántas horas al día es esto?',
-    answer: 'About 40 hours per month — not per week. Average is 2-5 services per day. Each one takes minutes of your time — the platform sends reminders, cleaners check themselves in, Zelle confirmations come to your email. You\'re responding to texts and clicking buttons in a dashboard between your other activities. You need to be responsive during business hours, but responsive means 15 minutes, not glued to a screen.',
+    answer: 'About 40 hours per month — not per week. Average is 2-5 services per day. Each one takes minutes of your time — the platform sends reminders, cleaners check themselves in, Stripe confirmations come to your email. You\'re responding to texts and clicking buttons in a dashboard between your other activities. You need to be responsive during business hours, but responsive means 15 minutes, not glued to a screen.',
   },
   {
     question: 'Is there a base salary or hourly rate?',
     questionEs: '¿Hay un salario base o pago por hora?',
-    answer: 'No. You are paid per job — 10% of every completed and paid service, via Zelle, within minutes of completion. Same way the cleaners are paid. No base, no hourly. You get paid when jobs get done and money comes in. That means you have every incentive to keep the schedule full, prevent no-shows, and chase every payment. March that averaged out to about $40/hr. We\'re aiming for 100 services per week — at that volume this role pays around $8,000/month.',
+    answer: 'No. You are paid per job — 10% of every completed and paid service, via Stripe, within minutes of completion. Same way the cleaners are paid. No base, no hourly. You get paid when jobs get done and money comes in. That means you have every incentive to keep the schedule full, prevent no-shows, and chase every payment. March that averaged out to about $40/hr. We\'re aiming for 100 services per week — at that volume this role pays around $8,000/month.',
   },
   {
     question: 'Can I do this alongside another job?',
@@ -232,12 +232,12 @@ const faqs = [
   {
     question: 'What are the three jobs exactly?',
     questionEs: '¿Cuáles son los tres trabajos exactamente?',
-    answer: 'You own the calendar, the cleaners, and the collections. The full flow: jobs are scheduled, cleaners are notified automatically, you make sure they show up and check in. When the cleaner hits the 30-minute button, you reach out to the client to collect payment via Zelle. If the client is happy, you offer $10 off for a review on our platform: g.page/r/CSX9IqciUG9SEAE/review Then you pay the cleaner, take your 10%, and discuss next services if applicable. Between jobs, you handle any client or cleaner issues, onboard new cleaners, and keep Jeff updated.',
+    answer: 'You own the calendar, the cleaners, and the collections. The full flow: jobs are scheduled, cleaners are notified automatically, you make sure they show up and check in. When the cleaner hits the 30-minute button, you reach out to the client to collect payment via Stripe. If the client is happy, you offer $10 off for a review on our platform: g.page/r/CSX9IqciUG9SEAE/review Then you pay the cleaner, take your 10%, and discuss next services if applicable. Between jobs, you handle any client or cleaner issues, onboard new cleaners, and keep Jeff updated.',
   },
   {
     question: 'How do I get paid?',
     questionEs: '¿Cómo me pagan?',
-    answer: 'Per job, via Zelle, within minutes of the job completing — same as the cleaners. Client pays via Zelle, you get the email confirmation, you pay the cleaner their rate, and take your 10%. It happens in real time, not at the end of the week.',
+    answer: 'Per job, via Stripe, within minutes of the job completing — same as the cleaners. Client pays via Stripe, you get the email confirmation, you pay the cleaner their rate, and take your 10%. It happens in real time, not at the end of the week.',
   },
   {
     question: 'What happens if the business grows?',
@@ -302,7 +302,7 @@ export default function OperationsCoordinatorPage() {
             The NYC Maid &mdash; New York City | Long Island | New Jersey
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-4">
-            You own the calendar, the cleaners, and the collections. Jobs are sold and scheduled &mdash; your job is to make sure every cleaning runs, every client is happy, and every payment comes in. You get paid 10% of every completed job, same way the cleaners get paid &mdash; per job, via Zelle, within minutes of completion.
+            You own the calendar, the cleaners, and the collections. Jobs are sold and scheduled &mdash; your job is to make sure every cleaning runs, every client is happy, and every payment comes in. You get paid 10% of every completed job, same way the cleaners get paid &mdash; per job, via Stripe, within minutes of completion.
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-3">
             February: 36 services. March: 81 services, $17K revenue. April target: 100+. This business is growing fast. The more jobs that run, the more you earn &mdash; automatically.
@@ -313,7 +313,7 @@ export default function OperationsCoordinatorPage() {
           <div className="flex flex-wrap items-center gap-3 mb-10">
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">10% Per Completed Job</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">~$40/hr Last Month</span>
-            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Paid Per Job via Zelle</span>
+            <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Paid Per Job via Stripe</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">2-5 Services/Day</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">Bilingual Preferred</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">1099 Independent Contractor</span>
@@ -354,7 +354,7 @@ export default function OperationsCoordinatorPage() {
               <p className="text-[#1E2A4A]/40 text-xs italic">Por mes</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Zelle</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Stripe</p>
               <p className="text-[#1E2A4A]/60 text-sm font-medium">Paid Per Job</p>
               <p className="text-[#1E2A4A]/40 text-xs italic">Pago por trabajo</p>
             </div>
@@ -374,7 +374,7 @@ export default function OperationsCoordinatorPage() {
           <p className="text-gray-400 text-xs italic mb-2">Lo que tú controlas</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">You Own the Calendar, the Cleaners, and the Collections</h2>
           <p className="text-gray-400 text-sm italic mb-3">Tú controlas el calendario, los limpiadores y los cobros</p>
-          <p className="text-gray-500 max-w-3xl mb-3">The owner sells the jobs and adds them to the schedule. From that moment on, <strong className="text-[#1E2A4A]">everything is yours</strong>. You make sure the cleaner shows up, the client is happy, and the money comes in. You are paid the same way the cleaners are paid &mdash; per job, via Zelle, within minutes of completion.</p>
+          <p className="text-gray-500 max-w-3xl mb-3">The owner sells the jobs and adds them to the schedule. From that moment on, <strong className="text-[#1E2A4A]">everything is yours</strong>. You make sure the cleaner shows up, the client is happy, and the money comes in. You are paid the same way the cleaners are paid &mdash; per job, via Stripe, within minutes of completion.</p>
           <p className="text-gray-500 max-w-3xl mb-10">This is not a task list. This is ownership. If a job falls through, that&apos;s on you. If a client doesn&apos;t pay, that&apos;s on you. If a cleaner no-shows, that&apos;s on you to fix. You run the operation. The platform gives you every tool you need &mdash; you just have to use them.</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -433,7 +433,7 @@ export default function OperationsCoordinatorPage() {
               </div>
               <div className="p-6 space-y-3">
                 {[
-                  'Confirm Zelle or Apple Pay received after every job',
+                  'Confirm Stripe payment received after every job',
                   'Mark jobs as paid in the dashboard',
                   'Follow up on unpaid balances — no exceptions',
                   'No job closes until payment is confirmed',
@@ -491,8 +491,8 @@ export default function OperationsCoordinatorPage() {
                 step: '5',
                 title: 'Payment Collected',
                 titleEs: 'Pago cobrado',
-                desc: 'Client pays via Zelle. You get the email confirmation. You thank the client. Then you pay the cleaner their rate via Zelle — and take your 10%. If applicable, you discuss the next service or recurring schedule.',
-                descEs: 'El cliente paga por Zelle. Recibes la confirmación por email. Agradeces al cliente. Luego pagas al limpiador su tarifa por Zelle — y tomas tu 10%. Si aplica, discutes el próximo servicio o horario recurrente.',
+                desc: 'Client pays via Stripe. You get the email confirmation. You thank the client. Then you pay the cleaner their rate via Stripe — and take your 10%. If applicable, you discuss the next service or recurring schedule.',
+                descEs: 'El cliente paga por Stripe. Recibes la confirmación por email. Agradeces al cliente. Luego pagas al limpiador su tarifa por Stripe — y tomas tu 10%. Si aplica, discutes el próximo servicio o horario recurrente.',
               },
               {
                 step: '6',
@@ -549,7 +549,7 @@ export default function OperationsCoordinatorPage() {
           <p className="text-gray-400 text-xs italic mb-2">El compromiso de tiempo</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">~40 Hours a Month. Not 40 Hours a Week.</h2>
           <p className="text-gray-400 text-sm italic mb-3">~40 horas al mes. No 40 horas a la semana.</p>
-          <p className="text-gray-500 max-w-3xl mb-3">Average is 2-5 services per day. Each one takes minutes of your time &mdash; not hours. The platform sends the reminders, the cleaners check themselves in, the Zelle confirmation comes to your email. You&apos;re responding to texts and clicking buttons in a dashboard, not scrubbing floors.</p>
+          <p className="text-gray-500 max-w-3xl mb-3">Average is 2-5 services per day. Each one takes minutes of your time &mdash; not hours. The platform sends the reminders, the cleaners check themselves in, the Stripe confirmation comes to your email. You&apos;re responding to texts and clicking buttons in a dashboard, not scrubbing floors.</p>
           <p className="text-gray-500 max-w-3xl mb-3">Most of your day, you&apos;re doing your other job, living your life, or sitting on the couch. The work comes in bursts. A text here, a dashboard check there. You need to be responsive during business hours &mdash; but responsive means 15 minutes, not glued to a screen.</p>
           <p className="text-gray-500 max-w-3xl"><strong className="text-[#1E2A4A]">But it could become more if you want it to.</strong> The business is doubling. If you want to grow with it into a full-time role, that path is there. If you want to keep it as the best side gig you&apos;ve ever had, that works too.</p>
         </section>
@@ -560,7 +560,7 @@ export default function OperationsCoordinatorPage() {
           <p className="text-blue-200/30 text-xs italic mb-2">Los números</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-3">You Earn More When the Business Does More</h2>
           <p className="text-blue-200/30 text-xs italic mb-3">Ganas más cuando el negocio crece</p>
-          <p className="text-blue-200/60 max-w-3xl mb-3">You get paid the same way the cleaners get paid &mdash; per job, via Zelle, within minutes of completion. No renegotiating. No asking for a raise. The business grows, your check grows.</p>
+          <p className="text-blue-200/60 max-w-3xl mb-3">You get paid the same way the cleaners get paid &mdash; per job, via Stripe, within minutes of completion. No renegotiating. No asking for a raise. The business grows, your check grows.</p>
           <p className="text-blue-200/60 max-w-3xl mb-10">February we did 36 services. March we did 81. We&apos;re targeting 100+ in April. Here&apos;s what that looks like for you:</p>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -722,8 +722,8 @@ export default function OperationsCoordinatorPage() {
 
         {/* Apply CTA */}
         <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center mb-16">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">10% Per Job. Averaged ~$40/hr Last Month. Paid via Zelle in Minutes.</p>
-          <p className="text-[#1E2A4A]/40 text-sm italic mb-2">10% por trabajo. Promedio ~$40/hr el mes pasado. Pagado por Zelle en minutos.</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">10% Per Job. Averaged ~$40/hr Last Month. Paid via Stripe in Minutes.</p>
+          <p className="text-[#1E2A4A]/40 text-sm italic mb-2">10% por trabajo. Promedio ~$40/hr el mes pasado. Pagado por Stripe en minutos.</p>
           <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-6">
             Apply in 2 minutes. Upload a photo and a 60-second video. We review applications within 48 hours.
           </p>

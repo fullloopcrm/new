@@ -333,10 +333,6 @@ export default function SalesPartnerPortalPage() {
         <PayoutSettings
           salesPartnerId={partner.id}
           token={token}
-          preferredPayout={partner.preferred_payout}
-          zelleEmail={partner.zelle_email}
-          zellePhone={partner.zelle_phone}
-          appleCashPhone={partner.apple_cash_phone}
           stripeConnectAccountId={partner.stripe_connect_account_id}
           monthlyGoalCents={partner.monthly_goal_cents}
           onSaved={(updates) => setData((cur) => cur ? { ...cur, partner: { ...cur.partner, ...updates } } : cur)}

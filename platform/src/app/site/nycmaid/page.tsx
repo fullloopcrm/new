@@ -1026,7 +1026,7 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Earn Passive Income With Our NYC Cleaning Referral Program</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-4">Get Paid 10% Every Time Your Referral Books a Cleaning</h2>
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
-            Refer friends, family, or neighbors to The NYC Maid and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
+            Refer friends, family, or neighbors to The NYC Maid and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Stripe after each completed visit. No limit on referrals, no cap on earnings.
           </p>
           <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
             Join the Referral Program &rarr;

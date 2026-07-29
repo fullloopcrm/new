@@ -35,8 +35,8 @@ const openings = [
 ]
 
 const careerFAQs = [
-  { question: 'How much do cleaners earn?', questionEs: '¿Cuánto ganan los limpiadores?', answer: 'Pay is based on what you bring: $30/hr if you provide your own cleaning supplies and equipment, or $25/hr for labor-only jobs where the client provides all supplies. Both are paid via Zelle within 30 minutes of every completed job. Bonus programs reward retention, client satisfaction, and five-star reviews.', answerEs: 'El pago depende de lo que traes: $30/hr si traes tus propios suministros, o $25/hr para trabajos solo de mano de obra. Ambos se pagan por Zelle en 30 minutos.' },
-  { question: 'How do I get paid?', questionEs: '¿Cómo me pagan?', answer: 'You get paid via Zelle within 30 minutes of every completed job. Finish the job, get paid immediately. No weekly checks, no delays.', answerEs: 'Te pagan por Zelle en 30 minutos después de cada trabajo completado. Sin cheques semanales, sin demoras.' },
+  { question: 'How much do cleaners earn?', questionEs: '¿Cuánto ganan los limpiadores?', answer: 'Pay is based on what you bring: $30/hr if you provide your own cleaning supplies and equipment, or $25/hr for labor-only jobs where the client provides all supplies. Both are paid via Stripe within 30 minutes of every completed job. Bonus programs reward retention, client satisfaction, and five-star reviews.', answerEs: 'El pago depende de lo que traes: $30/hr si traes tus propios suministros, o $25/hr para trabajos solo de mano de obra. Ambos se pagan por Stripe en 30 minutos.' },
+  { question: 'How do I get paid?', questionEs: '¿Cómo me pagan?', answer: 'You get paid via Stripe within 30 minutes of every completed job. Finish the job, get paid immediately. No weekly checks, no delays.', answerEs: 'Te pagan por Stripe en 30 minutos después de cada trabajo completado. Sin cheques semanales, sin demoras.' },
   { question: 'Do I need to bring my own supplies?', questionEs: '¿Necesito traer mis propios suministros?', answer: 'It depends on the job type you prefer. If you bring your own supplies and equipment, you earn $30/hr. For labor-only jobs where the client provides all supplies, you earn $25/hr. You select your preference on the application and we match you to the right jobs.', answerEs: 'Depende del tipo de trabajo. Si traes tus propios suministros, ganas $30/hr. Para trabajos solo de mano de obra donde el cliente provee suministros, ganas $25/hr.' },
   { question: 'What experience do I need?', questionEs: '¿Qué experiencia necesito?', answer: 'We require at least 1 year of professional cleaning experience. You should be comfortable cleaning apartments, homes, and offices independently.', answerEs: 'Requerimos al menos 1 año de experiencia profesional en limpieza.' },
   { question: 'What kind of cleaning jobs will I do?', questionEs: '¿Qué tipo de trabajos haré?', answer: 'Regular apartment cleanings, deep cleans, move-in/move-out cleanings, post-renovation cleanup, Airbnb turnovers, and office cleaning. You\'ll get a variety of work.', answerEs: 'Limpieza regular de apartamentos, limpieza profunda, mudanzas, post-renovación, Airbnb y oficinas.' },
@@ -50,7 +50,7 @@ const careerFAQs = [
 
 const pageUrl = 'https://www.thenycmaid.com/available-nyc-maid-jobs'
 const pageTitle = 'Cleaning Jobs NYC, Long Island, Westchester & NJ — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
-const pageDescription = 'Hiring cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ! Starting $30/hr + bonus programs. Zelle in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos, propinas 100% tuyas. (212) 202-8400'
+const pageDescription = 'Hiring cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos, propinas 100% tuyas. (212) 202-8400'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -84,7 +84,7 @@ function jobPostingSchema(region: string, locations: string) {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
     title: `Professional House Cleaner — ${region}`,
-    description: `Now hiring experienced house cleaners in ${locations}. Starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thenycmaid.com/apply or text (212) 202-8400. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
+    description: `Now hiring experienced house cleaners in ${locations}. Starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thenycmaid.com/apply or text (212) 202-8400. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
     identifier: {
       '@type': 'PropertyValue',
       name: 'The NYC Maid',
@@ -138,7 +138,7 @@ function jobPostingSchema(region: string, locations: string) {
     responsibilities: 'Perform residential and commercial cleaning including regular apartment cleaning, deep cleaning, move-in/move-out cleaning, post-renovation cleanup, Airbnb turnovers, and office cleaning.',
     skills: 'Professional cleaning, attention to detail, time management, reliability, customer service',
     incentiveCompensation: 'Bonus programs for client retention, satisfaction ratings, and verified five-star reviews. Tier system unlocks higher bonuses as you accumulate reviews. 100% of client tips go directly to you.',
-    jobBenefits: 'Same-day pay via Zelle within 30 minutes of job completion, bonus programs for retention and client satisfaction and five-star reviews, 100% of tips are yours, flexible scheduling 24/7, steady work, supportive team, bilingual portal (English/Spanish)',
+    jobBenefits: 'Same-day pay via Stripe within 30 minutes of job completion, bonus programs for retention and client satisfaction and five-star reviews, 100% of tips are yours, flexible scheduling 24/7, steady work, supportive team, bilingual portal (English/Spanish)',
     workHours: 'Flexible — set your own schedule',
     experienceRequirements: {
       '@type': 'OccupationalExperienceRequirements',
@@ -185,10 +185,10 @@ export default function CareersPage() {
             Join The NYC Maid — Starting at $30/hr, Bonus Programs Available
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
-            We&apos;re hiring experienced cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Zelle within 30 minutes of every completed job. Bonus programs let top performers earn even more.
+            We&apos;re hiring experienced cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs let top performers earn even more.
           </p>
           <p className="text-blue-200/50 max-w-2xl leading-relaxed mb-4 italic">
-            Contratando limpiadores experimentados en NYC, Long Island y Nueva Jersey. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Zelle en menos de 30 minutos. Programas de bonos disponibles.
+            Contratando limpiadores experimentados en NYC, Long Island y Nueva Jersey. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Stripe en menos de 30 minutos. Programas de bonos disponibles.
           </p>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
             Full-time cleaners take 18–20 jobs per week and earn $1,350–$1,500+. Average job is 2.5 hours. No waiting for payday — you get paid the same day, every job.
@@ -222,7 +222,7 @@ export default function CareersPage() {
               <p className="text-[#1E2A4A]/40 text-xs italic">Pago después de cada trabajo</p>
             </div>
             <div>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Zelle</p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">Stripe</p>
               <p className="text-[#1E2A4A]/60 text-sm font-medium">Direct to Your Bank</p>
               <p className="text-[#1E2A4A]/40 text-xs italic">Directo a tu banco</p>
             </div>
@@ -246,8 +246,8 @@ export default function CareersPage() {
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Open Positions / Posiciones Abiertas</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Three Regions, Same Great Pay</p>
-          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring in all three regions. Each position is the same role — professional house cleaner — starting at $30/hr with same-day Zelle payment and bonus programs.</p>
-          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente en las tres regiones. Cada puesto es el mismo rol — limpiador profesional — desde $30/hr con pago Zelle el mismo día y programas de bonos.</p>
+          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring in all three regions. Each position is the same role — professional house cleaner — starting at $30/hr with same-day Stripe payment and bonus programs.</p>
+          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente en las tres regiones. Cada puesto es el mismo rol — limpiador profesional — desde $30/hr con pago Stripe el mismo día y programas de bonos.</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {openings.map(opening => {
@@ -312,7 +312,7 @@ export default function CareersPage() {
               <div className="space-y-5">
                 {[
                   { label: 'Starting $30/hr + Bonuses', desc: 'Base rate plus performance bonus programs', es: 'Tarifa base más programas de bonos' },
-                  { label: 'Paid in 30 Minutes', desc: 'Zelle payment after every completed job', es: 'Pago por Zelle después de cada trabajo' },
+                  { label: 'Paid in 30 Minutes', desc: 'Stripe payment after every completed job', es: 'Pago por Stripe después de cada trabajo' },
                   { label: 'Flexible Schedule', desc: 'Choose days and hours that work for you', es: 'Elige los días y horas que te convengan' },
                   { label: 'Steady Work', desc: 'Recurring clients mean reliable income', es: 'Clientes recurrentes = ingresos confiables' },
                   { label: 'Great Clients', desc: 'Respectful, appreciative homeowners', es: 'Propietarios respetuosos y agradecidos' },
@@ -438,7 +438,7 @@ export default function CareersPage() {
               { step: '1', title: 'Apply Online', desc: 'Fill out our application — takes 2 minutes. Tell us about your experience and preferred area.', es: 'Llena nuestra solicitud — toma 2 minutos. Cuéntanos tu experiencia y área preferida.' },
               { step: '2', title: 'Quick Interview', desc: 'We review your application within 24–48 hours and schedule a brief phone or text interview.', es: 'Revisamos tu solicitud en 24–48 horas y programamos una breve entrevista.' },
               { step: '3', title: 'Background Check', desc: 'Pass a standard background check. This protects you and our clients.', es: 'Pasa una verificación de antecedentes estándar. Esto te protege a ti y a nuestros clientes.' },
-              { step: '4', title: 'Start Working', desc: 'Get matched with clients in your area. Complete jobs, get paid $30/hr via Zelle within 30 minutes.', es: 'Te conectamos con clientes en tu área. Completa trabajos, cobra $30/hr por Zelle en 30 minutos.' },
+              { step: '4', title: 'Start Working', desc: 'Get matched with clients in your area. Complete jobs, get paid $30/hr via Stripe within 30 minutes.', es: 'Te conectamos con clientes en tu área. Completa trabajos, cobra $30/hr por Stripe en 30 minutos.' },
             ].map(item => (
               <div key={item.step}>
                 <div className="w-10 h-10 bg-[#A8F0DC] text-[#1E2A4A] rounded-full flex items-center justify-center font-bold mb-4">{item.step}</div>
@@ -481,7 +481,7 @@ export default function CareersPage() {
             <div className="space-y-6">
               <div className="bg-[#A8F0DC] rounded-2xl p-8">
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">100% of Tips Are Yours</p>
-                <p className="text-[#1E2A4A]/70 text-sm mb-2">We never take a cut of your tips. When a client tips you — cash, Zelle, Venmo, whatever — it&apos;s 100% yours. Always.</p>
+                <p className="text-[#1E2A4A]/70 text-sm mb-2">We never take a cut of your tips. When a client tips you, it&apos;s 100% yours. Always.</p>
                 <p className="text-[#1E2A4A]/50 text-xs italic">El 100% de las propinas son tuyas. Nunca tomamos nada de tus propinas. Siempre.</p>
               </div>
               <div className="border-2 border-[#1E2A4A] rounded-2xl p-8">
