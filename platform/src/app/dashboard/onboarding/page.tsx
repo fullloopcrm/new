@@ -11,7 +11,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ONBOARDING_STEPS } from '@/lib/onboarding-steps'
 
-type Profile = Record<string, string | number | boolean | undefined>
+type Profile = Record<string, string | number | boolean | string[] | undefined>
+
+const PAYMENT_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: 'Stripe (card)', value: 'stripe' },
+  { label: 'Zelle', value: 'zelle' },
+  { label: 'Venmo', value: 'venmo' },
+  { label: 'Apple Cash', value: 'apple_cash' },
+  { label: 'Cash', value: 'cash' },
+  { label: 'Check', value: 'check' },
+]
 
 interface WebsiteStatus {
   domain: string | null
@@ -95,7 +104,7 @@ export default function OnboardingProfilePage() {
       .catch(() => setLoading(false))
   }, [])
 
-  const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: string, v: string | number | boolean | string[]) => setForm((f) => ({ ...f, [k]: v }))
 
   const saveDraft = useCallback(
     async (silent = false, stepOverride?: number) => {
@@ -215,7 +224,16 @@ export default function OnboardingProfilePage() {
               <Field label="Business email" k="email" form={form} set={set} placeholder="hello@yourbiz.com" />
             </div>
             <Field label="Website" k="websiteUrl" form={form} set={set} placeholder="https://yourbiz.com" />
-            <Field label="Business hours" k="businessHours" form={form} set={set} placeholder="Mon–Fri 8am–6pm" />
+            <Field label="Business hours (display text)" k="businessHours" form={form} set={set} placeholder="Mon–Fri 8am–6pm" />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Opening time" k="businessHoursStart" form={form} set={set} type="time" />
+              <Field label="Closing time" k="businessHoursEnd" form={form} set={set} type="time" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Owner / admin email" k="ownerEmail" form={form} set={set} placeholder="owner@yourbiz.com" />
+              <Field label="Lead alert email" k="leadNotificationEmail" form={form} set={set} placeholder="leads@yourbiz.com" />
+            </div>
+            <CheckboxGroup label="Payment methods you accept" k="paymentMethods" form={form} set={set} options={PAYMENT_OPTIONS} />
           </div>
         )}
 
@@ -273,6 +291,7 @@ export default function OnboardingProfilePage() {
         {s.key === 'social' && (
           <div className="space-y-4">
             <Field label="Google review link" k="googleReviewLink" form={form} set={set} placeholder="https://g.page/r/…" />
+            <Field label="Google Place ID (optional, improves review-request accuracy)" k="googlePlaceId" form={form} set={set} placeholder="ChIJ…" />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Facebook" k="facebookUrl" form={form} set={set} />
               <Field label="Instagram" k="instagramUrl" form={form} set={set} />
@@ -429,6 +448,31 @@ function Textarea({ label, k, form, set }: { label: string; k: string; form: Pro
         rows={3}
         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
       />
+    </div>
+  )
+}
+
+function CheckboxGroup({ label, k, form, set, options }: { label: string; k: string; form: Profile; set: (k: string, v: string[]) => void; options: { label: string; value: string }[] }) {
+  const selected = (form[k] as string[]) || []
+  const toggle = (value: string) => {
+    set(k, selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value])
+  }
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <div className="flex flex-wrap gap-3">
+        {options.map((o) => (
+          <label key={o.value} className="flex items-center gap-1.5 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={selected.includes(o.value)}
+              onChange={() => toggle(o.value)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
     </div>
   )
 }

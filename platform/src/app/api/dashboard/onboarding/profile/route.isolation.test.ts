@@ -95,4 +95,25 @@ describe('POST /api/dashboard/onboarding/profile — tenant isolation', () => {
     const tenant = h.store.tenants.find((t) => t.id === 'tenant-A')
     expect(tenant?.address).toBe('123 Main St')
   })
+
+  it('submit writes the 6 previously-missing critical/recommended fields to their real tenants columns', async () => {
+    const res = await POST(postReq({
+      businessName: 'Acme A',
+      businessHoursStart: '08:00',
+      businessHoursEnd: '18:00',
+      ownerEmail: 'owner@acme-a.example',
+      leadNotificationEmail: 'leads@acme-a.example',
+      paymentMethods: ['stripe', 'zelle'],
+      googlePlaceId: 'ChIJ-test-place-id',
+    }))
+    expect(res.status).toBe(200)
+
+    const tenant = h.store.tenants.find((t) => t.id === 'tenant-A')
+    expect(tenant?.business_hours_start).toBe('08:00')
+    expect(tenant?.business_hours_end).toBe('18:00')
+    expect(tenant?.owner_email).toBe('owner@acme-a.example')
+    expect(tenant?.lead_notification_email).toBe('leads@acme-a.example')
+    expect(tenant?.payment_methods).toEqual(['stripe', 'zelle'])
+    expect(tenant?.google_place_id).toBe('ChIJ-test-place-id')
+  })
 })
