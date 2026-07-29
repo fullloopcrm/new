@@ -84,6 +84,15 @@ const nextConfig: NextConfig = {
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
         ],
       },
+      // Recorded-answer job applications need in-page camera/mic access.
+      // Scoped override — every other route stays locked down by the rule
+      // above; only /site/<tenant>/apply/* gets camera/microphone back.
+      {
+        source: '/site/:tenant/apply/:path*',
+        headers: [
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self)' },
+        ],
+      },
     ]
   },
 };

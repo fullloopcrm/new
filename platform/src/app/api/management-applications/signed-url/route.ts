@@ -19,6 +19,11 @@ const ALLOWED_TYPES: Record<string, { mimes: string[]; maxSize: number; folder: 
     maxSize: 150 * 1024 * 1024,
     folder: 'videos',
   },
+  audio: {
+    mimes: ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac'],
+    maxSize: 30 * 1024 * 1024,
+    folder: 'audio',
+  },
   resume: {
     mimes: [
       'application/pdf',

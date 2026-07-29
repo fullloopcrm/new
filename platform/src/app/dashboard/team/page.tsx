@@ -9,6 +9,7 @@ import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
 import { type ServiceArea, NEUTRAL_SERVICE_AREA } from '@/lib/service-area'
 import SalesAppsTab from './SalesAppsTab'
+import ManagementAppsTab from './ManagementAppsTab'
 import PayrollTab from './PayrollTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
 
@@ -525,7 +526,11 @@ export default function TeamPage() {
         <PayrollTab />
       )}
 
-      {tab !== 'team' && tab !== 'applications' && tab !== 'sales_apps' && tab !== 'payroll' && (
+      {tab === 'ops_admin' && (
+        <ManagementAppsTab />
+      )}
+
+      {tab !== 'team' && tab !== 'applications' && tab !== 'sales_apps' && tab !== 'payroll' && tab !== 'ops_admin' && (
         <div className="tm-coming-soon">
           <div className="tm-coming-soon-title">Coming soon.</div>
           <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
