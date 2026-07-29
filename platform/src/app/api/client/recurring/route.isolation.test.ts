@@ -59,6 +59,15 @@ vi.mock('@/lib/messaging/client-sms', () => ({
   clientSmsTemplatesFor: async () => ({ bookingConfirmation: () => 'x' }),
 }))
 
+// POST now runs a per-date scoreTeamForBooking availability check when
+// cleaner_id is set. Without a resolved address, that call falls through to a
+// REAL geocoding network request (lib/geo.ts) — mock a fixed address/coords
+// here so the check runs deterministically offline, same pattern as
+// route.conflict-handling.test.ts on the sibling /api/schedules route.
+vi.mock('@/lib/client-properties', () => ({
+  getBookingAddress: async () => ({ propertyId: null, address: '123 Test St', latitude: 40.7, longitude: -73.9 }),
+}))
+
 import { supabaseAdmin } from '@/lib/supabase'
 import { POST } from './route'
 
