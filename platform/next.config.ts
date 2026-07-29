@@ -86,7 +86,18 @@ const nextConfig: NextConfig = {
       },
       // Recorded-answer job applications need in-page camera/mic access.
       // Scoped override — every other route stays locked down by the rule
-      // above; only /site/<tenant>/apply/* gets camera/microphone back.
+      // above. Tenant custom domains hit the clean external path
+      // (/apply/administrator) directly; middleware's /site/<tenant>/...
+      // rewrite is an internal routing detail invisible to this header
+      // matcher, which runs against the incoming request path — so both
+      // forms are matched here to cover the real external URL and any
+      // direct internal-path access (e.g. main-host template preview).
+      {
+        source: '/apply/:path*',
+        headers: [
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self)' },
+        ],
+      },
       {
         source: '/site/:tenant/apply/:path*',
         headers: [
