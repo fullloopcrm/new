@@ -79,4 +79,20 @@ describe('POST /api/dashboard/onboarding/profile — tenant isolation', () => {
     // Tenant A/B defaults must remain untouched.
     expect(h.store.entities.filter((e) => e.is_default).length).toBe(3)
   })
+
+  it('submit writes businessName to tenants.name, not only entities.name (readiness reads tenants.name)', async () => {
+    const res = await POST(postReq({ businessName: 'Acme A Storefront' }))
+    expect(res.status).toBe(200)
+
+    const tenant = h.store.tenants.find((t) => t.id === 'tenant-A')
+    expect(tenant?.name).toBe('Acme A Storefront')
+  })
+
+  it('submit writes address to tenants.address, not only entities.address (readiness reads tenants.address)', async () => {
+    const res = await POST(postReq({ businessName: 'Acme A', address: '123 Main St' }))
+    expect(res.status).toBe(200)
+
+    const tenant = h.store.tenants.find((t) => t.id === 'tenant-A')
+    expect(tenant?.address).toBe('123 Main St')
+  })
 })
