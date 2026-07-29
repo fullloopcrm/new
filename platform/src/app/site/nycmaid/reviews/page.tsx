@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema, reviewSchemas, reviewsPageSchema, videoReviewsSchemas } from '@/app/site/nycmaid/_lib/seo/schema'
+import { getTenantFromHeaders, getPublicReviewsForSchema } from '@/lib/tenant-site'
 import JsonLd from '@/app/site/nycmaid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/nycmaid/_components/CTABlock'
@@ -18,17 +19,31 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ReviewsPage() {
+export default async function ReviewsPage() {
+  // Real, publicly-approved reviews — same tenant + status filter the public
+  // /api/reviews GET applies for anonymous visitors — so the Review/JSON-LD
+  // below always matches what ReviewsList actually renders on this page.
+  // Falling back to `undefined` (→ curated CLIENT_REVIEWS excerpts) only
+  // happens when the tenant itself can't be resolved, not when it resolves
+  // with zero approved reviews.
+  let liveReviews: Awaited<ReturnType<typeof getPublicReviewsForSchema>> | undefined
+  try {
+    const tenant = await getTenantFromHeaders()
+    if (tenant) liveReviews = await getPublicReviewsForSchema(tenant.id)
+  } catch {
+    liveReviews = undefined
+  }
+
   return (
     <>
       <JsonLd data={[
-        reviewsPageSchema(),
+        reviewsPageSchema(liveReviews),
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thenycmaid.com' },
           { name: 'Reviews', url: 'https://www.thenycmaid.com/reviews' },
         ]),
-        ...reviewSchemas(),
+        ...reviewSchemas(liveReviews),
         ...videoReviewsSchemas(),
       ]} />
 

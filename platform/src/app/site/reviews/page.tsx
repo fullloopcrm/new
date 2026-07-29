@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema, reviewSchemas, reviewsPageSchema, videoReviewsSchemas } from '@/lib/seo/schema'
+import { getTenantFromHeaders, getPublicReviewsForSchema } from '@/lib/tenant-site'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import CTABlock from '@/components/marketing/CTABlock'
@@ -18,17 +19,28 @@ export const metadata: Metadata = {
   },
 }
 
-export default function ReviewsPage() {
+export default async function ReviewsPage() {
+  // See src/app/site/nycmaid/reviews/page.tsx for the rationale — real,
+  // publicly-approved reviews (same filter as the public /api/reviews GET)
+  // so this page's Review JSON-LD matches what ReviewsList actually renders.
+  let liveReviews: Awaited<ReturnType<typeof getPublicReviewsForSchema>> | undefined
+  try {
+    const tenant = await getTenantFromHeaders()
+    if (tenant) liveReviews = await getPublicReviewsForSchema(tenant.id)
+  } catch {
+    liveReviews = undefined
+  }
+
   return (
     <>
       <JsonLd data={[
-        reviewsPageSchema(),
+        reviewsPageSchema(liveReviews),
         localBusinessSchema(undefined, undefined),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thenycmaid.com' },
           { name: 'Reviews', url: 'https://www.thenycmaid.com/reviews' },
         ]),
-        ...reviewSchemas(),
+        ...reviewSchemas(liveReviews),
         ...videoReviewsSchemas(),
       ]} />
 
