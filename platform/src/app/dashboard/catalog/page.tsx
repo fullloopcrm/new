@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { SettingsHint } from '@/components/page-settings'
+import CatalogSettings from './catalog-settings'
 import Breadcrumb from '../_components/Breadcrumb'
 import CatalogTab from '../sales/CatalogTab'
 import BudgetTab from '../sales/BudgetTab'
@@ -63,12 +65,16 @@ export default function CatalogPage() {
 
   return (
     <div className="sl-scope">
+      <CatalogSettings />
       <Breadcrumb items={[{ label: 'Sales', href: '/dashboard/sales' }, { label: 'Catalog' }]} />
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--sl-line,#e6e6e0)', marginTop: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--sl-line,#e6e6e0)', marginTop: 14 }}>
         {TABS.map((t) => (
           <button key={t.key} type="button" style={tabBtn(tab === t.key)} onClick={() => setTab(t.key)}>{t.label}</button>
         ))}
+        <span style={{ marginLeft: 'auto', marginBottom: 8 }}>
+          <SettingsHint label="Default tab setting" fieldKey="default_tab" />
+        </span>
       </div>
 
       {tab === 'services' && <div style={{ paddingTop: 12 }}><CatalogTab /></div>}

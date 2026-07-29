@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel, SettingsHint, useSettingsTarget } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Campaign = {
@@ -164,9 +164,11 @@ export default function CampaignsPage() {
           'Configure your Resend and Telnyx API keys in Settings > Integrations',
         ]}
       >
-        {({ config, updateConfig }) => (
+        {({ config, updateConfig }) => {
+          const defaultTypeTarget = useSettingsTarget<HTMLDivElement>('default_type')
+          return (
           <div className="space-y-5">
-            <div>
+            <div ref={defaultTypeTarget.ref} className="transition-shadow" style={defaultTypeTarget.isTarget ? { boxShadow: '0 0 0 2px #3B82F6', borderRadius: 8, padding: 8, margin: -8 } : undefined}>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Default Campaign Type</label>
               <select
                 value={(config.default_type as string) || 'email'}
@@ -209,7 +211,8 @@ export default function CampaignsPage() {
               </button>
             </div>
           </div>
-        )}
+          )
+        }}
       </PageSettingsPanel>
 
       {/* CREATE FORM */}
@@ -226,7 +229,10 @@ export default function CampaignsPage() {
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase mb-1 block">Type</label>
+              <label className="text-xs text-slate-400 uppercase mb-1 flex items-center gap-1.5">
+                Type
+                <SettingsHint label="Default campaign type setting" fieldKey="default_type" />
+              </label>
               <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="email">Email Only</option>

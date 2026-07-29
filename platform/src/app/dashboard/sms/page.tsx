@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { PageSettingsPanel, usePageSettingsOpen } from '@/components/page-settings'
+import { PageSettingsPanel, usePageSettingsOpen, SettingsHint } from '@/components/page-settings'
 
 type Conversation = {
   id: string
@@ -152,11 +152,14 @@ export default function SmsInboxPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">SMS Inbox</h1>
-            <p className="text-sm text-slate-400">
-              {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
-            </p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">SMS Inbox</h1>
+              <p className="text-sm text-slate-400">
+                {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <SettingsHint label="Telnyx SMS settings" />
           </div>
         </div>
       </div>

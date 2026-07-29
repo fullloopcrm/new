@@ -9,6 +9,8 @@ import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import BookingsSettings from './bookings-settings'
+import { SettingsHint } from '@/components/page-settings'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
@@ -1139,7 +1141,8 @@ function BookingsPage() {
     // affect profit or margin.
     const profitCents = revenueCents - laborTotalCents
     const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
-    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct }
+    const avgTicketCents = todaysJobs.length > 0 ? revenueCents / todaysJobs.length : 0
+    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
   })()
 
   // Pagination
@@ -1157,6 +1160,7 @@ function BookingsPage() {
 
   return (
     <div className="sched-scope">
+      <BookingsSettings />
       <main className="p-3 md:p-6 max-w-[1400px] mx-auto">
         {/* Header — page title itself comes from the shared dashboard masthead
             ("Schedule."); this row is just the bar-label + actions. */}
@@ -1217,7 +1221,10 @@ function BookingsPage() {
         {!loading && (
           <div className="sched-outlook" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
             <div className="sched-stat">
-              <div className="sched-stat-label">Upcoming</div>
+              <div className="sched-stat-label flex items-center gap-1.5">
+                Upcoming
+                <SettingsHint label="Appointment reminder settings" fieldKey="booking_reminder" />
+              </div>
               <div className="sched-stat-value">{upcomingCount}</div>
               <div className="sched-stat-sub">Scheduled, not yet done</div>
             </div>
@@ -1435,10 +1442,14 @@ function BookingsPage() {
               {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
               <div className="mb-4">
                 <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   <div className="bg-white rounded-xl border border-emerald-200/60 p-3">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Revenue Today</p>
                     <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.revenueCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-teal-200/60 p-3">
+                    <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wide mb-1">Avg Ticket</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.avgTicketCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <div className="bg-white rounded-xl border border-amber-200/60 p-3">
                     <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-1">Labor Owed</p>

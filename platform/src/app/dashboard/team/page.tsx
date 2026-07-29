@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import TeamSettings from './team-settings'
+import { SettingsHint } from '@/components/page-settings'
 import { useRouter } from 'next/navigation'
 import './team.css'
 import TeamCoverageMap from '@/components/TeamCoverageMap'
@@ -284,6 +286,7 @@ export default function TeamPage() {
 
   return (
     <div className="tm-scope">
+      <TeamSettings />
       {deleteTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 12, maxWidth: 420, width: '100%', padding: 24 }}>
@@ -530,6 +533,7 @@ export default function TeamPage() {
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
             <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+            <SettingsHint label="Default pay rate setting" fieldKey="default_pay_rate" />
           </div>
 
           {loading && <div className="tm-empty">Loading…</div>}

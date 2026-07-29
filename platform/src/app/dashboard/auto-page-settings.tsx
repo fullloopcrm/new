@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'campaigns', 'notifications', 'referrals', 'reviews', 'sms',
+  'bookings', 'campaigns', 'catalog', 'clients', 'finance', 'notifications', 'referrals', 'reviews', 'sms', 'team',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -68,15 +68,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
     tips: ['A fixed-content dashboard — nothing configurable here yet.'],
     fields: [],
   },
-  'bookings': {
-    page: 'bookings', title: 'Bookings',
-    tips: ['Which status filter the bookings list opens to.'],
-    fields: [
-      { key: 'default_status_filter', label: 'Default status filter', type: 'select', layer: 'user', helper: 'Which status the bookings list opens filtered to.', options: [
-        { value: '', label: 'All' }, { value: 'pending', label: 'Pending' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'in_progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Canceled' },
-      ], default: 'scheduled' },
-    ],
-  },
   'books': {
     page: 'books', title: 'Books',
     tips: ['Default tab and filters for the ledger.'],
@@ -101,34 +92,10 @@ const PAGE_MAP: Record<string, PageEntry> = {
       ], default: 'month' },
     ],
   },
-  'catalog': {
-    page: 'catalog', title: 'Catalog',
-    tips: ['Which tab the Catalog page opens to.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Catalog opens to.', options: [
-        { value: 'services', label: 'Services' }, { value: 'budgets', label: 'Budgets' }, { value: 'vendors', label: 'Vendors' }, { value: 'categories', label: 'Categories' }, { value: 'inventory', label: 'Inventory' }, { value: 'equipment', label: 'Equipment' },
-      ], default: 'services' },
-    ],
-  },
   'changelog': {
     page: 'changelog', title: 'Changelog',
     tips: ['Stay current with platform updates from FullLoop — nothing configurable here yet.'],
     fields: [],
-  },
-  'clients': {
-    page: 'clients', title: 'Clients',
-    tips: ['Manage default views and client list behavior.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab the Clients page opens to.', options: [
-        { value: 'all', label: 'All Clients' }, { value: 'lifecycle', label: 'Lifecycle' }, { value: 'cohorts', label: 'Cohorts' }, { value: 'conversations', label: 'Conversations' }, { value: 'reviews', label: 'Reviews' }, { value: 'referrals', label: 'Referrals' },
-      ], default: 'all' },
-      { key: 'default_stage_filter', label: 'Default stage filter', type: 'select', layer: 'user', helper: 'Which client stage the list is pre-filtered to.', options: [
-        { value: 'all', label: 'All stages' }, { value: 'lead', label: 'Lead' }, { value: 'first', label: 'First-Time' }, { value: 'active', label: 'Active' }, { value: 'vip', label: 'VIP' }, { value: 'risk', label: 'At-Risk' }, { value: 'lapsed', label: 'Lapsed' }, { value: 'dns', label: 'DNS' },
-      ], default: 'all' },
-      { key: 'default_type_filter', label: 'Default type filter', type: 'select', layer: 'user', helper: 'Recurring, one-time, or both by default.', options: [
-        { value: 'all', label: 'All' }, { value: 'recurring', label: 'Recurring' }, { value: 'one-time', label: 'One-Time' },
-      ], default: 'all' },
-    ],
   },
   'comhub': {
     page: 'comhub', title: 'ComHub',
@@ -163,15 +130,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'default_filter', label: 'Default filter', type: 'select', layer: 'user', helper: 'Which feedback items the list opens showing.', options: [
         { value: 'all', label: 'All' }, { value: 'unread', label: 'Unread' }, { value: 'read', label: 'Read' },
       ], default: 'all' },
-    ],
-  },
-  'finance': {
-    page: 'finance', title: 'Finance',
-    tips: ['Which date range Finance opens to.'],
-    fields: [
-      { key: 'default_range', label: 'Default date range', type: 'select', layer: 'user', helper: 'Which date range Finance opens showing.', options: [
-        { value: 'today', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'This Quarter' }, { value: 'ytd', label: 'Year-to-date' },
-      ], default: 'month' },
     ],
   },
   'find-cleaner': {
@@ -278,15 +236,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
       { key: 'default_platform', label: 'Default platform', type: 'select', layer: 'user', helper: 'Which platform the post composer opens to.', options: [
         { value: 'facebook', label: 'Facebook' }, { value: 'instagram', label: 'Instagram' },
       ], default: 'facebook' },
-    ],
-  },
-  'team': {
-    page: 'team', title: 'Team',
-    tips: ['Which tab Team opens to.'],
-    fields: [
-      { key: 'default_tab', label: 'Default tab', type: 'select', layer: 'user', helper: 'Which tab Team opens to.', options: [
-        { value: 'team', label: 'Team' }, { value: 'applications', label: 'Applications' }, { value: 'sales_apps', label: 'Sales Apps' }, { value: 'ops_admin', label: 'Ops Admin' }, { value: 'performance', label: 'Performance' }, { value: 'payroll', label: 'Payroll' },
-      ], default: 'team' },
     ],
   },
   'users': {
@@ -506,7 +455,7 @@ function FieldRow({ field, index, value, onChange }: { field: FieldDef; index: n
       className="flex items-start gap-2.5 transition-shadow"
       style={{
         ...(field.type === 'textarea' ? { gridColumn: `1 / -1` } : {}),
-        ...(isTarget ? { boxShadow: '0 0 0 2px #FFD60A', borderRadius: 8, padding: 8, margin: -8 } : {}),
+        ...(isTarget ? { boxShadow: '0 0 0 2px #3B82F6', borderRadius: 8, padding: 8, margin: -8 } : {}),
       }}
     >
       <span

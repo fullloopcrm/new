@@ -6,6 +6,8 @@ import { useUserPrefs } from '@/lib/use-user-prefs'
 import Link from 'next/link'
 import './finance.css'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { SettingsHint } from '@/components/page-settings'
+import FinanceSettings from './finance-settings'
 
 type Tab = 'overview'
 // The finance PROCESS, left→right — one connected hub. Overview lives on this
@@ -115,7 +117,8 @@ export default function FinancePage() {
 
   return (
     <div className="fin-scope">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+      <FinanceSettings />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
         <div className="fin-date-range">
           {DATE_OPTS.map((d) => (
             <button
@@ -128,6 +131,7 @@ export default function FinancePage() {
             </button>
           ))}
         </div>
+        <SettingsHint label="Default date range setting" fieldKey="default_range" />
       </div>
 
       <div className="fin-tabs">

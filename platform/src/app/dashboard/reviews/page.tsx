@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PageSettingsPanel } from '@/components/page-settings'
+import { PageSettingsPanel, SettingsHint, useSettingsTarget } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 type Review = {
@@ -130,7 +130,9 @@ export default function ReviewsPage() {
           'Respond to reviews promptly to boost your online reputation',
         ]}
       >
-        {({ config, updateConfig }) => (
+        {({ config, updateConfig }) => {
+          const lowRatingTarget = useSettingsTarget<HTMLDivElement>('low_rating_threshold')
+          return (
           <div className="space-y-5">
             <div>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Google Place ID</label>
@@ -181,7 +183,7 @@ export default function ReviewsPage() {
               </div>
             )}
             <div className="border-t border-slate-200" />
-            <div>
+            <div ref={lowRatingTarget.ref} className="transition-shadow" style={lowRatingTarget.isTarget ? { boxShadow: '0 0 0 2px #3B82F6', borderRadius: 8, padding: 8, margin: -8 } : undefined}>
               <label className="text-xs text-slate-400 uppercase tracking-wide mb-2 block">Low Rating Alert Threshold</label>
               <div className="flex items-center gap-1">
                 <input
@@ -197,7 +199,8 @@ export default function ReviewsPage() {
               <p className="text-xs text-slate-500 mt-1">Ratings at or below this value will notify you for follow-up</p>
             </div>
           </div>
-        )}
+          )
+        }}
       </PageSettingsPanel>
 
       {/* STATS CARDS */}
@@ -209,7 +212,10 @@ export default function ReviewsPage() {
           { label: 'Posted', value: posted, color: 'border-l-purple-500' },
         ].map((card) => (
           <div key={card.label} className={`border border-slate-200 rounded-lg border-l-4 ${card.color} p-5`}>
-            <p className="text-[11px] text-slate-400 uppercase tracking-wide">{card.label}</p>
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+              {card.label}
+              {card.label === 'Avg Rating' && <SettingsHint label="Low rating alert threshold setting" fieldKey="low_rating_threshold" />}
+            </p>
             <p className="text-2xl font-bold text-slate-900 mt-1">{card.value}</p>
             {card.sub && <p className="text-xs text-slate-400 mt-0.5">{card.sub}</p>}
           </div>

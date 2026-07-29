@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 
 // One shared open/close boolean for the settings drawer, so every dashboard
@@ -95,6 +95,26 @@ export function usePageSettings(page: string) {
   )
 
   return { open, setOpen, config, updateConfig, saving, saveMsg, loaded }
+}
+
+// Scroll-into-view + highlight for a single custom field row inside a
+// drawer's own JSX (catalog/finance/notifications/etc. render their fields
+// directly rather than through the generic FieldRow in auto-page-settings.tsx
+// or CommsRow in page-comms-settings.tsx). Mirrors those two components'
+// behavior so any field can support a SettingsHint deep-link with a ref and
+// one style check, instead of duplicating the scrollIntoView effect.
+export function useSettingsTarget<T extends HTMLElement = HTMLDivElement>(key: string) {
+  const { targetKey } = usePageSettingsOpen()
+  const ref = useRef<T>(null)
+  const isTarget = targetKey === key
+
+  useEffect(() => {
+    if (isTarget && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isTarget])
+
+  return { ref, isTarget }
 }
 
 // Right-side slide-out drawer — mirrors the notifications panel already used
@@ -213,7 +233,7 @@ export function SettingsHint({ label = 'Configurable in Settings', fieldKey }: {
       title={`${label} — click to open Settings`}
       aria-label={`${label} — click to open Settings`}
       className="inline-flex items-center justify-center rounded-full transition-colors hover:brightness-110 align-middle"
-      style={{ width: 16, height: 16, background: 'rgba(255,214,10,0.15)', border: '1px solid rgba(255,214,10,0.4)', color: '#FFD60A' }}
+      style={{ width: 16, height: 16, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.4)', color: '#3B82F6' }}
     >
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />

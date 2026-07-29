@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { usePoll } from '@/lib/use-poll'
+import { SettingsHint } from '@/components/page-settings'
 import NotificationsSettings from './notifications-settings'
 
 type Notification = {
@@ -53,9 +54,12 @@ export default function NotificationsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
-          {unread > 0 && <p className="text-sm text-blue-400">{unread} unread</p>}
+        <div className="flex items-center gap-2">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
+            {unread > 0 && <p className="text-sm text-blue-400">{unread} unread</p>}
+          </div>
+          <SettingsHint label="Notification channel settings" />
         </div>
         <NotificationsSettings />
       </div>
