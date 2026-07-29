@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { logAnthropicUsage } from '@/lib/ai-usage'
 import { supabaseAdmin } from '@/lib/supabase'
+import { audit } from '@/lib/audit'
 import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
 import { notify } from '@/lib/notify'
@@ -870,6 +871,92 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
   }
 }
 
+// ─── Tool dispatch + audit logging ──────────────────────────────────────────
+//
+// Every tool call in the legacy Selena SMS/web/email engine — the 5 core
+// tools handled inline here plus the 15 extended tools routed to
+// selena-legacy-handlers.ts — goes through this one function (askSelena's
+// tool loop below calls nothing else). Same shape as Yinez's
+// dispatchTool/runTool split in src/lib/selena/tools.ts: dispatchTool is the
+// real, unchanged routing logic; runLegacyTool wraps it as the single choke
+// point for audit logging, writing one audit_logs row per call.
+const LEGACY_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const LEGACY_ENTITY_ID_KEYS = ['booking_id', 'client_id', 'schedule_id']
+function extractLegacyEntityId(input: Record<string, unknown>): string | undefined {
+  for (const key of LEGACY_ENTITY_ID_KEYS) {
+    const val = input[key]
+    if (typeof val === 'string' && LEGACY_UUID_RE.test(val)) return val
+  }
+  return undefined
+}
+
+async function dispatchLegacyTool(
+  name: string,
+  tenantId: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  result: SelenaResult,
+): Promise<string> {
+  switch (name) {
+    case 'create_client': return handleCreateClient(tenantId, input, conversationId, result)
+    case 'save_info': return handleSaveInfo(tenantId, input, conversationId)
+    case 'check_availability': return handleCheckAvailability(tenantId, input)
+    case 'create_booking': return handleCreateBooking(tenantId, input, conversationId, result)
+    case 'add_to_waitlist': return handleAddToWaitlist(tenantId, input, conversationId)
+    default: {
+      const extended = await routeExtendedTool(name, tenantId, input, conversationId)
+      return extended ?? JSON.stringify({ error: `Unknown tool: ${name}` })
+    }
+  }
+}
+
+// Exported (matching Yinez's exported runTool in src/lib/selena/tools.ts) so
+// the audit-logging behavior can be tested directly instead of driving the
+// full askSelena tool loop (Anthropic call + intent detection + checklist
+// state) just to reach it.
+export async function runLegacyTool(
+  name: string,
+  tenantId: string,
+  input: Record<string, unknown>,
+  conversationId: string,
+  result: SelenaResult,
+): Promise<string> {
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchLegacyTool(name, tenantId, input, conversationId, result)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+    }
+  } catch {
+    // Non-JSON tool output (plain text) — treat as success, nothing to parse.
+  }
+
+  audit({
+    tenantId,
+    action: 'selena_legacy.tool_call',
+    entityType: name,
+    entityId: extractLegacyEntityId(input),
+    details: {
+      actor: 'agent',
+      conversation_id: conversationId,
+      success: !toolError,
+      error: toolError,
+    },
+  }).catch((e) => console.error('[SelenaLegacy] audit log failed for tool', name, e))
+
+  if (threw) throw threw
+  return out
+}
+
 // ─── Main Entry Point ───────────────────────────────────────────────────────
 
 export async function askSelena(
@@ -1090,17 +1177,7 @@ export async function askSelena(
           const inp = tool.input as Record<string, unknown>
           let toolResult: string
           try {
-            switch (tool.name) {
-              case 'create_client': toolResult = await handleCreateClient(tenantId, inp, conversationId, result); break
-              case 'save_info': toolResult = await handleSaveInfo(tenantId, inp, conversationId); break
-              case 'check_availability': toolResult = await handleCheckAvailability(tenantId, inp); break
-              case 'create_booking': toolResult = await handleCreateBooking(tenantId, inp, conversationId, result); break
-              case 'add_to_waitlist': toolResult = await handleAddToWaitlist(tenantId, inp, conversationId); break
-              default: {
-                const extended = await routeExtendedTool(tool.name, tenantId, inp, conversationId)
-                toolResult = extended ?? JSON.stringify({ error: `Unknown tool: ${tool.name}` })
-              }
-            }
+            toolResult = await runLegacyTool(tool.name, tenantId, inp, conversationId, result)
           } catch (toolErr) {
             await selenaError(tenantId, `tool_loop:${tool.name}`, toolErr, conversationId)
             toolResult = JSON.stringify({ success: true })

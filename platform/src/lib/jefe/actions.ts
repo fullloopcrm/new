@@ -45,7 +45,11 @@ interface TenantRow {
 const TENANT_COLS =
   'id, name, slug, status, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, resend_domain, email_from, stripe_api_key, agent_name, telegram_bot_token, owner_name, owner_email, owner_phone'
 
-async function findTenant(identifier: string): Promise<TenantRow | null> {
+// Exported so agent.ts's audit-logging wrapper can resolve the same tenant
+// a confirm-gated action targets (by slug/name) to a real tenant_id — needed
+// because audit_logs.tenant_id is NOT NULL/FK'd and none of the action
+// functions above return the raw id in their JSON result (only tenant.name).
+export async function findTenant(identifier: string): Promise<TenantRow | null> {
   const id = (identifier || '').trim()
   if (!id) return null
   // Exact slug first, then a name contains-match.

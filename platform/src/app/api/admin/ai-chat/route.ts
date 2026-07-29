@@ -173,7 +173,17 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-export async function executeTool(
+// Best-effort real target id for the audit row's entity_id column — mirrors
+// Yinez's extractEntityId (src/lib/selena/tools.ts). Checked across the
+// id-shaped args this engine's tools actually use.
+function extractAdminChatEntityId(input: Record<string, unknown>): string | undefined {
+  if (typeof input.client_id === 'string') return input.client_id
+  if (Array.isArray(input.booking_ids) && typeof input.booking_ids[0] === 'string') return input.booking_ids[0] as string
+  if (typeof input.team_member_id === 'string') return input.team_member_id
+  return undefined
+}
+
+async function dispatchTool(
   tenantId: string,
   name: string,
   input: Record<string, unknown>,
@@ -370,6 +380,11 @@ export async function executeTool(
         .update(updates)
         .eq('id', input.client_id as string)
       if (!error) {
+        // Kept alongside the generic dispatch-level audit below (executeTool)
+        // because it's the one entry that shows up under entity_type='client'
+        // in the client's own activity feed (dashboard/activity). executeTool
+        // skips its own row for THIS call when it succeeds, so the invocation
+        // isn't double-logged — see the comment there.
         await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: input.client_id as string, details: { fields: Object.keys(updates), via: 'ai_chat' } })
       }
       return JSON.stringify(error ? { error: error.message } : { success: true })
@@ -458,6 +473,59 @@ export async function executeTool(
     default:
       return JSON.stringify({ error: `Unknown tool: ${name}` })
   }
+}
+
+// Every tool the admin AI-chat model calls goes through this one function
+// (the POST loop below calls nothing else) — the single choke point for
+// audit logging, mirroring Yinez's runTool wrapper in
+// src/lib/selena/tools.ts. One audit_logs row per invocation, success or
+// failure, entityType = tool name.
+//
+// update_client is the one tool with its own pre-existing inline audit()
+// call (action 'client.updated', entityType 'client' — surfaced in the
+// client's activity feed). To avoid writing two rows for the same call, this
+// wrapper skips its own row for update_client ONLY when that call actually
+// succeeded (the inline call already covered it); on failure the inline call
+// never fires (it's gated on `!error`), so the wrapper still logs it here.
+export async function executeTool(
+  tenantId: string,
+  name: string,
+  input: Record<string, unknown>,
+  role: string,
+  overrides: ReturnType<typeof overridesFor>
+): Promise<string> {
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(tenantId, name, input, role, overrides)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+    }
+  } catch {
+    // Non-JSON tool output — treat as success, nothing to parse.
+  }
+
+  const alreadyAuditedInline = name === 'update_client' && !toolError && !threw
+  if (!alreadyAuditedInline) {
+    audit({
+      tenantId,
+      action: 'admin_ai_chat.tool_call',
+      entityType: name,
+      entityId: extractAdminChatEntityId(input),
+      details: { actor: 'agent', role, success: !toolError, error: toolError },
+    }).catch((e) => console.error('[admin/ai-chat] audit log failed for tool', name, e))
+  }
+
+  if (threw) throw threw
+  return out
 }
 
 export async function POST(request: Request) {

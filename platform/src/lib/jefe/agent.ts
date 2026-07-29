@@ -14,7 +14,9 @@ import {
   retryFailedNotifications,
   readTenantThread,
   sendTenantMessage,
+  findTenant,
 } from '@/lib/jefe/actions'
+import { audit } from '@/lib/audit'
 
 export interface JefeResult {
   text: string
@@ -186,7 +188,7 @@ type ToolInput = Record<string, unknown>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const bool = (v: unknown): boolean => v === true
 
-async function runTool(name: string, input: ToolInput = {}): Promise<string> {
+async function dispatchTool(name: string, input: ToolInput = {}): Promise<string> {
   let out: unknown
   switch (name) {
     case 'get_platform_health':
@@ -223,6 +225,62 @@ async function runTool(name: string, input: ToolInput = {}): Promise<string> {
       out = { error: `unknown tool ${name}` }
   }
   return JSON.stringify(out)
+}
+
+// Every tool Jefe calls goes through this one function (askJefe's loop below
+// calls nothing else) — the single choke point for audit logging, mirroring
+// Yinez's runTool wrapper in src/lib/selena/tools.ts.
+//
+// Jefe is platform-level, not tenant-scoped — most calls (get_platform_health,
+// list_tasks, ack_issue, un-scoped create_task/retry_failed_notifications)
+// have no single owning tenant, and audit_logs.tenant_id is NOT NULL with an
+// FK to tenants(id) — there is no honest value to put there for those calls,
+// so this only writes a row when the specific invocation resolves to a real
+// tenant (via the same `tenant` slug/name argument the action itself uses),
+// rather than inventing a placeholder tenant id.
+async function resolveJefeAuditTenantId(input: ToolInput): Promise<string | undefined> {
+  const identifier = str(input.tenant)
+  if (!identifier) return undefined
+  const t = await findTenant(identifier)
+  return t?.id
+}
+
+// Exported (matching Yinez's exported runTool in src/lib/selena/tools.ts) so
+// the audit-logging behavior can be tested directly instead of driving the
+// full askJefe loop (a real Anthropic client call) just to reach it.
+export async function runTool(name: string, input: ToolInput = {}): Promise<string> {
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(name, input)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object') {
+      if ('error' in parsed) toolError = String((parsed as { error: unknown }).error)
+      else if ((parsed as { ok?: unknown }).ok === false) toolError = 'tool_failed'
+    }
+  } catch {
+    // Non-JSON tool output — treat as success, nothing to parse.
+  }
+
+  const tenantId = await resolveJefeAuditTenantId(input).catch(() => undefined)
+  if (tenantId) {
+    audit({
+      tenantId,
+      action: 'jefe.tool_call',
+      entityType: name,
+      details: { actor: 'jefe', success: !toolError, error: toolError },
+    }).catch((e) => console.error('[Jefe] audit log failed for tool', name, e))
+  }
+
+  if (threw) throw threw
+  return out
 }
 
 export async function askJefe(message: string, history: Array<{ role: 'user' | 'assistant'; content: string }> = []): Promise<JefeResult> {

@@ -18,6 +18,10 @@ type AuditAction =
   | 'auth.universal_pin_login'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'
   | 'yinez.tool_call' | 'yinez.tool_blocked'
+  | 'selena_legacy.tool_call'
+  | 'admin_ai_chat.tool_call'
+  | 'assistant.tool_call'
+  | 'jefe.tool_call'
   | 'tenant.offboarded'
 
 // Audit actions that warrant an immediate ping to the owner — irreversible,

@@ -8,6 +8,7 @@ import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { getTenantTimezone } from '@/lib/tenant-time'
 import { nowNaiveET } from '@/lib/recurring'
+import { audit } from '@/lib/audit'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -179,7 +180,16 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-async function executeTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
+// Best-effort real target id for the audit row's entity_id column — mirrors
+// Yinez's extractEntityId (src/lib/selena/tools.ts).
+function extractAssistantEntityId(input: Record<string, unknown>): string | undefined {
+  if (typeof input.client_id === 'string') return input.client_id
+  if (Array.isArray(input.booking_ids) && typeof input.booking_ids[0] === 'string') return input.booking_ids[0] as string
+  if (typeof input.team_member_id === 'string') return input.team_member_id
+  return undefined
+}
+
+async function dispatchTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
   const requiredPermission = TOOL_PERMISSIONS[name]
   if (requiredPermission && !hasPermission(tenant.role, requiredPermission, overridesFor(tenant))) {
     return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
@@ -397,6 +407,45 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
     default:
       return JSON.stringify({ error: `Unknown tool: ${name}` })
   }
+}
+
+// Every tool this tenant-dashboard assistant calls goes through this one
+// function (the POST loop below calls nothing else) — the single choke point
+// for audit logging, mirroring Yinez's runTool wrapper in
+// src/lib/selena/tools.ts. One audit_logs row per invocation, success or
+// failure, entityType = tool name. This engine had zero audit calls anywhere
+// before this (unlike admin/ai-chat's update_client), so there's no
+// double-logging risk here.
+async function executeTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(name, input, tenant)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+    }
+  } catch {
+    // Non-JSON tool output — treat as success, nothing to parse.
+  }
+
+  audit({
+    tenantId: tenant.tenantId,
+    action: 'assistant.tool_call',
+    entityType: name,
+    entityId: extractAssistantEntityId(input),
+    details: { actor: 'agent', role: tenant.role, success: !toolError, error: toolError },
+  }).catch((e) => console.error('[ai/assistant] audit log failed for tool', name, e))
+
+  if (threw) throw threw
+  return out
 }
 
 export async function POST(request: Request) {
