@@ -70,6 +70,12 @@ export async function GET(request: Request) {
           .gte('start_time', from)
           .lte('start_time', to)
           .in('payment_status', ['paid', 'partial'])
+          // Same guard as post-revenue.ts's backfillRevenueFromBookings — a
+          // booking can carry a stale 'paid'/'partial' payment_status from
+          // before it was cancelled (refund never reconciled). Without this,
+          // a cancelled booking that still reads 'paid' shows up as revenue
+          // on the tax export for a job that never ran.
+          .neq('status', 'cancelled')
           .range(offset, offset + limit - 1),
       ),
       paginateAll<ExpenseRow>((offset, limit) => {
@@ -93,6 +99,10 @@ export async function GET(request: Request) {
           .gte('start_time', from)
           .lte('start_time', to)
           .in('payment_status', ['paid', 'partial'])
+          // Same guard as above — a cancelled booking that still reads
+          // 'paid'/'partial' must not inflate a contractor's 1099 total for
+          // pay tied to a job that never ran.
+          .neq('status', 'cancelled')
           .gt('team_member_pay', 0)
           .range(offset, offset + limit - 1),
       ),

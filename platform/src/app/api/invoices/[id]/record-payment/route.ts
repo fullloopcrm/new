@@ -9,6 +9,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { logInvoiceEvent } from '@/lib/invoice'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
+import { backfillUnpostedRevenue } from '@/lib/finance/post-revenue'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -65,6 +66,18 @@ export async function POST(request: Request, { params }: Params) {
       .select('id')
       .single()
     if (pErr) throw pErr
+
+    // Manual payments (Zelle/Venmo/cash/check) have no Stripe webhook and no
+    // other real-time posting hook — without this they never reach the
+    // ledger. backfillUnpostedRevenue is the documented safety-net/retro-post
+    // for exactly this gap (invoices/mark-paid/imports); idempotent by
+    // (tenant, source, source_id), so it's safe to call on every manual
+    // payment even though it also re-scans older unposted payments.
+    try {
+      await backfillUnpostedRevenue(tenantId)
+    } catch (e) {
+      console.error('[record-payment] revenue capture failed:', e)
+    }
 
     // Re-fetch invoice for updated status after trigger
     const { data: updated } = await db

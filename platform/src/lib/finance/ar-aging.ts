@@ -52,7 +52,11 @@ export async function getArAging(tenantId: string, entityId?: string | null): Pr
   const { data: bookings } = await db
     .from('bookings')
     .select('id, price, start_time, payment_status, client_id, clients(id, name, email, phone)')
-    .eq('status', 'completed')
+    // 'paid' is a valid terminal booking status alongside 'completed' (same
+    // established pattern as team-portal/earnings, cron/lifecycle, etc.) —
+    // a payroll run flipping a booking to 'paid' must not silently drop it
+    // out of AR aging.
+    .in('status', ['completed', 'paid'])
     .not('payment_status', 'in', '(paid,refunded)')
     .is('route_id', null)
     .order('start_time', { ascending: true })

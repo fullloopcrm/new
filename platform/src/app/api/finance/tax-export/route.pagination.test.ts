@@ -36,6 +36,7 @@ const holder = vi.hoisted(() => {
     const chain: Record<string, unknown> = {
       select: () => chain,
       eq: (col: string, val: unknown) => { filtered = filtered.filter(r => r[col] === val); return chain },
+      neq: (col: string, val: unknown) => { filtered = filtered.filter(r => r[col] !== val); return chain },
       gte: (col: string, val: unknown) => { filtered = filtered.filter(r => (r[col] as string) >= (val as string)); return chain },
       lte: (col: string, val: unknown) => { filtered = filtered.filter(r => (r[col] as string) <= (val as string)); return chain },
       gt: (col: string, val: unknown) => { filtered = filtered.filter(r => (r[col] as number) > (val as number)); return chain },
