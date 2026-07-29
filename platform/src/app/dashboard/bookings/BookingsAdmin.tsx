@@ -172,7 +172,7 @@ function BookingsPage() {
   const [showCloseOut, setShowCloseOut] = useState(false)
   const [closeOutSaving, setCloseOutSaving] = useState<string | null>(null)
   const [closeOutExpanded, setCloseOutExpanded] = useState<Set<string>>(new Set())
-  const [closeOutSummaries, setCloseOutSummaries] = useState<Record<string, { customerOwesCents: number; laborDueCents: number; laborOutstandingCents: number }>>({})
+  const [closeOutSummaries, setCloseOutSummaries] = useState<Record<string, { customerOwesCents: number; customerOutstandingCents: number; laborDueCents: number; laborOutstandingCents: number }>>({})
   const [showWaitlist, setShowWaitlist] = useState(false)
   const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null }>>([])
   const [waitlistLoading, setWaitlistLoading] = useState(false)
@@ -414,7 +414,13 @@ function BookingsPage() {
       const j = await r.json()
       const laborDueCents = (j.cleaner_payouts || []).reduce((s: number, c: { total_due_cents: number }) => s + c.total_due_cents, 0)
       const laborOutstandingCents = (j.cleaner_payouts || []).reduce((s: number, c: { outstanding_cents: number }) => s + c.outstanding_cents, 0)
-      return [id, { customerOwesCents: j.bill.final_cents as number, laborDueCents, laborOutstandingCents }] as const
+      // What the CUSTOMER still owes, not the full bill total -- j.bill.final_cents
+      // is the gross price regardless of payment status, so a fully-paid booking
+      // was showing e.g. "Customer owes $276" under the same red/brown styling as
+      // the labor-still-owed line right below it, reading as unpaid client debt
+      // when the client had already paid in full.
+      const customerOutstandingCents = Math.max(0, (j.payment_totals?.expected_cents ?? j.bill.final_cents) - (j.payment_totals?.paid_cents ?? 0))
+      return [id, { customerOwesCents: j.bill.final_cents as number, customerOutstandingCents, laborDueCents, laborOutstandingCents }] as const
     })).then((results) => {
       if (cancelled) return
       setCloseOutSummaries(prev => {
@@ -1443,11 +1449,18 @@ function BookingsPage() {
                           <div className="text-right">
                             {(() => {
                               const summary = closeOutSummaries[b.id]
-                              const customerOwes = summary ? summary.customerOwesCents / 100 : b.price / 100
+                              const totalBill = summary ? summary.customerOwesCents / 100 : b.price / 100
+                              const outstanding = summary ? summary.customerOutstandingCents / 100 : null
                               return (
                                 <>
-                                  <p className="text-[var(--sched-ink)] font-bold text-lg">${customerOwes.toFixed(0)}</p>
-                                  <p className="text-gray-400 text-xs">Customer owes</p>
+                                  <p className="text-[var(--sched-ink)] font-bold text-lg">${(outstanding !== null && outstanding > 0 ? outstanding : totalBill).toFixed(0)}</p>
+                                  {outstanding === null ? (
+                                    <p className="text-gray-400 text-xs">Customer owes</p>
+                                  ) : outstanding > 0 ? (
+                                    <p className="text-red-600 text-xs font-medium">Customer owes</p>
+                                  ) : (
+                                    <p className="text-emerald-700 text-xs font-medium">Paid in full</p>
+                                  )}
                                   {summary ? (
                                     <p className={'text-xs mt-1 font-medium ' + (summary.laborOutstandingCents > 0 ? 'text-red-600' : 'text-emerald-700')}>
                                       Labor ${(summary.laborDueCents / 100).toFixed(2)}
