@@ -39,6 +39,12 @@ export interface OnboardingProfile {
   email?: string
   websiteUrl?: string
   businessHours?: string
+  businessHoursStart?: string
+  businessHoursEnd?: string
+  ownerEmail?: string
+  leadNotificationEmail?: string
+  paymentMethods?: string[]
+  googlePlaceId?: string
   logoUrl?: string
   primaryColor?: string
   secondaryColor?: string
@@ -73,7 +79,7 @@ export async function GET() {
     const [{ data: tenant }, { data: entity }] = await Promise.all([
       supabaseAdmin
         .from('tenants')
-        .select('name, phone, email, website_url, business_hours, logo_url, primary_color, secondary_color, tagline, zip_code, compliance, selena_config, onboarding_draft')
+        .select('name, phone, email, website_url, business_hours, business_hours_start, business_hours_end, owner_email, lead_notification_email, payment_methods, google_place_id, logo_url, primary_color, secondary_color, tagline, zip_code, compliance, selena_config, onboarding_draft')
         .eq('id', tenantId)
         .single(),
       tenantDb(tenantId)
@@ -101,6 +107,12 @@ export async function GET() {
       email: tenant?.email || undefined,
       websiteUrl: tenant?.website_url || undefined,
       businessHours: tenant?.business_hours || undefined,
+      businessHoursStart: tenant?.business_hours_start || undefined,
+      businessHoursEnd: tenant?.business_hours_end || undefined,
+      ownerEmail: tenant?.owner_email || undefined,
+      leadNotificationEmail: tenant?.lead_notification_email || undefined,
+      paymentMethods: (tenant?.payment_methods as string[]) || undefined,
+      googlePlaceId: tenant?.google_place_id || undefined,
       logoUrl: tenant?.logo_url || undefined,
       primaryColor: tenant?.primary_color || undefined,
       secondaryColor: tenant?.secondary_color || undefined,
@@ -236,6 +248,12 @@ export async function POST(request: Request) {
     if (str(d.email)) tenantUpdate.email = str(d.email)
     if (str(d.websiteUrl)) tenantUpdate.website_url = str(d.websiteUrl)
     if (str(d.businessHours)) tenantUpdate.business_hours = str(d.businessHours)
+    if (str(d.businessHoursStart)) tenantUpdate.business_hours_start = str(d.businessHoursStart)
+    if (str(d.businessHoursEnd)) tenantUpdate.business_hours_end = str(d.businessHoursEnd)
+    if (str(d.ownerEmail)) tenantUpdate.owner_email = str(d.ownerEmail)
+    if (str(d.leadNotificationEmail)) tenantUpdate.lead_notification_email = str(d.leadNotificationEmail)
+    if (str(d.googlePlaceId)) tenantUpdate.google_place_id = str(d.googlePlaceId)
+    if (Array.isArray(d.paymentMethods) && d.paymentMethods.length > 0) tenantUpdate.payment_methods = d.paymentMethods
     if (str(d.logoUrl)) tenantUpdate.logo_url = str(d.logoUrl)
     if (str(d.primaryColor)) tenantUpdate.primary_color = str(d.primaryColor)
     if (str(d.secondaryColor)) tenantUpdate.secondary_color = str(d.secondaryColor)
