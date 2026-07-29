@@ -22,7 +22,7 @@ function advance(d: Date, freq: string): Date {
   return r
 }
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const auth = request.headers.get('authorization') || ''
   const secret = process.env.CRON_SECRET
   if (!secret || !safeEqual(auth, `Bearer ${secret}`)) {

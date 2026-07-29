@@ -14,7 +14,7 @@ import { backfillUnpostedLabor } from '@/lib/finance/post-labor'
 import { backfillUnpostedCommissions } from '@/lib/finance/post-adjustments'
 import { safeEqual } from '@/lib/secret-compare'
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const auth = request.headers.get('authorization') || ''
   if (!process.env.CRON_SECRET || !safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
