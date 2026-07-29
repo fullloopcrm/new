@@ -61,6 +61,10 @@ export type HrReminderMilestone = (typeof HR_REMINDER_MILESTONES)[number]
 export async function seedHrDefaults(tenantId: string): Promise<{
   requirementsSeeded: number
   profilesBackfilled: number
+  /** Current totals after this run — lets a caller distinguish "already set"
+   * (0 seeded this run, but rows exist) from "genuinely empty" (0 and 0). */
+  requirementsTotal: number
+  profilesTotal: number
 }> {
   let requirementsSeeded = 0
 
@@ -84,6 +88,7 @@ export async function seedHrDefaults(tenantId: string): Promise<{
     if (error) throw error
     requirementsSeeded = rows.length
   }
+  const requirementsTotal = (reqCount || 0) === 0 ? requirementsSeeded : (reqCount || 0)
 
   // 2. Back-fill an HR profile for every team_member that lacks one. Default to
   //    1099 (the common case); the operator flips individuals to W-2 as needed.
@@ -93,6 +98,7 @@ export async function seedHrDefaults(tenantId: string): Promise<{
     .eq('tenant_id', tenantId)
 
   let profilesBackfilled = 0
+  let profilesTotal = 0
   if (members && members.length > 0) {
     const { data: existing } = await supabaseAdmin
       .from('hr_employee_profiles')
@@ -110,9 +116,10 @@ export async function seedHrDefaults(tenantId: string): Promise<{
       if (error) throw error
       profilesBackfilled = rows.length
     }
+    profilesTotal = have.size + profilesBackfilled
   }
 
-  return { requirementsSeeded, profilesBackfilled }
+  return { requirementsSeeded, profilesBackfilled, requirementsTotal, profilesTotal }
 }
 
 export interface HrEmployee {
