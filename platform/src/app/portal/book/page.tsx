@@ -212,13 +212,13 @@ export default function BookingWizardPage() {
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-1"
           >
             <option value="none">One-time</option>
-            <option value="weekly">Weekly — save 20%</option>
-            <option value="biweekly">Bi-weekly — save 10%</option>
-            <option value="monthly">Monthly — save 10%</option>
+            <option value="weekly">Weekly — save {recurringDiscountPct('weekly') * 100}%</option>
+            <option value="biweekly">Bi-weekly — save {recurringDiscountPct('biweekly') * 100}%</option>
+            <option value="monthly_date">Monthly — save {recurringDiscountPct('monthly_date') * 100}%</option>
           </select>
           {recurring !== 'none' && (
             <p className="text-xs text-emerald-600 mb-4">
-              Recurring discount applied — {recurring === 'weekly' ? '20%' : '10%'} off every visit.
+              Recurring discount applied — {recurringDiscountPct(recurring) * 100}% off every visit.
             </p>
           )}
           <textarea
@@ -261,7 +261,7 @@ export default function BookingWizardPage() {
                 </div>
               )
             })()}
-            {recurring !== 'none' && <div className="flex justify-between text-sm"><span className="text-slate-400">Frequency</span><span className="capitalize">{recurring}</span></div>}
+            {recurring !== 'none' && <div className="flex justify-between text-sm"><span className="text-slate-400">Frequency</span><span className="capitalize">{recurring === 'monthly_date' ? 'Monthly' : recurring}</span></div>}
             {notes && <div className="text-sm"><span className="text-slate-400">Notes: </span>{notes}</div>}
           </div>
           <div className="flex gap-2">
