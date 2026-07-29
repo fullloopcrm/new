@@ -28,7 +28,9 @@ vi.mock('@/lib/require-permission', () => ({
   })),
 }))
 
-const sendClientSMS = vi.hoisted(() => vi.fn(async () => ({ sent: 1, skipped: 0 })))
+const sendClientSMS = vi.hoisted(() =>
+  vi.fn(async (_clientId: string, _message: string, _options?: Record<string, unknown>) => ({ sent: 1, skipped: 0 })),
+)
 vi.mock('@/lib/nycmaid/client-contacts', () => ({ sendClientSMS }))
 
 import { NextRequest } from 'next/server'

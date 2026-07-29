@@ -129,6 +129,16 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   //   actual_hours × hourly_rate  OR  (now - check_in) rounded up to .5h buffer
   const clientRate = (booking.hourly_rate as number | null) || 69
   let expectedCents = 0
+  // True when expectedCents comes from the check-in-elapsed fallback below --
+  // a live guess at a still-in-progress job, not an authoritative final bill
+  // (that only exists once actual_hours is recorded or price was synced to a
+  // real quoted amount, e.g. by the 30-min-alert route). Comparing a payment
+  // against a guess and calling the excess a "tip" is exactly the phantom-tip
+  // bug fixed in the Stripe webhook (route.ts) and closed at its source in
+  // 30min-alert/route.ts -- this is the same bug's other entry point: an
+  // admin manually recording a Zelle/Venmo/cash payment while a job is still
+  // in progress, before either of those authoritative sources exists yet.
+  let expectedIsLiveEstimate = false
   // Bill ACTUAL hours worked first (matches standalone nycmaid). Only fall back
   // to the booked estimate (price) when actual isn't known yet, then to
   // check-in-elapsed. Previously `price` won first → long jobs billed the
@@ -156,6 +166,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     const estHours = Math.max(0.5, Math.ceil((rawMinutes + 30) / 30) * 0.5)
     const rawCents = Math.round(estHours * clientRate * 100)
     expectedCents = applyCredit(applyDiscount(rawCents, booking.discount_percent as number | null), booking.one_time_credit_cents as number | null)
+    expectedIsLiveEstimate = true
   }
 
   // Sum prior payments for this booking (tenant-scoped)
@@ -168,7 +179,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   const totalReceivedCents = priorCents + amountCents
 
   const isPartial = expectedCents > 0 && totalReceivedCents < expectedCents * PARTIAL_THRESHOLD
-  const tipCents = !isPartial && expectedCents > 0 ? Math.max(0, totalReceivedCents - expectedCents) : 0
+  const tipCents = !isPartial && expectedCents > 0 && !expectedIsLiveEstimate ? Math.max(0, totalReceivedCents - expectedCents) : 0
   const tipAmount = (tipCents / 100).toFixed(2)
 
   // Record payment (tenant-scoped). Capture the id so revenue can post to the

@@ -252,6 +252,23 @@ describe('processPayment — partial vs paid, tip, and shortfall math', () => {
     const r = await pay(20700)
     expect(r).toMatchObject({ status: 'paid', expectedCents: 20700, tipCents: 0 })
   })
+
+  it('mid-job manual payment (no price, no actual_hours yet -- only check_in_time) never books a tip, even if it exceeds the live estimate', async () => {
+    // Phantom-tip bug, second entry point: an admin manually recording a
+    // Zelle/Venmo/cash payment while a job is still in progress compared the
+    // amount against a live check-in-elapsed GUESS, not an authoritative
+    // final bill -- any gap misread as a tip. Same bug already closed for
+    // the Stripe pay-link path (30min-alert/route.ts syncs booking.price;
+    // the webhook only trusts payments.tip_cents, never re-derives it).
+    // Checked in exactly 1h ago at $69/hr -> live estimate rounds up with the
+    // +30min buffer to 1.5h = $103.50 expected. A $150 payment would have
+    // booked a $46.50 "tip" pre-fix.
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    seedBooking({ price: null, actual_hours: null, hourly_rate: 69, check_in_time: oneHourAgo })
+    const r = await pay(15000)
+    expect(r).toMatchObject({ status: 'paid', tipCents: 0 })
+    expect((h.store.payments[0] as Record<string, unknown>).tip_cents).toBe(0)
+  })
 })
 
 // ============================================================================
