@@ -494,10 +494,15 @@ export async function POST(request: Request) {
       //
       // Note this still inherits the pre-existing weakness of the adjustable
       // -link path: expectedCents is recalculated from booking.price at
-      // webhook time, so a price/hours edit between the 30-min alert and the
-      // client paying still reads as tip here too, same as before this fix
-      // existed. Not solved by this change -- would need the exact quoted
-      // amount stored at alert-time to fully close.
+      // webhook time, so a price/hours edit between the alert and the client
+      // paying still reads as tip here too. Closed for the 30-min-alert
+      // sender specifically -- it now writes clientOwesCents onto
+      // booking.price at the moment it quotes the client (30min-alert/
+      // route.ts), so expectedCents here matches what was actually quoted.
+      // The daily payment follow-up cron (payment-followup-daily/route.ts)
+      // only re-sends whatever price already holds rather than computing a
+      // fresh live estimate, so it doesn't independently reintroduce this;
+      // not audited further here.
       let tipCents = 0
       let isPartial = false
       if (expectedCents > 0) {

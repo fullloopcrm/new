@@ -242,6 +242,23 @@ export async function POST(req: NextRequest) {
     // the client. Same class of race already closed elsewhere this session
     // (bank-transactions/match's atomic claim). force=true bypasses the
     // claim gate entirely (existing manual-override behavior, unchanged).
+    //
+    // Also persists price: clientOwesCents here -- this is the exact number
+    // the client is about to be texted and asked to pay via the adjustable-
+    // amount Payment Link. The Stripe webhook's tip math (route.ts, stripe/)
+    // computes tip = amount paid − booking.price at the moment the payment
+    // arrives; its own comment there flags that a price/hours edit between
+    // this alert and the client paying still misreads as a tip, "would need
+    // the exact quoted amount stored at alert-time to fully close." Payment
+    // for this flow always lands BEFORE checkout (that's the point of a
+    // 30-min-heads-up), so without this write, booking.price is whatever
+    // stale estimate existed before this alert -- almost always lower than
+    // the live, check-in-elapsed clientOwesCents figure being quoted right
+    // now -- and every such payment reads as an overpayment "tip" it never
+    // was, inflating what the cleaner is shown (and can be marked/paid) as
+    // owed. Team-portal checkout already re-syncs price to the true final
+    // amount once actual hours are known, so this only ever narrows the
+    // window, never claims a more-final number than checkout's own.
     if (!force) {
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
       // Two sequential attempts instead of a single .or() filter: an
@@ -257,7 +274,7 @@ export async function POST(req: NextRequest) {
       let claimed = (
         await tenantDb(tenantId)
           .from('bookings')
-          .update({ fifteen_min_alert_time: now.toISOString() })
+          .update({ fifteen_min_alert_time: now.toISOString(), price: clientOwesCents })
           .eq('id', bookingId)
           .eq('tenant_id', tenantId)
           .is('fifteen_min_alert_time', null)
@@ -268,7 +285,7 @@ export async function POST(req: NextRequest) {
         claimed = (
           await tenantDb(tenantId)
             .from('bookings')
-            .update({ fifteen_min_alert_time: now.toISOString() })
+            .update({ fifteen_min_alert_time: now.toISOString(), price: clientOwesCents })
             .eq('id', bookingId)
             .eq('tenant_id', tenantId)
             .lt('fifteen_min_alert_time', thirtyMinAgo)
@@ -289,7 +306,7 @@ export async function POST(req: NextRequest) {
     } else {
       await tenantDb(tenantId)
         .from('bookings')
-        .update({ fifteen_min_alert_time: now.toISOString() })
+        .update({ fifteen_min_alert_time: now.toISOString(), price: clientOwesCents })
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
     }
