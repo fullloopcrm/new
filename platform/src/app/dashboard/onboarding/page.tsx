@@ -3,8 +3,9 @@
 /**
  * Onboarding profile wizard — the tenant owner fills their full business profile
  * across five sections. Every field routes to its existing home on submit (see
- * /api/dashboard/onboarding/profile). Draft autosaves on step change and via the
- * "Save for later" button, so the owner can leave and resume.
+ * /api/dashboard/onboarding/profile). Draft autosaves 1.5s after the owner stops
+ * typing (debounced, any field), on step change, and via the "Save for later"
+ * button — so closing the tab mid-form doesn't silently lose input.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -112,6 +113,20 @@ export default function OnboardingProfilePage() {
     },
     [form, step],
   )
+
+  // Debounced autosave: 1.5s after the owner stops changing any field, so a
+  // closed tab or refresh mid-form doesn't lose input the way step-change-only
+  // saving did before. Skips the initial load (form is only {} until the
+  // prefill/draft fetch above resolves) so it never overwrites a real draft
+  // with an empty one.
+  useEffect(() => {
+    if (loading) return
+    const timer = setTimeout(() => {
+      saveDraft(true)
+    }, 1500)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, loading])
 
   const goto = async (next: number) => {
     await saveDraft(true, next)
