@@ -68,10 +68,14 @@ jobs:
           if-no-files-found: error
 
       - name: Alert on failure (Telegram)
+        # Was pointed at TELEGRAM_NOTIFY_CHAT_ID, a secret that was never
+        # created — the repo only has TELEGRAM_CHAT_ID (the same one
+        # ci.yml's notify-failure job already uses successfully). That name
+        # mismatch is why 15 consecutive nightly failures never alerted.
         if: failure() && env.TG_TOKEN != ''
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TG_CHAT: ${{ secrets.TELEGRAM_NOTIFY_CHAT_ID }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           curl -sS "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             -d chat_id="${TG_CHAT}" \
