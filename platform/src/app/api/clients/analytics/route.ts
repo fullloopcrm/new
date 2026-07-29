@@ -23,7 +23,11 @@ export async function GET() {
     const { data: bookings, error } = await db
       .from('bookings')
       .select('client_id, price, start_time, status, clients(name)')
-      .eq('status', 'completed')
+      // 'paid' is a valid terminal booking status alongside 'completed' (same
+      // established pattern as team-portal/earnings, cron/lifecycle, etc.) —
+      // a payroll run flipping a booking to 'paid' must not silently drop it
+      // out of LTV.
+      .in('status', ['completed', 'paid'])
       .order('start_time', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

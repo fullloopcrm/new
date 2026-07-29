@@ -77,7 +77,13 @@ export async function getLaborCostCentsForPeriod(tenantId: string, startISO: str
       .from('bookings')
       .select('team_member_id, check_in_time, check_out_time, pay_rate, team_member_paid')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      // 'paid' is a valid terminal booking status alongside 'completed' — the
+      // payroll flow itself (POST /api/finance/payroll) flips a booking to
+      // status:'paid' once the crew has been paid in full, so a
+      // 'completed'-only filter here would silently drop exactly the
+      // bookings payroll just finished paying out of the labor-cost total
+      // for the period.
+      .in('status', ['completed', 'paid'])
       .gte('start_time', startISO)
       .lte('start_time', endISO),
   ])
