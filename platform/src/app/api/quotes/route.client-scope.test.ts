@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
@@ -18,6 +19,16 @@ type Row = Record<string, any>
 const store: Record<string, Row[]> = { quotes: [], deals: [], deal_activities: [], clients: [] }
 let idSeq = 0
 const genId = (table: string) => `${table}-${++idSeq}`
+
+// tenantClient() (the RLS-scoped client this route uses instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
+}))
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {

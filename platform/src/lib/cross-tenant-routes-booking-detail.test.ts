@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * CROSS-TENANT SELF-ATTACK — booking [id] sub-routes not covered by the
  * cross-tenant-routes.test.ts family suite.
@@ -47,6 +48,17 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabase: fake, supabaseAdmin: fake, __fake: fake }
 })
+
+// tenantClient() (the RLS-scoped client some of these routes use instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store as everything
+// else in this suite, instead of trying a real Supabase call.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
+}))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { signTenantHeader } from './tenant-header-sig'

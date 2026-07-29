@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
@@ -24,6 +25,16 @@ const OTHER_TENANT = 'tid-b' // victim
 
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
+// tenantClient() (the RLS-scoped client this route uses instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
+}))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {

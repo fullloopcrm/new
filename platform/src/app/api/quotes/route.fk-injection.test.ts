@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * POST /api/quotes — cross-tenant FK injection on client_id/deal_id (same
  * class as the already-fixed PATCH /api/quotes/[id] and
@@ -20,6 +21,16 @@ vi.mock('@/lib/supabase', () => {
   const fake = makeSupabaseFake(h, { detachReads: true })
   return { supabaseAdmin: fake, supabase: fake }
 })
+
+// tenantClient() (the RLS-scoped client this route uses instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
+}))
 vi.mock('@/lib/tenant-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/tenant-query')>()
   return { ...actual, getTenantForRequest: (...a: unknown[]) => h.getTenantForRequest(...a) }

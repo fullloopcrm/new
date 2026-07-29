@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { NextResponse } from 'next/server'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
@@ -18,6 +19,16 @@ vi.mock('@/lib/supabase', async () => {
   const fake = createFakeSupabase()
   return { supabaseAdmin: fake }
 })
+
+// tenantClient() (the RLS-scoped client this route uses instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
+}))
 
 let currentTenantId: string
 let permissionError: unknown = null

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * CROSS-TENANT SELF-ATTACK — real route handlers (booking / portal / selena /
  * errors / team-portal).
@@ -53,6 +54,17 @@ vi.mock('next/headers', () => ({
   headers: async () => ({
     get: (name: string) => env.headers.get(name) ?? null,
   }),
+}))
+
+// tenantClient() (the RLS-scoped client some of these routes use instead of
+// supabaseAdmin) is a real network client by default — forward it to the
+// same faked supabaseAdmin so it hits the same in-memory store as everything
+// else in this suite, instead of trying a real Supabase call.
+vi.mock('@/lib/tenant-supabase', () => ({
+  tenantClient: async () => {
+    const { supabaseAdmin } = await import('@/lib/supabase')
+    return supabaseAdmin
+  },
 }))
 
 vi.mock('@/lib/supabase', async () => {

@@ -26,7 +26,12 @@ const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
 const requirePermissionMock = vi.hoisted(() =>
-  vi.fn(async () => ({ tenant: { userId: 'u1', tenantId: CTX_TENANT, tenant: { id: CTX_TENANT }, role: 'owner' }, error: null })),
+  vi.fn(
+    async (): Promise<
+      | { tenant: { userId: string; tenantId: string; tenant: { id: string }; role: string }; error: null }
+      | { tenant: null; error: Response }
+    > => ({ tenant: { userId: 'u1', tenantId: CTX_TENANT, tenant: { id: CTX_TENANT }, role: 'owner' }, error: null }),
+  ),
 )
 vi.mock('@/lib/require-permission', () => ({ requirePermission: requirePermissionMock }))
 
