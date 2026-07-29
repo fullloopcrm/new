@@ -2,7 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
-const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+// Bumped from 5MB -> 15MB (2026-07-29) to cover real client/tenant documents
+// (signed proposals, insurance certs, multi-page scans) added via the new
+// client_documents feature -- 5MB was fine for avatars/photos but too narrow
+// for a scanned PDF. Kept well short of Supabase's per-file Storage ceiling.
+// NOTE: this is an app-level check only -- Vercel's own ~4.5MB request-body
+// ceiling for standard Node.js serverless functions still applies underneath
+// this route, so a file between ~4.5MB and this cap may still fail at the
+// platform layer with a raw 413 before this check ever runs. True large-file
+// support (this route can't reach) already exists elsewhere in this codebase
+// as a direct-to-Storage signed-upload-URL pattern (see e.g.
+// api/apply/signed-url, api/lead-media/signed-url) -- not wired up here to
+// keep this change minimal, per the "reuse /api/uploads, don't rewrite it"
+// scope for this feature.
+const MAX_SIZE = 15 * 1024 * 1024 // 15MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
 export async function POST(request: NextRequest) {
@@ -26,7 +39,7 @@ export async function POST(request: NextRequest) {
   const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'general'
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-  if (file.size > MAX_SIZE) return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
+  if (file.size > MAX_SIZE) return NextResponse.json({ error: 'File too large (max 15MB)' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
 
   const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
