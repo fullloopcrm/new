@@ -48,7 +48,7 @@ jobs:
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
           # -Fc custom format → restore with pg_restore. --no-owner/--no-privileges
           # so it restores cleanly into a fresh project.
-          pg_dump "$SUPABASE_DB_URL" \
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
             --no-owner --no-privileges \
             -Fc -f "fullloop-$STAMP.dump"
           SIZE=$(stat -c%s "fullloop-$STAMP.dump")
