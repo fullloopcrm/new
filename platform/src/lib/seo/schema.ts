@@ -553,8 +553,19 @@ export function pricingOffersSchema() {
 // INDIVIDUAL REVIEW SCHEMAS
 // ================================================================
 
-export function reviewSchemas(reviews?: typeof CLIENT_REVIEWS) {
-  const r = reviews || CLIENT_REVIEWS
+interface ReviewSchemaInput {
+  name: string
+  rating: number
+  text: string
+  datePublished: string
+}
+
+// `reviews` distinguishes "not passed" (undefined → fall back to the curated
+// CLIENT_REVIEWS excerpts) from "passed, possibly empty" (real fetched data —
+// render exactly that, even zero, so this never claims a review that isn't
+// actually visible on the rendered page).
+export function reviewSchemas(reviews?: ReviewSchemaInput[]) {
+  const r = reviews !== undefined ? reviews : CLIENT_REVIEWS
   return r.map(review => ({
     '@context': 'https://schema.org',
     '@type': 'Review',
@@ -576,11 +587,17 @@ export function reviewSchemas(reviews?: typeof CLIENT_REVIEWS) {
 }
 
 // ================================================================
-// REVIEWS PAGE — LocalBusiness with nested reviews + aggregateRating
-// Gives Google the clearest possible signal to show star snippets
+// REVIEWS PAGE — LocalBusiness with nested individual reviews only.
+// Deliberately NO aggregateRating: a self-emitted aggregate star rating is a
+// fabricated trust signal (belongs on Google Business Profile, not our
+// JSON-LD). Real per-review Rating objects are legitimate — pass the live,
+// publicly-visible reviews (getPublicReviewsForSchema) so this matches what
+// ReviewsList actually renders; omitting the param falls back to the curated
+// CLIENT_REVIEWS excerpts.
 // ================================================================
 
-export function reviewsPageSchema() {
+export function reviewsPageSchema(reviews?: ReviewSchemaInput[]) {
+  const r = reviews !== undefined ? reviews : CLIENT_REVIEWS
   return {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
@@ -596,7 +613,7 @@ export function reviewsPageSchema() {
       postalCode: BUSINESS.address.zip,
       addressCountry: BUSINESS.address.country,
     },
-    review: CLIENT_REVIEWS.filter(r => r.text).map(review => ({
+    review: r.filter(rv => rv.text).map(review => ({
       '@type': 'Review',
       reviewRating: {
         '@type': 'Rating',

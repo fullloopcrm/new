@@ -246,6 +246,34 @@ export async function getTenantReviews(tenantId: string) {
   return data || []
 }
 
+export interface PublicReviewForSchema {
+  name: string
+  rating: number
+  text: string
+  datePublished: string
+}
+
+/**
+ * The exact set of reviews that are publicly visible for a tenant's reviews
+ * page — same status='approved' + has-text filter /api/reviews' GET applies
+ * for anonymous visitors (src/app/api/reviews/route.ts). Used to build
+ * Review/AggregateRating JSON-LD that matches what ReviewsList actually
+ * renders, instead of a static array disconnected from real submissions.
+ */
+export async function getPublicReviewsForSchema(tenantId: string): Promise<PublicReviewForSchema[]> {
+  const { data } = await supabaseAdmin
+    .from('reviews')
+    .select('name, rating, text, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'approved')
+    .not('text', 'is', null)
+    .order('created_at', { ascending: false })
+
+  return (data || [])
+    .filter((r): r is { name: string; rating: number; text: string; created_at: string } => Boolean(r.text))
+    .map(r => ({ name: r.name, rating: r.rating, text: r.text, datePublished: r.created_at }))
+}
+
 /**
  * Look up a tenant's service by URL slug and adapt it to the Service shape
  * expected by /site/services/[slug] so the SEO template still renders.
