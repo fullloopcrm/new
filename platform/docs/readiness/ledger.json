@@ -40,11 +40,11 @@
         },
         {
           "id": "sec-05",
-          "score": 0,
-          "evidence_type": "git_log_diff",
-          "evidence": "git log --follow -- src/lib/idor-route-guard.baseline.json shows exactly 2 commits ever: the 07-12 creation and one incidental +1 net change from an unrelated test-fix commit. Zero dedicated triage commits since. Graduation-path step 1 in deploy-prep/idor-lint-guard-spec.md never executed.",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Real triage done 2026-07-30, full account in docs/security/idor-baseline-triage-2026-07-30.md. Individually traced all 129 baselined file::table signatures against the real source (not sampled) -- every flagged .eq('id', ...) chain traced back to where that variable actually originates. Result: 0 confirmed real IDOR vulnerabilities found requiring a code fix; every instance fell into a documented false-positive class (ownership proven by a prior fetch, token/signature-authenticated id, session-based self-lookup, cron/webhook-internal iteration, or admin-only routes on a separate auth path). Real fix applied: added partner_requests/platform_announcements/crm_notes to CROSS_TENANT_TABLES, verified via a live prod information_schema.columns query (not the table name) -- the same query correctly kept platform_feedback/error_logs off the allowlist since they do have tenant_id. Baseline shrank 129->63 (~57 of that were stale, already-fixed-elsewhere entries, confirmed real via 2 independent source spot-checks, not a tool bug). idor-route-guard.test.ts: 12/12 pass. Capped at manual_code_read (50), not test_run/live_query -- the 129 verdicts themselves came from reading and tracing code, not an automated assertion per-verdict; only the 3-table schema check was a real live query. NOT an authoritative 0-IDORs claim: the analyzer's own documented false-negative classes (split builders, dynamic table names, non-id vectors like slug/token) are real blind spots this pass cannot see. Graduation-path steps 2-4 (tenantDb adoption, new vectors, blocking CI job) not started.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "4c45175c7"
         },
         {
           "id": "sec-06",
