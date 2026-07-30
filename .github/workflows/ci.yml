@@ -48,8 +48,16 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
 
       - name: Readiness ledger evidence
-        # Fails if any checkpoint scored above 25 has no concrete evidence.
+        # Fails if any checkpoint's score exceeds its evidence_type's cap.
         run: node scripts/validate-ledger-evidence.mjs
+
+      - name: Readiness taxonomy sign-off
+        # Fails if taxonomy.json (checkpoint definitions/severity/weights)
+        # changed without a new approved_note -- editing what's measured is
+        # a distinct, visible action from scoring it.
+        run: node scripts/check-taxonomy-signoff.mjs
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
 
       - name: TEAM-READINESS.md doc-currency check
         # Fails if docs/TEAM-READINESS.md's stated test-file-count or coverage %

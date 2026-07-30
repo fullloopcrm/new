@@ -1,0 +1,378 @@
+{
+  "$schema": "readiness-taxonomy-v1",
+  "version": 1,
+  "approved_by": "Jeff",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius.",
+  "domain_weights": {
+    "security_auth_infra": 25,
+    "finance_payroll_billing": 20,
+    "lead_sale_schedule": 12,
+    "booking_scheduling_recurring": 8,
+    "crm_core": 10,
+    "ai_agent_communications": 10,
+    "onboarding_activation": 15
+  },
+  "domains": {
+    "security_auth_infra": {
+      "label": "Security, Auth, Tenant Isolation & Core Infra",
+      "checkpoints": [
+        {
+          "id": "sec-01",
+          "name": "Offsite DB backup (hourly, B2)",
+          "severity": 5,
+          "depends_on_files": [
+            "~/.claude/scripts/fullloop-db-backup.sh",
+            "~/.claude/scripts/.fullloop-backup.env",
+            ".github/workflows/db-backup.yml"
+          ]
+        },
+        {
+          "id": "sec-02",
+          "name": "DR restore drill executed and validated",
+          "severity": 5,
+          "depends_on_files": [
+            "docs/runbooks/dr-restore-drill-plan.md"
+          ]
+        },
+        {
+          "id": "sec-03",
+          "name": "CI green on main",
+          "severity": 4,
+          "depends_on_files": [
+            ".github/workflows/ci.yml"
+          ]
+        },
+        {
+          "id": "sec-04",
+          "name": "Tenant-scope CI gate (audit-tenant-scope.mjs, blocking)",
+          "severity": 5,
+          "depends_on_files": [
+            "scripts/audit-tenant-scope.mjs",
+            "scripts/.tenant-scope-baseline.json"
+          ]
+        },
+        {
+          "id": "sec-05",
+          "name": "IDOR baseline triage (124 candidate signatures)",
+          "severity": 5,
+          "depends_on_files": [
+            "src/lib/idor-route-guard.baseline.json",
+            "deploy-prep/idor-lint-guard-spec.md",
+            "src/lib/idor-route-guard.ts"
+          ]
+        },
+        {
+          "id": "sec-06",
+          "name": "RLS policy coverage",
+          "severity": 4,
+          "depends_on_files": [
+            "docs/tenant-isolation-rls-plan.md"
+          ]
+        },
+        {
+          "id": "sec-07",
+          "name": "PIN hashing (clients.pin, team_members.pin)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/lib/tenant-query.ts"
+          ]
+        },
+        {
+          "id": "sec-08",
+          "name": "Migration-tool cutover (ADR 0008, the '158 files' question)",
+          "severity": 2,
+          "depends_on_files": [
+            "docs/adr/0008-migration-tool-cutover.md",
+            "scripts/migrate-legacy-to-cli.mjs"
+          ]
+        },
+        {
+          "id": "sec-09",
+          "name": "PITR / backup-tier confirmation",
+          "severity": 4,
+          "depends_on_files": []
+        }
+      ]
+    },
+    "finance_payroll_billing": {
+      "label": "Finance, Payroll, Billing & Payments",
+      "checkpoints": [
+        {
+          "id": "fin-01",
+          "name": "Ledger balance invariant",
+          "severity": 5,
+          "depends_on_files": [
+            "src/lib/jobs.ts"
+          ]
+        },
+        {
+          "id": "fin-02",
+          "name": "post_journal_entry() function correctness",
+          "severity": 5,
+          "depends_on_files": [
+            "src/lib/jobs.ts"
+          ]
+        },
+        {
+          "id": "fin-03",
+          "name": "Payroll (payroll_payments)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/finance/payroll/route.ts"
+          ]
+        },
+        {
+          "id": "fin-04",
+          "name": "AR-aging pagination",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/finance/ar-aging/route.ts"
+          ]
+        },
+        {
+          "id": "fin-05",
+          "name": "LTV / client-analytics pagination",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/client-analytics/route.ts"
+          ]
+        },
+        {
+          "id": "fin-06",
+          "name": "Stripe deposit-paid webhook",
+          "severity": 5,
+          "depends_on_files": [
+            "src/app/api/webhooks/stripe/route.ts"
+          ]
+        }
+      ]
+    },
+    "lead_sale_schedule": {
+      "label": "Lead -> Sale -> Schedule (deal conversion)",
+      "checkpoints": [
+        {
+          "id": "lss-01",
+          "name": "Web-form lead -> deal (api/lead, api/contact)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/lead/route.ts",
+            "src/app/api/contact/route.ts"
+          ]
+        },
+        {
+          "id": "lss-02",
+          "name": "Cross-site ingest lead -> deal",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/ingest/lead/route.ts"
+          ]
+        },
+        {
+          "id": "lss-03",
+          "name": "Inbound-SMS unknown-sender lead creation",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/webhooks/telnyx/route.ts",
+            "src/lib/lead-intake.ts"
+          ]
+        },
+        {
+          "id": "lss-04",
+          "name": "AI-chat lead creation (phone given, no client match)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/chat/route.ts",
+            "src/lib/lead-intake.ts"
+          ]
+        },
+        {
+          "id": "lss-05",
+          "name": "Instant response for phone-only leads",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/lead/route.ts",
+            "src/app/api/contact/route.ts",
+            "src/app/api/cron/sales-follow-ups/route.ts"
+          ]
+        },
+        {
+          "id": "lss-06",
+          "name": "Sold-quote -> correct fulfillment dispatch",
+          "severity": 5,
+          "depends_on_files": [
+            "src/lib/jobs.ts",
+            "src/app/api/deals/[id]/stage/route.ts",
+            "src/app/api/webhooks/stripe/route.ts"
+          ]
+        },
+        {
+          "id": "lss-07",
+          "name": "Deal-pipeline-entry alerting",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/lead/route.ts",
+            "src/app/api/contact/route.ts",
+            "src/app/api/ingest/lead/route.ts"
+          ]
+        },
+        {
+          "id": "lss-08",
+          "name": "Formal pipeline usage rate (structural, informational)",
+          "severity": 2,
+          "depends_on_files": []
+        }
+      ]
+    },
+    "booking_scheduling_recurring": {
+      "label": "Booking, Scheduling & Recurring (execution mechanics)",
+      "checkpoints": [
+        {
+          "id": "bsr-01",
+          "name": "Unscheduled-Jobs monitoring",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/cron/schedule-monitor/route.ts",
+            "src/app/dashboard/_components/ScheduleIssues.tsx"
+          ]
+        },
+        {
+          "id": "bsr-02",
+          "name": "Crew-member deactivation cascade to future/recurring bookings",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/team/[id]/route.ts"
+          ]
+        },
+        {
+          "id": "bsr-03",
+          "name": "Sold-but-unscheduled Booking check (pre-existing, not this session's fix)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/cron/schedule-monitor/route.ts"
+          ]
+        }
+      ]
+    },
+    "crm_core": {
+      "label": "CRM Core (Clients, Marketing, SEO, Reviews)",
+      "checkpoints": [
+        {
+          "id": "crm-01",
+          "name": "Tenant review pages live-data (6 checked)",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/site/consortium-nyc/reviews/page.tsx",
+            "src/app/site/wash-and-fold-nyc/(marketing)/reviews/page.tsx",
+            "src/app/site/nycmaid/reviews/page.tsx",
+            "src/app/site/the-nyc-exterminator/reviews/page.tsx",
+            "src/app/site/nyc-mobile-salon/reviews/page.tsx",
+            "src/app/site/fla-dumpster-rentals/reviews/page.tsx"
+          ]
+        },
+        {
+          "id": "crm-02",
+          "name": "Referral click-tracking consolidation",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/referrals/track/route.ts",
+            "src/app/api/referrers/[code]/route.ts"
+          ]
+        },
+        {
+          "id": "crm-03",
+          "name": "SEO issue tracking",
+          "severity": 1,
+          "depends_on_files": []
+        },
+        {
+          "id": "crm-04",
+          "name": "General client management (CRUD, lists, detail views)",
+          "severity": 3,
+          "depends_on_files": []
+        },
+        {
+          "id": "crm-05",
+          "name": "Marketing pages (broader than the 6 review pages checked)",
+          "severity": 1,
+          "depends_on_files": []
+        }
+      ]
+    },
+    "ai_agent_communications": {
+      "label": "AI Agent (Yinez) & Communications",
+      "checkpoints": [
+        {
+          "id": "ai-01",
+          "name": "Web-chat / SMS conversational engine, live usage",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/chat/route.ts",
+            "src/lib/selena/agent.ts"
+          ]
+        },
+        {
+          "id": "ai-02",
+          "name": "Voice AI agent (phone-answering)",
+          "severity": 2,
+          "depends_on_files": []
+        },
+        {
+          "id": "ai-03",
+          "name": "Telegram owner-alert delivery reliability",
+          "severity": 3,
+          "depends_on_files": []
+        },
+        {
+          "id": "ai-04",
+          "name": "EN/ES translation pipeline",
+          "severity": 2,
+          "depends_on_files": []
+        },
+        {
+          "id": "ai-05",
+          "name": "Comms-preference gating logic (isCommEnabled)",
+          "severity": 3,
+          "depends_on_files": []
+        }
+      ]
+    },
+    "onboarding_activation": {
+      "label": "Tenant Onboarding & Activation",
+      "checkpoints": [
+        {
+          "id": "onb-01",
+          "name": "Tenant-profile registry (PR #64)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/lib/tenant-profile.ts",
+            "src/lib/tenant-profile-write.ts",
+            "supabase/migrations/20260730004424_tenant_profile_gaps.sql"
+          ]
+        },
+        {
+          "id": "onb-02",
+          "name": "Activation automation (PR #65)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/lib/activate-tenant.ts",
+            "src/lib/post-activation.ts",
+            "src/lib/owner-welcome-email.ts",
+            "supabase/migrations/20260730032023_activation_automation_extras.sql"
+          ]
+        },
+        {
+          "id": "onb-03",
+          "name": "Onboarding questionnaire completeness (6 fields added)",
+          "severity": 3,
+          "depends_on_files": []
+        },
+        {
+          "id": "onb-04",
+          "name": "Phase 2 build-out (industry service lists, national geocoding, Projects-vs-Services toggle)",
+          "severity": 2,
+          "depends_on_files": []
+        }
+      ]
+    }
+  }
+}

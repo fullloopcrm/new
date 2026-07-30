@@ -1,496 +1,352 @@
 {
   "$schema": "readiness-ledger-v1",
-  "meta": {
-    "created": "2026-07-30",
-    "last_updated": "2026-07-30",
-    "notes": "Permanent, append/update-only ledger. Never rebuilt from scratch. Weights: the original 6-domain system (see docs/readiness/scorecard-2026-07-30.md) combined booking/scheduling/crew into the Lead->Sale->Schedule domain at 20%. This ledger splits that into two domains per Jeff's explicit instruction; the 20% was split 12/8 (Lead->Sale->Schedule / Booking-Scheduling-Recurring) since sale-conversion is closer to the core revenue-engine framing than execution mechanics, and Jeff did not supply new weights for the 7-domain split. This is a judgment call, recorded here rather than silently assumed.",
-    "domain_weights": {
-      "security_auth_infra": 25,
-      "finance_payroll_billing": 20,
-      "lead_sale_schedule": 12,
-      "booking_scheduling_recurring": 8,
-      "crm_core": 10,
-      "ai_agent_communications": 10,
-      "onboarding_activation": 15
-    }
-  },
+  "taxonomy_version": 1,
+  "last_updated": "2026-07-30",
+  "previous_version_note": "First ledger entry after v1->v2 evidence-type retrofit. No prior committed ledger.json existed under this schema to diff against for THIS run; the diff engine will work from the next update onward.",
   "domains": {
     "security_auth_infra": {
-      "label": "Security, Auth, Tenant Isolation & Core Infra",
       "checkpoints": [
         {
           "id": "sec-01",
-          "name": "Offsite DB backup (hourly, B2)",
-          "score": 100,
+          "score": 50,
+          "evidence_type": "manual_code_read",
           "evidence": "Live check 2026-07-30: ~/.claude/logs/fullloop-db-backup.log shows continuous successful uploads through the morning; one backup was actually downloaded and restored the same session (see sec-02).",
-          "depends_on_files": [
-            "~/.claude/scripts/fullloop-db-backup.sh",
-            "~/.claude/scripts/.fullloop-backup.env",
-            ".github/workflows/db-backup.yml"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-02",
-          "name": "DR restore drill executed and validated",
           "score": 100,
+          "evidence_type": "live_query",
           "evidence": "Executed live 2026-07-30: real B2 backup restored into scratch Supabase project ubmtypswnnxehnqhxbfd (since deleted). Row counts, tenant-isolation spot-check, and a real booking+payment round-trip via create_admin_booking_atomic/post_journal_entry all passed. ~20min restore-verify time, ~10.5h RPO. Full log: docs/readiness/scorecard-2026-07-30.md.",
-          "depends_on_files": [
-            "docs/runbooks/dr-restore-drill-plan.md"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-03",
-          "name": "CI green on main",
-          "score": 100,
+          "score": 75,
+          "evidence_type": "git_log_diff",
           "evidence": "git merge-base --is-ancestor confirmed 2026-07-30 for Phase 0 CI-fix commits. Also personally found+fixed PR #65's real CI failure (missing SEO-noindex allowlist entry) same session, commit 555ddc328 on feat/activation-automation-2026-07-30, verified passing before merge.",
-          "depends_on_files": [
-            ".github/workflows/ci.yml"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "555ddc328"
         },
         {
           "id": "sec-04",
-          "name": "Tenant-scope CI gate (audit-tenant-scope.mjs, blocking)",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Ran live 2026-07-30 as part of full 884-file/4971-test suite: 1 finding, in src/app/api/fixture/route.ts (a test-fixture route, not real app code) -- non-vacuous, currently clean.",
-          "depends_on_files": [
-            "scripts/audit-tenant-scope.mjs",
-            "scripts/.tenant-scope-baseline.json"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-05",
-          "name": "IDOR baseline triage (124 candidate signatures)",
           "score": 0,
+          "evidence_type": "git_log_diff",
           "evidence": "git log --follow -- src/lib/idor-route-guard.baseline.json shows exactly 2 commits ever: the 07-12 creation and one incidental +1 net change from an unrelated test-fix commit. Zero dedicated triage commits since. Graduation-path step 1 in deploy-prep/idor-lint-guard-spec.md never executed.",
-          "depends_on_files": [
-            "src/lib/idor-route-guard.baseline.json",
-            "deploy-prep/idor-lint-guard-spec.md",
-            "src/lib/idor-route-guard.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-06",
-          "name": "RLS policy coverage",
           "score": 50,
+          "evidence_type": "live_query",
           "evidence": "Live query 2026-07-30: 186 real policies across 173 tables (real build-out since the DR runbook's original '0 policies' note). But 13 genuine tenant-owned tables (contacts, crm_notes, inbound_emails, inquiries, leads, partner_requests, tenant_locations, tenant_notes, tenant_projects, user_preferences, crew_members, booking_assignees, geo_nearby_places_cache) have RLS enabled with ZERO policies. App bypasses RLS via service_role regardless -- not the real enforcement boundary either way.",
-          "depends_on_files": [
-            "docs/tenant-isolation-rls-plan.md"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-07",
-          "name": "PIN hashing (clients.pin, team_members.pin)",
           "score": 0,
+          "evidence_type": "live_query",
           "evidence": "Live query 2026-07-30: both columns hold plain 6-digit numeric strings on real prod rows, not hashes.",
-          "depends_on_files": [
-            "src/lib/tenant-query.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-08",
-          "name": "Migration-tool cutover (ADR 0008, the '158 files' question)",
           "score": 25,
+          "evidence_type": "git_log_diff",
           "evidence": "scripts/migrate-legacy-to-cli.mjs is real and exists. ADR 0008 claims it produced 158 files in supabase/migrations/ -- but git log --all -- '**/tenant_profile_gaps*' and equivalent show those 158 files were never committed. supabase/migrations/ has exactly 1 file today, unrelated to the conversion. Real tooling exists, output never landed.",
-          "depends_on_files": [
-            "docs/adr/0008-migration-tool-cutover.md",
-            "scripts/migrate-legacy-to-cli.mjs"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "sec-09",
-          "name": "PITR / backup-tier confirmation",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "No Supabase Management API read endpoint exists for plan/PITR state (confirmed against the real OpenAPI spec 2026-07-30). Requires dashboard access not available this session.",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
     },
     "finance_payroll_billing": {
-      "label": "Finance, Payroll, Billing & Payments",
       "checkpoints": [
         {
           "id": "fin-01",
-          "name": "Ledger balance invariant",
           "score": 100,
+          "evidence_type": "live_query",
           "evidence": "Live query 2026-07-30: every real journal_entries row in prod has sum(debit_cents) == sum(credit_cents), zero exceptions.",
-          "depends_on_files": [
-            "src/lib/jobs.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "fin-02",
-          "name": "post_journal_entry() function correctness",
           "score": 100,
+          "evidence_type": "live_query",
           "evidence": "Exercised live 2026-07-30 during the DR drill: posted a real, balanced $150 entry against restored prod data via the actual production function (not a mock).",
-          "depends_on_files": [
-            "src/lib/jobs.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "fin-03",
-          "name": "Payroll (payroll_payments)",
           "score": 50,
+          "evidence_type": "live_query",
           "evidence": "Route + table exist, code reads real (src/app/api/finance/payroll/route.ts). Live query 2026-07-30: zero rows ever in payroll_payments -- built, deployed, never actually used in prod.",
-          "depends_on_files": [
-            "src/app/api/finance/payroll/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "fin-04",
-          "name": "AR-aging pagination",
           "score": 0,
+          "evidence_type": "manual_code_read",
           "evidence": "Read live 2026-07-30: src/app/api/finance/ar-aging/route.ts has no .limit()/.range() at all on either its invoices or bookings query -- genuinely unbounded, confirmed present, unfixed.",
-          "depends_on_files": [
-            "src/app/api/finance/ar-aging/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "fin-05",
-          "name": "LTV / client-analytics pagination",
           "score": 0,
+          "evidence_type": "manual_code_read",
           "evidence": "Read live 2026-07-30: src/app/api/client-analytics/route.ts has no .limit()/.range() either.",
-          "depends_on_files": [
-            "src/app/api/client-analytics/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "fin-06",
-          "name": "Stripe deposit-paid webhook",
           "score": 75,
+          "evidence_type": "test_run",
           "evidence": "3 existing test files (route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts) pass 2026-07-30. Not independently live-curled against a real Stripe event this round. Test files: src/app/api/webhooks/stripe/route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts.",
-          "depends_on_files": [
-            "src/app/api/webhooks/stripe/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
     },
     "lead_sale_schedule": {
-      "label": "Lead -> Sale -> Schedule (deal conversion)",
       "checkpoints": [
         {
           "id": "lss-01",
-          "name": "Web-form lead -> deal (api/lead, api/contact)",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Traced 2026-07-30; existing tests pass; added trackError alerting to the previously-silent failure path this session, commit 50ed3e882, own test route.pipeline-alert.test.ts passing.",
-          "depends_on_files": [
-            "src/app/api/lead/route.ts",
-            "src/app/api/contact/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "50ed3e882"
         },
         {
           "id": "lss-02",
-          "name": "Cross-site ingest lead -> deal",
           "score": 75,
+          "evidence_type": "test_run",
           "evidence": "Same pattern as lss-01; existing test passes; alerting added commit 50ed3e882; not independently live-curled this round.",
-          "depends_on_files": [
-            "src/app/api/ingest/lead/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "50ed3e882"
         },
         {
           "id": "lss-03",
-          "name": "Inbound-SMS unknown-sender lead creation",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Was 0 on 2026-07-30 morning (live code read: notification-only, no client/lead/deal). Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
-          "depends_on_files": [
-            "src/app/api/webhooks/telnyx/route.ts",
-            "src/lib/lead-intake.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "0747ac898"
         },
         {
           "id": "lss-04",
-          "name": "AI-chat lead creation (phone given, no client match)",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
-          "depends_on_files": [
-            "src/app/api/chat/route.ts",
-            "src/lib/lead-intake.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "0747ac898"
         },
         {
           "id": "lss-05",
-          "name": "Instant response for phone-only leads",
           "score": 0,
+          "evidence_type": "manual_code_read",
           "evidence": "Confirmed 2026-07-30: only a synchronous, opt-in EMAIL confirmation exists (api/lead, api/contact). No SMS auto-response for phone-only leads exists anywhere. cron/sales-follow-ups only handles pre-set follow_up_at, runs daily, not an intake trigger.",
-          "depends_on_files": [
-            "src/app/api/lead/route.ts",
-            "src/app/api/contact/route.ts",
-            "src/app/api/cron/sales-follow-ups/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "lss-06",
-          "name": "Sold-quote -> correct fulfillment dispatch",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 36364688f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
-          "depends_on_files": [
-            "src/lib/jobs.ts",
-            "src/app/api/deals/[id]/stage/route.ts",
-            "src/app/api/webhooks/stripe/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "36364688f"
         },
         {
           "id": "lss-07",
-          "name": "Deal-pipeline-entry alerting",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Built+shipped 2026-07-30, commit 50ed3e882. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
-          "depends_on_files": [
-            "src/app/api/lead/route.ts",
-            "src/app/api/contact/route.ts",
-            "src/app/api/ingest/lead/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "50ed3e882"
         },
         {
           "id": "lss-08",
-          "name": "Formal pipeline usage rate (structural, informational)",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Only 2 of ~337 deals platform-wide have ever reached 'sold' through this formal pipeline; jobs table has only 4 rows ever. Most of the platform's ~3420 real bookings bypass this pipeline entirely. Not a pass/fail checkpoint -- recorded for context, doesn't move the domain score.",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
     },
     "booking_scheduling_recurring": {
-      "label": "Booking, Scheduling & Recurring (execution mechanics)",
       "checkpoints": [
         {
           "id": "bsr-01",
-          "name": "Unscheduled-Jobs monitoring",
-          "score": 100,
+          "score": 90,
+          "evidence_type": "test_run",
           "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit ecfa935c6 (schedule-monitor cron extension), 3 new tests passing.",
-          "depends_on_files": [
-            "src/app/api/cron/schedule-monitor/route.ts",
-            "src/app/dashboard/_components/ScheduleIssues.tsx"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "ecfa935c6"
         },
         {
           "id": "bsr-02",
-          "name": "Crew-member deactivation cascade to future/recurring bookings",
           "score": 25,
+          "evidence_type": "live_query",
           "evidence": "Confirmed gap 2026-07-30: src/app/api/team/[id]/route.ts deactivates a member with booking history but has zero logic to reassign/flag their future bookings. Live query showed 0 currently-active incidents in prod right now -- a latent risk, not a live fire, but genuinely unbuilt.",
-          "depends_on_files": [
-            "src/app/api/team/[id]/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "bsr-03",
-          "name": "Sold-but-unscheduled Booking check (pre-existing, not this session's fix)",
-          "score": 75,
+          "score": 50,
+          "evidence_type": "manual_code_read",
           "evidence": "Pre-existing 'unscheduled_sale' check in schedule-monitor route (pendingBk block) confirmed present and running hourly, read 2026-07-30. Not independently live-curled this round beyond the code read. File: src/app/api/cron/schedule-monitor/route.ts line ~60-74 (pendingBk block).",
-          "depends_on_files": [
-            "src/app/api/cron/schedule-monitor/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
     },
     "crm_core": {
-      "label": "CRM Core (Clients, Marketing, SEO, Reviews)",
       "checkpoints": [
         {
           "id": "crm-01",
-          "name": "Tenant review pages live-data (6 checked)",
           "score": 0,
+          "evidence_type": "manual_code_read",
           "evidence": "Read live 2026-07-30: consortium-nyc, wash-and-fold-nyc, nycmaid, the-nyc-exterminator, nyc-mobile-salon, fla-dumpster-rentals reviews pages all have zero DB/fetch calls -- fully static. Phase 1's reviews-page fix covers none of these 6.",
-          "depends_on_files": [
-            "src/app/site/consortium-nyc/reviews/page.tsx",
-            "src/app/site/wash-and-fold-nyc/(marketing)/reviews/page.tsx",
-            "src/app/site/nycmaid/reviews/page.tsx",
-            "src/app/site/the-nyc-exterminator/reviews/page.tsx",
-            "src/app/site/nyc-mobile-salon/reviews/page.tsx",
-            "src/app/site/fla-dumpster-rentals/reviews/page.tsx"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "crm-02",
-          "name": "Referral click-tracking consolidation",
           "score": 0,
+          "evidence_type": "manual_code_read",
           "evidence": "Read live 2026-07-30: /api/referrals/track's own code comment says 'for now just return tenant info' -- it records nothing. No click_count column exists anywhere. A second, separate 'referrers' system exists in parallel, never consolidated.",
-          "depends_on_files": [
-            "src/app/api/referrals/track/route.ts",
-            "src/app/api/referrers/[code]/route.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "crm-03",
-          "name": "SEO issue tracking",
           "score": 25,
+          "evidence_type": "live_query",
           "evidence": "seo_issues table exists; live query 2026-07-30 shows exactly 1 row ever. Barely started.",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "crm-04",
-          "name": "General client management (CRUD, lists, detail views)",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Not reviewed this session -- time-boxed out.",
-          "depends_on_files": [],
           "last_verified": null,
           "last_verified_commit": null
         },
         {
           "id": "crm-05",
-          "name": "Marketing pages (broader than the 6 review pages checked)",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Not reviewed this session -- time-boxed out.",
-          "depends_on_files": [],
           "last_verified": null,
           "last_verified_commit": null
         }
       ]
     },
     "ai_agent_communications": {
-      "label": "AI Agent (Yinez) & Communications",
       "checkpoints": [
         {
           "id": "ai-01",
-          "name": "Web-chat / SMS conversational engine, live usage",
           "score": 75,
+          "evidence_type": "live_query",
           "evidence": "Live query 2026-07-30: 1,903 real sms_conversations rows, most recent 5 minutes before the check -- genuinely active, current usage. Code also read same day as part of the chat-route lead-creation fix (commit 0747ac898). Not a fresh end-to-end test run this round beyond the existing suite.",
-          "depends_on_files": [
-            "src/app/api/chat/route.ts",
-            "src/lib/selena/agent.ts"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "0747ac898"
         },
         {
           "id": "ai-02",
-          "name": "Voice AI agent (phone-answering)",
           "score": 0,
+          "evidence_type": "live_query",
           "evidence": "Live query 2026-07-30: tenants.voice_agent_enabled column referenced in prior planning notes no longer exists in the schema at all. Feature appears abandoned or superseded, not merely 'not yet configured.'",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "ai-03",
-          "name": "Telegram owner-alert delivery reliability",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Not reviewed this session -- time-boxed out.",
-          "depends_on_files": [],
           "last_verified": null,
           "last_verified_commit": null
         },
         {
           "id": "ai-04",
-          "name": "EN/ES translation pipeline",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Not reviewed this session -- time-boxed out.",
-          "depends_on_files": [],
           "last_verified": null,
           "last_verified_commit": null
         },
         {
           "id": "ai-05",
-          "name": "Comms-preference gating logic (isCommEnabled)",
           "score": "not_scored",
+          "evidence_type": "none",
           "evidence": "Not reviewed this session -- time-boxed out.",
-          "depends_on_files": [],
           "last_verified": null,
           "last_verified_commit": null
         }
       ]
     },
     "onboarding_activation": {
-      "label": "Tenant Onboarding & Activation",
       "checkpoints": [
         {
           "id": "onb-01",
-          "name": "Tenant-profile registry (PR #64)",
           "score": 100,
+          "evidence_type": "live_query",
           "evidence": "Merged to main (git log confirmed 2026-07-30). Its migration's columns (contract_signed_at, trial_ends_at, cancelled_at, account_owner, acquisition_channel, etc.) verified LIVE PRESENT on prod via live query same day -- not assumed from the merge.",
-          "depends_on_files": [
-            "src/lib/tenant-profile.ts",
-            "src/lib/tenant-profile-write.ts",
-            "supabase/migrations/20260730004424_tenant_profile_gaps.sql"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "47bc4acf8"
         },
         {
           "id": "onb-02",
-          "name": "Activation automation (PR #65)",
           "score": 100,
+          "evidence_type": "live_query",
           "evidence": "Merged to main 2026-07-30 after I personally found+fixed its real failing CI check this session (commit 555ddc328). Its migration's columns (activated_at, activation_health_snapshot, onboarding_nudge_sent_at) verified LIVE PRESENT on prod via live query same day, despite the migration file's own header saying 'GATED -- not applied' (stale comment; real DB state is what's scored).",
-          "depends_on_files": [
-            "src/lib/activate-tenant.ts",
-            "src/lib/post-activation.ts",
-            "src/lib/owner-welcome-email.ts",
-            "supabase/migrations/20260730032023_activation_automation_extras.sql"
-          ],
           "last_verified": "2026-07-30",
           "last_verified_commit": "92afeadc2"
         },
         {
           "id": "onb-03",
-          "name": "Onboarding questionnaire completeness (6 fields added)",
           "score": 75,
+          "evidence_type": "git_log_diff",
           "evidence": "Commit confirmed on main via git log 2026-07-30 ('add 6 missing critical/recommended fields to onboarding questionnaire'). Not independently live-curled against a real onboarding submission this round.",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": "065a74344"
         },
         {
           "id": "onb-04",
-          "name": "Phase 2 build-out (industry service lists, national geocoding, Projects-vs-Services toggle)",
           "score": 25,
+          "evidence_type": "git_log_diff",
           "evidence": "Real plan exists (~/.claude/plans/curried-mapping-sifakis.md); one slice shipped (Nominatim->Overpass geocoding fix, merged to main 2026-07-30, commit ec839dbfb). Bulk of Phase 2 (national service-area coverage beyond NY/NJ, industry-aware service lists) remains unbuilt -- confirmed via an uncommitted-only change sitting in a separate worktree.",
-          "depends_on_files": [],
           "last_verified": "2026-07-30",
           "last_verified_commit": "ec839dbfb"
         }

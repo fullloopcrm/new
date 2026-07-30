@@ -1,0 +1,39 @@
+name: Readiness Spot-Check
+
+on:
+  schedule:
+    - cron: '0 13 * * 1' # weekly, Monday 13:00 UTC
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    working-directory: platform
+
+jobs:
+  spot-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+      - run: npm ci
+      - name: Run spot-check
+        id: spotcheck
+        run: node scripts/spot-check.mjs
+        continue-on-error: true
+        env:
+          FULLLOOP_DB_URL: ${{ secrets.FULLLOOP_DB_URL }}
+      - name: Commit spot-check report
+        run: |
+          git config user.name "readiness-bot"
+          git config user.email "readiness-bot@users.noreply.github.com"
+          git add docs/readiness/spot-check-*.md
+          git diff --cached --quiet || git commit -m "chore: weekly readiness spot-check"
+          git push
+      - name: Alert if auto-flagged
+        if: steps.spotcheck.outcome == 'failure'
+        run: echo "::warning::Spot-check flagged a checkpoint with >=15pt disagreement -- see docs/readiness/spot-check-*.md"
