@@ -16,7 +16,7 @@ type IssueGroup = 'fix' | 'review' | 'verify'
 const ISSUE_GROUP: Record<string, IssueGroup> = {
   time_conflict: 'fix', duplicate_client: 'fix', unassigned: 'fix', over_max_jobs: 'fix',
   tight_buffer: 'fix', day_off: 'fix', no_car: 'fix', no_show: 'fix', stuck_pending: 'fix',
-  unscheduled_sale: 'fix',
+  unscheduled_sale: 'fix', unscheduled_job: 'fix',
   home_by_risk: 'review',
   price_mismatch: 'verify', payment_overdue: 'verify', cleaner_unpaid: 'verify',
 }
@@ -24,8 +24,17 @@ const ISSUE_ACTION: Record<string, string> = {
   unassigned: 'Assign', time_conflict: 'Reassign', duplicate_client: 'Reassign', no_car: 'Reassign',
   day_off: 'Reassign', over_max_jobs: 'Rebalance', tight_buffer: 'Adjust', home_by_risk: 'Adjust',
   no_show: 'View job', stuck_pending: 'Schedule', unscheduled_sale: 'Schedule', payment_overdue: 'Collect', cleaner_unpaid: 'Pay',
-  price_mismatch: 'Review price',
+  price_mismatch: 'Review price', unscheduled_job: 'Schedule',
 }
+// booking_id doubles as "the related record's id" for issue types whose
+// record isn't a booking — unscheduled_job carries a Jobs id, so it must
+// route to the Jobs detail page, not the Bookings edit deep-link below.
+const issueHref = (issue: ScheduleIssue): string | null =>
+  issue.booking_id
+    ? issue.type === 'unscheduled_job'
+      ? `/dashboard/jobs/${issue.booking_id}`
+      : `/dashboard/bookings?edit=${issue.booking_id}`
+    : null
 const groupOf = (type: string): IssueGroup => ISSUE_GROUP[type] || 'verify'
 const GROUP_META: { key: IssueGroup; label: string }[] = [
   { key: 'fix', label: 'Fix now' }, { key: 'review', label: 'Review' }, { key: 'verify', label: 'Verify' },
@@ -100,7 +109,7 @@ export default function ScheduleIssues() {
                   <div className="truncate" style={{ color: V.ink }}>{issue.message}</div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <button onClick={() => issue.booking_id && (window.location.href = `/dashboard/bookings?edit=${issue.booking_id}`)} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '6px 12px', background: V.ink, color: '#fff' }}>{ISSUE_ACTION[issue.type] || 'Open'}</button>
+                  <button onClick={() => { const href = issueHref(issue); if (href) window.location.href = href }} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '6px 12px', background: V.ink, color: '#fff' }}>{ISSUE_ACTION[issue.type] || 'Open'}</button>
                   <button onClick={() => resolveIssue(issue.id)} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '6px 12px', border: `1px solid ${V.line}`, color: V.ink }}>Resolve</button>
                   <button onClick={() => dismiss(issue.id)} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: V.muted }}>Dismiss</button>
                 </div>
