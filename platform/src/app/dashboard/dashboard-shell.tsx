@@ -296,7 +296,7 @@ function DashboardShellInner({
 
   return (
     <div
-      className="loop-scope min-h-screen flex"
+      className="loop-scope h-screen overflow-hidden flex"
       style={{ background: 'var(--color-loop-bg)' }}
     >
       {/* Mobile backdrop */}
@@ -502,8 +502,12 @@ function DashboardShellInner({
             </svg>
           </button>
 
-          {/* TOPBAR */}
-          <div className="flex items-center justify-end gap-4 mb-3">
+          {/* TOPBAR — sticky so settings/notifications stay reachable while
+              scrolled deep into a page's content. */}
+          <div
+            className="sticky top-0 z-20 flex items-center justify-end gap-4 py-3 mb-3"
+            style={{ background: 'var(--color-loop-bg)' }}
+          >
             <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {meta}
             </span>
