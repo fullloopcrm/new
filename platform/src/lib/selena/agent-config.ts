@@ -66,7 +66,15 @@ export interface AgentConfig {
     // For quote_first: the handoff line the agent uses after qualifying.
     handoff_message?: string
   }
-  escalation_extra?: string // industry-specific escalation triggers
+  escalation_extra?: string // industry-specific escalation triggers, plus (2026-07-30) any
+  // owner-authored escalation_triggers/escalation_contact/escalation_response_time folded
+  // in by applyPersonaToConfig (persona-file.ts).
+  // Operational context (2026-07-30 onboarding gap-fill). Both optional and BOTH omitted
+  // by default — buildPlaybook only renders the OPERATIONS block when at least one is set,
+  // so a tenant who never authored either sees no behavior change.
+  operating_hours_note?: string // derived from settings.business_hours_start/end (agent-config-loader)
+  capacity_note?: string // owner-authored team-capacity heads-up (persona.capacity_note), e.g.
+  // "fully booked through next week" — NOT a substitute for real availability tools.
 }
 
 // The NYC Exterminator — quote-first / lead-handoff model (Jeff, 2026-06-11).
