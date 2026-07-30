@@ -87,6 +87,7 @@ const requirements = [
   'Fully available, and completely "all in." This is remote, but it’s a primary commitment, not a side gig.',
   'Dependable, reliable, and honest — you’ll have visibility into finance, payroll, and eventually a real ownership stake, so trust isn’t optional here.',
   'A self-starter and a natural leader — someone who takes control and ownership without needing to be managed.',
+  'Goal-driven and ambitious — someone who sets goals, crushes them, and always wants more. Not a clock-watcher waiting for the day to end.',
   '100% communication and a strong team builder. You’re training people from day one and will be building teams across multiple markets as we grow.',
   'Positive, grateful, and even-keeled — your energy sets the tone for the team and the client relationships you own.',
   'Bilingual is a plus — Spanish would be ideal, and matches the team you’ll be working with.',
@@ -340,6 +341,13 @@ export default function AdministratorCareersPage() {
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Are You Right For This Job?</h2>
           <p className="text-xl text-[#1E2A4A] font-semibold leading-snug mb-4">The main question: are you ready to go all in on an opportunity of a lifetime?</p>
           <p className="text-gray-500 text-sm mb-6">If that lands, read these honestly before you apply. If most of them are a clear yes, keep going.</p>
+
+          <div className="border-l-4 border-[#A8F0DC] bg-gray-50 rounded-r-xl p-5 mb-6">
+            <p className="text-gray-700 leading-relaxed">
+              Here’s what a leader looks like to us: you take a task, you kill it, you 100% verify it’s actually done — then you come back and say <em>&ldquo;I’m ready for the next thing.&rdquo;</em> Not someone who sits and waits for the clock to run out. We’ll know within days whether you’re really all in.
+            </p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             {qualifyingQuestions.map((q) => (
               <div key={q} className="flex gap-3 border border-gray-200 rounded-xl p-4">
