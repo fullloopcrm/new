@@ -11,16 +11,21 @@
  *     local signal: landmarks, housing types, local challenges, zips)
  *   - haversineDistance / geocodeAddress (Nominatim) — src/lib/geo.ts
  *
- * COVERAGE LIMIT (intentional, flagged): the neighborhood dataset is currently
- * NYC-metro (Manhattan, Brooklyn, Queens, Long Island, North Jersey). A tenant
- * whose center is outside that footprint resolves zero neighborhoods — the geo
- * layer is a no-op for them until the dataset is broadened (Phase 2b: national
- * places via a Census gazetteer). Areas/neighborhoods are dataset-bound, not
- * invented, so we never fabricate places we don't have real data for.
+ * COVERAGE LIMIT (was open, now fixed): the neighborhood dataset is NYC-metro
+ * only (Manhattan, Brooklyn, Queens, Long Island, North Jersey) — a tenant
+ * whose center is outside that footprint resolves zero neighborhoods from the
+ * static dataset. `resolveCoverage()` below now falls back to a live,
+ * national lookup (Overpass/OSM, see ./nearby-places.ts) for `areas` when the
+ * static dataset comes back empty, so a tenant anywhere in the US gets real
+ * nearby cities instead of nothing. `neighborhoods` (the finer-grained,
+ * NYC-specific dataset with landmarks/housing types/local-challenge copy)
+ * stays dataset-bound — we never fabricate that richer local color for a
+ * place we don't have real data for.
  */
 import { ALL_NEIGHBORHOODS, type Neighborhood } from '@/lib/seo/locations'
 import { AREAS, type Area } from '@/lib/seo/data/areas'
 import { haversineDistance, geocodeAddress } from '@/lib/geo'
+import { nearbyPlacesViaOverpass } from './nearby-places'
 
 export interface CoveredNeighborhood {
   slug: string
@@ -131,10 +136,37 @@ export async function resolveCoverage(opts: ResolveCoverageOptions): Promise<Cov
     return { center: null, radiusMiles: opts.radiusMiles, neighborhoods: [], areas: [] }
   }
 
+  const neighborhoods = neighborhoodsWithinRadius(center.lat, center.lng, opts.radiusMiles)
+  const staticAreas = areasWithinRadius(center.lat, center.lng, opts.radiusMiles)
+
+  // Static NY/NJ dataset came back empty -> center is outside its footprint.
+  // Fall back to a live national lookup instead of returning nothing. Never
+  // throws (best-effort, see nearbyPlacesViaOverpass docstring); an empty
+  // result here just means the same as "no coverage found," same as before.
+  if (staticAreas.length === 0 && neighborhoods.length === 0) {
+    const livePlaces = await nearbyPlacesViaOverpass(center.lat, center.lng, opts.radiusMiles)
+    if (livePlaces.length > 0) {
+      return {
+        center,
+        radiusMiles: opts.radiusMiles,
+        neighborhoods: [],
+        areas: livePlaces.map((p) => ({
+          slug: p.slug,
+          urlSlug: p.urlSlug,
+          name: p.name,
+          state: p.state,
+          lat: p.lat,
+          lng: p.lng,
+          distanceMiles: p.distanceMiles,
+        })),
+      }
+    }
+  }
+
   return {
     center,
     radiusMiles: opts.radiusMiles,
-    neighborhoods: neighborhoodsWithinRadius(center.lat, center.lng, opts.radiusMiles),
-    areas: areasWithinRadius(center.lat, center.lng, opts.radiusMiles),
+    neighborhoods,
+    areas: staticAreas,
   }
 }
