@@ -32,6 +32,7 @@ import {
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
 } from './industry-presets'
+import { draftTailoredServices, type TailorResult } from './draft-tailored-services'
 
 export { mapIndustry }
 export type { IndustryKey }
@@ -94,6 +95,13 @@ export interface ProvisionResult {
     business_hours: boolean
   }
   skipped: string[]
+  /**
+   * Best-effort AI tailoring of the just-seeded services (Phase 2B) — only
+   * runs when services were FRESHLY seeded this call (never re-tailors an
+   * already-customized or already-tailored tenant). Undefined when services
+   * already existed, so this step never ran.
+   */
+  tailoredServices?: TailorResult
 }
 
 /**
@@ -167,6 +175,25 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
         compensations.push(async () => {
           await supabaseAdmin.from('service_types').delete().in('id', insertedIds)
         })
+      }
+
+      // AI tailoring (Phase 2B) — reorders/renames/deactivates the preset
+      // rows just inserted above toward this specific business, using its
+      // own selena_config.business_description. Deliberately best-effort:
+      // draftTailoredServices() never throws (every failure path returns
+      // { applied: false, reason }), and the try/catch here is defense-in-
+      // depth so a network hiccup on this enrichment step can never trigger
+      // the full provisioning rollback above. Only runs here, right after a
+      // fresh seed — never re-tailors an already-customized tenant, and
+      // never runs in the `else` (already-existing-services) branch.
+      try {
+        result.tailoredServices = await draftTailoredServices(tenantId)
+      } catch (e) {
+        result.tailoredServices = {
+          applied: false,
+          edits: [],
+          reason: e instanceof Error ? e.message : 'unknown error',
+        }
       }
     } else {
       result.skipped.push(`services (${existingServices} already exist)`)
