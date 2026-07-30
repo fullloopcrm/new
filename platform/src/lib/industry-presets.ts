@@ -632,7 +632,7 @@ export const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, ChecklistField[]> = {
     { key: 'email', enabled: true, required: true, question: 'Ask for email.', sms_options: '' },
   ],
   junk_removal: stdChecklist('Ask the load size — single item, quarter, half, full, or cleanout.', opts(['Single', 'Quarter', 'Half', 'Full', 'Cleanout']), { emailRequired: false }),
-  dumpster: stdChecklist('Ask dumpster size — 10, 20, 30, or 40 yard — and rental length.', opts(['10yd', '20yd', '30yd', '40yd']), { emailRequired: false }),
+  dumpster: stdChecklist('Ask dumpster size — 10, 15, 20, 30, or 40 yard — and rental length.', opts(['10yd', '15yd', '20yd', '30yd', '40yd']), { emailRequired: false }),
   towing: stdChecklist('Ask tow, jumpstart/lockout, winch/recovery, or accident — vehicle + locations.', opts(['Local', 'Long-dist', 'Jumpstart', 'Recovery', 'Accident']), { emailRequired: false }),
   appliance_repair: stdChecklist('Ask which appliance — fridge, washer/dryer, oven — and brand + symptom.', opts(['Fridge', 'Washer/Dryer', 'Oven', 'Other'])),
   garage_door: stdChecklist('Ask service call, spring, opener, or new door — door type.', opts(['Service', 'Spring', 'Opener', 'New door'])),
