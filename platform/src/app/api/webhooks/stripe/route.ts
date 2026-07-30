@@ -405,7 +405,10 @@ export async function POST(request: Request) {
             ])
           }
         }
-        try { const { convertSaleToJob } = await import('@/lib/jobs'); await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {}) } catch (e) { console.warn('[stripe] deposit convert-to-job failed', e) }
+        // closeSoldQuote picks booking/recurring/job by the quote's actual
+        // type — a plain deposit-paid cleaning must not always become an
+        // unscheduled Job. See its docstring in lib/jobs.ts.
+        try { const { closeSoldQuote } = await import('@/lib/jobs'); await closeSoldQuote(tenantId, quoteId) } catch (e) { console.warn('[stripe] deposit sale conversion failed', e) }
         try {
           const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
           await ownerAlert({
