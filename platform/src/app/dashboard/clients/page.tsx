@@ -110,6 +110,10 @@ function fmtMoneyShort(cents: number): string {
   return `${Math.round(dollars)}`
 }
 
+function fmtDateAdded(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function cohortLabel(yyyymm: string): string {
   if (!yyyymm || yyyymm.length < 7) return '—'
   const [y, m] = yyyymm.split('-')
@@ -443,6 +447,7 @@ export default function ClientsPage() {
           <div>Affinity</div>
           <div>Stage</div>
           <div className="right">LTV</div>
+          <div>Date Added</div>
           <div>Last</div>
           <div />
         </div>
@@ -514,6 +519,7 @@ export default function ClientsPage() {
                   {fmtMoneyShort(c.ltv_projected_cents)}
                 </div>
               </div>
+              <div className="clients-last-cell">{fmtDateAdded(c.created_at)}</div>
               <div className={`clients-last-cell ${c.last_booking?.overdue ? 'muted' : ''}`}>
                 {c.last_booking ? (
                   <>
