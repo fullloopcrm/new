@@ -106,9 +106,12 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   // outreach cron honored that fallback — this engine silently ignored an
   // onboarding-submitted agent name whenever tenants.agent_name was still
   // empty (2026-07-30 gap-fill; same bug class as the tone fix above).
+  // Selena is the core/base agent identity; an unpersonalized tenant must
+  // never default to "Jefe" — that's a separate, real platform-GM entity,
+  // not a generic agent name. This exact mix-up has recurred across sessions.
   const agentName = tenant?.agent_name
     || (tenant?.selena_config as { ai_name?: string } | undefined)?.ai_name
-    || 'Jefe'
+    || 'Selena'
   const industry = (tenant?.industry || 'home services').replace(/_/g, ' ')
   const phone = tenant?.phone || settings.business_phone || '<not configured>'
   const domain = tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''

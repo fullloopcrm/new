@@ -230,7 +230,7 @@ export async function PUT(
     // Service-area geo spine (drives geo/job page generation)
     'service_radius_miles', 'service_area_lat', 'service_area_lng',
     // Agent identity — single source of truth for the AI's name across SMS
-    // (Selena) and web/Telegram/admin/email (Yinez). Default 'Jefe'.
+    // (Selena) and web/Telegram/admin/email (Yinez). Default 'Selena'.
     'agent_name',
     // Selena persona (full config blob)
     'selena_config',
