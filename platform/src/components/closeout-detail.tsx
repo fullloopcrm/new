@@ -35,6 +35,7 @@ interface Summary {
     payment_method: string | null
     payment_received_at: string | null
     notes: string | null
+    client: { name: string; email: string | null; phone: string | null } | null
   }
   time: {
     check_in: string | null
@@ -136,8 +137,26 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
     </div>
   )
 
+  const client = data.booking.client
+
   return (
     <div className="mt-3 border-t border-gray-200 pt-3 grid md:grid-cols-2 gap-x-6 gap-y-4 text-xs max-w-3xl">
+      {/* CLIENT */}
+      {client && (
+        <section className="md:col-span-2 flex items-center justify-between gap-3">
+          <div>
+            <span className="font-semibold text-gray-900">{client.name}</span>
+            {client.phone && <span className="ml-2 text-gray-500">{client.phone}</span>}
+          </div>
+          {client.phone && (
+            <div className="flex gap-1.5">
+              <a href={`tel:${client.phone}`} className="px-2.5 py-1 bg-[#1E2A4A] hover:bg-[#15203a] text-white rounded text-[11px] font-semibold">Call</a>
+              <a href={`sms:${client.phone}`} className="px-2.5 py-1 border border-gray-300 hover:border-gray-400 text-gray-700 rounded text-[11px] font-semibold">Text</a>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* TIME */}
       <section>
         <h4 className="font-bold text-[#1E2A4A] uppercase tracking-wide text-[10px] mb-1.5">Time</h4>

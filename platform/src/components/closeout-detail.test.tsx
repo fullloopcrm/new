@@ -18,7 +18,7 @@ function summaryFixture() {
     booking: {
       id: 'bk-1', status: 'completed', start_time: '2026-07-23T13:00:00', end_time: '2026-07-23T15:00:00',
       service_type: 'regular', payment_status: 'paid', payment_method: 'stripe', payment_received_at: '2026-07-23T15:05:00',
-      cleaner_paid: false, cleaner_paid_at: null, notes: null, client: { name: 'Ben Meyers', email: null, phone: null },
+      cleaner_paid: false, cleaner_paid_at: null, notes: null, client: { name: 'Ben Meyers', email: null as string | null, phone: null as string | null },
     },
     time: { check_in: '2026-07-23T13:00:00', check_out: '2026-07-23T15:00:00', raw_minutes: 120, half_blocks: 4, remainder_minutes: 0, billed_blocks: 4, billed_hours: 2, max_hours_cap: null, capped_at_max: false },
     bill: { hourly_rate: 64, team_size: 1, gross_cents: 12800, discounts: [], total_discount_cents: 0, final_cents: 12800, cc_cents: 13312 },
@@ -72,5 +72,26 @@ describe('CloseoutDetail', () => {
     render(<CloseoutDetail bookingId="bk-1" />)
 
     expect(await screen.findByText('2h × $25/hr')).toBeInTheDocument()
+  })
+
+  it('shows the client phone number with call/text links (2026-07-30)', async () => {
+    const fixture = summaryFixture()
+    fixture.booking.client = { name: 'Ben Meyers', email: null, phone: '+15551234567' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }))
+
+    render(<CloseoutDetail bookingId="bk-1" />)
+
+    expect(await screen.findByText('+15551234567')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Call' })).toHaveAttribute('href', 'tel:+15551234567')
+    expect(screen.getByRole('link', { name: 'Text' })).toHaveAttribute('href', 'sms:+15551234567')
+  })
+
+  it('omits call/text links when the client has no phone on file', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => summaryFixture() }))
+
+    render(<CloseoutDetail bookingId="bk-1" />)
+
+    expect(await screen.findByText('Ben Meyers')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Call' })).not.toBeInTheDocument()
   })
 })
