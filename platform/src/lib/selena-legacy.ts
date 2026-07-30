@@ -361,7 +361,9 @@ async function buildSystemPrompt(tenantId: string, config: SelenaConfig): Promis
 
   // AI name — single source of truth is the tenant's agent_name column (read by
   // both agent brains). Legacy selena_config.ai_name kept as fallback only.
-  const aiName = (tenantRow as { agent_name?: string } | null)?.agent_name || config.ai_name || 'Jefe'
+  // Final fallback is Selena, never Jefe — a separate real platform-GM entity;
+  // this mix-up has recurred across sessions.
+  const aiName = (tenantRow as { agent_name?: string } | null)?.agent_name || config.ai_name || 'Selena'
 
   // Personality tone
   const toneMap: Record<string, string> = {

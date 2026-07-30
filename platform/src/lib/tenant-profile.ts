@@ -253,6 +253,48 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'greeting', label: 'Chat greeting', section: 'ai', store: 'selena', col: 'greeting', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'greeting') },
   { key: 'emojiUsage', label: 'Emoji usage', section: 'ai', store: 'selena', col: 'emoji_usage', input: 'select', options: EMOJI_OPTIONS, tier: 'optional', read: (x) => s(x, 'emoji_usage') },
 
+  // ── AI persona: voice & personality (2026-07-30) ───────────────────
+  // openingLines/signOff/phrasesToAvoid/neverDo all round-trip through
+  // persona-file.ts's Persona keys of the SAME name (opening_lines, sign_off,
+  // banned_phrases, never_do) — already folded into the assembled prompt,
+  // just previously had no onboarding UI field to populate them from.
+  { key: 'openingLines', label: 'Preferred opening lines', section: 'ai', store: 'selena', col: 'opening_lines', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'opening_lines') },
+  { key: 'signOff', label: 'Preferred sign-offs', section: 'ai', store: 'selena', col: 'sign_off', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'sign_off') },
+  { key: 'phrasesToUse', label: 'Phrases to use', section: 'ai', store: 'selena', col: 'phrases_to_use', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'phrases_to_use') },
+  { key: 'phrasesToAvoid', label: 'Phrases / words to never say', section: 'ai', store: 'selena', col: 'banned_phrases', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'banned_phrases') },
+  { key: 'neverDo', label: 'Things the agent must never do or promise (e.g. "never say guaranteed", "never discuss competitors by name")', section: 'ai', store: 'selena', col: 'never_do', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'never_do') },
+
+  // ── AI persona: policies the agent needs to know, not guess (2026-07-30) ──
+  // Blank/not-applicable is a real, supported answer: buildPlaybook/persona-file
+  // render an explicit "no policy on file — escalate to a human" line instead
+  // of guessing, so leaving these blank never causes a hallucinated policy.
+  { key: 'cancellationPolicy', label: 'Cancellation policy (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'cancellation_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'cancellation_policy') },
+  { key: 'reschedulePolicy', label: 'Rescheduling policy (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'reschedule_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'reschedule_policy') },
+  { key: 'refundPolicy', label: 'Refund policy', section: 'ai', store: 'selena', col: 'refund_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'refund_policy') },
+  { key: 'latePaymentPolicy', label: 'Late-payment / overdue-invoice handling (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'late_payment_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'late_payment_policy') },
+  { key: 'outOfScope', label: 'Explicitly out of scope (what you do NOT do)', section: 'ai', store: 'selena', col: 'out_of_scope', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'out_of_scope') },
+
+  // ── AI persona: real FAQ (2026-07-30) ──────────────────────────────
+  // Structured {question, answer} pairs, in the tenant's own words — distinct
+  // from objectionHandlers below (a customer QUESTION vs. a sales OBJECTION).
+  { key: 'faqs', label: 'Real customer FAQ (5-10 questions customers actually ask)', section: 'ai', store: 'selena', col: 'faqs', input: 'custom', tier: 'recommended', read: (x) => s(x, 'faqs') },
+  { key: 'objectionHandlers', label: 'Known objections & how to handle them', section: 'ai', store: 'selena', col: 'objection_handlers', input: 'custom', tier: 'optional', read: (x) => s(x, 'objection_handlers') },
+
+  // ── AI persona: escalation preferences (2026-07-30) ────────────────
+  { key: 'escalationTriggers', label: 'When the agent should hand off to a human', section: 'ai', store: 'selena', col: 'escalation_triggers', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'escalation_triggers') },
+  { key: 'escalationContact', label: 'Who escalations go to (name + phone/email — not "someone")', section: 'ai', store: 'selena', col: 'escalation_contact', tier: 'critical', read: (x) => s(x, 'escalation_contact') },
+  { key: 'escalationResponseTime', label: 'Response-time promise made to customers', section: 'ai', store: 'selena', col: 'escalation_response_time', tier: 'recommended', read: (x) => s(x, 'escalation_response_time') },
+
+  // ── AI persona: upsell / cross-sell guidance (2026-07-30) ──────────
+  { key: 'addons', label: 'Add-ons to proactively offer', section: 'ai', store: 'selena', col: 'addons', input: 'custom', tier: 'optional', read: (x) => s(x, 'addons') },
+  { key: 'upsellTriggers', label: 'When to upsell', section: 'ai', store: 'selena', col: 'upsell_triggers', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'upsell_triggers') },
+  { key: 'neverUpsell', label: 'What to never push', section: 'ai', store: 'selena', col: 'never_upsell', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'never_upsell') },
+
+  // ── AI persona: operational context (2026-07-30) ───────────────────
+  // Business hours already exist (businessHoursStart/End, scheduling section)
+  // and are now surfaced to the agent automatically — no separate field here.
+  { key: 'capacityNote', label: 'Current team-capacity heads-up (e.g. "fully booked through next week") — blank = agent relies on real availability tools only', section: 'ai', store: 'selena', col: 'capacity_note', input: 'textarea', tier: 'optional', read: (x) => s(x, 'capacity_note') },
+
   // ── Finance display ───────────────────────────────────────────────
   { key: 'taxRate', label: 'Tax rate %', section: 'referrals', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
   { key: 'expenseCategories', label: 'Expense categories', section: 'referrals', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },

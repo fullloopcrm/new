@@ -242,6 +242,42 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
     }
     if (field.key === 'holidayDates') return <HolidayDatesEditor value={value} onChange={onChange} />
     if (field.key === 'socialLinks') return <SocialLinksEditor value={value} onChange={onChange} />
+    if (field.key === 'faqs') {
+      return (
+        <PairListEditor
+          label={field.label}
+          value={value}
+          onChange={onChange}
+          keyA="question" keyB="answer"
+          placeholderA="Question customers actually ask" placeholderB="How you answer it"
+          addLabel="+ Add FAQ"
+        />
+      )
+    }
+    if (field.key === 'objectionHandlers') {
+      return (
+        <PairListEditor
+          label={field.label}
+          value={value}
+          onChange={onChange}
+          keyA="trigger" keyB="response"
+          placeholderA="If they say..." placeholderB="...respond with"
+          addLabel="+ Add objection"
+        />
+      )
+    }
+    if (field.key === 'addons') {
+      return (
+        <PairListEditor
+          label={field.label}
+          value={value}
+          onChange={onChange}
+          keyA="label" keyB="price"
+          placeholderA="Add-on name" placeholderB="Price (optional)"
+          addLabel="+ Add add-on"
+        />
+      )
+    }
     return null
   }
 
@@ -362,6 +398,64 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
         </div>
       )
   }
+}
+
+/**
+ * Generic editor for the {keyA, keyB}[] shape shared by faqs
+ * ({question, answer}), objectionHandlers ({trigger, response}), and addons
+ * ({label, price}) — one component instead of three near-identical ones, per
+ * the same reasoning as HolidayDatesEditor/SocialLinksEditor above: these are
+ * structured objects, not scalars, so the generic array input can't render
+ * them.
+ */
+function PairListEditor({
+  label, value, onChange, keyA, keyB, placeholderA, placeholderB, addLabel,
+}: {
+  label: string
+  value: FieldValue
+  onChange: (v: FieldValue) => void
+  keyA: string
+  keyB: string
+  placeholderA: string
+  placeholderB: string
+  addLabel: string
+}) {
+  const rows = (Array.isArray(value) ? value : []) as unknown as Record<string, string>[]
+  const update = (next: Record<string, string>[]) => onChange(next as unknown as Record<string, unknown>)
+
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <div className="space-y-2">
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <input
+              placeholder={placeholderA}
+              value={row[keyA] || ''}
+              onChange={(e) => update(rows.map((r, j) => (j === i ? { ...r, [keyA]: e.target.value } : r)))}
+              className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+            <input
+              placeholder={placeholderB}
+              value={row[keyB] || ''}
+              onChange={(e) => update(rows.map((r, j) => (j === i ? { ...r, [keyB]: e.target.value } : r)))}
+              className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+            <button type="button" onClick={() => update(rows.filter((_, j) => j !== i))} className="mt-1.5 text-xs text-slate-400 hover:text-red-500">
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => update([...rows, { [keyA]: '', [keyB]: '' }])}
+          className="text-xs font-medium text-teal-600 hover:text-teal-700"
+        >
+          {addLabel}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface HolidayDate { date: string; label: string; recurring?: boolean }
