@@ -90,4 +90,20 @@ describe('clients/enriched — tenant isolation', () => {
     const clientA = (body.clients as Array<{ id: string; preferred_cleaner: { name: string } | null }>).find((c) => c.id === 'cl-a1')!
     expect(clientA.preferred_cleaner?.name).toBe('A Cleaner')
   })
+
+  // Feature (2026-07-30, Jeff): the client drawer shows why a client is DNS
+  // below the DNS badge -- the enriched list previously never selected or
+  // returned dns_reason at all, so the drawer had nothing to render.
+  it('includes dns_reason for a client marked do_not_service', async () => {
+    const seeded = seed()
+    seeded.clients[0] = { ...seeded.clients[0], do_not_service: true, dns_reason: 'Aggressive dog on property' } as typeof seeded.clients[0]
+    h = createTenantDbHarness(seeded)
+    holder.from = h.from
+
+    const res = await GET(new NextRequest('http://t/api/clients/enriched'))
+    const body = await res.json()
+    const clientA = (body.clients as Array<{ id: string; dns_status: boolean; dns_reason: string | null }>).find((c) => c.id === 'cl-a1')!
+    expect(clientA.dns_status).toBe(true)
+    expect(clientA.dns_reason).toBe('Aggressive dog on property')
+  })
 })

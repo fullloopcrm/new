@@ -644,6 +644,11 @@
   color: var(--clients-muted);
   letter-spacing: 0.06em;
 }
+.clients-drawer-dns-reason {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--clients-danger);
+}
 .clients-drawer-close {
   width: 28px;
   height: 28px;

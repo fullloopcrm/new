@@ -20,6 +20,7 @@ type EnrichedClient = {
   source: string | null
   created_at: string
   dns_status: boolean
+  dns_reason: string | null
   health: number
   health_band: 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
   health_factors: {
@@ -417,6 +418,9 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                   <span>·</span>
                   <span>Day {dayN}</span>
                 </div>
+                {client.dns_status && client.dns_reason && (
+                  <div className="clients-drawer-dns-reason">{client.dns_reason}</div>
+                )}
               </div>
             </div>
             <button className="clients-drawer-close" onClick={onClose} aria-label="Close drawer">✕</button>

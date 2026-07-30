@@ -56,6 +56,7 @@ type EnrichedClient = {
   source: string | null
   created_at: string
   dns_status: boolean
+  dns_reason: string | null
   health: number
   health_band: HealthBand
   health_factors: { frequency: number; spend: number; payment: number; sentiment: number }
