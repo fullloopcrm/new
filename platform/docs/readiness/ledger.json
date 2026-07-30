@@ -108,19 +108,19 @@
         },
         {
           "id": "fin-04",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: src/app/api/finance/ar-aging/route.ts has no .limit()/.range() at all on either its invoices or bookings query -- genuinely unbounded, confirmed present, unfixed.",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Fixed 2026-07-30: getArAging() (src/lib/finance/ar-aging.ts, the real logic behind this route) had zero .limit()/.range() on either its invoices or bookings query. Added an explicit 5000-row cap to both. New test (ar-aging.pagination.test.ts) spies on .limit() and fails without it -- confirmed it genuinely fails against the pre-fix code before confirming it passes against the fix. Capped at test_run (90), not live_query, since this was verified via a mocked unit test, not a live prod hit.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "99fbfff1e"
         },
         {
           "id": "fin-05",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: src/app/api/client-analytics/route.ts has no .limit()/.range() either.",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Fixed 2026-07-30: src/app/api/client-analytics/route.ts had zero .limit()/.range() across all 4 queries (clients, completed/cancelled/all bookings). Added an explicit 5000-row cap to each. New test (route.pagination.test.ts) spies on .limit() across all 4 and fails without it -- confirmed it genuinely fails against the pre-fix code before confirming it passes against the fix. NOT a complete fix: this route still does an in-memory client/booking join rather than a real SQL aggregation, so a tenant that ever exceeds 5000 clients or bookings would see incomplete stats, not a crash -- that rebuild is separate and larger. Capped at test_run (90), not live_query.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "99fbfff1e"
         },
         {
           "id": "fin-06",
