@@ -1,0 +1,5790 @@
+{
+  "classified": [
+    {
+      "path": "src/app/api/service-area/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Per-tenant service area (local/national + states + zones). GET  → resolved ServiceArea for the current tenant (no secrets). PUT  → persist a new Servi"
+    },
+    {
+      "path": "src/app/api/categories/route.ts",
+      "tables": [
+        "categories"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": "Shared category tree — used by Catalog (service_types), Vendors, and Inventory (see 2026_07_21_shared_categories.sql). A category can carry a default "
+    },
+    {
+      "path": "src/app/api/equipment/route.ts",
+      "tables": [
+        "equipment"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/routes/route.ts",
+      "tables": [
+        "routes",
+        "team_members",
+        "tenants",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": "Routes — list + create."
+    },
+    {
+      "path": "src/app/api/notifications/route.ts",
+      "tables": [
+        "bookings",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/pin-reset/route.ts",
+      "tables": [
+        "tenant_members",
+        "tenants",
+        "member_pin_reset_codes"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "onboarding_activation",
+      "doc": "Missing-table (pre-migration) → a clean 503 instead of a 500."
+    },
+    {
+      "path": "src/app/api/referrers/route.ts",
+      "tables": [
+        "referrers",
+        "sales_partners"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/recurring-expenses/route.ts",
+      "tables": [
+        "recurring_expenses"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Recurring expenses (rent, insurance, software subs, etc.)"
+    },
+    {
+      "path": "src/app/api/indexnow/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/reviews/route.ts",
+      "tables": [
+        "reviews",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/yinez/route.ts",
+      "tables": [
+        "sms_conversations",
+        "clients"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sms/route.ts",
+      "tables": [
+        "sms_conversation_messages",
+        "sms_conversations",
+        "clients",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/send-booking-emails/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Admin endpoint — resend booking confirmation (email or SMS) to the client and/or the assigned team member. Uses the shared notify() helper which is al"
+    },
+    {
+      "path": "src/app/api/referrals/route.ts",
+      "tables": [
+        "referrals"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/route.ts",
+      "tables": [
+        "leads",
+        "partner_requests"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/projects/route.ts",
+      "tables": [
+        "projects",
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/health/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/route.ts",
+      "tables": [
+        "sales_partners",
+        "tenants",
+        "documents",
+        "document_signers",
+        "document_fields"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client-feedback/route.ts",
+      "tables": [
+        "yinez_memory",
+        "client_feedback"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/deals/route.ts",
+      "tables": [
+        "deals",
+        "clients",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": "Deals (sales pipeline) — CRUD. Tenant-scoped. Ported from nycmaid."
+    },
+    {
+      "path": "src/app/api/schedules/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "clients",
+        "team_members",
+        "service_types",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/unsubscribe/route.ts",
+      "tables": [
+        "clients",
+        "marketing_opt_out_log"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": "Unsubscribe requires a signed token. Without it, any caller could opt out any client by guessing UUIDs.  GET  /api/unsubscribe?t=<token>       → redir"
+    },
+    {
+      "path": "src/app/api/tenants/route.ts",
+      "tables": [
+        "tenant_members",
+        "tenants",
+        "service_types"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client-analytics/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin-chat/route.ts",
+      "tables": [
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/feedback/route.ts",
+      "tables": [
+        "platform_feedback",
+        "tenants",
+        "notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/waitlist/route.ts",
+      "tables": [
+        "waitlist",
+        "sms_conversations"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/route.ts",
+      "tables": [
+        "clients",
+        "sales_partners",
+        "referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/apply/route.ts",
+      "tables": [
+        "team_applications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin-auth/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": "Returns {memberId, role} only if the token is a valid tenant_admin token AND its tenantId matches the tenant the request is being served for. This is "
+    },
+    {
+      "path": "src/app/api/pipeline/route.ts",
+      "tables": [
+        "deals"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Pipeline snapshot — all open + recently closed deals grouped by stage + forecast + stage totals. One request feeds the Kanban view."
+    },
+    {
+      "path": "src/app/api/crews/route.ts",
+      "tables": [
+        "crews",
+        "crew_members",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Crews CRUD — a crew is a named, reusable group of team members, tenant-scoped. Assignable to a job session/booking so a whole team schedules at once."
+    },
+    {
+      "path": "src/app/api/cleaners/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Legacy nycmaid path — /api/cleaners reads/writes team_members. Kept as thin compatibility shim so nycmaid-era code/frontends keep working."
+    },
+    {
+      "path": "src/app/api/contact/route.ts",
+      "tables": [
+        "team_applications",
+        "clients",
+        "portal_leads",
+        "deals",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referral-commissions/route.ts",
+      "tables": [
+        "referrers",
+        "referral_commissions",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/tenant-profile/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Autosave: persist raw in-progress form state, no validation."
+    },
+    {
+      "path": "src/app/api/setup-checklist/route.ts",
+      "tables": [
+        "clients",
+        "service_types",
+        "team_members",
+        "bookings",
+        "campaigns",
+        "reviews",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/prospects/route.ts",
+      "tables": [
+        "prospects",
+        "partner_requests"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Public prospect qualification intake. No auth. Posts to prospects table. Checks for trade × zip slot collision."
+    },
+    {
+      "path": "src/app/api/inquiry/route.ts",
+      "tables": [
+        "inquiries",
+        "partner_requests"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sidebar-counts/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "website_visits",
+        "notifications",
+        "connect_channels",
+        "connect_read_cursors",
+        "connect_messages",
+        "tenant_owner_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/chat/route.ts",
+      "tables": [
+        "clients",
+        "sms_conversations"
+      ],
+      "primary": "crm_core",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/route.ts",
+      "tables": [
+        "bookings",
+        "clients",
+        "client_properties",
+        "team_members",
+        "service_types",
+        "booking_notes",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/invoices/route.ts",
+      "tables": [
+        "invoices",
+        "bookings",
+        "quotes",
+        "clients"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Invoices — list + create. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/quotes/route.ts",
+      "tables": [
+        "quotes",
+        "clients",
+        "deals",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": "Quotes — list + create. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/dashboard/route.ts",
+      "tables": [
+        "bookings",
+        "clients",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Admin dashboard aggregator — today/week/month/year bookings, map data, financials, client counts, team list. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/booking-notes/route.ts",
+      "tables": [
+        "bookings",
+        "booking_notes",
+        "jobs",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/lead/route.ts",
+      "tables": [
+        "team_applications",
+        "clients",
+        "portal_leads",
+        "deals",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quote-budgets/route.ts",
+      "tables": [
+        "quotes",
+        "quote_budgets",
+        "budget_line_items"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Master Budget — list quotes with their budget (if set), tenant-scoped. Backs the Master Budget page under Sales. Per-quote budget CRUD lives at /api/q"
+    },
+    {
+      "path": "src/app/api/audit/route.ts",
+      "tables": [
+        "audit_logs"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/selena/route.ts",
+      "tables": [
+        "sms_conversations",
+        "sms_conversation_messages",
+        "notifications",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/attribution/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Attribution — match unattributed bookings to the domain that sourced them via CTA clicks / landing pages. Tenant-scoped.  POST: run attribution (optio"
+    },
+    {
+      "path": "src/app/api/sales-partner-commissions/route.ts",
+      "tables": [
+        "sales_partners",
+        "sales_partner_commissions",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Moves the actual money for a paid_via:'stripe_connect' commission. Requires the partner to have completed onboarding (stripe_ready_at set) -- a connec"
+    },
+    {
+      "path": "src/app/api/import-clients/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": "Bulk client import. Admin-only. Tenant-scoped. Uses crypto.randomInt for PIN generation (migration 014 enforces unique PIN per tenant, so collisions 4"
+    },
+    {
+      "path": "src/app/api/availability/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Public availability endpoint — returns available time slots for a date. Duration-aware: longer services filter out late slots. GET /api/availability?d"
+    },
+    {
+      "path": "src/app/api/campaigns/route.ts",
+      "tables": [
+        "campaigns"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/tenant-sitemap/route.ts",
+      "tables": [
+        "tenants",
+        "service_types"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Dynamic XML sitemap for a tenant site.  Called via /api/tenant-sitemap?slug=the-nyc-maid The middleware can also rewrite /sitemap.xml to this route."
+    },
+    {
+      "path": "src/app/api/jobs/route.ts",
+      "tables": [
+        "jobs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Jobs list + money reconciliation. Returns every job for the tenant with a per-job payment rollup (contracted / paid / due / overdue) and a tenant-wide"
+    },
+    {
+      "path": "src/app/api/sales-applications/route.ts",
+      "tables": [
+        "sales_applications",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-availability/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Admin endpoint — returns per-team-member availability for a specific time slot. Now includes smart ranking: preferred → history → workload.  GET /api/"
+    },
+    {
+      "path": "src/app/api/team-applications/route.ts",
+      "tables": [
+        "team_applications",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/system-check/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_members",
+        "bookings",
+        "notifications",
+        "error_logs",
+        "campaigns"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/sync-google-reviews/route.ts",
+      "tables": [
+        "tenants",
+        "google_reviews",
+        "notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/finance-post/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/onboarding-nudge/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/release-due-payments/route.ts",
+      "tables": [
+        "job_payments"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/email-monitor/route.ts",
+      "tables": [
+        "tenants",
+        "notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "ai_agent_communications",
+      "doc": "Email-monitor cron — every minute, calls /api/email/monitor. Bails instantly if no tenants have email_monitor_enabled to keep cost low."
+    },
+    {
+      "path": "src/app/api/cron/lifecycle/route.ts",
+      "tables": [
+        "tenants",
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/anthropic-health/route.ts",
+      "tables": [
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/legal-overlook-check/route.ts",
+      "tables": [
+        "legal_tips",
+        "legal_tip_triggers",
+        "tenants",
+        "entities",
+        "legal_tip_notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/renurture/route.ts",
+      "tables": [
+        "tenants",
+        "clients",
+        "bookings",
+        "recurring_schedules",
+        "renurture_log"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/cleanup-videos/route.ts",
+      "tables": [
+        "bookings",
+        "uploads"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/payment-reminder/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "admin_tasks",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": "Payment reminder cron — ported from nycmaid (every 5 min). Finds bookings where the 30-min alert was sent but no payment received, and re-pings the cl"
+    },
+    {
+      "path": "src/app/api/cron/no-show-check/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/comms-monitor/route.ts",
+      "tables": [
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/expire-conversations/route.ts",
+      "tables": [
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/phone-fixup/route.ts",
+      "tables": [
+        "tenants",
+        "team_members",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/daily-summary/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "recurring_schedules",
+        "notifications",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/confirmation-reminder/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/post-depreciation/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/health-check/route.ts",
+      "tables": [
+        "notifications",
+        "tenants",
+        "clients",
+        "bookings"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/generate-recurring/route.ts",
+      "tables": [
+        "team_members",
+        "recurring_schedules",
+        "tenants",
+        "bookings",
+        "service_types",
+        "clients",
+        "notifications",
+        "recurring_exceptions"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/post-job-followup/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "jobs",
+        "job_events"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/late-check-in/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/backup/route.ts",
+      "tables": [
+        "tenants",
+        "clients",
+        "bookings",
+        "team_members",
+        "service_types",
+        "recurring_schedules",
+        "reviews",
+        "notifications",
+        "campaigns",
+        "referrals",
+        "expenses",
+        "payroll_payments"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/confirmations/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/sales-follow-ups/route.ts",
+      "tables": [
+        "deals",
+        "notifications"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "ai_agent_communications",
+      "doc": "Sales follow-ups cron — daily at 10am. Finds deals whose follow_up_at fell due in the last hour and notifies each tenant's admin. Tenant-aware port fr"
+    },
+    {
+      "path": "src/app/api/cron/outreach/route.ts",
+      "tables": [
+        "tenants",
+        "clients",
+        "bookings",
+        "recurring_schedules",
+        "deals",
+        "outreach_log"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Seasonal outreach cron — Saturdays at 10am ET. For each tenant with SMS configured: send a warm seasonal check-in to clients who are NOT already booke"
+    },
+    {
+      "path": "src/app/api/cron/duplicate-schedule-audit/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/reminders/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/comhub-email/route.ts",
+      "tables": [
+        "tenants",
+        "comhub_messages",
+        "comhub_threads",
+        "clients"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/health-monitor/route.ts",
+      "tables": [
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/rating-prompt/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/recurring-expenses/route.ts",
+      "tables": [
+        "recurring_expenses",
+        "journal_entries",
+        "chart_of_accounts",
+        "notifications"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "ai_agent_communications",
+      "doc": "Cron: fire due recurring_expenses, record failures + retry counts. Schedule via vercel.json. Uses CRON_SECRET Bearer auth."
+    },
+    {
+      "path": "src/app/api/referrers/[code]/route.ts",
+      "tables": [
+        "referrers",
+        "tenants",
+        "tenant_domains",
+        "referral_commissions",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/analytics/route.ts",
+      "tables": [
+        "lead_clicks",
+        "bookings",
+        "referrers"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Referrer analytics — referral traffic overview, top referrers, recent activity. Tenant-scoped. Ported from nycmaid."
+    },
+    {
+      "path": "src/app/api/recurring-expenses/[id]/route.ts",
+      "tables": [
+        "recurring_expenses"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/reviews/submit/route.ts",
+      "tables": [
+        "clients",
+        "reviews"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": "Public review submission. Called from tenant sites — tenant resolved via the request host (set by middleware x-tenant-id header). Moderated: status=pe"
+    },
+    {
+      "path": "src/app/api/reviews/request/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "reviews"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/send-apology-batch/route.ts",
+      "tables": [
+        "tenants",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": "Apology batch — ported from nycmaid. Sends a discount-credit SMS to one or many clients in a single admin action."
+    },
+    {
+      "path": "src/app/api/admin/clients/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/settings/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/businesses/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/calendar/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/system-check/route.ts",
+      "tables": [
+        "error_logs",
+        "notifications",
+        "tenants",
+        "tenant_members",
+        "bookings",
+        "campaigns"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/prospects/route.ts",
+      "tables": [
+        "prospects"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Super-admin prospect review."
+    },
+    {
+      "path": "src/app/api/admin/sales/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_settings"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/bookings/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/sms/route.ts",
+      "tables": [
+        "tenants",
+        "sms_conversations",
+        "client_sms_messages"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/security/route.ts",
+      "tables": [
+        "security_events",
+        "audit_log"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/activity/route.ts",
+      "tables": [
+        "audit_logs"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/geocode-backfill/route.ts",
+      "tables": [
+        "clients",
+        "team_members"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Backfill lat/lng for clients + team_members that don't have coords. Tenant-scoped. Ported from nycmaid. Auth: settings.edit."
+    },
+    {
+      "path": "src/app/api/admin/referrals/route.ts",
+      "tables": [
+        "referrals"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/schedule-issues/route.ts",
+      "tables": [
+        "schedule_issues"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/leads/route.ts",
+      "tables": [
+        "website_visits",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-schedules/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "bookings",
+        "clients",
+        "team_members",
+        "client_properties"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/broadcast-guidelines/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Broadcast guidelines update to all active team members of the calling tenant. Uses per-team-member notifications via the existing notify() helper (SMS"
+    },
+    {
+      "path": "src/app/api/admin/cleanup-phones/route.ts",
+      "tables": [
+        "clients",
+        "team_members",
+        "sms_conversations"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Strip bidi/zero-width chars from phone columns — tenant-scoped. Ported from nycmaid. Auth: requires settings.edit permission."
+    },
+    {
+      "path": "src/app/api/admin/client-feedback/route.ts",
+      "tables": [
+        "client_feedback",
+        "clients",
+        "tenants"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/announcements/route.ts",
+      "tables": [
+        "platform_announcements",
+        "notifications",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/tenants/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/ai-chat/route.ts",
+      "tables": [
+        "clients",
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Admin AI Chat — CRM copilot. Claude with tools for querying and mutating the tenant's CRM data. Tenant-scoped end-to-end.  Ported from nycmaid: cleane"
+    },
+    {
+      "path": "src/app/api/admin/tenant-chats/route.ts",
+      "tables": [
+        "tenant_owner_messages",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/team/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/users/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/selena/route.ts",
+      "tables": [
+        "sms_conversations",
+        "sms_conversation_messages",
+        "notifications",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/marketing/route.ts",
+      "tables": [
+        "campaigns"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/travel-times/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Batch travel-time builder across a date or date range. Ported from nycmaid `/api/admin/travel-times` (plural). Returns CleanerRoute[] for a single dat"
+    },
+    {
+      "path": "src/app/api/admin/finance/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/errors/route.ts",
+      "tables": [
+        "error_logs",
+        "notifications"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "ai_agent_communications",
+      "doc": "PATCH /api/admin/errors — Resolve an error Body: { errorId: string, notes?: string }"
+    },
+    {
+      "path": "src/app/api/admin/seo/route.ts",
+      "tables": [
+        "seo_fleet_summary",
+        "seo_issue_summary",
+        "seo_changes",
+        "seo_competitor_summary",
+        "seo_issues",
+        "seo_site_score"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/invites/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_invites"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/impersonate/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/notifications/route.ts",
+      "tables": [
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/email/route.ts",
+      "tables": [
+        "tenants",
+        "email_logs"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/billing/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_settings"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/analytics/route.ts",
+      "tables": [
+        "bookings",
+        "clients",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/me/route.ts",
+      "tables": [
+        "sales_partners",
+        "tenants",
+        "tenant_domains",
+        "sales_partner_commissions",
+        "referrers",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/deals/team-mentions/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Lightweight team-member lookup for @-mention autocomplete in the deal activity composer. Gated on sales.view (not team.view) so it works for any role "
+    },
+    {
+      "path": "src/app/api/deals/manual/route.ts",
+      "tables": [
+        "clients",
+        "deals",
+        "deal_activities"
+      ],
+      "primary": "crm_core",
+      "secondary": "lead_sale_schedule",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/deals/[id]/route.ts",
+      "tables": [
+        "deals",
+        "deal_activities",
+        "clients"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": "Deal by id — read, update (title/value/probability/close date/notes/follow-up), delete."
+    },
+    {
+      "path": "src/app/api/deals/at-risk/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "deals"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Workable client list for outreach — splits active clients into:  - withUpcoming: has future scheduled bookings (excluded from outreach)  - workable: n"
+    },
+    {
+      "path": "src/app/api/user/preferences/route.ts",
+      "tables": [
+        "tenant_members",
+        "user_preferences"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "security_auth_infra",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/schedules/[id]/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/tenants/public/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/enriched/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "recurring_schedules",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/route.ts",
+      "tables": [
+        "clients",
+        "team_members",
+        "client_properties"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/import/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/stats/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/analytics/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/request-automation/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Tenants can't author net-new automated triggers themselves (a new trigger needs code to fire its event). Instead they request one here; it files to th"
+    },
+    {
+      "path": "src/app/api/settings/page-config/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/permissions/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/team/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/portal-permissions/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/team-announcements/route.ts",
+      "tables": [
+        "team_announcements",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/notifications/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin-auth/me/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": "Admin session check — returns the current admin identity if the cookie is valid. Ported from nycmaid `/api/auth/me` (was DB-backed admin_users; here i"
+    },
+    {
+      "path": "src/app/api/payments/checkout/route.ts",
+      "tables": [
+        "bookings",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/payments/link/route.ts",
+      "tables": [
+        "bookings",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cleaners/priority/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Bulk priority reorder — tenant-scoped. Ported from nycmaid. Reads/writes team_members.priority."
+    },
+    {
+      "path": "src/app/api/cleaners/[id]/route.ts",
+      "tables": [
+        "team_members",
+        "bookings",
+        "recurring_schedules"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Legacy nycmaid path — /api/cleaners/[id] shim over team_members. PUT updates, DELETE nulls FKs then removes."
+    },
+    {
+      "path": "src/app/api/cleaners/upload/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Team member photo upload — legacy nycmaid path. Writes to storage bucket `team-photos` (per-tenant namespaced), updates team_members.photo_url / avata"
+    },
+    {
+      "path": "src/app/api/schedule/calendar/route.ts",
+      "tables": [
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/collect/route.ts",
+      "tables": [
+        "clients",
+        "referrers",
+        "notifications",
+        "portal_leads",
+        "sms_conversations"
+      ],
+      "primary": "crm_core",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/messages/route.ts",
+      "tables": [
+        "clients",
+        "comhub_contacts",
+        "comhub_messages",
+        "comhub_threads"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/bookings/route.ts",
+      "tables": [
+        "bookings",
+        "service_types",
+        "client_properties"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/config/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/auth/route.ts",
+      "tables": [
+        "clients",
+        "tenants"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/contacts/route.ts",
+      "tables": [
+        "client_contacts"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/feedback/route.ts",
+      "tables": [
+        "bookings",
+        "reviews"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/notes/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/properties/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/availability/route.ts",
+      "tables": [
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/request/route.ts",
+      "tables": [
+        "clients",
+        "deals"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/photos/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/connect/route.ts",
+      "tables": [
+        "connect_channels",
+        "clients",
+        "connect_messages",
+        "connect_read_cursors",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/batch-update/route.ts",
+      "tables": [
+        "clients",
+        "team_members",
+        "service_types",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Batch update multiple bookings in parallel. Sends ONE notification (for the first booking). Used for \"all future bookings\" edits on recurring series. "
+    },
+    {
+      "path": "src/app/api/bookings/closeout/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/batch/route.ts",
+      "tables": [
+        "clients",
+        "team_members",
+        "service_types",
+        "recurring_schedules",
+        "bookings",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": "POST /api/bookings/batch Bulk-create bookings (e.g. recurring schedule expansion). Notifications are sent ONLY for the first row."
+    },
+    {
+      "path": "src/app/api/bookings/[id]/route.ts",
+      "tables": [
+        "bookings",
+        "clients",
+        "team_members",
+        "service_types",
+        "client_properties",
+        "tenants",
+        "notifications",
+        "recurring_schedules",
+        "payments",
+        "reviews",
+        "team_member_payouts"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/broadcast/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "team_members",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/stats/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/invoices/[id]/route.ts",
+      "tables": [
+        "invoices",
+        "invoice_activity",
+        "payments",
+        "clients"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "crm_core",
+      "doc": "Invoice by id — read, update (pre-sent only), void."
+    },
+    {
+      "path": "src/app/api/quotes/[id]/route.ts",
+      "tables": [
+        "quotes",
+        "quote_activity",
+        "clients"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": "Quote by id — read, update (draft-only), delete."
+    },
+    {
+      "path": "src/app/api/dashboard/team-messages/route.ts",
+      "tables": [
+        "team_members",
+        "team_direct_messages"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/messages/route.ts",
+      "tables": [
+        "tenant_owner_messages",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/comms-preview/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Dev preview of the unified comms look — renders emailShell with the current tenant's real brand so the operator can eyeball it in the browser. Also sh"
+    },
+    {
+      "path": "src/app/api/dashboard/documents/route.ts",
+      "tables": [
+        "client_documents",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/legal/route.ts",
+      "tables": [
+        "tenants",
+        "legal_tip_notifications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Legal Overlook API — read-only tip feed + dismiss + one-time disclaimer acknowledgment. No free-text input is ever accepted here: this is a surface-an"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/route.ts",
+      "tables": [
+        "jobs",
+        "job_payments",
+        "bookings",
+        "job_events",
+        "clients",
+        "quotes",
+        "deals"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "lead_sale_schedule",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-applications/bulk-approve/route.ts",
+      "tables": [
+        "team_applications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/connect/messages/route.ts",
+      "tables": [
+        "connect_channels",
+        "connect_messages",
+        "connect_read_cursors"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/connect/unread/route.ts",
+      "tables": [
+        "connect_channels",
+        "connect_read_cursors",
+        "connect_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/connect/channels/route.ts",
+      "tables": [
+        "connect_channels",
+        "connect_messages",
+        "clients",
+        "team_members",
+        "connect_channel_members"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/smart-schedule/route.ts",
+      "tables": [
+        "clients",
+        "team_members"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/collect/route.ts",
+      "tables": [
+        "clients",
+        "referrers",
+        "sms_conversations"
+      ],
+      "primary": "crm_core",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/bookings/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/notes/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/properties/route.ts",
+      "tables": [
+        "clients",
+        "property_changes"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/book/route.ts",
+      "tables": [
+        "clients",
+        "referrers",
+        "sales_partners",
+        "bookings",
+        "booking_notes",
+        "email_logs",
+        "deals"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Trade-neutral fallback when no service_type is supplied — the tenant's own first-ranked preset for its industry, not a hardcoded cleaning term."
+    },
+    {
+      "path": "src/app/api/client/verify-code/route.ts",
+      "tables": [
+        "verification_codes",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/check/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/login/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": "Client PIN login. Called from the copied nycmaid /site/book/dashboard flow. Tenant resolved from middleware-signed x-tenant-id so clients log in to th"
+    },
+    {
+      "path": "src/app/api/client/recurring/route.ts",
+      "tables": [
+        "client_properties",
+        "bookings",
+        "team_members",
+        "clients",
+        "recurring_schedules",
+        "booking_team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/preferred-cleaner/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "team_members"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/routes/auto-build/route.ts",
+      "tables": [
+        "bookings",
+        "tenants",
+        "routes"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/routes/[id]/route.ts",
+      "tables": [
+        "routes",
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Route by id — read, update (stops reorder, status), delete."
+    },
+    {
+      "path": "src/app/api/email/monitor/route.ts",
+      "tables": [
+        "payments",
+        "bookings",
+        "notifications",
+        "unmatched_payments",
+        "admin_tasks",
+        "clients",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/schedule-monitor/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "schedule_issues"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "security_auth_infra",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/tenant-health/route.ts",
+      "tables": [
+        "tenant_domains",
+        "tenants",
+        "tenant_health"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/payment-followup-daily/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "sms_logs"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/gdpr/export/route.ts",
+      "tables": [
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/booking-notes/video/route.ts",
+      "tables": [
+        "uploads",
+        "bookings",
+        "jobs",
+        "booking_notes"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/booking-notes/upload/route.ts",
+      "tables": [
+        "bookings",
+        "jobs",
+        "booking_notes",
+        "uploads"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quote-budgets/[quoteId]/route.ts",
+      "tables": [
+        "quotes",
+        "quote_budgets"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quote-budgets/recurring/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "quote_budgets",
+        "budget_line_items"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Master Budget — list recurring_schedules with their budget (if set), tenant-scoped. Sibling to /api/quote-budgets (which lists quotes) so the Budgets "
+    },
+    {
+      "path": "src/app/api/team/[id]/route.ts",
+      "tables": [
+        "team_members",
+        "bookings",
+        "booking_team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/ai/assistant/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/ai/chat/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/attribution/manual/route.ts",
+      "tables": [
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": "Manual attribution — admin picks a domain for a booking that the automatic attribution couldn't match. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/finance/payroll-prep/route.ts",
+      "tables": [
+        "team_members",
+        "bookings",
+        "team_member_payouts"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Payroll / 1099 prep — per team member gross pay + hours + payouts, plus annual 1099-flag when year-to-date hits $600.  GET /api/finance/payroll-prep?f"
+    },
+    {
+      "path": "src/app/api/finance/receipts/route.ts",
+      "tables": [
+        "tenants",
+        "bank_transactions"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/mark-paid/route.ts",
+      "tables": [
+        "bookings",
+        "payments"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/periods/route.ts",
+      "tables": [
+        "accounting_periods",
+        "entities"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "onboarding_activation",
+      "doc": "Accounting periods — list + open/close/reopen."
+    },
+    {
+      "path": "src/app/api/finance/chart-of-accounts/route.ts",
+      "tables": [
+        "chart_of_accounts"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Chart of Accounts — list + create + seed defaults."
+    },
+    {
+      "path": "src/app/api/finance/ai-ask/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Natural-language finance Q&A. Loads precomputed snapshot + asks Claude to answer. Not a full agent loop — just one-shot on stats."
+    },
+    {
+      "path": "src/app/api/finance/audit-log/route.ts",
+      "tables": [
+        "audit_log"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": "Searchable audit log across all tracked tables."
+    },
+    {
+      "path": "src/app/api/finance/backfill/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Finance backfill — fill in `actual_hours`, `team_member_pay`, and `price` for completed bookings missing those fields. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/finance/statements/route.ts",
+      "tables": [
+        "bank_statements",
+        "finance"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/cash-flow/route.ts",
+      "tables": [
+        "bookings",
+        "invoices",
+        "recurring_expenses"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "4-week cash flow forecast. Inflows: scheduled bookings, unpaid invoices with due date Outflows: recurring expenses scheduled in window"
+    },
+    {
+      "path": "src/app/api/finance/bank-transactions/route.ts",
+      "tables": [
+        "bank_transactions"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Bank transactions list — for review/categorization UI."
+    },
+    {
+      "path": "src/app/api/finance/tax-export/route.ts",
+      "tables": [
+        "bookings",
+        "expenses"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Tax-ready CSV export for the accountant. GET /api/finance/tax-export?year=YYYY  → CSV of revenue, expenses, payouts."
+    },
+    {
+      "path": "src/app/api/finance/cleaner-income/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/bank-accounts/route.ts",
+      "tables": [
+        "bank_accounts",
+        "entities",
+        "chart_of_accounts"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/reconcile-candidates/route.ts",
+      "tables": [
+        "bank_transactions",
+        "invoices",
+        "bookings",
+        "expenses"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Reconciliation candidates — returns pending bank txns alongside matchable invoices / bookings / expenses with precomputed suggested matches (amount + "
+    },
+    {
+      "path": "src/app/api/finance/year-end-zip/route.ts",
+      "tables": [
+        "invoices",
+        "expenses",
+        "team_member_payouts"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Year-end package zip — P&L, Trial Balance, General Ledger, Invoices, Expenses, Payouts. One-click download for accountant."
+    },
+    {
+      "path": "src/app/api/finance/bank-import/route.ts",
+      "tables": [
+        "bank_accounts",
+        "bank_import_batches",
+        "bank_transactions"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Bank statement import. Multipart upload → parse → dedupe → persist."
+    },
+    {
+      "path": "src/app/api/finance/payroll/route.ts",
+      "tables": [
+        "team_members",
+        "bookings",
+        "payroll_payments"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/revenue/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/pnl/route.ts",
+      "tables": [
+        "bookings",
+        "expenses"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Profit & Loss statement. GET /api/finance/pnl?from=YYYY-MM-DD&to=YYYY-MM-DD   → revenue (paid + collected), cost-of-services (team_member_pay),     ex"
+    },
+    {
+      "path": "src/app/api/finance/entities/route.ts",
+      "tables": [
+        "entities"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/summary/route.ts",
+      "tables": [
+        "bookings",
+        "referral_commissions",
+        "payments",
+        "team_member_payouts"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/pending/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/campaigns/[id]/route.ts",
+      "tables": [
+        "campaigns"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/campaigns/send/route.ts",
+      "tables": [
+        "campaigns",
+        "clients",
+        "tenants",
+        "campaign_recipients"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/[id]/stripe-status/route.ts",
+      "tables": [
+        "tenants",
+        "sales_partners"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/[id]/stripe-onboard/route.ts",
+      "tables": [
+        "sales_partners",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/[id]/stripe-invite/route.ts",
+      "tables": [
+        "sales_partners",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/deals/[id]/activities/route.ts",
+      "tables": [
+        "deals",
+        "deal_activities",
+        "team_members"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Deal activities — notes/calls/texts/emails/quotes on a given deal. Tenant-scoped. Ported from nycmaid."
+    },
+    {
+      "path": "src/app/api/deals/[id]/stage/route.ts",
+      "tables": [
+        "deals",
+        "deal_activities",
+        "quotes"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Move a deal to a new stage. Logs a stage_change activity."
+    },
+    {
+      "path": "src/app/api/schedules/[id]/pause/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "bookings",
+        "notifications",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/channels/route.ts",
+      "tables": [
+        "comhub_threads"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_members",
+        "tenant_invites",
+        "clients",
+        "bookings",
+        "team_members",
+        "service_types",
+        "leads",
+        "partner_requests"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/prospects/[id]/route.ts",
+      "tables": [
+        "prospects"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Super-admin prospect actions: approve (generates Stripe checkout link), reject, set status."
+    },
+    {
+      "path": "src/app/api/admin/schedule-issues/fix/route.ts",
+      "tables": [
+        "bookings",
+        "schedule_issues"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "security_auth_infra",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-schedules/[id]/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/message-applicants/send/route.ts",
+      "tables": [
+        "cleaner_applications",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cleaners/[id]/role/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Set a field-staff member's portal tier (worker/lead/manager) in isolation, without touching their schedule/profile fields. Drives portal permissions."
+    },
+    {
+      "path": "src/app/api/portal/bookings/[id]/route.ts",
+      "tables": [
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/contacts/verify/route.ts",
+      "tables": [
+        "client_contacts",
+        "tenants",
+        "portal_contact_verify_codes"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/contacts/[contactId]/route.ts",
+      "tables": [
+        "client_contacts"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/connect/unread/route.ts",
+      "tables": [
+        "connect_channels",
+        "connect_read_cursors",
+        "connect_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/auth/verify/route.ts",
+      "tables": [
+        "referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/auth/request/route.ts",
+      "tables": [
+        "tenants",
+        "referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/connect/[id]/route.ts",
+      "tables": [
+        "referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/payments/confirm-match/route.ts",
+      "tables": [
+        "unmatched_payments",
+        "bookings",
+        "payments",
+        "tenants",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/payments/finalize-match/route.ts",
+      "tables": [
+        "bookings",
+        "clients"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": "Internal-key-gated Zelle/Venmo match finalizer. Ported from nycmaid. Called by automated reconciliation tools. Tenant resolved from the booking being "
+    },
+    {
+      "path": "src/app/api/admin/find-cleaner/broadcast-booking/route.ts",
+      "tables": [
+        "team_members",
+        "cleaner_applications",
+        "tenants",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/find-cleaner/preview/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/find-cleaner/send/route.ts",
+      "tables": [
+        "tenants",
+        "team_members",
+        "cleaner_broadcasts",
+        "cleaner_broadcast_recipients"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/threads/route.ts",
+      "tables": [
+        "comhub_threads",
+        "comhub_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/search-recipients/route.ts",
+      "tables": [
+        "clients",
+        "team_members"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/send/route.ts",
+      "tables": [
+        "tenant_members",
+        "tenants",
+        "comhub_threads",
+        "comhub_messages",
+        "comhub_mentions",
+        "comhub_contacts"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "security_auth_infra",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/activity/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/contacts/route.ts",
+      "tables": [
+        "client_contacts",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/transcript/route.ts",
+      "tables": [
+        "client_sms_messages",
+        "sms_conversations",
+        "sms_conversation_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/properties/route.ts",
+      "tables": [
+        "clients",
+        "property_changes"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/export/route.ts",
+      "tables": [
+        "clients",
+        "bookings",
+        "invoices",
+        "client_sms_messages"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/tenants/[id]/route.ts",
+      "tables": [
+        "tenants",
+        "tenant_members",
+        "clients",
+        "bookings",
+        "team_members"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/users/[id]/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": "Individual tenant member update/delete — tenant-scoped. Ported from nycmaid `/api/admin/users/[id]`. Password field accepted but ignored: fullloop use"
+    },
+    {
+      "path": "src/app/api/admin/selena/monitor/route.ts",
+      "tables": [
+        "tenants",
+        "sms_conversations",
+        "notifications",
+        "sms_conversation_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/selena/sms-status/route.ts",
+      "tables": [
+        "sms_conversation_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/selena/score/route.ts",
+      "tables": [
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": "Selena scoring API — ported from nycmaid. GET — recent scored conversations + averages. POST — manual rescoring of one or many conversations."
+    },
+    {
+      "path": "src/app/api/admin/finance/more/route.ts",
+      "tables": [
+        "tenants",
+        "service_types"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/finance/jobs/route.ts",
+      "tables": [
+        "budget_line_items",
+        "quote_budgets",
+        "jobs",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/campaigns/preview/route.ts",
+      "tables": [
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": "Campaign preview — returns the audience count (filtered by contact segment) and a rendered HTML preview. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/admin/monitoring/status/route.ts",
+      "tables": [
+        "error_logs"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": "Platform monitoring status endpoint — read-only. Admin-scoped. Returns cron freshness + comms/selena/pipeline counts for the admin dashboard."
+    },
+    {
+      "path": "src/app/api/admin/monitoring/audit/route.ts",
+      "tables": [
+        "audit_logs",
+        "tenants"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/monitoring/errors/route.ts",
+      "tables": [
+        "error_logs",
+        "tenants"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "onboarding_activation",
+      "doc": "Platform error/security log — admin-scoped, cross-tenant by design (this is the review surface for src/lib/error-tracking.ts's error_logs writes, whic"
+    },
+    {
+      "path": "src/app/api/quote-budgets/recurring/[scheduleId]/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "quote_budgets"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/receipts/attach/route.ts",
+      "tables": [
+        "bank_transactions",
+        "chart_of_accounts",
+        "categorization_patterns"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Attach an uploaded receipt to a bank transaction. Optionally categorize and post in one step."
+    },
+    {
+      "path": "src/app/api/team-portal/media-note/route.ts",
+      "tables": [
+        "bookings",
+        "uploads",
+        "team_members",
+        "booking_notes"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/preferences/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/messages/route.ts",
+      "tables": [
+        "team_members",
+        "comhub_contacts",
+        "comhub_messages",
+        "comhub_threads"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/rating/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/auth/route.ts",
+      "tables": [
+        "tenants",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": "First hop of x-forwarded-for (Vercel sets it), falling back to x-real-ip."
+    },
+    {
+      "path": "src/app/api/team-portal/running-late/route.ts",
+      "tables": [
+        "bookings",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/checkout/route.ts",
+      "tables": [
+        "bookings",
+        "service_types",
+        "referrers",
+        "referral_commissions",
+        "notifications",
+        "sales_partners",
+        "sales_partner_commissions"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/earnings/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/30min-alert/route.ts",
+      "tables": [
+        "bookings",
+        "booking_team_members",
+        "tenants",
+        "admin_tasks"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/update-phone/route.ts",
+      "tables": [
+        "team_members",
+        "cleaner_applications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/availability/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/travel-times/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/checkin/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/jobs/route.ts",
+      "tables": [
+        "tenants",
+        "booking_team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/photos/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/connect/route.ts",
+      "tables": [
+        "connect_messages",
+        "connect_read_cursors",
+        "team_members",
+        "tenants"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/video-upload/route.ts",
+      "tables": [
+        "bookings",
+        "uploads"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/notifications/route.ts",
+      "tables": [
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/checklist/route.ts",
+      "tables": [
+        "bookings",
+        "job_checklist_items"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Crew-facing checklist — view and check off items for the booking they're on. Bearer-token auth (team portal). Crew can toggle `done`; adding/removing "
+    },
+    {
+      "path": "src/app/api/webhooks/telnyx/route.ts",
+      "tables": [
+        "notifications",
+        "campaign_recipients",
+        "campaigns",
+        "tenants",
+        "tenant_owner_messages",
+        "clients",
+        "team_members",
+        "bookings",
+        "client_sms_messages",
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/telnyx-voice/route.ts",
+      "tables": [
+        "tenants",
+        "comhub_admin_voice_settings",
+        "comhub_admin_presence",
+        "comhub_messages",
+        "comhub_threads",
+        "comhub_missed_call_sms",
+        "team_members",
+        "comhub_active_calls"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/telegram/route.ts",
+      "tables": [
+        "notifications",
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/clerk/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/resend/route.ts",
+      "tables": [
+        "inbound_emails",
+        "campaign_recipients",
+        "campaigns"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/stripe/route.ts",
+      "tables": [
+        "tenants",
+        "bookings",
+        "prospects",
+        "entities",
+        "tenant_invites",
+        "payments",
+        "quotes",
+        "deals",
+        "deal_activities",
+        "clients",
+        "admin_tasks",
+        "notifications",
+        "team_members"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": "lead_sale_schedule",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/[id]/payment/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/[id]/reset/route.ts",
+      "tables": [
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "ai_agent_communications",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/[id]/status/route.ts",
+      "tables": [
+        "bookings",
+        "tenants",
+        "deals"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/bookings/[id]/team/route.ts",
+      "tables": [
+        "booking_team_members",
+        "team_members",
+        "bookings",
+        "tenants",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/invoices/public/[token]/route.ts",
+      "tables": [
+        "invoices"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Public invoice view (token-auth). Records view + expires past due date."
+    },
+    {
+      "path": "src/app/api/invoices/[id]/record-payment/route.ts",
+      "tables": [
+        "invoices",
+        "payments"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Record a manual payment against an invoice (Zelle/Venmo/cash/check). For Stripe-initiated payments, the Stripe webhook inserts into `payments` with in"
+    },
+    {
+      "path": "src/app/api/invoices/[id]/send/route.ts",
+      "tables": [
+        "invoices",
+        "tenants"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "onboarding_activation",
+      "doc": "Send invoice to recipient via SMS / email / both."
+    },
+    {
+      "path": "src/app/api/team-members/[id]/stripe-status/route.ts",
+      "tables": [
+        "tenants",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-members/[id]/stripe-onboard/route.ts",
+      "tables": [
+        "team_members",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-members/[id]/stripe-invite/route.ts",
+      "tables": [
+        "team_members",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quotes/public/[token]/route.ts",
+      "tables": [
+        "quotes"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quotes/[id]/send/route.ts",
+      "tables": [
+        "quotes",
+        "tenants",
+        "deal_activities",
+        "deals"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "onboarding_activation",
+      "doc": "Send quote to recipient via SMS / email / both. Transitions draft → sent."
+    },
+    {
+      "path": "src/app/api/quotes/[id]/convert/route.ts",
+      "tables": [
+        "quotes",
+        "clients",
+        "bookings"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": "Convert an accepted quote into a booking. Creates the client if the quote was standalone (no client_id). Idempotent — re-calling returns the existing "
+    },
+    {
+      "path": "src/app/api/dashboard/schedules/import/route.ts",
+      "tables": [
+        "clients",
+        "team_members"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/hr/[id]/route.ts",
+      "tables": [
+        "team_members",
+        "hr_employee_profiles",
+        "hr_documents",
+        "hr_notes",
+        "hr_document_requirements"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/periods/[id]/route.ts",
+      "tables": [
+        "accounting_periods"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/bank-transactions/accept-suggestions/route.ts",
+      "tables": [
+        "bank_transactions",
+        "bank_accounts",
+        "categorization_patterns"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Accept all suggestions above a confidence threshold in one go. Posts journal entries for each, bumps categorization_patterns."
+    },
+    {
+      "path": "src/app/api/finance/bank-transactions/[id]/route.ts",
+      "tables": [
+        "bank_transactions",
+        "chart_of_accounts",
+        "categorization_patterns"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Categorize a single bank transaction. Assigning coa_id posts a journal entry against the bank's coa and the chosen coa."
+    },
+    {
+      "path": "src/app/api/finance/bank-accounts/[id]/route.ts",
+      "tables": [
+        "chart_of_accounts",
+        "bank_accounts"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/bank-connect/session/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/entities/[id]/route.ts",
+      "tables": [
+        "entities"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/[id]/send/route.ts",
+      "tables": [
+        "documents",
+        "document_signers",
+        "document_fields",
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Send document to signers. Computes SHA-256 and locks status."
+    },
+    {
+      "path": "src/app/api/jobs/public/[token]/route.ts",
+      "tables": [
+        "jobs",
+        "job_photos"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Public, view-only job photo timeline. Token-authenticated (no tenant session) — mirrors /api/quotes/public/[token]. Returns job basics + photos only; "
+    },
+    {
+      "path": "src/app/api/jobs/[id]/budget-variance/route.ts",
+      "tables": [
+        "jobs",
+        "quote_budgets",
+        "budget_line_items"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/payments/route.ts",
+      "tables": [
+        "job_payments"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Update a payment on a job's plan (mark invoiced / paid / void). PATCH → { payment_id, status }"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/expenses/route.ts",
+      "tables": [
+        "expenses",
+        "budget_line_items",
+        "jobs",
+        "tenants",
+        "service_types"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/sessions/route.ts",
+      "tables": [
+        "jobs",
+        "crews",
+        "team_members",
+        "bookings",
+        "booking_assignees"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Schedule a work session on a job → creates a booking carrying the job_id. A job can have many sessions (the multi-day schedule).  POST → { start_time,"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/report/route.ts",
+      "tables": [
+        "jobs",
+        "job_photos",
+        "job_checklist_items"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/photos/route.ts",
+      "tables": [
+        "job_photos",
+        "jobs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/checklist/route.ts",
+      "tables": [
+        "job_checklist_items",
+        "jobs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Job checklist — on-site to-do list, tenant-scoped, office side.  GET  → { items: ChecklistItem[] } POST → { label: string } → { item }"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/share/route.ts",
+      "tables": [
+        "jobs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Generate (idempotently) the public share token for a job's photo timeline. Office side, tenant-scoped.  POST → { token, path }  (path = /photos/[token"
+    },
+    {
+      "path": "src/app/api/connect/messages/upload/route.ts",
+      "tables": [
+        "connect_channels",
+        "uploads",
+        "connect_messages",
+        "connect_read_cursors"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/invites/[token]/accept/route.ts",
+      "tables": [
+        "tenant_invites",
+        "tenant_members",
+        "tenants"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/booking/[id]/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/confirm/[token]/route.ts",
+      "tables": [
+        "bookings",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/closeout-summary/route.ts",
+      "tables": [
+        "bookings",
+        "booking_team_members",
+        "payments",
+        "team_member_payouts",
+        "sms_logs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "finance_payroll_billing",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-schedules/[id]/pause/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-schedules/[id]/regenerate/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-schedules/[id]/exception/route.ts",
+      "tables": [
+        "team_members",
+        "recurring_schedules",
+        "recurring_exceptions",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/campaigns/[id]/send/route.ts",
+      "tables": [
+        "campaigns",
+        "clients"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/yinez/send/route.ts",
+      "tables": [
+        "comhub_messages",
+        "comhub_threads"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/verify-checklist/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "POST /api/admin/businesses/:id/verify-checklist  Runs live verification of onboarding checklist items (DNS, SSL, Resend domain, Telnyx number, Stripe "
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/users/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/bookings/[id]/cleaner-payout/route.ts",
+      "tables": [
+        "bookings",
+        "team_members",
+        "team_member_payouts"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/reschedule/[id]/route.ts",
+      "tables": [
+        "bookings",
+        "team_members",
+        "email_logs"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/recurring/[id]/route.ts",
+      "tables": [
+        "recurring_schedules",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/equipment/[id]/bookings/route.ts",
+      "tables": [
+        "equipment_bookings",
+        "equipment"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Equipment bookings — the per-job rental record for one physical equipment unit: which job/quote, what date range, what was charged. Drives both billin"
+    },
+    {
+      "path": "src/app/api/routes/[id]/optimize/route.ts",
+      "tables": [
+        "routes"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Optimize stop order for a route using nearest-neighbor + 2-opt. Updates route.stops, total_distance_meters, total_duration_seconds, status=optimized."
+    },
+    {
+      "path": "src/app/api/routes/[id]/publish/route.ts",
+      "tables": [
+        "routes",
+        "tenants"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": "Publish a route to its assigned team member via SMS with deep links."
+    },
+    {
+      "path": "src/app/api/dashboard/onboarding/progress/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/onboarding/profile/route.ts",
+      "tables": [
+        "tenants",
+        "entities"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "The flat wizard payload. Every field optional — the tenant fills over time."
+    },
+    {
+      "path": "src/app/api/dashboard/onboarding/activate/route.ts",
+      "tables": [
+        "tenants",
+        "notifications"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/contacts/[contactId]/route.ts",
+      "tables": [
+        "client_contacts"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/tenants/[id]/onboarding-link/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/users/[id]/pin/route.ts",
+      "tables": [
+        "tenant_members"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/voice/mcp/[secret]/[transport]/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/crew/schedule/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/crew/earnings/route.ts",
+      "tables": [
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/crew/members/route.ts",
+      "tables": [
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/jobs/reassign/route.ts",
+      "tables": [
+        "bookings",
+        "team_members"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/jobs/release/route.ts",
+      "tables": [
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/jobs/claim/route.ts",
+      "tables": [
+        "tenants",
+        "team_members",
+        "bookings",
+        "notifications"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/connect/upload/route.ts",
+      "tables": [
+        "team_members",
+        "uploads",
+        "tenants",
+        "connect_messages",
+        "connect_read_cursors"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/connect/unread/route.ts",
+      "tables": [
+        "connect_channels",
+        "connect_read_cursors",
+        "connect_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/connect/channels/route.ts",
+      "tables": [
+        "connect_channels",
+        "team_members",
+        "connect_channel_members",
+        "connect_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/telnyx-voice-agent/[secret]/route.ts",
+      "tables": [
+        "prospects",
+        "tenants"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/telegram/[tenant]/route.ts",
+      "tables": [
+        "notifications",
+        "tenants",
+        "sms_conversations"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/invoices/public/[token]/checkout/route.ts",
+      "tables": [
+        "invoices"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": null,
+      "doc": "Create a Stripe Checkout Session for the balance due on a public invoice. Uses the tenant's own Stripe API key + connected account. On success, Stripe"
+    },
+    {
+      "path": "src/app/api/quotes/public/[token]/accept/route.ts",
+      "tables": [
+        "quotes",
+        "deals",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Public quote acceptance. Captures signature + name + IP + UA, transitions to 'accepted'. Idempotent — safe to replay."
+    },
+    {
+      "path": "src/app/api/quotes/public/[token]/deposit-checkout/route.ts",
+      "tables": [
+        "quotes"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quotes/public/[token]/decline/route.ts",
+      "tables": [
+        "quotes",
+        "deal_activities"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": "Public quote decline."
+    },
+    {
+      "path": "src/app/api/dashboard/hr/[id]/notes/route.ts",
+      "tables": [
+        "team_members",
+        "hr_notes"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/hr/[id]/documents/route.ts",
+      "tables": [
+        "team_members",
+        "hr_documents"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sms/send/route.ts",
+      "tables": [
+        "tenants"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": "Admin-triggered manual SMS. Sends via the calling tenant's Telnyx credentials. No consent filtering — caller is responsible. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/auth/login/route.ts",
+      "tables": [
+        "admin_users"
+      ],
+      "primary": "security_auth_infra",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrals/track/route.ts",
+      "tables": [
+        "referrals",
+        "tenants"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrals/[id]/route.ts",
+      "tables": [
+        "referrals"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/feed/route.ts",
+      "tables": [
+        "lead_clicks",
+        "clients",
+        "bookings"
+      ],
+      "primary": "crm_core",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/block/route.ts",
+      "tables": [
+        "blocked_referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/ingest/lead/route.ts",
+      "tables": [
+        "clients",
+        "portal_leads",
+        "deals"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/ingest/application/route.ts",
+      "tables": [
+        "team_applications"
+      ],
+      "primary": "onboarding_activation",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/connect/[id]/stripe-status/route.ts",
+      "tables": [
+        "tenants",
+        "referrers"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/referrers/connect/[id]/stripe-onboard/route.ts",
+      "tables": [
+        "referrers",
+        "tenants"
+      ],
+      "primary": "crm_core",
+      "secondary": "onboarding_activation",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/threads/[id]/route.ts",
+      "tables": [
+        "comhub_threads",
+        "comhub_messages",
+        "tenant_members"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "security_auth_infra",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/dial/route.ts",
+      "tables": [
+        "comhub_threads",
+        "comhub_contacts",
+        "comhub_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/log-softphone-call/route.ts",
+      "tables": [
+        "comhub_active_calls",
+        "comhub_softphone_calls",
+        "comhub_messages",
+        "comhub_threads"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/email/backfill/route.ts",
+      "tables": [
+        "comhub_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/bank-transactions/[id]/match/route.ts",
+      "tables": [
+        "bank_transactions",
+        "invoices",
+        "payments",
+        "bookings",
+        "expenses",
+        "chart_of_accounts"
+      ],
+      "primary": "finance_payroll_billing",
+      "secondary": "booking_scheduling_recurring",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/catalog/[id]/materials/route.ts",
+      "tables": [
+        "catalog_item_materials"
+      ],
+      "primary": "crm_core",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/budget-templates/[id]/apply-to-recurring/[scheduleId]/route.ts",
+      "tables": [
+        "budget_templates",
+        "budget_template_line_items",
+        "recurring_schedules"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Apply a saved budget template to a specific recurring_schedules row. Mirrors apply-to-quote/[quoteId] exactly, for schedules with no originating quote"
+    },
+    {
+      "path": "src/app/api/budget-templates/[id]/apply-to-quote/[quoteId]/route.ts",
+      "tables": [
+        "budget_templates",
+        "budget_template_line_items",
+        "quotes"
+      ],
+      "primary": "lead_sale_schedule",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/sessions/[sessionId]/route.ts",
+      "tables": [
+        "bookings",
+        "crews",
+        "team_members",
+        "booking_assignees"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": null,
+      "doc": "Load a booking and prove it belongs to this tenant + job."
+    },
+    {
+      "path": "src/app/api/admin/comhub/messages/[id]/flag/route.ts",
+      "tables": [
+        "comhub_messages"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/contacts/[id]/context/route.ts",
+      "tables": [
+        "comhub_contacts",
+        "clients",
+        "team_members",
+        "bookings"
+      ],
+      "primary": "booking_scheduling_recurring",
+      "secondary": "crm_core",
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/contacts/[id]/notes/route.ts",
+      "tables": [
+        "comhub_contacts",
+        "clients"
+      ],
+      "primary": "ai_agent_communications",
+      "secondary": "crm_core",
+      "doc": ""
+    }
+  ],
+  "unclassified": [
+    {
+      "path": "src/app/api/service-types/route.ts",
+      "tables": [
+        "service_types"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/catalog/route.ts",
+      "tables": [
+        "service_types"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/uploads/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/domain-notes/route.ts",
+      "tables": [
+        "domain_notes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Tenant-scoped domain notes (per-domain admin notes). Ported from nycmaid. Auth: settings.view/settings.edit."
+    },
+    {
+      "path": "src/app/api/docs/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Static platform config blob for the admin /docs page. Ported from nycmaid — rewritten to describe the fullloop multi-tenant platform instead of a sing"
+    },
+    {
+      "path": "src/app/api/migrate-cleaner-notifications/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Legacy one-shot — nycmaid's cleaner-notifications migration helper. Obsolete on fullloop (team_notifications table exists from migration 007). Compati"
+    },
+    {
+      "path": "src/app/api/requests/route.ts",
+      "tables": [
+        "partner_requests"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cleaner-applications/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quote-templates/route.ts",
+      "tables": [
+        "quote_templates"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Quote templates — list + create. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/vendors/route.ts",
+      "tables": [
+        "vendors"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Vendors CRUD — basic vendor directory (name, contact, category, address, notes), tenant-scoped. Supply-linking + auto-ordering is a later feature; thi"
+    },
+    {
+      "path": "src/app/api/track/route.ts",
+      "tables": [
+        "lead_clicks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/changelog/route.ts",
+      "tables": [
+        "platform_announcements"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/management-applications/route.ts",
+      "tables": [
+        "management_applications",
+        "management_application_drafts"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Management application flow — applying for ops/management roles at a tenant. Public POST from the tenant's careers page (tenant resolved via host head"
+    },
+    {
+      "path": "src/app/api/inventory/route.ts",
+      "tables": [
+        "inventory_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Inventory items CRUD — physical stock (materials, supplies, consumables), tenant-scoped. Distinct from service_types (sellable catalog items); an inve"
+    },
+    {
+      "path": "src/app/api/apply-ceo/route.ts",
+      "tables": [
+        "management_applications"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Public founding-CEO / management application (tenant resolved from host). Writes to management_applications and notifies admins. Accepts the payload t"
+    },
+    {
+      "path": "src/app/api/budget-templates/route.ts",
+      "tables": [
+        "budget_templates",
+        "budget_template_line_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/route.ts",
+      "tables": [
+        "documents"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Documents list + create. Create takes multipart form with the PDF."
+    },
+    {
+      "path": "src/app/api/migrate-sms/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Legacy one-shot — nycmaid's SMS migration helper. Obsolete on fullloop (data is migrated at tenant onboarding time, not via this path). Kept as a tena"
+    },
+    {
+      "path": "src/app/api/errors/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/public-upload/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-technical/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-propose/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-autopilot/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-ingest/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-health/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/auto-reply-reviews/route.ts",
+      "tables": [
+        "tenant_settings"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/score-conversations/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-detect/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-verify-revert/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/jefe-heartbeat/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/refresh-social-tokens/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-autoverify/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-enrich/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-improve/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/seo-competitors/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/integration-health-sweep/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Cron: sweep every tenant's Telnyx/Resend/Stripe (+ tenant-level Anthropic override) keys for live validity. Persists into jefe_integration_health; Jef"
+    },
+    {
+      "path": "src/app/api/cron/gdpr-purge/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cron/refresh-job-postings/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/reviews/[id]/route.ts",
+      "tables": [
+        "reviews"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/reviews/upload/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Public image/video upload for client review submissions. Writes to the tenant's namespaced path in the `uploads` storage bucket. Tenant resolved via t"
+    },
+    {
+      "path": "src/app/api/admin/smart-schedule/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/travel-time/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/territories/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/recurring-reconcile/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/changelog/route.ts",
+      "tables": [
+        "platform_announcements"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/translate/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Quick translation via Claude. Defaults to Spanish (matches nycmaid's bilingual team flow); body can override `target` to translate to another language"
+    },
+    {
+      "path": "src/app/api/admin/team-availability-batch/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "GET available team members for a date/time/duration slot. Ported from nycmaid `/api/admin/cleaner-availability`."
+    },
+    {
+      "path": "src/app/api/admin/feedback/route.ts",
+      "tables": [
+        "platform_feedback"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/requests/route.ts",
+      "tables": [
+        "partner_requests"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/cleaner-availability/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/notes/route.ts",
+      "tables": [
+        "crm_notes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/ai/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/legal-tips/route.ts",
+      "tables": [
+        "legal_tips",
+        "legal_tip_triggers"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/websites/route.ts",
+      "tables": [
+        "tenant_domains",
+        "website_visits"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/reviews/route.ts",
+      "tables": [
+        "reviews"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Admin reviews list/update/delete — tenant-scoped. Ported from nycmaid. Auth: reviews.view/reviews.request."
+    },
+    {
+      "path": "src/app/api/internal/deploy-hook/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/sales-partners/login/route.ts",
+      "tables": [
+        "sales_partners"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/announcements/unread/route.ts",
+      "tables": [
+        "platform_announcements",
+        "platform_announcement_reads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/permissions/me/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/tenant/public/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Public tenant info — safe fields only. Used by public pages (e.g. /portal/collect) that need tenant branding on the client without leaking API keys or"
+    },
+    {
+      "path": "src/app/api/clients/merge/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/apply/signed-url/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Pre-signed upload URL for public job-application uploads (video / resume / photo). Tenant resolved from host. Mirrors the response shape of /api/manag"
+    },
+    {
+      "path": "src/app/api/settings/services/route.ts",
+      "tables": [
+        "service_types"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin-auth/logout/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/lead-media/signed-url/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/portal/services/route.ts",
+      "tables": [
+        "service_types"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/territories/options/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "PUBLIC territory options for the lead form (and, later, the public map). Status-only, NO tenant PII — safe to expose unauthenticated."
+    },
+    {
+      "path": "src/app/api/changelog/[id]/route.ts",
+      "tables": [
+        "platform_announcements"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/hr/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/[id]/route.ts",
+      "tables": [
+        "documents",
+        "document_signers",
+        "document_fields",
+        "document_activity"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Document by id — read, edit (draft only), delete (draft only)."
+    },
+    {
+      "path": "src/app/api/team-applications/upload/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-applications/signed-url/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/send-code/route.ts",
+      "tables": [
+        "verification_codes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/client/availability/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/upload/signed-url/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/onboarding/route.ts",
+      "tables": [
+        "onboarding_tasks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/booking-notes/[id]/route.ts",
+      "tables": [
+        "booking_notes",
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/management-applications/draft/route.ts",
+      "tables": [
+        "management_application_drafts"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Draft save/load for the management application form. Public routes — tenant resolved from the host header. Keyed by (tenant, ip, position)."
+    },
+    {
+      "path": "src/app/api/management-applications/upload/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Direct file upload for management application attachments (photo/video/resume). Public — tenant from host header. Writes to tenant-namespaced path in "
+    },
+    {
+      "path": "src/app/api/management-applications/signed-url/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Returns a pre-signed upload URL so the client can PUT directly to Supabase storage — avoids piping big files through this server. Public, tenant from "
+    },
+    {
+      "path": "src/app/api/social/posts/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/social/post/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/social/accounts/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/push/subscribe/route.ts",
+      "tables": [
+        "push_subscriptions"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/selena/metrics/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/trial-balance/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Trial balance from the ledger. GET /api/finance/trial-balance?from=&to= Every account's debit/credit totals + a proof the books balance."
+    },
+    {
+      "path": "src/app/api/finance/cpa-tokens/route.ts",
+      "tables": [
+        "cpa_access_tokens"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/expenses/route.ts",
+      "tables": [
+        "expenses"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/ar-aging/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Accounts Receivable aging — unpaid invoices + unpaid completed bookings, bucketed by days past due. Logic lives in src/lib/finance/ar-aging.ts so othe"
+    },
+    {
+      "path": "src/app/api/finance/upload/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Finance receipt/statement upload. Writes to tenant-namespaced path in the `uploads` storage bucket. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/finance/balance-sheet/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Balance sheet from the ledger. GET /api/finance/balance-sheet?as_of=YYYY-MM-DD Ledger-only — requires double-entry, which raw tables can't provide."
+    },
+    {
+      "path": "src/app/api/budget-templates/[id]/route.ts",
+      "tables": [
+        "budget_templates",
+        "budget_template_line_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Single budget template — get (with line items) / replace-all-and-save / delete. Same replace-all-on-save semantics as quote_budgets' line items: the t"
+    },
+    {
+      "path": "src/app/api/admin/analytics/live-feed/route.ts",
+      "tables": [
+        "lead_clicks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/google/generate-reply/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Generate an AI reply to a Google review. Admin hits this to preview before posting via /api/admin/google/reply. Tenant-aware."
+    },
+    {
+      "path": "src/app/api/admin/google/auth/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/google/status/route.ts",
+      "tables": [
+        "google_reviews"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/google/reply/route.ts",
+      "tables": [
+        "google_reviews"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Post a reply to a Google Business review. Tenant-aware: uses that tenant's Google OAuth tokens + business location."
+    },
+    {
+      "path": "src/app/api/admin/google/callback/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/message-applicants/preview/route.ts",
+      "tables": [
+        "cleaner_applications"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/announcements/[id]/route.ts",
+      "tables": [
+        "platform_announcements"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/cpa/[token]/year-end-zip/route.ts",
+      "tables": [
+        "cpa_access_tokens"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "CPA-token-authed year-end ZIP. Read-only, token-scoped, no session."
+    },
+    {
+      "path": "src/app/api/admin/find-cleaner/recent/route.ts",
+      "tables": [
+        "cleaner_broadcasts",
+        "cleaner_broadcast_recipients"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/templates/route.ts",
+      "tables": [
+        "comhub_templates"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/clients/[id]/gdpr-delete/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/settings/services/[id]/route.ts",
+      "tables": [
+        "service_types"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/vendors/[id]/items/route.ts",
+      "tables": [
+        "vendor_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Vendor <-> inventory item links (vendor_items) — which inventory items a vendor supplies, at what cost, and which vendor is preferred for an item."
+    },
+    {
+      "path": "src/app/api/admin/requests/proposal/route.ts",
+      "tables": [
+        "partner_requests"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/requests/convert/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/notes/upload/route.ts",
+      "tables": [
+        "uploads"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "POST /api/admin/notes/upload  (multipart: file) Admin image upload for CRM notes → shared `uploads` bucket under notes/. Returns the public URL to att"
+    },
+    {
+      "path": "src/app/api/admin/finance/margin/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/campaigns/generate/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "AI-generated campaign copy. Tenant-aware — uses tenant name/industry/brand color to keep the output consistent with the calling tenant's brand."
+    },
+    {
+      "path": "src/app/api/admin/seo/apply/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/legal-tips/[id]/route.ts",
+      "tables": [
+        "legal_tips"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Edit a tip, or flip is_active — the one action that actually ships content to tenants."
+    },
+    {
+      "path": "src/app/api/social/connect/facebook/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/social/connect/instagram/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/config/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/team-portal/announcements/route.ts",
+      "tables": [
+        "team_announcements"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/stripe-platform/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/quotes/[id]/convert-to-job/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/[id]/duplicate/route.ts",
+      "tables": [
+        "documents",
+        "document_signers",
+        "document_fields"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Duplicate a document to a new draft. Copies title/message/consent/fields/signers (with fresh tokens) and re-uses the stored PDF by copying the storage"
+    },
+    {
+      "path": "src/app/api/documents/[id]/void/route.ts",
+      "tables": [
+        "documents"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/[id]/fields/route.ts",
+      "tables": [
+        "document_fields",
+        "documents",
+        "document_signers"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Document field placement — add + batch replace. Draft only."
+    },
+    {
+      "path": "src/app/api/finance/expenses/[id]/route.ts",
+      "tables": [
+        "expenses"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/finance/bank-transactions/suggest/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Bulk suggest categorization for all pending bank transactions."
+    },
+    {
+      "path": "src/app/api/documents/[id]/signers/route.ts",
+      "tables": [
+        "document_signers",
+        "documents"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Document signers — add/list. Draft only."
+    },
+    {
+      "path": "src/app/api/documents/public/[token]/route.ts",
+      "tables": [
+        "document_signers",
+        "documents",
+        "document_fields"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Public signer view — returns the payload the signer needs to render the PDF + their fields. Token-authenticated per signer."
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/provision/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Admin-only endpoint to seed tenant defaults after creation. POST /api/admin/businesses/:id/provision Body: { industry?: 'cleaning'|'landscaping'|... ,"
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/site-export/route.ts",
+      "tables": [
+        "tenant_domains"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "GET /api/admin/businesses/[id]/site-export Produces a downloadable static ZIP of the tenant's live public site so the customer can keep it (ownership "
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/selena-preview/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "GET /api/admin/businesses/:id/selena-preview  Returns the full system prompt Selena will use for this tenant. Use to verify persona fields are actuall"
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/profile/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/readiness/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/businesses/[id]/activate/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/import/stage/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": "Stage an upload into a reviewable import batch — NO write to live tables. POST { kind: 'clients'|'schedules', rows: object[], filename?, mapping? }   "
+    },
+    {
+      "path": "src/app/api/dashboard/import/analyze/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/booking-notes/[id]/retry-process/route.ts",
+      "tables": [
+        "booking_notes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/requests/[id]/agreement/route.ts",
+      "tables": [
+        "partner_requests",
+        "territories",
+        "documents",
+        "document_signers",
+        "document_fields"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/requests/[id]/proposal-checkout/route.ts",
+      "tables": [
+        "partner_requests"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "POST /api/admin/requests/:id/proposal-checkout  Generates the Stripe Checkout link for an accepted proposal (seats + $25k setup, ACH or card). Admin s"
+    },
+    {
+      "path": "src/app/api/admin/requests/[id]/proposal-email/route.ts",
+      "tables": [
+        "partner_requests"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "POST /api/admin/requests/:id/proposal-email  { action: 'preview' | 'send', payUrl? }  preview → returns { subject, html } (no Stripe needed; embeds pa"
+    },
+    {
+      "path": "src/app/api/social/connect/facebook/callback/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/social/connect/instagram/callback/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/seo/verify-file/[file]/route.ts",
+      "tables": [
+        "seo_properties"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/webhooks/telegram/jefe/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/dashboard/import/batch/[id]/route.ts",
+      "tables": [
+        "import_batches"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Review / commit / undo one import batch. Tenant-scoped: a batch is only reachable by the tenant that owns it.  GET  → { review } POST { action: 'commi"
+    },
+    {
+      "path": "src/app/api/documents/public/[token]/consent/route.ts",
+      "tables": [
+        "document_signers",
+        "documents"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "ESIGN Act consent acceptance. Must be called before signing."
+    },
+    {
+      "path": "src/app/api/documents/public/[token]/decline/route.ts",
+      "tables": [
+        "document_signers",
+        "documents"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/public/[token]/sign/route.ts",
+      "tables": [
+        "document_signers",
+        "documents",
+        "document_fields"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Submit all fields for this signer + primary signature. Advances the document state. If all signers are done, flattens the PDF + audit cert."
+    },
+    {
+      "path": "src/app/api/team-portal/media-note/[id]/process/route.ts",
+      "tables": [
+        "booking_notes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/security/events/route.ts",
+      "tables": [
+        "security_events"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/auth/logout/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/auth/me/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/google/posts/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/google/auth/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/google/status/route.ts",
+      "tables": [
+        "google_reviews",
+        "google_posts",
+        "tenant_settings"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/google/callback/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/google/reviews/route.ts",
+      "tables": [
+        "google_reviews",
+        "tenant_settings"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/domains/route.ts",
+      "tables": [
+        "domains",
+        "website_visits"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/override/route.ts",
+      "tables": [
+        "lead_clicks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Admin override for lead_clicks — toggle manual_conversion/manual_sale flags. Tenant-scoped."
+    },
+    {
+      "path": "src/app/api/leads/verify/route.ts",
+      "tables": [
+        "lead_clicks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/visits/route.ts",
+      "tables": [
+        "website_visits",
+        "lead_clicks"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/leads/attribution/route.ts",
+      "tables": [
+        "website_visits"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/token/route.ts",
+      "tables": [],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/settings/route.ts",
+      "tables": [
+        "comhub_admin_voice_settings"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/cleanup/route.ts",
+      "tables": [
+        "comhub_active_calls"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/presence/route.ts",
+      "tables": [
+        "comhub_admin_presence"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/active/route.ts",
+      "tables": [
+        "comhub_active_calls"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/voice/control/route.ts",
+      "tables": [
+        "comhub_active_calls"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/admin/comhub/templates/[id]/route.ts",
+      "tables": [
+        "comhub_templates"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/documents/[id]/signers/[signerId]/route.ts",
+      "tables": [
+        "documents",
+        "document_signers"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Edit/remove individual signer. Draft only."
+    },
+    {
+      "path": "src/app/api/jobs/[id]/expenses/[expenseId]/route.ts",
+      "tables": [
+        "expenses",
+        "budget_line_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Remove a receipt/expense from a job (e.g. logged by mistake).  DELETE → { success: true }"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/photos/[photoId]/route.ts",
+      "tables": [
+        "job_photos"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    },
+    {
+      "path": "src/app/api/jobs/[id]/checklist/[itemId]/route.ts",
+      "tables": [
+        "job_checklist_items"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": "Single checklist item — toggle done, edit label, delete. Office side.  PATCH  { done?: boolean, label?: string } → { item } DELETE → { ok: true }"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/photos/[photoId]/comments/route.ts",
+      "tables": [
+        "job_photos",
+        "crm_notes"
+      ],
+      "primary": null,
+      "secondary": null,
+      "doc": ""
+    }
+  ]
+}
