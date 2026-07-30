@@ -68,6 +68,34 @@ export async function getTenantAreas(tenantId: string): Promise<string[]> {
   return (data?.selena_config as any)?.service_areas || []
 }
 
+/** A single portfolio entry from tenant_projects (Phase 2C). */
+export interface TenantProject {
+  id: string
+  title: string
+  description: string | null
+  before_photo_url: string | null
+  after_photo_url: string | null
+  completed_at: string | null
+  sort_order: number
+}
+
+/**
+ * Active tenant_projects rows for the /projects site page + [slug] detail,
+ * nearest sort_order first. Built for every tenant regardless of industry —
+ * the table + page exist whether or not the nav links to them (see
+ * industryProfile().isProjectLed in template/_lib/seo/industry.ts, which
+ * gates the NAV LINK only, never this data or the route).
+ */
+export async function getTenantProjects(tenantId: string): Promise<TenantProject[]> {
+  const { data } = await supabaseAdmin
+    .from('tenant_projects')
+    .select('id, title, description, before_photo_url, after_photo_url, completed_at, sort_order')
+    .eq('tenant_id', tenantId)
+    .eq('active', true)
+    .order('sort_order')
+  return (data as TenantProject[] | null) || []
+}
+
 export function toSlug(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
