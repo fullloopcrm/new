@@ -220,28 +220,25 @@ export default function RecordedAnswer({ questionKey, label, helpText, maxSecond
         <p className="text-xs font-semibold text-slate-500 mb-2">Max {maxSeconds}s — make it count. It will auto-stop.</p>
       )}
 
-      {phase === 'idle' && !useFallback && (
-        <div className="flex gap-2 flex-wrap">
-          <button type="button" onClick={() => startRecording('video')} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-50">
-            🎥 Record Video
-          </button>
-          <button type="button" onClick={() => startRecording('audio')} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-50">
-            🎙️ Record Audio
-          </button>
-          <button type="button" onClick={() => setUseFallback(true)} className="px-3 py-2 text-xs text-gray-400 underline">
-            Upload a file instead
-          </button>
-        </div>
-      )}
-
-      {phase === 'idle' && useFallback && (
-        <div>
+      {phase === 'idle' && (
+        <div className="flex gap-2 flex-wrap items-center">
+          {!useFallback && (
+            <>
+              <button type="button" onClick={() => startRecording('video')} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-50">
+                🎥 Record Video
+              </button>
+              <button type="button" onClick={() => startRecording('audio')} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-50">
+                🎙️ Record Audio
+              </button>
+              <span className="text-gray-300 text-xs">or</span>
+            </>
+          )}
           <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:bg-gray-50">
-            Upload video or audio file
+            📁 Upload a video or audio file
           </button>
           <input ref={fileInputRef} type="file" accept="video/*,audio/*" className="hidden" onChange={(e) => handleFallbackFile(e.target.files?.[0] || null)} />
-          {browserSupportsRecording() && (
-            <button type="button" onClick={() => setUseFallback(false)} className="ml-3 text-xs text-gray-400 underline">
+          {useFallback && browserSupportsRecording() && (
+            <button type="button" onClick={() => setUseFallback(false)} className="text-xs text-gray-400 underline">
               Try recording instead
             </button>
           )}
