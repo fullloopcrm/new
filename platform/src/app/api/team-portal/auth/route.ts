@@ -6,6 +6,9 @@ import { isUniversalPin } from '@/lib/universal-pin'
 import { createToken } from './token'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { audit } from '@/lib/audit'
+import { findRowByPin } from '@/lib/pin-lookup'
+
+const PIN_SCAN_CAP = 5000
 
 // Brute-force throttle for team-portal login. Counts FAILED PIN attempts on TWO
 // compound buckets — per TENANT and per IP — never per (tenant, pin). The old
@@ -67,22 +70,39 @@ export async function POST(request: Request) {
   // universal PIN mirrors /api/portal/auth's cross-tenant master PIN: signs
   // in as the oldest member on file for WHATEVER tenant, deliberate bypass,
   // still gated by the same rate limits as a normal PIN attempt.
-  type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null }
+  type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null; pin: string | null }
   const usedUniversalPin = isUniversalPin(pin)
-  const memberQuery = usedUniversalPin
-    ? tenantDb(tenant.id)
-        .from('team_members')
-        .select('id, name, preferred_language, pay_rate, avatar_url, role')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-    : tenantDb(tenant.id)
-        .from('team_members')
-        .select('id, name, preferred_language, pay_rate, avatar_url, role')
-        .eq('pin', pin)
-        .eq('status', 'active')
-        .single()
-  const { data: member } = (await memberQuery) as { data: Member | null }
+  let member: Member | null = null
+  if (usedUniversalPin) {
+    const { data } = (await tenantDb(tenant.id)
+      .from('team_members')
+      .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: Member | null }
+    member = data
+  } else {
+    member = await findRowByPin(
+      pin,
+      async () => {
+        const { data } = (await tenantDb(tenant.id)
+          .from('team_members')
+          .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+          .eq('pin', pin)
+          .eq('status', 'active')
+          .single()) as { data: Member | null }
+        return data
+      },
+      async () => {
+        const { data } = (await tenantDb(tenant.id)
+          .from('team_members')
+          .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+          .eq('status', 'active')
+          .limit(PIN_SCAN_CAP)) as { data: Member[] | null }
+        return (data || []).filter((m) => m.pin)
+      },
+    )
+  }
 
   if (!member) {
     // Wrong PIN: spend from BOTH failure budgets. Either exhausted → 429, so a
