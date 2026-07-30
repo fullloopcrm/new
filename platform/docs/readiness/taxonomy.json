@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -74,7 +74,21 @@
           "name": "PIN hashing (clients.pin, team_members.pin)",
           "severity": 3,
           "depends_on_files": [
-            "src/lib/tenant-query.ts"
+            "src/lib/secret-crypto.ts",
+            "src/lib/pin-lookup.ts",
+            "src/app/api/portal/auth/route.ts",
+            "src/app/api/team-portal/auth/route.ts",
+            "src/app/api/clients/[id]/route.ts",
+            "src/app/api/cleaners/route.ts",
+            "src/app/api/cleaners/[id]/route.ts",
+            "src/lib/team-provisioning.ts",
+            "src/lib/messaging/team-sms.ts",
+            "src/lib/notify.ts",
+            "src/lib/nycmaid/email-templates.ts",
+            "src/lib/nycmaid/sms-templates.ts",
+            "src/lib/selena-legacy-handlers.ts",
+            "src/lib/selena/core-tools-account.ts",
+            "src/app/api/admin/broadcast-guidelines/route.ts"
           ]
         },
         {
