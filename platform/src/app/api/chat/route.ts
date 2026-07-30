@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
-      // If returning client, try to link to existing client record
+      // If returning client, try to link to existing client record. If a
+      // phone was given but matches no client, this visitor gave us a real
+      // contact point and got NOTHING before this fix — no client, no
+      // portal_lead, no sales deal, just the conversation log and a
+      // fire-and-forget notification (2026-07-30 pipeline trace finding).
+      // Give them the same real lead record every other intake source gets.
+      let isNewLead = false
       if (phone) {
         const digits = phone.replace(/\D/g, '').slice(-10)
         const { data: client } = await db
@@ -55,6 +61,18 @@ export async function POST(req: NextRequest) {
           insertData.booking_checklist = {
             ...EMPTY_CHECKLIST, channel: 'web',
             phone, name: client.name,
+          }
+        } else {
+          try {
+            const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
+            const result = await createLeadAndEnterPipeline(tenantId, {
+              phone, source: 'web-chat', notes: `Started web chat with phone ${phone}`,
+            })
+            insertData.client_id = result.clientId
+            insertData.booking_checklist = { ...EMPTY_CHECKLIST, channel: 'web', phone }
+            isNewLead = true
+          } catch (leadErr) {
+            console.error('[chat] lead creation failed:', leadErr)
           }
         }
       }
@@ -69,8 +87,11 @@ export async function POST(req: NextRequest) {
 
       await notify({
         tenantId,
-        type: 'new_lead', title: phone ? 'Returning Client — Web Chat' : 'New Web Chat Lead',
-        message: phone ? `Returning client (${phone}) started web chat` : 'New visitor started chat on website',
+        type: 'new_lead',
+        title: isNewLead ? 'New Lead — Web Chat' : phone ? 'Returning Client — Web Chat' : 'New Web Chat Lead',
+        message: isNewLead
+          ? `New lead (${phone}) started web chat — added to Sales`
+          : phone ? `Returning client (${phone}) started web chat` : 'New visitor started chat on website',
       }).catch(() => {})
     }
 

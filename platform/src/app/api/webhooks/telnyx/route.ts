@@ -589,6 +589,27 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
+    // An SMS from a phone that matches neither an existing client nor a team
+    // member is a brand-new prospect texting in cold. Before this fix, that
+    // case created only the notification below — no client, no portal_lead,
+    // no sales deal — so it was invisible to Sales unless an admin happened
+    // to notice the alert (2026-07-30 pipeline trace finding). Give it the
+    // same real lead record every other intake source gets.
+    let newLeadClientId: string | null = null
+    if (!client && !member) {
+      try {
+        const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
+        const result = await createLeadAndEnterPipeline(tenantId, {
+          name: from, phone: from, source: 'sms-inbound',
+          notes: `First inbound SMS: ${text.slice(0, 500)}`,
+        })
+        newLeadClientId = result.clientId
+      } catch (leadErr) {
+        console.error('[telnyx webhook] inbound-sms lead creation failed:', leadErr)
+        await trackError(leadErr, { source: 'webhooks/telnyx:inbound-sms-lead', severity: 'high', tenantId }).catch(() => {})
+      }
+    }
+
     const senderName = client?.name || member?.name || from
 
     // Create notification for inbound SMS
@@ -603,7 +624,7 @@ export async function POST(request: Request) {
       metadata: {
         from_phone: from,
         to_phone: to,
-        client_id: client?.id || null,
+        client_id: client?.id || newLeadClientId,
         team_member_id: member?.id || null,
         sender_name: senderName,
       },
