@@ -619,6 +619,14 @@ function BookingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // A pending booking left pending on save silently falls through the
+    // cracks -- it never shows as confirmed work, so nothing downstream
+    // (schedule, cleaner notification, reminders) ever fires for it. Force
+    // the status to actually change before the save is allowed through.
+    if (form.status === 'pending') {
+      alert('This booking is still Pending. Change the status before saving.')
+      return
+    }
     if (editingBooking?.recurring_type || editingBooking?.schedule_id) {
       setShowUpdateChoice(true)
       return
@@ -2463,7 +2471,7 @@ function BookingsPage() {
               )}
               <div className="flex-1" />
               <button type="button" onClick={() => { setShowModal(false); setEditingBooking(null) }} className="px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)] text-sm">Close</button>
-              <button type="submit" disabled={saving} className="px-6 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium">{saving ? '...' : 'Save'}</button>
+              <button type="submit" disabled={saving || form.status === 'pending'} title={form.status === 'pending' ? 'Change the status before saving' : undefined} className="px-6 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium disabled:opacity-50">{saving ? '...' : 'Save'}</button>
             </div>
           </form>
         </SidePanel>
