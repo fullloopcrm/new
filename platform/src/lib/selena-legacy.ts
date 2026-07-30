@@ -658,7 +658,12 @@ async function handleCreateClient(tenantId: string, input: Record<string, unknow
       .from('sms_conversations').select('phone, client_id').eq('id', conversationId).single()
 
     if (convo?.client_id) {
-      await supabaseAdmin.from('clients').update({ name }).eq('id', convo.client_id)
+      // IDOR guard fix: convo.client_id is read from an sms_conversations row
+      // fetched without its own tenant_id check, so this write had no
+      // backstop if the upstream conversationId→tenant resolution were ever
+      // wrong. handleSaveInfo's near-identical clients.update a few lines
+      // below already scopes on tenant_id — this matches that pattern.
+      await supabaseAdmin.from('clients').update({ name }).eq('id', convo.client_id).eq('tenant_id', tenantId)
       await updateChecklist(conversationId, { name })
       return JSON.stringify({ success: true, existing: true })
     }
@@ -711,7 +716,7 @@ async function handleSaveInfo(tenantId: string, input: Record<string, unknown>, 
       if (input.address) cu.address = input.address
       if (input.email) cu.email = input.email
       if (input.notes) {
-        const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).single()
+        const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).eq('tenant_id', tenantId).single()
         cu.notes = c?.notes ? `${c.notes}\n${input.notes}` : input.notes
       }
       if (Object.keys(cu).length > 0) {
@@ -1093,7 +1098,7 @@ export async function askSelena(
     } else if (channel === 'email') {
       const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
       if (convo?.client_id) {
-        const { data: c } = await supabaseAdmin.from('clients').select('phone').eq('id', convo.client_id).single()
+        const { data: c } = await supabaseAdmin.from('clients').select('phone').eq('id', convo.client_id).eq('tenant_id', tenantId).single()
         if (c?.phone && !c.phone.startsWith('email-') && !c.phone.startsWith('web-') && /\d{7,}/.test(c.phone)) {
           lookupPhone = c.phone
         }

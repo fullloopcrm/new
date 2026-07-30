@@ -241,7 +241,7 @@ export async function selfReviewConversation(conversationId: string): Promise<{ 
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       system: `You are a brutally honest quality reviewer for a cleaning service called The NYC Maid. You are reviewing a conversation between a client and an AI agent named "Yinez."
 

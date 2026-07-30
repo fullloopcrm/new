@@ -29,6 +29,19 @@ const UPDATE_BASELINE = process.argv.includes('--update-baseline')
 const API_ROOT = join(process.cwd(), 'src', 'app', 'api')
 const BASELINE_PATH = join(process.cwd(), 'src', 'lib', 'idor-route-guard.baseline.json')
 
+// Kept in sync with src/lib/idor-route-guard.test.ts's SELENA_ENGINE_FILES —
+// see that file's comment for why this is an explicit list, not a src/lib/**
+// walk. Added 2026-07-30.
+const SELENA_ENGINE_FILES = [
+  'src/lib/selena/tools.ts',
+  'src/lib/selena/core.ts',
+  'src/lib/selena/core-tools-account.ts',
+  'src/lib/selena/core-tools-booking.ts',
+  'src/lib/selena/core-tools-schedule.ts',
+  'src/lib/selena/core-extraction.ts',
+  'src/lib/selena-legacy.ts',
+]
+
 function walkRoutes(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
@@ -39,7 +52,9 @@ function walkRoutes(dir: string): string[] {
   return out
 }
 
-const findings = walkRoutes(API_ROOT).flatMap((f) =>
+const routeFiles = walkRoutes(API_ROOT)
+const engineFiles = SELENA_ENGINE_FILES.map((f) => join(process.cwd(), f))
+const findings = [...routeFiles, ...engineFiles].flatMap((f) =>
   analyzeSource({ file: relative(process.cwd(), f), source: readFileSync(f, 'utf8') }),
 )
 const current = Array.from(new Set(findings.map((f) => `${f.file}::${f.table}`))).sort()

@@ -162,7 +162,10 @@ const ALL_FOURTEEN_SITES = [
   'src/app/api/admin/comhub/search-recipients/route.ts',
   'src/app/api/admin/comhub/templates/route.ts',
   'src/app/api/admin/ai-chat/route.ts',
-  'src/app/api/ai/assistant/route.ts',
+  // #3 fold (2026-07-30): the assistant route's own search_clients .or() query
+  // moved into src/lib/selena/tools.ts's handleLookupClient (now shared with
+  // SMS/web/Telegram via runTool) — same sanitizer, new home.
+  'src/lib/selena/tools.ts',
   'src/app/api/announcements/unread/route.ts',
   'src/app/api/finance/bank-transactions/[id]/match/route.ts',
   'src/app/api/cron/recurring-expenses/route.ts',

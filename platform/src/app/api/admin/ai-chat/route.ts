@@ -562,7 +562,7 @@ Key rules:
 
     while (maxIterations-- > 0) {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
         tools,

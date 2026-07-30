@@ -271,6 +271,17 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
               recentInbounds.length > 0 ? { recent_inbounds: recentInbounds } : undefined,
               tenantId,
             )
+            if (!result.text) {
+              // askSelena() catches its own errors internally and returns
+              // { text: '' } on failure — it never throws. The 2026-07-27 fix
+              // below only covers exceptions thrown elsewhere in this try
+              // block, so this specific case (Yinez ran, failed internally,
+              // returned empty) was still silent: no reply sent, no trace.
+              await trackError(new Error('Yinez returned empty reply for inbound email'), {
+                source: 'cron/comhub-email/yinez-reply', tenantId, severity: 'high',
+                extra: JSON.stringify({ threadId, toolsCalled: result.toolsCalled }),
+              }).catch(() => {})
+            }
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'
               const externalId = await sendReply(account, fromAddr, replySubject, result.text)

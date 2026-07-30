@@ -229,8 +229,9 @@ export async function PUT(
     'business_hours', 'logo_url', 'primary_color', 'secondary_color',
     // Service-area geo spine (drives geo/job page generation)
     'service_radius_miles', 'service_area_lat', 'service_area_lng',
-    // Agent identity — single source of truth for the AI's name across SMS
-    // (Selena) and web/Telegram/admin/email (Yinez). Default 'Selena'.
+    // Agent identity — single source of truth for the AI's name across every
+    // channel. Default 'Selena' (the core agent's base identity before
+    // per-tenant personalization; nycmaid's is 'Yinez').
     'agent_name',
     // Selena persona (full config blob)
     'selena_config',

@@ -3,25 +3,24 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError, type TenantContext } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
-import { hasPermission, type Permission } from '@/lib/rbac'
+import { hasPermission, type Role } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { getTenantTimezone } from '@/lib/tenant-time'
 import { nowNaiveET } from '@/lib/recurring'
 import { audit } from '@/lib/audit'
+import { runTool } from '@/lib/selena/tools'
+import { SHARED_TOOL_PERMISSIONS } from '@/lib/selena/tool-permissions'
+import type { YinezResult } from '@/lib/selena/agent'
 
-// Tools that mutate data or expose finance figures must be gated behind the
-// SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
-// -> bookings.edit, clients/[id].PUT -> clients.edit, etc). Without this, any
-// tenant member reaching this chat widget — including 'staff', which lacks
-// bookings.edit/clients.edit/finance.view — could have the assistant perform
-// actions the REST API would 403 on directly.
-const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
-  update_bookings: 'bookings.edit',
-  cancel_bookings: 'bookings.edit',
-  update_client: 'clients.edit',
-  get_revenue_stats: 'finance.view',
-}
+// #3 (fold the dashboard assistant into the shared tool registry — 2026-07-30):
+// every tool that has a clean shared equivalent now dispatches through
+// runTool() (src/lib/selena/tools.ts), the SAME dispatcher SMS/web/Telegram
+// use, gated by the SAME SHARED_TOOL_PERMISSIONS map — no more a second,
+// hand-maintained tool implementation + permission map drifting from the
+// shared one. Two tools stayed local because their query logic has a real
+// semantic difference (see tool-permissions.ts's comments on each) — both
+// are still gated through SHARED_TOOL_PERMISSIONS for one RBAC source of
+// truth even though their handlers remain here.
 
 function buildSystemPrompt(tenantName: string, industry: string, timezone: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -189,105 +188,75 @@ function extractAssistantEntityId(input: Record<string, unknown>): string | unde
   return undefined
 }
 
+// Maps this route's externally-exposed tool names (unchanged since 2026-07,
+// kept stable so the system prompt / conversation history don't need to
+// change) to the shared registry's internal tool name, for two purposes:
+// (1) looking up the right entry in SHARED_TOOL_PERMISSIONS, (2) dispatching
+// through runTool() using the name IT recognizes.
+const SHARED_NAME: Partial<Record<string, string>> = {
+  search_clients: 'lookup_client',
+  search_team_members: 'list_cleaners', // overridden to lookup_cleaner below when a query is given
+  query_bookings: 'list_bookings',
+  update_bookings: 'update_booking',
+  cancel_bookings: 'update_booking',
+  get_schedule_summary: 'list_bookings',
+  get_client_details: 'lookup_client',
+}
+
 async function dispatchTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
-  const requiredPermission = TOOL_PERMISSIONS[name]
-  if (requiredPermission && !hasPermission(tenant.role, requiredPermission, overridesFor(tenant))) {
+  const overrides = overridesFor(tenant)
+  const permissionKey = SHARED_NAME[name] || name
+  const requiredPermission = SHARED_TOOL_PERMISSIONS[permissionKey]
+  if (requiredPermission && !hasPermission(tenant.role, requiredPermission, overrides)) {
     return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
   }
   const tenantId = tenant.tenantId
 
+  // #3 fold: every case below now dispatches through the SAME runTool()
+  // dispatcher SMS/web/Telegram use (src/lib/selena/tools.ts) instead of a
+  // second, hand-maintained implementation. `role` present bypasses runTool's
+  // phone-based owner gate (by design, see tools.ts's dispatchTool comment)
+  // and SHARED_TOOL_PERMISSIONS above is the real gate for this caller. A
+  // synthetic conversationId is fine — none of these tools link a real
+  // conversation row (create_client, the one that does, isn't in this set).
+  const stubResult: YinezResult = { text: '', toolsCalled: [] }
+  const syntheticConversationId = `dashboard:${tenantId}`
+  const rt = (toolName: string, toolInput: Record<string, unknown>) =>
+    runTool(toolName, toolInput, syntheticConversationId, null, stubResult, tenantId, tenant.role as Role, overrides ?? undefined)
+
   switch (name) {
-    case 'search_clients': {
-      const q = sanitizePostgrestValue((input.query as string).trim())
-      const { data, error } = await supabaseAdmin
-        .from('clients')
-        .select('id, name, email, phone, address, active, notes')
-        .eq('tenant_id', tenantId)
-        .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,address.ilike.%${q}%`)
-        .limit(10)
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify(data)
-    }
+    case 'search_clients':
+      return await rt('lookup_client', { query: (input.query as string || '').trim() })
 
     case 'search_team_members': {
       const q = input.query as string | undefined
-      let query = supabaseAdmin.from('team_members').select('id, name, email, phone, status, working_days, pay_rate').eq('tenant_id', tenantId)
-      if (q) query = query.ilike('name', `%${q}%`)
-      else query = query.eq('status', 'active')
-      const { data, error } = await query.limit(20)
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify(data)
+      return q ? await rt('lookup_cleaner', { name: q }) : await rt('list_cleaners', { status: 'active' })
     }
 
-    case 'query_bookings': {
-      let query = supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, end_time, status, price, payment_status, notes, service_type_id, schedule_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
-        .order('start_time', { ascending: true })
-
-      if (input.client_id) query = query.eq('client_id', input.client_id as string)
-      if (input.team_member_id) query = query.eq('team_member_id', input.team_member_id as string)
-      if (input.status) query = query.eq('status', input.status as string)
-      if (input.date_from) query = query.gte('start_time', `${input.date_from}T00:00:00`)
-      if (input.date_to) query = query.lte('start_time', `${input.date_to}T23:59:59`)
-
-      const limit = (input.limit as number) || 20
-      const { data, error } = await query.limit(limit)
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify(data)
-    }
+    case 'query_bookings':
+      return await rt('list_bookings', {
+        client_id: input.client_id, cleaner_id: input.team_member_id, status: input.status,
+        from_date: input.date_from, to_date: input.date_to, limit: input.limit,
+      })
 
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
       const updates = input.updates as Record<string, unknown>
       const confirmed = input.confirmed as boolean
-
       if (!confirmed) {
-        return JSON.stringify({
-          needs_confirmation: true,
-          message: `This will update ${ids.length} booking(s). Ask the user to confirm.`,
-          booking_count: ids.length,
-          updates,
-        })
+        return JSON.stringify({ needs_confirmation: true, message: `This will update ${ids.length} booking(s). Ask the user to confirm.`, booking_count: ids.length, updates })
       }
-
-      // Allow-list mutable columns — `updates` is model-supplied and was
-      // previously spread verbatim into `.update()`. The `.eq('tenant_id', …)`
-      // WHERE clause only scopes which ROW gets written, not which COLUMNS a
-      // model-hallucinated or prompt-injected `updates` object could set (e.g.
-      // `tenant_id` to donate the row to another tenant) — same mass-assignment
-      // class as P7/P8 in deploy-prep/cross-tenant-leak-register.md, just never
-      // applied to this AI tool-call surface. Matches the tool's own documented
-      // schema and src/lib/selena/tools.ts's handleUpdateBooking allow-list.
-      const allowedBookingFields = ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status']
-      const safeUpdates: Record<string, unknown> = {}
-      for (const [k, v] of Object.entries(updates)) {
-        if (allowedBookingFields.includes(k)) safeUpdates[k] = v
-      }
-
-      // team_member_id is a model-supplied FK — query_bookings/get_schedule_summary
-      // embed team_members(name) off this column with no tenant filter on the
-      // embedded side, so an unverified foreign id would surface another tenant's
-      // employee name on the next schedule lookup. Same class as P1/P11/P25/P30.
-      if (safeUpdates.team_member_id) {
-        const { data: owned } = await supabaseAdmin
-          .from('team_members')
-          .select('id')
-          .eq('id', safeUpdates.team_member_id as string)
-          .eq('tenant_id', tenantId)
-          .maybeSingle()
-        if (!owned) return JSON.stringify({ error: 'team member not found' })
-      }
-
-      if (Object.keys(safeUpdates).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
-
-      const results = await Promise.all(
-        ids.map(async (id) => {
-          const { error } = await supabaseAdmin.from('bookings').update(safeUpdates).eq('id', id).eq('tenant_id', tenantId)
-          return { id, error: error?.message }
-        })
-      )
+      // Confirmation gate stays HERE (dashboard-specific — bulk edits across
+      // many bookings warrant it) rather than in the shared handleUpdateBooking,
+      // which SMS/Telegram already call without one (single booking, live
+      // conversation, prompt-level "confirm before destructive" is enough there).
+      const { team_member_id, ...rest } = updates
+      const fields = team_member_id !== undefined ? { ...rest, cleaner_id: team_member_id } : rest
+      const results = await Promise.all(ids.map(async (id) => {
+        const out = await rt('update_booking', { booking_id: id, fields })
+        const parsed = JSON.parse(out) as { error?: string }
+        return { id, error: parsed.error }
+      }))
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
       return JSON.stringify({ success: true, updated: ids.length })
@@ -296,21 +265,14 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
     case 'cancel_bookings': {
       const ids = input.booking_ids as string[]
       const confirmed = input.confirmed as boolean
-
       if (!confirmed) {
-        return JSON.stringify({
-          needs_confirmation: true,
-          message: `This will cancel ${ids.length} booking(s). Ask the user to confirm.`,
-          booking_count: ids.length,
-        })
+        return JSON.stringify({ needs_confirmation: true, message: `This will cancel ${ids.length} booking(s). Ask the user to confirm.`, booking_count: ids.length })
       }
-
-      const results = await Promise.all(
-        ids.map(async (id) => {
-          const { error } = await supabaseAdmin.from('bookings').update({ status: 'cancelled' }).eq('id', id).eq('tenant_id', tenantId)
-          return { id, error: error?.message }
-        })
-      )
+      const results = await Promise.all(ids.map(async (id) => {
+        const out = await rt('update_booking', { booking_id: id, fields: { status: 'cancelled' } })
+        const parsed = JSON.parse(out) as { error?: string }
+        return { id, error: parsed.error }
+      }))
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
       return JSON.stringify({ success: true, cancelled: ids.length })
@@ -318,48 +280,19 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
 
     case 'get_schedule_summary': {
       // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
-      // before ET's does, so this fallback showed TOMORROW's schedule as
-      // "today" for evening ET queries.
+      // before ET's does. Schema promises "defaults to today"; list_bookings
+      // has no such default (its other callers always pass an explicit date).
       const date = (input.date as string) || nowNaiveET().slice(0, 10)
-      const dateTo = (input.date_to as string) || date
-
-      const { data, error } = await supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, end_time, status, price, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', `${date}T00:00:00`)
-        .lte('start_time', `${dateTo}T23:59:59`)
-        .in('status', ['scheduled', 'confirmed', 'in_progress', 'completed'])
-        .order('start_time', { ascending: true })
-
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify({ date, date_to: dateTo, bookings: data, total: data?.length || 0 })
+      return await rt('list_bookings', { date, to_date: input.date_to })
     }
 
-    case 'get_client_details': {
-      const { data: client, error: clientError } = await supabaseAdmin
-        .from('clients')
-        .select('*')
-        .eq('id', input.client_id as string)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (clientError) return JSON.stringify({ error: clientError.message })
+    case 'get_client_details':
+      return await rt('lookup_client', { client_id: input.client_id })
 
-      const { data: bookings } = await supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, status, price, payment_status, team_members!bookings_team_member_id_fkey(name)')
-        .eq('client_id', input.client_id as string)
-        .eq('tenant_id', tenantId)
-        .order('start_time', { ascending: false })
-        .limit(10)
-
-      return JSON.stringify({ client, recent_bookings: bookings })
-    }
-
+    // Kept dashboard-local — no shared equivalent (update_account is the
+    // CLIENT's own self-service tool, a different access pattern) — but still
+    // gated above via SHARED_TOOL_PERMISSIONS.update_client for one RBAC source.
     case 'update_client': {
-      // Same mass-assignment gap as update_bookings above — allow-list matches
-      // this tool's own documented schema so a model-supplied `updates` object
-      // can't set `tenant_id` (row donation) or any other undocumented column.
       const allowedClientFields = ['name', 'email', 'phone', 'address', 'notes', 'active']
       const rawUpdates = (input.updates as Record<string, unknown>) || {}
       const safeUpdates: Record<string, unknown> = {}
@@ -377,6 +310,11 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
       return JSON.stringify({ success: true })
     }
 
+    // Kept dashboard-local — computes from bookings.price/payment_status
+    // (invoiced total), a different basis than the shared get_revenue tool
+    // (actual payments.amount collected). Merging would silently change the
+    // dollar figure dashboard users already see. Still gated above via
+    // SHARED_TOOL_PERMISSIONS.get_revenue_stats for one RBAC source.
     case 'get_revenue_stats': {
       const { data, error } = await supabaseAdmin
         .from('bookings')
@@ -410,12 +348,13 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
 }
 
 // Every tool this tenant-dashboard assistant calls goes through this one
-// function (the POST loop below calls nothing else) — the single choke point
-// for audit logging, mirroring Yinez's runTool wrapper in
-// src/lib/selena/tools.ts. One audit_logs row per invocation, success or
-// failure, entityType = tool name. This engine had zero audit calls anywhere
-// before this (unlike admin/ai-chat's update_client), so there's no
-// double-logging risk here.
+// function (the POST loop below calls nothing else). Writes one
+// 'assistant.tool_call' audit row per invocation, success or failure.
+// #3 fold: tools now routed through the shared runTool() ALSO write their own
+// 'yinez.tool_call' row internally (see tools.ts) — two rows per shared-routed
+// call, not one. Accepted as a minor, harmless redundancy (both rows are
+// truthful, distinguishable by action name) rather than threading a
+// skip-audit flag through runTool for this.
 async function executeTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
   let out: string
   let threw: unknown
@@ -473,7 +412,7 @@ export async function POST(request: Request) {
 
     while (maxIterations-- > 0) {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: systemPrompt,
         tools,

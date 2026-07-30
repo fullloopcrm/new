@@ -8,6 +8,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * nothing else), so wrapping it there is the one place needed to cover all
  * 9 tools. This proves a tool call now produces a real audit_logs row with
  * the 'assistant.tool_call' action.
+ *
+ * #3 fold (2026-07-30): search_clients now dispatches through the shared
+ * runTool() (src/lib/selena/tools.ts), which ALSO writes its own
+ * 'yinez.tool_call' row internally — two rows per call now, not one. Both
+ * are truthful and distinguishable by action name; see the comment above
+ * executeTool() in route.ts for why this redundancy is accepted rather than
+ * suppressed.
  */
 
 const TENANT_A = 'tid-a'
@@ -64,13 +71,24 @@ describe('ai/assistant executeTool writes to audit_logs', () => {
     expect(res.status).toBe(200)
 
     const auditInserts = h.capture.inserts.filter((i) => i.table === 'audit_logs')
-    expect(auditInserts).toHaveLength(1)
-    expect(auditInserts[0].rows[0]).toMatchObject({
+    expect(auditInserts).toHaveLength(2)
+
+    const assistantRow = auditInserts.find((i) => i.rows[0].action === 'assistant.tool_call')
+    expect(assistantRow?.rows[0]).toMatchObject({
       tenant_id: TENANT_A,
       action: 'assistant.tool_call',
       entity_type: 'search_clients',
     })
-    const details = auditInserts[0].rows[0].details as Record<string, unknown>
+    const details = assistantRow?.rows[0].details as Record<string, unknown>
     expect(details).toMatchObject({ actor: 'agent', role: 'owner', success: true })
+
+    // The shared runTool() dispatcher's own internal audit row, using ITS
+    // tool name (lookup_client), not this route's external name.
+    const yinezRow = auditInserts.find((i) => i.rows[0].action === 'yinez.tool_call')
+    expect(yinezRow?.rows[0]).toMatchObject({
+      tenant_id: TENANT_A,
+      action: 'yinez.tool_call',
+      entity_type: 'lookup_client',
+    })
   })
 })
