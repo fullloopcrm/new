@@ -725,8 +725,9 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
             </div>
           )}
 
-          {/* Bookings — Activity tab */}
-          {drawerTab === 'activity' && (
+          {/* Bookings — Activity tab, and Service tab (where a client's actual
+              bookings belong alongside their recurring slot / cleaner affinity) */}
+          {(drawerTab === 'activity' || drawerTab === 'service') && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Bookings · {bookings.length}</span>
