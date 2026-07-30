@@ -74,6 +74,33 @@ export async function GET(request: Request) {
         })
       }
 
+      // Sold-but-unscheduled Jobs (the project sibling of the check above —
+      // 2026-07-30 pipeline trace found a real $365 Job that sat
+      // status='unscheduled' for 11+ days with zero alert, because Jobs had
+      // no equivalent of this monitor). Surface every unscheduled Job so it
+      // can't rot silently again.
+      const { data: unscheduledJobs } = await supabaseAdmin
+        .from('jobs')
+        .select('id, title, total_cents, created_at, clients(name)')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'unscheduled')
+        .limit(200)
+      for (const j of unscheduledJobs || []) {
+        const name = (j.clients as any)?.name || 'Client'
+        const dollars = (Number(j.total_cents) / 100).toFixed(0)
+        const ageDays = Math.floor((now.getTime() - new Date(j.created_at).getTime()) / (24 * 60 * 60 * 1000))
+        // Message must stay stable across runs (it's the dedup key against
+        // open schedule_issues below) — age/severity escalate without
+        // changing the text, or this would re-insert a "new" issue daily.
+        issues.push({
+          type: 'unscheduled_job',
+          severity: ageDays >= 2 ? 'critical' : 'warning',
+          message: `Job unscheduled: ${name} — ${j.title || 'Untitled'} ($${dollars}) — schedule it`,
+          booking_ids: [j.id],
+          tenant_id: tenantId,
+        })
+      }
+
       const byDate: Record<string, NonNullable<typeof bookings>> = {}
       for (const b of bookings || []) {
         const date = b.start_time.split('T')[0]
