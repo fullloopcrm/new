@@ -12,12 +12,20 @@
  * regresses to an empty dropdown.
  */
 import { NextResponse } from 'next/server'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getCurrentTenant } from '@/lib/tenant'
 import { getSettings } from '@/lib/settings'
 import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
-  const tenant = await getTenantFromHeaders()
+  // getCurrentTenant() tries the signed x-tenant-id header first (the public
+  // /book page's path), then falls back to admin-PIN-impersonation/Clerk
+  // session resolution -- getTenantFromHeaders() alone only covered the
+  // header case, so this route always returned [] for an admin working a
+  // tenant from the platform's own super-admin panel (no x-tenant-id header
+  // is set on that path) instead of just the tenant's own custom domain,
+  // silently emptying the Service dropdown in BookingsAdmin/CreateBookingForm
+  // for every admin-impersonation session.
+  const tenant = await getCurrentTenant()
   if (!tenant) return NextResponse.json([])
 
   const { data: catalogServices } = await tenantDb(tenant.id)
