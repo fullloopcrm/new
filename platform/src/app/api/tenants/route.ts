@@ -3,6 +3,7 @@ import { getOwnerUserId } from '@/lib/owner-session'
 import { supabaseAdmin } from '@/lib/supabase'
 import { parseServiceArea, withServiceArea } from '@/lib/service-area'
 import { PRICING } from '@/lib/billing-pricing'
+import { createAndSendOnboardingLink } from '@/lib/onboarding-link'
 
 export async function POST(request: Request) {
   const userId = await getOwnerUserId()
@@ -94,6 +95,13 @@ export async function POST(request: Request) {
   if (defaultServices.length > 0) {
     await supabaseAdmin.from('service_types').insert(defaultServices)  // tenant-scope-ok: defaultServices built with tenant.id (payload carries tenant_id)
   }
+
+  // Best-effort — never blocks/fails tenant creation. The signer up is
+  // already the owner with dashboard access, but the link is still useful
+  // to forward or as a backup entry point.
+  createAndSendOnboardingLink(tenant.id).catch((err) =>
+    console.error('createAndSendOnboardingLink failed for', tenant.id, err),
+  )
 
   return NextResponse.json({ tenant })
 }

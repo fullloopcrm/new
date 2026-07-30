@@ -16,13 +16,9 @@
  */
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { supabaseAdmin } from '@/lib/supabase'
-import { tenantDb } from '@/lib/tenant-db'
-import { getTenantProfile, routeProfileWrite } from '@/lib/tenant-profile'
+import { getTenantProfile } from '@/lib/tenant-profile'
 import { computeReadiness } from '@/lib/tenant-readiness'
-import { ensureDefaultEntity } from '@/lib/entity-provision'
-import { encryptTenantSecrets } from '@/lib/secret-crypto'
-import { clearSettingsCache } from '@/lib/settings'
+import { applyProfileWrite } from '@/lib/tenant-profile-write'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
@@ -62,47 +58,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Provide { field, value } or { values }' }, { status: 400 })
   }
 
-  const { tenantCols, entityCols, selenaKeys, complianceKeys, ignored } = routeProfileWrite(incoming)
-
-  if (!Object.keys(tenantCols).length && !Object.keys(entityCols).length &&
-      !Object.keys(selenaKeys).length && !Object.keys(complianceKeys).length) {
-    return NextResponse.json({ error: 'No writable fields', ignored }, { status: 400 })
-  }
-
-  const db = tenantDb(id)
-
   try {
-    // Entity fields → default entity row (seed it if missing).
-    if (Object.keys(entityCols).length) {
-      const { data: tRow } = await supabaseAdmin.from('tenants').select('name').eq('id', id).single()
-      await ensureDefaultEntity(id, (tRow?.name as string) || 'Main')
-      const { error } = await db
-        .from('entities')
-        .update(entityCols)
-        .eq('is_default', true)
-      if (error) throw new Error(`entity: ${error.message}`)
-    }
+    const { saved, ignored } = await applyProfileWrite(id, incoming)
+    if (!saved) return NextResponse.json({ error: 'No writable fields', ignored }, { status: 400 })
 
-    // jsonb stores → read-modify-merge so a single field never clobbers siblings.
-    if (Object.keys(selenaKeys).length || Object.keys(complianceKeys).length) {
-      const { data: cur } = await supabaseAdmin
-        .from('tenants').select('selena_config, compliance').eq('id', id).single()
-      if (Object.keys(selenaKeys).length) {
-        tenantCols.selena_config = { ...((cur?.selena_config as Record<string, unknown>) || {}), ...selenaKeys }
-      }
-      if (Object.keys(complianceKeys).length) {
-        tenantCols.compliance = { ...((cur?.compliance as Record<string, unknown>) || {}), ...complianceKeys }
-      }
-    }
-
-    // Tenant columns (+ merged jsonb) → encrypt secrets, then write.
-    if (Object.keys(tenantCols).length) {
-      const safe = encryptTenantSecrets(tenantCols)
-      const { error } = await supabaseAdmin.from('tenants').update(safe).eq('id', id)
-      if (error) throw new Error(`tenant: ${error.message}`)
-    }
-
-    clearSettingsCache(id)
     const readiness = await computeReadiness(id)
     return NextResponse.json({ saved: true, ignored, readiness })
   } catch (err) {

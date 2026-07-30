@@ -22,6 +22,7 @@ import { ServiceAreaTab } from './ServiceAreaTab'
 import { ServicesTab } from './ServicesTab'
 import { SalesTab } from './SalesTab'
 import { ReferralsPoliciesTab } from './ReferralsPoliciesTab'
+import { AdditionalDetailsTab } from './AdditionalDetailsTab'
 import { BrandingTab } from './BrandingTab'
 import { tenantSiteUrl, type Tenant, TABS, type Tab } from './_settings-types'
 
@@ -130,6 +131,8 @@ export default function SettingsPage() {
       {tab === 'Referrals & Policies' && (
         <ReferralsPoliciesTab form={form} setForm={setForm} saveTenant={saveTenant} saving={saving} saved={saved} />
       )}
+
+      {tab === 'Additional Details' && <AdditionalDetailsTab />}
 
       {tab === 'Permissions' && <PermissionsTab />}
 

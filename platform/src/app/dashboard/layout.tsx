@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import ImpersonationBanner from './impersonation-banner'
 import DashboardShell from './dashboard-shell'
+import FeedbackWidget from '@/components/FeedbackWidget'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
@@ -84,6 +85,11 @@ export default async function DashboardLayout({
       isAdminImpersonation={isAdminImpersonation}
     >
       {children}
+      {/* Was only mounted on customer-facing site/referral + site/book
+          layouts — the tenant operator's own dashboard had no feedback
+          entry point at all despite dashboard/feedback/page.tsx already
+          existing as the inbox it posts into. */}
+      <FeedbackWidget source="dashboard" />
     </DashboardShell>
   )
 }
