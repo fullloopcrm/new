@@ -935,7 +935,7 @@ export async function askSelena(
       // Max 3 iterations (down from 5 — fewer tools means fewer loops needed)
       for (let i = 0; i < 3; i++) {
         const response = await getClient().messages.create(
-          { model: 'claude-sonnet-4-20250514', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: TOOLS },
+          { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages, tools: TOOLS },
           { signal: controller.signal }
         )
 
@@ -975,7 +975,7 @@ export async function askSelena(
       // Fallback if no text captured
       if (!result.text) {
         const fallback = await getClient().messages.create(
-          { model: 'claude-sonnet-4-20250514', max_tokens: 700, system: systemPrompt, messages: currentMessages },
+          { model: 'claude-sonnet-4-6', max_tokens: 700, system: systemPrompt, messages: currentMessages },
           { signal: controller.signal }
         )
         const fallbackText = fallback.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')

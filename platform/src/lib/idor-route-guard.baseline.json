@@ -122,5 +122,10 @@
   "src/app/api/webhooks/telnyx/route.ts::campaign_recipients",
   "src/app/api/webhooks/telnyx/route.ts::campaigns",
   "src/app/api/webhooks/telnyx/route.ts::clients",
-  "src/app/api/webhooks/telnyx/route.ts::sms_conversations"
+  "src/app/api/webhooks/telnyx/route.ts::sms_conversations",
+  "src/lib/selena-legacy.ts::sms_conversations",
+  "src/lib/selena/core-extraction.ts::sms_conversations",
+  "src/lib/selena/core-tools-account.ts::sms_conversations",
+  "src/lib/selena/core-tools-booking.ts::sms_conversations",
+  "src/lib/selena/core-tools-schedule.ts::sms_conversations"
 ]

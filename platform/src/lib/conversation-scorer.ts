@@ -236,7 +236,7 @@ export async function selfReviewConversation(
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6-20250912' as never,
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       system: `You are a brutally honest quality reviewer for a service business called "${config.business_name}". You are reviewing a conversation between a client and an AI agent.
 

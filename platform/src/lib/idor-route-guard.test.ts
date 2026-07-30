@@ -106,6 +106,24 @@ describe('IDOR route guard — analyzer fixtures', () => {
 const API_ROOT = join(process.cwd(), 'src', 'app', 'api')
 const BASELINE_PATH = join(process.cwd(), 'src', 'lib', 'idor-route-guard.baseline.json')
 
+// The route-tree walk below only ever covered src/app/**/route.ts — the HTTP
+// entry points. It never covered src/lib/**, so the tool-execution engine
+// behind the customer-facing Yinez agent (which runs real booking/refund/
+// payment mutations, driven by LLM tool calls, not a human clicking a REST
+// endpoint) had zero CI coverage for this bug class. Added 2026-07-30 as an
+// explicit, curated list — not a src/lib/** wildcard walk, which would sweep
+// in a lot of unrelated, untriaged lib code at once. Extend this list
+// deliberately as more of the engine gets triaged, not by broadening the glob.
+const SELENA_ENGINE_FILES = [
+  'src/lib/selena/tools.ts',
+  'src/lib/selena/core.ts',
+  'src/lib/selena/core-tools-account.ts',
+  'src/lib/selena/core-tools-booking.ts',
+  'src/lib/selena/core-tools-schedule.ts',
+  'src/lib/selena/core-extraction.ts',
+  'src/lib/selena-legacy.ts',
+]
+
 function walkRoutes(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
@@ -117,7 +135,9 @@ function walkRoutes(dir: string): string[] {
 }
 
 function currentSignatures(): string[] {
-  const findings = walkRoutes(API_ROOT).flatMap((f) =>
+  const routeFiles = walkRoutes(API_ROOT)
+  const engineFiles = SELENA_ENGINE_FILES.map((f) => join(process.cwd(), f))
+  const findings = [...routeFiles, ...engineFiles].flatMap((f) =>
     analyzeSource({ file: relative(process.cwd(), f), source: readFileSync(f, 'utf8') }),
   )
   return Array.from(new Set(findings.map((f) => `${f.file}::${f.table}`))).sort()

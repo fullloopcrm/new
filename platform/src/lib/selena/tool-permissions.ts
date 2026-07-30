@@ -1,21 +1,18 @@
-// Draft permission map for the shared core's tool registry (agent.ts's TOOLS +
-// tools.ts's runTool) — the first real piece of #3 (folding the dashboard
-// assistant's RBAC-gated tools into the shared core).
+// Permission map for the shared core's tool registry (agent.ts's TOOLS +
+// tools.ts's runTool) — #3 (folding the dashboard assistant's RBAC-gated
+// tools into the shared core). WIRED IN (2026-07-30): src/app/api/ai/assistant/
+// route.ts now calls runTool(..., tenant.role, overridesFor(tenant)) directly
+// for every tool that has a clean shared equivalent (lookup_client, list_bookings,
+// list_cleaners/lookup_cleaner, update_booking, get_today_summary,
+// get_outstanding_payments, get_at_risk_clients), gated by this same map —
+// no more separate TOOL_PERMISSIONS duplicate.
 //
-// NOT YET WIRED IN. The shared core currently has no caller that carries a
-// dashboard user's role (SMS/email/Telegram/admin-chat all resolve only
-// "owner or not owner", never a granular Role). This map exists so the next
-// session doesn't start from zero: it mirrors the mapping already proven live
-// in src/app/api/ai/assistant/route.ts's TOOL_PERMISSIONS, extended to cover
-// the shared core's larger tool set. Wiring it in requires:
-//   1. Threading a Role (or null for non-dashboard channels) through
-//      askSelena -> askSelenaCore -> runTool.
-//   2. Gating runTool on hasPermission(role, TOOL_PERMISSIONS[name], overrides)
-//      when role is present, and preserving today's "owner or nothing" gate
-//      for SMS/email/Telegram/admin-chat where no Role exists.
-//   3. Reconciling the DUPLICATE tools between the two systems (e.g.
-//      query_bookings here vs. list_bookings there) rather than gating both
-//      separately — see the contract-shape note in tools.ts.
+// Two tools stayed dashboard-local deliberately rather than folded, because
+// their query logic has a real semantic difference, not just a naming one —
+// see get_revenue_stats below and update_client (no shared equivalent exists;
+// update_account is the CLIENT's own self-service tool, a different thing).
+// Both are still gated through THIS map for a single RBAC source of truth,
+// even though their handlers remain local to the dashboard route.
 import type { Permission } from '@/lib/rbac'
 
 export const SHARED_TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
@@ -27,6 +24,7 @@ export const SHARED_TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
   list_bookings: 'bookings.view',
   // Clients
   update_account: 'clients.edit',
+  update_client: 'clients.edit',
   block_client: 'clients.edit',
   create_client: 'clients.create',
   lookup_client: 'clients.view',
@@ -50,6 +48,11 @@ export const SHARED_TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
   mark_payment_received: 'finance.view',
   mark_payout_paid: 'finance.payroll',
   get_revenue: 'finance.view',
+  // get_revenue_stats (dashboard-only): computes from bookings.price/payment_status
+  // (invoiced), NOT the same basis as get_revenue above (actual payments.amount
+  // collected). Deliberately kept as a separate tool/calculation — merging the
+  // two would silently change the dollar figure dashboard users already see.
+  get_revenue_stats: 'finance.view',
   get_outstanding_payments: 'finance.view',
   // Recurring schedules
   list_recurring: 'schedules.view',

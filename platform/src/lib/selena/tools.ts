@@ -15,6 +15,7 @@ import { getCurrentTenantId } from '@/lib/tenant'
 import { getSettings } from '@/lib/settings'
 import { hasPermission, type Role, type RolePermissionOverrides } from '@/lib/rbac'
 import { SHARED_TOOL_PERMISSIONS } from '@/lib/selena/tool-permissions'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -291,7 +292,7 @@ async function dispatchTool(
     case 'get_revenue':
       return await handleGetRevenue(String(input.period || 'today'), tid)
     case 'lookup_client':
-      return await handleLookupClient(String(input.query || ''), tid)
+      return await handleLookupClient(String(input.query || ''), tid, input.client_id as string | undefined)
     case 'list_bookings':
       return await handleListBookings(input as { date?: string; from_date?: string; to_date?: string; cleaner_id?: string }, tid)
     case 'lookup_cleaner':
@@ -845,17 +846,26 @@ async function handleGetRevenue(period: string, tid: string): Promise<string> {
   })
 }
 
-async function handleLookupClient(query: string, tid: string): Promise<string> {
+async function handleLookupClient(query: string, tid: string, exactClientId?: string): Promise<string> {
   const digits = query.replace(/\D/g, '')
   let q = supabaseAdmin
     .from('clients')
     .select('id, name, phone, email, address, status, notes, created_at, do_not_service, preferred_team_member_id')
     .eq('tenant_id', tid)
     .limit(5)
-  if (digits.length >= 7) {
+  // #3 fold: exact-id path for the dashboard's get_client_details (clicking
+  // into a specific client after a fuzzy search) — a different access
+  // pattern from the name/phone/email/address fuzzy match below, additive.
+  if (exactClientId) {
+    q = q.eq('id', exactClientId)
+  } else if (digits.length >= 7) {
     q = q.ilike('phone', `%${digits.slice(-10)}%`)
   } else {
-    q = q.ilike('name', `%${query}%`)
+    // #3 fold: broadened from name-only to name/email/address so this can
+    // fully replace the dashboard assistant's old search_clients (which
+    // matched all four fields) without losing search capability.
+    const safe = sanitizePostgrestValue(query)
+    q = q.or(`name.ilike.%${safe}%,email.ilike.%${safe}%,address.ilike.%${safe}%`)
   }
   const { data: clients, error } = await q
   if (error) return JSON.stringify({ error: error.message })
@@ -909,20 +919,26 @@ async function handleLookupClient(query: string, tid: string): Promise<string> {
   return JSON.stringify({ matches: enriched })
 }
 
-async function handleListBookings(input: { date?: string; from_date?: string; to_date?: string; cleaner_id?: string }, tid: string): Promise<string> {
+async function handleListBookings(input: { date?: string; from_date?: string; to_date?: string; cleaner_id?: string; client_id?: string; status?: string; limit?: number }, tid: string): Promise<string> {
   const from = input.from_date || input.date
   const to = input.to_date || input.date
-  if (!from || !to) return JSON.stringify({ error: 'provide date or from_date+to_date' })
+  // Date range is optional when a narrower filter (client_id) is given — the
+  // dashboard assistant's "show me this client's bookings" has no natural
+  // date range to supply. #3 fold: this used to hard-require a date, which
+  // was fine for the SMS/Telegram callers (always asking about a day/week)
+  // but too narrow for the dashboard's ad-hoc client lookups.
+  if ((!from || !to) && !input.client_id) return JSON.stringify({ error: 'provide date or from_date+to_date, or client_id' })
 
   let q = supabaseAdmin
     .from('bookings')
-    .select('id, status, payment_status, start_time, end_time, hourly_rate, team_size, max_hours, clients(name), team_members(name, id)')
+    .select('id, status, payment_status, start_time, end_time, hourly_rate, price, team_size, max_hours, clients(name), team_members(name, id)')
     .eq('tenant_id', tid)
-    .gte('start_time', from + 'T00:00:00')
-    .lte('start_time', to + 'T23:59:59')
     .order('start_time', { ascending: true })
-    .limit(100)
+    .limit(input.limit || 100)
+  if (from && to) q = q.gte('start_time', from + 'T00:00:00').lte('start_time', to + 'T23:59:59')
   if (input.cleaner_id) q = q.eq('team_member_id', input.cleaner_id)
+  if (input.client_id) q = q.eq('client_id', input.client_id)
+  if (input.status) q = q.eq('status', input.status)
   const { data, error } = await q
   if (error) return JSON.stringify({ error: error.message })
 
@@ -1258,8 +1274,11 @@ function parseTimeToISO(t: string): string {
 }
 
 async function handleUpdateBooking(input: { booking_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
-  // Whitelist mutable fields
-  const allowed = ['status', 'payment_status', 'cleaner_id', 'hourly_rate', 'start_time', 'end_time', 'notes', 'service_type']
+  // Whitelist mutable fields. `price` (cents, the actual invoiced total) added
+  // #3 fold — distinct real column from `hourly_rate` (numeric per-hour rate);
+  // this handler previously had no way to correct a booking's total price at
+  // all, on any channel, which the dashboard's old update_bookings could do.
+  const allowed = ['status', 'payment_status', 'cleaner_id', 'hourly_rate', 'price', 'start_time', 'end_time', 'notes', 'service_type']
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) {
     if (allowed.includes(k)) update[k] = v
