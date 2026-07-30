@@ -6,8 +6,8 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 import { getPosition } from '@/lib/positions/catalog'
 
 const pageUrl = 'https://www.thenycmaid.com/careers/administrator'
-const pageTitle = 'Administrator — Run the Operation, Own the Future (Remote, US) | The NYC Maid'
-const pageDescription = 'The NYC Maid is hiring an Administrator to run the day-to-day operation — team, clients, payments, hiring, quality control, and the AI systems behind it — with a real long-term path toward running the whole company as we expand to Philadelphia, Connecticut, and Florida. $1,000/week 1099 for the first 90 days, then 10% of net profit. Remote, anywhere in the US.'
+const pageTitle = 'Administrator — Your Path to CEO of a Multi-Million-Dollar Company | The NYC Maid'
+const pageDescription = 'The NYC Maid went from 30 cleanings in January to nearly 200 in July — and we’re expanding to Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, we’re hiring an Administrator with a real long-term path to becoming CEO. $1,000/week to start, then 10% of net profit after 90 days. Remote, anywhere in the US.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -117,7 +117,8 @@ const qualifyingQuestions = [
 
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
-  { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days. After 90 days, compensation moves to 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward taking over the business.' },
+  { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days — sweat equity while you learn a business growing 7x and prove yourself. After 90 days, compensation moves to real profit sharing: 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
+  { question: 'Is the growth real, or is that just recruiting talk?', answer: 'It’s real, and verifiable in the operation itself: 30 cleanings in January, nearly 200 by July. The company is backed by someone with 20 years of experience in home services marketing, and that growth is the direct result of a repeatable playbook now being applied to three new markets.' },
   { question: 'Do I need to live in NYC?', answer: 'No. This is fully remote and open to candidates anywhere in the United States. We’re expanding beyond NYC into Philadelphia, Connecticut, and Florida, so this role was built to be location-independent from the start.' },
   { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
   { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself. As the company grows into new markets, that team-building responsibility grows with it.' },
@@ -161,12 +162,28 @@ export default function AdministratorCareersPage() {
             <span className="text-white/30">&middot;</span>
             <p className="text-white/60 text-sm">Remote — Anywhere in the US</p>
             <span className="text-white/30">&middot;</span>
-            <p className="text-white/60 text-sm">Path to Ownership</p>
+            <p className="text-white/60 text-sm">Leadership + Profit Sharing</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl text-white tracking-wide leading-[0.95] mb-6">
-            {config.title} — Run the Operation. Build the Company.
+            {config.title} Today. CEO Tomorrow.
           </h1>
-          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-6">{config.tagline}</p>
+          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">{config.tagline}</p>
+
+          <div className="flex flex-wrap gap-6 sm:gap-10 mb-8 border-y border-white/10 py-6">
+            <div>
+              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">30</p>
+              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, January</p>
+            </div>
+            <div>
+              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">~200</p>
+              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, July</p>
+            </div>
+            <div>
+              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">7x</p>
+              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Growth in 6 Months</p>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3 mb-10">
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">{config.compSummary}</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">{config.schedule}</span>
@@ -176,6 +193,7 @@ export default function AdministratorCareersPage() {
           <Link href="/apply/administrator" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
             Apply Now
           </Link>
+          <p className="text-white/40 text-xs mt-4">Backed by 20 years of experience in home services marketing.</p>
         </div>
       </section>
 
@@ -188,7 +206,10 @@ export default function AdministratorCareersPage() {
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">The Bigger Picture</h2>
           <p className="text-gray-600 leading-relaxed mb-3">
-            The NYC Maid runs in New York City today. We’re expanding into Philadelphia and Connecticut, and about to launch in Florida. Whoever takes this role isn’t signing up to manage one city’s schedule forever — you’re stepping into the operating structure for a company that’s about to run in four states, on a platform built to scale that way from day one.
+            This isn’t a stable, slow-moving company looking for someone to maintain the status quo. We went from 30 cleanings in January to nearly 200 in July — and we’re expanding into Philadelphia and Connecticut, with Florida about to launch. Whoever takes this role isn’t signing up to manage one city’s schedule — you’re getting in on the ground floor of a company that’s about to run in four states.
+          </p>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is.
           </p>
           <p className="text-gray-600 leading-relaxed">
             Administrator is where this starts, not where it ends. The team is sold on and scheduled — from that point, the operation is yours: team coordination, client communication, payment collection, quality control, and hiring. It’s general-manager-level ownership without general-manager-level hours, because the platform automates most of the routine work — confirmations, reminders, check-ins, and payment tracking all happen automatically. You handle the judgment calls, not the busywork.
@@ -222,9 +243,12 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Compensation &amp; Path to Ownership</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Sweat Equity Now. Real Ownership Later.</h2>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            The first 90 days are sweat equity — $1,000/week while you learn a business that’s growing 7x, prove yourself, and earn trust. That’s a deliberate trade, not a lowball: it’s what it takes to be handed real financial and operational control of a company this early in its growth.
+          </p>
           <p className="text-gray-600 leading-relaxed mb-6">
-            You start at $1,000/week as a 1099 independent contractor. After 90 days, that shifts to 10% of net profit, with a readjustment from there as your scope and the company grow. Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and full ownership ahead of it for the right person.
+            After 90 days, that shifts to solid, real profit sharing — 10% of net profit, with a readjustment from there as your scope and the company grow. Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and eventual CEO of a multi-million-dollar company ahead of it for the right person. This is the kind of opportunity that changes the trajectory of a career.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="border border-gray-200 rounded-xl p-5">
@@ -317,7 +341,7 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Full Ownership. Real Business. Real Future.</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">7x Growth. A Real Path to CEO. Your Move.</p>
           <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-6">
             Apply in a few minutes. Background questions, a few scenario questions, and a short required video introduction.
           </p>

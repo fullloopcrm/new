@@ -98,9 +98,9 @@ export const POSITIONS: Record<string, PositionConfig> = {
     tenantSlug: 'nycmaid',
     title: 'Administrator',
     tagline:
-      'Full oversight of NYC Maid’s day-to-day operation — your service team, clients, payments, hiring, and quality control — plus learning to manage and implement the AI systems that run alongside you. NYC is live; Philadelphia, Connecticut, and Florida are next. General-manager-level ownership, without general-manager-level hours, because the platform automates most of the routine work.',
+      'We went from 30 cleanings in January to nearly 200 in July — and we’re just getting started, expanding into Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, this is a leadership and profit-sharing position with a real path to becoming CEO of a multi-million-dollar company. Full oversight of the day-to-day operation — team, clients, payments, hiring, quality control — plus learning to manage and implement the AI systems that run alongside you.',
     compSummary:
-      '$1,000/week (1099) for the first 90 days. After 90 days: 10% of net profit, with a readjustment from there as the role and the company grow.',
+      '$1,000/week (1099) to start — sweat equity while you learn the business. After 90 days: 10% of net profit, with a readjustment from there as the role and the company grow.',
     employmentType: '1099 Independent Contractor',
     schedule: 'Monday–Friday, 8:00 AM–6:00 PM',
     location: 'Remote — Anywhere in the U.S.',
