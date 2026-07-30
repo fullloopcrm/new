@@ -97,6 +97,24 @@ const ninetyDays = [
   { range: 'Weeks 9–12', focus: 'Marketing & Systems', detail: 'Take on campaigns, reviews, and the settings that run the business — right around the 90-day compensation change.' },
 ]
 
+const learningAreas = [
+  { title: 'A Brand-New CRM', detail: 'Full Loop CRM — the exact system we built and run this entire company on. You’ll learn how a real operating system for a service business works, end to end, not just how to click through software.' },
+  { title: 'AI', detail: 'How to manage the AI agent already running our voice, SMS, and web chat — and eventually how to implement AI systems yourself as we launch in new markets.' },
+  { title: 'How to Manage & Grow a Company', detail: 'Real operational leadership — hiring, team-building, finance, and the judgment calls that make someone capable of running a business, not just working in one.' },
+  { title: 'Marketing & SEO', detail: 'Campaigns, reviews, social, Google Business Profile, website performance, and the analytics behind all of it.' },
+]
+
+const qualifyingQuestions = [
+  'Are you dependable — the kind of person who shows up and follows through, every time, without being chased?',
+  'Are you responsible enough to be trusted with real financial oversight — payroll, client payments, and eventually company decisions?',
+  'Do you have experience in an administrator, manager, or operator role — running a team, a shift, a department, or a business of your own?',
+  'Are you comfortable being 100% available and fully committed to one opportunity, not splitting your attention across several?',
+  'Can you stay calm and make a good call under pressure — a no-show, an upset client, a scheduling conflict — without waiting to be told what to do?',
+  'Are you excited, not intimidated, by learning brand-new systems from scratch — a CRM, AI tools, marketing platforms — with no prior experience required?',
+  'Are you a strong communicator who can build real trust with a team and with clients?',
+  'Are you thinking long-term — looking for a real career and eventual ownership, not just a paycheck?',
+]
+
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
   { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days. After 90 days, compensation moves to 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward taking over the business.' },
@@ -191,6 +209,19 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">What You’ll Learn</h2>
+          <p className="text-gray-500 text-sm mb-6">None of this requires prior experience. I will personally teach you all of it.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {learningAreas.map((area) => (
+              <div key={area.title} className="border border-gray-200 rounded-xl p-5 hover:border-[#A8F0DC] transition-colors">
+                <p className="font-semibold text-[#1E2A4A] mb-1.5">{area.title}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{area.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Compensation &amp; Path to Ownership</h2>
           <p className="text-gray-600 leading-relaxed mb-6">
             You start at $1,000/week as a 1099 independent contractor. After 90 days, that shifts to 10% of net profit, with a readjustment from there as your scope and the company grow. Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and full ownership ahead of it for the right person.
@@ -240,6 +271,32 @@ export default function AdministratorCareersPage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Are You Right For This Job?</h2>
+          <p className="text-gray-500 text-sm mb-6">Read these honestly before you apply. If most of them are a clear yes, keep going.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {qualifyingQuestions.map((q) => (
+              <div key={q} className="flex gap-3 border border-gray-200 rounded-xl p-4">
+                <span className="text-[#A8F0DC] text-lg leading-none mt-0.5 flex-shrink-0">&#10003;</span>
+                <p className="text-gray-600 text-sm leading-relaxed">{q}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Why Do You Want This Job?</h2>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Sit with that question before you apply, because it’s one of the first things we’ll ask you — on video.
+          </p>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            This isn’t a scheduling job. It’s the ground floor of a company that’s about to run in four states, and the person who takes it will be personally taught — by ownership — how to run the CRM, the AI, the marketing, and the finance behind all of it. Opportunities to grow into owning a real business don’t usually get offered outright. This one is, to the right person.
+          </p>
+          <p className="text-gray-600 leading-relaxed">
+            If your honest answer is closer to <em>&ldquo;I need a job&rdquo;</em> than <em>&ldquo;I want to build something real and I&rsquo;m willing to earn my way into owning it&rdquo;</em>, this probably isn&rsquo;t the right fit — and that&rsquo;s okay. If it&rsquo;s the second one, we want to hear it.
+          </p>
         </section>
 
         <section className="mb-16">
