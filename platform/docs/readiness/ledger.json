@@ -138,33 +138,33 @@
           "id": "lss-01",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Traced 2026-07-30; existing tests pass; added trackError alerting to the previously-silent failure path this session, commit 50ed3e882, own test route.pipeline-alert.test.ts passing.",
+          "evidence": "Traced 2026-07-30; existing tests pass; added trackError alerting to the previously-silent failure path this session, commit be172fdfe, own test route.pipeline-alert.test.ts passing.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-02",
           "score": 75,
           "evidence_type": "test_run",
-          "evidence": "Same pattern as lss-01; existing test passes; alerting added commit 50ed3e882; not independently live-curled this round.",
+          "evidence": "Same pattern as lss-01; existing test passes; alerting added commit be172fdfe; not independently live-curled this round.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-03",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning (live code read: notification-only, no client/lead/deal). Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
+          "evidence": "Was 0 on 2026-07-30 morning (live code read: notification-only, no client/lead/deal). Fixed same day, commit 734d360dd, 3 new tests passing (route.lead-creation.test.ts).",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "lss-04",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
+          "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 734d360dd, 3 new tests passing (route.lead-creation.test.ts).",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "lss-05",
@@ -178,17 +178,17 @@
           "id": "lss-06",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 36364688f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
+          "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 8536f407f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "36364688f"
+          "last_verified_commit": "8536f407f"
         },
         {
           "id": "lss-07",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Built+shipped 2026-07-30, commit 50ed3e882. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
+          "evidence": "Built+shipped 2026-07-30, commit be172fdfe. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-08",
@@ -206,9 +206,9 @@
           "id": "bsr-01",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit ecfa935c6 (schedule-monitor cron extension), 3 new tests passing.",
+          "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit 375e8ea75 (schedule-monitor cron extension), 3 new tests passing.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "ecfa935c6"
+          "last_verified_commit": "375e8ea75"
         },
         {
           "id": "bsr-02",
@@ -278,9 +278,9 @@
           "id": "ai-01",
           "score": 75,
           "evidence_type": "live_query",
-          "evidence": "Live query 2026-07-30: 1,903 real sms_conversations rows, most recent 5 minutes before the check -- genuinely active, current usage. Code also read same day as part of the chat-route lead-creation fix (commit 0747ac898). Not a fresh end-to-end test run this round beyond the existing suite.",
+          "evidence": "Live query 2026-07-30: 1,903 real sms_conversations rows, most recent 5 minutes before the check -- genuinely active, current usage. Code also read same day as part of the chat-route lead-creation fix (commit 734d360dd). Not a fresh end-to-end test run this round beyond the existing suite.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "ai-02",
