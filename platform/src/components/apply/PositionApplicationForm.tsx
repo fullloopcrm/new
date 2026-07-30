@@ -20,6 +20,18 @@ function emptyForm(): FormState {
   return { name: '', email: '', phone: '', location: '', recordings: {}, website: '' }
 }
 
+// In-app browsers (Instagram, Facebook/Messenger, TikTok, LinkedIn, etc.) are
+// the single most common real-world cause of "camera doesn't work" on a
+// shared application link — they deliberately block or break camera access,
+// and no page-level fix can override that. Detect it and tell candidates to
+// open in their real browser instead of letting them hit a silent failure.
+const IN_APP_BROWSER_PATTERN = /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok|LinkedInApp|Twitter|GSA\/|Snapchat/i
+
+function isLikelyInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return IN_APP_BROWSER_PATTERN.test(navigator.userAgent)
+}
+
 function formatPhone(value: string): string {
   const cleaned = value.replace(/\D/g, '')
   if (cleaned.length <= 3) return cleaned
@@ -48,9 +60,16 @@ export default function PositionApplicationForm({ config }: { config: PositionCo
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
+  // Starts false on both server and client (matches RecordedAnswer's own
+  // hydration-safe pattern) — navigator.userAgent doesn't exist during SSR.
+  const [inAppBrowser, setInAppBrowser] = useState(false)
 
   const photoInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isLikelyInAppBrowser()) setInAppBrowser(true)
+  }, [])
 
   const persistDraft = useCallback((state: FormState, photoUrl: string | null) => {
     fetch('/api/management-applications/draft', {
@@ -230,6 +249,11 @@ export default function PositionApplicationForm({ config }: { config: PositionCo
         <p className="text-center text-sm text-slate-600 mt-2 bg-slate-50 rounded-lg px-4 py-3">{config.introMessage}</p>
         {draftStatus === 'loaded' && (
           <p className="text-center text-sm text-blue-600 mt-2">Draft restored from your last visit.</p>
+        )}
+        {inAppBrowser && (
+          <p className="text-center text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mt-2">
+            You appear to have opened this from an app (Instagram, Facebook, TikTok, etc.) — those often block camera access. For the recorded questions to work, tap the menu (usually •••) and choose &ldquo;Open in Browser&rdquo; (Safari or Chrome), or copy this link and paste it there directly.
+          </p>
         )}
       </div>
 
