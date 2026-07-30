@@ -46,6 +46,19 @@ export const CROSS_TENANT_TABLES: ReadonlySet<string> = new Set([
   // migrations/2026_07_27_legal_overlook.sql). Applies across tenants by
   // trade_key/state_code, not ownership; per-tenant surfaced state lives in
   // the separate, genuinely tenant-scoped legal_tip_notifications table.
+
+  // Added 2026-07-30 during sec-05 baseline triage. Confirmed via a live
+  // information_schema.columns query against prod (not assumed from the
+  // name) that none of these three have a tenant_id column at all:
+  'partner_requests', // pre-tenant sales-partner funnel, same class as leads/prospects/waitlist
+  'platform_announcements', // global platform changelog/announcement content, admin-authored
+  'crm_notes', // no tenant_id column; scoped via client_id FK, not tenant ownership
+
+  // Explicitly NOT added despite similar-sounding names -- verified via the
+  // same live schema query to genuinely have a tenant_id column, i.e. they
+  // ARE tenant-owned and an admin route reading them by id is an accepted
+  // superadmin bypass (gated on requireAdmin(), platform-staff-only), not a
+  // structurally-global table: platform_feedback, error_logs.
 ])
 
 // A scoped-db root (tenantDb(...).from / a `db` alias) auto-injects tenant_id and
