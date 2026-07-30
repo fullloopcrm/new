@@ -31,10 +31,12 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
   const [adding, setAdding] = useState(false)
   const [newAddress, setNewAddress] = useState('')
   const [newUnit, setNewUnit] = useState('')
+  const [newLabel, setNewLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAddress, setEditAddress] = useState('')
+  const [editLabel, setEditLabel] = useState('')
   // AddressAutocomplete only ever SUGGESTS — it never blocks free text, so
   // typing garbage and hitting Add/Save silently saved whatever was typed.
   // Track whether the current value actually came from picking a suggestion.
@@ -59,11 +61,11 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null }),
+      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null, label: newLabel.trim() || null }),
     })
     setBusy(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
-    setNewAddress(''); setNewUnit(''); setAdding(false); setNewAddressValid(false)
+    setNewAddress(''); setNewUnit(''); setNewLabel(''); setAdding(false); setNewAddressValid(false)
     load()
   }
 
@@ -74,7 +76,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
     const res = await fetch(`/api/clients/${clientId}/properties`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ property_id: id, address: editAddress.trim() }),
+      body: JSON.stringify({ property_id: id, address: editAddress.trim(), label: editLabel.trim() || null }),
     })
     setBusy(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Failed to save'); return }
@@ -126,6 +128,10 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
             <div key={p.id} style={{ border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12 }}>
               {editingId === p.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={labelStyle}>Nickname (optional)</span>
+                    <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder="Home, Mom's, Office…" style={fieldStyle} />
+                  </label>
                   <AddressAutocomplete
                     value={editAddress}
                     onChange={(val) => { setEditAddress(val); setEditAddressValid(false) }}
@@ -142,6 +148,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <div style={{ fontSize: 13, color: 'var(--clients-ink)' }}>
+                    {p.label && <span style={{ fontWeight: 600 }}>{p.label} — </span>}
                     {p.address}
                     {p.is_primary && (
                       <span style={{ marginLeft: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, padding: '2px 6px', borderRadius: 3, background: 'var(--clients-bg)', color: 'var(--clients-muted)' }}>
@@ -157,7 +164,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                       className="clients-section-action"
                       role="button"
                       tabIndex={0}
-                      onClick={() => { setEditingId(p.id); setEditAddress(p.address); setEditAddressValid(true); setError('') }}
+                      onClick={() => { setEditingId(p.id); setEditAddress(p.address); setEditAddressValid(true); setEditLabel(p.label || ''); setError('') }}
                     >
                       Edit
                     </span>
@@ -177,6 +184,10 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
       {adding && (
         <div style={{ marginTop: 8, border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={labelStyle}>Nickname (optional)</span>
+            <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Home, Mom's, Office…" style={fieldStyle} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={labelStyle}>Address</span>
             <AddressAutocomplete
               value={newAddress}
@@ -191,7 +202,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" disabled={busy} className="clients-btn clients-btn-primary" onClick={add}>{busy ? 'Adding…' : 'Add'}</button>
-            <button type="button" className="clients-btn clients-btn-ghost" onClick={() => { setAdding(false); setError(''); setNewAddressValid(false) }}>Cancel</button>
+            <button type="button" className="clients-btn clients-btn-ghost" onClick={() => { setAdding(false); setError(''); setNewAddressValid(false); setNewLabel('') }}>Cancel</button>
           </div>
         </div>
       )}
