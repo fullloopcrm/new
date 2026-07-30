@@ -41,11 +41,19 @@ export async function getArAging(tenantId: string, entityId?: string | null): Pr
   const db = tenantDb(tenantId)
   const today = new Date()
 
+  // Bounded at 5000 -- these are already filtered to "still outstanding"
+  // (unpaid invoices / unresolved bookings), which should never realistically
+  // approach that count for a single tenant. The cap exists so a runaway
+  // backlog can't return an unbounded result set, not because 5000 is an
+  // expected real-world size.
+  const AR_AGING_ROW_CAP = 5000
+
   let invQ = db
     .from('invoices')
     .select('id, invoice_number, title, total_cents, amount_paid_cents, due_date, issued_at, contact_name, contact_email, client_id, clients(id, name, email, phone)')
     .not('status', 'in', '(paid,void,refunded,draft)')
     .order('due_date', { ascending: true, nullsFirst: false })
+    .limit(AR_AGING_ROW_CAP)
   if (entityId) invQ = invQ.eq('entity_id', entityId)
   const { data: invoices } = await invQ
 
@@ -60,6 +68,7 @@ export async function getArAging(tenantId: string, entityId?: string | null): Pr
     .not('payment_status', 'in', '(paid,refunded)')
     .is('route_id', null)
     .order('start_time', { ascending: true })
+    .limit(AR_AGING_ROW_CAP)
 
   const rows: ArAgingRow[] = []
 
