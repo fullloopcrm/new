@@ -263,6 +263,15 @@ export async function POST(request: Request) {
               tenant_id: tenant.id,
             }).eq('id', prospectId)
 
+            // This tenant goes live immediately (paid checkout) — no
+            // separate admin "Activate" click ever happens for it. Stamp
+            // activated_at and run the same post-activation tasks
+            // activate-tenant.ts triggers (FL-team ping, health baseline,
+            // first-pass content draft) so it isn't silently skipped.
+            await supabaseAdmin.from('tenants').update({ activated_at: new Date().toISOString() }).eq('id', tenant.id)
+            const { runPostActivationTasks } = await import('@/lib/post-activation')
+            runPostActivationTasks(tenant.id).catch((e) => console.error('[stripe webhook] post-activation tasks failed:', e))
+
             // Send tenant owner an invite so they can log in and run setup.
             // Without this, a paid tenant has no way into their dashboard
             // and would be stuck until a super-admin manually invited them.

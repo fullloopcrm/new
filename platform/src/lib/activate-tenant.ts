@@ -23,6 +23,9 @@ import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult }
 import { registerSeoProperty } from './seo/onboarding'
 import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
+import { createAndSendOnboardingLink } from './onboarding-link'
+import { sendOwnerLoginEmail } from './owner-welcome-email'
+import { runPostActivationTasks } from './post-activation'
 import crypto from 'crypto'
 
 // Default contact used when a tenant is created name-only (common for process
@@ -288,13 +291,38 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
         ownerPin = null
         steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: memErr.message })
       } else {
-        steps.push({ key: 'owner_login', label: 'Owner login', status: 'done', detail: `Owner created (${ownerEmail}) — PIN issued once` })
+        const { sent } = await sendOwnerLoginEmail({ tenantName: tenant.name || 'Business', slug: tenant.slug, ownerEmail, ownerPin })
+        steps.push({
+          key: 'owner_login',
+          label: 'Owner login',
+          status: 'done',
+          detail: sent
+            ? `Owner created (${ownerEmail}) — PIN emailed`
+            : `Owner created (${ownerEmail}) — email failed, PIN issued once below`,
+        })
       }
     }
   } catch (e) {
     steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: msg(e) })
   }
   await crumb(tenantId, 'after_owner')
+
+  // 5b. Onboarding-questionnaire link — auto-created and emailed here (not at
+  // Create) because a just-created tenant has no real owner_email yet and
+  // isn't ready for the owner to see. Idempotent in effect: re-running
+  // Activate just re-sends the same (still-valid) link, it doesn't mint a
+  // new one unless the link was separately regenerated.
+  try {
+    const { sent } = await createAndSendOnboardingLink(tenantId)
+    steps.push({
+      key: 'onboarding_link',
+      label: 'Onboarding link sent',
+      status: sent ? 'done' : 'action_needed',
+      detail: sent ? 'Emailed to the owner' : 'No owner/business email on file — copy the link from this page instead',
+    })
+  } catch (e) {
+    steps.push({ key: 'onboarding_link', label: 'Onboarding link sent', status: 'failed', detail: msg(e) })
+  }
 
   // 6. Smoke test — run the onboarding gate over the lead→review spine.
   // Bust the per-tenant settings cache first: earlier steps (provisioning,
@@ -415,12 +443,23 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   // Flip to active only when the spine passes, there's an owner login, AND the
   // site actually serves. Never mark a tenant live on faith.
   let activated = tenant.status === 'active'
+  let justActivated = false
   if (ready && tenant.status !== 'active') {
     const { error: upErr } = await supabaseAdmin
       .from('tenants')
-      .update({ status: 'active' })
+      .update({ status: 'active', activated_at: new Date().toISOString() })
       .eq('id', tenantId)
-    if (!upErr) activated = true
+    if (!upErr) { activated = true; justActivated = true }
+  }
+
+  // FL-team ping + day-1 health baseline snapshot. Best-effort, only on the
+  // actual transition to active (not on a re-click of an already-active tenant).
+  if (justActivated) {
+    try {
+      await runPostActivationTasks(tenantId)
+    } catch (e) {
+      steps.push({ key: 'post_activation', label: 'Post-activation tasks', status: 'failed', detail: msg(e) })
+    }
   }
 
   await crumb(tenantId, 'done')
