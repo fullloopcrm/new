@@ -19,9 +19,9 @@ vi.mock('@/lib/rate-limit-db', () => ({
   rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 10 })),
 }))
 
-const sendEmailMock = vi.fn(async () => ({}))
+const sendEmailMock = vi.fn(async (_opts: { to: string; html: string; subject: string }) => ({}))
 vi.mock('@/lib/email', () => ({
-  sendEmail: (opts: unknown) => sendEmailMock(opts),
+  sendEmail: (opts: { to: string; html: string; subject: string }) => sendEmailMock(opts),
   tenantSender: () => 'Full Loop <hello@fullloopcrm.com>',
 }))
 
