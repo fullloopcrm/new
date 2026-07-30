@@ -75,6 +75,11 @@ export interface AgentConfig {
   operating_hours_note?: string // derived from settings.business_hours_start/end (agent-config-loader)
   capacity_note?: string // owner-authored team-capacity heads-up (persona.capacity_note), e.g.
   // "fully booked through next week" — NOT a substitute for real availability tools.
+  // 2026-07-30 gap-fill (same bug class as capacity_note/escalation_extra above):
+  // both omitted by default (undefined) — buildPlaybook falls back to its
+  // existing hardcoded text when unset, so an untouched tenant sees zero diff.
+  language_note?: string // from persona.language ('en'/'es') — omitted when unset
+  emoji_note?: string // from persona.emoji_usage — overrides the boolean-driven default line when set
 }
 
 // The NYC Exterminator — quote-first / lead-handoff model (Jeff, 2026-06-11).

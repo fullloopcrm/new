@@ -32,6 +32,17 @@ export interface Persona {
   // selena_config.tone key instead of adding a duplicate field.
   tone?: string
   phrases_to_use?: string[]
+  // Pre-existing 'ai' section onboarding fields, wired in 2026-07-30 (same bug
+  // class as tone: saved by the wizard, never read by this engine).
+  // greeting: single preferred greeting, prepended onto voice.openers.
+  // language: 'en' | 'es' — blank/unset renders NO override (the LLM already
+  // responds naturally in whatever language the customer uses; forcing a
+  // default here would be a behavior change for every existing tenant).
+  // emoji_usage: 'none' | 'one_per_message' | 'frequent' — overrides the
+  // boolean-driven default emoji line when set.
+  greeting?: string
+  language?: string
+  emoji_usage?: string
   // sales
   value_props?: string[]
   usps?: string[]
@@ -70,6 +81,13 @@ export interface Persona {
   // for real availability tools (score_cleaners etc.); blank means no note, the
   // agent keeps using real tools rather than guessing at capacity.
   capacity_note?: string
+  // Pre-existing 'brand' section onboarding fields, wired in 2026-07-30 (same
+  // bug class as tone/greeting/language/emoji_usage above — collected, never
+  // read). Rendered as extra business-context sections, same as
+  // business_description/business_story.
+  target_customer?: string
+  competitors?: string[]
+  differentiators?: string
   // custom
   custom_fields?: { category: string; label: string; value: string }[]
 }
@@ -82,6 +100,24 @@ const TONE_DIRECTIVES: Record<string, string> = {
   professional: 'Professional and polished.',
   casual: 'Casual and relaxed.',
   luxury: 'Refined, luxury-brand tone.',
+}
+
+/** Language directive per onboarding's 'en'/'es' select (LANGUAGE_OPTIONS in
+ *  tenant-profile.ts). Unset/unrecognized -> no override (see Persona.language
+ *  comment above). Mirrors the wording selena-legacy.ts already uses for its
+ *  own (separate, admin-tool-only) engine, for consistency. */
+const LANGUAGE_DIRECTIVES: Record<string, string> = {
+  en: 'Respond in English, even if the customer writes in another language.',
+  es: 'Respond in Spanish, even if the customer writes in English.',
+}
+
+/** Emoji directive per onboarding's emoji_usage select (EMOJI_OPTIONS in
+ *  tenant-profile.ts). Unset -> keep the existing boolean-driven default in
+ *  buildPlaybook (no behavior change for tenants who never set this). */
+const EMOJI_DIRECTIVES: Record<string, string> = {
+  none: 'No emojis, ever.',
+  one_per_message: 'An emoji is okay once, sparingly, never on serious topics.',
+  frequent: 'Emojis are welcome throughout when they fit the moment — use them naturally.',
 }
 
 /** Read the tenant's authored personality file. Returns {} if none. */
@@ -107,7 +143,12 @@ const uniq = (items: string[]): string[] => Array.from(new Set(items.map((s) => 
 export function applyPersonaToConfig(cfg: AgentConfig, p: Persona): AgentConfig {
   if (!p || Object.keys(p).length === 0) return cfg
 
-  const openers = arr(p.opening_lines) ? (p.opening_lines as string[]) : cfg.voice.openers
+  const baseOpeners = arr(p.opening_lines) ? (p.opening_lines as string[]) : cfg.voice.openers
+  // greeting: the tenant's single preferred greeting (also used, separately,
+  // as the raw first-contact SMS auto-reply via settings.chatbot_greeting) —
+  // prepended so Yinez's OWN generated openers actually favor it too, instead
+  // of only affecting the pre-AI cold-open text.
+  const openers = nonEmpty(p.greeting) ? uniq([p.greeting!.trim(), ...baseOpeners]) : baseOpeners
   const bannedPhrases = arr(p.banned_phrases)
     ? uniq([...cfg.voice.banned_phrases, ...(p.banned_phrases as string[])])
     : cfg.voice.banned_phrases
@@ -117,6 +158,11 @@ export function applyPersonaToConfig(cfg: AgentConfig, p: Persona): AgentConfig 
   // actually steers the voice instead of sitting unread in the DB.
   const toneDirective = nonEmpty(p.tone) ? TONE_DIRECTIVES[p.tone!.trim()] : undefined
   const persona = toneDirective ? `${toneDirective} ${cfg.voice.persona}` : cfg.voice.persona
+
+  // Language / emoji: only override when explicitly set (see directive-map
+  // comments above) — blank means zero behavior change from before this fix.
+  const languageNote = nonEmpty(p.language) ? LANGUAGE_DIRECTIVES[p.language!.trim()] : cfg.language_note
+  const emojiNote = nonEmpty(p.emoji_usage) ? EMOJI_DIRECTIVES[p.emoji_usage!.trim()] : cfg.emoji_note
 
   const policyAdds: string[] = []
   // Cancellation / reschedule / late-payment: each gets an explicit "not
@@ -163,6 +209,8 @@ export function applyPersonaToConfig(cfg: AgentConfig, p: Persona): AgentConfig 
     policies: [...cfg.policies, ...policyAdds],
     escalation_extra: escalationExtra,
     capacity_note: nonEmpty(p.capacity_note) ? p.capacity_note!.trim() : cfg.capacity_note,
+    language_note: languageNote,
+    emoji_note: emojiNote,
   }
 }
 
@@ -182,6 +230,9 @@ export function renderPersonaExtras(p: Persona): string {
 
   if (nonEmpty(p.business_description)) section('WHAT THE BUSINESS DOES', p.business_description!.trim())
   if (nonEmpty(p.business_story)) section('THE STORY (use naturally, never recite)', p.business_story!.trim())
+  if (nonEmpty(p.target_customer)) section('WHO YOU TALK TO (target customer)', p.target_customer!.trim())
+  if (nonEmpty(p.differentiators)) section('WHAT MAKES YOU DIFFERENT (in the owner\'s own words)', p.differentiators!.trim())
+  if (arr(p.competitors)) section('COMPETITORS (know these — never badmouth; pivot to WHAT MAKES YOU DIFFERENT if asked to compare)', bullets(p.competitors))
   if (nonEmpty(p.team_intro)) section('THE TEAM', p.team_intro!.trim())
   if (arr(p.phrases_to_use)) section('PHRASES YOU USE (work these in naturally, don\'t force them)', bullets(p.phrases_to_use))
   if (arr(p.faqs)) {

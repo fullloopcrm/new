@@ -100,7 +100,15 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   if (authored) return authored
 
   const name = tenant?.name || 'the business'
-  const agentName = tenant?.agent_name || 'Jefe'
+  // tenants.agent_name is the real source of truth (see provision-tenant.ts's
+  // seeding comment); selena_config.ai_name is a legacy mirror the onboarding
+  // 'ai' section still writes to. Previously only selena-legacy.ts and the
+  // outreach cron honored that fallback — this engine silently ignored an
+  // onboarding-submitted agent name whenever tenants.agent_name was still
+  // empty (2026-07-30 gap-fill; same bug class as the tone fix above).
+  const agentName = tenant?.agent_name
+    || (tenant?.selena_config as { ai_name?: string } | undefined)?.ai_name
+    || 'Jefe'
   const industry = (tenant?.industry || 'home services').replace(/_/g, ' ')
   const phone = tenant?.phone || settings.business_phone || '<not configured>'
   const domain = tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''

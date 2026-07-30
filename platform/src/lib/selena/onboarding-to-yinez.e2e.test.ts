@@ -139,6 +139,14 @@ describe('onboarding -> Yinez context, real answers', () => {
       upsellTriggers: ['client mentions moving out'],
       neverUpsell: ['Do not upsell during a complaint call'],
       capacityNote: 'Fully booked through next Friday — offer only the following Monday onward.',
+      // Pre-existing 'ai'/'brand' section fields, wired in this same pass
+      // (2026-07-30 part 2 — same bug class: saved, never read).
+      greeting: 'Hola! Gracias por contactar Test Cleaning Co, this is Ana.',
+      language: 'es',
+      emojiUsage: 'frequent',
+      targetCustomer: 'Busy Manhattan renters who want a reliable biweekly clean without managing a cleaner directly.',
+      competitors: ['Handy', 'MaidPro NYC'],
+      differentiators: 'Same cleaner every time, insured team, and a text-based booking flow instead of an app.',
     }
 
     const { saved, ignored } = await submitOnboarding(TENANT_ID, answers)
@@ -193,6 +201,50 @@ describe('onboarding -> Yinez context, real answers', () => {
     // settings, now surfaced automatically, no separate onboarding field)
     expect(prompt).toContain('Fully booked through next Friday')
     expect(prompt).toContain('Business hours: 8 AM–6 PM')
+
+    // Previously write-only 'ai'/'brand' fields (2026-07-30 part 2)
+    expect(prompt).toContain('Hola! Gracias por contactar Test Cleaning Co, this is Ana.') // greeting -> opener
+    expect(prompt).toContain('Respond in Spanish, even if the customer writes in English.') // language
+    expect(prompt).toContain('Emojis are welcome throughout when they fit the moment') // emoji_usage
+    expect(prompt).toContain('Busy Manhattan renters who want a reliable biweekly clean') // target_customer
+    expect(prompt).toContain('Handy')
+    expect(prompt).toContain('MaidPro NYC')
+    expect(prompt).toContain('never badmouth') // competitors section framing
+    expect(prompt).toContain('Same cleaner every time, insured team') // differentiators
+  })
+})
+
+describe('onboarding -> Yinez context, ai_name real-column fallback', () => {
+  it('an onboarding-submitted agent name is honored when tenants.agent_name is not yet set (mirrors the documented tenant.agent_name || selena_config.ai_name precedence)', async () => {
+    tenantRow.agent_name = null
+    await submitOnboarding(TENANT_ID, { aiName: 'Rosa' })
+
+    const prompt = await assembledPrompt(TENANT_ID)
+    expect(prompt).toContain('You are Rosa.')
+    expect(prompt).toContain("I'm Rosa, the assistant here")
+  })
+
+  it('the real tenants.agent_name column still wins over selena_config.ai_name when both are set (no regression to the documented precedence)', async () => {
+    tenantRow.agent_name = 'Ana' // already set in beforeEach, asserted explicitly here
+    await submitOnboarding(TENANT_ID, { aiName: 'Rosa' })
+
+    const prompt = await assembledPrompt(TENANT_ID)
+    expect(prompt).toContain('You are Ana.')
+    expect(prompt).not.toContain('You are Rosa.')
+  })
+})
+
+describe('onboarding -> Yinez context, language/emoji blank path', () => {
+  it('blank language/emoji_usage add no override lines — zero behavior change from before this fix', async () => {
+    await submitOnboarding(TENANT_ID, { capacityNote: 'Standard availability.' })
+
+    const prompt = await assembledPrompt(TENANT_ID)
+    expect(prompt).not.toContain('Respond in Spanish')
+    expect(prompt).not.toContain('Respond in English, even if')
+    expect(prompt).not.toContain('Emojis are welcome throughout')
+    expect(prompt).not.toContain('No emojis, ever.')
+    // Falls back to the original hardcoded FORMAT line, unchanged.
+    expect(prompt).toContain('An emoji is okay once, sparingly, never on serious topics.')
   })
 })
 
