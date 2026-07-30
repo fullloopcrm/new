@@ -174,9 +174,10 @@ export default function AdministratorCareersPage() {
             <span className="text-white/30">&middot;</span>
             <p className="text-white/60 text-sm">Leadership + Profit Sharing</p>
           </div>
-          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl text-white tracking-wide leading-[0.95] mb-6">
+          <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl text-white tracking-wide leading-[0.92] mb-4">
             {config.title} Today. CEO Tomorrow.
           </h1>
+          <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#A8F0DC] tracking-wide mb-6">This is the opportunity of a lifetime.</p>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">{config.tagline}</p>
 
           <div className="border-y border-white/10 py-6 mb-8">
@@ -211,9 +212,14 @@ export default function AdministratorCareersPage() {
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">{config.employmentType}</span>
             <span className="bg-[#A8F0DC]/20 text-[#A8F0DC] text-xs font-semibold px-4 py-2 rounded-full">{config.location}</span>
           </div>
-          <Link href="/apply/administrator" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-            Apply Now
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/apply/administrator" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Apply Now
+            </Link>
+            <a href={`sms:${config.supportPhone}`} className="text-[#A8F0DC] text-sm font-semibold underline underline-offset-4 hover:text-white transition-colors">
+              Not ready yet? Text your questions to {config.supportPhone && `(${config.supportPhone.slice(0,3)}) ${config.supportPhone.slice(3,6)}-${config.supportPhone.slice(6)}`}
+            </a>
+          </div>
           <p className="text-white/40 text-xs mt-4">Backed by 20 years of experience in home services marketing.</p>
         </div>
       </section>
@@ -232,6 +238,9 @@ export default function AdministratorCareersPage() {
           <p className="text-gray-600 leading-relaxed mb-3">
             This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is, this early.
           </p>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            And this growth has happened without spending a single dollar on ads or lead generation — it’s entirely organic. There’s no cleaning company doing what we’re doing at this scale and this speed. On marketing, strategy, AI, functionality, and technology, this operation is probably in the top 5% of cleaning companies in the country. Whoever takes this role isn’t just learning to run a cleaning service — they’re learning to run one of the most sophisticated ones in the United States.
+          </p>
 
           <div className="border-l-4 border-[#A8F0DC] bg-gray-50 rounded-r-xl p-5 mb-3">
             <p className="text-gray-700 leading-relaxed">
@@ -241,6 +250,66 @@ export default function AdministratorCareersPage() {
 
           <p className="text-gray-600 leading-relaxed">
             Administrator is where this starts, not where it ends. The team is sold on and scheduled — from that point, the operation is yours: team coordination, client communication, payment collection, quality control, and hiring. It’s general-manager-level ownership without general-manager-level hours, because the platform automates most of the routine work — confirmations, reminders, check-ins, and payment tracking all happen automatically. You handle the judgment calls, not the busywork.
+          </p>
+        </section>
+
+        <section className="mb-16 bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-6 sm:p-10 -mx-4 sm:mx-0">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide mb-4">Sweat Equity Now. Real Ownership Later.</h2>
+          <p className="text-blue-100/80 leading-relaxed mb-3">
+            The first 90 days are sweat equity — $1,000/week while you learn a business that’s growing 7x, prove yourself, and earn trust. That’s a deliberate trade, not a lowball: it’s what it takes to be handed real financial and operational control of a company this early in its growth.
+          </p>
+          <p className="text-blue-100/80 leading-relaxed mb-3">
+            After 90 days, that shifts to solid, real profit sharing — <strong className="text-[#A8F0DC]">10% of net profit</strong>, with a readjustment from there as your scope and the company grow. And that percentage means something: this business currently runs at a <strong className="text-[#A8F0DC]">50%+ net margin</strong>, so 10% of net profit isn’t 10% of a thin, squeezed-out number — it’s a real share of a genuinely profitable operation.
+          </p>
+          <p className="text-blue-100/80 leading-relaxed mb-6">
+            Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and eventual CEO of a multi-million-dollar company ahead of it for the right person. This is the kind of opportunity that changes the trajectory of a career.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="border border-white/15 rounded-xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">Compensation</p>
+              <p className="text-white/90">{config.compSummary}</p>
+            </div>
+            <div className="border border-white/15 rounded-xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">Employment Type</p>
+              <p className="text-white/90">{config.employmentType}</p>
+            </div>
+            <div className="border border-white/15 rounded-xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">Schedule</p>
+              <p className="text-white/90">{config.schedule}</p>
+            </div>
+            <div className="border border-white/15 rounded-xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">Location</p>
+              <p className="text-white/90">{config.location}</p>
+            </div>
+          </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mt-10 mb-3">If You’re All In — The Earnings Trajectory</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {earningsTrajectory.map((step) => (
+              <div key={step.year} className="border border-white/15 rounded-xl p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">{step.year}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide mb-2">{step.amount}</p>
+                <p className="text-blue-100/70 text-sm leading-relaxed">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-white/40 text-xs mt-3">Projections based on the company’s current growth and your full commitment to the role — not a guarantee, a real trajectory for the right person.</p>
+
+          <Link href="/apply/administrator" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors mt-8">
+            Apply Now
+          </Link>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Who You’ll Work With</h2>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            A note directly from ownership: I’ve spent 20 years in business and services — plenty of failures, plenty of wins, and I’ve learned from both.
+          </p>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Here’s how I work: I’m not a micromanager. I give a task, you complete it, we move to the next thing — that’s the whole cycle, and it’s easy to work within. The one thing I have zero patience for is repeating the same error or issue twice. Get it right, or tell me it’s not working so we can fix it together — but the same mistake shouldn’t happen twice.
+          </p>
+          <p className="text-gray-600 leading-relaxed">
+            I’m always willing to teach — genuinely, not as a line in a job post. I want someone who already has real experience, but who still wants to learn and grow. If that’s you, we’ll work well together.
           </p>
         </section>
 
@@ -268,46 +337,6 @@ export default function AdministratorCareersPage() {
               </div>
             ))}
           </div>
-        </section>
-
-        <section className="mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Sweat Equity Now. Real Ownership Later.</h2>
-          <p className="text-gray-600 leading-relaxed mb-3">
-            The first 90 days are sweat equity — $1,000/week while you learn a business that’s growing 7x, prove yourself, and earn trust. That’s a deliberate trade, not a lowball: it’s what it takes to be handed real financial and operational control of a company this early in its growth.
-          </p>
-          <p className="text-gray-600 leading-relaxed mb-6">
-            After 90 days, that shifts to solid, real profit sharing — 10% of net profit, with a readjustment from there as your scope and the company grow. Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and eventual CEO of a multi-million-dollar company ahead of it for the right person. This is the kind of opportunity that changes the trajectory of a career.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="border border-gray-200 rounded-xl p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Compensation</p>
-              <p className="text-slate-700">{config.compSummary}</p>
-            </div>
-            <div className="border border-gray-200 rounded-xl p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Employment Type</p>
-              <p className="text-slate-700">{config.employmentType}</p>
-            </div>
-            <div className="border border-gray-200 rounded-xl p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Schedule</p>
-              <p className="text-slate-700">{config.schedule}</p>
-            </div>
-            <div className="border border-gray-200 rounded-xl p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Location</p>
-              <p className="text-slate-700">{config.location}</p>
-            </div>
-          </div>
-
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mt-10 mb-3">If You’re All In — The Earnings Trajectory</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {earningsTrajectory.map((step) => (
-              <div key={step.year} className="border border-gray-200 rounded-xl p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{step.year}</p>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">{step.amount}</p>
-                <p className="text-gray-600 text-sm leading-relaxed">{step.detail}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-gray-400 text-xs mt-3">Projections based on the company’s current growth and your full commitment to the role — not a guarantee, a real trajectory for the right person.</p>
         </section>
 
         <section className="mb-16">
@@ -366,9 +395,12 @@ export default function AdministratorCareersPage() {
           <p className="text-gray-600 leading-relaxed mb-3">
             This isn’t a scheduling job. It’s the ground floor of a company that’s about to run in four states, and the person who takes it will be personally taught — by ownership — how to run the CRM, the AI, the marketing, and the finance behind all of it. Opportunities to grow into owning a real business don’t usually get offered outright. This one is, to the right person.
           </p>
-          <p className="text-gray-600 leading-relaxed">
+          <p className="text-gray-600 leading-relaxed mb-6">
             If your honest answer is closer to <em>&ldquo;I need a job&rdquo;</em> than <em>&ldquo;I want to build something real and I&rsquo;m willing to earn my way into owning it&rdquo;</em>, this probably isn&rsquo;t the right fit — and that&rsquo;s okay. If it&rsquo;s the second one, we want to hear it.
           </p>
+          <Link href="/apply/administrator" className="inline-block bg-[#1E2A4A] text-white px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            Apply Now
+          </Link>
         </section>
 
         <section className="mb-16">
