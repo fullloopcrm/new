@@ -66,13 +66,18 @@ export const ADMINISTRATOR_QUESTIONS: RecordedQuestion[] = [
     label: 'In one take: what do you do now? Are you bilingual in English and Spanish (if so, say a bit in both)? And when could you start?',
   },
   {
-    key: 'experience_managing',
-    label: 'Tell us about the biggest team or operation you’ve managed — how big, how long, and how it went.',
+    key: 'goal_track_record',
+    label: 'Tell us about a specific goal you set for yourself and crushed — and one you set and missed. What did each one teach you?',
+    helpText: 'We want someone who always wants more, not someone waiting for the clock to run out.',
+  },
+  {
+    key: 'ownership_of_mistakes',
+    label: 'Tell us about a real mistake you made at work — what happened, what you did about it, and how you made sure it never happened again.',
   },
   {
     key: 'why_this_role',
-    label: 'Why do you want full ownership of this operation?',
-    helpText: 'This is a real business, not a project — tell us why this level of responsibility fits you right now.',
+    label: 'Why do you want to build toward eventually running this company — not just work here?',
+    helpText: 'This is a real business on a real growth trajectory, not a project — tell us why this level of responsibility fits you right now.',
   },
   {
     key: 'no_show_scenario',
