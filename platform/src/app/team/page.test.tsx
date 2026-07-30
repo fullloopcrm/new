@@ -145,3 +145,41 @@ describe('team/page — checkout and claim error handling', () => {
     await waitFor(() => expect(global.alert).not.toHaveBeenCalled())
   })
 })
+
+describe('team/page — assigned job Notes card', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    push.mockReset()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+  })
+
+  /**
+   * Live bug (2026-07-30, Jeff — client self-booking note wasn't reaching
+   * the cleaner): the API always returns bookings.notes, but the Job type
+   * this card renders from never declared a `notes` field, and the Notes
+   * box only combined client.special_instructions -- job.notes (where a
+   * client's self-booking note actually lives) was silently dropped. The
+   * open-jobs-pool card elsewhere on this same page already combined both
+   * fields correctly; the assigned-job card didn't match it.
+   */
+  it('shows the booking\'s own notes (job.notes), not just client.special_instructions', async () => {
+    const jobWithBookingNote = {
+      ...inProgressJob,
+      clients: { name: 'Client A', phone: null, address: null, special_instructions: null },
+      notes: 'Please use the lockbox, code 4821',
+    }
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes('/api/team-portal/jobs?available=true')) return { ok: true, json: async () => ({ jobs: [] }) }
+      if (url.includes('/api/team-portal/jobs?upcoming=true')) return { ok: true, json: async () => ({ jobs: [] }) }
+      if (url.includes('/api/team-portal/jobs')) return { ok: true, json: async () => ({ jobs: [jobWithBookingNote] }) }
+      return { ok: true, json: async () => ({}) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<TeamHomePage />)
+    fireEvent.click(await screen.findByText('Client A'))
+
+    expect(await screen.findByText(/Please use the lockbox, code 4821/)).toBeInTheDocument()
+    expect(screen.queryByText('No notes / Sin notas')).not.toBeInTheDocument()
+  })
+})
