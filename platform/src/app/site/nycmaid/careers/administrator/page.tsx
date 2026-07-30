@@ -86,8 +86,16 @@ const ownershipAreas = [
 const requirements = [
   'Fully available, and completely "all in." This is remote, but it’s a primary commitment, not a side gig.',
   'Dependable, reliable, and honest — you’ll have visibility into finance, payroll, and eventually a real ownership stake, so trust isn’t optional here.',
+  'A self-starter and a natural leader — someone who takes control and ownership without needing to be managed.',
   '100% communication and a strong team builder. You’re training people from day one and will be building teams across multiple markets as we grow.',
+  'Positive, grateful, and even-keeled — your energy sets the tone for the team and the client relationships you own.',
   'Bilingual is a plus — Spanish would be ideal, and matches the team you’ll be working with.',
+]
+
+const earningsTrajectory = [
+  { year: 'Year 1', amount: 'Sweat equity + profit share', detail: '$1,000/week to start, moving to 10% of net profit after 90 days as you take on full ownership of the operation.' },
+  { year: 'Year 2', amount: '$100,000 – $150,000', detail: 'As the company scales into new markets and your share of net profit grows with it.' },
+  { year: 'Year 3', amount: '$300,000+', detail: 'For someone fully all-in — no ceiling built into this beyond what the business and your role in it grow to.' },
 ]
 
 const ninetyDays = [
@@ -113,12 +121,13 @@ const qualifyingQuestions = [
   'Are you excited, not intimidated, by learning brand-new systems from scratch — a CRM, AI tools, marketing platforms — with no prior experience required?',
   'Are you a strong communicator who can build real trust with a team and with clients?',
   'Are you thinking long-term — looking for a real career and eventual ownership, not just a paycheck?',
+  'When you see an under-resourced operation with obvious, untapped upside, does that excite you — or overwhelm you?',
 ]
 
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
   { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days — sweat equity while you learn a business growing 7x and prove yourself. After 90 days, compensation moves to real profit sharing: 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
-  { question: 'Is the growth real, or is that just recruiting talk?', answer: 'It’s real, and verifiable in the operation itself: 30 cleanings in January, nearly 200 by July. The company is backed by someone with 20 years of experience in home services marketing, and that growth is the direct result of a repeatable playbook now being applied to three new markets.' },
+  { question: 'Is the growth real, or is that just recruiting talk?', answer: 'It’s real, and verifiable in the operation itself: 30 cleanings in January, nearly 200 by July. This rebranded startup is 8 months old and just crossed $40,000 in monthly revenue in month 7 — on pace for $600,000 annually. The company is backed by someone with 20 years of experience in home services marketing, and that growth is the direct result of a repeatable playbook now being applied to three new markets.' },
   { question: 'Do I need to live in NYC?', answer: 'No. This is fully remote and open to candidates anywhere in the United States. We’re expanding beyond NYC into Philadelphia, Connecticut, and Florida, so this role was built to be location-independent from the start.' },
   { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
   { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself. As the company grows into new markets, that team-building responsibility grows with it.' },
@@ -169,19 +178,30 @@ export default function AdministratorCareersPage() {
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">{config.tagline}</p>
 
-          <div className="flex flex-wrap gap-6 sm:gap-10 mb-8 border-y border-white/10 py-6">
-            <div>
-              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">30</p>
-              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, January</p>
+          <div className="border-y border-white/10 py-6 mb-8">
+            <div className="flex flex-wrap gap-6 sm:gap-10">
+              <div>
+                <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">30</p>
+                <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, January</p>
+              </div>
+              <div>
+                <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">~200</p>
+                <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, July</p>
+              </div>
+              <div>
+                <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">7x</p>
+                <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Growth in 6 Months</p>
+              </div>
+              <div>
+                <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">$40K</p>
+                <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Monthly Revenue, Month 7</p>
+              </div>
+              <div>
+                <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">$600K</p>
+                <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Annual Revenue Pace</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">~200</p>
-              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Cleanings, July</p>
-            </div>
-            <div>
-              <p className="text-[#A8F0DC] font-[family-name:var(--font-bebas)] text-4xl tracking-wide leading-none">7x</p>
-              <p className="text-white/50 text-xs uppercase tracking-wide mt-1">Growth in 6 Months</p>
-            </div>
+            <p className="text-white/40 text-xs mt-4">8 months in, as a rebranded startup.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mb-10">
@@ -206,11 +226,18 @@ export default function AdministratorCareersPage() {
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">The Bigger Picture</h2>
           <p className="text-gray-600 leading-relaxed mb-3">
-            This isn’t a stable, slow-moving company looking for someone to maintain the status quo. We went from 30 cleanings in January to nearly 200 in July — and we’re expanding into Philadelphia and Connecticut, with Florida about to launch. Whoever takes this role isn’t signing up to manage one city’s schedule — you’re getting in on the ground floor of a company that’s about to run in four states.
+            This is a real entrepreneurial opportunity — for someone who wants to jump in and be completely all-in on a startup, not manage a stable, slow-moving company. This rebranded startup is only eight months old, and it’s already on pace for $600,000 in annual revenue, having just passed $40,000 in monthly revenue in month seven. We went from 30 cleanings in January to nearly 200 in July — and we’re expanding into Philadelphia and Connecticut, with Florida about to launch. Whoever takes this role isn’t signing up to manage one city’s schedule — you’re getting in on the ground floor of a company that’s about to run in four states.
           </p>
           <p className="text-gray-600 leading-relaxed mb-3">
-            This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is.
+            This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is, this early.
           </p>
+
+          <div className="border-l-4 border-[#A8F0DC] bg-gray-50 rounded-r-xl p-5 mb-3">
+            <p className="text-gray-700 leading-relaxed">
+              Here’s the part that makes this a real opportunity, not just a pitch: right now, this entire operation — marketing, sales, scheduling, collections, reviews, growth, the cleaning team, hiring — is run by <strong className="text-[#1E2A4A]">one person, about one to two hours a day</strong>. We’ve been playing pure defense, taking whatever comes to us. Nobody has had the bandwidth to go on offense. Whoever steps into this role isn’t inheriting a maxed-out operation squeezed for every last drop — they’re inheriting an obvious, wide-open runway in a business already growing 7x on defense alone.
+            </p>
+          </div>
+
           <p className="text-gray-600 leading-relaxed">
             Administrator is where this starts, not where it ends. The team is sold on and scheduled — from that point, the operation is yours: team coordination, client communication, payment collection, quality control, and hiring. It’s general-manager-level ownership without general-manager-level hours, because the platform automates most of the routine work — confirmations, reminders, check-ins, and payment tracking all happen automatically. You handle the judgment calls, not the busywork.
           </p>
@@ -268,6 +295,18 @@ export default function AdministratorCareersPage() {
               <p className="text-slate-700">{config.location}</p>
             </div>
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mt-10 mb-3">If You’re All In — The Earnings Trajectory</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {earningsTrajectory.map((step) => (
+              <div key={step.year} className="border border-gray-200 rounded-xl p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{step.year}</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">{step.amount}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-gray-400 text-xs mt-3">Projections based on the company’s current growth and your full commitment to the role — not a guarantee, a real trajectory for the right person.</p>
         </section>
 
         <section className="mb-16">
@@ -299,7 +338,8 @@ export default function AdministratorCareersPage() {
 
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Are You Right For This Job?</h2>
-          <p className="text-gray-500 text-sm mb-6">Read these honestly before you apply. If most of them are a clear yes, keep going.</p>
+          <p className="text-xl text-[#1E2A4A] font-semibold leading-snug mb-4">The main question: are you ready to go all in on an opportunity of a lifetime?</p>
+          <p className="text-gray-500 text-sm mb-6">If that lands, read these honestly before you apply. If most of them are a clear yes, keep going.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {qualifyingQuestions.map((q) => (
               <div key={q} className="flex gap-3 border border-gray-200 rounded-xl p-4">
