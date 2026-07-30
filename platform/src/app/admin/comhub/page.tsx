@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { formatPhone } from '@/lib/format'
 
 // Browser softphone — Telnyx WebRTC. Lazy + SSR-disabled because the SDK
 // touches `window` on import.
@@ -619,6 +620,10 @@ export default function ComhubPage() {
                   : (m.author === 'admin' ? 'Admin' : m.author)
                 const hasMetadata = m.metadata && Object.keys(m.metadata).length > 0
                 const explainShown = !!explainOpen[m.id]
+                // Which of the tenant's own DIDs this SMS came in on / went out
+                // from — the customer's own number is already shown via the
+                // thread header, so only the business-side number is useful here.
+                const tenantDid = m.channel === 'sms' ? (isOut ? m.from_address : m.to_address) : null
                 return (
                   <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'} group`}>
                     <div className="max-w-[85%] md:max-w-[70%] min-w-0">
@@ -642,6 +647,7 @@ export default function ComhubPage() {
                       <div className="text-[10px] text-[#7A7A78] mt-1 px-1 flex gap-2 items-center">
                         <span>{authorName}{isAuto ? ' · auto' : ''}</span>
                         <span>{fmtTime(m.sent_at)}</span>
+                        {tenantDid && <span title="Which of your numbers this text used">via {formatPhone(tenantDid)}</span>}
                         {isAuto && (
                           <button
                             onClick={() => setExplainOpen(s => ({ ...s, [m.id]: !s[m.id] }))}

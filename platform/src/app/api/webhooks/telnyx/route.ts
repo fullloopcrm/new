@@ -751,7 +751,7 @@ export async function POST(request: Request) {
 
               // Log inbound message to conversation
               await insertConversationMessage(
-                { conversation_id: convo.id, direction: 'inbound', message: text },
+                { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
                 { expectedTenantId: tenantId },
               )
 
@@ -768,7 +768,7 @@ export async function POST(request: Request) {
 
                 // Log outbound greeting
                 await insertConversationMessage(
-                  { conversation_id: convo.id, direction: 'outbound', message: greeting },
+                  { conversation_id: convo.id, direction: 'outbound', message: greeting, to_phone: to },
                   { expectedTenantId: tenantId },
                 )
 
@@ -789,7 +789,7 @@ export async function POST(request: Request) {
 
           // Ongoing conversation — always log inbound (feeds ComHub)
           await insertConversationMessage(
-            { conversation_id: convo.id, direction: 'inbound', message: text },
+            { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
             { expectedTenantId: tenantId },
           )
 
@@ -820,7 +820,7 @@ export async function POST(request: Request) {
 
             // Log outbound to conversation
             await insertConversationMessage(
-              { conversation_id: convo.id, direction: 'outbound', message: aiResult.text },
+              { conversation_id: convo.id, direction: 'outbound', message: aiResult.text, to_phone: to },
               { expectedTenantId: tenantId },
             )
 
