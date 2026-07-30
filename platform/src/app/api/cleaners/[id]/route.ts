@@ -10,6 +10,7 @@ import { isPortalRole } from '@/lib/portal-rbac'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!member.email) return NextResponse.json({ error: 'Team member has no email on file' }, { status: 400 })
 
     const newPin = generatePin()
-    const { error: updateError } = await supabaseAdmin.from('team_members').update({ pin: newPin }).eq('id', id).eq('tenant_id', tenant.tenantId)
+    const { error: updateError } = await supabaseAdmin.from('team_members').update({ pin: encryptSecretSafe(newPin) }).eq('id', id).eq('tenant_id', tenant.tenantId)
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
     const result = await notify({
@@ -62,7 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     working_start: body.working_start || '09:00',
     working_end: body.working_end || '17:00',
     unavailable_dates: futureDates,
-    pin: body.pin ?? undefined,
+    pin: body.pin !== undefined ? (body.pin ? encryptSecretSafe(String(body.pin)) : body.pin) : undefined,
     hourly_rate: body.hourly_rate ?? undefined,
     home_by_time: body.home_by_time ?? undefined,
     max_jobs_per_day: body.max_jobs_per_day ?? undefined,

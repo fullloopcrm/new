@@ -27,11 +27,13 @@ vi.mock('@/lib/supabase', () => {
     const c: Record<string, unknown> = {
       select: () => c,
       eq: () => c,
+      limit: () => c,
       single: async () => {
         if (table === 'tenants') return { data: { id: 'tenant-1', name: 'T', phone: '+15550000000' }, error: null }
         // team_members: every PIN guess is invalid -> 401 (never a real login).
         return { data: null, error: null }
       },
+      then: (resolve: (v: { data: unknown[]; error: null }) => unknown) => resolve({ data: [], error: null }),
     }
     return c
   }

@@ -6,6 +6,7 @@ import { clientArrivalWindow, nycmaidWallClockTime } from '../time-window'
 import { escapeHtml, safeUrl } from '../escape-html'
 import { formatRecurringLabel } from '../recurring'
 import { applyDiscount } from '../discount'
+import { decryptSecret } from '../secret-crypto'
 
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
@@ -114,6 +115,7 @@ export function clientBookingReceivedEmail(booking: any) {
   const startTime = clientArrivalWindow(booking.start_time)
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const rate = booking.hourly_rate || 69
+  const plainPin = booking.clients?.pin ? decryptSecret(booking.clients.pin) : null
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking request received — pending owner review</h1>
@@ -143,12 +145,12 @@ export function clientBookingReceivedEmail(booking: any) {
       <strong>Reply CONFIRM by text</strong> to lock in your booking. Once confirmed, we'll assign your cleaner and send the final details.
     </p>
 
-    ${booking.clients?.pin ? `
+    ${plainPin ? `
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0 0 4px 0; color: #333; font-size: 14px; font-weight: 600;">Your Client Portal</p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
-      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(booking.clients.pin)}</span></p>
+      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(plainPin)}</span></p>
     </div>
     ` : ''}
 
@@ -237,6 +239,7 @@ export function clientConfirmationEmail(booking: any) {
   const durationMs = new Date(booking.end_time).getTime() - new Date(booking.start_time).getTime()
   const exactHours = durationMs / (1000 * 60 * 60)
   const estimatedHoursLabel = Number.isInteger(exactHours) ? `${exactHours}` : exactHours.toFixed(1)
+  const plainPin = booking.clients?.pin ? decryptSecret(booking.clients.pin) : null
 
   const cleanerPhotoUrl = booking.cleaners?.photo_url
   const cleanerAvg = booking.cleaners?.avg_rating ? Number(booking.cleaners.avg_rating).toFixed(1) : null
@@ -333,7 +336,7 @@ export function clientConfirmationEmail(booking: any) {
       </p>
     </div>
 
-    ${booking.clients?.pin ? `
+    ${plainPin ? `
     ${divider()}
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Your Client Portal</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 8px 0;">
@@ -342,7 +345,7 @@ export function clientConfirmationEmail(booking: any) {
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0;">
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
-      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(booking.clients.pin)}</span></p>
+      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(plainPin)}</span></p>
     </div>
     ` : ''}
 

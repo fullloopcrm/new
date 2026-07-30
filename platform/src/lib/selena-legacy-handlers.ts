@@ -4,6 +4,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 
@@ -153,11 +154,11 @@ export async function handleSendPin(tenantId: string, conversationId: string): P
       .eq('tenant_id', tenantId).eq('id', convo.client_id).single()
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
-    let pin = client.pin
+    let pin = client.pin ? decryptSecret(client.pin) : null
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
       const nodeCrypto = await import('node:crypto')
       pin = (100000 + nodeCrypto.randomInt(0, 900000)).toString()
-      await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tenantId)
+      await supabaseAdmin.from('clients').update({ pin: encryptSecretSafe(pin) }).eq('id', client.id).eq('tenant_id', tenantId)
     }
 
     const phone = client.phone || convo.phone
@@ -200,6 +201,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string } | null
     if (!client?.email) return JSON.stringify({ error: 'No email on file' })
+    const plainPin = client.pin ? decryptSecret(client.pin) : null
 
     const tm = booking.team_members as unknown as { name: string } | null
     const tenant = booking.tenants as unknown as { name: string } | null
@@ -219,7 +221,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
             <p style="margin:0 0 8px;color:#666">Service: <strong>${booking.service_type}</strong></p>
             <p style="margin:0 0 8px;color:#666">Rate: <strong>$${booking.hourly_rate}/hr</strong></p>
             ${tm ? `<p style="margin:0 0 8px;color:#666">Pro: <strong>${tm.name}</strong></p>` : ''}
-            ${client.pin ? `<p style="margin:0;color:#666">Portal PIN: <strong>${client.pin}</strong></p>` : ''}
+            ${plainPin ? `<p style="margin:0;color:#666">Portal PIN: <strong>${plainPin}</strong></p>` : ''}
           </td></tr>
         </table>
         <p style="margin:0;font-size:13px;color:#999">${tenant?.name || ''}</p>

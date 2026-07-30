@@ -5,6 +5,7 @@ import { getSettings } from '@/lib/settings'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { geocodeAddress } from '@/lib/geo'
 import { generateTeamPin } from '@/lib/team-pin'
+import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 
 export type ApprovedApplication = {
   id: string
@@ -48,7 +49,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       .maybeSingle()
     if (existing) {
       memberExisted = true
-      pin = existing.pin
+      pin = existing.pin ? decryptSecret(existing.pin) : null
     }
   }
 
@@ -81,7 +82,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       pin = generateTeamPin()
       const { data: ins, error: insErr } = await supabaseAdmin
         .from('team_members')  // tenant-scope-ok: insert base carries tenant_id (built above)
-        .insert({ ...base, pin })
+        .insert({ ...base, pin: encryptSecretSafe(pin) })
         .select('id')
         .single()
       if (!insErr) { inserted = true; newMemberId = ins?.id ?? null; break }

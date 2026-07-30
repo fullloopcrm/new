@@ -9,6 +9,7 @@ import { geocodeAddress } from '@/lib/geo'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etToday, addCalendarDays, formatNaiveET, calendarDayOfWeek } from '@/lib/recurring'
 import { seedHrDefaults } from '@/lib/hr'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       working_days: body.working_days || [],
       schedule: body.schedule || {},
       unavailable_dates: body.unavailable_dates || [],
-      pin: body.pin || null,
+      pin: body.pin ? encryptSecretSafe(String(body.pin)) : null,
       hourly_rate: body.hourly_rate ?? 25,
       status: body.active === false ? 'inactive' : 'active',
       photo_url: body.photo_url || null,

@@ -32,7 +32,7 @@ vi.mock('@/lib/supabase', () => {
         ? { data: { id: 't1', name: 'Test Co', phone: '+10000000000' }, error: null }
         : { data: null, error: null }
     const b: Record<string, unknown> = {}
-    for (const m of ['select', 'eq', 'order', 'ilike', 'neq', 'gte', 'insert', 'update']) {
+    for (const m of ['select', 'eq', 'order', 'ilike', 'neq', 'gte', 'insert', 'update', 'limit']) {
       b[m] = () => b
     }
     b.single = async () => result
