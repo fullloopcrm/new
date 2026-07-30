@@ -6,8 +6,8 @@ import Breadcrumbs from '@/app/site/nycmaid/_components/Breadcrumbs'
 import { getPosition } from '@/lib/positions/catalog'
 
 const pageUrl = 'https://www.thenycmaid.com/careers/administrator'
-const pageTitle = 'Administrator (Remote, Full Oversight) | The NYC Maid'
-const pageDescription = 'The NYC Maid is hiring an Administrator to run the day-to-day operation — team, clients, payments, hiring, and quality control. $1,000/week 1099 for the first 90 days, then 10% of net profit. Remote, Monday-Friday.'
+const pageTitle = 'Administrator — Run the Operation, Own the Future (Remote, US) | The NYC Maid'
+const pageDescription = 'The NYC Maid is hiring an Administrator to run the day-to-day operation — team, clients, payments, hiring, quality control, and the AI systems behind it — with a real long-term path toward running the whole company as we expand to Philadelphia, Connecticut, and Florida. $1,000/week 1099 for the first 90 days, then 10% of net profit. Remote, anywhere in the US.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -28,7 +28,7 @@ function administratorJobPostingSchema(config: NonNullable<ReturnType<typeof get
     title: config.title,
     datePosted,
     validThrough,
-    description: `<h2>${config.title} — The NYC Maid — Remote</h2><p>${config.tagline}</p><p><strong>Compensation:</strong> ${config.compSummary}</p><p><strong>Schedule:</strong> ${config.schedule}</p><p><strong>Employment type:</strong> ${config.employmentType}</p>${config.responsibilitiesNote ? `<p>${config.responsibilitiesNote}</p>` : ''}<p>How to apply: <a href="${pageUrl.replace('/careers/', '/apply/')}">thenycmaid.com/apply/administrator</a>. Includes a short video introduction.</p>`,
+    description: `<h2>${config.title} — The NYC Maid — Remote, Anywhere in the US</h2><p>${config.tagline}</p><p><strong>Compensation:</strong> ${config.compSummary}</p><p><strong>Schedule:</strong> ${config.schedule}</p><p><strong>Employment type:</strong> ${config.employmentType}</p>${config.responsibilitiesNote ? `<p>${config.responsibilitiesNote}</p>` : ''}<p>How to apply: <a href="${pageUrl.replace('/careers/', '/apply/')}">thenycmaid.com/apply/administrator</a>. Includes a short video introduction.</p>`,
     hiringOrganization: {
       '@type': 'Organization',
       name: 'The NYC Maid',
@@ -42,17 +42,68 @@ function administratorJobPostingSchema(config: NonNullable<ReturnType<typeof get
     url: pageUrl,
     identifier: { '@type': 'PropertyValue', name: 'The NYC Maid', value: 'nycmaid-administrator-2026' },
     industry: 'Cleaning Services',
-    qualifications: 'Experience managing or operating a service business or team. Comfortable owning scheduling, client communication, payments, and hiring end to end.',
+    qualifications: 'Experience managing or operating a service business or team. Comfortable owning scheduling, client communication, payments, and hiring end to end. Willing to learn to manage and eventually help implement AI-driven systems. Bilingual (Spanish) a plus.',
     jobBenefits: config.compSummary,
     workHours: config.schedule,
   }
 }
 
+const ownershipAreas = [
+  {
+    title: 'Sales & Growth',
+    detail: 'Own the pipeline from lead to booked client — the lead queue, the service and pricing catalog, the sales-partner commission program, and the referral program that keeps growth compounding.',
+  },
+  {
+    title: 'Day-to-Day Operations',
+    detail: 'Run bookings, scheduling, and crew coordination. When a team member no-shows or a client is upset, you’re the one making the call in the next ten minutes — not escalating it.',
+  },
+  {
+    title: 'Client Relationships',
+    detail: 'Quality control, feedback, and retention. Every client interaction reflects on the business, and you own making sure it holds up.',
+  },
+  {
+    title: 'Finance',
+    detail: 'Real bookkeeping — transactions, expenses, payroll, bank reconciliation, and a formal monthly close. This is the actual books, not a revenue dashboard.',
+  },
+  {
+    title: 'People & Hiring',
+    detail: 'Recruit, onboard, and pay the team. You’ll also train the weekend assistant administrator who covers weekend service — building a playbook someone else can run, not just running it yourself.',
+  },
+  {
+    title: 'Marketing',
+    detail: 'Campaigns, review requests, social, Google Business Profile, the marketing site, and the analytics behind all of it.',
+  },
+  {
+    title: 'AI Systems',
+    detail: 'Voice, SMS, and web chat already run through an AI agent. You’ll be trained to manage it day to day — tuning responses and escalation rules — and eventually to help implement it fresh as each new market goes live. This is a named, core skill for this role, not a side task.',
+  },
+  {
+    title: 'Company Systems',
+    detail: 'As you grow into General Manager and beyond, this expands to owning the rules the business runs on — pricing, service areas, integrations, and who has access to what.',
+  },
+]
+
+const requirements = [
+  'Fully available, and completely "all in." This is remote, but it’s a primary commitment, not a side gig.',
+  'Dependable, reliable, and honest — you’ll have visibility into finance, payroll, and eventually a real ownership stake, so trust isn’t optional here.',
+  '100% communication and a strong team builder. You’re training people from day one and will be building teams across multiple markets as we grow.',
+  'Bilingual is a plus — Spanish would be ideal, and matches the team you’ll be working with.',
+]
+
+const ninetyDays = [
+  { range: 'Weeks 1–2', focus: 'Production & Clients', detail: 'Learn bookings, scheduling, crews, and how client issues actually get handled — the parts of the business that break fastest if they’re neglected.' },
+  { range: 'Weeks 3–4', focus: 'AI, People & Sales', detail: 'Get fluent in what the AI agent already automates, meet the team, and learn the sales pipeline it feeds.' },
+  { range: 'Weeks 5–8', focus: 'Finance', detail: 'Ramp into payroll and the monthly close with real support — this is deliberately not rushed.' },
+  { range: 'Weeks 9–12', focus: 'Marketing & Systems', detail: 'Take on campaigns, reviews, and the settings that run the business — right around the 90-day compensation change.' },
+]
+
 const faqs = [
-  { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not.' },
-  { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days. After 90 days, compensation moves to 10% of net profit, with scaling opportunities to discuss as the business grows.' },
-  { question: 'Is this remote?', answer: 'Yes — fully remote, work from home. Schedule is Monday through Friday, 8:00 AM to 6:00 PM.' },
-  { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself.' },
+  { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
+  { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days. After 90 days, compensation moves to 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward taking over the business.' },
+  { question: 'Do I need to live in NYC?', answer: 'No. This is fully remote and open to candidates anywhere in the United States. We’re expanding beyond NYC into Philadelphia, Connecticut, and Florida, so this role was built to be location-independent from the start.' },
+  { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
+  { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself. As the company grows into new markets, that team-building responsibility grows with it.' },
+  { question: 'What’s the long-term path here?', answer: 'This role starts as Administrator, with a real track toward General Manager and eventually running the entire company as it expands to Philadelphia, Connecticut, and Florida. The exact milestones are worked out directly with ownership as you grow into the role — this is a genuine long-term opportunity, not a scripted ladder.' },
   { question: 'How do I apply?', answer: 'Submit the application at thenycmaid.com/apply/administrator. It includes background questions, a few scenario questions, and a short required video introduction.' },
 ]
 
@@ -90,12 +141,12 @@ export default function AdministratorCareersPage() {
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <p className="text-[#A8F0DC] text-sm font-semibold tracking-[0.2em] uppercase">Now Hiring</p>
             <span className="text-white/30">&middot;</span>
-            <p className="text-white/60 text-sm">Remote</p>
+            <p className="text-white/60 text-sm">Remote — Anywhere in the US</p>
             <span className="text-white/30">&middot;</span>
-            <p className="text-white/60 text-sm">Full Oversight</p>
+            <p className="text-white/60 text-sm">Path to Ownership</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl text-white tracking-wide leading-[0.95] mb-6">
-            {config.title} — Run the Operation
+            {config.title} — Run the Operation. Build the Company.
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-6">{config.tagline}</p>
           <div className="flex flex-wrap items-center gap-3 mb-10">
@@ -117,17 +168,33 @@ export default function AdministratorCareersPage() {
         ]} />
 
         <section className="mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">What You Own</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">The Bigger Picture</h2>
           <p className="text-gray-600 leading-relaxed mb-3">
-            The team is sold on and scheduled. From that point, the operation is yours — team coordination, client communication, payment collection, quality control, and hiring. It is general-manager-level ownership. It is not general-manager-level hours, because the platform automates most of the routine work: confirmations, reminders, check-ins, and payment tracking all happen automatically. You handle the judgment calls, not the busywork.
+            The NYC Maid runs in New York City today. We’re expanding into Philadelphia and Connecticut, and about to launch in Florida. Whoever takes this role isn’t signing up to manage one city’s schedule forever — you’re stepping into the operating structure for a company that’s about to run in four states, on a platform built to scale that way from day one.
           </p>
-          {config.responsibilitiesNote && (
-            <p className="text-gray-600 leading-relaxed">{config.responsibilitiesNote}</p>
-          )}
+          <p className="text-gray-600 leading-relaxed">
+            Administrator is where this starts, not where it ends. The team is sold on and scheduled — from that point, the operation is yours: team coordination, client communication, payment collection, quality control, and hiring. It’s general-manager-level ownership without general-manager-level hours, because the platform automates most of the routine work — confirmations, reminders, check-ins, and payment tracking all happen automatically. You handle the judgment calls, not the busywork.
+          </p>
         </section>
 
         <section className="mb-16">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Compensation &amp; Schedule</h2>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">What You’ll Own</h2>
+          <p className="text-gray-500 text-sm mb-6">Run entirely through Full Loop CRM, the platform we built and run the whole business on. We’ll teach you all of it.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {ownershipAreas.map((area) => (
+              <div key={area.title} className="border border-gray-200 rounded-xl p-5 hover:border-[#A8F0DC] transition-colors">
+                <p className="font-semibold text-[#1E2A4A] mb-1.5">{area.title}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{area.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">Compensation &amp; Path to Ownership</h2>
+          <p className="text-gray-600 leading-relaxed mb-6">
+            You start at $1,000/week as a 1099 independent contractor. After 90 days, that shifts to 10% of net profit, with a readjustment from there as your scope and the company grow. Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and full ownership ahead of it for the right person.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="border border-gray-200 rounded-xl p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Compensation</p>
@@ -149,6 +216,33 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Your First 90 Days</h2>
+          <div className="space-y-4">
+            {ninetyDays.map((step) => (
+              <div key={step.range} className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-6 border-l-2 border-[#A8F0DC] pl-5 py-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#1E2A4A]/60 sm:w-32 sm:flex-shrink-0">{step.range}</p>
+                <div>
+                  <p className="font-semibold text-[#1E2A4A]">{step.focus}</p>
+                  <p className="text-gray-600 text-sm leading-relaxed">{step.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-16">
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Who We’re Looking For</h2>
+          <ul className="space-y-3">
+            {requirements.map((req) => (
+              <li key={req} className="flex gap-3 text-gray-600 leading-relaxed">
+                <span className="text-[#A8F0DC] mt-1 flex-shrink-0">&#9679;</span>
+                <span>{req}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-8">Frequently Asked Questions</h2>
           <div className="space-y-3">
             {faqs.map((faq) => (
@@ -166,7 +260,7 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Full Ownership. Real Business.</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Full Ownership. Real Business. Real Future.</p>
           <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-6">
             Apply in a few minutes. Background questions, a few scenario questions, and a short required video introduction.
           </p>
