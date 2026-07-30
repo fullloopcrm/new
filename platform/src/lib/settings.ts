@@ -79,6 +79,11 @@ export interface TenantSettings {
   // AI Chatbot (mirrored from tenants.selena_config jsonb)
   chatbot_enabled: boolean
   chatbot_greeting: string
+  // When false, Yinez never generates or sends an SMS reply (chatbot greeting,
+  // AI response, "start over" re-greet) even if chatbot_enabled is on — but
+  // every inbound text is still logged to the conversation (and thus mirrored
+  // into ComHub) exactly as before. Default true. See selena_config.sms_reply_enabled.
+  sms_reply_enabled: boolean
   // Lead handling (selena_config + tenants columns)
   auto_respond_leads: boolean
   attribution_window_hours: number
@@ -257,6 +262,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     client_reminder_email: !!commPrefs.comms.booking_reminder?.email,
     client_reminder_sms: !!commPrefs.comms.booking_reminder?.sms,
     chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
+    sms_reply_enabled: selenaConfig.sms_reply_enabled !== false,
     chatbot_greeting: (selenaConfig.greeting as string) || (selenaConfig.chatbot_greeting as string) || DEFAULT_FALLBACKS.chatbot_greeting,
     auto_respond_leads: Boolean(selenaConfig.auto_respond_leads ?? true),
     attribution_window_hours: Number(tenant?.attribution_window_hours ?? 24),

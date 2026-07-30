@@ -31,6 +31,15 @@ export type ConversationMessageInput = {
   conversation_id: string
   direction: 'inbound' | 'outbound'
   message: string
+  /**
+   * The tenant DID this specific message came in on (inbound) or sent from
+   * (outbound). Per-MESSAGE, not per-conversation — a conversation's phone
+   * pairing can span multiple of a tenant's DIDs (e.g. a sender who happens
+   * to text more than one of the tenant's numbers), so this must not be
+   * inferred from the parent conversation. Optional; omitted callers (e.g.
+   * non-SMS-webhook writers) just leave comhub's to/from address blank.
+   */
+  to_phone?: string | null
 }
 
 export type InsertConversationMessageOptions = {

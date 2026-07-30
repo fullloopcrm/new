@@ -58,8 +58,8 @@ export const DEFAULT_RECORDING_SECONDS_LIMIT = 60
 export const ADMINISTRATOR_QUESTIONS: RecordedQuestion[] = [
   {
     key: 'intro',
-    label: 'Introduce yourself, tell us why you’d be good for this position, and what your long-term goals are.',
-    helpText: 'We’re looking for someone in this for the long haul — this is a long-term position, so say a bit about where you see yourself down the road.',
+    label: 'Introduce yourself, tell us why you’d be great for this, and what “all in” actually looks like for you.',
+    helpText: 'This is a long-term opportunity, not a job — say a bit about where you see yourself down the road, and why you’re someone who goes all in rather than watching the clock.',
   },
   {
     key: 'quick_facts',
@@ -75,6 +75,15 @@ export const ADMINISTRATOR_QUESTIONS: RecordedQuestion[] = [
     label: 'Tell us about a real mistake you made at work — what happened, what you did about it, and how you made sure it never happened again.',
   },
   {
+    key: 'task_completion_style',
+    label: 'Walk us through what happens after you’re handed a task — from the moment you get it to the moment you come back and say it’s done.',
+    helpText: 'We’re not looking for progress updates. We’re looking for someone who takes it, kills it, verifies it’s actually done, and comes back ready for the next thing.',
+  },
+  {
+    key: 'ai_comfort',
+    label: 'This role includes learning to manage — and eventually help implement — AI systems, no prior experience required. Tell us about a time you had to pick up a new tool or technology fast, and how it went.',
+  },
+  {
     key: 'why_this_role',
     label: 'Why do you want to build toward eventually running this company — not just work here?',
     helpText: 'This is a real business on a real growth trajectory, not a project — tell us why this level of responsibility fits you right now.',
@@ -82,10 +91,6 @@ export const ADMINISTRATOR_QUESTIONS: RecordedQuestion[] = [
   {
     key: 'no_show_scenario',
     label: 'A field team member no-shows 30 minutes before a job, and the client is already upset from a prior reschedule. Walk us through exactly what you do in the next 10 minutes.',
-  },
-  {
-    key: 'shift_conflict_scenario',
-    label: 'Several team members want more hours, but only one is consistently reliable and well-reviewed. How do you handle the scheduling and the conversation?',
   },
   {
     key: 'training_handoff',

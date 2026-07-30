@@ -677,6 +677,16 @@ export async function POST(request: Request) {
       try {
         const settings = await getSettings(tenantId)
         if (settings.chatbot_enabled) {
+          // replyEnabled gates every OUTBOUND action below (greeting, AI reply,
+          // "start over" re-greet) — but conversation creation + inbound
+          // logging always runs regardless, because that's what feeds
+          // sms_conversation_messages → comhub_messages (see
+          // comhub_mirror_sms_message trigger). Before this, a tenant with
+          // sms_reply_enabled off would also stop appearing in ComHub — those
+          // two concerns were wrongly conflated under one flag. A tenant can
+          // now go reply-silent on SMS while every inbound text still lands
+          // in ComHub for a human to see and answer.
+          const replyEnabled = settings.sms_reply_enabled
           const cleanPhone = from.replace(/\D/g, '').slice(-10)
 
           // Handle "START OVER" / "RESET" — expire active conversation
@@ -689,6 +699,10 @@ export async function POST(request: Request) {
               .is('completed_at', null)
               .eq('expired', false)
 
+            if (!replyEnabled) {
+              return NextResponse.json({ received: true, action: 'reset_no_reply' })
+            }
+
             // Send fresh greeting
             const greeting = settings.chatbot_greeting || 'Hi! Thank you for reaching out. How are you?'
             await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
@@ -697,6 +711,7 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
               phone: cleanPhone,
+              to_phone: to,
               state: 'welcome',
             })
 
@@ -719,16 +734,13 @@ export async function POST(request: Request) {
           const clientName = client?.name || convo?.name || null
 
           if (!convo) {
-            // Tenant rule: if auto_respond_leads is off, do not auto-greet
-            // unrecognized senders. The inbound message is still logged to
-            // client_sms_messages above for admin review.
-            if (!clientExists && !settings.auto_respond_leads) {
-              return NextResponse.json({ received: true, action: 'auto_respond_leads_disabled' })
-            }
-            // First message from this phone — create conversation and send greeting
+            // First message from this phone — always create the conversation
+            // and log the inbound message (so it reaches ComHub), regardless
+            // of reply settings.
             const { data: newConvo } = await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
               phone: cleanPhone,
+              to_phone: to,
               client_id: client?.id || null,
               name: clientName,
               state: 'welcome',
@@ -739,43 +751,51 @@ export async function POST(request: Request) {
 
               // Log inbound message to conversation
               await insertConversationMessage(
-                { conversation_id: convo.id, direction: 'inbound', message: text },
+                { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
                 { expectedTenantId: tenantId },
               )
 
-              // Send greeting
-              const firstName = clientName?.split(' ')[0]
-              const greeting = clientExists && firstName
-                ? `Hola ${firstName}! Happy to hear from you again. How are you?`
-                : (settings.chatbot_greeting || 'Hi! Thank you for reaching out. How are you?')
+              // Tenant rule: if replies are off, or auto_respond_leads is off
+              // for an unrecognized sender, do not auto-greet. The inbound
+              // message is still logged above (ComHub + client_sms_messages).
+              if (replyEnabled && (clientExists || settings.auto_respond_leads)) {
+                const firstName = clientName?.split(' ')[0]
+                const greeting = clientExists && firstName
+                  ? `Hola ${firstName}! Happy to hear from you again. How are you?`
+                  : (settings.chatbot_greeting || 'Hi! Thank you for reaching out. How are you?')
 
-              await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+                await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
 
-              // Log outbound greeting
-              await insertConversationMessage(
-                { conversation_id: convo.id, direction: 'outbound', message: greeting },
-                { expectedTenantId: tenantId },
-              )
+                // Log outbound greeting
+                await insertConversationMessage(
+                  { conversation_id: convo.id, direction: 'outbound', message: greeting, to_phone: to },
+                  { expectedTenantId: tenantId },
+                )
 
-              // Log to client transcript if client exists
-              if (client) {
-                await supabaseAdmin.from('client_sms_messages').insert({
-                  tenant_id: tenantId,
-                  client_id: client.id,
-                  direction: 'outbound',
-                  message: greeting,
-                })
+                // Log to client transcript if client exists
+                if (client) {
+                  await supabaseAdmin.from('client_sms_messages').insert({
+                    tenant_id: tenantId,
+                    client_id: client.id,
+                    direction: 'outbound',
+                    message: greeting,
+                  })
+                }
               }
             }
 
-            return NextResponse.json({ received: true, action: 'chatbot_greeting' })
+            return NextResponse.json({ received: true, action: replyEnabled ? 'chatbot_greeting' : 'logged_no_reply' })
           }
 
-          // Ongoing conversation — log inbound and route to AI
+          // Ongoing conversation — always log inbound (feeds ComHub)
           await insertConversationMessage(
-            { conversation_id: convo.id, direction: 'inbound', message: text },
+            { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
             { expectedTenantId: tenantId },
           )
+
+          if (!replyEnabled) {
+            return NextResponse.json({ received: true, action: 'logged_no_reply' })
+          }
 
           // Every tenant runs the shared Yinez core (warm voice, self-book
           // redirect, memory/skills) — NYC Maid via her own verbatim playbook,
@@ -800,7 +820,7 @@ export async function POST(request: Request) {
 
             // Log outbound to conversation
             await insertConversationMessage(
-              { conversation_id: convo.id, direction: 'outbound', message: aiResult.text },
+              { conversation_id: convo.id, direction: 'outbound', message: aiResult.text, to_phone: to },
               { expectedTenantId: tenantId },
             )
 
