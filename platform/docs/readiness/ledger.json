@@ -48,11 +48,11 @@
         },
         {
           "id": "sec-06",
-          "score": 50,
+          "score": 65,
           "evidence_type": "live_query",
-          "evidence": "Live query 2026-07-30: 186 real policies across 173 tables (real build-out since the DR runbook's original '0 policies' note). But 13 genuine tenant-owned tables (contacts, crm_notes, inbound_emails, inquiries, leads, partner_requests, tenant_locations, tenant_notes, tenant_projects, user_preferences, crew_members, booking_assignees, geo_nearby_places_cache) have RLS enabled with ZERO policies. App bypasses RLS via service_role regardless -- not the real enforcement boundary either way.",
+          "evidence": "Re-verified 2026-07-30, full account in docs/security/rls-policy-review-2026-07-30.md. Live query found the REAL current count is 20 tables with RLS enabled and zero policies, not 13 (prior evidence undercounted -- 7 more found: jefe_acks, jefe_messages, jefe_snapshots, platform_announcements, platform_settings, rate_limit_events, tenants). Confirmed this is NOT a live vulnerability, not just repeating the prior 'service_role bypasses RLS regardless' note: 'RLS enabled + zero policies' already means Postgres default-deny for every role except one with BYPASSRLS (service_role has it); a full repo grep for every browser/anon-key Supabase usage (5 files) found every one is Storage-bucket-only (.storage.from('uploads')), never a table query -- so nothing non-service_role ever reaches these 20 tables; and a separate grep confirmed this app never uses Supabase Auth anywhere (0 results for auth.uid()/supabase.auth.*), meaning a genuinely tenant-scoped RLS policy isn't even meaningfully achievable here -- there's no JWT tenant claim to filter by. Real artifact produced: supabase/migrations/20260730190000_explicit_deny_all_rls_policies.sql, formalizing the existing safe default-deny as an explicit policy on all 20 tables -- zero functional change, audit-trail/robustness value only. NOT APPLIED to prod as part of this session -- a schema migration against live prod is a production write, held for explicit sign-off same as the PIN-encryption backfill earlier. Score reflects a materially more complete and higher-confidence finding than the prior 50 (real count corrected, live-risk genuinely ruled out, fix drafted and ready) but stops short of full credit since the migration is written, not deployed or verified live.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "d1707be53"
         },
         {
           "id": "sec-07",
