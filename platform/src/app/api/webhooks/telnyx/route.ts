@@ -711,6 +711,7 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
               phone: cleanPhone,
+              to_phone: to,
               state: 'welcome',
             })
 
@@ -739,6 +740,7 @@ export async function POST(request: Request) {
             const { data: newConvo } = await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
               phone: cleanPhone,
+              to_phone: to,
               client_id: client?.id || null,
               name: clientName,
               state: 'welcome',
