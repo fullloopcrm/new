@@ -93,12 +93,6 @@ const requirements = [
   'Bilingual is a plus — Spanish would be ideal, and matches the team you’ll be working with.',
 ]
 
-const earningsTrajectory = [
-  { year: 'Year 1', amount: 'Sweat equity + profit share', detail: '$1,000/week to start, moving to 10% of net profit after 90 days as you take on full ownership of the operation.' },
-  { year: 'Year 2', amount: '$100,000 – $150,000', detail: 'As the company scales into new markets and your share of net profit grows with it.' },
-  { year: 'Year 3', amount: '$300,000+', detail: 'For someone fully all-in — no ceiling built into this beyond what the business and your role in it grow to.' },
-]
-
 const ninetyDays = [
   { range: 'Weeks 1–2', focus: 'Production & Clients', detail: 'Learn bookings, scheduling, crews, and how client issues actually get handled — the parts of the business that break fastest if they’re neglected.' },
   { range: 'Weeks 3–4', focus: 'AI, People & Sales', detail: 'Get fluent in what the AI agent already automates, meet the team, and learn the sales pipeline it feeds.' },
@@ -177,8 +171,8 @@ export default function AdministratorCareersPage() {
           <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl text-white tracking-wide leading-[0.92] mb-4">
             {config.title} Today. CEO Tomorrow.
           </h1>
-          <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#A8F0DC] tracking-wide mb-6">This is the opportunity of a lifetime.</p>
-          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">{config.tagline}</p>
+          <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#A8F0DC] tracking-wide mb-3">This is the opportunity of a lifetime.</p>
+          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">8 months old. Zero ad spend. 7x growth. A real seat at the top of a company that&rsquo;s just getting started.</p>
 
           <div className="border-y border-white/10 py-6 mb-8">
             <div className="flex flex-wrap gap-6 sm:gap-10">
@@ -239,7 +233,7 @@ export default function AdministratorCareersPage() {
             This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is, this early.
           </p>
           <p className="text-gray-600 leading-relaxed mb-3">
-            And this growth has happened without spending a single dollar on ads or lead generation — it’s entirely organic. There’s no cleaning company doing what we’re doing at this scale and this speed. On marketing, strategy, AI, functionality, and technology, this operation is probably in the top 5% of cleaning companies in the country. Whoever takes this role isn’t just learning to run a cleaning service — they’re learning to run one of the most sophisticated ones in the United States.
+            And this growth has happened without spending a single dollar on ads or lead generation — it’s entirely organic. Whoever takes this role isn’t just learning to run a cleaning service — they’re learning to run a genuinely sophisticated operation, from the marketing playbook to the AI systems behind it.
           </p>
 
           <div className="border-l-4 border-[#A8F0DC] bg-gray-50 rounded-r-xl p-5 mb-3">
@@ -282,18 +276,6 @@ export default function AdministratorCareersPage() {
               <p className="text-white/90">{config.location}</p>
             </div>
           </div>
-
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mt-10 mb-3">If You’re All In — The Earnings Trajectory</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {earningsTrajectory.map((step) => (
-              <div key={step.year} className="border border-white/15 rounded-xl p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">{step.year}</p>
-                <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide mb-2">{step.amount}</p>
-                <p className="text-blue-100/70 text-sm leading-relaxed">{step.detail}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-white/40 text-xs mt-3">Projections based on the company’s current growth and your full commitment to the role — not a guarantee, a real trajectory for the right person.</p>
 
           <Link href="/apply/administrator" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors mt-8">
             Apply Now
