@@ -18,6 +18,26 @@ import { buildPriceCopy } from './price-copy'
 // importers (and tests) that pull it from agent-config-loader keep working.
 export { buildPriceCopy } from './price-copy'
 
+// Formats settings.business_hours_start/end (already-collected onboarding
+// fields — see PROFILE_FIELDS 'scheduling' section) into the human note
+// buildPlaybook renders in its OPERATIONS block. Previously collected at
+// onboarding but never surfaced to Yinez at all (2026-07-30 gap-fill).
+// Returns undefined when hours are missing/invalid rather than emitting
+// broken text like "undefined:00".
+function formatHour(h: number): string {
+  const hour = ((h % 24) + 24) % 24
+  const period = hour < 12 ? 'AM' : 'PM'
+  const display = hour % 12 === 0 ? 12 : hour % 12
+  return `${display} ${period}`
+}
+
+export function formatOperatingHoursNote(start: unknown, end: unknown): string | undefined {
+  if (typeof start !== 'number' || typeof end !== 'number' || !Number.isFinite(start) || !Number.isFinite(end)) {
+    return undefined
+  }
+  return `Business hours: ${formatHour(start)}–${formatHour(end)}. Outside these hours, still take the message and hand off — don't imply someone is standing by live.`
+}
+
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
   if (funnel === 'lead_only') return 'lead_only'
   if (funnel === 'pipeline') return 'quote_first'
@@ -80,7 +100,18 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   if (authored) return authored
 
   const name = tenant?.name || 'the business'
-  const agentName = tenant?.agent_name || 'Jefe'
+  // tenants.agent_name is the real source of truth (see provision-tenant.ts's
+  // seeding comment); selena_config.ai_name is a legacy mirror the onboarding
+  // 'ai' section still writes to. Previously only selena-legacy.ts and the
+  // outreach cron honored that fallback — this engine silently ignored an
+  // onboarding-submitted agent name whenever tenants.agent_name was still
+  // empty (2026-07-30 gap-fill; same bug class as the tone fix above).
+  // Selena is the core/base agent identity; an unpersonalized tenant must
+  // never default to "Jefe" — that's a separate, real platform-GM entity,
+  // not a generic agent name. This exact mix-up has recurred across sessions.
+  const agentName = tenant?.agent_name
+    || (tenant?.selena_config as { ai_name?: string } | undefined)?.ai_name
+    || 'Selena'
   const industry = (tenant?.industry || 'home services').replace(/_/g, ' ')
   const phone = tenant?.phone || settings.business_phone || '<not configured>'
   const domain = tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
@@ -140,5 +171,6 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
     },
     contact: { phone, portal_url: portal },
     booking: { model: bookingModel },
+    operating_hours_note: formatOperatingHoursNote(settings.business_hours_start, settings.business_hours_end),
   }
 }

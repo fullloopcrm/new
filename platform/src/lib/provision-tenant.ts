@@ -228,9 +228,10 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
     // Agent name — tenants.agent_name is the real source of truth read by both
     // agent brains (selena-legacy.ts and selena/agent.ts); selena_config.ai_name
     // above is a legacy mirror only. Leaving this column unset here was the gap:
-    // agent.ts falls back to a hardcoded 'Jefe' when it's empty, so a tenant
-    // could seed selena_config.ai_name='Selena' and still get called Jefe on
-    // any channel routed through agent.ts. Only seed if not already customized.
+    // agent.ts (and agent-config-loader.ts, selena-legacy.ts) now all fall back
+    // to 'Selena' when it's empty, never 'Jefe' (2026-07-30 fix) — but seeding
+    // this column directly is still the correct, explicit path. Only seed if
+    // not already customized.
     if (!tenant.agent_name) {
       const agentName = (opts.overrides?.selena_config?.ai_name as string | undefined) || 'Selena'
       const { error } = await supabaseAdmin.from('tenants').update({ agent_name: agentName }).eq('id', tenantId)

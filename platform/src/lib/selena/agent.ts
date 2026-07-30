@@ -344,9 +344,11 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
     if (tenant.phone) out = out.replace(/\(?212\)?[\s.\-]*202[\s.\-]*\d{4}/g, tenant.phone)
     if (tenant.name) out = out.replace(/\bThe NYC Maid\b/g, tenant.name).replace(/\bNYC Maid\b/g, tenant.name)
     // Agent name: deterministic core.ts strings ("I'm Yinez…") bypass the LLM
-    // brand override. Rewrite the persona name to the tenant's agent (Jefe by
-    // default). nycmaid early-returns above, so its "Yinez" is never touched.
-    out = out.replace(/\bYinez\b/g, tenant.agent_name || 'Jefe')
+    // brand override. Rewrite the persona name to the tenant's agent (Selena
+    // by default — never Jefe, a separate real platform-GM entity; this
+    // mix-up has recurred across sessions). nycmaid early-returns above, so
+    // its "Yinez" is never touched.
+    out = out.replace(/\bYinez\b/g, tenant.agent_name || 'Selena')
     return out
   } catch {
     return text
