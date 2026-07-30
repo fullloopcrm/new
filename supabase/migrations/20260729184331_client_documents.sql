@@ -12,8 +12,8 @@
 -- platform-admin business detail page), not to any one client. A non-null
 -- value means it's attached to that specific client.
 --
--- FILE ONLY -- NOT RUN. Per docs/adr/0008-migration-tool-cutover.md /
--- docs/runbooks/migration-runbook.md, a prod DB write is a GATED action
+-- FILE ONLY -- NOT RUN. Per platform/docs/adr/0008-migration-tool-cutover.md /
+-- platform/docs/runbooks/migration-runbook.md, a prod DB write is a GATED action
 -- (Jeff's explicit per-migration go, then LEADER runs `supabase db push`).
 -- This worker authored + syntax-checked the file only; see the PR/commit
 -- description for the explicit hand-off.

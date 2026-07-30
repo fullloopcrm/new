@@ -48,6 +48,8 @@ const INTENTIONAL_NOINDEX: Record<string, string> = {
     'thin geo×service programmatic combos, near-duplicate at national scale (follow kept)',
   'sunnyside-clean-nyc/[slug]/[service]/page.tsx':
     'thin neighborhood×service programmatic combos (follow kept for link equity)',
+  'nycmaid/apply/administrator/page.tsx':
+    'job-application form (video/audio interview flow), deliberately noindex/nofollow to avoid public discovery outside the careers listing page',
 }
 
 // --- site discovery (same rule as the sibling tests) ---

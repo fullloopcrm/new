@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
 import { PRICING } from '@/lib/billing-pricing'
-import { createAndSendOnboardingLink } from '@/lib/onboarding-link'
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -99,12 +98,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Auto-send the no-login onboarding-questionnaire link the moment the
-  // tenant exists. Best-effort — never blocks/fails tenant creation; the
-  // link can always be re-copied/resent from admin/tenants/[id].
-  createAndSendOnboardingLink(tenant.id).catch((err) =>
-    console.error('createAndSendOnboardingLink failed for', tenant.id, err),
-  )
+  // Onboarding link sends on Activate (activate-tenant.ts), not here — a
+  // just-created, status='setup' tenant isn't ready for the owner yet.
 
   // Register the tenant's live website (<slug>.fullloopcrm.com) as a Vercel
   // project domain so the site exists the moment the business is created — not

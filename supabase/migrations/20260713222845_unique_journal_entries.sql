@@ -3,6 +3,25 @@
 -- STATUS: part of the baseline. Assumed already live in prod as of
 -- the 2026-07-28 cutover -- marked applied without re-running, per
 -- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+--
+-- ⚠️ SEQUENCING WARNING (added 2026-07-30, empirically verified): the
+-- `CREATE OR REPLACE FUNCTION post_journal_entry` below re-issues
+-- `GRANT EXECUTE ... TO authenticated, service_role` and does not carry
+-- forward the `SET search_path` pin. Applying this migration AFTER
+-- `20260711171452_lockdown_secdef_rpcs.sql` SILENTLY REOPENS the
+-- cross-tenant forgery hole that migration closes — any authenticated
+-- user of one tenant can again forge journal_entries/journal_lines into
+-- another tenant's books via a direct RPC call. Confirmed against a live
+-- Postgres 2026-07-30: applying this exact file after the lockdown
+-- restored the attack. SAFE ALTERNATIVES that fix the same double-post
+-- race WITHOUT touching the RPC's grants or redefining the function:
+-- prefer `20260711174933_unique_journal_entries.sql` or
+-- `20260713210037_journal_entries_source_unique.sql` (index-only; the app
+-- already catches the resulting 23505 unique-violation as idempotent
+-- success). If this file is applied instead, the leader MUST re-run
+-- `20260711171452_lockdown_secdef_rpcs.sql`'s REVOKE + search_path
+-- statements immediately after.
+--
 -- 064_unique_journal_entries.sql
 -- FILE ONLY — do NOT execute here. Leader runs after Jeff approves.
 --
