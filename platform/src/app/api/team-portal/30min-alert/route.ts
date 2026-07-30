@@ -24,7 +24,19 @@ import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { SELF_BOOKING_DISCOUNT_DOLLARS as NYCMAID_SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { isFloridaMaid } from '@/lib/the-florida-maid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS as FLORIDA_MAID_SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/the-florida-maid/self-book-discount'
+
+// Self-book discount is a per-tenant promo amount, not a single global
+// constant — nycmaid's own file learned this the hard way (see its header
+// comment). the-florida-maid's site copy says $20; nycmaid's says $10.
+// Falls back to nycmaid's amount for every other tenant, matching this
+// route's pre-existing (nycmaid-only-aware) behavior.
+function selfBookingDiscountDollars(tenantId: string | null | undefined): number {
+  if (isFloridaMaid(tenantId)) return FLORIDA_MAID_SELF_BOOKING_DISCOUNT_DOLLARS
+  return NYCMAID_SELF_BOOKING_DISCOUNT_DOLLARS
+}
 
 export const maxDuration = 300
 
@@ -173,7 +185,7 @@ export async function POST(req: NextRequest) {
     // Self-booking discount applies at billing for self-booked jobs.
     // Flag is in booking.notes; set by /api/client/book at booking time.
     const isSelfBooked = typeof booking.notes === 'string' && /self-booking discount/i.test(booking.notes)
-    const selfBookingDiscount = isSelfBooked ? SELF_BOOKING_DISCOUNT_DOLLARS : 0
+    const selfBookingDiscount = isSelfBooked ? selfBookingDiscountDollars(tenantId) : 0
 
     const clientOwesCents = Math.max(0, grossOwedCents - bookingDiscountCents - creditCents - Math.round(selfBookingDiscount * 100))
     const clientOwes = (clientOwesCents / 100).toFixed(2)

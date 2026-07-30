@@ -134,7 +134,7 @@ export default function HomePage() {
             <span className="text-white/20 hidden sm:inline">|</span>
             <span className="text-white text-sm font-medium">Trusted by Floridians Since 2018</span>
             <span className="text-white/20 hidden sm:inline">|</span>
-            <span className="text-white text-sm font-medium">Licensed &amp; Insured</span>
+            <span className="text-white text-sm font-medium">Insured Up To $1,000,000</span>
           </div>
 
           <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl lg:text-8xl text-white tracking-wide leading-[0.95] mb-6">
@@ -151,6 +151,30 @@ export default function HomePage() {
             <span className="text-[#34D399] text-sm font-medium">&#10003; No contracts</span>
             <span className="text-[#34D399] text-sm font-medium">&#10003; Flat hourly pricing</span>
           </div>
+
+          {/* Divider */}
+          <div className="w-3/4 h-[1px] bg-white/20 mb-5" />
+
+          {/* CTA */}
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Your Cleaning</p>
+          <p className="text-white/70 text-sm mb-5 max-w-[75%]">One page. Quick. We&apos;ll confirm by text within 15 minutes.</p>
+          <div className="flex flex-wrap gap-3 mb-8">
+            <Link href="/book-now" target="_blank" rel="noopener" className="inline-flex items-center gap-2 bg-[#A8F0DC] text-[#CC6222] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+              Self Booking $20 Off
+            </Link>
+            <a href="sms:9547103636" className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
+              Text (954) 710-3636
+            </a>
+            <Link href="/feedback" className="inline-flex items-center gap-2 bg-red-600 text-yellow-300 px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-red-700 transition-colors">
+              Feedback | Suggestions?
+            </Link>
+          </div>
+
+          <p className="mb-8">
+            <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="inline-flex items-center gap-1.5 text-[#A8F0DC] text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">
+              <span className="text-base">&#9733;</span> Refer friends &amp; earn 10% recurring on every cleaning they book &rarr;
+            </Link>
+          </p>
 
           {/* Pricing tiers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
@@ -178,19 +202,6 @@ export default function HomePage() {
           {/* Recurring discount */}
           <div className="mb-10 -mt-6 inline-flex items-center gap-2 bg-[#1E2A4A] text-[#A8F0DC] text-sm font-bold tracking-wide px-5 py-2 rounded-full">
             <span className="text-base">&#9733;</span> Save 20% on weekly service &middot; 10% on bi-weekly &amp; monthly
-          </div>
-
-          {/* CTA: book, text, or call */}
-          <div className="flex flex-col sm:flex-row items-start gap-5">
-            <Link href="/book-now" target="_blank" rel="noopener" className="bg-white text-[#CC6222] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-100 transition-colors">
-              Self Booking $20 Off
-            </Link>
-            <a href="sms:9547103636" className="bg-[#34D399] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-              Text (954) 710-3636
-            </a>
-            <a href="tel:9547103636" className="text-white font-medium text-lg py-4 hover:text-white/80 transition-colors underline underline-offset-4">
-              or Call Us
-            </a>
           </div>
         </div>
       </section>

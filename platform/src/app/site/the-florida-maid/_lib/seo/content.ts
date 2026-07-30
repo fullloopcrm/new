@@ -23,7 +23,7 @@ export function homepageContent() {
   return {
     title: 'The Florida Maid: Florida Home & Business Cleaning Service | From $49/hr',
     metaDescription: 'Florida home & business cleaning from $49/hr. Over 25,000 Florida homes served. 5.0★ rated, $1M insured. Miami, Tampa, Orlando, Fort Lauderdale, Jacksonville & statewide. (954) 710-3636',
-    h1: 'Florida Home & Business Cleaning — From $49/hr',
+    h1: 'Florida Maid Service & House Cleaning — From $49/hr',
     subtitle: 'Over 25,000 Florida homes served. 5.0★ rated, $1M insured. Professional cleaning across Miami, Fort Lauderdale, Tampa, Orlando, Jacksonville, Naples, Sarasota & West Palm Beach.',
   }
 }

@@ -6,7 +6,16 @@ import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { SELF_BOOKING_DISCOUNT_DOLLARS as NYCMAID_SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { isFloridaMaid } from '@/lib/the-florida-maid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS as FLORIDA_MAID_SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/the-florida-maid/self-book-discount'
+
+// Self-book discount is a per-tenant promo amount (nycmaid: $10, the-florida-
+// maid: $20) — see team-portal/30min-alert's identical resolver.
+function selfBookingDiscountDollars(tenantId: string | null | undefined): number {
+  if (isFloridaMaid(tenantId)) return FLORIDA_MAID_SELF_BOOKING_DISCOUNT_DOLLARS
+  return NYCMAID_SELF_BOOKING_DISCOUNT_DOLLARS
+}
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -154,7 +163,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const noteText = (booking.notes as string) || ''
   const isSelfBooked = /self-booking discount/i.test(noteText)
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: SELF_BOOKING_DISCOUNT_DOLLARS * 100 })
+  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: selfBookingDiscountDollars(booking.tenant_id as string) * 100 })
   const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?(?:applied|applies(?:\s+at\s+billing)?)\]/gi
   let m: RegExpExecArray | null
   while ((m = promoRe.exec(noteText)) !== null) {

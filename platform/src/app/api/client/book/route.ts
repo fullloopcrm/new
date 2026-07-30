@@ -29,6 +29,8 @@ import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { isFloridaMaid } from '@/lib/the-florida-maid/tenant'
+import { SELF_BOOKING_DISCOUNT_DOLLARS as FLORIDA_SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/the-florida-maid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 
@@ -293,6 +295,20 @@ export async function POST(request: Request) {
       // Form-recap consent: when the client clicks Confirm in the recap modal we
       // record an audit line so the confirmation-reminder cron knows terms were
       // accepted at submit time and skips the CONFIRM-reply re-ask.
+      if (body.client_confirmed === true) {
+        const confirmedAt = typeof body.confirmed_at === 'string' ? body.confirmed_at : new Date().toISOString()
+        const ua = typeof body.user_agent === 'string' ? (body.user_agent as string).slice(0, 200) : 'unknown'
+        bkNotes += `\n\n[Client confirmed terms ${confirmedAt} from IP ${ip} via /book/new (UA: ${ua})]`
+      }
+    } else if (isFloridaMaid(tenant.id)) {
+      // The Florida Maid site unconditionally promises "$20 self-booking
+      // discount" on every self-book submission (book-now/page.tsx) — no
+      // emergency/multi-cleaner carve-outs in that copy, unlike nycmaid's.
+      // Without this note, team-portal/30min-alert and the closeout summary
+      // never see "self-booking discount" in booking.notes and apply $0,
+      // even though the client was told $20 is "locked in."
+      bkNotes = ((body.notes as string) || '') + `\n\n[Promo: $${FLORIDA_SELF_BOOKING_DISCOUNT_DOLLARS} self-booking discount applies at billing]`
+
       if (body.client_confirmed === true) {
         const confirmedAt = typeof body.confirmed_at === 'string' ? body.confirmed_at : new Date().toISOString()
         const ua = typeof body.user_agent === 'string' ? (body.user_agent as string).slice(0, 200) : 'unknown'

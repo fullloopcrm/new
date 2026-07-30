@@ -22,6 +22,7 @@ const moreLinks = [
   { name: 'Locations', href: '/service-areas-served-by-the-florida-maid' },
   { name: 'Reviews', href: '/florida-customer-reviews-for-the-florida-maid' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
+  { name: 'Feedback | Suggestions?', href: '/feedback' },
 ]
 
 export default function MarketingNav() {
@@ -108,7 +109,7 @@ export default function MarketingNav() {
                 <div className="absolute left-0 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-3 w-60">
                     {moreLinks.map(link => (
-                      <Link key={link.href} href={link.href} className="block px-5 py-2.5 text-sm text-gray-600 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                      <Link key={link.href} href={link.href} className={link.href === '/feedback' ? 'block mx-3 my-1 px-4 py-2 rounded-md bg-red-600 text-yellow-300 font-bold text-sm text-center uppercase tracking-wide hover:bg-red-700 transition-colors' : 'block px-5 py-2.5 text-sm text-gray-600 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors'}>
                         {link.name}
                       </Link>
                     ))}
@@ -117,18 +118,21 @@ export default function MarketingNav() {
               </div>
             </nav>
 
-            <div className="hidden lg:flex items-center gap-3">
-              <Link href="/book-now" target="_blank" rel="noopener" className="bg-[#1E2A4A] text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors whitespace-nowrap">
-                Self Booking $20 Off
-              </Link>
-              <a href="sms:9547103636" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors whitespace-nowrap">
+            <div className="hidden lg:flex items-center gap-2">
+              <a href="sms:9547103636" className="inline-block bg-[#1E2A4A] text-white px-3.5 py-2 rounded-md font-bold text-xs tracking-wide uppercase hover:bg-[#1E2A4A]/90 transition-colors whitespace-nowrap">
                 Text (954) 710-3636
               </a>
+              <Link href="/book-now" target="_blank" rel="noopener" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-3.5 py-2 rounded-md font-bold text-xs tracking-wide uppercase hover:bg-[#8DE8CC] transition-colors whitespace-nowrap">
+                Self Booking $20 Off
+              </Link>
             </div>
 
             {/* Mobile hamburger */}
-            <div className="lg:hidden flex items-center gap-3">
-              <Link href="/book-now" target="_blank" rel="noopener" className="bg-[#1E2A4A] text-white px-4 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
+            <div className="lg:hidden flex items-center gap-2">
+              <a href="sms:9547103636" className="bg-[#1E2A4A] text-white px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
+                Text
+              </a>
+              <Link href="/book-now" target="_blank" rel="noopener" className="bg-[#A8F0DC] text-[#1E2A4A] px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Self Booking $20 Off
               </Link>
               <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation menu" aria-expanded={mobileOpen} className="p-2 text-[#1E2A4A]">
@@ -204,7 +208,7 @@ export default function MarketingNav() {
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
                 <Link href="/book-now" target="_blank" rel="noopener" onClick={closeMenu} className="block bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Self Booking $20 Off</Link>
-                <a href="sms:9547103636" className="block text-white/50 font-medium text-sm">or Text (954) 710-3636</a>
+                <a href="sms:9547103636" className="block bg-[#1E2A4A] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Text (954) 710-3636</a>
               </div>
             </div>
           </div>

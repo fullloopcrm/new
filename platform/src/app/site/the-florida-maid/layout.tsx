@@ -6,6 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 import MarketingNav from '@/app/site/the-florida-maid/_components/marketing/MarketingNav'
 import MarketingFooter from '@/app/site/the-florida-maid/_components/marketing/MarketingFooter'
+import ReferralBanner from '@/app/site/the-florida-maid/_components/marketing/ReferralBanner'
 import ConsentBanner from '@/components/consent/ConsentBanner'
 import ConsentGate from '@/components/consent/ConsentGate'
 
@@ -15,6 +16,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-[#34D399] focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:font-bold focus:text-sm">
         Skip to main content
       </a>
+      <ReferralBanner />
       <MarketingNav />
       <main id="main-content">{children}</main>
       <MarketingFooter />
