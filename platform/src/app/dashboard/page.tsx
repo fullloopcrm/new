@@ -536,6 +536,7 @@ export default async function DashboardPage() {
                 <p className="p-4" style={{ color: V.muted }}>{col.empty}</p>
               ) : col.jobs.map((job, i, arr) => (
                 <div key={job.id} className="flex items-start gap-3 p-3" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+                  <span style={{ fontFamily: V.mono, fontSize: '11px', color: V.muted, width: 18, flexShrink: 0, textAlign: 'right', marginTop: 1 }}>{i + 1}</span>
                   <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="flex-1 min-w-0">
                     <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>
