@@ -145,6 +145,7 @@ export default function Footer() {
           </p>
           <p className="text-center text-stone-400">
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+            <Link href="/legal" className="hover:underline">Legal</Link>
             {" "}&middot;{" "}
             Web design &amp; digital marketing by{" "}
             <a

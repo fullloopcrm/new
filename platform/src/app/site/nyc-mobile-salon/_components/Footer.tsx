@@ -70,6 +70,7 @@ export default function Footer() {
 
         <div className="mt-12 border-t border-white/15 pt-8 text-center text-xs text-white/40">
           &copy; {new Date().getFullYear()} The NYC Mobile Salon. All rights reserved.
+          <Link href="/legal" className="hover:underline">Legal</Link>
         </div>
         <div className="mt-3 text-center">
           <p className="text-[11px] text-white/30">

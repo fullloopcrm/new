@@ -158,6 +158,7 @@ export function Footer() {
 
         <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>&copy; {new Date().getFullYear()} The NYC Towing Service. All rights reserved.</p>
+          <p><Link href="/legal" className="hover:underline">Legal</Link></p>
           <p>Licensed, Bonded &amp; Insured — NYC DCWP Licensed Tow Operator</p>
         </div>
         <div className="mt-4 pt-4 border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-500 text-center">

@@ -96,6 +96,7 @@ export default function Footer() {
         <div className="mt-10 border-t border-white/[0.06] pt-8 text-center text-sm text-zinc-600">
           <p>
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+            <Link href="/legal" className="hover:underline">Legal</Link>
             Licensed pest control serving NYC, NJ, Long Island &amp; Westchester.
           </p>
           <p className="mt-2 text-xs text-zinc-700">
