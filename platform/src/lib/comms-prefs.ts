@@ -3,9 +3,10 @@
  * out of `tenants.notification_preferences` (jsonb) against the canonical
  * registry (lib/comms-registry.ts).
  *
- * This is the gate every send path will consult in Phase 2 via
- * `isCommEnabled(tenantId, key, channel)`. Defining it now is inert — nothing
- * in the send paths calls it yet.
+ * This is the gate send paths consult via `isCommEnabled(tenantId, key,
+ * channel)` — wired into notify.ts's central dispatcher plus 17 direct
+ * call sites (booking/lead/reschedule routes, cron reminders, stripe
+ * webhook) as of 2026-07-30. No longer inert; this comment was stale.
  *
  * Stored shape:
  *   {
