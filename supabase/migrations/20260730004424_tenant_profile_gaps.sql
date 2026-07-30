@@ -17,7 +17,7 @@
 --
 -- Idempotent: every statement is IF NOT EXISTS / safe to re-run.
 -- No destructive ops. GATED — author only, do not apply without Jeff's
--- explicit go per THE PROCEDURE in docs/runbooks/migration-runbook.md.
+-- explicit go per THE PROCEDURE in platform/docs/runbooks/migration-runbook.md.
 
 -- ─── PRE (informational — confirm nothing here already exists) ─────────
 DO $$
