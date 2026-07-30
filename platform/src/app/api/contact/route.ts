@@ -386,7 +386,12 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (dealErr) {
+      // Same silent-failure shape already caused a real lead to land as
+      // client+portal_lead only, invisible to Sales (2026-07-30 pipeline
+      // trace). Must not fail the form submit, but must be loud, not
+      // console-only.
       console.error('[api/contact] pipeline deal error (non-blocking):', dealErr)
+      await trackError(dealErr, { source: 'api/contact:pipeline-entry', severity: 'high', tenantId: tenant.id }).catch(() => {})
     }
 
     await notify({

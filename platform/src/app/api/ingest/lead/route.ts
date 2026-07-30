@@ -211,7 +211,14 @@ export async function POST(request: Request) {
         })
       }
     } catch (dealErr) {
+      // This comment block used to describe this exact bug in the past
+      // tense ("without this, ingested leads landed as client + portal_lead
+      // only and were invisible to Sales") — the fix above is real, but
+      // a regression here would recreate the identical silent failure with
+      // nothing louder than a console line. Must not fail the ingest
+      // (client is already saved), but must be loud, not console-only.
       console.error('[ingest/lead] deal create error:', dealErr)
+      await trackError(dealErr, { source: 'api/ingest/lead:pipeline-entry', severity: 'high', tenantId: tenant.id }).catch(() => {})
     }
 
     await notify({

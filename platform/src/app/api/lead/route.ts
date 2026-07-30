@@ -271,7 +271,14 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (dealErr) {
+      // This exact silent-failure shape has already caused a real lead to
+      // land as client+portal_lead only, invisible to Sales, with nobody
+      // finding out until a much later audit (2026-07-30 pipeline trace,
+      // see ingest/lead's own comment on the same class of bug). A pipeline
+      // failure here must not fail the form submit (client is already
+      // saved), but it must be loud, not console-only.
       console.error('[api/lead] pipeline deal error (non-blocking):', dealErr)
+      await trackError(dealErr, { source: 'api/lead:pipeline-entry', severity: 'high', tenantId: tenant.id }).catch(() => {})
     }
 
     await notify({
