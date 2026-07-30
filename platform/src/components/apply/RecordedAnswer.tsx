@@ -27,6 +27,31 @@ function browserSupportsRecording(): boolean {
   return typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined'
 }
 
+// The generic "could not access camera/microphone" message was hiding the
+// real cause (browser-remembered denial vs. no device vs. device in use by
+// another app), which made a real, live "recording doesn't work" report
+// impossible to diagnose from the outside. Distinguish the common cases.
+function getUserMediaErrorMessage(err: unknown): string {
+  const name = err instanceof DOMException ? err.name : ''
+  switch (name) {
+    case 'NotAllowedError':
+      return 'Camera/microphone access is blocked for this site. Check your browser’s site permissions (usually the icon next to the address bar) and allow camera and microphone, then try again.'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera or microphone was found on this device.'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'Your camera or microphone is already in use by another app or browser tab.'
+    case 'OverconstrainedError':
+    case 'ConstraintNotSatisfiedError':
+      return 'Your camera doesn’t support the requested settings.'
+    case 'SecurityError':
+      return 'Camera/microphone access is blocked in this browsing context.'
+    default:
+      return 'Could not access your camera/microphone.'
+  }
+}
+
 export default function RecordedAnswer({ questionKey, label, helpText, maxSeconds, existingUrl, existingKind, onSaved }: RecordedAnswerProps) {
   const [phase, setPhase] = useState<Phase>(existingUrl ? 'done' : 'idle')
   const [kind, setKind] = useState<Kind | null>(existingKind ?? null)
@@ -123,8 +148,8 @@ export default function RecordedAnswer({ questionKey, label, helpText, maxSecond
           return s - 1
         })
       }, 1000)
-    } catch {
-      setError('Could not access your camera/microphone. You can upload a file instead.')
+    } catch (err) {
+      setError(`${getUserMediaErrorMessage(err)} You can upload a file instead.`)
       setUseFallback(true)
       setPhase('idle')
     }
