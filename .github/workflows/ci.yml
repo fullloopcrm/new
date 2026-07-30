@@ -17,6 +17,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow depth-1 clone: the new
+          # commit-ancestry gate below needs to walk arbitrary past commits
+          # from HEAD, which a shallow checkout would falsely report missing.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -50,6 +55,13 @@ jobs:
       - name: Readiness ledger evidence
         # Fails if any checkpoint's score exceeds its evidence_type's cap.
         run: node scripts/validate-ledger-evidence.mjs
+
+      - name: Readiness ledger commit ancestry
+        # Fails if any checkpoint's last_verified_commit isn't a real ancestor
+        # of this build's HEAD -- catches a checkpoint scoring work that only
+        # exists on some other, unmerged branch (found manually 2026-07-30;
+        # this makes that sweep automatic).
+        run: node scripts/check-commit-ancestry.mjs
 
       - name: Readiness taxonomy sign-off
         # Fails if taxonomy.json (checkpoint definitions/severity/weights)
