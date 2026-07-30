@@ -335,6 +335,54 @@ export async function convertSaleToJob(
   }
 }
 
+export type SaleConversionResult =
+  | { kind: 'booking'; booking_id: string; already_converted: boolean }
+  | { kind: 'recurring'; schedule_id: string; bookings_created: number; already_converted: boolean }
+  | { kind: 'job'; job_id: string; already_converted: boolean }
+
+/**
+ * Auto-close a sold quote to the RIGHT fulfillment type, mirroring the branch
+ * already proven in quotes/public/[token]/accept (recurring_type → recurring
+ * series, fulfillment_type 'booking' → a single booking, otherwise → a
+ * project Job). Use this for any "the sale just closed, pick the right
+ * thing" trigger (deal marked sold, Stripe deposit paid) — NOT for the
+ * explicit "convert this quote to a Job" admin action
+ * (quotes/[id]/convert-to-job), which intentionally always wants a Job
+ * (with a payment plan / pre-scheduled sessions) regardless of quote type
+ * and must keep calling convertSaleToJob directly.
+ *
+ * Before this existed, every non-accept auto-close caller unconditionally
+ * created a Job even for plain one-off/recurring quotes, so a normal booking
+ * silently became an unscheduled project with no scheduling reminder (see
+ * the 2026-07-30 pipeline trace — real prod case: a $365 job sat
+ * `status='unscheduled'` for 11+ days with zero alert).
+ */
+export async function closeSoldQuote(
+  tenantId: string,
+  quoteId: string,
+): Promise<SaleConversionResult> {
+  const { data: quote, error } = await supabaseAdmin
+    .from('quotes')
+    .select('recurring_type, fulfillment_type')
+    .eq('tenant_id', tenantId)
+    .eq('id', quoteId)
+    .single()
+  if (error || !quote) throw new Error('Quote not found')
+
+  if (quote.recurring_type) {
+    const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+    const r = await createRecurringSeriesFromQuote(tenantId, quoteId)
+    return { kind: 'recurring', ...r }
+  }
+  if (quote.fulfillment_type === 'booking') {
+    const { createBookingFromQuote } = await import('@/lib/sale-to-booking')
+    const r = await createBookingFromQuote(tenantId, quoteId)
+    return { kind: 'booking', ...r }
+  }
+  const r = await createJobFromQuote(tenantId, quoteId)
+  return { kind: 'job', ...r }
+}
+
 // Which job event releases which payment trigger. One universal map — no
 // per-trade rules. A cleaning job's single 'manual' payment matches nothing
 // here and is simply marked paid by the operator; a project's triggered

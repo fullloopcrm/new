@@ -68,21 +68,24 @@ export async function POST(request: Request, { params }: Params) {
       metadata: { from: existing.stage, to, value_cents: existing.value_cents, ...(to === 'lost' && lostReason ? { lost_reason: lostReason } : {}) },
     })
 
-    // Manually closing to SOLD spins up the Job from the deal's proposal (if any,
-    // and not already converted) so it can be scheduled. Idempotent + best-effort.
+    // Manually closing to SOLD spins up the right fulfillment (booking /
+    // recurring series / Job) from the deal's proposal (if any, and not
+    // already converted) so it can be scheduled. Idempotent + best-effort.
+    // `converted_at` (not `converted_job_id`) is the shared not-yet-converted
+    // marker across all three conversion paths — see closeSoldQuote's docstring.
     if (to === 'sold') {
       try {
         const { data: q } = await db
           .from('quotes')
           .select('id')
           .eq('deal_id', id)
-          .is('converted_job_id', null)
+          .is('converted_at', null)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
         if (q) {
-          const { convertSaleToJob } = await import('@/lib/jobs')
-          await convertSaleToJob(tenantId, { type: 'quote', quoteId: q.id }, {})
+          const { closeSoldQuote } = await import('@/lib/jobs')
+          await closeSoldQuote(tenantId, q.id)
         }
       } catch (jobErr) {
         console.warn('job creation on manual sold failed', jobErr)
