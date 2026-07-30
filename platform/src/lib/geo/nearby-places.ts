@@ -37,11 +37,26 @@
  *   not JSON — handled below) when exceeded. It has no published fixed
  *   requests/sec figure but is explicitly shared, best-effort infrastructure;
  *   heavy production use should self-host Overpass or use a paid provider.
- *   A second public mirror (kumi.systems) is used as a fallback below, and
- *   results are cached in-process for 24h since place data changes rarely and
- *   this only needs to run once per tenant activation, not per page view.
+ *   A second public mirror (kumi.systems) is used as a fallback below.
+ *
+ * CACHING (24h TTL, and why it's a DB table, not just an in-memory Map):
+ * This only ever runs inside `resolveCoverage()` -> `activateTenant()`, which
+ * is invoked from `src/app/api/admin/businesses/[id]/activate/route.ts`
+ * (`export const runtime = 'nodejs'`) — a Vercel serverless function, not a
+ * long-running process. A module-level `Map` is NOT reliably shared across
+ * invocations there: cold starts get a fresh empty module scope, and even
+ * warm-container reuse isn't guaranteed. Given Overpass's real rate limiting
+ * (hit live during development after just two requests in quick succession —
+ * see `GET /api/status`), a cache that silently resets on most invocations
+ * defeats the purpose. `geo_nearby_places_cache` (migration
+ * `supabase/migrations/20260730140000_geo_nearby_places_cache.sql`) is the
+ * real persistence layer, keyed the same way as the in-memory Map
+ * (`${lat.toFixed(2)},${lng.toFixed(2)},${radiusMiles}`); the Map stays as a
+ * same-invocation fast path only (harmless, occasionally saves a DB round
+ * trip within one warm container, never load-bearing for the TTL).
  */
 import { haversineDistance } from '../geo'
+import { supabaseAdmin } from '../supabase'
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -86,10 +101,59 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, '')
 }
 
+// Same-invocation fast path only — see CACHING note above for why this alone
+// is not sufficient on serverless.
 const cache = new Map<string, { expires: number; data: NearbyPlace[] }>()
 
 function cacheKey(lat: number, lng: number, radiusMiles: number): string {
   return `${lat.toFixed(2)},${lng.toFixed(2)},${radiusMiles}`
+}
+
+/** Best-effort read from the persistent cache. Never throws — a DB hiccup
+ * just means falling through to a live Overpass query, same as a miss. */
+async function readDbCache(key: string): Promise<NearbyPlace[] | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('geo_nearby_places_cache')
+      .select('places, expires_at')
+      .eq('cache_key', key)
+      .maybeSingle()
+    if (error || !data) return null
+    if (new Date(data.expires_at).getTime() <= Date.now()) return null
+    return data.places as NearbyPlace[]
+  } catch (err) {
+    console.error('nearbyPlacesViaOverpass: DB cache read failed', err)
+    return null
+  }
+}
+
+/** Best-effort write to the persistent cache. Never throws — a failed write
+ * just means the next invocation re-queries Overpass instead of hitting a
+ * warm cache; it must never block returning the live-fetched result. */
+async function writeDbCache(
+  key: string,
+  lat: number,
+  lng: number,
+  radiusMiles: number,
+  places: NearbyPlace[],
+): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.from('geo_nearby_places_cache').upsert(
+      {
+        cache_key: key,
+        lat,
+        lng,
+        radius_miles: radiusMiles,
+        places,
+        fetched_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
+      },
+      { onConflict: 'cache_key' },
+    )
+    if (error) console.error('nearbyPlacesViaOverpass: DB cache write failed', error)
+  } catch (err) {
+    console.error('nearbyPlacesViaOverpass: DB cache write failed', err)
+  }
 }
 
 function buildQuery(lat: number, lng: number, radiusMiles: number): string {
@@ -150,8 +214,14 @@ export async function nearbyPlacesViaOverpass(
   radiusMiles: number,
 ): Promise<NearbyPlace[]> {
   const key = cacheKey(centerLat, centerLng, radiusMiles)
-  const cached = cache.get(key)
-  if (cached && cached.expires > Date.now()) return cached.data
+  const inMemory = cache.get(key)
+  if (inMemory && inMemory.expires > Date.now()) return inMemory.data
+
+  const persisted = await readDbCache(key)
+  if (persisted) {
+    cache.set(key, { expires: Date.now() + CACHE_TTL_MS, data: persisted })
+    return persisted
+  }
 
   const query = buildQuery(centerLat, centerLng, radiusMiles)
   let lastError: unknown = null
@@ -166,6 +236,7 @@ export async function nearbyPlacesViaOverpass(
         .sort((a, b) => a.distanceMiles - b.distanceMiles)
 
       cache.set(key, { expires: Date.now() + CACHE_TTL_MS, data: places })
+      await writeDbCache(key, centerLat, centerLng, radiusMiles, places)
       return places
     } catch (err) {
       lastError = err
