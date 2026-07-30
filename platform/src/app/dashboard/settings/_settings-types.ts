@@ -137,7 +137,7 @@ export function formatServicePrice(s: ServiceType): string {
 
 export const INPUT_CLS = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm'
 
-export const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Selena', 'Tools'] as const
+export const TABS = ['Business', 'Service Area', 'Services', 'Sales', 'Scheduling', 'Referrals & Policies', 'Additional Details', 'Permissions', 'Integrations', 'Branding', 'Communications', 'Selena', 'Tools'] as const
 export type Tab = typeof TABS[number]
 
 export const PAYMENT_METHOD_OPTIONS = [

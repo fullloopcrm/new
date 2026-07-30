@@ -1,17 +1,23 @@
 /**
- * Canonical tenant profile — Stage 0 of the onboarding redesign.
+ * Canonical tenant profile — Stage 0 of the onboarding redesign, now the real
+ * write path (2026-07-30) via `/api/tenant-profile` (see routeProfileWrite).
  *
- * ONE read model over the four real stores where profile data lives today:
+ * ONE model over the four real stores where profile data lives today:
  *   - tenants columns
  *   - the default `entities` row (legal/accounting identity)
  *   - tenants.selena_config jsonb (persona, policies, pricing knobs, social)
  *   - tenants.compliance jsonb (license + insurance)
  *
- * This file is READ-ONLY and additive: it introduces no schema change and no
- * write path. It exists so readiness (tenant-readiness.ts), the audit script,
- * and the future one-form UI all read the SAME shape instead of hand-mapping
- * fragments. The field registry (PROFILE_FIELDS) is the single source of truth
- * for "what data a launched tenant needs" — grounded in the §2 feature audit.
+ * It exists so readiness (tenant-readiness.ts), the audit script, the public
+ * onboarding link, and (progressively) Settings all read/write the SAME
+ * shape instead of hand-mapping fragments. The field registry (PROFILE_FIELDS)
+ * is the single source of truth for "what data a launched tenant needs" —
+ * grounded in the §2 feature audit.
+ *
+ * Not every related table fits this single-tenant-scalar model — multi-row
+ * data (`tenant_locations`, `tenant_notes`) is intentionally NOT modeled as
+ * FieldDefs here; it gets its own small CRUD API instead of being forced into
+ * a 1:1 field shape. See src/app/api/admin/tenants/[id]/locations and /notes.
  */
 import { supabaseAdmin } from './supabase'
 
@@ -20,12 +26,12 @@ export type FunnelMode = 'booking' | 'pipeline' | 'lead_only'
 export type ProfileSection =
   | 'identity' | 'contact' | 'brand' | 'services' | 'scheduling'
   | 'payments' | 'comms' | 'reviews' | 'referrals' | 'proposals'
-  | 'team' | 'compliance' | 'seo' | 'ai'
+  | 'team' | 'compliance' | 'seo' | 'ai' | 'account'
 
 type Store = 'tenant' | 'entity' | 'selena' | 'compliance'
 
 export type FieldTier = 'critical' | 'recommended' | 'optional'
-export type FieldInput = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array'
+export type FieldInput = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array' | 'custom'
 export type FieldOption = string | { label: string; value: string | number }
 
 /** Where a profile field reads from + how important it is to a live launch. */
@@ -43,7 +49,9 @@ export interface FieldDef {
   col?: string
   /** Value coercion on write. Default 'text'. */
   kind?: 'text' | 'number' | 'array' | 'bool'
-  /** UI hint for the form renderer. Default 'text'. */
+  /** UI hint for the form renderer. Default 'text'. 'custom' = the renderer
+   *  special-cases this key with a bespoke component (e.g. ServiceAreaEditor)
+   *  instead of a generic control. */
   input?: FieldInput
   /** Options for select inputs. */
   options?: readonly FieldOption[]
@@ -51,6 +59,16 @@ export interface FieldDef {
   tier: FieldTier
   /** Derived/computed — surfaced in readiness but NOT writable via the profile PATCH. */
   readonly?: boolean
+  /**
+   * Who this field is for. 'tenant' (default, omit to mean this) = shown and
+   * writable in the tenant-facing onboarding wizard/questionnaire.
+   * 'admin' = internal-only (account ownership, contract terms, cancellation) —
+   * hidden from the public /onboard/[token] link entirely, and the write API
+   * rejects it from a token-authenticated request even if a client forges the
+   * key (see api/tenant-profile). Only writable via an authenticated FL-admin
+   * session on admin/tenants/[id].
+   */
+  audience?: 'tenant' | 'admin'
   /** If set, the field only applies to these funnels (delta 1 funnel-awareness). */
   funnels?: FunnelMode[]
   /** Pull the raw value from the loaded context. */
@@ -66,6 +84,8 @@ export interface ProfileContext {
   compliance: Record<string, unknown>
   /** Active/priced state of the tenant's service_types — the real home of pricing. */
   services: Array<{ active: boolean; rate: number | null }>
+  /** Count of non-primary rows in tenant_locations. Readiness signal only. */
+  secondaryLocationCount: number
 }
 
 // entity_type is CHECK-constrained lowercase in migration 034. The owner wizard
@@ -104,6 +124,8 @@ const LANGUAGE_OPTIONS: FieldOption[] = [{ label: 'English', value: 'en' }, { la
 const EMOJI_OPTIONS = ['none', 'one_per_message', 'frequent'] as const
 const DEPOSIT_OPTIONS = ['none', 'percent', 'flat'] as const
 const SCOPE_OPTIONS = ['local', 'regional', 'national'] as const
+const PAYOUT_METHOD_OPTIONS = ['stripe', 'check', 'other'] as const
+const ACQUISITION_CHANNEL_OPTIONS = ['referral', 'inbound_form', 'cold_outbound', 'partner', 'other'] as const
 
 /**
  * The field registry — the audited, comprehensive set of data a launched tenant
@@ -123,14 +145,34 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', read: (x) => t(x, 'phone') },
   { key: 'email', label: 'Business email', section: 'contact', store: 'tenant', col: 'email', tier: 'critical', read: (x) => t(x, 'email') },
   { key: 'address', label: 'Street address', section: 'contact', store: 'tenant', col: 'address', tier: 'critical', read: (x) => t(x, 'address') },
+  { key: 'city', label: 'City', section: 'contact', store: 'entity', col: 'city', tier: 'recommended', read: (x) => e(x, 'city') },
+  { key: 'state', label: 'State', section: 'contact', store: 'entity', col: 'state', tier: 'recommended', read: (x) => e(x, 'state') },
+  { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', read: (x) => e(x, 'zip') },
   { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', read: (x) => t(x, 'website_url') },
   { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
   { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', read: (x) => t(x, 'lead_notification_email') },
 
-  // ── Service area ─── scope/states/zones owned by ServiceAreaEditor (selena_config.service_area); readonly here for readiness.
+  // ── Service area ─── scope/states/zones owned by ServiceAreaEditor (selena_config.service_area).
+  // `serviceScope` stays readonly (unchanged, still drives readiness). `serviceArea`
+  // is the new WRITABLE field: the whole {scope, states, zones} object, written
+  // atomically as one selena_config key so it round-trips through the same
+  // ServiceAreaEditor component the self-serve /onboarding signup already uses —
+  // no duplicate service-area UI, no risk of clobbering states/zones by writing
+  // just the scope.
   { key: 'serviceScope', label: 'Service scope', section: 'contact', store: 'selena', readonly: true, input: 'select', options: SCOPE_OPTIONS, tier: 'critical', read: (x) => (s(x, 'service_area') as Record<string, unknown> | undefined)?.scope },
+  { key: 'serviceArea', label: 'Service area', section: 'contact', store: 'selena', col: 'service_area', input: 'custom', tier: 'critical', read: (x) => s(x, 'service_area') },
   { key: 'serviceRadius', label: 'Service radius (mi)', section: 'contact', store: 'tenant', col: 'service_radius_miles', kind: 'number', input: 'number', tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'service_radius_miles') },
   { key: 'serviceLat', label: 'Geocoded center', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => t(x, 'service_area_lat') },
+  { key: 'timezone', label: 'Timezone', section: 'scheduling', store: 'tenant', col: 'timezone', tier: 'critical', read: (x) => t(x, 'timezone') },
+
+  // ── Secondary contact ──────────────────────────────────────────────
+  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', read: (x) => t(x, 'secondary_contact_name') },
+  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
+  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
+  // Locations beyond the primary are a 1:N relationship (tenant_locations) —
+  // not a scalar field. This is a readonly readiness signal only; the actual
+  // add/edit/remove UI is its own small component + API (see file header).
+  { key: 'hasSecondaryLocations', label: 'Additional locations', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => x.secondaryLocationCount > 0 },
 
   // ── Brand & site ──────────────────────────────────────────────────
   { key: 'logoUrl', label: 'Logo', section: 'brand', store: 'tenant', col: 'logo_url', tier: 'recommended', read: (x) => t(x, 'logo_url') },
@@ -139,6 +181,14 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
   { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'textarea', tier: 'critical', read: (x) => s(x, 'business_description') },
   { key: 'businessStory', label: 'Your story', section: 'brand', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
+  { key: 'targetCustomer', label: 'Target customer', section: 'brand', store: 'selena', col: 'target_customer', input: 'textarea', tier: 'optional', read: (x) => s(x, 'target_customer') },
+  { key: 'competitors', label: 'Competitors', section: 'brand', store: 'selena', col: 'competitors', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'competitors') },
+  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', read: (x) => s(x, 'differentiators') },
+  // Whole {facebook, instagram, tiktok, linkedin, youtube, x} object, written
+  // atomically as one selena_config.social key — same reasoning as serviceArea:
+  // preserves the existing nested storage shape other readers (site footer,
+  // schema.org) already expect, and a custom renderer handles the sub-fields.
+  { key: 'socialLinks', label: 'Social links', section: 'brand', store: 'selena', col: 'social', input: 'custom', tier: 'optional', read: (x) => x.social },
 
   // ── Services & pricing ─── pricing lives in service_types (own editor); readonly here.
   { key: 'servicePricing', label: 'Per-service pricing', section: 'services', store: 'tenant', readonly: true, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => x.services.some((sv) => sv.active && (sv.rate ?? 0) > 0) },
@@ -153,6 +203,10 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'open365', label: 'Open 365 days (no holidays)', section: 'scheduling', store: 'selena', col: 'open_365', kind: 'bool', input: 'toggle', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'open_365') },
   { key: 'requireTeamMember', label: 'Require assigned worker', section: 'scheduling', store: 'selena', col: 'require_team_member', kind: 'bool', input: 'toggle', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'require_team_member') },
   { key: 'autoConfirm', label: 'Auto-confirm bookings', section: 'scheduling', store: 'selena', col: 'auto_confirm_bookings', kind: 'bool', input: 'toggle', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'auto_confirm_bookings') },
+  // Array of {date, label, recurring} — same free-form jsonb-array pattern as
+  // defaultWorkingDays/teamRoles below; the form renders its own small
+  // date-list editor for this key rather than a generic array input.
+  { key: 'holidayDates', label: 'Holidays / blackout dates', section: 'scheduling', store: 'selena', col: 'holiday_dates', input: 'custom', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'holiday_dates') },
 
   // ── Payments (booking/pipeline) ───────────────────────────────────
   { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'payment_methods') },
@@ -211,11 +265,30 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'insurancePolicy', label: 'Policy #', section: 'compliance', store: 'compliance', col: 'insurance_policy', tier: 'optional', read: (x) => c(x, 'insurance_policy') },
   { key: 'insuranceCoverage', label: 'Coverage amount', section: 'compliance', store: 'compliance', col: 'insurance_coverage', tier: 'optional', read: (x) => c(x, 'insurance_coverage') },
   { key: 'bonded', label: 'Bonded', section: 'compliance', store: 'compliance', col: 'bonded', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => c(x, 'bonded') },
+  // Doc URLs — the form reuses whatever upload widget the job-photo flow
+  // already has, POSTs to storage, and writes the resulting URL through this
+  // same text field. No new upload plumbing.
+  { key: 'insuranceCertUrl', label: 'Certificate of insurance', section: 'compliance', store: 'compliance', col: 'insurance_cert_url', tier: 'recommended', read: (x) => c(x, 'insurance_cert_url') },
+  { key: 'licenseDocUrl', label: 'Business license (scan)', section: 'compliance', store: 'compliance', col: 'license_doc_url', tier: 'optional', read: (x) => c(x, 'license_doc_url') },
+  { key: 'w9Url', label: 'W-9', section: 'compliance', store: 'compliance', col: 'w9_url', tier: 'optional', read: (x) => c(x, 'w9_url') },
 
   // ── Lead handling / SEO ───────────────────────────────────────────
   { key: 'autoRespondLeads', label: 'Auto-respond to leads', section: 'seo', store: 'selena', col: 'auto_respond_leads', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_respond_leads') },
   { key: 'attributionWindow', label: 'Attribution window (hrs)', section: 'seo', store: 'tenant', col: 'attribution_window_hours', kind: 'number', input: 'number', tier: 'optional', read: (x) => t(x, 'attribution_window_hours') },
   { key: 'indexnow', label: 'IndexNow key', section: 'seo', store: 'tenant', col: 'indexnow_key', tier: 'optional', read: (x) => t(x, 'indexnow_key') },
+
+  // ── Account (FL-internal — never shown on the public onboarding link) ──
+  { key: 'accountOwner', label: 'Account owner', section: 'account', store: 'tenant', col: 'account_owner', audience: 'admin', tier: 'optional', read: (x) => t(x, 'account_owner') },
+  { key: 'acquisitionChannel', label: 'Acquisition channel', section: 'account', store: 'tenant', col: 'acquisition_channel', audience: 'admin', input: 'select', options: ACQUISITION_CHANNEL_OPTIONS, tier: 'optional', read: (x) => t(x, 'acquisition_channel') },
+  { key: 'contractSignedAt', label: 'Contract signed', section: 'account', store: 'tenant', col: 'contract_signed_at', audience: 'admin', tier: 'optional', read: (x) => t(x, 'contract_signed_at') },
+  { key: 'contractTermMonths', label: 'Contract term (months)', section: 'account', store: 'tenant', col: 'contract_term_months', kind: 'number', input: 'number', audience: 'admin', tier: 'optional', read: (x) => t(x, 'contract_term_months') },
+  { key: 'trialEndsAt', label: 'Trial ends', section: 'account', store: 'tenant', col: 'trial_ends_at', audience: 'admin', tier: 'optional', read: (x) => t(x, 'trial_ends_at') },
+  { key: 'cancelledAt', label: 'Cancelled at', section: 'account', store: 'tenant', col: 'cancelled_at', audience: 'admin', tier: 'optional', read: (x) => t(x, 'cancelled_at') },
+  { key: 'cancellationReason', label: 'Cancellation reason', section: 'account', store: 'tenant', col: 'cancellation_reason', input: 'textarea', audience: 'admin', tier: 'optional', read: (x) => t(x, 'cancellation_reason') },
+  // Preference only — actual money movement stays on Stripe Connect via the
+  // existing `stripeAccountId` field above. Never store bank account/routing
+  // numbers here.
+  { key: 'payoutMethod', label: 'Payout method', section: 'account', store: 'tenant', col: 'payout_method', input: 'select', options: PAYOUT_METHOD_OPTIONS, audience: 'admin', tier: 'optional', read: (x) => t(x, 'payout_method') },
 ]
 
 /** Fast lookup by field key. */
@@ -298,7 +371,7 @@ export function isFilled(v: unknown): boolean {
 
 /** Load the full canonical profile for one tenant. Read-only. */
 export async function getTenantProfile(tenantId: string): Promise<TenantProfile | null> {
-  const [{ data: tenant }, { data: entity }, { data: svcRows }] = await Promise.all([
+  const [{ data: tenant }, { data: entity }, { data: svcRows }, { count: locationCount }] = await Promise.all([
     supabaseAdmin.from('tenants').select('*').eq('id', tenantId).single(),
     supabaseAdmin
       .from('entities')
@@ -310,6 +383,12 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile 
       .from('service_types')
       .select('active, default_hourly_rate')
       .eq('tenant_id', tenantId),
+    supabaseAdmin
+      .from('tenant_locations')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_primary', false)
+      .eq('active', true),
   ])
   if (!tenant) return null
 
@@ -324,6 +403,7 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile 
       active: (r as Record<string, unknown>).active !== false,
       rate: (r as Record<string, unknown>).default_hourly_rate as number | null,
     })),
+    secondaryLocationCount: locationCount || 0,
   }
 
   const funnel: FunnelMode =
@@ -349,4 +429,16 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile 
 /** Does a field apply to this tenant's funnel? */
 export function appliesToFunnel(f: FieldDef, funnel: FunnelMode): boolean {
   return !f.funnels || f.funnels.includes(funnel)
+}
+
+/**
+ * Is this field visible/writable from the tenant-facing surface (the public
+ * /onboard/[token] link and the in-dashboard onboarding wizard)? Fields
+ * without an explicit `audience` default to 'tenant'. Admin-only fields
+ * (account ownership, contract terms, cancellation, payout method) are
+ * filtered out of GET responses and rejected on write when the caller is
+ * token-authenticated — see api/tenant-profile/route.ts.
+ */
+export function isTenantVisible(f: FieldDef): boolean {
+  return (f.audience ?? 'tenant') === 'tenant'
 }

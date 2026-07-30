@@ -49,6 +49,27 @@ type Stats = {
   revenue: number
 }
 
+type Health = {
+  level: 'healthy' | 'watch' | 'at_risk'
+  reasons: string[]
+  daysSinceActive: number | null
+}
+
+const HEALTH_COLORS: Record<Health['level'], string> = {
+  healthy: 'bg-green-50 text-green-600 border border-green-200',
+  watch: 'bg-amber-50 text-amber-600 border border-amber-200',
+  at_risk: 'bg-red-50 text-red-600 border border-red-200',
+}
+
+type AccountField = {
+  key: string
+  label: string
+  value: string | number | boolean | null
+  input: string
+  options: Array<string | { label: string; value: string | number }> | null
+  kind: string
+}
+
 const statusColors = TENANT_STATUS_COLORS
 
 const planColors = PLAN_COLORS
@@ -58,6 +79,7 @@ export default function TenantDetailPage() {
   const [tenant, setTenant] = useState<TenantDetail | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
   const [status, setStatus] = useState('')
   const [plan, setPlan] = useState('')
   const [branding, setBranding] = useState<Record<string, string>>({})
@@ -67,6 +89,13 @@ export default function TenantDetailPage() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [onboardingUrl, setOnboardingUrl] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkMsg, setLinkMsg] = useState('')
+  const [accountFields, setAccountFields] = useState<AccountField[]>([])
+  const [accountForm, setAccountForm] = useState<Record<string, string | number | boolean>>({})
+  const [accountSaving, setAccountSaving] = useState(false)
+  const [accountSaved, setAccountSaved] = useState(false)
 
   useEffect(() => {
     fetch(`/api/admin/tenants/${id}`)
@@ -75,6 +104,7 @@ export default function TenantDetailPage() {
         setTenant(data.tenant)
         setMembers(data.members || [])
         setStats(data.stats || null)
+        setHealth(data.health || null)
         setStatus(data.tenant?.status || '')
         setPlan(data.tenant?.plan || 'free')
         const t = data.tenant || {}
@@ -91,7 +121,85 @@ export default function TenantDetailPage() {
           secondary_color: t.secondary_color || '',
         })
       })
+    fetch(`/api/admin/tenants/${id}/onboarding-link`)
+      .then((r) => r.json())
+      .then((d) => setOnboardingUrl(d.url || ''))
+      .catch(() => {})
+    fetch(`/api/admin/businesses/${id}/profile`)
+      .then((r) => r.json())
+      .then((d) => {
+        const accountOnly = ((d.profile?.fields || []) as (AccountField & { section: string })[])
+          .filter((f) => f.section === 'account')
+        setAccountFields(accountOnly)
+        const values: Record<string, string | number | boolean> = {}
+        for (const f of accountOnly) if (f.value != null) values[f.key] = f.value
+        setAccountForm(values)
+      })
+      .catch(() => {})
   }, [id])
+
+  async function saveAccountFields() {
+    setAccountSaving(true)
+    setAccountSaved(false)
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: accountForm }),
+      })
+      if (res.ok) {
+        setAccountSaved(true)
+        setTimeout(() => setAccountSaved(false), 3000)
+      }
+    } finally {
+      setAccountSaving(false)
+    }
+  }
+
+  async function resendOnboardingLink() {
+    setLinkBusy(true)
+    setLinkMsg('')
+    try {
+      const res = await fetch(`/api/admin/tenants/${id}/onboarding-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend' }),
+      })
+      const d = await res.json()
+      setOnboardingUrl(d.url || onboardingUrl)
+      setLinkMsg(d.sent ? 'Sent.' : 'No owner email on file — copy the link instead.')
+    } finally {
+      setLinkBusy(false)
+      setTimeout(() => setLinkMsg(''), 4000)
+    }
+  }
+
+  async function regenerateOnboardingLink() {
+    if (!confirm('This invalidates the current link — anyone with the old one loses access. Continue?')) return
+    setLinkBusy(true)
+    setLinkMsg('')
+    try {
+      const res = await fetch(`/api/admin/tenants/${id}/onboarding-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'regenerate' }),
+      })
+      const d = await res.json()
+      setOnboardingUrl(d.url || '')
+      setLinkMsg('New link generated — old one no longer works.')
+    } finally {
+      setLinkBusy(false)
+      setTimeout(() => setLinkMsg(''), 4000)
+    }
+  }
+
+  function copyOnboardingLink() {
+    if (!onboardingUrl) return
+    navigator.clipboard.writeText(onboardingUrl).then(() => {
+      setLinkMsg('Copied.')
+      setTimeout(() => setLinkMsg(''), 2000)
+    })
+  }
 
   async function saveBranding() {
     setSavingBrand(true)
@@ -160,6 +268,14 @@ export default function TenantDetailPage() {
         <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${planColors[tenant.plan || 'free'] || 'bg-slate-200 text-slate-400'}`}>
           {tenant.plan || 'free'}
         </span>
+        {health && (
+          <span
+            title={health.reasons.join('; ') || 'No issues detected'}
+            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${HEALTH_COLORS[health.level]}`}
+          >
+            {health.level === 'at_risk' ? 'At risk' : health.level === 'watch' ? 'Watch' : 'Healthy'}
+          </span>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -271,6 +387,75 @@ export default function TenantDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Link — the no-login, always-autosaving profile questionnaire
+          auto-created and emailed the moment this tenant was created. */}
+      <div className="mb-6">
+        <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-1 pb-3 border-b border-slate-200">Onboarding Link</h2>
+        <p className="text-xs text-slate-500 mt-2 mb-3">No-login link the tenant owner uses to fill in their business profile. Regenerating invalidates the previous link.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input readOnly value={onboardingUrl} className="flex-1 min-w-[280px] bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
+          <button onClick={copyOnboardingLink} disabled={!onboardingUrl} className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">Copy</button>
+          <button onClick={resendOnboardingLink} disabled={linkBusy} className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">Resend email</button>
+          <button onClick={regenerateOnboardingLink} disabled={linkBusy} className="px-3 py-2 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">Regenerate</button>
+        </div>
+        {linkMsg && <p className="text-xs text-teal-600 mt-2">{linkMsg}</p>}
+      </div>
+
+      {/* Account (Internal) — audience:'admin' fields in the tenant-profile
+          registry (src/lib/tenant-profile.ts). Never shown on the tenant-
+          facing Settings/onboarding link; writes through the existing
+          admin-only profile endpoint (already gated by requireAdmin()). */}
+      {accountFields.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-1 pb-3 border-b border-slate-200">Account (Internal)</h2>
+          <p className="text-xs text-slate-500 mt-2 mb-4">Not visible to the tenant — account ownership, contract, and payout details for internal use only.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {accountFields.map((f) => (
+              <div key={f.key}>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">{f.label}</label>
+                {f.input === 'select' ? (
+                  <select
+                    value={(accountForm[f.key] as string) ?? ''}
+                    onChange={(e) => setAccountForm((v) => ({ ...v, [f.key]: e.target.value }))}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">Select…</option>
+                    {(f.options || []).map((o) => {
+                      const opt = typeof o === 'string' ? { label: o, value: o } : o
+                      return <option key={String(opt.value)} value={opt.value}>{opt.label}</option>
+                    })}
+                  </select>
+                ) : f.input === 'textarea' ? (
+                  <textarea
+                    value={(accountForm[f.key] as string) ?? ''}
+                    onChange={(e) => setAccountForm((v) => ({ ...v, [f.key]: e.target.value }))}
+                    rows={2}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                ) : f.kind === 'number' ? (
+                  <input
+                    type="number"
+                    value={(accountForm[f.key] as number) ?? ''}
+                    onChange={(e) => setAccountForm((v) => ({ ...v, [f.key]: Number(e.target.value) }))}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={(accountForm[f.key] as string) ?? ''}
+                    onChange={(e) => setAccountForm((v) => ({ ...v, [f.key]: e.target.value }))}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <button onClick={saveAccountFields} disabled={accountSaving} className="mt-4 bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-cta font-semibold text-white disabled:opacity-50 transition-colors">
+            {accountSaving ? 'Saving...' : accountSaved ? 'Saved!' : 'Save Account Details'}
+          </button>
+        </div>
+      )}
 
       {/* Site Branding — personalizes the tenant's site (shared de-branded template) */}
       <div className="mb-6">

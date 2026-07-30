@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { requireAdmin } from '@/lib/require-admin'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { getTenantForRequest } from '@/lib/tenant-query'
+import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { alertOwner } from '@/lib/telegram'
 
 // SQL to create table:
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { message, category } = body
+    const { message, category, token } = body
 
     if (!message || typeof message !== 'string' || message.trim().length < 3) {
       return NextResponse.json({ error: 'Feedback message is required (minimum 3 characters)' }, { status: 400 })
@@ -65,16 +65,21 @@ export async function POST(request: Request) {
     const cat = validCategories.includes(category) ? category : 'general'
 
     // Best-effort tenant tag — dashboard submissions carry an authenticated
-    // session; public marketing-site widget submissions have none and stay
+    // session; the public /onboard/[token] link has no session but DOES
+    // know its tenant via the signed token (same resolver /api/tenant-profile
+    // uses, so a leaked/regenerated link is rejected here too); any other
+    // public marketing-site widget submission has neither and stays
     // anonymous, same as before.
     let tenantId: string | null = null
     let tenantName: string | null = null
     try {
-      const ctx = await getTenantForRequest()
-      tenantId = ctx.tenantId
-      tenantName = ctx.tenant.name
+      tenantId = await resolveOnboardingTenantId(typeof token === 'string' ? token : null)
+      if (tenantId) {
+        const { data: t } = await supabaseAdmin.from('tenants').select('name').eq('id', tenantId).single()
+        tenantName = (t?.name as string) || null
+      }
     } catch {
-      // No session — anonymous submission.
+      // No session, no valid token — anonymous submission.
     }
 
     const { error } = await supabaseAdmin

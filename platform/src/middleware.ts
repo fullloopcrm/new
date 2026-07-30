@@ -139,6 +139,8 @@ const isPublicRoute = createRouteMatcher([
   '/agreement',
   '/waitlist',
   '/onboarding(.*)',
+  '/onboard(.*)',             // Public, no-login per-tenant onboarding-questionnaire link (signed token)
+  '/api/tenant-profile(.*)',  // Backs /onboard/[token] — auths itself (session OR signed token), not Clerk
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',

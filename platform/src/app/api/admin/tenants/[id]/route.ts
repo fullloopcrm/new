@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { offboardTenant, type TenantOffboardResult } from '@/lib/tenant-offboarding'
+import { computeAccountHealth } from '@/lib/tenant-account-health'
 
 export async function GET(
   _request: Request,
@@ -40,6 +41,7 @@ export async function GET(
     .in('status', ['paid', 'completed'])
 
   const revenue = (revenueData || []).reduce((sum, b) => sum + (b.final_price || 0), 0)
+  const health = await computeAccountHealth(id)
 
   return NextResponse.json({
     tenant,
@@ -50,6 +52,7 @@ export async function GET(
       team_members: team_members || 0,
       revenue,
     },
+    health,
   })
 }
 

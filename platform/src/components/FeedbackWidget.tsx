@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 
-export default function FeedbackWidget({ source }: { source: string }) {
+export default function FeedbackWidget({ source, token }: { source: string; token?: string }) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -17,7 +17,7 @@ export default function FeedbackWidget({ source }: { source: string }) {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, source })
+        body: JSON.stringify({ message, source, ...(token ? { token } : {}) })
       })
       if (!res.ok) {
         setError('Failed to submit. Please try again.')

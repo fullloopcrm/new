@@ -13,6 +13,7 @@ import { seedOnboardingTasks } from './onboarding-tasks'
 import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 import { hashAdminPin } from './admin-pin'
+import { createAndSendOnboardingLink } from './onboarding-link'
 import crypto from 'crypto'
 
 function slugify(name: string): string {
@@ -242,6 +243,11 @@ export async function createTenantFromLead(
   } catch (e) {
     console.error('[create-tenant-from-lead] onboarding seed failed:', e)
   }
+
+  // Auto-send the no-login onboarding-questionnaire link. Best-effort — never orphan.
+  createAndSendOnboardingLink(tenant.id).catch((e) =>
+    console.error('[create-tenant-from-lead] onboarding link failed:', e),
+  )
 
   // Carry the lead's note thread onto the tenant (timestamps preserved).
   const { data: leadNotes } = await supabaseAdmin
