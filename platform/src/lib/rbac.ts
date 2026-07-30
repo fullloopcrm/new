@@ -18,7 +18,7 @@ export type Permission =
   | 'settings.view' | 'settings.edit' | 'settings.integrations'
   | 'schedules.view' | 'schedules.create' | 'schedules.edit'
   | 'reviews.view' | 'reviews.request'
-  | 'referrals.view' | 'referrals.create' | 'referrals.payout'
+  | 'referrals.view' | 'referrals.create' | 'referrals.manage' | 'referrals.payout'
   | 'sales_partners.view' | 'sales_partners.manage' | 'sales_partners.payout'
   | 'sales.view' | 'sales.edit'
   | 'leads.view'
@@ -43,7 +43,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'settings.view', 'settings.edit', 'settings.integrations',
     'schedules.view', 'schedules.create', 'schedules.edit',
     'reviews.view', 'reviews.request',
-    'referrals.view', 'referrals.create', 'referrals.payout',
+    'referrals.view', 'referrals.create', 'referrals.manage', 'referrals.payout',
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
@@ -57,7 +57,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'settings.view', 'settings.edit',
     'schedules.view', 'schedules.create', 'schedules.edit',
     'reviews.view', 'reviews.request',
-    'referrals.view', 'referrals.create', 'referrals.payout',
+    'referrals.view', 'referrals.create', 'referrals.manage', 'referrals.payout',
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
@@ -138,6 +138,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
   { key: 'referrals', label: 'Referrals', permissions: [
     { value: 'referrals.view', label: 'View referrals' },
     { value: 'referrals.create', label: 'Create referrals' },
+    { value: 'referrals.manage', label: 'Manage referrers (commission rate, recruiting sales partner, active status)' },
     { value: 'referrals.payout', label: 'Pay out referrals' },
   ] },
   { key: 'sales_partners', label: 'Sales Partners', permissions: [

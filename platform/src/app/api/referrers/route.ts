@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/email'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { requirePermission } from '@/lib/require-permission'
+import { AuthError } from '@/lib/tenant-query'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('referrers')
-    .select('id, name, email, ref_code, referral_code, active, created_at')
+    .select('id, name, email, ref_code, referral_code, active, commission_rate, recruited_by_sales_partner_id, sales_partners:recruited_by_sales_partner_id(id, name), created_at')
     .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Failed to fetch referrers' }, { status: 500 })
@@ -246,4 +247,71 @@ export async function POST(request: NextRequest) {
   })
 
   return NextResponse.json({ referral: data }, { status: 201 })
+}
+
+// PUT (admin, referrals.manage) — the referrer-management path sales_partners
+// already had and referrers never did. Two concrete gaps this closes:
+//  1. commission_rate was set once at signup (POST above) and never editable
+//     again through the app -- a rate correction meant a raw DB edit.
+//  2. recruited_by_sales_partner_id is only ever set at signup time, from a
+//     ?ref=<partner code> param the referrer had to sign up through. A
+//     referrer who already has an account (signed up organically, or before
+//     being recruited) can't be attributed to a recruiting sales partner
+//     afterward -- POST rejects a repeat signup outright ("Email already
+//     registered"), so there was no path to fix this except editing the row
+//     directly. This lets an admin set it after the fact instead.
+export async function PUT(request: Request) {
+  try {
+    const { tenant, error: authError } = await requirePermission('referrals.manage')
+    if (authError) return authError
+    const { tenantId } = tenant
+
+    const body = await request.json()
+    const { id, active, commission_rate, recruited_by_sales_partner_id } = body
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+    const updates: Record<string, unknown> = {}
+    if (typeof active === 'boolean') updates.active = active
+    if (typeof commission_rate === 'number' && commission_rate >= 0 && commission_rate <= 1) updates.commission_rate = commission_rate
+
+    if (recruited_by_sales_partner_id !== undefined) {
+      if (recruited_by_sales_partner_id === null) {
+        updates.recruited_by_sales_partner_id = null
+      } else {
+        // Must resolve to an active partner in the same tenant -- an admin
+        // pasting a stale or cross-tenant id shouldn't silently attribute
+        // future override commissions to nothing (or worse, to the wrong
+        // tenant's partner, if the FK didn't already block that).
+        const { data: partner } = await supabaseAdmin
+          .from('sales_partners')
+          .select('id')
+          .eq('id', recruited_by_sales_partner_id)
+          .eq('tenant_id', tenantId)
+          .eq('active', true)
+          .maybeSingle()
+        if (!partner) return NextResponse.json({ error: 'recruited_by_sales_partner_id must be an active sales partner in this tenant' }, { status: 400 })
+        updates.recruited_by_sales_partner_id = partner.id
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('referrers')
+      .update(updates)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    return NextResponse.json(data)
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('Referrers PUT error:', err)
+    return NextResponse.json({ error: 'Failed to update referrer' }, { status: 500 })
+  }
 }
