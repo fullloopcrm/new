@@ -31,6 +31,7 @@ import {
   priceLabel,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
+  PROJECT_LEAD_INDUSTRIES,
 } from './industry-presets'
 import { draftTailoredServices, type TailorResult } from './draft-tailored-services'
 
@@ -49,6 +50,16 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   // lib/settings.ts, which is wrong for those 23 industries. See
   // defaultFunnelMode() in ./industry-presets.
   funnel_mode: defaultFunnelMode(industry),
+  // Phase 2C — Projects/Services site toggle. Reuses the SAME project/lead
+  // classification defaultFunnelMode() already draws on, rather than a
+  // second industry list to keep in sync. This is the persisted, operator-
+  // editable snapshot (an admin can flip it later regardless of industry);
+  // the site nav's live visibility check derives the same boolean fresh
+  // from industry via industryProfile().isProjectLed
+  // (site/template/_lib/seo/industry.ts) rather than reading this field, so
+  // the two are independent — this one exists for future admin-settings
+  // control, not because the nav needs it.
+  show_projects: PROJECT_LEAD_INDUSTRIES.has(industry),
   // Label the price by the trade's real unit — "$350 flat" / "$20/visit" for
   // flat/per-unit trades, "$59/hr" for hourly — never "/hr" on a flat rate.
   pricing_rows: services.map(s => ({ label: s.name, price: priceLabel(s.default_hourly_rate, pricingShapeFor(industry)) })),

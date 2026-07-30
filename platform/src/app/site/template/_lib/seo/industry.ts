@@ -1,3 +1,5 @@
+import { PROJECT_LEAD_INDUSTRIES, type IndustryKey } from '@/lib/industry-presets'
+
 /**
  * Industry profile — maps a tenant's trade onto the vocabulary the template's
  * content generators need so a non-cleaning tenant's site stops reading as a
@@ -18,6 +20,17 @@ export interface IndustryProfile {
   isVirtualAssistant: boolean
   /** True for remote verticals (no service address, not geo-local). */
   isRemote: boolean
+  /**
+   * True for project/lead trades (remodeling, roofing, painting, etc. — see
+   * PROJECT_LEAD_INDUSTRIES in lib/industry-presets.ts). Drives the Projects
+   * nav link (Phase 2C): computed live from the tenant's industry rather than
+   * a separate stored SiteConfig field, since it's a pure function of
+   * `config.industry` — same source PROJECT_LEAD_INDUSTRIES already drives
+   * defaultFunnelMode() from. The /projects page + table exist for every
+   * tenant regardless (Jeff's "build the structure, don't gate the data"
+   * instruction) — this flag only gates the nav LINK, never the route.
+   */
+  isProjectLed: boolean
   /** Title-case service label, e.g. "House Cleaning", "Plumbing", "Home Services". */
   serviceLabel: string
   /** Lowercase noun for mid-sentence use, e.g. "plumbing", "home services". */
@@ -80,11 +93,14 @@ export function industryProfile(industry?: string | null): IndustryProfile {
   else if (key.includes('handyman') || key.includes('repair')) serviceLabel = 'Handyman Services'
   else serviceLabel = 'Home Services'
 
+  const isProjectLed = PROJECT_LEAD_INDUSTRIES.has(key as IndustryKey)
+
   return {
     key,
     isCleaning,
     isVirtualAssistant,
     isRemote: isVirtualAssistant,
+    isProjectLed,
     serviceLabel,
     serviceNoun: serviceLabel.toLowerCase(),
   }
