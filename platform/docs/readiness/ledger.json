@@ -256,18 +256,18 @@
         },
         {
           "id": "crm-04",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Ran full client-route suite 2026-07-30 (npx vitest run src/app/api/clients): 34/34 tests passed across 13 files -- GET/POST/PUT/DELETE CRUD, tenant isolation (list scoping, cross-tenant 404s, forged tenant_id override, scoped dedup on create/import), GDPR export (JSON+CSV, audit-logged), contacts, properties, activity, analytics, stats. Confirmed via code read that src/app/dashboard/clients/page.tsx and [id]/page.tsx fetch these same tested endpoints (not mocked/static). NOT verified: dashboard UI actually rendering in a live browser -- no e2e/Playwright suite exists for this and none was run this pass.",
+          "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "crm-05",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 60,
+          "evidence_type": "test_run",
+          "evidence": "Ran full production build 2026-07-30 (npm run build, Next.js 16.1.6/Turbopack): succeeded clean, BUILD_ID produced, zero errors across all ~690 site/marketing pages. protected-tenant guard passed for all 21 live bespoke sites. This confirms no broken imports/runtime-breaking errors across the marketing surface, but does NOT verify page content correctness, broken links, or visual/UX quality -- no crawl or content audit was done. Scored below the test_run ceiling (90) because the check proves absence-of-breakage, not presence-of-quality; this checkpoint is severity 1 (lowest) so a partial pass is proportionate.",
+          "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
