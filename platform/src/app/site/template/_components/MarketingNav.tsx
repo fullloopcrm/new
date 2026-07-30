@@ -47,6 +47,14 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Trade-agnostic tenants: full generic menu pointing at the config-driven
   // long-form routes.
   const generic = !isCleaning && !isVa
+  // Projects nav link (Phase 2C) — only for project/lead trades (remodeling,
+  // roofing, painting, etc.), derived live from industryProfile() rather than
+  // a new stored SiteConfig field (same PROJECT_LEAD_INDUSTRIES source
+  // defaultFunnelMode() already uses). The /projects route + table exist for
+  // EVERY tenant regardless — this only controls whether the link is shown.
+  const genericLinks = profile.isProjectLed
+    ? [...genericMoreLinks, { name: 'Projects', href: '/projects' }]
+    : genericMoreLinks
   // Book Now -> the self-book flow (book/new redirects internally to the
   // right form per industry: cleaning hourly form, remote plan intake for VA,
   // or the neutral standard form). Start a Project -> the generic lead-capture
@@ -184,7 +192,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 </button>
                 <div className="absolute left-0 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-3 w-60">
-                    {genericMoreLinks.map(link => (
+                    {genericLinks.map(link => (
                       <Link key={link.href} href={link.href} className="block px-5 py-2.5 text-sm text-gray-600 hover:bg-[rgb(var(--accent-rgb)/0.2)] hover:text-[var(--brand)] transition-colors">
                         {link.name}
                       </Link>
@@ -310,7 +318,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </button>
               {moreOpen && (
                 <div className="pl-4 pb-2 space-y-1">
-                  {genericMoreLinks.map(link => (
+                  {genericLinks.map(link => (
                     <Link key={link.href} href={link.href} onClick={closeMenu} className="block py-2 text-sm text-white/60 hover:text-[var(--accent)] transition-colors">
                       {link.name}
                     </Link>

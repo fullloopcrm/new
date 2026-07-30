@@ -14,6 +14,8 @@ import { computeMonthly } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 import { hashAdminPin } from './admin-pin'
 import { createAndSendOnboardingLink } from './onboarding-link'
+import { sendOwnerLoginEmail } from './owner-welcome-email'
+import { runPostActivationTasks } from './post-activation'
 import crypto from 'crypto'
 
 function slugify(name: string): string {
@@ -277,7 +279,8 @@ export async function createTenantFromLead(
 
   // Owner login: create an owner member with a PIN so they can sign in on the
   // PIN pad — no email, no password. The plaintext PIN is returned ONCE for the
-  // admin to relay (pin_hash is one-way; it can't be recovered later).
+  // admin to relay AND (if we have an email) sent directly — the old
+  // admin-relay-only path had the same silent gap the onboarding link did.
   let ownerPin: string | null = null
   try {
     ownerPin = String(crypto.randomInt(100000, 1000000)) // 6-digit
@@ -289,9 +292,19 @@ export async function createTenantFromLead(
       pin_hash: hashAdminPin(ownerPin),
       pin_set_at: new Date().toISOString(),
     })
+    await sendOwnerLoginEmail({ tenantName: tenant.name, slug: tenant.slug, ownerEmail: lead.email, ownerPin })
   } catch (e) {
     console.error('[create-tenant-from-lead] owner member/PIN failed:', e)
     ownerPin = null
+  }
+
+  // A paid conversion (stripeSubscriptionId set) goes live immediately —
+  // no separate admin "Activate" click ever happens for this path. Stamp
+  // activated_at and run the same post-activation tasks Activate itself
+  // triggers, so this real, immediately-live tenant isn't silently skipped.
+  if (opts.stripeSubscriptionId) {
+    await supabaseAdmin.from('tenants').update({ activated_at: new Date().toISOString() }).eq('id', tenant.id)
+    runPostActivationTasks(tenant.id).catch((e) => console.error('[create-tenant-from-lead] post-activation tasks failed:', e))
   }
 
   return { ok: true, tenant, ownerPin }
