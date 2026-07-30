@@ -308,11 +308,11 @@
         },
         {
           "id": "ai-05",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
-          "last_verified_commit": null
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-30 (was not_scored, time-boxed out previously). isCommEnabled() (src/lib/comms-prefs.ts) is real and genuinely wired in, not inert -- its own doc comment claimed 'nothing in the send paths calls it yet', which was stale and has been fixed. Confirmed 18 real callers: notify.ts's central dispatcher (gates email/sms via NOTIFY_COMM_MAP, 20 mapped type:recipient pairs) plus 17 direct call sites across booking/lead/reschedule routes, cron reminders, and the Stripe webhook. Design is sound: locked (transactional) comms always send regardless of preference; unknown/unmapped comm keys fail OPEN (send anyway) rather than silently dropping mail -- a deliberate, reasonable tradeoff (worst case is an unwanted send, not a dropped transactional message or a data leak). NOT verified: whether every notify() call site's `type` has a NOTIFY_COMM_MAP entry (i.e. whether any real send path is silently un-gated) -- would require enumerating every notify() call across the app, out of scope for this pass. Capped at manual_code_read (50) -- this was a code-tracing review, not an automated test.",
+          "last_verified": "2026-07-30",
+          "last_verified_commit": "6181d6fb3"
         }
       ]
     },
