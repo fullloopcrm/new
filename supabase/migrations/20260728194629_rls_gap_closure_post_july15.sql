@@ -2,7 +2,7 @@
 -- Original commit date (git first-add): 2026-07-28T19:46:27.815Z
 -- STATUS: NOT yet applied to prod. This is the first migration to go
 -- through the new Supabase-CLI-tracked workflow. Apply via `supabase db push`
--- after Jeff's go, per docs/runbooks/migration-runbook.md (still gated).
+-- after Jeff's go, per platform/docs/runbooks/migration-runbook.md (still gated).
 -- RLS gap closure — tables created AFTER the 2026-07-15 gap-closure effort
 -- (deploy-prep/rls-gap-closure-corrected.sql, git b37629f85) that were never
 -- covered by it. Found via a live audit against prod on 2026-07-28: every

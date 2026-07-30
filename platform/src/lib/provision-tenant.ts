@@ -31,7 +31,9 @@ import {
   priceLabel,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
+  PROJECT_LEAD_INDUSTRIES,
 } from './industry-presets'
+import { draftTailoredServices, type TailorResult } from './draft-tailored-services'
 
 export { mapIndustry }
 export type { IndustryKey }
@@ -48,6 +50,16 @@ const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, servic
   // lib/settings.ts, which is wrong for those 23 industries. See
   // defaultFunnelMode() in ./industry-presets.
   funnel_mode: defaultFunnelMode(industry),
+  // Phase 2C — Projects/Services site toggle. Reuses the SAME project/lead
+  // classification defaultFunnelMode() already draws on, rather than a
+  // second industry list to keep in sync. This is the persisted, operator-
+  // editable snapshot (an admin can flip it later regardless of industry);
+  // the site nav's live visibility check derives the same boolean fresh
+  // from industry via industryProfile().isProjectLed
+  // (site/template/_lib/seo/industry.ts) rather than reading this field, so
+  // the two are independent — this one exists for future admin-settings
+  // control, not because the nav needs it.
+  show_projects: PROJECT_LEAD_INDUSTRIES.has(industry),
   // Label the price by the trade's real unit — "$350 flat" / "$20/visit" for
   // flat/per-unit trades, "$59/hr" for hourly — never "/hr" on a flat rate.
   pricing_rows: services.map(s => ({ label: s.name, price: priceLabel(s.default_hourly_rate, pricingShapeFor(industry)) })),
@@ -94,6 +106,13 @@ export interface ProvisionResult {
     business_hours: boolean
   }
   skipped: string[]
+  /**
+   * Best-effort AI tailoring of the just-seeded services (Phase 2B) — only
+   * runs when services were FRESHLY seeded this call (never re-tailors an
+   * already-customized or already-tailored tenant). Undefined when services
+   * already existed, so this step never ran.
+   */
+  tailoredServices?: TailorResult
 }
 
 /**
@@ -167,6 +186,25 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
         compensations.push(async () => {
           await supabaseAdmin.from('service_types').delete().in('id', insertedIds)
         })
+      }
+
+      // AI tailoring (Phase 2B) — reorders/renames/deactivates the preset
+      // rows just inserted above toward this specific business, using its
+      // own selena_config.business_description. Deliberately best-effort:
+      // draftTailoredServices() never throws (every failure path returns
+      // { applied: false, reason }), and the try/catch here is defense-in-
+      // depth so a network hiccup on this enrichment step can never trigger
+      // the full provisioning rollback above. Only runs here, right after a
+      // fresh seed — never re-tailors an already-customized tenant, and
+      // never runs in the `else` (already-existing-services) branch.
+      try {
+        result.tailoredServices = await draftTailoredServices(tenantId)
+      } catch (e) {
+        result.tailoredServices = {
+          applied: false,
+          edits: [],
+          reason: e instanceof Error ? e.message : 'unknown error',
+        }
       }
     } else {
       result.skipped.push(`services (${existingServices} already exist)`)

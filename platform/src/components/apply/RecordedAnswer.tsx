@@ -39,6 +39,21 @@ export default function RecordedAnswer({ questionKey, label, helpText, maxSecond
   // during SSR. The real check runs client-only, right after mount.
   const [useFallback, setUseFallback] = useState(false)
 
+  // existingUrl arrives from an async draft fetch in the parent, which
+  // resolves after this component's first render — so the useState
+  // initializer above never sees it. Sync once, the first time a draft
+  // value shows up, so a returning applicant's saved answers actually
+  // render as saved instead of looking wiped. Guarded to fire only once so
+  // it doesn't fight the user's own re-record action later.
+  const hasSyncedExistingRef = useRef(false)
+  useEffect(() => {
+    if (hasSyncedExistingRef.current || !existingUrl) return
+    hasSyncedExistingRef.current = true
+    setSavedUrl(existingUrl)
+    if (existingKind) setKind(existingKind)
+    setPhase('done')
+  }, [existingUrl, existingKind])
+
   useEffect(() => {
     if (!browserSupportsRecording()) setUseFallback(true)
   }, [])
@@ -146,8 +161,17 @@ export default function RecordedAnswer({ questionKey, label, helpText, maxSecond
       setPhase('done')
       onSaved(questionKey, publicUrl, uploadKind)
     } catch {
-      setError('Upload failed. Your recording is still here — try again.')
-      setPhase('preview')
+      // The fallback file-picker path never sets previewUrl (only the
+      // in-browser recorder does), so phase 'preview' with no previewUrl
+      // renders nothing — a dead end with no retry button. Fall back to
+      // 'idle' in that case so "Upload video or audio file" reappears.
+      if (blobRef.current && previewUrl) {
+        setError('Upload failed. Your recording is still here — try again.')
+        setPhase('preview')
+      } else {
+        setError('Upload failed. Please try again.')
+        setPhase('idle')
+      }
     }
   }
 

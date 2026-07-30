@@ -18,6 +18,7 @@ const serviceLinks = [
 const moreLinks = [
   { name: 'About', href: '/about-the-nyc-maid-service-company' },
   { name: 'FAQ', href: '/nyc-cleaning-service-frequently-asked-questions-in-2025' },
+  { name: 'Careers — Administrator', href: '/careers/administrator' },
   { name: 'Careers — Cleaning Jobs', href: '/available-nyc-maid-jobs' },
   { name: 'Careers — Sales Partner', href: '/careers/commission-sales-partner' },
   { name: 'Locations', href: '/service-areas-served-by-the-nyc-maid' },
