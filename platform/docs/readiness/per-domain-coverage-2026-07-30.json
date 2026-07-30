@@ -1,0 +1,48 @@
+{
+  "perDomain": {
+    "security_auth_infra": {
+      "routes_total": 15,
+      "routes_covered": 0,
+      "tables_total": 5,
+      "tables_covered": 0
+    },
+    "finance_payroll_billing": {
+      "routes_total": 51,
+      "routes_covered": 3,
+      "tables_total": 9,
+      "tables_covered": 0
+    },
+    "lead_sale_schedule": {
+      "routes_total": 30,
+      "routes_covered": 5,
+      "tables_total": 5,
+      "tables_covered": 1
+    },
+    "booking_scheduling_recurring": {
+      "routes_total": 72,
+      "routes_covered": 1,
+      "tables_total": 11,
+      "tables_covered": 0
+    },
+    "crm_core": {
+      "routes_total": 58,
+      "routes_covered": 2,
+      "tables_total": 23,
+      "tables_covered": 3
+    },
+    "ai_agent_communications": {
+      "routes_total": 36,
+      "routes_covered": 1,
+      "tables_total": 17,
+      "tables_covered": 0
+    },
+    "onboarding_activation": {
+      "routes_total": 16,
+      "routes_covered": 0,
+      "tables_total": 10,
+      "tables_covered": 0
+    }
+  },
+  "unclassifiedRoutes": 307,
+  "unclassifiedTables": 117
+}
