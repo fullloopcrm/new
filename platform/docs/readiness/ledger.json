@@ -337,6 +337,30 @@
           "evidence": "New coverage checkpoint, reviewed 2026-07-31. Same accidental-match cleanup as bsr-06. portal/bookings + [id] use verifyPortalToken (client-portal magic-link token auth), client/bookings uses protectClientAPI + getTenantFromHeaders. Did not verify token expiry/rotation on this pass -- read-only booking-list surfaces, lower severity, fast default applied. manual_code_read, capped 50.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
+        },
+        {
+          "id": "bsr-08",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (grep-based spot check, 19 files). Consistent auth throughout: verifyToken or requirePortalPermission, both team-portal's own token-based system (distinct from the tenant-owner admin_session/admin_token pair reviewed in sec-10). update-phone uses a separate, purpose-built verifyPhoneFixupToken. Did not verify token expiry/rotation policy for the team-portal token system itself on this pass -- that would be a deeper, dedicated review, not an access-control spot check. Two files originally in the coverage snapshot (connect/upload) do not exist in current main -- stale snapshot entry, consistent with the drift already flagged in fin-12/bsr-06. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-09",
+          "score": 44,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (13 files, incl. crews/route.ts and dashboard/schedules/import/route.ts caught by the same substring-collision check applied all session -- reviewed for real rather than left as accidental credit). Consistent requirePermission('schedules.*') gating across admin/client-facing recurring-schedule CRUD; client/recurring uses protectClientAPI (client-session, correct for that surface); cron/generate-recurring uses verifyCronSecret; crews/route.ts uses getTenantForRequest only (tenant-scoped, no specific permission) -- not flagged as a bug, same reasoning as bsr-04's status/team/reset routes. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-10",
+          "score": 46,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). Consistent requirePermission('team.view'/'team.edit') gating -- HR data (employee profiles, documents, notes) correctly gated by a team-management permission, not left open. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },
