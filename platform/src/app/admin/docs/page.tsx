@@ -866,8 +866,9 @@ Both programs are GLOBAL (one implementation, all tenants) per the platform's ar
     title: 'Social Autopost & SEO Automation',
     content: `**Social** (\`/dashboard/social\`) — connected accounts (\`social_accounts\`) and posts (\`social_posts\`) per platform (Facebook/Instagram via OAuth connect flows). Autopost is cron-driven: \`/api/cron/refresh-social-tokens\` (daily 3:30am UTC) keeps OAuth tokens alive so scheduled posts don't silently fail.
 
-**SEO automation** is a full pipeline of 11 cron jobs, all under \`/api/cron/seo-*\`:
-- \`seo-ingest\` (daily 6am), \`seo-detect\` (daily 6:30am), \`seo-technical\` (weekly Tue 7am), \`seo-autoverify\` (daily 8am), \`seo-health\` (daily 9am), \`seo-index-cliff\` (weekly Tue 8am), \`seo-alerts\` (weekly Tue 8:15am) — all wired and scheduled.
+**SEO automation** is a pipeline of cron jobs under \`/api/cron/seo-*\`:
+- \`seo-ingest\` (daily 6am), \`seo-detect\` (daily 6:30am), \`seo-technical\` (weekly Tue 7am), \`seo-autoverify\` (daily 8am), \`seo-health\` (daily 9am) — real, wired, running (confirmed live 2026-07-31: 1576 rows in \`seo_issues\` across 20 properties, freshest row same-day).
+- \`seo-index-cliff\` (weekly Tue 8am) and \`seo-alerts\` (weekly Tue 8:15am) are scheduled in \`vercel.json\` but **their route files do not exist in the codebase** — confirmed live 2026-07-31, both return a genuine Next.js 404 in prod (vs. \`seo-detect\`, which correctly 401s as cron-auth-gated). This previous "all wired and scheduled" claim did not hold up on re-check. Practical effect: no automated alerting exists for critical SEO findings — e.g. a real \`site_down\` issue (fladumpsterrentals.com, DNS resolution failure) was sitting in \`seo_issues\` unalerted as of this check.
 - \`seo-autopilot\`, \`seo-competitors\`, \`seo-enrich\`, \`seo-improve\`, \`seo-propose\`, \`seo-verify-revert\` — route files exist but are **NOT wired into \`vercel.json\`** (manual-trigger only, or dead code left from an earlier phase — verify intent before assuming any of these run on a schedule). This matches the known state of "autopilot OFF" for the competitor-review pipeline.
 
 **Do not assume a \`/api/cron/seo-*\` route runs automatically just because it exists** — check \`vercel.json\` first, per the Cron Jobs table in the API Reference section.`,
