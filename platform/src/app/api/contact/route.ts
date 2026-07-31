@@ -28,6 +28,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
+import { normalizePhone } from '@/lib/phone'
 
 interface ContactBody {
   formType?: string
@@ -236,6 +237,27 @@ export async function POST(request: NextRequest) {
     // (clients.source stays null; portal_leads.source stays the form type).
     const clientSource = body.selfBook ? 'website-selfbook' : null
     const leadSource = body.selfBook ? 'website-selfbook' : formType
+    // lss-01 audit fix (2026-07-31): this route stored `phone` as whatever
+    // raw string the form submitted (no normalization) while the sibling
+    // /api/lead route and lib/lead-intake.ts both normalize to E.164 before
+    // writing clients.phone. Live-verified the real consequence: querying
+    // real clients created via this route's lead branch turned up raw
+    // 10-digit ('9292330178'), malformed ('09725145188', 11 digits with a
+    // leading 0), separator-formatted ('(984) 443-3434'), and even
+    // unicode-corrupted ('‪+1 (917) 246‑3515‬', embedded
+    // directional marks) values landing in clients.phone -- vs. every
+    // /api/lead-sourced client being clean E.164. Telnyx rejects non-E.164
+    // numbers (see lib/phone.ts's normalizePhone doc comment), so this could
+    // silently break outbound SMS to these clients, and it's the same
+    // .eq('phone', from) exact-match the Telnyx inbound webhook (lss-03)
+    // relies on to recognize an existing client -- a contact-form lead who
+    // later texts in could be wrongly treated as a brand-new unknown sender.
+    // Scoped to only the client-record write path here (does not touch
+    // team_applications.phone below, which deliberately stores raw digits to
+    // match the same convention /api/lead's own job-application branch
+    // already uses -- not a bug, a different table's established format).
+    // Not backfilling existing malformed rows -- out of scope for this pass.
+    const normalizedPhone = normalizePhone(phone)
 
     // Dedup against an existing client by phone when we have one, else by email
     // (email-only marketing leads). No contact match → treated as new.
@@ -283,7 +305,7 @@ export async function POST(request: NextRequest) {
           tenant_id: tenant.id,
           name,
           email: email || null,
-          phone: phone || null,
+          phone: normalizedPhone,
           address,
           source: clientSource,
           // Express-consent going forward: a brand-new lead is marketing-textable
@@ -299,7 +321,7 @@ export async function POST(request: NextRequest) {
       clientId = inserted.id
       // Every client-creation path must call this or the client silently
       // never receives any SMS/email — see createPrimaryContact's docstring.
-      await createPrimaryContact(tenant.id, clientId, { name, phone, email }).catch(() => {})
+      await createPrimaryContact(tenant.id, clientId, { name, phone: normalizedPhone, email }).catch(() => {})
     }
 
     await supabaseAdmin
@@ -308,7 +330,7 @@ export async function POST(request: NextRequest) {
         tenant_id: tenant.id,
         name,
         email: email || null,
-        phone,
+        phone: normalizedPhone,
         notes,
         source: leadSource,
         client_id: clientId,
