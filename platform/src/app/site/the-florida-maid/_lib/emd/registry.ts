@@ -2,11 +2,15 @@ import type { EmdMicrositeConfig } from './types'
 import { miamiBeachMaidConfig } from './miami-beach-maid'
 import { westPalmBeachMaidConfig } from './west-palm-beach-maid'
 import { fortLauderdaleMaidConfig } from './fort-lauderdale-maid'
+import { gainesvilleMaidConfig } from './gainesville-maid'
+import { orlandoMaidConfig } from './orlando-maid'
 
 const CONFIGS: EmdMicrositeConfig[] = [
   miamiBeachMaidConfig,
   westPalmBeachMaidConfig,
   fortLauderdaleMaidConfig,
+  gainesvilleMaidConfig,
+  orlandoMaidConfig,
 ]
 
 const BY_DOMAIN = new Map<string, EmdMicrositeConfig>(
