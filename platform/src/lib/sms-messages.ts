@@ -26,6 +26,7 @@
 // mix of awaited and fire-and-forget call sites can keep their existing shape.
 
 import { supabaseAdmin } from './supabase'
+import { translateInboundComhubMessage } from './comhub-translate'
 
 export type ConversationMessageInput = {
   conversation_id: string
@@ -102,11 +103,40 @@ export async function insertConversationMessage(
   }
 
   const payload = { ...input, tenant_id: tenantId }
+  const isInbound = input.direction === 'inbound'
+  // Inbound rows need their id even when the caller didn't ask for returnRow,
+  // so we can look up the comhub_messages row a DB trigger mirrors this into
+  // (trg_comhub_mirror_sms_message, migrations/2026_05_19_comhub.sql) and
+  // kick off translation on it. The public return contract is unaffected —
+  // `data` below still comes back null unless the caller passed returnRow.
+  const needsSelect = opts.returnRow || isInbound
   const query = supabaseAdmin.from('sms_conversation_messages').insert(payload) // tenant-scope-ok: payload stamped above
-  const { data, error } = opts.returnRow ? await query.select().single() : await query
+  const { data, error } = needsSelect ? await query.select(opts.returnRow ? '*' : 'id').single() : await query
+
+  if (!error && isInbound) {
+    const insertedId = (data as { id?: string } | null)?.id
+    if (insertedId) {
+      translateMirroredSmsMessage(insertedId).catch((err) =>
+        console.error('[sms-messages] comhub translate hookup failed:', err))
+    }
+  }
 
   return {
-    data: (data as Record<string, unknown> | null) ?? null,
+    data: opts.returnRow ? ((data as Record<string, unknown> | null) ?? null) : null,
     error: error ? new Error(error.message) : null,
+  }
+}
+
+// The trigger commits the mirrored comhub_messages row synchronously as part
+// of the INSERT above, so it's already there by the time we look it up.
+async function translateMirroredSmsMessage(smsMessageId: string): Promise<void> {
+  const { data: mirrored } = await supabaseAdmin
+    .from('comhub_messages')
+    .select('id, body')
+    .eq('source_table', 'sms_conversation_messages')
+    .eq('source_id', smsMessageId)
+    .maybeSingle()
+  if (mirrored?.id && mirrored.body) {
+    translateInboundComhubMessage(mirrored.id, mirrored.body)
   }
 }

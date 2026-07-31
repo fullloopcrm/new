@@ -5,8 +5,8 @@ export const miamiBeachMaidConfig: EmdMicrositeConfig = {
   brandName: 'Miami Beach Maid',
   city: 'Miami Beach',
   regionLabel: 'Miami Beach, FL',
-  metaTitle: 'Miami Beach Maid — House Cleaning & Maid Service From $49/hr',
-  metaDescription: 'Miami Beach Maid (A Florida Maid Services Company) offers professional house cleaning across South Beach, Mid-Beach & North Beach from $49/hr. Licensed, insured, background-checked. Call (954) 710-3636.',
+  metaTitle: 'Miami Beach Maid and Cleaning Service',
+  metaDescription: 'Miami Beach Maid — house cleaning across South Beach, Mid-Beach & North Beach from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '25.7907', lng: '-80.1300' },
   introParagraphs: [
     "Miami Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the barrier island — from the Art Deco condos of South Beach to the high-rise towers of Mid-Beach and the quiet family streets of North Beach. If you live on Miami Beach, you already know how quickly salt air, sand, humidity, and constant foot traffic can wear down a home. We built Miami Beach Maid to answer exactly that problem: a local cleaning service that understands beach living and shows up on time, every time.",

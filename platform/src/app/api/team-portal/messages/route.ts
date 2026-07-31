@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 
 // GET  /api/team-portal/messages  — the authenticated member's comhub thread with admin.
 // POST /api/team-portal/messages { body } — the authenticated member messages admin (lands in Comhub).
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  translateInboundComhubMessage(msg.id, body.body.trim())
 
   await supabaseAdmin
     .from('comhub_threads')
