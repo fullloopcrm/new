@@ -167,3 +167,62 @@ describe('notify() comms-preference gate coverage (ai-05)', () => {
     expect(scan.gatedCount).toBeGreaterThan(20)
   })
 })
+
+/**
+ * ai-05 further re-check (2026-07-31, round 2): the correction above only
+ * individually re-audited `campaign_sent` (the one item explicitly flagged
+ * as consequential). The other items in PINNED_UNGATED were never
+ * categorized by who actually receives them -- that matters because the
+ * real compliance/consent exposure of an ungated send is almost entirely a
+ * function of audience: `admin` (the tenant owner receiving their own
+ * business's operational alerts) and `team_member` (an employee receiving
+ * job-assignment / onboarding operational messages) are not the kind of
+ * recipient marketing-opt-out law is written to protect -- `client` is.
+ *
+ * Full categorization of the current pinned list (24 unique triples):
+ *   - 16 audience=admin   -- owner-facing operational/system alerts, not a
+ *     consumer-consent concern by construction (the recipient IS the
+ *     business).
+ *   - 5  audience=team_member -- booking_reminder/booking_rescheduled/
+ *     team_confirm_request/team_member_added: employment-operational sends
+ *     (shift reminders, confirmations, onboarding), not marketing.
+ *   - 3  audience=client:
+ *       - campaign_sent|client|email, campaign_sent|client|sms -- already
+ *         individually verified (route.marketing-optout.test.ts): a
+ *         separate, real, working opt-out guard runs upstream of notify()
+ *         for this exact send path.
+ *       - portal_pin_reset|client|email -- security-critical account-access
+ *         send (client.ts / cleaners.ts PIN reset), the same category the
+ *         original scan already called out as "should probably always
+ *         send" -- verified via direct read of both real call sites
+ *         (src/app/api/clients/[id]/route.ts, src/app/api/cleaners/[id]/
+ *         route.ts): both are genuine PIN-reset flows, not a relabeled
+ *         marketing send.
+ *
+ * Net finding: of the 24 currently-ungated triples, zero are an
+ * unaddressed client-facing marketing/consent risk. This test pins that
+ * audience breakdown so a NEW client-audience ungated entry (the one
+ * category that actually matters here) can't silently slip into the
+ * "already fine" bucket -- it will fail this test until someone explicitly
+ * decides whether it needs a NOTIFY_COMM_MAP entry, an upstream guard like
+ * campaign_sent's, or is a deliberate transactional exception like
+ * portal_pin_reset.
+ */
+describe('notify() ungated-list audience risk categorization (ai-05, round 2)', () => {
+  const KNOWN_SAFE_CLIENT_UNGATED = [
+    'campaign_sent|client|email',
+    'campaign_sent|client|sms',
+    'portal_pin_reset|client|email',
+  ].sort()
+
+  it('every currently-ungated client-audience triple is one of the already-individually-verified exceptions', () => {
+    const clientUngated = PINNED_UNGATED.filter((t) => t.split('|')[1] === 'client').sort()
+    expect(clientUngated).toEqual(KNOWN_SAFE_CLIENT_UNGATED)
+  })
+
+  it('the ungated list has not silently grown a new client-audience entry beyond the known-safe set', () => {
+    const scan = scanNotifyCallSites()
+    const clientUngated = scan.ungated.filter((t) => t.split('|')[1] === 'client').sort()
+    expect(clientUngated).toEqual(KNOWN_SAFE_CLIENT_UNGATED)
+  })
+})
