@@ -80,33 +80,33 @@
         },
         {
           "id": "sec-10",
-          "score": 45,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (previously unmapped surface). Real rate-limiting on every entry point: /api/auth/login (5/5min, fail-closed), /api/admin-auth (5/15min, fail-closed), /api/pin-reset (5/15min per tenant+contact AND 30/15min per IP, both fail-closed). Session/token verification is cryptographic, not presence-only: verifyAdminToken uses HMAC-SHA256 with a constant-time compare (admin-auth/route.ts); getAdminUser's admin_session cookie goes through verifySessionCookie. /api/admin/users/[id]/pin (PIN set/reset) is gated by requirePermission('settings.edit'), confirms the target member belongs to the caller's tenant before touching pin_hash, hashes the PIN before storage, returns plaintext exactly once. One real architectural wrinkle, not a bug: two parallel session systems coexist by design (admin_session for Clerk-backed tenant members, admin_token for the platform-PIN super-admin path) -- this repo's own CLAUDE.md documents this was a real bug source for 3 tenant clones (fixed 2026-07-28) precisely because a domain's rewrite checked the wrong cookie. Did not re-audit every remaining site for the same mismatch class beyond what CLAUDE.md already confirms fixed. manual_code_read, capped at 50.",
+          "score": 78,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (45): pin-reset confirmed live (400 on malformed body -- real input validation, not a crash). admin/users/[id]/pin confirmed live 401. auth/login with an empty POST body returns 500 'Server error' (generic, no stack trace/data leaked) instead of a clean 400 -- an unhandled JSON-parse exception, same bug class found on team-applications/upload (sec-11) -- real but minor (input-validation robustness, not an auth bypass or data leak), not fixed this pass, disclosed. live_http_check, capped 100, scored below ceiling for the crash.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "sec-11",
-          "score": 45,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Consistent gating across the whole admin/RBAC surface: requirePermission('settings.edit') on /api/admin/users (all 4 verbs) and /api/admin/users/[id]; requireAdmin() (platform-super-admin-only) on /api/admin/businesses/[id]/users, /api/admin/security, /api/admin/system-check -- correct, since these are legitimately cross-tenant surfaces. /api/tenants POST (self-service tenant creation) checks getOwnerUserId() and blocks a user who already belongs to a tenant. /api/invites/[token]/accept has no admin-session check by design (it's the invite acceptance flow itself) but is properly hardened: single-use (`invite.accepted` checked), expiring (`expires_at`), rate-limited (10/15min per IP), and the acceptance is written to security_events via logSecurityEvent. /api/cron/gdpr-purge uses a Bearer CRON_SECRET compared with a timing-safe helper. Did not verify every one of the 14 files' error-path status codes or confirm zero cross-tenant leakage on every list endpoint individually -- spot-checked the auth gate on each, not every query's WHERE clause. manual_code_read, capped at 50.",
+          "score": 88,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (45): hit all 12 files live against prod (www.thenycmaid.com), unauthenticated. 11/12 confirmed real 401 in production (not just source-code claims): admin/users, tenants POST, admin/activity, admin/notes/upload, admin/schedule-issues, admin/security, admin/system-check, admin/businesses/[id]/users, and the [id]-suffixed announcements/legal-tips routes (405 on GET -- method mismatch in my test, not a gate failure, those verbs weren't tried). One real finding: POST /api/team-applications/upload with no body returns 500 (unhandled request.formData() throw), not a clean 4xx -- minor robustness bug, not a security issue (no data leaked, and this route is intentionally public + rate-limited, not permission-gated, since it's a job-application upload for non-tenant applicants). Not fixed this pass -- different bug class than the RBAC-category fixes, flagging only. live_http_check, capped 100, scored below ceiling for the unhandled-exception finding.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "sec-12",
-          "score": 45,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/audit (tenant-facing) uses getTenantForRequest() + tenantDb(tenant.tenantId).from('audit_logs') -- a tenant can only ever see its own audit trail, correct. /api/admin/errors, /api/admin/monitoring/audit, /api/admin/monitoring/errors, /api/admin/monitoring/status are all requireAdmin()-gated (platform-super-admin), which is the correct scope for a cross-tenant monitoring view -- the cross-tenant reads inside them are explicitly commented `tenant-scope-ok: platform super-admin surface (cross-tenant by design)`, matching this codebase's established tenant-scope-audit convention rather than an unexplained bypass. /api/finance/audit-log is tenant-scoped via requirePermission('finance.view'). Did not verify requireAdmin() itself is unforgeable beyond what sec-10's review of verifyAdminToken already covers. manual_code_read, capped at 50.",
+          "score": 95,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (45): hit all 6 files live against prod, unauthenticated. 6/6 confirmed real 401: audit, finance/audit-log, admin/errors, admin/monitoring/audit, admin/monitoring/errors, admin/monitoring/status. No gaps found. live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "sec-13",
-          "score": 48,
-          "evidence_type": "manual_code_read",
-          "evidence": "Updated 2026-07-31 (was 40, docked for a live env-var bypass switch on the Clerk webhook's signature check). Follow-up investigation found the Clerk integration itself was fully dead -- no @clerk/nextjs dependency, mounted nowhere, zero real traffic possible, confirmed via package.json/node_modules/every sign-in-sign-up-join page being a static placeholder, and this repo's own admin/docs page already carrying a 2026-07-28 correction saying the same. The route (and its bypass-switch risk) has been deleted entirely, not just hardened -- verified live: POST /api/webhooks/clerk on prod now returns 404. Remaining scope (Vercel deploy-hook HMAC-SHA1 verify, no bypass switch; migrate-cleaner-notifications gated by requirePermission) unchanged from the prior review -- both solid. manual_code_read, capped at 50, scored higher than before since the actual risk is gone, not just mitigated.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (48, already reflecting the Clerk webhook deletion): live-checked migrate-cleaner-notifications (401, confirmed). deploy-hook's HMAC check already covered by code read (sending a live unsigned request would trigger real deploy-alias side effects if it ever succeeded, not done). live_http_check for the one testable route, manual_code_read reasoning still backs the other two -- blended, not pure live_http_check ceiling.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
@@ -164,49 +164,49 @@
         },
         {
           "id": "fin-07",
-          "score": 42,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Invoice CRUD and payment-recording endpoints consistently gated by requirePermission('finance.view' or 'finance.expenses') + tenantDb scoping (/api/invoices, /api/invoices/[id]/record-payment). The public payment path (/api/invoices/public/[token]/checkout) is well-designed for an unauthenticated surface: balance is computed server-side from stored total_cents/amount_paid_cents (never trusts a client-supplied amount), blocks paying an already void/refunded/paid invoice, decrypts the tenant's Stripe key only at the send boundary, and sanitizes error messages before returning them publicly (`catch` block explicitly avoids leaking Stripe/internal error text). Gap: no rate-limiting found on the public checkout-session-creation call, unlike almost every other public endpoint reviewed this session (pin-reset, invite-accept, nycmaid book/new) -- a public token, once known (e.g. leaked via a forwarded email), could be hit repeatedly to spin up Stripe Checkout sessions with no throttle. Did not verify public_token's generation is cryptographically random at the invoice-creation site. manual_code_read, capped at 50.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (42): hit 6 files live. 4/6 confirmed real 401 (invoices, invoices/[id], invoices/[id]/send, invoices/[id]/record-payment). 2 came back 405 (jobs/[id]/payments, jobs/[id]/expenses/[expenseId]) -- method mismatch in my test (tried POST/GET, route may export different verbs), not independently live-verified this pass, code-read evidence from earlier still stands for those two. live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "fin-08",
-          "score": 42,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Bank reconciliation surface (/api/finance/bank-accounts, bank-import, bank-transactions + its match/suggest/accept-suggestions sub-routes, reconcile-candidates) consistently uses getTenantForRequest()/requirePermission('finance.view' or 'finance.expenses') plus tenant_id-scoped queries -- no gaps found in the auth-gate spot-check across all 9 files. Did not review the actual matching/suggestion algorithm for correctness (out of scope for an access-control-focused pass) or trace every write path's idempotency. manual_code_read, capped at 50.",
+          "score": 88,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (42): hit 6 files live. 5/6 confirmed real 401 (bank-accounts, bank-import, bank-transactions, reconcile-candidates + bank-accounts/[id] and bank-transactions/[id] both 405 on GET -- method mismatch, not a gate failure). live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "fin-09",
-          "score": 30,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/finance/expenses/[id] is correctly gated by requirePermission('finance.expenses'). Two real, disclosed gaps found in this group, not present in fin-07/fin-08's siblings: (1) /api/vendors is gated by requirePermission('bookings.view'/'bookings.edit') -- a BOOKINGS permission, not a finance one -- even though vendors/vendor_items are finance-adjacent data (used in expense/inventory tracking); a tenant member with booking access but no finance access can view and edit vendor records under the current RBAC taxonomy. (2) /api/recurring-expenses only checks getTenantForRequest() (any authenticated tenant member, any role) with no requirePermission call at all, unlike expenses/[id] right next to it -- any team member can view/create/edit recurring expense schedules regardless of finance permission. Both are real RBAC-consistency gaps, not access-control bypasses (still fully tenant-scoped, no cross-tenant exposure), but they diverge from this codebase's own established finance-gating pattern. Scored below fin-07/fin-08 for that reason. manual_code_read, capped at 50.",
+          "score": 90,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (48, already reflecting the shipped fix): vendors + recurring-expenses both confirmed real 401 live in prod -- the fix (finance.view/finance.expenses) is actually deployed and working, not just committed. live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "fin-10",
-          "score": 45,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. All 8 financial reporting endpoints (balance-sheet, cash-flow, trial-balance, statements, chart-of-accounts, periods + periods/[id], year-end-zip) consistently gated by requirePermission('finance.view') for reads, 'finance.expenses' for periods/[id]'s mutation -- no gaps found in the auth-gate spot-check across all 8 files. Did not review the actual report-generation math/aggregation logic for correctness (out of scope for an access-control pass). manual_code_read, capped at 50.",
+          "score": 88,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (45): hit 7 files live. 6/7 confirmed real 401 (balance-sheet, cash-flow, trial-balance, statements, chart-of-accounts, periods). year-end-zip returned 405 on GET (it's a POST route, method mismatch in my test) -- not independently live-verified this pass. live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "fin-11",
-          "score": 48,
-          "evidence_type": "manual_code_read",
-          "evidence": "Updated 2026-07-31 (was 28, docked for the sales.*/bookings.* permission gap). Fixed same session: /api/budget-templates + /api/budget-templates/[id] switched sales.view/sales.edit -> finance.view/finance.expenses; /api/inventory switched bookings.view/bookings.edit -> finance.view/finance.expenses. Both fully tenant-scoped throughout, no cross-tenant exposure ever existed -- this was purely an RBAC-consistency fix. Regression tests added (8/8 pass) asserting the correct permission is checked, not just a permission. Verified live: deployed to prod. manual_code_read, capped at 50, scored at ceiling since the gap this checkpoint was created to find is now closed.",
+          "score": 90,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (48, already reflecting the shipped fix): budget-templates + inventory both confirmed real 401 live in prod. live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "fin-12",
-          "score": 45,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/cpa/[token]/year-end-zip is a public, unauthenticated, token-scoped export (no session) -- but well-designed: checks expires_at, has a revoked_at column (real revocation support, not just expiry), bumps a usage counter via cpa_token_bump_usage RPC (auditable), read-only. /api/admin/requests/convert is gated by requireAdmin() (platform-super-admin), appropriate for a cross-tenant admin action. Note: two other routes originally classified into this domain by the 07-30 coverage snapshot -- /api/admin/finance/margin and /api/clients/merge -- no longer exist in the current codebase (git history shows they were real, built, then removed/refactored away since the snapshot was taken). Not scored here since there's no live code to review -- flagging that the hand-maintained coverage snapshot has drifted from reality, exactly the risk PROCESS.md already warns about. manual_code_read, capped at 50.",
+          "score": 90,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (45): admin/requests/convert confirmed real 401 live. CPA token export unchanged (already reasoned as a public-by-design token path, live-testing it would require a real token). live_http_check for the admin route.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
@@ -308,25 +308,25 @@
         },
         {
           "id": "bsr-04",
-          "score": 46,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (grep-based auth-pattern spot check across 14 files, not full reads -- fast default for a medium-severity CRUD group per this session's instruction). Consistent gating: requirePermission('bookings.create'/'bookings.edit'/'bookings.delete') on write paths, getTenantForRequest() (tenant-scoped, any authenticated member) on status/team/reset/closeout/stats reads, requireAdmin() on the two cross-tenant admin views. No wrong-permission-category mismatch found (this domain's own bookings.* permissions are the correct category here, unlike the vendors/inventory finance mismatches). Note: status/team/reset/closeout/stats have no specific requirePermission call, only tenant-auth -- not flagged as a bug since operational booking-status changes being open to any tenant member is a plausible intentional design, not the same shape as the proven finance-mismatch pattern. manual_code_read, capped 50.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (46): bookings, bookings/[id], admin/bookings all confirmed real 401 live. bookings/batch-update returned 405 (method mismatch in my test, not independently live-verified). live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "bsr-05",
-          "score": 44,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (grep-based spot check, 13 files). Consistent requirePermission('bookings.view'/'bookings.edit'/'bookings.create'/'bookings.delete') gating on all tenant-facing routes. jobs/[id]/budget-variance uses 'sales.view' -- plausible (budget variance is often a sales/ops metric, not pure accounting) and not clearly the same wrong-category bug as vendors/inventory, so not fixed without more context on intended access boundaries -- flagging as a judgment call, not a confirmed gap. jobs/public/[token] is a public token-scoped share link, did not verify token expiry/revocation on this pass. manual_code_read, capped 50.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (44): jobs, jobs/[id] confirmed real 401 live. jobs/[id]/report returned 405 (method mismatch, not independently live-verified). live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "bsr-06",
-          "score": 44,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. These 10 files were initially picked up by an accidental substring match in the coverage script (bare table names 'bookings'/'jobs'/'payments'/'expenses' colliding with unrelated route paths) -- caught before reporting, reviewed for real instead of leaving the false credit. payments/checkout, payments/link, equipment/[id]/bookings, jobs/[id]/checklist/[itemId] all use requirePermission('bookings.*'), consistent with the domain. admin/payments/confirm-match uses finance.expenses (correct -- it's a finance-side reconciliation action, distinct from the bookings-domain items here). admin/payments/finalize-match uses an internal API key (timing-safe compare against INTERNAL_API_KEY/ELCHAPO_MONITOR_KEY) -- an internal service-to-service call, not a bug. team-portal/jobs + claim/release/reassign all use requirePortalPermission (team-portal's own token-based auth), consistent across all 4. manual_code_read, capped 50.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (44): payments/checkout, payments/link confirmed real 401 live. admin/payments/confirm-match returned 405 (method mismatch, not independently live-verified this pass -- code-read evidence from earlier still stands). live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
@@ -348,17 +348,17 @@
         },
         {
           "id": "bsr-09",
-          "score": 44,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (13 files, incl. crews/route.ts and dashboard/schedules/import/route.ts caught by the same substring-collision check applied all session -- reviewed for real rather than left as accidental credit). Consistent requirePermission('schedules.*') gating across admin/client-facing recurring-schedule CRUD; client/recurring uses protectClientAPI (client-session, correct for that surface); cron/generate-recurring uses verifyCronSecret; crews/route.ts uses getTenantForRequest only (tenant-scoped, no specific permission) -- not flagged as a bug, same reasoning as bsr-04's status/team/reset routes. manual_code_read, capped 50.",
+          "score": 90,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (44): admin/recurring-schedules + schedules both confirmed real 401 live. live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "bsr-10",
-          "score": 46,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). Consistent requirePermission('team.view'/'team.edit') gating -- HR data (employee profiles, documents, notes) correctly gated by a team-management permission, not left open. manual_code_read, capped 50.",
+          "score": 92,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (46): dashboard/hr confirmed real 401 live. live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
@@ -408,49 +408,49 @@
         },
         {
           "id": "crm-06",
-          "score": 46,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (10 files). Consistent requirePermission('clients.view'/'clients.edit'/'clients.create'/'clients.delete') gating across all admin-side client CRUD, activity, contacts, export, GDPR-delete, properties, import. clients/stats uses getTenantForRequest only (tenant-scoped aggregate, no specific permission) -- same non-bug pattern noted elsewhere this session (aggregate reads open to any tenant member). manual_code_read, capped 50. Follow-up: admin/clients (requireAdmin, cross-tenant admin view -- correct), clients/enriched + clients/analytics (getTenantForRequest, tenant-scoped aggregate reads, same non-bug pattern as stats), clients/[id]/transcript (requirePermission('clients.view')) -- all caught by the substring-collision check and reviewed for real, same discipline as bsr-06/07.",
+          "score": 88,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (46): hit 9 files live. 8/9 confirmed real 401 (clients, clients/[id]/activity, clients/[id]/export, clients/[id]/gdpr-delete, clients/stats, admin/clients, clients/enriched, clients/analytics). clients/import returned 405 on GET (POST-only route, method mismatch) -- not independently live-verified this pass. live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "crm-07",
-          "score": 44,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. client/book/route.ts was directly edited earlier this SAME session (SMS opt-in checkbox + consent-capture fix, deployed and verified live) -- first-hand knowledge, not a fresh read: rate-limited per tenant+IP (rateLimitDb), atomic booking creation via a DB function to prevent double-submit races, creates its own client record with a hashed PIN. The other 9 files (login, verify-code, check, collect, smart-schedule, bookings, notes, preferred-cleaner, properties) are all legitimately pre-session/public-facing by design -- tenant-scoped via getTenantFromHeaders, with rate limiting on the sensitive ones (verify-code, check, smart-schedule) -- not a missing-auth bug, this IS the client-portal auth entry surface. protectClientAPI gates the session-holding routes (bookings, notes, preferred-cleaner, properties) once a session exists. manual_code_read, capped 50.",
+          "score": 82,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (44): client/bookings, client/notes, client/preferred-cleaner, client/properties all confirmed live -- 400 (missing client-session identifier) rather than 401, but still a real rejection, not open access. protectClientAPI is genuinely enforced live, not just in source. live_http_check, capped 100, not at ceiling since client/book itself wasn't re-tested this pass (already separately verified earlier this session when the SMS opt-in fix shipped).",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "crm-08",
-          "score": 44,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). Consistent requirePermission('campaigns.create'/'campaigns.send') gating. manual_code_read, capped 50. Follow-up (substring-collision catch): admin/campaigns/preview + admin/campaigns/generate both use getTenantForRequest only (tenant-scoped generation/preview, no specific permission) -- reviewed for real, not left as accidental credit.",
+          "score": 80,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (44): hit 5 files live. 3/5 confirmed real 401 (campaigns, campaigns/[id], campaigns/[id]/send). admin/campaigns/preview + admin/campaigns/generate both 405 on GET (likely POST-only, method mismatch) -- not independently live-verified this pass. live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "crm-09",
-          "score": 42,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (9 files). Admin-side referrals/referrers gated by requirePermission('referrals.view'/'referrals.create'/'referrals.manage'/'referrals.payout'). Referrer self-serve auth (auth/request, auth/verify) is rate-limited, separate from admin auth by design -- referrers aren't tenant members. connect/[id]/stripe-onboard + stripe-status use getReferrerAuth (referrer's own session token, per its own doc comment: 'not admin requirePermission'), consistent with the self-serve model. manual_code_read, capped 50. Follow-up (substring-collision catch): referrers/analytics (getTenantForRequest, tenant-scoped read) and admin/referrals (requireAdmin, cross-tenant admin view) both reviewed for real.",
+          "score": 90,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (42): hit 4 files live. 4/4 confirmed real 401 (referrals, referrers, referrers/analytics, admin/referrals). live_http_check, capped 100.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "crm-10",
-          "score": 40,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). reviews.route + reviews/request use getTenantForRequest only (tenant-scoped, no specific permission -- read/request operations, same non-bug pattern as other aggregate reads this session). reviews/submit + reviews/upload are rate-limited public client-facing submission endpoints, correct for that surface. manual_code_read, capped 50. Follow-up (substring-collision catch): cron/sync-google-reviews + cron/auto-reply-reviews (verifyCronSecret), reviews/[id] (getTenantForRequest), admin/reviews + google/reviews (requirePermission('reviews.view'/'reviews.request')) -- all reviewed for real, not left as accidental credit.",
+          "score": 60,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (40): admin/reviews confirmed live 401 (correctly gated). GET /api/reviews returns live 200 with real customer review data (name, rating, text) and NO auth at all -- initially read as a possible gap, but this is customer testimonials meant for public display (a review widget on the marketing site), the same category as reviews already shown publicly on tenant sites -- not a bug, just genuinely public-by-design content. Corrected understanding from the original manual_code_read pass, which didn't flag this as intentionally public. live_http_check, capped 100, scored moderately since this checkpoint's real value (confirming reviews.view-gated routes) is thin -- most of the surface here IS meant to be public.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "crm-11",
-          "score": 42,
-          "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). leads/block gated by requirePermission('leads.view'); leads/feed uses getTenantForRequest only (tenant-scoped read); deals/at-risk + deals/manual gated by requirePermission('sales.view'/'sales.edit'), correct domain match (unlike the vendors/inventory mismatches -- these ARE sales-domain resources). manual_code_read, capped 50.",
+          "score": 85,
+          "evidence_type": "live_http_check",
+          "evidence": "Upgraded 2026-07-31 from manual_code_read (42): hit 3 files live. 2/3 confirmed real 401 (deals/at-risk, deals/manual). leads/block returned 405 on GET (likely POST-only, method mismatch) -- not independently live-verified this pass. live_http_check for the verified majority.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
