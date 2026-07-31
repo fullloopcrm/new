@@ -10,7 +10,9 @@ import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const body = await request.json().catch(() => null)
+    if (!body) return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    const { email, password } = body
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 

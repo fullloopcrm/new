@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many uploads. Try again later.' }, { status: 429 })
   }
 
-  const formData = await request.formData()
+  const formData = await request.formData().catch(() => null)
+  if (!formData) return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   const file = formData.get('file') as File | null
 
   if (!file) {
