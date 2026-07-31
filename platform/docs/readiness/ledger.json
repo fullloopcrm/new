@@ -216,11 +216,11 @@
         },
         {
           "id": "lss-04",
-          "score": 90,
-          "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 734d360dd, 3 new tests passing (route.lead-creation.test.ts).",
-          "last_verified": "2026-07-30",
-          "last_verified_commit": "734d360dd"
+          "score": 92,
+          "evidence_type": "live_query",
+          "evidence": "Adversarial re-check 2026-07-31 (per coordinator instruction after Worker 2's bsr-01 finding: 'mocked tests can't catch what only shows up against real data'). Did not just re-trust the 3 passing unit tests. (1) Live prod check: sms_conversations has ZERO rows, ever, matching this fix's own target pattern (a NEW session with a real phone given, phone LIKE 'web-%' AND length>12) -- confirmed via two separate live queries (all-time and 30/7-day windows). The code path 734d360dd added has never actually fired in production, so passive observation gives zero signal either way. (2) Exercised the REAL insert chain createLeadAndEnterPipeline performs (clients -> client_contacts -> portal_leads -> deals -> deal_activities) against the live prod schema in an explicit BEGIN/ROLLBACK transaction (Supabase Management API, test tenant 007c3776-a0e6-4689-a6c4-c527cd09162c 'Test4567898765432' -- has no Telegram bot configured, chosen specifically to avoid any real notification noise -- fake reserved-fictional phone +15555550199, never a real device): confirmed the client_number auto-assign trigger (trg_assign_client_number) fires correctly, every RETURNING chain resolved, all 5 rows landed with correct values -- then ROLLBACK, verified via a follow-up read that zero rows persisted. This is real schema/constraint/trigger verification, not a mock. (3) Found and FIXED a real live gap while reading the code for this audit: every OTHER caller of createLeadAndEnterPipeline (webhooks/telnyx, api/lead, api/contact, api/ingest/lead) wraps a real failure in trackError(); src/app/api/chat/route.ts only had console.error -- a silent-failure gap of the same shape as bsr-01/ai-03, and directly in this checkpoint's own depends_on_files. Fixed (commit 0db0041c0), matching the established pattern; new route.pipeline-alert.test.ts (2 tests) proves trackError fires with source/severity/tenantId and the chat session still succeeds either way. tsc --noEmit clean; route.lead-creation.test.ts (3 pre-existing) + route.pipeline-alert.test.ts (2 new) all pass. NOT deployed: this fix is committed to this worker's branch only, not merged/live -- 'fixed in code, tested' is distinct from 'resolved in production.'",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": "0db0041c0"
         },
         {
           "id": "lss-05",
@@ -232,19 +232,19 @@
         },
         {
           "id": "lss-06",
-          "score": 90,
+          "score": 85,
           "evidence_type": "test_run",
-          "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 8536f407f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
-          "last_verified": "2026-07-30",
-          "last_verified_commit": "8536f407f"
+          "evidence": "Adversarial re-check 2026-07-31 (severity 5, per coordinator instruction after Worker 2's bsr-01 finding). Re-verified 8536f407f's dispatch logic against live prod, not just the 2 historical deals already cited: both still show stage='sold', booking_id null (unchanged, expected -- deals.booking_id is never backfilled by any conversion path, not a defect). Traced the linked quote (61b8d98c, the $365 case): already converted_at/converted_job_id set BEFORE this fix existed. Checked fulfillment_type's real distribution across all 14 live quotes (null=9, 'project'=5, 'booking'=0 -- ever) and specifically verified this is NOT a polarity bug by reading the proven reference branch this fix mirrors (quotes/public/[token]/accept/route.ts's own isBooking = fulfillment_type === 'booking' comment: \"'booking' -> Bookings, else -> Job board (default)\") -- 'booking' is real, settable (dashboard/sales/quotes/_QuoteBuilder.tsx, api/quotes/route.ts), just unused-so-far inventory, not backwards logic. Exercised the real insert chain in an explicit BEGIN/ROLLBACK transaction against live prod schema (same test tenant as lss-04), verified NOT NULL columns/triggers, zero permanent writes. FOUND AND FIXED a real live gap: closeSoldQuote (and everything it delegates to) throws unless the quote's own status is already 'accepted'; the manual 'mark sold' action in deals/[id]/stage/route.ts does not gate on that -- an operator can mark a deal sold before the customer formally accepts the quote, which is EXACTLY the trigger mechanism this checkpoint's own historical bug came from. Live check: of quotes with a deal_id, 4 are still draft and 1 sent (none currently sold, but nothing prevented it) -- the failure path had only console.warn. Fixed both silent catches (commit e81b4aad6): deals/[id]/stage/route.ts (new dedicated pipeline-alert test, 2/2 pass incl. isolation regression) and the matching webhooks/stripe/route.ts catch (same file already uses trackError elsewhere; lower real risk here since quote.status is provably already 'accepted' by the time a deposit webhook can fire -- verified via the accept route's own synchronous status write -- fixed for consistency, no dedicated new test, full 14-file/42-test stripe webhook suite re-run clean as regression coverage instead). tsc --noEmit clean. NOT deployed -- committed to this worker's branch only. Scored below lss-04's 92 because HALF of this fix (the stripe path) relies on regression coverage + code-read rather than a dedicated assertion, an explicit, smaller version of the same gap-in-claimed-coverage pattern found in lss-07.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": "e81b4aad6"
         },
         {
           "id": "lss-07",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Built+shipped 2026-07-30, commit be172fdfe. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
-          "last_verified": "2026-07-30",
-          "last_verified_commit": "be172fdfe"
+          "evidence": "Adversarial re-check 2026-07-31 (per coordinator instruction after Worker 2's bsr-01 finding: 'every test_run-capped checkpoint nobody's live-audited is unverified trust'). The prior 90/test_run score cited be172fdfe's 'New test (route.pipeline-alert.test.ts) proves trackError fires' as if all 3 depends_on_files (api/lead, api/contact, api/ingest/lead) were covered -- that commit's own message actually says contact and ingest/lead 'rely on existing regression coverage + a clean typecheck' instead of a dedicated test, to avoid 3 near-identical files. Checked what that 'existing regression coverage' actually was: route.xss.test.ts (contact) and route.rate-limit.test.ts (ingest/lead) both mock trackError as a bare no-op to isolate an UNRELATED concern (XSS sanitization; rate-limit ordering) -- neither exercises the deal-creation failure path or asserts trackError is called with the right context. Mocked-away-as-a-dependency is not tested-behavior; this was a real, previously-unverified gap in 2 of 3 files, not a false alarm. Code read confirms both call sites ARE correctly wired (same source/severity/tenantId pattern as api/lead, tenant.id correctly in scope) -- but that was inference, not verification, until now. Added dedicated route.pipeline-alert.test.ts for both (commit 3f3a482bf), forcing the real deals-table lookup to throw and asserting trackError fires with source: 'api/contact:pipeline-entry' / 'api/ingest/lead:pipeline-entry', severity: 'high', the right tenantId, and the request still succeeding. All 3 depends_on_files now have genuine dedicated coverage, not 1 of 3. tsc --noEmit clean; full regression across lead/contact/ingest-lead/deals/chat/stripe: 35 files, 94 tests, all pass. NOT deployed -- committed to this worker's branch only. Held at the test_run ceiling (90), not escalated to live_http_check/live_query: this is unit-test-level (mocked DB) verification, not an actual live HTTP call against the deployed endpoints.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": "3f3a482bf"
         },
         {
           "id": "lss-08",
