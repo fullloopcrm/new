@@ -17,13 +17,40 @@ export async function GET() {
   const CLIENT_ANALYTICS_ROW_CAP = 5000
 
   try {
-    // Get all clients with referrer info
-    const { data: clients } = await supabaseAdmin
+    // Get all clients. NOTE: clients.referrer_id is a real, populated column
+    // (confirmed live 2026-07-31, fin-05 re-check) but there is no DB-level
+    // FK constraint from clients -> referrers -- only referrals has one, per
+    // PostgREST's own error hint. That means the embedded-resource syntax
+    // this route used to use here (`select('*, referrers(name, ref_code)')`)
+    // returns a PGRST200 error on every real call in production ("Could not
+    // find a relationship between 'clients' and 'referrers' in the schema
+    // cache"). The old code never checked the destructured `error`, so
+    // `clients` silently resolved to `undefined` and every response below
+    // silently reported all-zero/empty analytics -- confirmed 100% broken
+    // in prod despite the pagination test suite passing (its mock always
+    // resolves `{ data: [], error: null }` regardless of the select shape,
+    // so it can't catch an invalid embed). Fixed by fetching referrers
+    // separately and joining by id in application code, same pattern this
+    // file already uses for bookings -> clients below.
+    const { data: clients, error: clientsError } = await supabaseAdmin
       .from('clients')
-      .select('*, referrers(name, ref_code)')
+      .select('*')
       .eq('tenant_id', tenant.tenantId)
       .order('created_at', { ascending: false })
       .limit(CLIENT_ANALYTICS_ROW_CAP)
+    if (clientsError) throw clientsError
+
+    const referrerIds = [...new Set((clients || []).map(c => c.referrer_id).filter(Boolean))]
+    const referrersById = new Map<string, { name: string; ref_code: string }>()
+    if (referrerIds.length > 0) {
+      const { data: referrers, error: referrersError } = await supabaseAdmin
+        .from('referrers')
+        .select('id, name, ref_code')
+        .eq('tenant_id', tenant.tenantId)
+        .in('id', referrerIds)
+      if (referrersError) throw referrersError
+      for (const r of referrers || []) referrersById.set(r.id, { name: r.name, ref_code: r.ref_code })
+    }
 
     // Get all completed bookings
     const { data: bookings } = await supabaseAdmin
@@ -94,7 +121,7 @@ export async function GET() {
         email: client.email,
         created_at: client.created_at,
         referrer_id: client.referrer_id,
-        referrer_name: client.referrers?.name || null,
+        referrer_name: (client.referrer_id ? referrersById.get(client.referrer_id)?.name : null) || null,
         totalSpent,
         bookingCount,
         lastBooking,
