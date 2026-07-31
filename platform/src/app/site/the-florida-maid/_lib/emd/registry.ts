@@ -4,6 +4,9 @@ import { westPalmBeachMaidConfig } from './west-palm-beach-maid'
 import { fortLauderdaleMaidConfig } from './fort-lauderdale-maid'
 import { gainesvilleMaidConfig } from './gainesville-maid'
 import { orlandoMaidConfig } from './orlando-maid'
+import { pompanoBeachMaidConfig } from './pompano-beach-maid'
+import { tallahasseeMaidConfig } from './tallahassee-maid'
+import { cocoaBeachMaidConfig } from './cocoa-beach-maid'
 
 const CONFIGS: EmdMicrositeConfig[] = [
   miamiBeachMaidConfig,
@@ -11,6 +14,9 @@ const CONFIGS: EmdMicrositeConfig[] = [
   fortLauderdaleMaidConfig,
   gainesvilleMaidConfig,
   orlandoMaidConfig,
+  pompanoBeachMaidConfig,
+  tallahasseeMaidConfig,
+  cocoaBeachMaidConfig,
 ]
 
 const BY_DOMAIN = new Map<string, EmdMicrositeConfig>(
