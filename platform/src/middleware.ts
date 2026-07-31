@@ -224,11 +224,6 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default async function middleware(req: NextRequest) {
-  // Temporary — Sentry install verification (2026-07-31), remove with the route.
-  if (req.nextUrl.pathname === '/api/sentry-test-error') {
-    return NextResponse.next()
-  }
-
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
   // --- fullloopcrm.com brand consolidation (308) ---
