@@ -172,7 +172,6 @@ const isPublicRoute = createRouteMatcher([
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
-  '/api/referrals/track(.*)', // Referral click tracking
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page

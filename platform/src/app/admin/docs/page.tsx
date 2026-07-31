@@ -364,7 +364,7 @@ Of 13 RLS migration files, **5 are applied** (\`046_rls_deny_on_new_tables\`, \`
 | Group | Routes |
 |---|---|
 | \`referral-commissions\` | 1 route: \`/api/referral-commissions\` (GET,POST,PUT) |
-| \`referrals\` | 3 routes: \`/api/referrals\` (GET,POST), \`/api/referrals/[id]\` (PUT), \`/api/referrals/track\` (POST) |
+| \`referrals\` | 2 routes: \`/api/referrals\` (GET,POST), \`/api/referrals/[id]\` (PUT). \`/api/referrals/track\` was removed 2026-07-31 -- it was dead code (never called from any UI, queried the unrelated \`referrals\` table which has 0 rows in prod, and its own comment admitted it recorded nothing). Real referral click tracking lives in \`/api/referrers/[code]\` via \`lead_clicks.ref_code\`, populated on real booking-page visits. |
 | \`referrers\` | 8 routes: \`/api/referrers\` (GET,POST), \`/api/referrers/[code]\` (GET), \`/api/referrers/analytics\` (GET), \`/api/referrers/auth/request\` (POST), \`/api/referrers/auth/verify\` (POST), \`/api/referrers/connect/[id]\` (PATCH), \`/api/referrers/connect/[id]/stripe-onboard\` (POST,GET), \`/api/referrers/connect/[id]/stripe-status\` (POST,GET) |
 | \`sales-partner-commissions\` | 1 route: \`/api/sales-partner-commissions\` (GET,PUT) |
 | \`sales-partners\` | 6 routes: \`/api/sales-partners\` (GET,POST,PUT), \`/api/sales-partners/[id]/stripe-invite\` (POST), \`/api/sales-partners/[id]/stripe-onboard\` (POST,GET), \`/api/sales-partners/[id]/stripe-status\` (POST,GET), \`/api/sales-partners/login\` (POST), \`/api/sales-partners/me\` (GET,PUT) |
