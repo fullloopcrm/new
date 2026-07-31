@@ -196,9 +196,9 @@
         },
         {
           "id": "fin-11",
-          "score": 28,
+          "score": 48,
           "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Same RBAC-consistency gap class as fin-09 (vendors/recurring-expenses, fixed earlier this session): /api/budget-templates and /api/budget-templates/[id] are gated by requirePermission('sales.view') -- a SALES permission, not finance -- even though budget templates carry cost/pricing line items used for job costing. /api/inventory is gated by requirePermission('bookings.view') -- a BOOKINGS permission, same pattern. Neither is a cross-tenant exposure (both fully tenant-scoped via tenantDb), but both let a tenant member with sales/booking access and no finance access view cost data. Not fixed yet this session -- flagging as the next real target, same shape as the fix already shipped for vendors/recurring-expenses. manual_code_read, capped at 50.",
+          "evidence": "Updated 2026-07-31 (was 28, docked for the sales.*/bookings.* permission gap). Fixed same session: /api/budget-templates + /api/budget-templates/[id] switched sales.view/sales.edit -> finance.view/finance.expenses; /api/inventory switched bookings.view/bookings.edit -> finance.view/finance.expenses. Both fully tenant-scoped throughout, no cross-tenant exposure ever existed -- this was purely an RBAC-consistency fix. Regression tests added (8/8 pass) asserting the correct permission is checked, not just a permission. Verified live: deployed to prod. manual_code_read, capped at 50, scored at ceiling since the gap this checkpoint was created to find is now closed.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
