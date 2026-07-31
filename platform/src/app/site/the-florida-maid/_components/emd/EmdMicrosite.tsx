@@ -113,8 +113,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Welcome / intro */}
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 space-y-6">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] mb-1">{config.city} House Cleaning</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">
-            Welcome to {config.brandName}
+            Trusted House Cleaning Service in {config.city}, FL
           </h2>
           {taggedIntro.map((p, i) => (
             <p key={i} className="text-gray-600 text-lg leading-relaxed">{p}</p>
@@ -129,8 +130,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Our story */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 space-y-6">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] mb-1">About {config.brandName}</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">
-            Our Story
+            {config.city}&apos;s Local House Cleaning Company
           </h2>
           {taggedOurStory.map((p, i) => (
             <p key={i} className="text-gray-600 text-lg leading-relaxed">{p}</p>
@@ -141,11 +143,12 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Beach-living cleaning challenges */}
       <section className="py-20 bg-[#1E2A4A]">
         <div className="max-w-5xl mx-auto px-4">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#A8F0DC] text-center mb-3">Beach Home Cleaning</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-3">
-            Cleaning a {config.city} Home Is Different
+            Why {config.city} Homes Need a Different Kind of Clean
           </h2>
           <p className="text-blue-200/70 text-center max-w-2xl mx-auto mb-12">
-            Beach living comes with its own set of cleaning challenges. Here&apos;s how {config.brandName} handles them.
+            Beach living comes with its own set of cleaning challenges in {config.city}. Here&apos;s how {config.brandName} handles them.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {config.challenges.map(c => (
@@ -161,11 +164,12 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Services */}
       <section id="services" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Cleaning Services</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
-            Cleaning Services in {config.city}
+            House Cleaning Services Available in {config.city}, FL
           </h2>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
-            Every {config.brandName} visit is performed by a licensed, insured, background-checked cleaner — here&apos;s exactly what&apos;s included in each service.
+            Every {config.brandName} visit in {config.city} is performed by a licensed, insured, background-checked cleaner — here&apos;s exactly what&apos;s included in each service.
           </p>
           <div className="space-y-4">
             {SERVICES.map(service => (
@@ -212,9 +216,13 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Why choose us */}
       <section className="py-20 bg-white">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">
-            Why {config.city} Chooses {config.brandName}
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Why Choose Us</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
+            Why {config.city} Residents Trust {config.brandName}
           </h2>
+          <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
+            From background-checked cleaners to transparent hourly pricing, here&apos;s what sets {config.brandName} apart for house cleaning in {config.city}.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
               { title: 'Local Focus, Statewide Backing', body: `${config.brandName} (${PARENT_TAG}) is built specifically around ${config.city}, but backed by a Florida cleaning company that has served over 25,000 homes statewide since 2018.` },
@@ -236,8 +244,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Pricing explained */}
       <section id="pricing" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Cleaning Prices</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-10">
-            How {config.brandName} Pricing Works
+            {config.city} House Cleaning Prices &amp; Rates
           </h2>
           <div className="space-y-5 mb-14">
             {taggedPricingExplainer.map((p, i) => (
@@ -261,8 +270,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Neighborhoods */}
       <section id="areas" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-5xl mx-auto px-4">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Service Areas</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
-            Areas We Serve in {config.city}
+            {config.city} Neighborhoods We Serve
           </h2>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
             {config.brandName} covers every neighborhood across {config.city} — here&apos;s a closer look at where we clean most.
@@ -281,9 +291,13 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Testimonials */}
       <section className="py-20 bg-[#1E2A4A]">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">
-            What {config.city} Clients Are Saying
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#A8F0DC] text-center mb-3">Client Reviews</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-3">
+            What {config.city} Clients Say About {config.brandName}
           </h2>
+          <p className="text-blue-200/70 text-center max-w-2xl mx-auto mb-12">
+            Real feedback from real {config.city} homeowners and renters who trust {config.brandName} with their homes.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {taggedTestimonials.map(t => (
               <div key={t.name} className="bg-white/[0.06] border border-white/10 rounded-2xl p-6">
@@ -299,9 +313,13 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* How it works / first visit */}
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">
-            What To Expect On Your First Visit
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Getting Started</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
+            How to Book a House Cleaning in {config.city}
           </h2>
+          <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
+            Booking with {config.brandName} takes minutes — here&apos;s exactly what happens from your first text to your first clean in {config.city}.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {config.firstVisitSteps.map((step, i) => (
               <div key={i} className="flex gap-4">
@@ -316,8 +334,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       {/* Differentiation */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 space-y-6">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] mb-1">Local vs. National</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-2">
-            {config.brandName} vs. National Cleaning Franchises
+            {config.brandName} vs. National Cleaning Franchises in {config.city}
           </h2>
           {taggedDifferentiation.map((p, i) => (
             <p key={i} className="text-gray-600 text-lg leading-relaxed">{p}</p>
@@ -326,7 +345,13 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       </section>
 
       {/* FAQ */}
-      <div id="faq" className="scroll-mt-20">
+      <div id="faq" className="scroll-mt-20 bg-white">
+        <div className="pt-16 pb-2 bg-white">
+          <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">FAQ</p>
+          <p className="text-gray-500 text-center max-w-2xl mx-auto px-4">
+            Answers to common questions about house cleaning in {config.city}, FL — pricing, scheduling, and what&apos;s included.
+          </p>
+        </div>
         <FAQSection faqs={taggedFaqs} title={`${config.brandName} — Frequently Asked Questions`} columns={2} />
       </div>
 
