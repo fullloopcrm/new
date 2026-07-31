@@ -13,8 +13,9 @@ export default function EmdMicrositeNav({ brandName, bookUrl }: { brandName: str
     <header className="bg-white sticky top-0 z-50 shadow-sm">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <a href="#main-content" className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide flex-shrink-0">
-            {brandName}
+          <a href="#main-content" className="flex-shrink-0 leading-tight">
+            <span className="block font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">{brandName}</span>
+            <span className="block text-[10px] text-gray-500 tracking-wide">(A Florida Maid Services Company)</span>
           </a>
           <nav className="hidden md:flex items-center gap-6">
             {SECTIONS.map(s => (
