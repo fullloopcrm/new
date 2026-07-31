@@ -50,6 +50,7 @@ vi.mock('@/lib/settings', () => ({
   })),
 }))
 
+import { requirePermission } from '@/lib/require-permission'
 import { GET, POST } from './route'
 
 function seed() {
@@ -78,6 +79,21 @@ describe('clients GET — tenant isolation', () => {
     const ids = (body.clients as Array<{ id: string }>).map((c) => c.id)
     expect(ids).toEqual(['cli-a'])
     expect(ids).not.toContain('cli-b')
+  })
+
+  // Regression (2026-07-31, crm-04 re-check): this GET used to call
+  // getTenantForRequest() directly, bypassing clients.view entirely -- a
+  // tenant that revoked clients.view from a role via the real, documented
+  // per-tenant permission-override feature would have that revocation
+  // silently ignored here, unlike every other verb in this route family.
+  it('honors requirePermission(clients.view) denial instead of bypassing it', async () => {
+    const { NextRequest, NextResponse } = await import('next/server')
+    vi.mocked(requirePermission).mockResolvedValueOnce({
+      tenant: null,
+      error: NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 }),
+    })
+    const res = await GET(new NextRequest('http://t/api/clients'))
+    expect(res.status).toBe(403)
   })
 })
 

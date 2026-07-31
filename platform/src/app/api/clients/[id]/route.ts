@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
@@ -22,7 +22,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // Same gap as GET /api/clients (list) -- see that file's comment. Every
+    // other verb here (PUT/DELETE below) is gated by requirePermission.
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const { id } = await params
 
     const { data, error } = await (await tenantClient(tenantId))

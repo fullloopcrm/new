@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getSettings } from '@/lib/settings'
 import { tenantDb } from '@/lib/tenant-db'
 
@@ -13,7 +14,11 @@ import { tenantDb } from '@/lib/tenant-db'
  */
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // See GET /api/clients's comment -- same missing-permission-check gap,
+    // same fix, applied consistently across the client-CRUD surface.
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const db = tenantDb(tenantId)
     const settings = await getSettings(tenantId)
     const dayMs = 24 * 60 * 60 * 1000
