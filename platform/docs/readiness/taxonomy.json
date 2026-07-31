@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed. | 2026-07-31 addendum #6 (continuing the coverage push per Jeff's instruction): added fin-10..fin-12, covering financial reporting endpoints, budget-templates/inventory, and CPA token export + admin finance-request conversion. Security domain is now essentially fully mapped (31/31 routes, all tables) as of this addendum. No existing severities/weights changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed. | 2026-07-31 addendum #6 (continuing the coverage push per Jeff's instruction): added fin-10..fin-12, covering financial reporting endpoints, budget-templates/inventory, and CPA token export + admin finance-request conversion. Security domain is now essentially fully mapped (31/31 routes, all tables) as of this addendum. No existing severities/weights changed. | 2026-07-31 addendum #7 (continuing coverage push per Jeff's instruction, no per-checkpoint check-in): added bsr-04, bsr-05 covering core booking CRUD + admin booking views, and job management surface. | 2026-07-31 addendum #8: added bsr-06, bsr-07 -- these 13 routes were initially (accidentally) marked covered via bare table-name substring collision (bookings/jobs/payments/expenses matching unrelated route paths in the coverage script's fuzzy matcher), caught before reporting, then actually reviewed for real and given real path-based depends_on_files entries.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -267,7 +267,8 @@
             "unmatched_payments",
             "payroll_payments",
             "team_member_payouts",
-            "resale_assets"
+            "resale_assets",
+            "invoices"
           ]
         },
         {
@@ -289,7 +290,9 @@
             "categorization_patterns",
             "journal_entries",
             "journal_lines",
-            "chart_of_accounts"
+            "chart_of_accounts",
+            "bank_accounts",
+            "bank_transactions"
           ]
         },
         {
@@ -306,7 +309,12 @@
             "src/app/api/vendors/[id]/items/route.ts",
             "src/app/api/finance/receipts/attach/route.ts",
             "src/app/api/finance/upload/route.ts",
-            "inventory_items"
+            "inventory_items",
+            "vendors",
+            "vendor_items",
+            "expenses",
+            "recurring_expenses",
+            "src/app/api/finance/expenses/route.ts"
           ]
         },
         {
@@ -325,7 +333,8 @@
             "accounting_periods",
             "chart_of_accounts",
             "journal_entries",
-            "journal_lines"
+            "journal_lines",
+            "year_end_runs"
           ]
         },
         {
@@ -455,6 +464,81 @@
           "severity": 4,
           "depends_on_files": [
             "src/app/api/cron/schedule-monitor/route.ts"
+          ]
+        },
+        {
+          "id": "bsr-04",
+          "name": "Core booking CRUD + admin booking views",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/bookings/route.ts",
+            "src/app/api/bookings/[id]/route.ts",
+            "src/app/api/bookings/[id]/status/route.ts",
+            "src/app/api/bookings/[id]/team/route.ts",
+            "src/app/api/bookings/[id]/reset/route.ts",
+            "src/app/api/bookings/[id]/payment/route.ts",
+            "src/app/api/bookings/batch/route.ts",
+            "src/app/api/bookings/batch-update/route.ts",
+            "src/app/api/bookings/broadcast/route.ts",
+            "src/app/api/bookings/closeout/route.ts",
+            "src/app/api/bookings/stats/route.ts",
+            "src/app/api/admin/bookings/route.ts",
+            "src/app/api/admin/bookings/[id]/cleaner-payout/route.ts",
+            "src/app/api/admin/bookings/[id]/closeout-summary/route.ts",
+            "bookings",
+            "booking_assignees",
+            "booking_team_members"
+          ]
+        },
+        {
+          "id": "bsr-05",
+          "name": "Job management endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/jobs/route.ts",
+            "src/app/api/jobs/[id]/route.ts",
+            "src/app/api/jobs/[id]/budget-variance/route.ts",
+            "src/app/api/jobs/[id]/checklist/route.ts",
+            "src/app/api/jobs/[id]/expenses/route.ts",
+            "src/app/api/jobs/[id]/photos/route.ts",
+            "src/app/api/jobs/[id]/photos/[photoId]/route.ts",
+            "src/app/api/jobs/[id]/photos/[photoId]/comments/route.ts",
+            "src/app/api/jobs/[id]/report/route.ts",
+            "src/app/api/jobs/[id]/sessions/route.ts",
+            "src/app/api/jobs/[id]/sessions/[sessionId]/route.ts",
+            "src/app/api/jobs/[id]/share/route.ts",
+            "src/app/api/jobs/public/[token]/route.ts",
+            "jobs",
+            "job_checklist_items",
+            "job_photos",
+            "job_events"
+          ]
+        },
+        {
+          "id": "bsr-06",
+          "name": "Payments/checkout + team-portal jobs claim/release/reassign",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/payments/checkout/route.ts",
+            "src/app/api/payments/link/route.ts",
+            "src/app/api/admin/payments/confirm-match/route.ts",
+            "src/app/api/admin/payments/finalize-match/route.ts",
+            "src/app/api/team-portal/jobs/route.ts",
+            "src/app/api/team-portal/jobs/claim/route.ts",
+            "src/app/api/team-portal/jobs/release/route.ts",
+            "src/app/api/team-portal/jobs/reassign/route.ts",
+            "src/app/api/equipment/[id]/bookings/route.ts",
+            "src/app/api/jobs/[id]/checklist/[itemId]/route.ts"
+          ]
+        },
+        {
+          "id": "bsr-07",
+          "name": "Client/portal booking read surface (token-authed)",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/portal/bookings/route.ts",
+            "src/app/api/portal/bookings/[id]/route.ts",
+            "src/app/api/client/bookings/route.ts"
           ]
         }
       ]

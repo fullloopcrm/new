@@ -305,6 +305,38 @@
           "evidence": "Pre-existing 'unscheduled_sale' check in schedule-monitor route (pendingBk block) confirmed present and running hourly, read 2026-07-30. Not independently live-curled this round beyond the code read. File: src/app/api/cron/schedule-monitor/route.ts line ~60-74 (pendingBk block).",
           "last_verified": "2026-07-30",
           "last_verified_commit": null
+        },
+        {
+          "id": "bsr-04",
+          "score": 46,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (grep-based auth-pattern spot check across 14 files, not full reads -- fast default for a medium-severity CRUD group per this session's instruction). Consistent gating: requirePermission('bookings.create'/'bookings.edit'/'bookings.delete') on write paths, getTenantForRequest() (tenant-scoped, any authenticated member) on status/team/reset/closeout/stats reads, requireAdmin() on the two cross-tenant admin views. No wrong-permission-category mismatch found (this domain's own bookings.* permissions are the correct category here, unlike the vendors/inventory finance mismatches). Note: status/team/reset/closeout/stats have no specific requirePermission call, only tenant-auth -- not flagged as a bug since operational booking-status changes being open to any tenant member is a plausible intentional design, not the same shape as the proven finance-mismatch pattern. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-05",
+          "score": 44,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (grep-based spot check, 13 files). Consistent requirePermission('bookings.view'/'bookings.edit'/'bookings.create'/'bookings.delete') gating on all tenant-facing routes. jobs/[id]/budget-variance uses 'sales.view' -- plausible (budget variance is often a sales/ops metric, not pure accounting) and not clearly the same wrong-category bug as vendors/inventory, so not fixed without more context on intended access boundaries -- flagging as a judgment call, not a confirmed gap. jobs/public/[token] is a public token-scoped share link, did not verify token expiry/revocation on this pass. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-06",
+          "score": 44,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. These 10 files were initially picked up by an accidental substring match in the coverage script (bare table names 'bookings'/'jobs'/'payments'/'expenses' colliding with unrelated route paths) -- caught before reporting, reviewed for real instead of leaving the false credit. payments/checkout, payments/link, equipment/[id]/bookings, jobs/[id]/checklist/[itemId] all use requirePermission('bookings.*'), consistent with the domain. admin/payments/confirm-match uses finance.expenses (correct -- it's a finance-side reconciliation action, distinct from the bookings-domain items here). admin/payments/finalize-match uses an internal API key (timing-safe compare against INTERNAL_API_KEY/ELCHAPO_MONITOR_KEY) -- an internal service-to-service call, not a bug. team-portal/jobs + claim/release/reassign all use requirePortalPermission (team-portal's own token-based auth), consistent across all 4. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-07",
+          "score": 40,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Same accidental-match cleanup as bsr-06. portal/bookings + [id] use verifyPortalToken (client-portal magic-link token auth), client/bookings uses protectClientAPI + getTenantFromHeaders. Did not verify token expiry/rotation on this pass -- read-only booking-list surfaces, lower severity, fast default applied. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },
