@@ -10,6 +10,12 @@ export async function GET() {
   const { tenant, error } = await requirePermission('clients.view')
   if (error) return error
 
+  // Bounded at 5000 -- a hard cap against a runaway/unbounded fetch, not an
+  // expected real tenant size. A tenant genuinely exceeding this in clients
+  // or bookings would need this endpoint rebuilt as a real SQL aggregation
+  // instead of an in-memory join; that's a separate, larger fix.
+  const CLIENT_ANALYTICS_ROW_CAP = 5000
+
   try {
     // Get all clients with referrer info
     const { data: clients } = await supabaseAdmin
@@ -17,6 +23,7 @@ export async function GET() {
       .select('*, referrers(name, ref_code)')
       .eq('tenant_id', tenant.tenantId)
       .order('created_at', { ascending: false })
+      .limit(CLIENT_ANALYTICS_ROW_CAP)
 
     // Get all completed bookings
     const { data: bookings } = await supabaseAdmin
@@ -25,6 +32,7 @@ export async function GET() {
       .eq('tenant_id', tenant.tenantId)
       .eq('status', 'completed')
       .order('start_time', { ascending: false })
+      .limit(CLIENT_ANALYTICS_ROW_CAP)
 
     // Get cancelled bookings for cancellation rate
     const { data: cancelledBookings } = await supabaseAdmin
@@ -32,11 +40,13 @@ export async function GET() {
       .select('id')
       .eq('tenant_id', tenant.tenantId)
       .eq('status', 'cancelled')
+      .limit(CLIENT_ANALYTICS_ROW_CAP)
 
     const { data: allBookings } = await supabaseAdmin
       .from('bookings')
       .select('id')
       .eq('tenant_id', tenant.tenantId)
+      .limit(CLIENT_ANALYTICS_ROW_CAP)
 
     const now = new Date()
 

@@ -40,27 +40,27 @@
         },
         {
           "id": "sec-05",
-          "score": 0,
-          "evidence_type": "git_log_diff",
-          "evidence": "git log --follow -- src/lib/idor-route-guard.baseline.json shows exactly 2 commits ever: the 07-12 creation and one incidental +1 net change from an unrelated test-fix commit. Zero dedicated triage commits since. Graduation-path step 1 in deploy-prep/idor-lint-guard-spec.md never executed.",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Real triage done 2026-07-30, full account in docs/security/idor-baseline-triage-2026-07-30.md. Individually traced all 129 baselined file::table signatures against the real source (not sampled) -- every flagged .eq('id', ...) chain traced back to where that variable actually originates. Result: 0 confirmed real IDOR vulnerabilities found requiring a code fix; every instance fell into a documented false-positive class (ownership proven by a prior fetch, token/signature-authenticated id, session-based self-lookup, cron/webhook-internal iteration, or admin-only routes on a separate auth path). Real fix applied: added partner_requests/platform_announcements/crm_notes to CROSS_TENANT_TABLES, verified via a live prod information_schema.columns query (not the table name) -- the same query correctly kept platform_feedback/error_logs off the allowlist since they do have tenant_id. Baseline shrank 129->63 (~57 of that were stale, already-fixed-elsewhere entries, confirmed real via 2 independent source spot-checks, not a tool bug). idor-route-guard.test.ts: 12/12 pass. Capped at manual_code_read (50), not test_run/live_query -- the 129 verdicts themselves came from reading and tracing code, not an automated assertion per-verdict; only the 3-table schema check was a real live query. NOT an authoritative 0-IDORs claim: the analyzer's own documented false-negative classes (split builders, dynamic table names, non-id vectors like slug/token) are real blind spots this pass cannot see. Graduation-path steps 2-4 (tenantDb adoption, new vectors, blocking CI job) not started.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "4c45175c7"
         },
         {
           "id": "sec-06",
-          "score": 50,
+          "score": 90,
           "evidence_type": "live_query",
-          "evidence": "Live query 2026-07-30: 186 real policies across 173 tables (real build-out since the DR runbook's original '0 policies' note). But 13 genuine tenant-owned tables (contacts, crm_notes, inbound_emails, inquiries, leads, partner_requests, tenant_locations, tenant_notes, tenant_projects, user_preferences, crew_members, booking_assignees, geo_nearby_places_cache) have RLS enabled with ZERO policies. App bypasses RLS via service_role regardless -- not the real enforcement boundary either way.",
+          "evidence": "Re-verified 2026-07-30, full account in docs/security/rls-policy-review-2026-07-30.md. Live query found the REAL current count is 20 tables with RLS enabled and zero policies, not 13 (prior evidence undercounted -- 7 more found: jefe_acks, jefe_messages, jefe_snapshots, platform_announcements, platform_settings, rate_limit_events, tenants). Confirmed this is NOT a live vulnerability, not just repeating the prior 'service_role bypasses RLS regardless' note: 'RLS enabled + zero policies' already means Postgres default-deny for every role except one with BYPASSRLS (service_role has it); a full repo grep for every browser/anon-key Supabase usage (5 files) found every one is Storage-bucket-only (.storage.from('uploads')), never a table query -- so nothing non-service_role ever reaches these 20 tables; and a separate grep confirmed this app never uses Supabase Auth anywhere (0 results for auth.uid()/supabase.auth.*), meaning a genuinely tenant-scoped RLS policy isn't even meaningfully achievable here -- there's no JWT tenant claim to filter by. Real artifact produced: supabase/migrations/20260730190000_explicit_deny_all_rls_policies.sql, formalizing the existing safe default-deny as an explicit policy on all 20 tables -- zero functional change, audit-trail/robustness value only. NOT APPLIED to prod as part of this session -- a schema migration against live prod is a production write, held for explicit sign-off same as the PIN-encryption backfill earlier. Score reflects a materially more complete and higher-confidence finding than the prior 50 (real count corrected, live-risk genuinely ruled out, fix drafted and ready) but stops short of full credit since the migration is written, not deployed or verified live. UPDATE 2026-07-30 (same session, Jeff approved): migration APPLIED to prod and verified live -- queried pg_policies directly, all 20 tables now show the deny_all_anon_authenticated policy for {anon,authenticated} roles, cmd=ALL. Not capped higher because this pass only covers tables that had ZERO policies; tables with partial/incomplete policy coverage were out of scope.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "d1707be53"
         },
         {
           "id": "sec-07",
-          "score": 0,
-          "evidence_type": "live_query",
-          "evidence": "Live query 2026-07-30: both columns hold plain 6-digit numeric strings on real prod rows, not hashes.",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Fixed 2026-07-30: clients.pin/team_members.pin encrypted at rest (AES-256-GCM via existing secret-crypto.ts) across every real write site (client/team-member create, PIN reset/request flows, team-provisioning, both Selena SMS-agent send-pin handlers) and every real read/display site (daily-summary, generate-recurring, bookings-team via team-sms.ts, broadcast-guidelines, notify.ts, both nycmaid templates, both Selena resend-confirmation handlers) -- 15 files, full exhaustive repo grep for both call patterns, not a partial sweep. Login (portal/auth, team-portal/auth) is the real architectural wrinkle: pin was used as an exact-match DB lookup key, and AES-GCM ciphertext differs every encryption, so an indexed .eq() lookup cannot find an encrypted row. Fixed with a two-tier lookup (src/lib/pin-lookup.ts): fast .eq() first (still matches un-migrated plaintext), decrypt-and-compare fallback scan second (5000-row cap) for encrypted rows -- verified via a real unit test (pin-lookup.test.ts) plus integration tests on both login routes proving an actually-encrypted row logs in via the fallback while a legacy-plaintext sibling on the same tenant logs in via the fast path in the same request. Full suite (892 files/5006 tests) passes, typecheck and lint clean. NOT DONE: no bulk backfill of existing prod plaintext pins was run (deliberate -- decryptSecret() passes through legacy plaintext unchanged, so pins encrypt organically the next time they are written/reset, not via a one-off prod data mutation); a real live_query/live_http_check against prod was not performed (capped at test_run, not live_query, for that reason); and this does not cover the 2 per-tenant legacy clone files (nyc-mobile-salon/_lib, wash-and-fold-nyc/_lib) that also reference .pin, flagged as a known, disclosed gap, not silently skipped.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "03a0d3b87"
         },
         {
           "id": "sec-08",
@@ -72,10 +72,42 @@
         },
         {
           "id": "sec-09",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "No Supabase Management API read endpoint exists for plan/PITR state (confirmed against the real OpenAPI spec 2026-07-30). Requires dashboard access not available this session.",
-          "last_verified": "2026-07-30",
+          "score": 65,
+          "evidence_type": "live_query",
+          "evidence": "Reviewed 2026-07-31 -- this checkpoint's prior 'not_scored' entry stated no Supabase Management API read endpoint exists for backup/PITR state. That was wrong (or the API changed): GET /v1/projects/{ref}/database/backups DOES return it, no dashboard access needed. Live result (confirmed twice, 2026-07-31, both identical): pitr_enabled=false, walg_enabled=true, and 7 real daily physical backups, one per day 2026-07-24 through 2026-07-30, all status=COMPLETED -- a genuine, working, reliable daily backup system, not a stub or an assumption. The real gap: Point-In-Time Recovery is OFF. With PITR disabled, a restore can only land on one of these daily snapshots (up to ~24h of data loss on the worst possible incident timing); with it enabled, restore could target any specific moment. For a live-revenue platform this is a real, live risk, not a hypothetical -- and now a known, specific one instead of an unknown. Enabling PITR is a Supabase plan/add-on decision (cost + Jeff sign-off), not something this session can flip via API. live_query evidence, cap 100 -- scored on the actual state found (reliable daily backups = a real baseline; PITR off = a real, named gap), not at ceiling.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-10",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (previously unmapped surface). Real rate-limiting on every entry point: /api/auth/login (5/5min, fail-closed), /api/admin-auth (5/15min, fail-closed), /api/pin-reset (5/15min per tenant+contact AND 30/15min per IP, both fail-closed). Session/token verification is cryptographic, not presence-only: verifyAdminToken uses HMAC-SHA256 with a constant-time compare (admin-auth/route.ts); getAdminUser's admin_session cookie goes through verifySessionCookie. /api/admin/users/[id]/pin (PIN set/reset) is gated by requirePermission('settings.edit'), confirms the target member belongs to the caller's tenant before touching pin_hash, hashes the PIN before storage, returns plaintext exactly once. One real architectural wrinkle, not a bug: two parallel session systems coexist by design (admin_session for Clerk-backed tenant members, admin_token for the platform-PIN super-admin path) -- this repo's own CLAUDE.md documents this was a real bug source for 3 tenant clones (fixed 2026-07-28) precisely because a domain's rewrite checked the wrong cookie. Did not re-audit every remaining site for the same mismatch class beyond what CLAUDE.md already confirms fixed. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-11",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Consistent gating across the whole admin/RBAC surface: requirePermission('settings.edit') on /api/admin/users (all 4 verbs) and /api/admin/users/[id]; requireAdmin() (platform-super-admin-only) on /api/admin/businesses/[id]/users, /api/admin/security, /api/admin/system-check -- correct, since these are legitimately cross-tenant surfaces. /api/tenants POST (self-service tenant creation) checks getOwnerUserId() and blocks a user who already belongs to a tenant. /api/invites/[token]/accept has no admin-session check by design (it's the invite acceptance flow itself) but is properly hardened: single-use (`invite.accepted` checked), expiring (`expires_at`), rate-limited (10/15min per IP), and the acceptance is written to security_events via logSecurityEvent. /api/cron/gdpr-purge uses a Bearer CRON_SECRET compared with a timing-safe helper. Did not verify every one of the 14 files' error-path status codes or confirm zero cross-tenant leakage on every list endpoint individually -- spot-checked the auth gate on each, not every query's WHERE clause. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-12",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/audit (tenant-facing) uses getTenantForRequest() + tenantDb(tenant.tenantId).from('audit_logs') -- a tenant can only ever see its own audit trail, correct. /api/admin/errors, /api/admin/monitoring/audit, /api/admin/monitoring/errors, /api/admin/monitoring/status are all requireAdmin()-gated (platform-super-admin), which is the correct scope for a cross-tenant monitoring view -- the cross-tenant reads inside them are explicitly commented `tenant-scope-ok: platform super-admin surface (cross-tenant by design)`, matching this codebase's established tenant-scope-audit convention rather than an unexplained bypass. /api/finance/audit-log is tenant-scoped via requirePermission('finance.view'). Did not verify requireAdmin() itself is unforgeable beyond what sec-10's review of verifyAdminToken already covers. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-13",
+          "score": 40,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/webhooks/clerk verifies a real Svix HMAC signature (verifySvix) before trusting the payload -- but has a documented escape hatch: `if (process.env.CLERK_WEBHOOK_VERIFY !== 'off')`, meaning signature verification is skippable by env var. Presumably a local-dev convenience, but it's a live code path that would silently accept ANY unsigned payload if that var were ever set to 'off' in prod -- a real, if narrow, misconfiguration risk for a checkpoint specifically about trigger auth. /api/internal/deploy-hook verifies Vercel's HMAC-SHA1 signature with crypto.timingSafeEqual, no bypass switch, well-documented threat model in its own header comment (project-scoped token specifically to limit blast radius). /api/migrate-cleaner-notifications is gated by requirePermission('settings.edit') -- it's an authenticated admin action, not actually a webhook, filed here because it was unmapped Security surface. Scored below sec-10/11/12 specifically because of the Clerk webhook's live bypass switch. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
       ]
@@ -108,19 +140,19 @@
         },
         {
           "id": "fin-04",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: src/app/api/finance/ar-aging/route.ts has no .limit()/.range() at all on either its invoices or bookings query -- genuinely unbounded, confirmed present, unfixed.",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Fixed 2026-07-30: getArAging() (src/lib/finance/ar-aging.ts, the real logic behind this route) had zero .limit()/.range() on either its invoices or bookings query. Added an explicit 5000-row cap to both. New test (ar-aging.pagination.test.ts) spies on .limit() and fails without it -- confirmed it genuinely fails against the pre-fix code before confirming it passes against the fix. Capped at test_run (90), not live_query, since this was verified via a mocked unit test, not a live prod hit.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "99fbfff1e"
         },
         {
           "id": "fin-05",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: src/app/api/client-analytics/route.ts has no .limit()/.range() either.",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Fixed 2026-07-30: src/app/api/client-analytics/route.ts had zero .limit()/.range() across all 4 queries (clients, completed/cancelled/all bookings). Added an explicit 5000-row cap to each. New test (route.pagination.test.ts) spies on .limit() across all 4 and fails without it -- confirmed it genuinely fails against the pre-fix code before confirming it passes against the fix. NOT a complete fix: this route still does an in-memory client/booking join rather than a real SQL aggregation, so a tenant that ever exceeds 5000 clients or bookings would see incomplete stats, not a crash -- that rebuild is separate and larger. Capped at test_run (90), not live_query.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": null
+          "last_verified_commit": "99fbfff1e"
         },
         {
           "id": "fin-06",
@@ -128,6 +160,30 @@
           "evidence_type": "test_run",
           "evidence": "3 existing test files (route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts) pass 2026-07-30. Not independently live-curled against a real Stripe event this round. Test files: src/app/api/webhooks/stripe/route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts.",
           "last_verified": "2026-07-30",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-07",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Invoice CRUD and payment-recording endpoints consistently gated by requirePermission('finance.view' or 'finance.expenses') + tenantDb scoping (/api/invoices, /api/invoices/[id]/record-payment). The public payment path (/api/invoices/public/[token]/checkout) is well-designed for an unauthenticated surface: balance is computed server-side from stored total_cents/amount_paid_cents (never trusts a client-supplied amount), blocks paying an already void/refunded/paid invoice, decrypts the tenant's Stripe key only at the send boundary, and sanitizes error messages before returning them publicly (`catch` block explicitly avoids leaking Stripe/internal error text). Gap: no rate-limiting found on the public checkout-session-creation call, unlike almost every other public endpoint reviewed this session (pin-reset, invite-accept, nycmaid book/new) -- a public token, once known (e.g. leaked via a forwarded email), could be hit repeatedly to spin up Stripe Checkout sessions with no throttle. Did not verify public_token's generation is cryptographically random at the invoice-creation site. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-08",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Bank reconciliation surface (/api/finance/bank-accounts, bank-import, bank-transactions + its match/suggest/accept-suggestions sub-routes, reconcile-candidates) consistently uses getTenantForRequest()/requirePermission('finance.view' or 'finance.expenses') plus tenant_id-scoped queries -- no gaps found in the auth-gate spot-check across all 9 files. Did not review the actual matching/suggestion algorithm for correctness (out of scope for an access-control-focused pass) or trace every write path's idempotency. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-09",
+          "score": 30,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/finance/expenses/[id] is correctly gated by requirePermission('finance.expenses'). Two real, disclosed gaps found in this group, not present in fin-07/fin-08's siblings: (1) /api/vendors is gated by requirePermission('bookings.view'/'bookings.edit') -- a BOOKINGS permission, not a finance one -- even though vendors/vendor_items are finance-adjacent data (used in expense/inventory tracking); a tenant member with booking access but no finance access can view and edit vendor records under the current RBAC taxonomy. (2) /api/recurring-expenses only checks getTenantForRequest() (any authenticated tenant member, any role) with no requirePermission call at all, unlike expenses/[id] right next to it -- any team member can view/create/edit recurring expense schedules regardless of finance permission. Both are real RBAC-consistency gaps, not access-control bypasses (still fully tenant-scoped, no cross-tenant exposure), but they diverge from this codebase's own established finance-gating pattern. Scored below fin-07/fin-08 for that reason. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
       ]
@@ -138,33 +194,33 @@
           "id": "lss-01",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Traced 2026-07-30; existing tests pass; added trackError alerting to the previously-silent failure path this session, commit 50ed3e882, own test route.pipeline-alert.test.ts passing.",
+          "evidence": "Traced 2026-07-30; existing tests pass; added trackError alerting to the previously-silent failure path this session, commit be172fdfe, own test route.pipeline-alert.test.ts passing.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-02",
           "score": 75,
           "evidence_type": "test_run",
-          "evidence": "Same pattern as lss-01; existing test passes; alerting added commit 50ed3e882; not independently live-curled this round.",
+          "evidence": "Same pattern as lss-01; existing test passes; alerting added commit be172fdfe; not independently live-curled this round.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-03",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning (live code read: notification-only, no client/lead/deal). Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
+          "evidence": "Was 0 on 2026-07-30 morning (live code read: notification-only, no client/lead/deal). Fixed same day, commit 734d360dd, 3 new tests passing (route.lead-creation.test.ts).",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "lss-04",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 0747ac898, 3 new tests passing (route.lead-creation.test.ts).",
+          "evidence": "Was 0 on 2026-07-30 morning. Fixed same day, commit 734d360dd, 3 new tests passing (route.lead-creation.test.ts).",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "lss-05",
@@ -178,17 +234,17 @@
           "id": "lss-06",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 36364688f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
+          "evidence": "Real live bug confirmed 2026-07-30 morning: both of prod's 2 ever-'sold' deals had booking_id null; one converted to an unscheduled Job that sat 11+ days. Fixed same day, commit 8536f407f (lib/jobs.ts closeSoldQuote), 3 new tests + all 30 pre-existing related tests pass.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "36364688f"
+          "last_verified_commit": "8536f407f"
         },
         {
           "id": "lss-07",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Built+shipped 2026-07-30, commit 50ed3e882. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
+          "evidence": "Built+shipped 2026-07-30, commit be172fdfe. New test (route.pipeline-alert.test.ts) proves trackError fires on a real simulated failure and the request still succeeds.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "50ed3e882"
+          "last_verified_commit": "be172fdfe"
         },
         {
           "id": "lss-08",
@@ -206,9 +262,9 @@
           "id": "bsr-01",
           "score": 90,
           "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit ecfa935c6 (schedule-monitor cron extension), 3 new tests passing.",
+          "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit 375e8ea75 (schedule-monitor cron extension), 3 new tests passing.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "ecfa935c6"
+          "last_verified_commit": "375e8ea75"
         },
         {
           "id": "bsr-02",
@@ -232,9 +288,9 @@
       "checkpoints": [
         {
           "id": "crm-01",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: consortium-nyc, wash-and-fold-nyc, nycmaid, the-nyc-exterminator, nyc-mobile-salon, fla-dumpster-rentals reviews pages all have zero DB/fetch calls -- fully static. Phase 1's reviews-page fix covers none of these 6.",
+          "score": 70,
+          "evidence_type": "test_run",
+          "evidence": "Re-verified 2026-07-30: nycmaid reviews page was already fixed 2026-07-29 (commit 773bbf749, prior ledger entry was stale/wrong) -- live DB wiring confirmed via code read, not the fabricated-static claim it was scored on. Live-queried real approved-review counts for the other 5: all zero. Rebuilt wash-and-fold-nyc, the-nyc-exterminator, nyc-mobile-salon, fla-dumpster-rentals reviews pages from scratch -- removed ~90 combined fabricated named testimonials plus false claims (\"2,847+ Verified Reviews\", \"Read real Google reviews\", an FAQ literally asserting \"we never solicit fake reviews\", an invented star-distribution breakdown) and wired all 4 to live /api/reviews with an honest empty state. Also removed a fabricated review array injected directly into wash-and-fold-nyc localBusinessSchema() JSON-LD (rendered sitewide via homepageSchemas(), falsely attributed to publisher:Google). Verified via clean tsc --noEmit (0 errors) and a genuinely clean full production build (real env, cleared cache: 2614 pages, 0 errors). consortium-nyc (6th tenant) is NOT fixed -- its /reviews route is a bare redirect to \"/\", not a reviews page at all; building one from scratch was out of scope this pass since the tenant has zero review data to show either way.",
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
@@ -256,18 +312,18 @@
         },
         {
           "id": "crm-04",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Ran full client-route suite 2026-07-30 (npx vitest run src/app/api/clients): 34/34 tests passed across 13 files -- GET/POST/PUT/DELETE CRUD, tenant isolation (list scoping, cross-tenant 404s, forged tenant_id override, scoped dedup on create/import), GDPR export (JSON+CSV, audit-logged), contacts, properties, activity, analytics, stats. Confirmed via code read that src/app/dashboard/clients/page.tsx and [id]/page.tsx fetch these same tested endpoints (not mocked/static). NOT verified: dashboard UI actually rendering in a live browser -- no e2e/Playwright suite exists for this and none was run this pass.",
+          "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
         {
           "id": "crm-05",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 60,
+          "evidence_type": "test_run",
+          "evidence": "Ran full production build 2026-07-30 (npm run build, Next.js 16.1.6/Turbopack): succeeded clean, BUILD_ID produced, zero errors across all ~690 site/marketing pages. protected-tenant guard passed for all 21 live bespoke sites. RE-VERIFIED with a genuinely clean build after discovering this worktree had no .env.local and the first pass may have relied on stale .next cache to mask a real Supabase-credential gap -- pulled real env via vercel env pull (project fullloopcrm), cleared .next, rebuilt from scratch: 2614 pages generated, zero errors. This confirms no broken imports/runtime-breaking errors across the marketing surface, but does NOT verify page content correctness, broken links, or visual/UX quality. Scored below the test_run ceiling (90) because the check proves absence-of-breakage, not presence-of-quality; this checkpoint is severity 1 (lowest) so a partial pass is proportionate.",
+          "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
       ]
@@ -278,9 +334,9 @@
           "id": "ai-01",
           "score": 75,
           "evidence_type": "live_query",
-          "evidence": "Live query 2026-07-30: 1,903 real sms_conversations rows, most recent 5 minutes before the check -- genuinely active, current usage. Code also read same day as part of the chat-route lead-creation fix (commit 0747ac898). Not a fresh end-to-end test run this round beyond the existing suite.",
+          "evidence": "Live query 2026-07-30: 1,903 real sms_conversations rows, most recent 5 minutes before the check -- genuinely active, current usage. Code also read same day as part of the chat-route lead-creation fix (commit 734d360dd). Not a fresh end-to-end test run this round beyond the existing suite.",
           "last_verified": "2026-07-30",
-          "last_verified_commit": "0747ac898"
+          "last_verified_commit": "734d360dd"
         },
         {
           "id": "ai-02",
@@ -292,27 +348,27 @@
         },
         {
           "id": "ai-03",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 25,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-31. src/lib/telegram.ts: sendTelegram() correctly catches fetch exceptions and returns {ok,status,body} rather than throwing. alertOwner() and notifyOwnerOnTelegram() are wired at 18 real call sites -- cron monitors (health-monitor, tenant-health, comms-monitor, anthropic-health, system-check), error-tracking.ts's central alert path, audit.ts sensitive-action alerts, tenant-isolation-alert.ts, post-activation.ts, feedback route -- a broad, correct footprint, not a stub. CRITICAL severity has a real secondary channel: alertOwnerCritical() sends SMS via NYC Maid's Telnyx number as a fallback, and sendSMS() itself is wrapped in withRetry() (real retry logic). BUT: the actual 'delivery reliability' this checkpoint asks about has a hard gap -- grepped every call site of alertOwner()/notifyOwnerOnTelegram() and NONE of them inspect the returned .ok/.status. sendTelegram() never throws on a non-2xx Telegram response (bad/revoked bot token, bot removed from chat, wrong chat_id, rate-limit) by design -- it swallows the failure into the return value, which every caller then discards (`.catch(() => {})` on call sites only guards against a thrown network exception, which sendTelegram() itself never produces). Net effect: if Telegram alerting silently breaks, there is currently zero signal anywhere in the system -- no log line, no monitoring row, no fallback trigger for non-CRITICAL alerts. alertOwnerCritical()'s own SMS failure path is the same shape: caught and console.error'd only, not surfaced. Existing tests (telegram.test.ts) cover 'sends', 'no-ops when unconfigured', and 'never throws' -- none cover a non-ok API response being detected or surfaced. Capped at manual_code_read (50) -- no live probe was sent to avoid paging a real alert channel without asking first.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "ai-04",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-31. src/lib/connect-translate.ts's translateToEnEs() has a sound, deliberately fail-open design: the entire Anthropic call + response parsing (client construction, messages.create, JSON-extraction regex, JSON.parse) is inside one try/catch, so ANY failure mode -- missing/invalid API key, network error, malformed/non-JSON model output, missing en/es keys -- falls through to `return { en: text, es: text }`, i.e. both sides see the original message unmodified rather than a blocked or broken send. Real, wide adoption: 7 real call sites (team-announcements, portal/connect, dashboard/messages, team-portal/connect + its upload route, connect/messages + its upload route) covering every Loop Connect send path described in this repo's CLAUDE.md ('every Loop Connect message is now auto-translated EN/ES at send time'), not a partial rollout. Gaps: zero automated test coverage -- no connect-translate.test.ts exists at all, so the fail-open behavior and the JSON-extraction regex's edge cases (e.g. a source message that itself contains literal {}  characters) are unverified by any test, only by this code read. Did not make a live Anthropic API call to verify actual translation quality/latency -- that's a real paid API call and wasn't authorized for this pass. Capped at manual_code_read (50).",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "ai-05",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
-          "last_verified_commit": null
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-30 (was not_scored, time-boxed out previously). isCommEnabled() (src/lib/comms-prefs.ts) is real and genuinely wired in, not inert -- its own doc comment claimed 'nothing in the send paths calls it yet', which was stale and has been fixed. Confirmed 18 real callers: notify.ts's central dispatcher (gates email/sms via NOTIFY_COMM_MAP, 20 mapped type:recipient pairs) plus 17 direct call sites across booking/lead/reschedule routes, cron reminders, and the Stripe webhook. Design is sound: locked (transactional) comms always send regardless of preference; unknown/unmapped comm keys fail OPEN (send anyway) rather than silently dropping mail -- a deliberate, reasonable tradeoff (worst case is an unwanted send, not a dropped transactional message or a data leak). NOT verified: whether every notify() call site's `type` has a NOTIFY_COMM_MAP entry (i.e. whether any real send path is silently un-gated) -- would require enumerating every notify() call across the app, out of scope for this pass. Capped at manual_code_read (50) -- this was a code-tracing review, not an automated test.",
+          "last_verified": "2026-07-30",
+          "last_verified_commit": "6181d6fb3"
         }
       ]
     },

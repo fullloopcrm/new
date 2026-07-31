@@ -165,7 +165,7 @@ async function bookingConfirmedHtml(
     teamMemberRatingAvg = cleaner?.avg_rating ? Number(cleaner.avg_rating) : undefined
     teamMemberRatingCount = cleaner?.rating_count || undefined
     portalEmail = bClient?.email || undefined
-    portalPin = bClient?.pin || undefined
+    portalPin = bClient?.pin ? decryptSecret(bClient.pin) : undefined
     isRecurring = !!b?.recurring_type
   }
   // Cancellation policy is tenant-configured (Settings → Notifications).

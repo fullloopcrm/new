@@ -2,6 +2,7 @@
 // SMS TEMPLATES — Short text versions of emails
 // All messages end with opt-out info per TCPA
 // ============================================
+import { decryptSecret } from '../secret-crypto'
 
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES } from './time-window'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
@@ -170,7 +171,7 @@ export function smsThankYouES(clientName: string): string {
 export function smsJobAssignment(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  const pin = booking.cleaners?.pin || ''
+  const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   const supplies = booking.hourly_rate === 49
     ? ' (Labor only - client has supplies / Solo mano de obra - cliente tiene suministros)'
     : ' (Bring supplies / Trae suministros)'
@@ -179,7 +180,8 @@ export function smsJobAssignment(booking: any): string {
 
 export function smsDailySummary(cleanerName: string, count: number, pin?: string, bookings?: any[]): string {
   const firstName = cleanerName.split(' ')[0]
-  const pinText = pin ? ` PIN: ${pin}` : ''
+  const plainPin = pin ? decryptSecret(pin) : ''
+  const pinText = plainPin ? ` PIN: ${plainPin}` : ''
 
   let jobLines = ''
   if (bookings && bookings.length > 0) {
@@ -200,14 +202,14 @@ export function smsDailySummary(cleanerName: string, count: number, pin?: string
 
 export function smsJobCancelled(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const pin = booking.cleaners?.pin || ''
+  const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   return `The NYC Maid: Cancelled - ${date} job (${booking.clients?.name || 'Client'}). Portal: thenycmaid.com/team PIN: ${pin}\nCancelado - trabajo del ${date}. Portal: thenycmaid.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsJobRescheduled(booking: any): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
   const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  const pin = booking.cleaners?.pin || ''
+  const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   const supplies = booking.hourly_rate === 49
     ? ' (Labor only / Solo mano de obra)'
     : ' (Bring supplies / Trae suministros)'
@@ -250,7 +252,7 @@ export function smsNewClient(name: string): string {
 export function smsLateCheckInCleaner(booking: any): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
-  const pin = booking.cleaners?.pin || ''
+  const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   return `The NYC Maid: You're late for your ${time} job (${clientName}). Please check in ASAP: thenycmaid.com/team PIN: ${pin}\nEstás tarde para tu trabajo de las ${time} (${clientName}). Regístrate ahora: thenycmaid.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
@@ -263,7 +265,7 @@ export function smsLateCheckInAdmin(booking: any): string {
 
 export function smsLateCheckOutCleaner(booking: any): string {
   const clientName = booking.clients?.name || 'Client'
-  const pin = booking.cleaners?.pin || ''
+  const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   return `The NYC Maid: Please check out for your ${clientName} job. 30-min alert was sent 30+ min ago. Check out now: thenycmaid.com/team PIN: ${pin}\nPor favor regístrate de salida para tu trabajo con ${clientName}. Salir ahora: thenycmaid.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
