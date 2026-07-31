@@ -400,10 +400,10 @@
         },
         {
           "id": "onb-03",
-          "score": 75,
-          "evidence_type": "git_log_diff",
-          "evidence": "Commit confirmed on main via git log 2026-07-30 ('add 6 missing critical/recommended fields to onboarding questionnaire'). Not independently live-curled against a real onboarding submission this round.",
-          "last_verified": "2026-07-30",
+          "score": 95,
+          "evidence_type": "live_query",
+          "evidence": "Escalated from git_log_diff(75) with two real checks this pass, not just re-reading the diff. (1) test_run: `npx vitest run src/app/api/dashboard/onboarding/profile/route.isolation.test.ts` -- 7/7 pass, incl. the specific case 'submit writes the 6 previously-missing critical/recommended fields to their real tenants columns' which POSTs all 6 (businessHoursStart/End, ownerEmail, leadNotificationEmail, paymentMethods, googlePlaceId) and asserts each lands on the correct tenant column in the mocked store. (2) live_query: read-only `information_schema.columns` query against prod (Supabase Mgmt API, project cetnrttgtoajzjacfbhe, same non-gated read-only pattern as onb-01/onb-02's own precedent) confirms all 6 columns genuinely exist on the live `tenants` table with the exact types the route code assumes: business_hours_start/business_hours_end/owner_email/lead_notification_email/google_place_id = text, payment_methods = ARRAY (matches the string[] the UI POSTs). Not scored 100: the isolation test proves the write-path logic against a MOCKED store, not a live round-trip through the actual running onboarding wizard UI with a real tenant afterward -- that last hop (click through the live form, then live-read the same tenant row back) is the one thing still unverified, so a small margin is left rather than claiming full E2E.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": "065a74344"
         },
         {
