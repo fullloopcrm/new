@@ -46,6 +46,12 @@ vi.mock('mailparser', () => ({
     subject: 'Question about cleaning',
     text: 'Do you clean on Sundays?',
     date: new Date('2026-07-13T12:00:00Z'),
+    // mailparser's real simpleParser() always returns a Map-like `headers`
+    // (case-insensitive `.get()`) -- route.ts's automated-mail filter reads
+    // list-unsubscribe/precedence/auto-submitted off it. A real inbound lead
+    // email carries none of those, so an empty Map matches production for
+    // this "genuine person emailing in" scenario.
+    headers: new Map(),
   })),
 }))
 

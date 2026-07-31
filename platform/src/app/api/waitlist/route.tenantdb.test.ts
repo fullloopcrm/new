@@ -26,7 +26,15 @@ function chain(table: string) {
     limit: () => c,
     insert: (row: Row) => {
       rowsOf().push(row)
-      return { then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: null, error: null }) }
+      // Chainable insert result — real Supabase's .insert() returns a query
+      // builder, not an already-resolved promise, so callers can chain
+      // .select('id').single() to get the new row's id back (route.ts does).
+      const insertChain: Record<string, unknown> = {
+        select: () => insertChain,
+        single: () => Promise.resolve({ data: row, error: null }),
+        then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: [row], error: null }),
+      }
+      return insertChain
     },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }

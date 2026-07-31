@@ -38,9 +38,19 @@ function builder(table: string) {
     order: () => chain,
     limit: () => chain,
     insert: (row: Row) => {
-      insertedRow = { id: `new-${(store[table] || []).length + 1}`, ...row }
-      store[table] = [...(store[table] || []), insertedRow]
-      return Promise.resolve({ data: [insertedRow], error: null })
+      const created: Row = { id: `new-${(store[table] || []).length + 1}`, ...row }
+      insertedRow = created
+      store[table] = [...(store[table] || []), created]
+      // Chainable insert result — real Supabase's .insert() returns a query
+      // builder, not an already-resolved promise, so callers can chain
+      // .select('id').single() to get the new row's id back (route.ts does).
+      const insertChain: Record<string, unknown> = {
+        select: () => insertChain,
+        single: () => Promise.resolve({ data: created, error: null }),
+        then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
+          resolve({ data: [created], error: null }),
+      }
+      return insertChain
     },
     then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
       const rows = (store[table] || []).filter((r) => matches(r, eqs))
