@@ -234,6 +234,9 @@ export default async function middleware(req: NextRequest) {
     'naplesflmaid.com',
     'bocaratonflmaid.com',
     'sarasotaflmaid.com',
+    'stpetemaid.com',
+    'daytonabeachmaid.com',
+    'panamacitymaid.com',
   ])
   if (
     // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
@@ -314,6 +317,9 @@ export default async function middleware(req: NextRequest) {
       'naplesflmaid.com': '/site/emd-microsites/naples-maid',
       'bocaratonflmaid.com': '/site/emd-microsites/boca-raton-maid',
       'sarasotaflmaid.com': '/site/emd-microsites/sarasota-maid',
+      'stpetemaid.com': '/site/emd-microsites/st-pete-maid',
+      'daytonabeachmaid.com': '/site/emd-microsites/daytona-beach-maid',
+      'panamacitymaid.com': '/site/emd-microsites/panama-city-maid',
     }
     const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
     if (emdRoute) {
