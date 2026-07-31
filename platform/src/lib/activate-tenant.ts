@@ -107,13 +107,23 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   try {
     const prov = await provisionTenant({ tenantId, industry: tenant.industry || undefined })
     const seededCount = Object.values(prov.seeded).filter(Boolean).length
+    // Surface the AI service-tailoring outcome (Phase 2B) so an admin running
+    // activation can see whether the seeded services were tailored to this
+    // specific business or are still the generic industry preset — undefined
+    // means services already existed and tailoring never ran (see
+    // ProvisionResult.tailoredServices docstring).
+    const tailorDetail = prov.tailoredServices
+      ? prov.tailoredServices.applied
+        ? ` · Services AI-tailored (${prov.tailoredServices.edits.length} row(s))`
+        : ` · Services tailoring skipped (${prov.tailoredServices.reason || 'not applied'})`
+      : ''
     steps.push({
       key: 'settings',
       label: 'Global settings applied',
       status: 'done',
-      detail: seededCount > 0
+      detail: (seededCount > 0
         ? `Seeded ${seededCount} setting group(s); ${prov.skipped.length} already set`
-        : 'All settings already applied',
+        : 'All settings already applied') + tailorDetail,
     })
   } catch (e) {
     steps.push({ key: 'settings', label: 'Global settings applied', status: 'failed', detail: msg(e) })

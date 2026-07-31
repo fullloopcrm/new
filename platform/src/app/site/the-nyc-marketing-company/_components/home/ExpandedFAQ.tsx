@@ -31,7 +31,7 @@ const faqs: { question: string; answer: ReactNode }[] = [
   },
   {
     question: "What makes The NYC Marketing Company different from other marketing companies?",
-    answer: <span>You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don&apos;t outsource your work overseas. We don&apos;t lock you into contracts. And we show you <L href="/nyc-marketing-company-portfolio">real results from real businesses</L> — not stock photo case studies. Read more <L href="/about-digital-marketing-agency-consortium-nyc">about us</L>.</span>,
+    answer: <span>You work directly with someone who has 25 years of experience in the exact seat they sit in. No junior account managers, no layers, no runaround. We pick up the phone. We respond same-day. We don&apos;t outsource your work overseas. We don&apos;t lock you into contracts. And we show you <L href="/nyc-marketing-company-portfolio">real results from real businesses</L> — not stock photo case studies. Read more <L href="/about">about us</L>.</span>,
   },
   {
     question: "Do you build websites or just do SEO?",

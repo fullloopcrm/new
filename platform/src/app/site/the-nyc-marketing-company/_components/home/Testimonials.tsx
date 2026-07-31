@@ -24,7 +24,7 @@ function Stars({ count }: { count: number }) {
 
 export default function Testimonials() {
   return (
-    <section className="py-20 sm:py-28 bg-slate-900">
+    <section id="testimonials" className="py-20 sm:py-28 bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div

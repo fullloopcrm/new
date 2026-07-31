@@ -144,7 +144,7 @@ export default function PricingGuidePage() {
             <span className="text-teal-400">NYC Actually Cost?</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">
-            Transparent pricing from a <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">marketing company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
+            Transparent pricing from a <Link href="/about" className="text-teal-400 underline underline-offset-2 hover:text-teal-300">marketing company with 25 years of experience</Link>. No hidden fees. No surprise invoices. No contracts. Plus the real talk about pricing that nobody else will give you.
           </p>
         </div>
       </section>
