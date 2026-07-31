@@ -232,9 +232,9 @@
       "checkpoints": [
         {
           "id": "crm-01",
-          "score": 0,
-          "evidence_type": "manual_code_read",
-          "evidence": "Read live 2026-07-30: consortium-nyc, wash-and-fold-nyc, nycmaid, the-nyc-exterminator, nyc-mobile-salon, fla-dumpster-rentals reviews pages all have zero DB/fetch calls -- fully static. Phase 1's reviews-page fix covers none of these 6.",
+          "score": 70,
+          "evidence_type": "test_run",
+          "evidence": "Re-verified 2026-07-30: nycmaid reviews page was already fixed 2026-07-29 (commit 773bbf749, prior ledger entry was stale/wrong) -- live DB wiring confirmed via code read, not the fabricated-static claim it was scored on. Live-queried real approved-review counts for the other 5: all zero. Rebuilt wash-and-fold-nyc, the-nyc-exterminator, nyc-mobile-salon, fla-dumpster-rentals reviews pages from scratch -- removed ~90 combined fabricated named testimonials plus false claims (\"2,847+ Verified Reviews\", \"Read real Google reviews\", an FAQ literally asserting \"we never solicit fake reviews\", an invented star-distribution breakdown) and wired all 4 to live /api/reviews with an honest empty state. Also removed a fabricated review array injected directly into wash-and-fold-nyc localBusinessSchema() JSON-LD (rendered sitewide via homepageSchemas(), falsely attributed to publisher:Google). Verified via clean tsc --noEmit (0 errors) and a genuinely clean full production build (real env, cleared cache: 2614 pages, 0 errors). consortium-nyc (6th tenant) is NOT fixed -- its /reviews route is a bare redirect to \"/\", not a reviews page at all; building one from scratch was out of scope this pass since the tenant has zero review data to show either way.",
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         },
@@ -266,7 +266,7 @@
           "id": "crm-05",
           "score": 60,
           "evidence_type": "test_run",
-          "evidence": "Ran full production build 2026-07-30 (npm run build, Next.js 16.1.6/Turbopack): succeeded clean, BUILD_ID produced, zero errors across all ~690 site/marketing pages. protected-tenant guard passed for all 21 live bespoke sites. This confirms no broken imports/runtime-breaking errors across the marketing surface, but does NOT verify page content correctness, broken links, or visual/UX quality -- no crawl or content audit was done. Scored below the test_run ceiling (90) because the check proves absence-of-breakage, not presence-of-quality; this checkpoint is severity 1 (lowest) so a partial pass is proportionate.",
+          "evidence": "Ran full production build 2026-07-30 (npm run build, Next.js 16.1.6/Turbopack): succeeded clean, BUILD_ID produced, zero errors across all ~690 site/marketing pages. protected-tenant guard passed for all 21 live bespoke sites. RE-VERIFIED with a genuinely clean build after discovering this worktree had no .env.local and the first pass may have relied on stale .next cache to mask a real Supabase-credential gap -- pulled real env via vercel env pull (project fullloopcrm), cleared .next, rebuilt from scratch: 2614 pages generated, zero errors. This confirms no broken imports/runtime-breaking errors across the marketing surface, but does NOT verify page content correctness, broken links, or visual/UX quality. Scored below the test_run ceiling (90) because the check proves absence-of-breakage, not presence-of-quality; this checkpoint is severity 1 (lowest) so a partial pass is proportionate.",
           "last_verified": "2026-07-30",
           "last_verified_commit": null
         }
