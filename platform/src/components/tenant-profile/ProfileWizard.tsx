@@ -48,6 +48,13 @@ function FieldHelp({ text }: { text: string | null | undefined }) {
   return <p className="mb-1.5 text-xs text-slate-500">{text}</p>
 }
 
+// Long-form fields (paragraphs, structured lists/pairs, editors with their
+// own internal rows) need the full row in the 2-column grid — cramming them
+// into a half-width cell is what made this feel like a cramped contact form.
+function isWideField(f: ApiField): boolean {
+  return f.input === 'textarea' || f.input === 'custom' || (f.input === 'array' && !f.options)
+}
+
 type FormState = Record<string, FieldValue>
 
 const SECTION_META: Record<string, { title: string; blurb: string }> = {
@@ -194,7 +201,11 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const pct = Math.round(((step + 1) / sections.length) * 100)
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10">
+      <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-slate-400">
+        <span className="font-heading text-slate-900">Full Loop</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">CRM</span>
+      </div>
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-bold text-slate-900">
           {businessName ? `Complete ${businessName}'s profile` : 'Complete your business profile'}
@@ -246,13 +257,15 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
         <h2 className="font-heading text-lg font-semibold text-slate-900">{meta.title}</h2>
         {meta.blurb && <p className="mb-5 text-sm text-slate-500">{meta.blurb}</p>}
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (
-            <FieldRenderer key={f.key} field={f} value={form[f.key]} onChange={(v) => set(f.key, v)} />
+            <div key={f.key} className={isWideField(f) ? 'md:col-span-2' : undefined}>
+              <FieldRenderer field={f} value={form[f.key]} onChange={(v) => set(f.key, v)} />
+            </div>
           ))}
         </div>
       </div>
