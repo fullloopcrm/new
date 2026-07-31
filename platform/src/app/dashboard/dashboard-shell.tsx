@@ -293,6 +293,11 @@ function DashboardShellInner({
   const day = dayOfBuilding()
   const title = pageTitleFromPath(pathname)
   const isLoop = pathname === '/dashboard'
+  // ComHub is a locked, app-like 3-pane surface (like Slack/Gmail) — it owns
+  // its own internal scrolling per pane and needs the full viewport, not the
+  // padded/scrolling content-page chrome every other route gets.
+  const segment = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || ''
+  const isComhub = segment === 'comhub'
 
   return (
     <div
@@ -488,9 +493,12 @@ function DashboardShellInner({
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 min-w-0 overflow-y-auto md:ml-60 pb-32" style={{ background: 'var(--color-loop-bg)' }}>
+      <main
+        className={`flex-1 min-w-0 md:ml-60 ${isComhub ? 'h-screen overflow-hidden flex flex-col' : 'overflow-y-auto pb-32'}`}
+        style={{ background: 'var(--color-loop-bg)' }}
+      >
         {impersonationBanner}
-        <div className="px-12 pt-4 pb-24 max-w-[1500px]">
+        <div className={isComhub ? 'px-4 md:px-6 pt-2 flex flex-col flex-1 min-h-0' : 'px-12 pt-4 pb-24 max-w-[1500px]'}>
           {/* Mobile hamburger */}
           <button
             className="md:hidden p-2 mb-4 -ml-2"
@@ -502,88 +510,105 @@ function DashboardShellInner({
             </svg>
           </button>
 
-          {/* TOPBAR — sticky so settings/notifications stay reachable while
-              scrolled deep into a page's content. */}
+          {/* TOPBAR — compact single row. Not sticky on ComHub since the page
+              itself no longer scrolls. */}
           <div
-            className="sticky top-0 z-20 flex items-center justify-end gap-4 py-3 mb-3"
+            className={`flex items-center gap-4 ${isComhub ? 'py-2 justify-between' : 'sticky top-0 z-20 py-3 mb-3 justify-end'}`}
             style={{ background: 'var(--color-loop-bg)' }}
           >
-            <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {meta}
-            </span>
-            <KnowledgePanelButton />
-            <button
-              type="button"
-              onClick={() => pageSettings.setOpen(!pageSettings.open)}
-              aria-label={`${title} settings`}
-              title={`${title} settings`}
-              className="relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105"
-              style={{
-                width: 32,
-                height: 32,
-                background: pageSettings.open ? 'var(--color-loop-ink)' : 'rgba(0,0,0,0.05)',
-                color: pageSettings.open ? '#fff' : 'var(--color-loop-muted)',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
-                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => setNotifPanelOpen(true)}
-              aria-label={`Notifications${notifCount > 0 ? `, ${notifCount} new` : ''}`}
-              className={`relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105 ${notifCount > 0 ? 'animate-pulse' : ''}`}
-              style={{
-                width: 32,
-                height: 32,
-                background: notifCount > 0 ? '#E5484D' : 'rgba(0,0,0,0.05)',
-                color: notifCount > 0 ? '#fff' : 'var(--color-loop-muted)',
-                boxShadow: notifCount > 0 ? '0 0 0 3px rgba(229,72,77,0.15)' : 'none',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              {notifCount > 0 && (
-                <span style={{ position: 'absolute', top: -5, right: -5, background: '#fff', color: '#E5484D', border: '1px solid #E5484D', fontFamily: 'var(--mono)', fontSize: '9px', fontWeight: 700, lineHeight: '15px', minWidth: 16, height: 16, borderRadius: 8, padding: '0 3px', textAlign: 'center' }}>
-                  {notifCount > 99 ? '99+' : notifCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* PERSISTENT PLATFORM-UPDATES BANNER */}
-          <AnnouncementBanner />
-
-          {/* MASTHEAD */}
-          <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
-            <div>
-              <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                {title}
-                <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
+            {isComhub && (
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: '20px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                {title}<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
               </h1>
-              {isLoop && (
-                <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
-                  <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
-                  {quote.text}
-                  <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    — {quote.author}
-                  </span>
-                </div>
-              )}
-            </div>
-            {isLoop && (
-              <span className="text-right" style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
-                Day {day}<br />of building
-              </span>
             )}
+            <div className={`flex items-center gap-4 ${isComhub ? 'ml-auto' : ''}`}>
+              <span className={isComhub ? 'hidden md:inline-block whitespace-nowrap' : ''} style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                {meta}
+              </span>
+              <KnowledgePanelButton />
+              <button
+                type="button"
+                onClick={() => pageSettings.setOpen(!pageSettings.open)}
+                aria-label={`${title} settings`}
+                title={`${title} settings`}
+                className="relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105"
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: pageSettings.open ? 'var(--color-loop-ink)' : 'rgba(0,0,0,0.05)',
+                  color: pageSettings.open ? '#fff' : 'var(--color-loop-muted)',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+                  <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotifPanelOpen(true)}
+                aria-label={`Notifications${notifCount > 0 ? `, ${notifCount} new` : ''}`}
+                className={`relative flex-shrink-0 flex items-center justify-center rounded-md transition-transform hover:scale-105 ${notifCount > 0 ? 'animate-pulse' : ''}`}
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: notifCount > 0 ? '#E5484D' : 'rgba(0,0,0,0.05)',
+                  color: notifCount > 0 ? '#fff' : 'var(--color-loop-muted)',
+                  boxShadow: notifCount > 0 ? '0 0 0 3px rgba(229,72,77,0.15)' : 'none',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {notifCount > 0 && (
+                  <span style={{ position: 'absolute', top: -5, right: -5, background: '#fff', color: '#E5484D', border: '1px solid #E5484D', fontFamily: 'var(--mono)', fontSize: '9px', fontWeight: 700, lineHeight: '15px', minWidth: 16, height: 16, borderRadius: 8, padding: '0 3px', textAlign: 'center' }}>
+                    {notifCount > 99 ? '99+' : notifCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
+
+          {!isComhub && (
+            <>
+              {/* PERSISTENT PLATFORM-UPDATES BANNER */}
+              <AnnouncementBanner />
+
+              {/* MASTHEAD */}
+              <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
+                <div>
+                  <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                    {title}
+                    <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
+                  </h1>
+                  {isLoop && (
+                    <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
+                      <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
+                      {quote.text}
+                      <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        — {quote.author}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {isLoop && (
+                  <span className="text-right" style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
+                    Day {day}<br />of building
+                  </span>
+                )}
+              </div>
+            </>
+          )}
 
           <AutoPageSettings />
-          <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
+          {isComhub ? (
+            <div className="flex-1 min-h-0 pb-20">
+              <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
+            </div>
+          ) : (
+            <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
+          )}
         </div>
       </main>
 

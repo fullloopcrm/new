@@ -19,7 +19,7 @@ until it's verified.
   is **fixed and covered by a regression test**.
 - There is now **CI** (`.github/workflows/ci.yml`) gating type errors, failing
   tests, and new unscoped queries. Before this, nothing enforced the gates.
-- **Coverage (statements, src/lib + src/app/api, measured 2026-07-29): 42.7%** — 880 test files.
+- **Coverage (statements, src/lib + src/app/api, measured 2026-07-29): 42.7%** — 891 test files.
 - Big gaps remain for multi-dev comfort: no RLS backstop, thin test coverage,
   no migration system, ~45 cloned dashboards, sparse onboarding docs.
 
