@@ -1244,7 +1244,7 @@ export default function BusinessDetailPage() {
             </div>
             <ol className="text-sm text-slate-600 space-y-2 mb-5 list-decimal list-inside">
               <li><strong>Onboarding link already sent</strong> — if an owner email was on file, they have it now. No email yet? Copy the link from the Profile tab.</li>
-              <li><strong>Wait for their answers</strong> — Activate builds the site from what they submit, so it's worth letting them fill it in first.</li>
+              <li><strong>Wait for their answers</strong> — Activate builds the site from what they submit, so it&apos;s worth letting them fill it in first.</li>
               <li><strong>Then hit Activate</strong> — runs the full auto-setup: settings, domains, owner login, SEO link, and a live smoke test.</li>
             </ol>
             <div className="flex gap-3 justify-end">
