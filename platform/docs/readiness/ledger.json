@@ -260,11 +260,11 @@
       "checkpoints": [
         {
           "id": "bsr-01",
-          "score": 90,
-          "evidence_type": "test_run",
-          "evidence": "Was 0 on 2026-07-30 morning (real prod case: a $365 Job sat unscheduled 11+ days, zero alert). Built+shipped same day, commit 375e8ea75 (schedule-monitor cron extension), 3 new tests passing.",
-          "last_verified": "2026-07-30",
-          "last_verified_commit": "375e8ea75"
+          "score": 30,
+          "evidence_type": "live_query",
+          "evidence": "Re-checked 2026-07-31 (worker 2) per explicit instruction to only move this off its test_run cap (90) with real, honest headroom -- found the opposite of headroom: the prior 90 score was wrong. Live query against prod: `select count(*) from schedule_issues where type='unscheduled_job'` = 0, ever, platform-wide. Cross-checked there was a real case that should have fired: `jobs` row 5d2da236... ('New Sod Install After Pool Removal', $365, Tucker's Landscaping Company) has sat status='unscheduled' since 2026-07-18 -- 13 days, well past the 11-day case this checkpoint's own prior fix (375e8ea75) claimed to catch -- and has zero matching schedule_issues row of any status. Confirmed the cron itself is genuinely running (other issue types for this same tenant, e.g. day_off/unassigned/unscheduled_sale, have real rows as recently as 2026-07-25; 375e8ea75 and 21 later [deploy]-tagged commits are real ancestors of the current baseline, so this has had ample time to run live hourly since 07-30). Root-caused via a rolled-back real insert against prod (BEGIN; insert ...; ROLLBACK, no residue): `schedule_issues.booking_id` has a real FK to `bookings(id)`; the unscheduled_job code path sources its id from `jobs`, not `bookings`, so every real insert attempt violates schedule_issues_booking_id_fkey and fails -- silently, since the insert call's returned error was never checked. The prior fix's own test suite passed throughout because its mock DB doesn't enforce real FK constraints, making it structurally blind to this exact bug class. FIXED this pass (commit 0724fb2a7, this branch): booking_id is now only set for issue types that actually reference a bookings row; unscheduled_job keeps booking_id null (booking_ids, no FK, still carries the real job id); added error-checking + trackError on the insert so an identical silent failure can't hide again; corrected the existing test's assertion, which had locked in the buggy behavior. tsc clean, 3/3 tests pass with the corrected assertion. Scored low despite the real fix because the fix is NOT deployed (no [deploy] tag, unmerged) -- the actual production checkpoint this measures is currently, verifiably, 100% non-functional for every real case since the feature was introduced, and stays that way until this lands and redeploys. Whoever merges/deploys this branch should re-run this checkpoint's live query post-deploy to confirm real unscheduled_job rows start appearing.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": "0724fb2a7"
         },
         {
           "id": "bsr-02",
