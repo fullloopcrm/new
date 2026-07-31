@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5 (per Jeff's explicit in-session instruction, after reviewing the Sentry/error_logs cross-check findings: \"The notification-delivery-rate failure gets its own checkpoint, not folded into ai-03 ... Add it as its own item and flag it high-severity given it's been broken for a week\"): added ai-06 (notification delivery pipeline health, severity 4) to ai_agent_communications, covering the real recurring unresolved high-severity error_logs finding from the 2026-07-31 cross-check (src/app/api/cron/system-check/route.ts's Notifications 24h check, failing ~daily since at least 2026-07-25). No existing checkpoint's severity or weight changed.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -498,6 +498,15 @@
           "name": "Comms-preference gating logic (isCommEnabled)",
           "severity": 3,
           "depends_on_files": []
+        },
+        {
+          "id": "ai-06",
+          "name": "Notification delivery pipeline health (24h success rate)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/cron/system-check/route.ts",
+            "notifications"
+          ]
         }
       ]
     },
