@@ -104,9 +104,9 @@
         },
         {
           "id": "sec-13",
-          "score": 40,
+          "score": 48,
           "evidence_type": "manual_code_read",
-          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/webhooks/clerk verifies a real Svix HMAC signature (verifySvix) before trusting the payload -- but has a documented escape hatch: `if (process.env.CLERK_WEBHOOK_VERIFY !== 'off')`, meaning signature verification is skippable by env var. Presumably a local-dev convenience, but it's a live code path that would silently accept ANY unsigned payload if that var were ever set to 'off' in prod -- a real, if narrow, misconfiguration risk for a checkpoint specifically about trigger auth. /api/internal/deploy-hook verifies Vercel's HMAC-SHA1 signature with crypto.timingSafeEqual, no bypass switch, well-documented threat model in its own header comment (project-scoped token specifically to limit blast radius). /api/migrate-cleaner-notifications is gated by requirePermission('settings.edit') -- it's an authenticated admin action, not actually a webhook, filed here because it was unmapped Security surface. Scored below sec-10/11/12 specifically because of the Clerk webhook's live bypass switch. manual_code_read, capped at 50.",
+          "evidence": "Updated 2026-07-31 (was 40, docked for a live env-var bypass switch on the Clerk webhook's signature check). Follow-up investigation found the Clerk integration itself was fully dead -- no @clerk/nextjs dependency, mounted nowhere, zero real traffic possible, confirmed via package.json/node_modules/every sign-in-sign-up-join page being a static placeholder, and this repo's own admin/docs page already carrying a 2026-07-28 correction saying the same. The route (and its bypass-switch risk) has been deleted entirely, not just hardened -- verified live: POST /api/webhooks/clerk on prod now returns 404. Remaining scope (Vercel deploy-hook HMAC-SHA1 verify, no bypass switch; migrate-cleaner-notifications gated by requirePermission) unchanged from the prior review -- both solid. manual_code_read, capped at 50, scored higher than before since the actual risk is gone, not just mitigated.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
