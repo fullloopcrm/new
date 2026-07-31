@@ -87,7 +87,18 @@ describe('schedule-monitor — unscheduled Jobs', () => {
 
     const jobIssues = insertedIssues.filter((i) => i.type === 'unscheduled_job')
     expect(jobIssues.length).toBe(1)
-    expect(jobIssues[0].booking_id).toBe('job-1')
+    // Regression guard (2026-07-31): this used to assert booking_id === 'job-1'
+    // -- which was the bug. schedule_issues.booking_id has a real FK to
+    // bookings(id); a job id is never a valid bookings.id, so setting it there
+    // violated the FK on every real insert and silently failed (confirmed live:
+    // 0 unscheduled_job rows ever existed, platform-wide, despite a real
+    // 13-day-unscheduled $365 Job that should have fired same-day). This mock
+    // doesn't enforce real FK constraints, which is exactly why this test kept
+    // passing while the feature was 100% broken in production. booking_id must
+    // stay null for job-sourced issues; booking_ids (no FK) still carries the
+    // real job id.
+    expect(jobIssues[0].booking_id).toBe(null)
+    expect(jobIssues[0].booking_ids).toEqual(['job-1'])
     expect(String(jobIssues[0].message)).toContain('Ada Client')
     expect(String(jobIssues[0].message)).toContain('$365')
   })
