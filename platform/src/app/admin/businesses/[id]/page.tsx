@@ -175,6 +175,12 @@ export default function BusinessDetailPage() {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteResult, setInviteResult] = useState<{ ok?: boolean; error?: string } | null>(null)
 
+  // Pre-activation onboarding link — auto-created + emailed on tenant
+  // creation (see /api/admin/businesses POST); this just surfaces it.
+  const [onboardingUrl, setOnboardingUrl] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkMsg, setLinkMsg] = useState('')
+
   // Delete confirmation
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -286,6 +292,60 @@ export default function BusinessDetailPage() {
   }, [id])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    fetch(`/api/admin/tenants/${id}/onboarding-link`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((d) => setOnboardingUrl(d.url || ''))
+      .catch(() => {})
+  }, [id])
+
+  async function resendOnboardingLink() {
+    setLinkBusy(true)
+    setLinkMsg('')
+    try {
+      const res = await fetch(`/api/admin/tenants/${id}/onboarding-link`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend' }),
+      })
+      const d = await res.json()
+      setOnboardingUrl(d.url || onboardingUrl)
+      setLinkMsg(d.sent ? 'Sent to the tenant.' : 'No owner email on file — copy the link instead.')
+    } finally {
+      setLinkBusy(false)
+      setTimeout(() => setLinkMsg(''), 4000)
+    }
+  }
+
+  async function regenerateOnboardingLink() {
+    if (!confirm('This invalidates the current link — anyone with the old one loses access. Continue?')) return
+    setLinkBusy(true)
+    setLinkMsg('')
+    try {
+      const res = await fetch(`/api/admin/tenants/${id}/onboarding-link`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'regenerate' }),
+      })
+      const d = await res.json()
+      setOnboardingUrl(d.url || '')
+      setLinkMsg('New link generated — old one no longer works.')
+    } finally {
+      setLinkBusy(false)
+      setTimeout(() => setLinkMsg(''), 4000)
+    }
+  }
+
+  function copyOnboardingLink() {
+    if (!onboardingUrl) return
+    navigator.clipboard.writeText(onboardingUrl).then(() => {
+      setLinkMsg('Copied.')
+      setTimeout(() => setLinkMsg(''), 2000)
+    })
+  }
 
   async function save(extra?: Record<string, unknown>) {
     setSaving(true)
@@ -1068,6 +1128,31 @@ export default function BusinessDetailPage() {
           </div>
 
           <div className="pt-6 border-t border-slate-200 space-y-3">
+            <h3 className="font-heading font-semibold text-slate-900">Onboarding Link</h3>
+            <p className="text-xs text-slate-500">
+              No-login questionnaire — send this first, before Activate, so the site build has real
+              answers to work from. Auto-created and emailed when this tenant was created.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input readOnly value={onboardingUrl} placeholder="Loading…"
+                className="flex-1 min-w-[240px] bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
+              <button onClick={copyOnboardingLink} disabled={!onboardingUrl}
+                className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                Copy
+              </button>
+              <button onClick={resendOnboardingLink} disabled={linkBusy}
+                className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg text-xs font-cta font-semibold disabled:opacity-50 transition-colors">
+                {linkBusy ? 'Sending…' : 'Send to Tenant'}
+              </button>
+              <button onClick={regenerateOnboardingLink} disabled={linkBusy}
+                className="px-3 py-2 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                Regenerate
+              </button>
+            </div>
+            {linkMsg && <p className="text-xs text-teal-600">{linkMsg}</p>}
+          </div>
+
+          <div className="pt-6 border-t border-slate-200 space-y-3">
             <h3 className="font-heading font-semibold text-slate-900">Invite Owner</h3>
             <div className="flex gap-2">
               <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
@@ -1158,13 +1243,14 @@ export default function BusinessDetailPage() {
               </div>
             </div>
             <ol className="text-sm text-slate-600 space-y-2 mb-5 list-decimal list-inside">
-              <li><strong>Fill in all profile fields</strong> — address, service radius, phone, hours, branding (Integrations tab).</li>
-              <li><strong>Hit Activate</strong> — runs the full auto-setup: settings, domains, owner login, SEO link, and a live smoke test.</li>
+              <li><strong>Onboarding link already sent</strong> — if an owner email was on file, they have it now. No email yet? Copy the link from the Profile tab.</li>
+              <li><strong>Wait for their answers</strong> — Activate builds the site from what they submit, so it&apos;s worth letting them fill it in first.</li>
+              <li><strong>Then hit Activate</strong> — runs the full auto-setup: settings, domains, owner login, SEO link, and a live smoke test.</li>
             </ol>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => { setShowCreated(false); setTab('integrations') }}
+              <button onClick={() => { setShowCreated(false); setTab('contact') }}
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
-                Fill profile fields
+                View onboarding link
               </button>
               <button onClick={() => { setShowCreated(false); setTab('launch') }}
                 className="px-4 py-2 rounded-lg text-sm font-cta font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors">
