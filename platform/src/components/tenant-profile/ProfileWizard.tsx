@@ -98,13 +98,27 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
   const set = (k: string, v: FieldValue) => setForm((f) => ({ ...f, [k]: v }))
 
+  const sections = useMemo(() => {
+    const present = new Set(fields.map((f) => f.section))
+    return SECTION_ORDER.filter((s) => present.has(s))
+  }, [fields])
+
   const saveDraft = useCallback(
     async (silent = false, stepOverride?: number) => {
       setSaving(true)
+      // Live-write only fields from sections actually visited (0..furthest
+      // step reached) — never the whole form. Not-yet-visited sections are
+      // blank in `form`, and coerceFieldValue turns blank into an explicit
+      // clear, so sending them would null out real data on every autosave.
+      const visited = new Set(sections.slice(0, Math.max(step, stepOverride ?? step) + 1))
+      const data: FormState = {}
+      for (const f of fields) {
+        if (!f.readonly && visited.has(f.section)) data[f.key] = form[f.key]
+      }
       await fetch('/api/tenant-profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, draft: form, step: stepOverride ?? step }),
+        body: JSON.stringify({ token, draft: form, step: stepOverride ?? step, data }),
       }).catch(() => {})
       setSaving(false)
       if (!silent) {
@@ -112,7 +126,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         setTimeout(() => setMsg(''), 3000)
       }
     },
-    [form, step, token],
+    [form, step, token, sections, fields],
   )
 
   // Debounced autosave — skips the initial load (form is {} until the fetch
@@ -123,11 +137,6 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, loading])
-
-  const sections = useMemo(() => {
-    const present = new Set(fields.map((f) => f.section))
-    return SECTION_ORDER.filter((s) => present.has(s))
-  }, [fields])
 
   const goto = async (next: number) => {
     await saveDraft(true, next)

@@ -6,12 +6,27 @@ import Script from 'next/script'
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
-/** Minimal chrome for EMD one-page microsites — fonts + consent only. No shared nav, footer, or logo; each microsite's own brand name is the only header. */
+/** Minimal chrome for EMD one-page microsites — fonts, top referral strip, and consent only. No shared nav/logo/footer; each microsite's own brand name is the only header. */
 export default function EmdMicrositeLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${bebasNeue.variable} ${inter.variable} font-[family-name:var(--font-inter)]`}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-[#34D399] focus:text-white focus:px-4 focus:py-2 focus:rounded-md focus:font-bold focus:text-sm">
         Skip to main content
+      </a>
+      <a
+        href="https://www.thefloridamaid.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block bg-[#A8F0DC] text-[#1E2A4A] hover:bg-[#8DE8CC] transition-colors"
+      >
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2 text-center">
+          <span className="text-sm font-semibold leading-snug">
+            Earn <span className="font-bold">10% recurring</span> on every cleaning your referrals book — paid after each visit, no cap.
+          </span>
+          <span className="hidden sm:inline text-sm font-bold tracking-widest uppercase whitespace-nowrap group-hover:underline">
+            Start Earning &rarr;
+          </span>
+        </div>
       </a>
       <main id="main-content">{children}</main>
       <ConsentGate>
