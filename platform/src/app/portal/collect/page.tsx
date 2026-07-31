@@ -148,8 +148,8 @@ function CollectFormContent({ tenant }: { tenant: TenantLite }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: primary }}>Phone *</label>
-            <input type="tel" required value={form.phone}
+            <label className="block text-sm font-medium mb-1" style={{ color: primary }}>Phone <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input type="tel" value={form.phone}
               onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base" style={{ color: primary }} placeholder="(212) 555-1234" />
           </div>

@@ -292,7 +292,7 @@ function BookFormContent() {
     }
 
     if (!form.name.trim()) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'name' }); setError('Please enter your name.'); return }
-    if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'phone' }); setError('Please enter a valid phone number.'); return }
+    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'phone' }); setError('Please enter a valid phone number, or leave it blank.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'email' }); setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
@@ -492,10 +492,9 @@ function BookFormContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone</label>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone <span className="normal-case font-normal text-gray-400">(optional)</span></label>
               <input
                 type="tel"
-                required
                 placeholder="(212) 555-1234"
                 value={form.phone}
                 onChange={(e) => update('phone', formatPhone(e.target.value))}
