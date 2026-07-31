@@ -28,6 +28,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 interface ContactBody {
   formType?: string
@@ -291,7 +292,10 @@ export async function POST(request: NextRequest) {
           // keep their prior value and are unaffected.)
           sms_consent: !!body.smsConsent,
           notes,
-          pin: randomInt(100000, 1000000).toString(),
+          // sec-07: encrypt at creation, same as every other client-creation
+          // write site — this was a real gap, this route created plaintext
+          // pins while the pin-hashing fix covered other paths.
+          pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
         })
         .select('id')
         .single()

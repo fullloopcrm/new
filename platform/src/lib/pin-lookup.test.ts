@@ -67,6 +67,30 @@ describe('findRowByPin', () => {
     expect(row).toBeNull()
   })
 
+  it('skips a malformed/corrupted encrypted candidate instead of throwing, and still finds a real match later in the scan (regression: decryptSecret throws on a bad envelope; the loop had no try/catch, so one bad row broke login for the whole tenant)', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = KEY
+    const row = await findRowByPin<Row>(
+      '998877',
+      async () => null,
+      async () => [
+        { id: 'corrupted-row', pin: 'v1:not-valid-base64-iv:???:???' },
+        { id: 'target-row', pin: encryptSecret('998877') },
+      ],
+    )
+    expect(row?.id).toBe('target-row')
+  })
+
+  it('returns null (not a thrown error) when EVERY candidate is malformed', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = KEY
+    await expect(
+      findRowByPin<Row>(
+        '998877',
+        async () => null,
+        async () => [{ id: 'corrupted-row', pin: 'v1:garbage:garbage:garbage' }],
+      ),
+    ).resolves.toBeNull()
+  })
+
   it('never throws on a null-pin candidate mixed into the scan', async () => {
     process.env.SECRET_ENCRYPTION_KEY = KEY
     const row = await findRowByPin<Row>(

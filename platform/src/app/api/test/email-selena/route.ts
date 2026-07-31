@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 import { safeEqual } from '@/lib/secret-compare'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 const TEST_TAG = 'selena-email-test'
 
@@ -56,7 +57,8 @@ export async function POST(request: NextRequest) {
         phone: `email-test-${Date.now()}`,
         status: 'potential',
         notes: TEST_TAG,
-        pin: randomInt(100000, 1000000).toString(),
+        // sec-07: encrypt at creation for consistency with every other write site.
+        pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
       })
       .select('id, name, email, phone, do_not_service')
       .single()
