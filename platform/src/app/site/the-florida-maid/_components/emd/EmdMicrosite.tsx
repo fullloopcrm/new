@@ -58,7 +58,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
           <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl lg:text-8xl text-white tracking-wide leading-[0.95] mb-2">
             {config.brandName}
           </h1>
-          <p className="text-[#FFE8D6] text-lg md:text-xl font-medium tracking-wide mb-3">{PARENT_TAG}</p>
+          <p className="text-[#FFE8D6] text-lg md:text-xl font-medium tracking-wide mb-3">({PARENT_TAG})</p>
 
           {/* Trust points */}
           <div className="flex flex-wrap gap-x-6 gap-y-2 mb-5">

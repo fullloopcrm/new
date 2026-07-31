@@ -331,7 +331,7 @@ export default async function middleware(req: NextRequest) {
     // and by extension thefloridamaid.com's own homepage — into dynamic
     // per-request rendering.
     const EMD_MICROSITE_ROUTES: Record<string, string> = {
-      'miamibeachmaid.com': '/site/the-florida-maid/emd/miami-beach-maid',
+      'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
     }
     const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
     if (emdRoute && req.nextUrl.pathname === '/') {
