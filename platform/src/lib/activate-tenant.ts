@@ -27,6 +27,7 @@ import { createAndSendOnboardingLink } from './onboarding-link'
 import { sendOwnerLoginEmail } from './owner-welcome-email'
 import { runPostActivationTasks } from './post-activation'
 import crypto from 'crypto'
+import { encryptSecretSafe } from './secret-crypto'
 
 // Default contact used when a tenant is created name-only (common for process
 // testing). Owner login + founding team member fall back to this so a bare

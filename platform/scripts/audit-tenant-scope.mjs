@@ -84,6 +84,57 @@ const TENANT_DB_VAR_RX = /\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/
 const TENANT_DB_CALL_RX = /\btenantDb\(/
 const LOOKBEHIND_LINES = 3
 
+// Balanced-paren skip (mirrors src/lib/idor-route-guard.ts's skipParens) —
+// needed because Supabase .select() strings can embed nested-resource calls
+// with their own parens, e.g. .select('id, clients(name)'), so a naive
+// "stop at the first )" strip would truncate mid-argument and leave part of
+// the select string unstripped.
+function skipParens(src, open) {
+  let depth = 0
+  let i = open
+  let quote = null
+  for (; i < src.length; i++) {
+    const c = src[i]
+    if (quote) {
+      if (c === '\\') i++
+      else if (c === quote) quote = null
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') quote = c
+    else if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth === 0) return i + 1
+    }
+  }
+  return src.length
+}
+
+// A .select('id, tenant_id, name') call SELECTS the tenant_id column but
+// filters on nothing — it is not a scoping mechanism. The naive `/tenant_id/`
+// substring test below can't tell "used as a filter/stamp" from "just listed
+// as a column to fetch", so a query that selects tenant_id without ever
+// filtering by it was passing the gate as "scoped" while leaking every
+// tenant's rows. Strip every .select(...) call's argument text out before
+// testing for tenant_id, so only a real .eq/.in/.match filter or an
+// insert/update payload's `tenant_id: …` key can satisfy `scoped` below.
+function stripSelectCalls(text) {
+  let out = ''
+  let i = 0
+  while (i < text.length) {
+    const m = text.slice(i).match(/\.select\(/)
+    if (!m) {
+      out += text.slice(i)
+      break
+    }
+    const start = i + m.index
+    out += text.slice(i, start) + '.select('
+    const closeAt = skipParens(text, start + '.select('.length - 1)
+    i = closeAt
+  }
+  return out
+}
+
 const flagged = []
 for (const file of files) {
   // Variables bound to a tenantDb(...) wrapper instance (e.g. `const db =
@@ -130,7 +181,10 @@ for (const file of files) {
     const chain = lines.slice(i, i + 12).join('\n')
     // Wrapper-scoped calls already `continue`d above, so reaching here means
     // this .from() is either raw .eq('tenant_id', …)-scoped or unscoped.
-    const scoped = /tenant_id/.test(chain)      // filter, insert payload, or wrapper
+    // tenant_id must appear OUTSIDE any .select(...) argument to count — see
+    // stripSelectCalls' comment for why (selecting the column isn't filtering
+    // by it).
+    const scoped = /tenant_id/.test(stripSelectCalls(chain))      // filter, insert payload, or wrapper
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)

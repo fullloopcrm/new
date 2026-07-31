@@ -37,12 +37,23 @@ import { analyzeSource } from './idor-route-guard'
 // SOURCE-LOCKED: this test reads the ACTUAL regex source out of
 // audit-tenant-scope.mjs (not a hand-copied guess) so it fails loudly — not
 // silently goes stale — the moment the script's classification logic changes.
-
+//
+// UPDATED 2026-07-31 (sec-04 re-audit): the `scoped` line changed shape --
+// unrelated fix, a DIFFERENT real blind spot (a `.select('id, tenant_id, …')`
+// call let the tenant_id COLUMN NAME satisfy `scoped` with no actual filter,
+// live-demonstrated and closed the same day; see the two new tests in
+// audit-tenant-scope-guard.test.ts). That fix wraps the same `/tenant_id/`
+// test in `stripSelectCalls(chain)` first. It does not touch `idLookup` or
+// this test's finding -- re-ran the logic assertions below against the new
+// script and they still hold: the test chain contains no `tenant_id`
+// substring at all (in or out of a .select()), so stripSelectCalls is a
+// no-op for this specific case and the idLookup blind spot this test pins
+// is exactly as real and exactly as unfixed as before.
 const AUDIT_SCRIPT = join(process.cwd(), 'scripts', 'audit-tenant-scope.mjs')
 
 // The exact two classification lines from audit-tenant-scope.mjs, asserted
 // verbatim below before this test trusts them.
-const SCOPED_LINE = `const scoped = /tenant_id/.test(chain)`
+const SCOPED_LINE = `const scoped = /tenant_id/.test(stripSelectCalls(chain))`
 const ID_LOOKUP_LINE = `const idLookup = /\\.(eq|in)\\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\\s*,/.test(chain)`
 
 // Reconstructed from the asserted-verbatim lines above (kept in sync by the

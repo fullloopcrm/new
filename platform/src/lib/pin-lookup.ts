@@ -25,7 +25,19 @@ export async function findRowByPin<T extends { pin: string | null }>(
 
   const candidates = await scanCandidates()
   for (const row of candidates) {
-    if (row.pin && decryptSecret(row.pin) === guessedPin) return row
+    if (!row.pin) continue
+    // decryptSecret() throws on a malformed/corrupted envelope (bad auth tag,
+    // truncated ciphertext, wrong/rotated SECRET_ENCRYPTION_KEY). Without this
+    // guard, ONE bad row anywhere in the tenant's candidate set would 500 the
+    // login attempt for every wrong-PIN guess against that tenant — an
+    // availability bug, not just a data-quality one. Skip the bad row instead
+    // of failing the whole scan; a real correct-PIN candidate elsewhere in
+    // the list should still be found.
+    try {
+      if (decryptSecret(row.pin) === guessedPin) return row
+    } catch {
+      continue
+    }
   }
   return null
 }
