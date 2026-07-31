@@ -126,8 +126,12 @@ export default function SocialProof() {
           transition={{ delay: 0.8, duration: 0.5 }}
           className="text-center mt-12"
         >
+          {/* No standalone /reviews page exists for this tenant (unlike
+              nycmaid/template) -- the fuller review set lives in the
+              Testimonials section further down this same homepage, so this
+              points there instead of a 404. */}
           <Link
-            href="/reviews"
+            href="/#testimonials"
             className="text-teal-600 hover:text-teal-700 transition-colors font-semibold text-lg underline underline-offset-4 font-cta"
           >
             Read all our reviews &rarr;
