@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-30",
   "note": "Snapshot via find src/app/api -name route.ts (excl *.test.ts) + live prod information_schema.tables query. Regenerate periodically -- no live CI credentials exist to automate this yet (flagged, not fabricated).",
-  "routes_total": 585,
+  "routes_total": 584,
   "tables_total": 197,
   "routes": [
     "src/app/api/service-area/route.ts",
@@ -547,7 +547,6 @@
     "src/app/api/auth/logout/route.ts",
     "src/app/api/auth/me/route.ts",
     "src/app/api/auth/login/route.ts",
-    "src/app/api/referrals/track/route.ts",
     "src/app/api/referrals/[id]/route.ts",
     "src/app/api/google/posts/route.ts",
     "src/app/api/google/auth/route.ts",
