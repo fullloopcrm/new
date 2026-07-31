@@ -405,6 +405,54 @@
           "evidence": "Ran full production build 2026-07-30 (npm run build, Next.js 16.1.6/Turbopack): succeeded clean, BUILD_ID produced, zero errors across all ~690 site/marketing pages. protected-tenant guard passed for all 21 live bespoke sites. RE-VERIFIED with a genuinely clean build after discovering this worktree had no .env.local and the first pass may have relied on stale .next cache to mask a real Supabase-credential gap -- pulled real env via vercel env pull (project fullloopcrm), cleared .next, rebuilt from scratch: 2614 pages generated, zero errors. This confirms no broken imports/runtime-breaking errors across the marketing surface, but does NOT verify page content correctness, broken links, or visual/UX quality. Scored below the test_run ceiling (90) because the check proves absence-of-breakage, not presence-of-quality; this checkpoint is severity 1 (lowest) so a partial pass is proportionate.",
           "last_verified": "2026-07-30",
           "last_verified_commit": null
+        },
+        {
+          "id": "crm-06",
+          "score": 46,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (10 files). Consistent requirePermission('clients.view'/'clients.edit'/'clients.create'/'clients.delete') gating across all admin-side client CRUD, activity, contacts, export, GDPR-delete, properties, import. clients/stats uses getTenantForRequest only (tenant-scoped aggregate, no specific permission) -- same non-bug pattern noted elsewhere this session (aggregate reads open to any tenant member). manual_code_read, capped 50. Follow-up: admin/clients (requireAdmin, cross-tenant admin view -- correct), clients/enriched + clients/analytics (getTenantForRequest, tenant-scoped aggregate reads, same non-bug pattern as stats), clients/[id]/transcript (requirePermission('clients.view')) -- all caught by the substring-collision check and reviewed for real, same discipline as bsr-06/07.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-07",
+          "score": 44,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. client/book/route.ts was directly edited earlier this SAME session (SMS opt-in checkbox + consent-capture fix, deployed and verified live) -- first-hand knowledge, not a fresh read: rate-limited per tenant+IP (rateLimitDb), atomic booking creation via a DB function to prevent double-submit races, creates its own client record with a hashed PIN. The other 9 files (login, verify-code, check, collect, smart-schedule, bookings, notes, preferred-cleaner, properties) are all legitimately pre-session/public-facing by design -- tenant-scoped via getTenantFromHeaders, with rate limiting on the sensitive ones (verify-code, check, smart-schedule) -- not a missing-auth bug, this IS the client-portal auth entry surface. protectClientAPI gates the session-holding routes (bookings, notes, preferred-cleaner, properties) once a session exists. manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-08",
+          "score": 44,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). Consistent requirePermission('campaigns.create'/'campaigns.send') gating. manual_code_read, capped 50. Follow-up (substring-collision catch): admin/campaigns/preview + admin/campaigns/generate both use getTenantForRequest only (tenant-scoped generation/preview, no specific permission) -- reviewed for real, not left as accidental credit.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-09",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (9 files). Admin-side referrals/referrers gated by requirePermission('referrals.view'/'referrals.create'/'referrals.manage'/'referrals.payout'). Referrer self-serve auth (auth/request, auth/verify) is rate-limited, separate from admin auth by design -- referrers aren't tenant members. connect/[id]/stripe-onboard + stripe-status use getReferrerAuth (referrer's own session token, per its own doc comment: 'not admin requirePermission'), consistent with the self-serve model. manual_code_read, capped 50. Follow-up (substring-collision catch): referrers/analytics (getTenantForRequest, tenant-scoped read) and admin/referrals (requireAdmin, cross-tenant admin view) both reviewed for real.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-10",
+          "score": 40,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). reviews.route + reviews/request use getTenantForRequest only (tenant-scoped, no specific permission -- read/request operations, same non-bug pattern as other aggregate reads this session). reviews/submit + reviews/upload are rate-limited public client-facing submission endpoints, correct for that surface. manual_code_read, capped 50. Follow-up (substring-collision catch): cron/sync-google-reviews + cron/auto-reply-reviews (verifyCronSecret), reviews/[id] (getTenantForRequest), admin/reviews + google/reviews (requirePermission('reviews.view'/'reviews.request')) -- all reviewed for real, not left as accidental credit.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-11",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (4 files). leads/block gated by requirePermission('leads.view'); leads/feed uses getTenantForRequest only (tenant-scoped read); deals/at-risk + deals/manual gated by requirePermission('sales.view'/'sales.edit'), correct domain match (unlike the vendors/inventory mismatches -- these ARE sales-domain resources). manual_code_read, capped 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },

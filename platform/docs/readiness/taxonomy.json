@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed. | 2026-07-31 addendum #6 (continuing the coverage push per Jeff's instruction): added fin-10..fin-12, covering financial reporting endpoints, budget-templates/inventory, and CPA token export + admin finance-request conversion. Security domain is now essentially fully mapped (31/31 routes, all tables) as of this addendum. No existing severities/weights changed. | 2026-07-31 addendum #7 (continuing coverage push per Jeff's instruction, no per-checkpoint check-in): added bsr-04, bsr-05 covering core booking CRUD + admin booking views, and job management surface. | 2026-07-31 addendum #8: added bsr-06, bsr-07 -- these 13 routes were initially (accidentally) marked covered via bare table-name substring collision (bookings/jobs/payments/expenses matching unrelated route paths in the coverage script's fuzzy matcher), caught before reporting, then actually reviewed for real and given real path-based depends_on_files entries. | 2026-07-31 addendum #9: added bsr-08, team-portal crew/job-execution surface (19 files, consistent token-based team-portal auth). | 2026-07-31 addendum #10: added bsr-09 (recurring schedules), bsr-10 (HR) -- consistent permission gating in both.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed. | 2026-07-31 addendum #6 (continuing the coverage push per Jeff's instruction): added fin-10..fin-12, covering financial reporting endpoints, budget-templates/inventory, and CPA token export + admin finance-request conversion. Security domain is now essentially fully mapped (31/31 routes, all tables) as of this addendum. No existing severities/weights changed. | 2026-07-31 addendum #7 (continuing coverage push per Jeff's instruction, no per-checkpoint check-in): added bsr-04, bsr-05 covering core booking CRUD + admin booking views, and job management surface. | 2026-07-31 addendum #8: added bsr-06, bsr-07 -- these 13 routes were initially (accidentally) marked covered via bare table-name substring collision (bookings/jobs/payments/expenses matching unrelated route paths in the coverage script's fuzzy matcher), caught before reporting, then actually reviewed for real and given real path-based depends_on_files entries. | 2026-07-31 addendum #9: added bsr-08, team-portal crew/job-execution surface (19 files, consistent token-based team-portal auth). | 2026-07-31 addendum #10: added bsr-09 (recurring schedules), bsr-10 (HR) -- consistent permission gating in both. | 2026-07-31 addendum #11 (continuing coverage push into CRM Core, no per-checkpoint check-in): added crm-06, crm-07. | 2026-07-31 addendum #12: added crm-08..crm-11 (campaigns, referrals/referrers, reviews, leads/deals ancillary).",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -654,6 +654,114 @@
           "name": "Marketing pages (broader than the 6 review pages checked)",
           "severity": 1,
           "depends_on_files": []
+        },
+        {
+          "id": "crm-06",
+          "name": "Admin client CRUD endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/clients/route.ts",
+            "src/app/api/clients/[id]/activity/route.ts",
+            "src/app/api/clients/[id]/contacts/route.ts",
+            "src/app/api/clients/[id]/contacts/[contactId]/route.ts",
+            "src/app/api/clients/[id]/export/route.ts",
+            "src/app/api/clients/[id]/gdpr-delete/route.ts",
+            "src/app/api/clients/[id]/properties/route.ts",
+            "src/app/api/clients/import/route.ts",
+            "src/app/api/clients/stats/route.ts",
+            "src/app/api/import-clients/route.ts",
+            "clients",
+            "client_contacts",
+            "client_properties",
+            "src/app/api/admin/clients/route.ts",
+            "src/app/api/clients/enriched/route.ts",
+            "src/app/api/clients/analytics/route.ts",
+            "src/app/api/clients/[id]/transcript/route.ts"
+          ]
+        },
+        {
+          "id": "crm-07",
+          "name": "Client-facing portal auth + booking entry surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/client/book/route.ts",
+            "src/app/api/client/bookings/route.ts",
+            "src/app/api/client/check/route.ts",
+            "src/app/api/client/collect/route.ts",
+            "src/app/api/client/login/route.ts",
+            "src/app/api/client/notes/route.ts",
+            "src/app/api/client/preferred-cleaner/route.ts",
+            "src/app/api/client/properties/route.ts",
+            "src/app/api/client/smart-schedule/route.ts",
+            "src/app/api/client/verify-code/route.ts"
+          ]
+        },
+        {
+          "id": "crm-08",
+          "name": "Campaigns endpoint surface",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/campaigns/route.ts",
+            "src/app/api/campaigns/[id]/route.ts",
+            "src/app/api/campaigns/[id]/send/route.ts",
+            "src/app/api/campaigns/send/route.ts",
+            "campaigns",
+            "campaign_recipients",
+            "src/app/api/admin/campaigns/preview/route.ts",
+            "src/app/api/admin/campaigns/generate/route.ts"
+          ]
+        },
+        {
+          "id": "crm-09",
+          "name": "Referrals/referrers endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/referrals/route.ts",
+            "src/app/api/referrals/[id]/route.ts",
+            "src/app/api/referrers/route.ts",
+            "src/app/api/referrers/auth/request/route.ts",
+            "src/app/api/referrers/auth/verify/route.ts",
+            "src/app/api/referrers/connect/[id]/route.ts",
+            "src/app/api/referrers/connect/[id]/stripe-onboard/route.ts",
+            "src/app/api/referrers/connect/[id]/stripe-status/route.ts",
+            "src/app/api/referral-commissions/route.ts",
+            "referrals",
+            "referrers",
+            "referral_commissions",
+            "client_referral_stats",
+            "src/app/api/referrers/analytics/route.ts",
+            "src/app/api/admin/referrals/route.ts"
+          ]
+        },
+        {
+          "id": "crm-10",
+          "name": "Reviews endpoint surface",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/reviews/route.ts",
+            "src/app/api/reviews/request/route.ts",
+            "src/app/api/reviews/submit/route.ts",
+            "src/app/api/reviews/upload/route.ts",
+            "client_reviews",
+            "reviews",
+            "ratings",
+            "src/app/api/cron/sync-google-reviews/route.ts",
+            "src/app/api/cron/auto-reply-reviews/route.ts",
+            "src/app/api/reviews/[id]/route.ts",
+            "src/app/api/admin/reviews/route.ts",
+            "src/app/api/google/reviews/route.ts"
+          ]
+        },
+        {
+          "id": "crm-11",
+          "name": "Leads/deals ancillary endpoint surface",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/leads/block/route.ts",
+            "src/app/api/leads/feed/route.ts",
+            "src/app/api/deals/at-risk/route.ts",
+            "src/app/api/deals/manual/route.ts"
+          ]
         }
       ]
     },
