@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -105,6 +105,94 @@
           "name": "PITR / backup-tier confirmation",
           "severity": 4,
           "depends_on_files": []
+        },
+        {
+          "id": "sec-10",
+          "name": "Auth/session/PIN-reset endpoint surface",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/auth/login/route.ts",
+            "src/app/api/auth/logout/route.ts",
+            "src/app/api/auth/me/route.ts",
+            "src/app/api/admin-auth/route.ts",
+            "src/app/api/admin-auth/logout/route.ts",
+            "src/app/api/admin-auth/me/route.ts",
+            "src/app/api/pin-reset/route.ts",
+            "src/app/api/admin/users/[id]/pin/route.ts",
+            "src/lib/nycmaid/auth.ts",
+            "admin_users",
+            "tenant_members",
+            "verification_codes",
+            "portal_auth_codes",
+            "portal_contact_verify_codes"
+          ]
+        },
+        {
+          "id": "sec-11",
+          "name": "Admin RBAC & cross-tenant access control surface",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/admin/users/route.ts",
+            "src/app/api/admin/users/[id]/route.ts",
+            "src/app/api/admin/businesses/[id]/users/route.ts",
+            "src/app/api/invites/[token]/accept/route.ts",
+            "src/app/api/tenants/route.ts",
+            "src/app/api/admin/activity/route.ts",
+            "src/app/api/admin/announcements/[id]/route.ts",
+            "src/app/api/admin/legal-tips/[id]/route.ts",
+            "src/app/api/admin/notes/upload/route.ts",
+            "src/app/api/admin/schedule-issues/route.ts",
+            "src/app/api/admin/security/route.ts",
+            "src/app/api/admin/system-check/route.ts",
+            "src/app/api/team-applications/upload/route.ts",
+            "src/app/api/cron/gdpr-purge/route.ts",
+            "admin_tasks",
+            "impersonation_events",
+            "legal_tips",
+            "legal_tip_notifications",
+            "legal_tip_triggers",
+            "platform_announcements",
+            "platform_announcement_reads",
+            "platform_settings",
+            "schedule_issues",
+            "system_state",
+            "tenant_health",
+            "jefe_acks",
+            "jefe_integration_health",
+            "jefe_messages",
+            "jefe_snapshots",
+            "jefe_tasks"
+          ]
+        },
+        {
+          "id": "sec-12",
+          "name": "Audit/monitoring visibility surface (cross-tenant leak risk)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/audit/route.ts",
+            "src/app/api/finance/audit-log/route.ts",
+            "src/app/api/admin/errors/route.ts",
+            "src/app/api/admin/monitoring/audit/route.ts",
+            "src/app/api/admin/monitoring/errors/route.ts",
+            "src/app/api/admin/monitoring/status/route.ts",
+            "audit_log",
+            "audit_logs",
+            "error_logs",
+            "security_events",
+            "rate_limit_events"
+          ]
+        },
+        {
+          "id": "sec-13",
+          "name": "Webhook/internal/cron trigger auth surface",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/webhooks/clerk/route.ts",
+            "src/app/api/internal/deploy-hook/route.ts",
+            "src/app/api/migrate-cleaner-notifications/route.ts",
+            "oauth_state_nonces",
+            "cpa_access_tokens"
+          ]
         }
       ]
     },
@@ -158,6 +246,68 @@
           "severity": 5,
           "depends_on_files": [
             "src/app/api/webhooks/stripe/route.ts"
+          ]
+        },
+        {
+          "id": "fin-07",
+          "name": "Invoice + payment-recording endpoint surface",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/invoices/route.ts",
+            "src/app/api/invoices/[id]/route.ts",
+            "src/app/api/invoices/[id]/send/route.ts",
+            "src/app/api/invoices/[id]/record-payment/route.ts",
+            "src/app/api/invoices/public/[token]/route.ts",
+            "src/app/api/invoices/public/[token]/checkout/route.ts",
+            "src/app/api/jobs/[id]/payments/route.ts",
+            "src/app/api/jobs/[id]/expenses/[expenseId]/route.ts",
+            "src/app/api/quotes/[id]/convert-to-job/route.ts",
+            "invoice_activity",
+            "payments",
+            "job_payments",
+            "unmatched_payments",
+            "payroll_payments",
+            "team_member_payouts",
+            "resale_assets"
+          ]
+        },
+        {
+          "id": "fin-08",
+          "name": "Bank reconciliation endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/finance/bank-accounts/route.ts",
+            "src/app/api/finance/bank-accounts/[id]/route.ts",
+            "src/app/api/finance/bank-import/route.ts",
+            "src/app/api/finance/bank-transactions/route.ts",
+            "src/app/api/finance/bank-transactions/[id]/route.ts",
+            "src/app/api/finance/bank-transactions/[id]/match/route.ts",
+            "src/app/api/finance/bank-transactions/suggest/route.ts",
+            "src/app/api/finance/bank-transactions/accept-suggestions/route.ts",
+            "src/app/api/finance/reconcile-candidates/route.ts",
+            "bank_import_batches",
+            "bank_statements",
+            "categorization_patterns",
+            "journal_entries",
+            "journal_lines",
+            "chart_of_accounts"
+          ]
+        },
+        {
+          "id": "fin-09",
+          "name": "Expense/recurring-expense/vendor endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/finance/expenses/[id]/route.ts",
+            "src/app/api/recurring-expenses/route.ts",
+            "src/app/api/recurring-expenses/[id]/route.ts",
+            "src/app/api/cron/recurring-expenses/route.ts",
+            "src/app/api/cron/release-due-payments/route.ts",
+            "src/app/api/vendors/route.ts",
+            "src/app/api/vendors/[id]/items/route.ts",
+            "src/app/api/finance/receipts/attach/route.ts",
+            "src/app/api/finance/upload/route.ts",
+            "inventory_items"
           ]
         }
       ]

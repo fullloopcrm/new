@@ -77,6 +77,38 @@
           "evidence": "Reviewed 2026-07-31 -- this checkpoint's prior 'not_scored' entry stated no Supabase Management API read endpoint exists for backup/PITR state. That was wrong (or the API changed): GET /v1/projects/{ref}/database/backups DOES return it, no dashboard access needed. Live result (confirmed twice, 2026-07-31, both identical): pitr_enabled=false, walg_enabled=true, and 7 real daily physical backups, one per day 2026-07-24 through 2026-07-30, all status=COMPLETED -- a genuine, working, reliable daily backup system, not a stub or an assumption. The real gap: Point-In-Time Recovery is OFF. With PITR disabled, a restore can only land on one of these daily snapshots (up to ~24h of data loss on the worst possible incident timing); with it enabled, restore could target any specific moment. For a live-revenue platform this is a real, live risk, not a hypothetical -- and now a known, specific one instead of an unknown. Enabling PITR is a Supabase plan/add-on decision (cost + Jeff sign-off), not something this session can flip via API. live_query evidence, cap 100 -- scored on the actual state found (reliable daily backups = a real baseline; PITR off = a real, named gap), not at ceiling.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
+        },
+        {
+          "id": "sec-10",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31 (previously unmapped surface). Real rate-limiting on every entry point: /api/auth/login (5/5min, fail-closed), /api/admin-auth (5/15min, fail-closed), /api/pin-reset (5/15min per tenant+contact AND 30/15min per IP, both fail-closed). Session/token verification is cryptographic, not presence-only: verifyAdminToken uses HMAC-SHA256 with a constant-time compare (admin-auth/route.ts); getAdminUser's admin_session cookie goes through verifySessionCookie. /api/admin/users/[id]/pin (PIN set/reset) is gated by requirePermission('settings.edit'), confirms the target member belongs to the caller's tenant before touching pin_hash, hashes the PIN before storage, returns plaintext exactly once. One real architectural wrinkle, not a bug: two parallel session systems coexist by design (admin_session for Clerk-backed tenant members, admin_token for the platform-PIN super-admin path) -- this repo's own CLAUDE.md documents this was a real bug source for 3 tenant clones (fixed 2026-07-28) precisely because a domain's rewrite checked the wrong cookie. Did not re-audit every remaining site for the same mismatch class beyond what CLAUDE.md already confirms fixed. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-11",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Consistent gating across the whole admin/RBAC surface: requirePermission('settings.edit') on /api/admin/users (all 4 verbs) and /api/admin/users/[id]; requireAdmin() (platform-super-admin-only) on /api/admin/businesses/[id]/users, /api/admin/security, /api/admin/system-check -- correct, since these are legitimately cross-tenant surfaces. /api/tenants POST (self-service tenant creation) checks getOwnerUserId() and blocks a user who already belongs to a tenant. /api/invites/[token]/accept has no admin-session check by design (it's the invite acceptance flow itself) but is properly hardened: single-use (`invite.accepted` checked), expiring (`expires_at`), rate-limited (10/15min per IP), and the acceptance is written to security_events via logSecurityEvent. /api/cron/gdpr-purge uses a Bearer CRON_SECRET compared with a timing-safe helper. Did not verify every one of the 14 files' error-path status codes or confirm zero cross-tenant leakage on every list endpoint individually -- spot-checked the auth gate on each, not every query's WHERE clause. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-12",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/audit (tenant-facing) uses getTenantForRequest() + tenantDb(tenant.tenantId).from('audit_logs') -- a tenant can only ever see its own audit trail, correct. /api/admin/errors, /api/admin/monitoring/audit, /api/admin/monitoring/errors, /api/admin/monitoring/status are all requireAdmin()-gated (platform-super-admin), which is the correct scope for a cross-tenant monitoring view -- the cross-tenant reads inside them are explicitly commented `tenant-scope-ok: platform super-admin surface (cross-tenant by design)`, matching this codebase's established tenant-scope-audit convention rather than an unexplained bypass. /api/finance/audit-log is tenant-scoped via requirePermission('finance.view'). Did not verify requireAdmin() itself is unforgeable beyond what sec-10's review of verifyAdminToken already covers. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-13",
+          "score": 40,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/webhooks/clerk verifies a real Svix HMAC signature (verifySvix) before trusting the payload -- but has a documented escape hatch: `if (process.env.CLERK_WEBHOOK_VERIFY !== 'off')`, meaning signature verification is skippable by env var. Presumably a local-dev convenience, but it's a live code path that would silently accept ANY unsigned payload if that var were ever set to 'off' in prod -- a real, if narrow, misconfiguration risk for a checkpoint specifically about trigger auth. /api/internal/deploy-hook verifies Vercel's HMAC-SHA1 signature with crypto.timingSafeEqual, no bypass switch, well-documented threat model in its own header comment (project-scoped token specifically to limit blast radius). /api/migrate-cleaner-notifications is gated by requirePermission('settings.edit') -- it's an authenticated admin action, not actually a webhook, filed here because it was unmapped Security surface. Scored below sec-10/11/12 specifically because of the Clerk webhook's live bypass switch. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },
@@ -128,6 +160,30 @@
           "evidence_type": "test_run",
           "evidence": "3 existing test files (route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts) pass 2026-07-30. Not independently live-curled against a real Stripe event this round. Test files: src/app/api/webhooks/stripe/route.quote-deposit-race.test.ts, route.payment-link-hijack.witness.test.ts, route.tenant-scope.test.ts.",
           "last_verified": "2026-07-30",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-07",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Invoice CRUD and payment-recording endpoints consistently gated by requirePermission('finance.view' or 'finance.expenses') + tenantDb scoping (/api/invoices, /api/invoices/[id]/record-payment). The public payment path (/api/invoices/public/[token]/checkout) is well-designed for an unauthenticated surface: balance is computed server-side from stored total_cents/amount_paid_cents (never trusts a client-supplied amount), blocks paying an already void/refunded/paid invoice, decrypts the tenant's Stripe key only at the send boundary, and sanitizes error messages before returning them publicly (`catch` block explicitly avoids leaking Stripe/internal error text). Gap: no rate-limiting found on the public checkout-session-creation call, unlike almost every other public endpoint reviewed this session (pin-reset, invite-accept, nycmaid book/new) -- a public token, once known (e.g. leaked via a forwarded email), could be hit repeatedly to spin up Stripe Checkout sessions with no throttle. Did not verify public_token's generation is cryptographically random at the invoice-creation site. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-08",
+          "score": 42,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Bank reconciliation surface (/api/finance/bank-accounts, bank-import, bank-transactions + its match/suggest/accept-suggestions sub-routes, reconcile-candidates) consistently uses getTenantForRequest()/requirePermission('finance.view' or 'finance.expenses') plus tenant_id-scoped queries -- no gaps found in the auth-gate spot-check across all 9 files. Did not review the actual matching/suggestion algorithm for correctness (out of scope for an access-control-focused pass) or trace every write path's idempotency. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-09",
+          "score": 30,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/finance/expenses/[id] is correctly gated by requirePermission('finance.expenses'). Two real, disclosed gaps found in this group, not present in fin-07/fin-08's siblings: (1) /api/vendors is gated by requirePermission('bookings.view'/'bookings.edit') -- a BOOKINGS permission, not a finance one -- even though vendors/vendor_items are finance-adjacent data (used in expense/inventory tracking); a tenant member with booking access but no finance access can view and edit vendor records under the current RBAC taxonomy. (2) /api/recurring-expenses only checks getTenantForRequest() (any authenticated tenant member, any role) with no requirePermission call at all, unlike expenses/[id] right next to it -- any team member can view/create/edit recurring expense schedules regardless of finance permission. Both are real RBAC-consistency gaps, not access-control bypasses (still fully tenant-scoped, no cross-tenant exposure), but they diverge from this codebase's own established finance-gating pattern. Scored below fin-07/fin-08 for that reason. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
       ]
