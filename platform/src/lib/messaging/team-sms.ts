@@ -10,6 +10,7 @@
 // Selected by teamSmsTemplates(tenant) for cleaning-slug tenants only.
 
 import type { TenantBrand } from './brand'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 const STOP_TEXT = '\nReply STOP to opt out.'
 
@@ -41,7 +42,7 @@ function suppliesLine(booking: TeamBookingLike): string {
 export function jobAssignment(brand: TenantBrand, booking: TeamBookingLike): string {
   const date = etDate(booking.start_time)
   const time = etTime(booking.start_time)
-  const pin = booking.team_members?.pin || ''
+  const pin = booking.team_members?.pin ? decryptSecret(booking.team_members.pin) : ''
   const supplies = suppliesLine(booking)
   const portal = `${brand.site}/team`
   return `${brand.name}: New job ${date} ${time} - ${booking.clients?.name || 'Client'}.${supplies} Portal: ${portal} PIN: ${pin}\nNuevo trabajo ${date} ${time}.${supplies} Portal: ${portal} PIN: ${pin}${STOP_TEXT}`
@@ -50,7 +51,8 @@ export function jobAssignment(brand: TenantBrand, booking: TeamBookingLike): str
 export function dailySummary(brand: TenantBrand, cleanerName: string, count: number, pin?: string, bookings?: TeamBookingLike[]): string {
   const firstName = cleanerName.split(' ')[0]
   const portal = `${brand.site}/team`
-  const pinText = pin ? ` PIN: ${pin}` : ''
+  const plainPin = pin ? decryptSecret(pin) : ''
+  const pinText = plainPin ? ` PIN: ${plainPin}` : ''
 
   let jobLines = ''
   if (bookings && bookings.length > 0) {
@@ -71,7 +73,7 @@ export function dailySummary(brand: TenantBrand, cleanerName: string, count: num
 export function lateCheckInCleaner(brand: TenantBrand, booking: TeamBookingLike): string {
   const time = etTime(booking.start_time)
   const clientName = booking.clients?.name || 'Client'
-  const pin = booking.team_members?.pin || ''
+  const pin = booking.team_members?.pin ? decryptSecret(booking.team_members.pin) : ''
   const portal = `${brand.site}/team`
   return `${brand.name}: You're late for your ${time} job (${clientName}). Please check in ASAP: ${portal} PIN: ${pin}\nEstás tarde para tu trabajo de las ${time} (${clientName}). Regístrate ahora: ${portal} PIN: ${pin}${STOP_TEXT}`
 }
@@ -85,7 +87,7 @@ export function lateCheckInAdmin(brand: TenantBrand, booking: TeamBookingLike): 
 
 export function lateCheckOutCleaner(brand: TenantBrand, booking: TeamBookingLike): string {
   const clientName = booking.clients?.name || 'Client'
-  const pin = booking.team_members?.pin || ''
+  const pin = booking.team_members?.pin ? decryptSecret(booking.team_members.pin) : ''
   const portal = `${brand.site}/team`
   return `${brand.name}: Please check out for your ${clientName} job. 30-min alert was sent 30+ min ago. Check out now: ${portal} PIN: ${pin}\nPor favor regístrate de salida para tu trabajo con ${clientName}. Salir ahora: ${portal} PIN: ${pin}${STOP_TEXT}`
 }

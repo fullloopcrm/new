@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
@@ -11,6 +11,7 @@ import { notify } from '@/lib/notify'
 import { formatName, formatEmail } from '@/lib/format'
 import { normalizePhone } from '@/lib/phone'
 import { updateProperty } from '@/lib/client-properties'
+import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -21,7 +22,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // Same gap as GET /api/clients (list) -- see that file's comment. Every
+    // other verb here (PUT/DELETE below) is gated by requirePermission.
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const { id } = await params
 
     const { data, error } = await (await tenantClient(tenantId))
@@ -61,9 +66,10 @@ export async function PUT(
     if (isNycMaid(tenantId) && body.send_pin) {
       const { data: client } = await (await tenantClient(tenantId)).from('clients').select('name, pin').eq('id', id).eq('tenant_id', tenantId).single()
       if (!client?.pin) return NextResponse.json({ error: 'Client has no PIN' }, { status: 400 })
+      const plainPin = decryptSecret(client.pin)
 
       const portalUrl = tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined
-      const pinMessage = `Your ${tenant.tenant.name} portal PIN is: ${client.pin}.${portalUrl ? ` Log in at ${portalUrl} with your email and this PIN.` : ''}`
+      const pinMessage = `Your ${tenant.tenant.name} portal PIN is: ${plainPin}.${portalUrl ? ` Log in at ${portalUrl} with your email and this PIN.` : ''}`
       // Same standard branded template as the reset flow just below — this
       // used to send a raw unstyled <p> tag with the tenant name hardcoded.
       const emailResult = await notify({
@@ -74,7 +80,7 @@ export async function PUT(
         channel: 'email',
         recipientType: 'client',
         recipientId: id,
-        metadata: { recipientName: client.name, pin: client.pin, portalUrl, wasReset: false },
+        metadata: { recipientName: client.name, pin: plainPin, portalUrl, wasReset: false },
       })
       const smsResult = await sendClientSMS(id, pinMessage, { smsType: 'pin_delivery' })
 
@@ -87,7 +93,7 @@ export async function PUT(
       if (!client.email) return NextResponse.json({ error: 'Client has no email on file' }, { status: 400 })
 
       const newPin = generatePin()
-      const { error: updateError } = await (await tenantClient(tenantId)).from('clients').update({ pin: newPin }).eq('id', id).eq('tenant_id', tenantId)
+      const { error: updateError } = await (await tenantClient(tenantId)).from('clients').update({ pin: encryptSecretSafe(newPin) }).eq('id', id).eq('tenant_id', tenantId)
       if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
       const result = await notify({

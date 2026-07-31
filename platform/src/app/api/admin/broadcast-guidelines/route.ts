@@ -8,6 +8,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 interface TeamMemberRow {
   id: string
@@ -41,11 +42,12 @@ export async function POST() {
 
     let sent = 0
     for (const m of rows) {
+      const plainPin = m.pin ? decryptSecret(m.pin) : null
       const isEs = m.preferred_language === 'es'
       const title = isEs ? 'Reglas del equipo actualizadas' : 'Team guidelines updated'
       const body = isEs
-        ? `${businessName}: Se han publicado nuevas reglas del equipo. Revísalas en tu portal: ${portalUrl}${m.pin ? ` PIN: ${m.pin}` : ''}`
-        : `${businessName}: New team guidelines posted. Review in your portal: ${portalUrl}${m.pin ? ` PIN: ${m.pin}` : ''}`
+        ? `${businessName}: Se han publicado nuevas reglas del equipo. Revísalas en tu portal: ${portalUrl}${plainPin ? ` PIN: ${plainPin}` : ''}`
+        : `${businessName}: New team guidelines posted. Review in your portal: ${portalUrl}${plainPin ? ` PIN: ${plainPin}` : ''}`
 
       const r = await notify({
         tenantId,

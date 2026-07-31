@@ -263,7 +263,7 @@ export async function GET(request: Request) {
           type: 'daily_summary',
           title: `${upcomingJobs.length} job${upcomingJobs.length === 1 ? '' : 's'} in next 3 days`,
           message: `You have ${upcomingJobs.length} upcoming job${upcomingJobs.length === 1 ? '' : 's'}`,
-          channel: 'push' as 'email',
+          channel: 'push',
           recipientType: 'team_member',
           recipientId: member.id,
         })

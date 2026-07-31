@@ -122,4 +122,47 @@ describe('PUT /api/tenant-profile (autosave)', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).saved).toBe(true)
   })
+
+  it('live-writes visited-section fields via applyProfileWrite, same path as submit', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    const res = await PUT(new Request('http://x/api/tenant-profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        token: 'whatever',
+        draft: { businessName: 'Acme Cleaning' },
+        step: 0,
+        data: { businessName: 'Acme Cleaning' },
+      }),
+    }))
+    expect(res.status).toBe(200)
+    expect(applyProfileWriteMock).toHaveBeenCalledTimes(1)
+    expect(applyProfileWriteMock.mock.calls[0][1]).toEqual({ businessName: 'Acme Cleaning' })
+  })
+
+  it('drops a forged admin-only field from a live-write data payload', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    await PUT(new Request('http://x/api/tenant-profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        token: 'whatever',
+        draft: {},
+        step: 0,
+        data: { businessName: 'Acme', accountOwner: 'attacker@evil.example' },
+      }),
+    }))
+    const written = applyProfileWriteMock.mock.calls[0][1]
+    expect(written).toEqual({ businessName: 'Acme' })
+    expect(written.accountOwner).toBeUndefined()
+  })
+
+  it('never calls applyProfileWrite when data is absent (draft-only save)', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    await PUT(new Request('http://x/api/tenant-profile', {
+      method: 'PUT',
+      body: JSON.stringify({ token: 'whatever', draft: { businessName: 'x' }, step: 0 }),
+    }))
+    expect(applyProfileWriteMock).not.toHaveBeenCalled()
+  })
 })

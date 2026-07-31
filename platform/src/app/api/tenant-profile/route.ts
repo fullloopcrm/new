@@ -48,6 +48,7 @@ export async function GET(request: Request) {
         key: f.key, label: f.label, section: f.section, value: f.value, filled: f.filled,
         tier: f.tier, readonly: !!f.readonly, kind: f.kind || 'text',
         input: f.input || 'text', options: f.options || null, funnels: f.funnels || null,
+        help: f.help || null,
       })),
       draft: (tenant?.onboarding_draft as Json) || null,
     })
@@ -57,10 +58,22 @@ export async function GET(request: Request) {
   }
 }
 
-/** Autosave: persist raw in-progress form state, no validation. */
+/**
+ * Autosave. Two things happen on every debounced call:
+ *   1. `draft` (raw form + __step) persists so a resume lands on the right
+ *      step even mid-field — unchanged from before.
+ *   2. `data`, if sent, live-writes through the SAME applyProfileWrite path
+ *      POST uses — this is what makes "fill it in" mean "it's in the real
+ *      profile now", not "it's in the profile once you click Finish".
+ *      The caller (ProfileWizard) only ever sends fields from sections the
+ *      tenant has actually visited — never the whole form — because
+ *      coerceFieldValue treats empty as an explicit clear, and blasting every
+ *      not-yet-reached field would null out real data (including whatever
+ *      the admin already filled in at creation).
+ */
 export async function PUT(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { token?: string; draft?: Json; step?: number }
+    const body = (await request.json().catch(() => ({}))) as { token?: string; draft?: Json; step?: number; data?: Json }
     const tenantId = await resolveOnboardingTenantId(body.token || null)
     if (!tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -68,6 +81,16 @@ export async function PUT(request: Request) {
     if (typeof body.step === 'number') draft.__step = body.step
     const { error } = await supabaseAdmin.from('tenants').update({ onboarding_draft: draft }).eq('id', tenantId)
     if (error) throw error
+
+    if (body.data && typeof body.data === 'object') {
+      const filtered: Json = {}
+      for (const [key, value] of Object.entries(body.data)) {
+        const field = PROFILE_FIELD_BY_KEY[key]
+        if (field && isTenantVisible(field)) filtered[key] = value
+      }
+      if (Object.keys(filtered).length > 0) await applyProfileWrite(tenantId, filtered)
+    }
+
     return NextResponse.json({ saved: true })
   } catch (err) {
     console.error('PUT /api/tenant-profile', err)

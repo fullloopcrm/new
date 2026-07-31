@@ -475,7 +475,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   {
     category: "process",
     question: "Who will I work with at The NYC Marketing Company?",
-    answer: <span>You work directly with senior strategists who have 25+ years of experience. No junior account managers, no interns, no overseas outsourcing. When you call, the person who picks up is the same person working on your <L href="/nyc-marketing-company-services-list">SEO</L>, your <L href="/nyc-marketing-company-services-list">website</L>, and your strategy. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company difference</L>.</span>,
+    answer: <span>You work directly with senior strategists who have 25+ years of experience. No junior account managers, no interns, no overseas outsourcing. When you call, the person who picks up is the same person working on your <L href="/nyc-marketing-company-services-list">SEO</L>, your <L href="/nyc-marketing-company-services-list">website</L>, and your strategy. That&apos;s the <L href="/about">The NYC Marketing Company difference</L>.</span>,
   },
   {
     category: "process",
@@ -559,7 +559,7 @@ const faqs: { category: string; question: string; answer: ReactNode }[] = [
   {
     category: "general",
     question: "What is the difference between a marketing agency and a marketing consultant?",
-    answer: <span>Agencies have teams, overhead, and often junior staff doing the work. Consultants have expertise but limited execution capacity. <BrandLink /> is the best of both — you get <L href="/about-digital-marketing-agency-consortium-nyc">senior-level strategy AND execution</L> without the agency markup. We build, implement, and manage everything in-house.</span>,
+    answer: <span>Agencies have teams, overhead, and often junior staff doing the work. Consultants have expertise but limited execution capacity. <BrandLink /> is the best of both — you get <L href="/about">senior-level strategy AND execution</L> without the agency markup. We build, implement, and manage everything in-house.</span>,
   },
   {
     category: "general",
@@ -800,7 +800,7 @@ export default function FAQPageClient() {
                   { label: "100+ Industries We Serve", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
                   { label: "What's Working in Marketing", href: "/whats-working-in-marketing" },
-                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About The NYC Marketing Company", href: "/about" },
                   { label: "Free Strategy Session", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (
                   <Link key={link.href} href={link.href} className="block text-teal-400 text-sm font-medium hover:text-teal-300 transition-colors">

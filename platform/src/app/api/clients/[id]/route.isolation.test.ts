@@ -43,6 +43,7 @@ vi.mock('@/lib/require-permission', () => ({
 
 vi.mock('@/lib/audit', () => ({ audit: vi.fn(async () => {}) }))
 
+import { requirePermission } from '@/lib/require-permission'
 import { GET, PUT, DELETE } from './route'
 
 function seed() {
@@ -77,6 +78,18 @@ describe('clients/[id] — tenant isolation', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.client.id).toBe('cli-a')
+  })
+
+  // Regression (2026-07-31, crm-04 re-check) -- see GET /api/clients's
+  // matching test for the full rationale.
+  it('honors requirePermission(clients.view) denial instead of bypassing it', async () => {
+    const { NextResponse } = await import('next/server')
+    vi.mocked(requirePermission).mockResolvedValueOnce({
+      tenant: null,
+      error: NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 }),
+    })
+    const res = await GET(new Request('http://t/api/clients/cli-a'), params('cli-a'))
+    expect(res.status).toBe(403)
   })
 
   it('PUT never mutates a foreign tenant client', async () => {

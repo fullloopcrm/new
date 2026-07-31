@@ -586,7 +586,7 @@ const lessons: Lesson[] = [
     step: "Think in Systems, Not Tactics",
     issue: <span>You&apos;ve tried dozens of marketing tactics over the years. Some worked, some didn&apos;t. But nothing connects. Your marketing is a collection of experiments, not a machine.</span>,
     advice: <span>Build a marketing system where every piece amplifies every other piece: <L href="/nyc-marketing-company-services-list">SEO</L> drives traffic → your website converts visitors → <L href="/artificial-intelligence-marketing-services-offered">automation</L> follows up → reviews build authority → authority improves rankings → the cycle repeats. This is how you build a marketing machine that runs without you.</span>,
-    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about-digital-marketing-agency-consortium-nyc">The NYC Marketing Company philosophy</L> — every service we offer is designed to amplify every other service.</span>,
+    secret: <span>The difference between businesses that grow 5% per year and businesses that grow 50% is systems thinking. Individual tactics plateau. Integrated systems compound. That&apos;s the <L href="/about">The NYC Marketing Company philosophy</L> — every service we offer is designed to amplify every other service.</span>,
   },
   {
     phase: "mastery",
@@ -600,7 +600,7 @@ const lessons: Lesson[] = [
     step: "Build Your Personal Authority",
     issue: <span>Your business is known, but you&apos;re not. If you left, the brand would lose its credibility. Personal authority amplifies business authority and survives any algorithm change.</span>,
     advice: <span>Publish expert content under your name: LinkedIn articles, local publication columns, speaking at industry events, podcast appearances, and YouTube videos. Your personal expertise becomes a backlink magnet, a trust signal, and an unassailable competitive advantage.</span>,
-    secret: <span>Google&apos;s E-E-A-T framework (Experience, Expertise, Authoritativeness, Trustworthiness) increasingly rewards content from recognized experts. An <L href="/about-digital-marketing-agency-consortium-nyc">author with 25 years of verifiable experience</L> outranks anonymous AI content every time. Build your author authority now — it&apos;s becoming the most important ranking factor.</span>,
+    secret: <span>Google&apos;s E-E-A-T framework (Experience, Expertise, Authoritativeness, Trustworthiness) increasingly rewards content from recognized experts. An <L href="/about">author with 25 years of verifiable experience</L> outranks anonymous AI content every time. Build your author authority now — it&apos;s becoming the most important ranking factor.</span>,
   },
   {
     phase: "mastery",
@@ -677,7 +677,7 @@ const lessons: Lesson[] = [
     step: "Play the Long Game",
     issue: <span>Everyone wants results yesterday. You&apos;ve seen enough to know that the businesses that win aren&apos;t the ones that move fastest — they&apos;re the ones that never stop.</span>,
     advice: <span>Marketing is a marathon, not a sprint. The businesses that dominate their <L href="/services-areas-we-offer-marketing-services-in">local market</L> after 10+ years didn&apos;t find a silver bullet — they showed up consistently, invested steadily, and compounded small advantages into an insurmountable lead. Start today. <L href="https://www.thenycmarketingcompany.com/contact">Let&apos;s talk about your next move.</L></span>,
-    secret: <span>Here&apos;s the truth after 25 years: there is no secret. No hack, no shortcut, no trick that replaces doing the work. The businesses that win are the ones that build the right foundation, hire the right <L href="/about-digital-marketing-agency-consortium-nyc">partners</L>, stay consistent for years, and treat marketing as an investment — not an expense. That&apos;s the only lesson that matters. Everything else is details.</span>,
+    secret: <span>Here&apos;s the truth after 25 years: there is no secret. No hack, no shortcut, no trick that replaces doing the work. The businesses that win are the ones that build the right foundation, hire the right <L href="/about">partners</L>, stay consistent for years, and treat marketing as an investment — not an expense. That&apos;s the only lesson that matters. Everything else is details.</span>,
   },
   {
     phase: "mastery",
@@ -925,7 +925,7 @@ export default function Marketing101Client() {
                 {[
                   { label: "100+ Industries", href: "/industries-we-offer-marketing-services-for" },
                   { label: "80+ Service Areas", href: "/services-areas-we-offer-marketing-services-in" },
-                  { label: "About The NYC Marketing Company", href: "/about-digital-marketing-agency-consortium-nyc" },
+                  { label: "About The NYC Marketing Company", href: "/about" },
                   { label: "Free SEO Audit", href: "https://www.thenycmarketingcompany.com/contact" },
                   { label: "Contact Us", href: "/contact-nyc-marketing-company-consortium-nyc" },
                 ].map((link) => (

@@ -23,6 +23,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { randomInt } from 'crypto'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
 
 interface CollectBody {
@@ -174,7 +175,9 @@ export async function POST(request: NextRequest) {
           pet_name: pet_name || null,
           pet_type: pet_type || null,
           special_instructions: specialInstructionsValue,
-          pin: randomInt(100000, 1000000).toString(),
+          // sec-07: encrypt at creation — real gap, this route was creating
+          // plaintext pins outside the audited write-site sweep.
+          pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
         })
         .select()
         .single()

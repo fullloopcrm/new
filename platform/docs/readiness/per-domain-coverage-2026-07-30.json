@@ -1,4 +1,5 @@
 {
+  "status": "HAND-MAINTAINED -- NOT pipeline-verified. No script in scripts/ generates, regenerates, or validates this file; compute-readiness.mjs does not read it (it computes only one blended overall coverage number from surface-inventory.json). This file has already been silently overwritten mid-audit once (2026-07-30) with no diff surfaced anywhere. Treat every number below as a manually-authored snapshot, not a computed metric, until a real regeneration script exists (see docs/readiness/PROCESS.md).",
   "generated": "2026-07-30",
   "method": "code-informed: real .from(table) extraction + doc-comment/import keyword content matching + 9 manually-read holdouts + 127 tables classified by direct knowledge of table purpose. NOT filename pattern matching.",
   "report": {

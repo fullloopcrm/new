@@ -55,7 +55,7 @@ export default function MarketingNav() {
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
-              <a href="/book" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
+              <a href="/book/new" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
               <span className="text-white/30">|</span>
               <a href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
             </div>
@@ -196,7 +196,7 @@ export default function MarketingNav() {
               )}
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
-                <a href="/book" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</a>
+                <a href="/book/new" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</a>
                 <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Referral Program</Link>
               </div>
 

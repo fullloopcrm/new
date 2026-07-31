@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { randomInt } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { emailAdmins } from '@/lib/admin-contacts'
@@ -154,7 +155,9 @@ export async function POST(request: Request) {
           email,
           phone,
           notes,
-          pin: randomInt(100000, 1000000).toString(),
+          // sec-07: encrypt at creation — real gap, this route was creating
+          // plaintext pins outside the audited write-site sweep.
+          pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
         })
         .select('id')
         .single()

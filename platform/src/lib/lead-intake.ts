@@ -17,6 +17,7 @@ import { createPrimaryContact } from '@/lib/client-contacts'
 import { normalizePhone } from '@/lib/phone'
 import { formatName } from '@/lib/format'
 import { randomInt } from 'crypto'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 export interface CreateLeadInput {
   name?: string | null
@@ -60,7 +61,9 @@ export async function createLeadAndEnterPipeline(
   } else {
     const { data: inserted, error } = await db
       .from('clients')
-      .insert({ name, email, phone, notes: input.notes || null, pin: randomInt(100000, 1000000).toString() })
+      // sec-07: encrypt at creation — real gap, this path was creating
+      // plaintext pins outside the audited write-site sweep.
+      .insert({ name, email, phone, notes: input.notes || null, pin: encryptSecretSafe(randomInt(100000, 1000000).toString()) })
       .select('id')
       .single()
     if (error) throw error

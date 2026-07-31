@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history — the ledger-sync check below computes a merge-base
-          # against origin/main, which a shallow (depth-1) checkout can't do
-          # (git has no shared history to find "no merge base" errors).
+          # Full history — the ledger-sync and commit-ancestry checks below need
+          # to walk arbitrary past commits / compute a merge-base against
+          # origin/main, which a shallow (depth-1) checkout can't do.
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -55,6 +55,13 @@ jobs:
       - name: Readiness ledger evidence
         # Fails if any checkpoint's score exceeds its evidence_type's cap.
         run: node scripts/validate-ledger-evidence.mjs
+
+      - name: Readiness ledger commit ancestry
+        # Fails if any checkpoint's last_verified_commit isn't a real ancestor
+        # of this build's HEAD -- catches a checkpoint scoring work that only
+        # exists on some other, unmerged branch (found manually 2026-07-30;
+        # this makes that sweep automatic).
+        run: node scripts/check-commit-ancestry.mjs
 
       - name: Readiness taxonomy sign-off
         # Fails if taxonomy.json (checkpoint definitions/severity/weights)

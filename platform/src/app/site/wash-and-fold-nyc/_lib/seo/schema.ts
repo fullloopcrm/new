@@ -31,25 +31,6 @@ const BUSINESS = {
   socialProfiles: [] as string[],
 }
 
-// Google reviews for laundry service
-const GOOGLE_REVIEWS = [
-  { text: 'Best wash and fold in the city. My clothes come back perfectly folded every time. The pickup and delivery is so convenient — I never have to leave my apartment.', name: 'Rachel Kim', location: 'New York', rating: 5, datePublished: '2026-03-15' },
-  { text: 'Finally found a laundry service I can trust. They handle my delicates with care and everything smells amazing. The per-pound pricing is straightforward — no hidden fees.', name: 'Marcus Johnson', location: 'New York', rating: 5, datePublished: '2026-03-10' },
-  { text: 'Same-day turnaround is a lifesaver. Dropped off a huge bag in the morning, had it back by evening. Everything perfectly folded and organized. Highly recommend!', name: 'Emily Chen', location: 'New York', rating: 5, datePublished: '2026-03-02' },
-  { text: 'I switched from my old laundromat and the difference is night and day. They actually separate colors, use quality detergent, and fold everything neatly. Worth every penny.', name: 'David Torres', location: 'New York', rating: 5, datePublished: '2026-02-25' },
-  { text: 'They picked up my laundry from my doorstep at 8am and had it back by the afternoon. Clean, fresh, and perfectly folded. This is how laundry should work in NYC.', name: 'Samantha Reeves', location: 'New York', rating: 5, datePublished: '2026-02-20' },
-  { text: 'Been using them weekly for three months now. Always on time, always consistent. My shirts are folded better than I could ever do myself. Great communication too.', name: 'Jason Park', location: 'New York', rating: 5, datePublished: '2026-02-14' },
-  { text: 'Moved to NYC and dreaded the laundromat situation. A friend recommended The NYC Wash and Fold Service Company and I haven\'t looked back. Pickup, wash, fold, deliver — all handled.', name: 'Olivia Morales', location: 'New York', rating: 5, datePublished: '2026-02-08' },
-  { text: 'They handled my king-size comforter and a bag of regular laundry. Everything came back fresh and clean. The comforter was fluffy like new. Reasonable pricing too.', name: 'Andre Williams', location: 'New York', rating: 5, datePublished: '2026-01-30' },
-  { text: 'Super responsive over text. Scheduled a pickup in minutes and my laundry was done the same day. No missing socks, no shrinkage, no complaints. Five stars.', name: 'Christine Liu', location: 'New York', rating: 5, datePublished: '2026-01-22' },
-  { text: 'I run an Airbnb in Brooklyn and they handle all my linens and towels between guests. Fast turnaround, always spotless, and they fold the towels exactly how I need them.', name: 'Tyler Brooks', location: 'New York', rating: 5, datePublished: '2026-01-15' },
-  { text: 'Tried three different laundry services before finding The NYC Wash and Fold Service Company. They\'re the only ones who consistently get it right — clean clothes, no damage, on time every single time.', name: 'Priya Nair', location: 'New York', rating: 5, datePublished: '2026-01-08' },
-  { text: 'The convenience factor alone is worth it. But on top of that, my clothes have never been cleaner. They even got a stain out of my favorite shirt that I thought was ruined.', name: 'Michael Ortiz', location: 'New York', rating: 5, datePublished: '2025-12-20' },
-  { text: 'Affordable, reliable, and fast. I drop off on my way to work and pick up on my way home. My laundry is always ready when they say it will be. No surprises.', name: 'Hannah Scott', location: 'New York', rating: 5, datePublished: '2025-12-10' },
-  { text: 'As a busy nurse working 12-hour shifts, the last thing I want to do is laundry. The NYC Wash and Fold Service Company handles everything for me. Scrubs, sheets, towels — all done.', name: 'Danielle Foster', location: 'New York', rating: 5, datePublished: '2025-11-28' },
-  { text: 'Great service for families. We generate a LOT of laundry with two kids and they handle it all without breaking the bank. The per-pound pricing makes so much sense.', name: 'Kevin Walsh', location: 'New York', rating: 5, datePublished: '2025-11-15' },
-  { text: 'I\'ve recommended them to everyone in my building. Professional, affordable, and the turnaround time is incredible. NYC laundry done right.', name: 'Sofia Martinez', location: 'New York', rating: 5, datePublished: '2025-11-01' },
-]
 
 // ============ REUSABLE REFERENCES ============
 
@@ -354,13 +335,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
         priceSpecification: { '@type': 'UnitPriceSpecification', price: '3.00', priceCurrency: 'USD', unitCode: 'LBR', unitText: 'per pound plus $20 rush fee' },
       },
     ],
-    review: GOOGLE_REVIEWS.slice(0, 5).map(r => ({
-      '@type': 'Review',
-      reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
-      author: { '@type': 'Person', name: r.name },
-      reviewBody: r.text,
-      datePublished: r.datePublished,
-    })),
     sameAs: BUSINESS.socialProfiles,
     potentialAction: [
       {
@@ -512,8 +486,15 @@ export function pricingOffersSchema() {
 // INDIVIDUAL REVIEW SCHEMAS
 // ================================================================
 
-export function reviewSchemas(reviews?: typeof GOOGLE_REVIEWS) {
-  const r = reviews || GOOGLE_REVIEWS
+interface LiveReview {
+  name: string
+  rating: number
+  text: string
+  datePublished: string
+}
+
+export function reviewSchemas(reviews?: LiveReview[]) {
+  const r = reviews || []
   return r.map(review => ({
     '@context': 'https://schema.org',
     '@type': 'Review',
@@ -530,7 +511,6 @@ export function reviewSchemas(reviews?: typeof GOOGLE_REVIEWS) {
     },
     reviewBody: review.text,
     datePublished: review.datePublished,
-    publisher: { '@type': 'Organization', name: 'Google' },
   }))
 }
 

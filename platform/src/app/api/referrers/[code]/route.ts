@@ -108,6 +108,59 @@ export async function GET(
     pendingBookings = []
   }
 
+  // Real click tracking for this referrer's own link. /api/track already
+  // writes a `lead_clicks` row with ref_code=<their code> on every real visit
+  // to <tenant booking page>?ref=<code> (fired once per session on page load
+  // via trackBookingEvent('form_start', ...) in every tenant's booking form —
+  // see BookFormClient.tsx / nycmaid/book/new/page.tsx / etc). That data was
+  // being captured all along but never read back here — this endpoint
+  // hardcoded total_clicks:0 and never populated linkStats/recentActivity,
+  // both of which the frontend (src/app/referral/[code]/page.tsx) already has
+  // UI for. Same aggregation approach as /api/referrers/analytics (the
+  // tenant-operator-facing sibling of this route), scoped to this one code.
+  let linkStats = { clicks: 0, uniqueVisitors: 0, bookClicks: 0, thisWeek: 0, thisMonth: 0 }
+  let recentActivity: { action: string; device: string; time: string }[] = []
+  try {
+    const { data } = (await db
+      .from('lead_clicks')
+      .select('action, session_id, lead_id, device, created_at')
+      .eq('ref_code', code)
+      .order('created_at', { ascending: false })
+      .limit(500)) as {
+      data: { action: string | null; session_id: string | null; lead_id: string | null; device: string | null; created_at: string }[] | null
+    }
+    const clicks = data || []
+    const now = Date.now()
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+    const monthAgo = now - 30 * 24 * 60 * 60 * 1000
+    // created_at as returned by supabase-js already carries a timezone offset
+    // (e.g. "2026-07-31T12:04:14.99887+00:00") -- appending 'Z' unconditionally
+    // (the pattern used in the sibling /api/referrers/analytics route this was
+    // ported from) produces "...+00:00Z", which Date() silently parses as
+    // Invalid Date -> NaN -> every comparison false. Verified live 2026-07-31:
+    // that bug made thisWeek/thisMonth read 0 even for same-day clicks. Only
+    // append 'Z' when the string has no timezone indicator at all.
+    const toMs = (ts: string) => {
+      const hasTz = /(Z|[+-]\d{2}:?\d{2})$/.test(ts)
+      return new Date(hasTz ? ts : ts + 'Z').getTime()
+    }
+    linkStats = {
+      clicks: clicks.length,
+      uniqueVisitors: new Set(clicks.map((c) => c.session_id || c.lead_id).filter(Boolean)).size,
+      bookClicks: clicks.filter((c) => c.action === 'form_success' || c.action === 'book').length,
+      thisWeek: clicks.filter((c) => toMs(c.created_at) >= weekAgo).length,
+      thisMonth: clicks.filter((c) => toMs(c.created_at) >= monthAgo).length,
+    }
+    recentActivity = clicks.slice(0, 20).map((c) => ({
+      action: c.action || 'visit',
+      device: c.device || 'unknown',
+      time: c.created_at,
+    }))
+  } catch {
+    // linkStats/recentActivity stay at their zeroed defaults — a query
+    // failure here must not break the rest of the dashboard.
+  }
+
   // commission_rate is stored as a fraction (0.10); the UI shows a whole percent.
   const rawRate = Number(referrer.commission_rate) || 0
   const ratePercent = rawRate > 0 && rawRate <= 1 ? Math.round(rawRate * 100) : Math.round(rawRate)
@@ -133,12 +186,14 @@ export async function GET(
     },
     share_url: shareUrl,
     stats: {
-      total_clicks: 0,
+      total_clicks: linkStats.clicks,
       total_referrals: converted,
       total_converted: converted,
       total_earned: referrer.total_earned || 0,
       total_pending: (referrer.total_earned || 0) - (referrer.total_paid || 0),
     },
+    linkStats,
+    recentActivity,
     commissions,
     pendingBookings,
   })

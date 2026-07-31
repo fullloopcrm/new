@@ -172,7 +172,6 @@ const isPublicRoute = createRouteMatcher([
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
-  '/api/referrals/track(.*)', // Referral click tracking
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page
@@ -255,6 +254,7 @@ export default async function middleware(req: NextRequest) {
     'consortiumnyc.com',
     'thenycmarketingcompany.com',
     'thenycinteriordesigner.com',
+    'miamibeachmaid.com',
   ])
   if (
     // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
@@ -319,13 +319,32 @@ export default async function middleware(req: NextRequest) {
 
   // --- Custom domain routing (runs before Clerk auth) ---
   if (!isMainHost(hostname)) {
+    const cleanHost = hostname.split(':')[0].toLowerCase()
+
+    // EMD (exact-match-domain) microsites — one-page marketing sites that
+    // fund into the-florida-maid tenant for record-keeping (tenant_domains)
+    // but render a dedicated static page with no tenant/CRM machinery: no
+    // booking, no auth, every CTA links out to thefloridamaid.com. Rewritten
+    // directly (bypassing rewriteToSite) so these stay statically
+    // generatable and never force the shared /site/the-florida-maid tree —
+    // and by extension thefloridamaid.com's own homepage — into dynamic
+    // per-request rendering.
+    const EMD_MICROSITE_ROUTES: Record<string, string> = {
+      'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
+    }
+    const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
+    if (emdRoute && req.nextUrl.pathname === '/') {
+      const url = req.nextUrl.clone()
+      url.pathname = emdRoute
+      return NextResponse.rewrite(url)
+    }
+
     // Static fallback map — used when DB lookup at the edge is unreliable.
     // The tenant id here is informational only; rewriteToSite signs the slug.
     const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
       'thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
       'www.thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
     }
-    const cleanHost = hostname.split(':')[0].toLowerCase()
     const staticTenant = STATIC_TENANT_MAP[cleanHost]
     if (staticTenant) {
       return rewriteToSite(req, staticTenant.id, staticTenant.slug)

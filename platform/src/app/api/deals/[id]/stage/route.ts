@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, stageMeta } from '@/lib/pipeline'
+import { trackError } from '@/lib/error-tracking'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -88,7 +89,23 @@ export async function POST(request: Request, { params }: Params) {
           await closeSoldQuote(tenantId, q.id)
         }
       } catch (jobErr) {
+        // lss-06 live-audit gap (2026-07-31): closeSoldQuote (and everything
+        // it calls — createJobFromQuote/createBookingFromQuote/
+        // createRecurringSeriesFromQuote) throws unless the quote's own
+        // status is already 'accepted'. This manual "mark sold" action is
+        // NOT gated on that — an operator can mark a deal sold over the
+        // phone/in person before the customer ever formally accepts the
+        // public quote link, which is exactly the trigger this checkpoint's
+        // own historical bug came from (a manually-closed $365 quote sat
+        // unscheduled for 11+ days with zero alert). Before this fix,
+        // console.warn was the only signal — a silent-failure gap of the
+        // same shape as the original bug, just one layer deeper (wrong
+        // quote status instead of wrong fulfillment type). The deal still
+        // closes to 'sold' either way (this is best-effort fulfillment
+        // dispatch, not something that should block the stage change) —
+        // but now it actually alerts instead of repeating the same story.
         console.warn('job creation on manual sold failed', jobErr)
+        await trackError(jobErr, { source: 'api/deals/stage:close-sold-quote', severity: 'high', tenantId }).catch(() => {})
       }
     }
 

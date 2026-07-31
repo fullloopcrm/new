@@ -29,6 +29,14 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: vi.fn(async () => ({
+    tenant: { tenantId: A, tenant: { id: A }, role: 'owner', userId: 'u1' },
+    error: null,
+  })),
+}))
+
+import { requirePermission } from '@/lib/require-permission'
 import { GET } from './route'
 
 function seed() {
@@ -62,5 +70,17 @@ describe('clients/stats — tenant isolation', () => {
     // Only tenant A's paid booking (100) — tenant B's 999 must not leak in.
     expect(body.totalRevenue).toBe(100)
     expect(body.avgLtv).toBe(100)
+  })
+
+  // Regression (2026-07-31, crm-04 re-check) -- see GET /api/clients's
+  // matching test for the full rationale.
+  it('honors requirePermission(clients.view) denial instead of bypassing it', async () => {
+    const { NextResponse } = await import('next/server')
+    vi.mocked(requirePermission).mockResolvedValueOnce({
+      tenant: null,
+      error: NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 }),
+    })
+    const res = await GET()
+    expect(res.status).toBe(403)
   })
 })
