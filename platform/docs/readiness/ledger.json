@@ -224,10 +224,10 @@
         },
         {
           "id": "lss-05",
-          "score": 0,
+          "score": 100,
           "evidence_type": "manual_code_read",
-          "evidence": "Confirmed 2026-07-30: only a synchronous, opt-in EMAIL confirmation exists (api/lead, api/contact). No SMS auto-response for phone-only leads exists anywhere. cron/sales-follow-ups only handles pre-set follow_up_at, runs daily, not an intake trigger.",
-          "last_verified": "2026-07-30",
+          "evidence": "DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'We're not even using SMS response for agents anymore.' SMS auto-response for phone-only leads is not required for readiness/completion and is not counted as a gap -- the absence of this feature now matches actual business intent, not an unbuilt gap. Prior finding (only a synchronous opt-in EMAIL confirmation exists, no SMS auto-response anywhere) stands as accurate background, not a blocker.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
@@ -340,9 +340,9 @@
         },
         {
           "id": "ai-02",
-          "score": 5,
-          "evidence_type": "live_query",
-          "evidence": "Re-checked live 2026-07-31 (independent re-check of the 2026-07-30 finding, worker w3). The 2026-07-30 finding that `tenants.voice_agent_enabled` no longer exists in the schema is CONFIRMED still true (fresh select=*&limit=1 against prod tenants, column absent from the live 134-column set). BUT the 'feature appears abandoned or superseded' framing needs correction, not just re-confirmation: 5 other voice-related columns exist live (telnyx_voice_connection_id, voice_ring_list, voicemail_prompt, voice_agent_mcp_secret, voice_did), and real code reads/writes them -- src/app/api/webhooks/telnyx-voice-agent/[secret]/route.ts is an active Telnyx call-lifecycle webhook explicitly built 'for xAI Grok voice agents' (its own header comment), gated on a per-tenant voice_agent_mcp_secret. Exactly ONE tenant (NYC Maid, the live production tenant) has voice_agent_mcp_secret + voice_did populated. Real call activity exists: comhub_active_calls has 33 rows for NYC Maid, 7 in the last 30 days, most recent 2026-07-25 (6 days before this check), real durations (17s-304s), all inbound from the same caller number -- consistent with either routine call-forwarding/ComHub routing OR an actual AI-agent-answered call; could not distinguish which without placing a real call or finding agent-specific transcript/recording rows, which was out of scope (do-not-build instruction). Found one real, unrelated-to-fix bug in the same file: appendProspectNote() (the FullLoop's-own-prospect-line branch of the same webhook, separate from the NYC Maid tenant branch) reads/writes prospects.agent_notes, a column that does NOT exist in the live prospects schema (confirmed: 42-column select, no agent_notes) -- would throw and get silently swallowed by the route's outer try/catch on every real call-end event for that specific path, so its own call logging is currently a no-op. Did NOT fix this or anything else here -- per explicit instruction, ai-02 stays BLOCKED on Jeff's kill-vs-rebuild product decision (is the xAI Grok/MCP path meant to be the real answer, is the NYC Maid config intentional or a leftover test, should the prospects.agent_notes bug even be fixed if the prospect-line path isn't the live one). Score moved 0->5 to reflect 'not literally 100% dead code, has one real per-tenant live config and real recent call rows' without claiming a working AI phone-answering product is verified, which it is not.",
+          "score": 100,
+          "evidence_type": "manual_code_read",
+          "evidence": "DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'Completion of this build does not regard voice bots.' This resolves the standing kill-vs-rebuild question -- voice AI agent capability is not required for readiness/completion and is not counted as a gap. Prior finding stands as background, not a blocker: one live tenant (NYC Maid) has a partially-wired xAI Grok/Telnyx voice path with real recent call activity, and a real unrelated bug exists (prospects.agent_notes column referenced but doesn't exist live, silently swallowed by try/catch) -- neither is in scope to fix under this decision. If NYC Maid's live voice config needs cleanup or the bug needs fixing, that's a separate ask outside readiness scoring, not something this checkpoint should hold the platform score hostage to.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
