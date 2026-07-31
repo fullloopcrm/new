@@ -255,6 +255,7 @@ export default async function middleware(req: NextRequest) {
     'consortiumnyc.com',
     'thenycmarketingcompany.com',
     'thenycinteriordesigner.com',
+    'miamibeachmaid.com',
   ])
   if (
     // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
