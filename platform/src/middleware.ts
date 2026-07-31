@@ -460,6 +460,11 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const APP_ROOT_PREFIXES = [
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
+    // Public token-doc links (quote/invoice/sign/photos) — regression fix:
+    // these were dropped from this list, which silently rewrote them under
+    // /site/template, breaking every public quote/invoice/signature/photo
+    // link sent to real clients. See src/middleware.public-doc-links.test.ts.
+    '/quote', '/invoice', '/sign', '/photos',
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)

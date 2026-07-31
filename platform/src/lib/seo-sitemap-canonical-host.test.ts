@@ -56,6 +56,21 @@ function hostOf(url: string): string | null {
   }
 }
 
+// Shared by canonicalHost/sitemapHost: the emd-microsite pattern builds its
+// URL from a local `` `https://www.${config.domain}` `` template literal,
+// with `config` imported from a per-microsite file under `_lib/emd/`.
+// Resolves `config.domain` from that imported file given the source text
+// that references it.
+function resolveEmdConfigDomain(src: string): string | null {
+  if (!/`https:\/\/www\.\$\{config\.domain\}`/.test(src)) return null
+  const importMatch = src.match(/from\s+['"]([^'"]*_lib\/emd\/[^'"]+)['"]/)
+  if (!importMatch) return null
+  const configPath = join(SITE_ROOT, importMatch[1].replace(/^@\/app\/site\//, '') + '.ts')
+  if (!existsSync(configPath)) return null
+  const domain = readFileSync(configPath, 'utf8').match(/domain:\s*["']([^"']+)["']/)
+  return domain ? `www.${domain[1]}` : null
+}
+
 // The host a site's root layout advertises as canonical, or null if absent/dynamic.
 // Falls back to the site's own page.tsx metadata for single-page microsites
 // (e.g. src/app/site/emd-microsites/<sub>) whose shared layout.tsx carries no
@@ -70,26 +85,14 @@ function canonicalHost(slug: string): string | null {
   }
   const page = join(SITE_ROOT, slug, 'page.tsx')
   if (existsSync(page)) {
-    const m = readFileSync(page, 'utf8').match(
-      /canonical:\s*(?:url|["'](https?:\/\/[^"']+)["'])/,
-    )
+    const src = readFileSync(page, 'utf8')
+    const m = src.match(/canonical:\s*(?:url|["'](https?:\/\/[^"']+)["'])/)
     if (m) {
       if (m[1]) return hostOf(m[1])
-      // `canonical: url` — a local `url` const built from a template literal
-      // (the emd-microsite pattern: `` `https://www.${config.domain}` ``).
-      // Resolve `config.domain` from the imported per-microsite config file.
-      const src = readFileSync(page, 'utf8')
-      const urlLit = src.match(/const\s+url\s*=\s*`https:\/\/www\.\$\{config\.domain\}`/)
-      if (urlLit) {
-        const importMatch = src.match(/from\s+['"]([^'"]*_lib\/emd\/[^'"]+)['"]/)
-        if (importMatch) {
-          const configPath = join(SITE_ROOT, importMatch[1].replace(/^@\/app\/site\//, '') + '.ts')
-          if (existsSync(configPath)) {
-            const domain = readFileSync(configPath, 'utf8').match(/domain:\s*["']([^"']+)["']/)
-            if (domain) return `www.${domain[1]}`
-          }
-        }
-      }
+      // `canonical: url` — a local `url` const built from the emd template
+      // literal referencing `config.domain`.
+      const emdDomain = resolveEmdConfigDomain(src)
+      if (emdDomain) return emdDomain
     }
   }
   return null
@@ -134,6 +137,10 @@ function sitemapHost(slug: string): string | null {
       if (dom) return hostOf(dom[1])
     }
   }
+
+  const emdDomain = resolveEmdConfigDomain(src)
+  if (emdDomain) return emdDomain
+
   return null
 }
 
@@ -207,7 +214,7 @@ describe('sitemap-host <-> canonical-host agreement (no split-brain host)', () =
     const apexNoSitemap = canonicalOnlyNoSitemap.filter((p) =>
       apexDomains.has(p.canonical.replace(/^www\./, '')),
     )
-    const KNOWN_NO_SITEMAP = new Set(['emd-microsites/miami-beach-maid'])
+    const KNOWN_NO_SITEMAP = new Set<string>([])
     const unexpected = apexNoSitemap.filter((p) => !KNOWN_NO_SITEMAP.has(p.slug))
     expect(
       unexpected,

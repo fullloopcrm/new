@@ -38,7 +38,18 @@ export const CROSS_TENANT_TABLES: ReadonlySet<string> = new Set([
   'leads', // pre-tenant funnel
   'platform_settings', // global singleton config
   'changelog', // global product changelog
-  'impersonation_events', // platform audit log (admin-only)
+  // impersonation_events: NOTE (corrected 2026-07-31 sec-05 live schema re-check,
+  // via `supabase gen types typescript --linked`) -- this table DOES have a
+  // NOT NULL tenant_id column (fk to tenants), unlike the genuinely-global
+  // tables above/below it. It's on this allowlist for a DIFFERENT reason:
+  // it's write-only from application code (only src/lib/tenant-query.ts's
+  // insert() call touches it -- no route anywhere reads it by id) and carries
+  // a deny-all RLS policy (migrations/046_rls_deny_on_new_tables.sql). If a
+  // future route ever adds an id-based READ against this table, it WOULD be
+  // a real tenant-owned-data IDOR and this allowlist entry would be wrong for
+  // that route -- re-check this table specifically before trusting this
+  // guard's "safe" verdict on any new impersonation_events read.
+  'impersonation_events',
   'waitlist', // pre-tenant signup funnel
   'prospects', // pre-tenant sales funnel
   'legal_tips', // Legal Overlook attorney-approved tip library -- global content,
