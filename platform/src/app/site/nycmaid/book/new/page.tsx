@@ -78,6 +78,7 @@ function BookFormContent() {
   const [pin, setPin] = useState('')
   const [showRecap, setShowRecap] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [policyFlash, setPolicyFlash] = useState(false)
   const policyRef = useRef<HTMLDivElement>(null)
 
@@ -332,6 +333,7 @@ function BookFormContent() {
           client_confirmed: true,
           confirmed_at: new Date().toISOString(),
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          sms_opt_in: smsOptIn,
         }),
       })
       const data = await res.json()
@@ -501,6 +503,18 @@ function BookFormContent() {
               />
             </div>
           </div>
+
+          <label className="flex items-start gap-2 cursor-pointer -mt-1">
+            <input
+              type="checkbox"
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+              className="mt-0.5 min-w-[16px] min-h-[16px]"
+            />
+            <span className="text-[11px] text-gray-500 leading-relaxed">
+              By providing your phone number and clicking &ldquo;Submit,&rdquo; you agree to receive SMS updates and marketing messages from The NYC Maid. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase.
+            </span>
+          </label>
 
           {/* Email */}
           <div>
