@@ -98,9 +98,24 @@ export async function trackError(error: unknown, context: ErrorContext) {
         stack ? `\n${stack.slice(0, 500)}` : '',
       ].filter(Boolean).join('\n')
       const subject = `${severity === 'critical' ? '🔴 CRITICAL' : '🟠 HIGH'} Error: ${context.source}`
-      await alertOwner(subject, detail)
-        .catch((e) => console.error('Failed to send error alert to Telegram:', e))
-      if (severity === 'critical') {
+      // sendTelegram() (and therefore alertOwner()) never throws on a bad/
+      // revoked bot token, wrong chat_id, or missing config -- it resolves
+      // with { ok:false, ... } instead (see src/lib/telegram.ts). Before
+      // this fix, that .ok was discarded here (the .catch() only guards a
+      // thrown exception, which this call never produces), so a broken
+      // Telegram channel meant every 'high'-severity alert -- the vast
+      // majority of real alerts -- had ZERO real delivery guarantee: no SMS
+      // fallback (that was 'critical'-only), just a console.error line in
+      // Vercel's function logs that nobody actively tails. Escalating to the
+      // same SMS channel already used for 'critical' the moment the primary
+      // channel demonstrably failed to deliver closes that gap without
+      // adding any new infrastructure or increasing SMS volume for the
+      // normal case (Telegram succeeding) -- confirmed 2026-07-31 (ai-03
+      // re-check) via a real failure-path test against the live Telegram API.
+      const telegramResult = await alertOwner(subject, detail)
+        .catch((e) => { console.error('Failed to send error alert to Telegram:', e); return null })
+      const telegramDelivered = !!telegramResult?.ok
+      if (severity === 'critical' || !telegramDelivered) {
         await alertOwnerCritical(subject, detail)
           .catch((e) => console.error('Failed to send critical SMS alert:', e))
       }
