@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { trackError } from '@/lib/error-tracking'
 
 export const maxDuration = 60
 
@@ -72,7 +73,18 @@ export async function POST(req: NextRequest) {
             insertData.booking_checklist = { ...EMPTY_CHECKLIST, channel: 'web', phone }
             isNewLead = true
           } catch (leadErr) {
+            // lss-04 live-audit gap (2026-07-31): every OTHER caller of
+            // createLeadAndEnterPipeline (webhooks/telnyx, api/lead,
+            // api/contact, api/ingest/lead) wraps its failure in trackError()
+            // so a real pipeline-entry failure actually alerts someone; this
+            // call site only had console.error, a line nobody actively
+            // tails in Vercel's function logs — a silent-failure gap of the
+            // same shape as bsr-01/ai-03. The chat session still succeeds
+            // either way (this is a best-effort enrichment, not something
+            // that should block the visitor's conversation), but a failure
+            // here now surfaces the same way it does everywhere else.
             console.error('[chat] lead creation failed:', leadErr)
+            await trackError(leadErr, { source: 'api/chat:web-chat-lead', severity: 'high', tenantId }).catch(() => {})
           }
         }
       }
