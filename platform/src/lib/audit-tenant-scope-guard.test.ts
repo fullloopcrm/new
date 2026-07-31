@@ -94,6 +94,37 @@ describe('audit-tenant-scope guard — gating behavior (exit code)', () => {
     expect(status).toBe(0)
   })
 
+  it('RED-GATES a query that only SELECTS tenant_id as a column, without filtering by it (regression: naive substring match treated this as scoped)', () => {
+    // Selecting tenant_id is not the same as filtering by it -- a query like
+    // .select('id, tenant_id, name') fetches every tenant's rows and merely
+    // includes their tenant_id in the response. The original detector tested
+    // /tenant_id/ against the raw chain text, so this string match against
+    // the SELECT ARGUMENT falsely satisfied `scoped` and let a real
+    // cross-tenant leak shape pass the "blocking" gate silently.
+    const dir = fixture()
+    write(dir, 'src/leak.ts', `
+      export async function leaky(sb) {
+        const { data } = await sb${FROM('clients')}.select('id, tenant_id, name, email, phone')
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status).toBe(1)
+    expect(stderr).toContain('clients')
+  })
+
+  it('still passes when tenant_id is BOTH selected and filtered on (the select column list must not mask a real .eq elsewhere in the chain)', () => {
+    const dir = fixture()
+    write(dir, 'src/ok.ts', `
+      export async function ok(sb, tenantId) {
+        const { data } = await sb${FROM('clients')}.select('id, tenant_id, name').eq('tenant_id', tenantId)
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status, stderr).toBe(0)
+  })
+
   it('passes a table NOT in the tenant-owned set even when unscoped', () => {
     const dir = fixture()
     write(dir, 'src/ok.ts', `
