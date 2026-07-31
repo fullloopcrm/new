@@ -24,7 +24,7 @@ type Contact = {
   phone: string | null
   email: string | null
   client_id: string | null
-  cleaner_id: string | null
+  team_member_id: string | null
 }
 
 type Thread = {
@@ -62,6 +62,8 @@ type Message = {
   metadata: Record<string, unknown> | null
   flagged_for_review: boolean
   flagged_reason: string | null
+  detected_language: string | null
+  translated_body: string | null
 }
 
 type Template = {
@@ -130,6 +132,14 @@ const fmtTime = (iso: string) => {
     return sameDay
       ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+// Full, unambiguous date + time for a single message — unlike fmtTime (which
+// drops the date for today's messages and drops the time for older ones),
+// this always shows both so a message's exact send time is never ambiguous.
+const fmtExactTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' })
   } catch { return '' }
 }
 
@@ -478,7 +488,7 @@ export default function ComhubPage() {
           {threads.map(t => {
             const isSel = selected === t.id
             const c = t.comhub_contacts
-            const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.cleaner_id ? 'cleaner' : 'unlinked'
+            const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.team_member_id ? 'cleaner' : 'unlinked'
             const roleBadgeStyle = role === 'client'
               ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
               : role === 'cleaner'
@@ -502,7 +512,7 @@ export default function ComhubPage() {
                   <div className="flex justify-between items-baseline gap-2">
                     <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
                       <span className="text-[9px] uppercase tracking-wider px-1.5 py-px rounded-sm shrink-0" style={{ ...roleBadgeStyle, fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                        {role === 'unlinked' ? 'lead' : role}
+                        {role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}
                       </span>
                       <span className="truncate">{contactDisplay(c)}</span>
                     </div>
@@ -684,6 +694,17 @@ export default function ComhubPage() {
                       >
                         {m.subject && <div className="font-medium text-sm mb-1 break-words">{m.subject}</div>}
                         <div className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{renderWithMentions(m.body || '')}</div>
+                        {m.translated_body && (
+                          <div
+                            className="mt-1.5 pt-1.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] italic"
+                            style={{ borderTop: `1px solid ${isOut ? 'rgba(255,255,255,0.25)' : 'var(--color-loop-line-soft)'}`, opacity: 0.85 }}
+                          >
+                            <span className="not-italic text-[11px] uppercase tracking-wide opacity-70 mr-1.5">
+                              {m.detected_language || 'Translated'} → English
+                            </span>
+                            {m.translated_body}
+                          </div>
+                        )}
                         {m.media_urls && m.media_urls.length > 0 && (
                           <div className="mt-2 space-y-1.5">
                             {m.media_urls.map((url, i) => (
@@ -700,7 +721,7 @@ export default function ComhubPage() {
                       </div>
                       <div className="text-[10px] mt-1 px-1 flex gap-2 items-center" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
                         <span>{authorName}{isAuto ? ' · auto' : ''}</span>
-                        <span>{fmtTime(m.sent_at)}</span>
+                        <span title={fmtExactTime(m.sent_at)}>{fmtExactTime(m.sent_at)}</span>
                         {tenantDid && <span title="Which of your numbers this text used">via {formatPhone(tenantDid)}</span>}
                         {isAuto && (
                           <button
@@ -1400,7 +1421,7 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
     <div>
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...roleBadgeStyle, ...pillFont }}>{role}</span>
+          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...roleBadgeStyle, ...pillFont }}>{role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}</span>
           {client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}

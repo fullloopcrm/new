@@ -15,6 +15,8 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { escapeHtml } from '@/lib/escape-html'
+import { createPrimaryContact } from '@/lib/client-contacts'
+import { broadcastWaitlistBooking } from '@/lib/waitlist-broadcast'
 
 interface WaitlistEntry {
   id: string
@@ -152,36 +154,112 @@ export async function POST(request: Request) {
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
 
-  const { error } = await tenantDb(tenant.id).from('waitlist').insert({
+  const preferredDate = str(body.preferred_date)
+  const preferredTime = str(body.preferred_time)
+  const estimatedHours = num(body.estimated_hours) || 2
+  const hourlyRate = num(body.hourly_rate)
+  const serviceType = str(body.service_type)
+  const address = str(body.address)
+
+  const { data: waitlistRow, error } = await tenantDb(tenant.id).from('waitlist').insert({
     name,
     phone,
     email: str(body.email),
-    service_type: str(body.service_type),
-    address: str(body.address),
-    preferred_date: str(body.preferred_date),
-    preferred_time: str(body.preferred_time),
-    estimated_hours: num(body.estimated_hours),
-    hourly_rate: num(body.hourly_rate),
+    service_type: serviceType,
+    address,
+    preferred_date: preferredDate,
+    preferred_time: preferredTime,
+    estimated_hours: estimatedHours,
+    hourly_rate: hourlyRate,
     notes: str(body.notes),
     source: 'web',
-  })
+  }).select('id').single()
 
   const contactPhone = (tenant.phone as string | null) || ''
   // Graceful degrade: if the table isn't migrated yet, don't 500 the client —
   // still alert admin so the lead isn't lost, and tell the client to call.
   if (error) {
-    await smsAdmins(tenant.id, `WAITLIST (table missing) — ${name} ${phone} wanted ${str(body.preferred_date) || 'a day'} ${str(body.preferred_time) || ''}. Run the waitlist migration. Lead not stored.`).catch(() => {})
+    await smsAdmins(tenant.id, `WAITLIST (table missing) — ${name} ${phone} wanted ${preferredDate || 'a day'} ${preferredTime || ''}. Run the waitlist migration. Lead not stored.`).catch(() => {})
     return NextResponse.json({ ok: false, fallback: true, error: contactPhone ? `Could not save — please call ${contactPhone}.` : 'Could not save — please call us.' }, { status: 200 })
   }
 
-  const when = `${str(body.preferred_date) || 'soon'}${str(body.preferred_time) ? ' ' + str(body.preferred_time) : ''}`
+  const when = `${preferredDate || 'soon'}${preferredTime ? ' ' + preferredTime : ''}`
   await notify({
     tenantId: tenant.id,
     type: 'waitlist',
     title: 'New Waitlist',
-    message: `${escapeHtml(name)} (${escapeHtml(phone)}) waitlisted for ${escapeHtml(when)}${str(body.service_type) ? ` · ${escapeHtml(str(body.service_type))}` : ''}`,
+    message: `${escapeHtml(name)} (${escapeHtml(phone)}) waitlisted for ${escapeHtml(when)}${serviceType ? ` · ${escapeHtml(serviceType)}` : ''}`,
   }).catch(() => {})
   await smsAdmins(tenant.id, `WAITLIST — ${name} ${phone} for ${when}. They couldn't find an open slot at /book/new. Reach out to book them.`).catch(() => {})
+
+  // Create a real pending booking so the request sits in Bookings' "Pending
+  // Approval" list (source='waitlist' — BookingsAdmin badges it distinctly)
+  // instead of only living in the separate waitlist table, then auto-text
+  // eligible cleaners about it. Needs a date at minimum; a lead with no date
+  // preference at all can't be scheduled, so it stays waitlist-table-only.
+  // No preferred_time given: defaults to 9:00 AM as a placeholder slot — the
+  // claiming cleaner or admin still confirms/adjusts the real time.
+  if (preferredDate) {
+    const startClock = /^\d{1,2}:\d{2}/.test(preferredTime || '') ? preferredTime! : '09:00'
+    const [sh, sm] = startClock.split(':').map(Number)
+    const startNaive = `${preferredDate}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`
+    const endMinutes = sh * 60 + sm + Math.round(estimatedHours * 60)
+    const endNaive = `${preferredDate}T${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00`
+
+    let clientId: string | null = null
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (cleanPhone) {
+      const { data: existingClient } = await tenantDb(tenant.id)
+        .from('clients')
+        .select('id')
+        .ilike('phone', `%${cleanPhone.slice(-10)}%`)
+        .limit(1)
+        .maybeSingle()
+      if (existingClient) {
+        clientId = existingClient.id as string
+      } else {
+        const { data: newClient } = await tenantDb(tenant.id)
+          .from('clients')
+          .insert({ name, phone, email: str(body.email), address })
+          .select('id')
+          .single()
+        if (newClient) {
+          clientId = newClient.id as string
+          await createPrimaryContact(tenant.id, clientId, { name, phone, email: str(body.email) }).catch(() => {})
+        }
+      }
+    }
+
+    const { data: booking } = await tenantDb(tenant.id)
+      .from('bookings')
+      .insert({
+        client_id: clientId,
+        service_type: serviceType,
+        start_time: startNaive,
+        end_time: endNaive,
+        status: 'pending',
+        source: 'waitlist',
+        hourly_rate: hourlyRate,
+        price: hourlyRate ? Math.round(hourlyRate * estimatedHours * 100) : 0,
+        notes: str(body.notes),
+      })
+      .select('id')
+      .single()
+
+    if (booking && waitlistRow) {
+      await tenantDb(tenant.id).from('waitlist').update({ booking_id: booking.id }).eq('id', waitlistRow.id)
+
+      await broadcastWaitlistBooking({
+        tenantId: tenant.id,
+        jobDate: preferredDate,
+        startTime: startClock,
+        durationHours: estimatedHours,
+        jobAddress: address,
+        hourlyRate,
+        serviceType,
+      }).catch((err) => console.error('[waitlist] broadcast failed:', err))
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }

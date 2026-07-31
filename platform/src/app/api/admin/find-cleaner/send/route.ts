@@ -170,17 +170,28 @@ export async function POST(request: Request) {
         hourly_rate: effectiveRate ?? c.hourly_rate,
         lang, testMode: TEST_MODE,
       })
-      const smsResult = await sendSMS({
-        to: c.phone!, body: message,
-        telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone,
-      })
-      const ok = !!smsResult?.success
+      // sendSMS() throws on failure and resolves with Telnyx's raw response
+      // (no `.success` field) on success — it never returns an
+      // { success, error } shape. Checking `.success` was always falsy, so
+      // every successful send was being logged as "failed" (found 2026-07-31
+      // testing the waitlist auto-broadcast, which copied this same call).
+      let ok = true
+      let deliveryStatus = 'sent'
+      try {
+        await sendSMS({
+          to: c.phone!, body: message,
+          telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone,
+        })
+      } catch (err) {
+        ok = false
+        deliveryStatus = err instanceof Error ? err.message : 'failed'
+      }
       await tenantDb(tenantId).from('cleaner_broadcast_recipients').insert({
         broadcast_id: broadcast.id,
         cleaner_id: c.id,
         phone: c.phone,
         status: ok ? 'pending' : 'failed',
-        delivery_status: ok ? 'sent' : (smsResult?.error || 'failed'),
+        delivery_status: deliveryStatus,
       })
       return { cleaner_id: c.id, name: c.name, sent: ok }
     })

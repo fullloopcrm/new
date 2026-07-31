@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const { data: messages, error: mErr } = await supabaseAdmin
     .from('comhub_messages')
-    .select('id, direction, author, author_id, body, media_urls, subject, from_address, to_address, sent_at, read_at, channel, metadata, flagged_for_review, flagged_reason')
+    .select('id, direction, author, author_id, body, media_urls, subject, from_address, to_address, sent_at, read_at, channel, metadata, flagged_for_review, flagged_reason, detected_language, translated_body')
     .eq('thread_id', id)
     .eq('tenant_id', tenantId)
     .order('sent_at', { ascending: true })

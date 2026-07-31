@@ -548,6 +548,9 @@ export default async function DashboardPage() {
         {[{ label: 'Today · Schedule', jobs: todayJobs, empty: 'No jobs today', showStatus: true },
           { label: 'Tomorrow · Schedule', jobs: tomorrowJobs, empty: 'No jobs tomorrow', showStatus: false }].map(col => (
           <div key={col.label}>
+            <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"', marginBottom: 8 }}>
+              {formatMoney(col.jobs.reduce((s, j) => s + (j.price || 0), 0))}
+            </div>
             <Bar>{col.label}</Bar>
             <div style={{ background: V.canvas, border: `1px solid ${V.line}` }}>
               {col.jobs.length === 0 ? (

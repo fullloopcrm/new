@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { protectClientAPI } from '@/lib/nycmaid/auth'
+import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 
 async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null }> {
   const { data: client } = await supabaseAdmin
@@ -92,6 +93,8 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  translateInboundComhubMessage(msg.id, body.body.trim())
 
   await db
     .from('comhub_threads')

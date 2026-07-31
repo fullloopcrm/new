@@ -62,14 +62,20 @@ export async function GET(request: NextRequest) {
     // every field worker). Only coarse area + service/time/pay is exposed.
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast to the shape actually selected.
+    // Waitlist-origin bookings sit at status='pending' (they're auto-created
+    // the moment a client waitlists, not yet admin-approved like other
+    // pending bookings) but should still be claimable — that's the whole
+    // point of the auto-broadcast that texts cleaners about them. Every
+    // other 'pending' booking (client_portal requests awaiting approval)
+    // stays excluded from the claim pool.
     const { data, error } = (await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, start_time, end_time, service_type, price, status, clients(address)')
+      .select('id, start_time, end_time, service_type, price, status, source, clients(address)')
       .is('team_member_id', null)
-      .in('status', ['scheduled', 'confirmed'])
+      .or('status.in.(scheduled,confirmed),and(status.eq.pending,source.eq.waitlist)')
       .gte('start_time', today)
       .order('start_time')) as {
-      data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
+      data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; source: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
       error: { message: string } | null
     }
 
@@ -84,6 +90,7 @@ export async function GET(request: NextRequest) {
         service_type: b.service_type,
         price: b.price,
         status: b.status,
+        is_waitlist: b.source === 'waitlist',
         area: maskArea(client?.address),
       }
     })
