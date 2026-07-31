@@ -224,9 +224,9 @@
         },
         {
           "id": "lss-05",
-          "score": 100,
+          "score": 50,
           "evidence_type": "manual_code_read",
-          "evidence": "DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'We're not even using SMS response for agents anymore.' SMS auto-response for phone-only leads is not required for readiness/completion and is not counted as a gap -- the absence of this feature now matches actual business intent, not an unbuilt gap. Prior finding (only a synchronous opt-in EMAIL confirmation exists, no SMS auto-response anywhere) stands as accurate background, not a blocker.",
+          "evidence": "Capped at 50, the manual_code_read ceiling -- this is a decision record, not live-verified evidence, so it doesn't earn a higher evidence tier under this ledger's own rules even though the underlying question is fully resolved. DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'We're not even using SMS response for agents anymore.' SMS auto-response for phone-only leads is not required for readiness/completion and is not counted as a gap -- the absence of this feature now matches actual business intent, not an unbuilt gap. Prior finding (only a synchronous opt-in EMAIL confirmation exists, no SMS auto-response anywhere) stands as accurate background, not a blocker.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
@@ -340,9 +340,9 @@
         },
         {
           "id": "ai-02",
-          "score": 100,
+          "score": 50,
           "evidence_type": "manual_code_read",
-          "evidence": "DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'Completion of this build does not regard voice bots.' This resolves the standing kill-vs-rebuild question -- voice AI agent capability is not required for readiness/completion and is not counted as a gap. Prior finding stands as background, not a blocker: one live tenant (NYC Maid) has a partially-wired xAI Grok/Telnyx voice path with real recent call activity, and a real unrelated bug exists (prospects.agent_notes column referenced but doesn't exist live, silently swallowed by try/catch) -- neither is in scope to fix under this decision. If NYC Maid's live voice config needs cleanup or the bug needs fixing, that's a separate ask outside readiness scoring, not something this checkpoint should hold the platform score hostage to.",
+          "evidence": "Capped at 50, the manual_code_read ceiling -- this is a decision record, not live-verified evidence, so it doesn't earn a higher evidence tier under this ledger's own rules even though the underlying question is fully resolved. DESCOPED 2026-07-31 by Jeff's explicit decision, in-session: 'Completion of this build does not regard voice bots.' This resolves the standing kill-vs-rebuild question -- voice AI agent capability is not required for readiness/completion and is not counted as a gap. Prior finding stands as background, not a blocker: one live tenant (NYC Maid) has a partially-wired xAI Grok/Telnyx voice path with real recent call activity, and a real unrelated bug exists (prospects.agent_notes column referenced but doesn't exist live, silently swallowed by try/catch) -- neither is in scope to fix under this decision. If NYC Maid's live voice config needs cleanup or the bug needs fixing, that's a separate ask outside readiness scoring, not something this checkpoint should hold the platform score hostage to.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
