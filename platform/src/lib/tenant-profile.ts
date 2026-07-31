@@ -71,6 +71,12 @@ export interface FieldDef {
   audience?: 'tenant' | 'admin'
   /** If set, the field only applies to these funnels (delta 1 funnel-awareness). */
   funnels?: FunnelMode[]
+  /**
+   * Plain-language explanation shown under the field on the tenant-facing
+   * wizard/onboarding link — for anyone who doesn't already know what "EIN"
+   * or "fiscal year start" means. Omit when the label is self-explanatory.
+   */
+  help?: string
   /** Pull the raw value from the loaded context. */
   read: (ctx: ProfileContext) => unknown
 }
@@ -135,11 +141,11 @@ const ACQUISITION_CHANNEL_OPTIONS = ['referral', 'inbound_form', 'cold_outbound'
  */
 export const PROFILE_FIELDS: FieldDef[] = [
   // ── Identity ──────────────────────────────────────────────────────
-  { key: 'businessName', label: 'Business name', section: 'identity', store: 'tenant', col: 'name', tier: 'critical', read: (x) => t(x, 'name') },
-  { key: 'legalName', label: 'Legal entity name', section: 'identity', store: 'entity', col: 'legal_name', tier: 'recommended', read: (x) => e(x, 'legal_name') },
-  { key: 'entityType', label: 'Entity type', section: 'identity', store: 'entity', col: 'entity_type', input: 'select', options: ENTITY_TYPE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'entity_type') },
-  { key: 'ein', label: 'EIN / Tax ID', section: 'identity', store: 'entity', col: 'ein', tier: 'recommended', read: (x) => e(x, 'ein') },
-  { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'number', tier: 'optional', read: (x) => e(x, 'fiscal_year_start') },
+  { key: 'businessName', label: 'Business name', section: 'identity', store: 'tenant', col: 'name', tier: 'critical', read: (x) => t(x, 'name'), help: 'What customers call you — this is what shows on your website and in texts/emails they get.' },
+  { key: 'legalName', label: 'Legal entity name', section: 'identity', store: 'entity', col: 'legal_name', tier: 'recommended', read: (x) => e(x, 'legal_name'), help: 'The official name on your business registration/tax paperwork — often the same as your business name, but not always (e.g. "Smith Cleaning LLC" vs. "Sparkle Clean"). Leave blank if you\'re not sure; we can fix it later.' },
+  { key: 'entityType', label: 'Entity type', section: 'identity', store: 'entity', col: 'entity_type', input: 'select', options: ENTITY_TYPE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'entity_type'), help: 'How your business is legally structured. Check a past tax filing or ask your accountant if you\'re unsure — it\'s fine to skip for now.' },
+  { key: 'ein', label: 'EIN / Tax ID', section: 'identity', store: 'entity', col: 'ein', tier: 'recommended', read: (x) => e(x, 'ein'), help: 'Your business\'s federal tax ID (like a Social Security number, but for the business) — the 9-digit number on your IRS confirmation letter. Not the same as your Social Security number. Skip if you don\'t have one yet.' },
+  { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'number', tier: 'optional', read: (x) => e(x, 'fiscal_year_start'), help: 'The month your business "year" starts for accounting purposes. Most businesses use January — leave this blank unless you know yours is different.' },
 
   // ── Contact & location ────────────────────────────────────────────
   { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', read: (x) => t(x, 'phone') },

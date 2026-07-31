@@ -40,6 +40,12 @@ export interface ApiField {
   input: 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array' | 'custom'
   options: Array<string | { label: string; value: string | number }> | null
   funnels: string[] | null
+  help: string | null
+}
+
+function FieldHelp({ text }: { text: string | null | undefined }) {
+  if (!text) return null
+  return <p className="mb-1.5 text-xs text-slate-500">{text}</p>
 }
 
 type FormState = Record<string, FieldValue>
@@ -71,6 +77,13 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [businessName, setBusinessName] = useState('')
+  // Which section INDICES have actually been landed on — not a contiguous
+  // "0..step" range, because the tab nav lets the tenant jump straight to
+  // section 9 from section 1. Only sections in this set are safe to
+  // live-write: everything else is still blank in `form`, and sending blank
+  // through applyProfileWrite clears the real field.
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]))
 
   const token = mode.mode === 'token' ? mode.token : undefined
 
@@ -84,12 +97,19 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       .then((r) => r.json())
       .then((d) => {
         setFields(d.fields || [])
+        setBusinessName((d.name as string) || '')
         const values: FormState = {}
         for (const f of (d.fields || []) as ApiField[]) values[f.key] = f.value
         const draft = (d.draft || {}) as Record<string, unknown>
         const { __step, ...draftFields } = draft
         setForm({ ...values, ...(draftFields as FormState) })
-        if (typeof __step === 'number') setStep(__step)
+        if (typeof __step === 'number') {
+          setStep(__step)
+          // A resumed draft only ever recorded a single last-position step
+          // (the old sequential Next/Back nav), so 0..__step is the correct
+          // reconstruction of what was visited before this session started.
+          setVisitedSteps((v) => new Set([...v, ...Array.from({ length: __step + 1 }, (_, i) => i)]))
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -106,14 +126,15 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const saveDraft = useCallback(
     async (silent = false, stepOverride?: number) => {
       setSaving(true)
-      // Live-write only fields from sections actually visited (0..furthest
-      // step reached) — never the whole form. Not-yet-visited sections are
-      // blank in `form`, and coerceFieldValue turns blank into an explicit
-      // clear, so sending them would null out real data on every autosave.
-      const visited = new Set(sections.slice(0, Math.max(step, stepOverride ?? step) + 1))
+      // Live-write only fields from sections actually visited — never the
+      // whole form. Not-yet-visited sections are blank in `form`, and
+      // coerceFieldValue turns blank into an explicit clear, so sending them
+      // would null out real data on every autosave.
+      const visitedIdx = new Set([...visitedSteps, stepOverride ?? step])
+      const visitedSections = new Set(sections.filter((_, i) => visitedIdx.has(i)))
       const data: FormState = {}
       for (const f of fields) {
-        if (!f.readonly && visited.has(f.section)) data[f.key] = form[f.key]
+        if (!f.readonly && visitedSections.has(f.section)) data[f.key] = form[f.key]
       }
       await fetch('/api/tenant-profile', {
         method: 'PUT',
@@ -126,7 +147,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         setTimeout(() => setMsg(''), 3000)
       }
     },
-    [form, step, token, sections, fields],
+    [form, step, token, sections, fields, visitedSteps],
   )
 
   // Debounced autosave — skips the initial load (form is {} until the fetch
@@ -175,11 +196,44 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="font-heading text-2xl font-bold text-slate-900">Complete your business profile</h1>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">
+          {businessName ? `Complete ${businessName}'s profile` : 'Complete your business profile'}
+        </h1>
         <p className="text-sm text-slate-500">
           This wires your account across billing, HR, finance, your site, and AI. Save and finish anytime.
         </p>
       </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        {sections.map((s, i) => {
+          const m = SECTION_META[s] || { title: s, blurb: '' }
+          const isCurrent = i === step
+          const isDone = i < step
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => goto(i)}
+              disabled={saving}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                isCurrent
+                  ? 'border-teal-600 bg-teal-50 text-teal-700'
+                  : isDone
+                    ? 'border-slate-300 bg-slate-50 text-slate-500 hover:border-teal-400 hover:text-teal-600'
+                    : 'border-slate-200 text-slate-400 hover:border-teal-400 hover:text-teal-600'
+              }`}
+            >
+              <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
+                isCurrent ? 'bg-teal-600 text-white' : isDone ? 'bg-slate-300 text-white' : 'bg-slate-100 text-slate-400'
+              }`}>
+                {i + 1}
+              </span>
+              {m.title}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
         <span>Step {step + 1} of {sections.length} · {meta.title}</span>
         <span>{pct}%</span>
@@ -241,6 +295,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <ServiceAreaEditor
             embedded
             value={(value as ServiceArea | undefined) ?? { scope: 'local', states: [], zones: [] }}
@@ -298,6 +353,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <textarea
             id={inputId}
             value={(value as string) || ''}
@@ -311,6 +367,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <input
             id={inputId}
             type="number"
@@ -324,6 +381,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <select
             id={inputId}
             value={(value as string | number) ?? ''}
@@ -341,6 +399,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <div className="flex items-center gap-2">
             <input type="color" aria-hidden value={(value as string) || '#0d9488'} onChange={(e) => onChange(e.target.value)} className="h-9 w-12 rounded border border-slate-300" />
             <input
@@ -354,10 +413,13 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       )
     case 'toggle':
       return (
-        <label htmlFor={inputId} className="flex items-center gap-2 text-sm text-slate-700">
-          <input id={inputId} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-          {field.label}
-        </label>
+        <div>
+          <label htmlFor={inputId} className="flex items-center gap-2 text-sm text-slate-700">
+            <input id={inputId} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+            {field.label}
+          </label>
+          {field.help && <p className="mt-1 ml-6 text-xs text-slate-500">{field.help}</p>}
+        </div>
       )
     case 'array':
       if (options.length > 0) {
@@ -365,6 +427,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
         return (
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+            <FieldHelp text={field.help} />
             <div className="flex flex-wrap gap-3">
               {options.map((o) => (
                 <label key={String(o.value)} className="flex items-center gap-1.5 text-sm text-slate-700">
@@ -386,6 +449,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label} <span className="text-slate-400">(comma-separated)</span></label>
+          <FieldHelp text={field.help} />
           <input
             id={inputId}
             value={((value as string[]) || []).join(', ')}
@@ -398,6 +462,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       return (
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
           <input
             id={inputId}
             value={(value as string) || ''}
