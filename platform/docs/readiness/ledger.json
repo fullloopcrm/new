@@ -369,6 +369,14 @@
           "evidence": "Reviewed 2026-07-30 (was not_scored, time-boxed out previously). isCommEnabled() (src/lib/comms-prefs.ts) is real and genuinely wired in, not inert -- its own doc comment claimed 'nothing in the send paths calls it yet', which was stale and has been fixed. Confirmed 18 real callers: notify.ts's central dispatcher (gates email/sms via NOTIFY_COMM_MAP, 20 mapped type:recipient pairs) plus 17 direct call sites across booking/lead/reschedule routes, cron reminders, and the Stripe webhook. Design is sound: locked (transactional) comms always send regardless of preference; unknown/unmapped comm keys fail OPEN (send anyway) rather than silently dropping mail -- a deliberate, reasonable tradeoff (worst case is an unwanted send, not a dropped transactional message or a data leak). NOT verified: whether every notify() call site's `type` has a NOTIFY_COMM_MAP entry (i.e. whether any real send path is silently un-gated) -- would require enumerating every notify() call across the app, out of scope for this pass. Capped at manual_code_read (50) -- this was a code-tracing review, not an automated test.",
           "last_verified": "2026-07-30",
           "last_verified_commit": "6181d6fb3"
+        },
+        {
+          "id": "ai-06",
+          "score": 20,
+          "evidence_type": "live_query",
+          "evidence": "New checkpoint, added 2026-07-31 from the Sentry/error_logs cross-check (docs/readiness/sentry-crosscheck-2026-07-31.md), per Jeff's explicit instruction not to bury it inside ai-03. Live query against error_logs (single scoped read, 10-row sample, not a bulk export): a severity='high', resolved=false row with message 'System check failed: Notifications (24h)' recurs roughly daily, sampled continuously from 2026-07-25 through 2026-07-30 with no gap and no resolution -- a real, live, currently-unresolved production failure, not a one-off blip. Source: src/app/api/cron/system-check/route.ts's 'Notifications (24h)' check, which fails when the notifications table's 24h sent/failed rate drops below 80%. Scored low (20, not 0) because the detection+alerting layer itself is working correctly -- trackError() fires, alertOwner() sends a Telegram alert on every occurrence (per error-tracking.ts's severity==high branch) -- so this is a real, visible, actively-firing alarm that has apparently gone unaddressed for about a week, not a silent gap. NOT verified this pass: the actual sent/failed counts behind the <80% threshold (the per-run detail lives in a notifications table row, not error_logs.metadata; a follow-up query for it came back empty and wasn't chased further) or root cause (which notification channel/type is actually failing).",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },
