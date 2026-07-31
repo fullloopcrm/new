@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import EmdMicrositeNav from '@/app/site/emd-microsites/_components/EmdMicrositeNav'
 import JsonLd from '@/app/site/the-florida-maid/_components/marketing/JsonLd'
 import TrustBadges from '@/app/site/the-florida-maid/_components/marketing/TrustBadges'
 import FAQSection from '@/app/site/the-florida-maid/_components/marketing/FAQSection'
@@ -38,6 +39,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
   return (
     <>
       <JsonLd data={schemas} />
+      <EmdMicrositeNav brandName={config.brandName} bookUrl={BOOK_URL} />
 
       {/* Hero */}
       <section className="bg-gradient-to-b from-[#CC6222] to-[#CC6222] pt-12 md:pt-16 pb-14 md:pb-20">
@@ -157,7 +159,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       </section>
 
       {/* Services */}
-      <section className="py-20 bg-gray-50">
+      <section id="services" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
             Cleaning Services in {config.city}
@@ -232,7 +234,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       </section>
 
       {/* Pricing explained */}
-      <section className="py-20 bg-gray-50">
+      <section id="pricing" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-10">
             How {config.brandName} Pricing Works
@@ -257,7 +259,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       </section>
 
       {/* Neighborhoods */}
-      <section className="py-20 bg-gray-50">
+      <section id="areas" className="py-20 bg-gray-50 scroll-mt-20">
         <div className="max-w-5xl mx-auto px-4">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-3">
             Areas We Serve in {config.city}
@@ -324,7 +326,9 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
       </section>
 
       {/* FAQ */}
-      <FAQSection faqs={taggedFaqs} title={`${config.brandName} — Frequently Asked Questions`} columns={2} />
+      <div id="faq" className="scroll-mt-20">
+        <FAQSection faqs={taggedFaqs} title={`${config.brandName} — Frequently Asked Questions`} columns={2} />
+      </div>
 
       {/* Final CTA — all links point back to the main Florida Maid site */}
       <section className="bg-[#A8F0DC] py-20">
