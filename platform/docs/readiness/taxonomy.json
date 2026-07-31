@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5: sec-13's depends_on_files no longer cites src/app/api/webhooks/clerk/route.ts -- that route was deleted (dead Clerk integration, never received real traffic, not exploitable but unnecessary reachable surface). No other severities/weights changed. | 2026-07-31 addendum #6 (continuing the coverage push per Jeff's instruction): added fin-10..fin-12, covering financial reporting endpoints, budget-templates/inventory, and CPA token export + admin finance-request conversion. Security domain is now essentially fully mapped (31/31 routes, all tables) as of this addendum. No existing severities/weights changed.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -307,6 +307,48 @@
             "src/app/api/finance/receipts/attach/route.ts",
             "src/app/api/finance/upload/route.ts",
             "inventory_items"
+          ]
+        },
+        {
+          "id": "fin-10",
+          "name": "Financial reporting endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/finance/balance-sheet/route.ts",
+            "src/app/api/finance/cash-flow/route.ts",
+            "src/app/api/finance/trial-balance/route.ts",
+            "src/app/api/finance/statements/route.ts",
+            "src/app/api/finance/chart-of-accounts/route.ts",
+            "src/app/api/finance/periods/route.ts",
+            "src/app/api/finance/periods/[id]/route.ts",
+            "src/app/api/finance/year-end-zip/route.ts",
+            "accounting_periods",
+            "chart_of_accounts",
+            "journal_entries",
+            "journal_lines"
+          ]
+        },
+        {
+          "id": "fin-11",
+          "name": "Budget templates + inventory endpoint surface",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/budget-templates/route.ts",
+            "src/app/api/budget-templates/[id]/route.ts",
+            "src/app/api/inventory/route.ts",
+            "budget_templates",
+            "budget_template_line_items",
+            "budget_line_items",
+            "inventory_items"
+          ]
+        },
+        {
+          "id": "fin-12",
+          "name": "CPA token export + admin finance-request conversion",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/cpa/[token]/year-end-zip/route.ts",
+            "src/app/api/admin/requests/convert/route.ts"
           ]
         }
       ]

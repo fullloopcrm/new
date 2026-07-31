@@ -185,6 +185,30 @@
           "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/finance/expenses/[id] is correctly gated by requirePermission('finance.expenses'). Two real, disclosed gaps found in this group, not present in fin-07/fin-08's siblings: (1) /api/vendors is gated by requirePermission('bookings.view'/'bookings.edit') -- a BOOKINGS permission, not a finance one -- even though vendors/vendor_items are finance-adjacent data (used in expense/inventory tracking); a tenant member with booking access but no finance access can view and edit vendor records under the current RBAC taxonomy. (2) /api/recurring-expenses only checks getTenantForRequest() (any authenticated tenant member, any role) with no requirePermission call at all, unlike expenses/[id] right next to it -- any team member can view/create/edit recurring expense schedules regardless of finance permission. Both are real RBAC-consistency gaps, not access-control bypasses (still fully tenant-scoped, no cross-tenant exposure), but they diverge from this codebase's own established finance-gating pattern. Scored below fin-07/fin-08 for that reason. manual_code_read, capped at 50.",
           "last_verified": "2026-07-31",
           "last_verified_commit": null
+        },
+        {
+          "id": "fin-10",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. All 8 financial reporting endpoints (balance-sheet, cash-flow, trial-balance, statements, chart-of-accounts, periods + periods/[id], year-end-zip) consistently gated by requirePermission('finance.view') for reads, 'finance.expenses' for periods/[id]'s mutation -- no gaps found in the auth-gate spot-check across all 8 files. Did not review the actual report-generation math/aggregation logic for correctness (out of scope for an access-control pass). manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-11",
+          "score": 28,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. Same RBAC-consistency gap class as fin-09 (vendors/recurring-expenses, fixed earlier this session): /api/budget-templates and /api/budget-templates/[id] are gated by requirePermission('sales.view') -- a SALES permission, not finance -- even though budget templates carry cost/pricing line items used for job costing. /api/inventory is gated by requirePermission('bookings.view') -- a BOOKINGS permission, same pattern. Neither is a cross-tenant exposure (both fully tenant-scoped via tenantDb), but both let a tenant member with sales/booking access and no finance access view cost data. Not fixed yet this session -- flagging as the next real target, same shape as the fix already shipped for vendors/recurring-expenses. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
+        },
+        {
+          "id": "fin-12",
+          "score": 45,
+          "evidence_type": "manual_code_read",
+          "evidence": "New coverage checkpoint, reviewed 2026-07-31. /api/cpa/[token]/year-end-zip is a public, unauthenticated, token-scoped export (no session) -- but well-designed: checks expires_at, has a revoked_at column (real revocation support, not just expiry), bumps a usage counter via cpa_token_bump_usage RPC (auditable), read-only. /api/admin/requests/convert is gated by requireAdmin() (platform-super-admin), appropriate for a cross-tenant admin action. Note: two other routes originally classified into this domain by the 07-30 coverage snapshot -- /api/admin/finance/margin and /api/clients/merge -- no longer exist in the current codebase (git history shows they were real, built, then removed/refactored away since the snapshot was taken). Not scored here since there's no live code to review -- flagging that the hand-maintained coverage snapshot has drifted from reality, exactly the risk PROCESS.md already warns about. manual_code_read, capped at 50.",
+          "last_verified": "2026-07-31",
+          "last_verified_commit": null
         }
       ]
     },
