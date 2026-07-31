@@ -60,7 +60,7 @@ export default function Welcome() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/about-marketing-company-consortium-nyc"
+              href="/about"
               className="px-7 py-3.5 text-sm font-bold text-teal-600 rounded-lg border-2 border-teal-600 hover:bg-teal-50 transition-colors font-cta"
             >
               Learn More About Us

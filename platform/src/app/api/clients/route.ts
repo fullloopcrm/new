@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
@@ -13,7 +13,18 @@ import { stripPhone } from '@/lib/phone'
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Every other verb on this route family (POST here, PUT/DELETE on
+    // [id]) is gated by requirePermission('clients.*') -- this GET only
+    // called getTenantForRequest(), so a tenant that uses the real,
+    // documented per-role permission override feature (selena_config.
+    // role_permissions) to revoke clients.view from a role would have that
+    // revocation silently ignored here: any authenticated tenant member,
+    // any role, could still list every client's full PII. No tenant
+    // currently has such an override configured (confirmed live 2026-07-31),
+    // so this was dormant, not actively exploited -- but real and fixable.
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const db = tenantDb(tenantId)
     const url = request.nextUrl
     const search = url.searchParams.get('search') || ''

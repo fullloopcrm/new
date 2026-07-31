@@ -19,6 +19,7 @@ import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'email_from' | 'domain'>
 
@@ -109,7 +110,9 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
         name: fromNameGuess || 'New Lead',
         phone: `email-${from}`,
         status: 'potential',
-        pin: randomInt(100000, 1000000).toString(),
+        // sec-07: encrypt at creation — real gap, this path was creating
+        // plaintext pins outside the audited write-site sweep.
+        pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
       })
       .select('id, name, phone, email, do_not_service')
       .single()

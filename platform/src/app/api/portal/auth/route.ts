@@ -7,6 +7,10 @@ import { isUniversalPin } from '@/lib/universal-pin'
 import { generateCode, createToken } from './token'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { audit } from '@/lib/audit'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
+import { findRowByPin } from '@/lib/pin-lookup'
+
+const PIN_SCAN_CAP = 5000
 
 // Brute-force throttle for PIN login. Mirrors /api/team-portal/auth: buckets are
 // keyed by TENANT and by IP, never by the guessed PIN itself — a bucket keyed on
@@ -89,12 +93,24 @@ export async function POST(request: Request) {
         .maybeSingle()) as { data: { id: string; name: string } | null }
       client = data
     } else {
-      const { data } = (await tenantDb(tenant.id)
-        .from('clients')
-        .select('id, name')
-        .eq('pin', pin)
-        .maybeSingle()) as { data: { id: string; name: string } | null }
-      client = data
+      client = await findRowByPin(
+        pin,
+        async () => {
+          const { data } = (await tenantDb(tenant.id)
+            .from('clients')
+            .select('id, name, pin')
+            .eq('pin', pin)
+            .maybeSingle()) as { data: { id: string; name: string; pin: string | null } | null }
+          return data
+        },
+        async () => {
+          const { data } = (await tenantDb(tenant.id)
+            .from('clients')
+            .select('id, name, pin')
+            .limit(PIN_SCAN_CAP)) as { data: { id: string; name: string; pin: string | null }[] | null }
+          return (data || []).filter((c) => c.pin)
+        },
+      )
     }
 
     if (!client) {
@@ -163,7 +179,7 @@ export async function POST(request: Request) {
 
     const { error: updErr } = await tenantDb(tenant.id)
       .from('clients')
-      .update({ pin: newPin })
+      .update({ pin: encryptSecretSafe(newPin) })
       .eq('id', client.id)
     if (updErr) {
       return NextResponse.json({ error: 'Could not set a new PIN. Try again.' }, { status: 500 })

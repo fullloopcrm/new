@@ -92,7 +92,7 @@ export default function Post() {
 
             <h3 className="text-lg font-bold text-slate-900 mt-8 mb-2 font-heading">1. &ldquo;Who will actually be doing the work?&rdquo;</h3>
             <p className="text-slate-600 leading-relaxed mb-6">
-              Most agencies sell you the senior team and hand your account to a junior employee or outsource it overseas. Ask directly: who touches my account day-to-day? What&apos;s their experience level? At <Link href="/about-digital-marketing-agency-consortium-nyc" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">The NYC Marketing Company</Link>, you work directly with someone who has 25 years in the seat they sit in. No layers.
+              Most agencies sell you the senior team and hand your account to a junior employee or outsource it overseas. Ask directly: who touches my account day-to-day? What&apos;s their experience level? At <Link href="/about" className="text-teal-600 underline underline-offset-2 hover:text-teal-700">The NYC Marketing Company</Link>, you work directly with someone who has 25 years in the seat they sit in. No layers.
             </p>
 
             <h3 className="text-lg font-bold text-slate-900 mt-8 mb-2 font-heading">2. &ldquo;Can you show me real results from real businesses?&rdquo;</h3>

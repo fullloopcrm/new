@@ -408,7 +408,23 @@ export async function POST(request: Request) {
         // closeSoldQuote picks booking/recurring/job by the quote's actual
         // type — a plain deposit-paid cleaning must not always become an
         // unscheduled Job. See its docstring in lib/jobs.ts.
-        try { const { closeSoldQuote } = await import('@/lib/jobs'); await closeSoldQuote(tenantId, quoteId) } catch (e) { console.warn('[stripe] deposit sale conversion failed', e) }
+        // lss-06 live-audit gap (2026-07-31): this catch had no trackError
+        // call even though this file already imports and uses trackError
+        // elsewhere — a silent-failure gap of the same shape the original
+        // bug came from. In practice this specific call site's quote should
+        // already be status='accepted' by the time a deposit webhook fires
+        // (the public accept route sets that synchronously before any
+        // deposit charge is possible), so this is defense-in-depth rather
+        // than a confirmed-frequent failure mode — but a real
+        // closeSoldQuote failure here (any reason) previously vanished into
+        // a console.warn line nobody tails.
+        try {
+          const { closeSoldQuote } = await import('@/lib/jobs')
+          await closeSoldQuote(tenantId, quoteId)
+        } catch (e) {
+          console.warn('[stripe] deposit sale conversion failed', e)
+          await trackError(e, { source: 'webhooks/stripe:close-sold-quote', severity: 'high', tenantId }).catch(() => {})
+        }
         try {
           const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
           await ownerAlert({

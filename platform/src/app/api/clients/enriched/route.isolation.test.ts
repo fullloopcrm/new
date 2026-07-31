@@ -31,10 +31,18 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: vi.fn(async () => ({
+    tenant: { tenantId: A, tenant: { id: A }, role: 'owner', userId: 'u1' },
+    error: null,
+  })),
+}))
+
 vi.mock('@/lib/settings', () => ({
   getSettings: vi.fn(async () => ({ active_client_threshold_days: 30, at_risk_threshold_days: 90 })),
 }))
 
+import { requirePermission } from '@/lib/require-permission'
 import { GET } from './route'
 import { NextRequest } from 'next/server'
 
@@ -74,6 +82,20 @@ describe('clients/enriched — tenant isolation', () => {
     expect(ids).toEqual(['cl-a1'])
     expect(ids).not.toContain('cl-b1')
     expect(body.totals.total).toBe(1)
+  })
+
+  // Regression (2026-07-31, crm-04 re-check) -- see GET /api/clients's
+  // matching test for the full rationale. Highest-exposure instance of the
+  // pattern: this route returns full client PII joined against bookings/
+  // schedules/team.
+  it('honors requirePermission(clients.view) denial instead of bypassing it', async () => {
+    const { NextResponse } = await import('next/server')
+    vi.mocked(requirePermission).mockResolvedValueOnce({
+      tenant: null,
+      error: NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 }),
+    })
+    const res = await GET(new NextRequest('http://t/api/clients/enriched'))
+    expect(res.status).toBe(403)
   })
 
   it("a foreign tenant's booking never inflates the acting tenant's client LTV", async () => {

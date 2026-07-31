@@ -1,5 +1,6 @@
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { yinezError, NYCMAID_TENANT_ID, type BookingChecklist, type Intent, type NextStep } from './core-types'
 import { updateChecklist } from './core-intent'
 
@@ -368,8 +369,10 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
       }
     }
 
+    // sec-07: encrypt at creation — real gap, this path was creating
+    // plaintext pins outside the audited write-site sweep.
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: randomInt(100000, 1000000).toString() }).select('id').single()
+      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: encryptSecretSafe(randomInt(100000, 1000000).toString()) }).select('id').single()
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')

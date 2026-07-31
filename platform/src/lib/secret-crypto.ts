@@ -120,4 +120,26 @@ export function encryptTenantSecrets<T extends Record<string, unknown>>(updates:
   return out as T
 }
 
+/**
+ * Like encryptSecret(), but degrades to returning the plaintext unchanged
+ * (with a one-time warning) instead of throwing when SECRET_ENCRYPTION_KEY
+ * isn't set — same graceful-degrade contract as encryptTenantSecrets(). For
+ * single scalar values (e.g. clients.pin / team_members.pin) written outside
+ * the ENCRYPTED_TENANT_FIELDS object-shape path. decryptSecret() already
+ * tolerates the resulting plaintext (passthrough), so nothing breaks either
+ * way — encryption just doesn't happen until a key is provisioned.
+ */
+export function encryptSecretSafe(plaintext: string): string {
+  if (!plaintext) return plaintext
+  if (!encryptionKeyAvailable()) {
+    if (!_warnedNoKeyScalar) {
+      console.warn('[secret-crypto] SECRET_ENCRYPTION_KEY not set — storing this value in PLAINTEXT. Set the key to enable encryption at rest.')
+      _warnedNoKeyScalar = true
+    }
+    return plaintext
+  }
+  return encryptSecret(plaintext)
+}
+
 let _warnedNoKey = false
+let _warnedNoKeyScalar = false

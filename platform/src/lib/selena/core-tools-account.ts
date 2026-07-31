@@ -4,6 +4,7 @@ import { notify } from '@/lib/nycmaid/notify'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 import { sendSMS, yinezError, NYCMAID_TENANT_ID } from './core-types'
+import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 
 export async function handleGetAccount(conversationId: string): Promise<string> {
   try {
@@ -81,10 +82,10 @@ export async function handleSendPin(conversationId: string): Promise<string> {
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     // Validate PIN is 6 digits — regenerate if not
-    let pin = client.pin
+    let pin = client.pin ? decryptSecret(client.pin) : null
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
       pin = randomInt(100000, 1000000).toString()
-      await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid)
+      await supabaseAdmin.from('clients').update({ pin: encryptSecretSafe(pin) }).eq('id', client.id).eq('tenant_id', tid)
     }
 
     const phone = client.phone || convo.phone
@@ -124,6 +125,7 @@ export async function handleResendConfirmation(input: Record<string, unknown>, c
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string }
     if (!client?.email) return JSON.stringify({ error: 'No email on file' })
+    const plainPin = client.pin ? decryptSecret(client.pin) : null
 
     const cleaner = booking.team_members as unknown as { name: string }
     const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
@@ -139,7 +141,7 @@ export async function handleResendConfirmation(input: Record<string, unknown>, c
           <p style="margin:0 0 8px;font-size:14px;color:#666">Service: <strong>${booking.service_type}</strong></p>
           <p style="margin:0 0 8px;font-size:14px;color:#666">Rate: <strong>$${booking.hourly_rate}/hr</strong></p>
           ${cleaner ? `<p style="margin:0 0 8px;font-size:14px;color:#666">Cleaner: <strong>${cleaner.name}</strong></p>` : ''}
-          ${client.pin ? `<p style="margin:0;font-size:14px;color:#666">Portal PIN: <strong>${client.pin}</strong></p>` : ''}
+          ${plainPin ? `<p style="margin:0;font-size:14px;color:#666">Portal PIN: <strong>${plainPin}</strong></p>` : ''}
         </td></tr>
       </table>
     `)

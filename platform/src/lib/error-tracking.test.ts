@@ -59,10 +59,17 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import { trackError } from './error-tracking'
+import { alertOwner, alertOwnerCritical } from '@/lib/telegram'
+
+const alertOwnerMock = vi.mocked(alertOwner)
+const alertOwnerCriticalMock = vi.mocked(alertOwnerCritical)
 
 beforeEach(() => {
   rows.length = 0
   idSeq = 0
+  alertOwnerMock.mockReset()
+  alertOwnerCriticalMock.mockReset()
+  alertOwnerCriticalMock.mockResolvedValue(undefined)
 })
 
 describe('trackError — error_logs dedup', () => {
@@ -104,5 +111,51 @@ describe('trackError — error_logs dedup', () => {
     await trackError(new Error('Notifications check failed'), { source: 'cron/system-check', severity: 'high' })
     await trackError(new Error('Email check failed'), { source: 'cron/system-check', severity: 'high' })
     expect(rows).toHaveLength(2)
+  })
+})
+
+/**
+ * Escalation to SMS (alertOwnerCritical) when Telegram itself fails to
+ * deliver. Real gap found + fixed 2026-07-31 (ai-03 re-check,
+ * docs/readiness/ledger.json): sendTelegram()/alertOwner() never throw on a
+ * bad/revoked bot token or wrong chat_id -- they resolve with
+ * { ok: false, ... } instead. Before this fix, only severity==='critical'
+ * ever triggered the SMS fallback, so a broken Telegram channel left every
+ * 'high'-severity alert (error-tracking.ts's own primary escalation path,
+ * used far more often than 'critical') with zero real delivery guarantee.
+ * Each test below uses a distinct error message so it gets its own
+ * alertCooldowns entry and isn't suppressed by an earlier test's cooldown.
+ */
+describe('trackError — SMS escalation when Telegram delivery fails', () => {
+  it('does NOT escalate to SMS for a high-severity error when Telegram delivers successfully (unchanged behavior)', async () => {
+    alertOwnerMock.mockResolvedValueOnce({ ok: true, status: 200, body: '{"ok":true}' })
+    await trackError(new Error('Escalation test: telegram ok'), { source: 'test/escalation', severity: 'high' })
+    expect(alertOwnerMock).toHaveBeenCalledTimes(1)
+    expect(alertOwnerCriticalMock).not.toHaveBeenCalled()
+  })
+
+  it('DOES escalate to SMS for a high-severity error when Telegram responds with ok:false (the fixed gap)', async () => {
+    alertOwnerMock.mockResolvedValueOnce({ ok: false, status: 401, body: '{"ok":false,"description":"Unauthorized"}' })
+    await trackError(new Error('Escalation test: telegram unauthorized'), { source: 'test/escalation', severity: 'high' })
+    expect(alertOwnerMock).toHaveBeenCalledTimes(1)
+    expect(alertOwnerCriticalMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('DOES escalate to SMS for a high-severity error when Telegram is not configured at all (alertOwner resolves null)', async () => {
+    alertOwnerMock.mockResolvedValueOnce(null)
+    await trackError(new Error('Escalation test: telegram not configured'), { source: 'test/escalation', severity: 'high' })
+    expect(alertOwnerCriticalMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('DOES escalate to SMS for a high-severity error when alertOwner itself rejects (network error)', async () => {
+    alertOwnerMock.mockRejectedValueOnce(new Error('network error'))
+    await trackError(new Error('Escalation test: telegram network error'), { source: 'test/escalation', severity: 'high' })
+    expect(alertOwnerCriticalMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('still always escalates to SMS for critical severity regardless of Telegram delivery (unchanged behavior)', async () => {
+    alertOwnerMock.mockResolvedValueOnce({ ok: true, status: 200, body: '{"ok":true}' })
+    await trackError(new Error('Escalation test: critical always escalates'), { source: 'test/escalation', severity: 'critical' })
+    expect(alertOwnerCriticalMock).toHaveBeenCalledTimes(1)
   })
 })

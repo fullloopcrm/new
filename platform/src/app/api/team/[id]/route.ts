@@ -7,6 +7,105 @@ import { audit } from '@/lib/audit'
 import { etDayBoundaryUTC, etToday } from '@/lib/recurring'
 import { getTeamMemberRetentionStats } from '@/lib/team-retention'
 import { getTeamMemberRatingTrend } from '@/lib/team-rating-trend'
+import { getTenantTimezone, toTenantNaiveString } from '@/lib/tenant-time'
+
+const FUTURE_BOOKING_STATUSES = ['scheduled', 'pending', 'confirmed']
+
+// bsr-02: deactivating a team member (via DELETE's soft-deactivate path, or
+// PUT setting status:'inactive' directly) used to leave their future
+// bookings silently pointing at an inactive member -- nothing reassigned or
+// even flagged them. This finds every still-future, not-yet-happened
+// booking the member is on (as the primary assignee OR as booking_team_members
+// crew) and writes a critical schedule_issues row so it surfaces immediately
+// in the existing Schedule Issues panel (same table/mechanism
+// src/app/api/cron/schedule-monitor/route.ts already writes to) -- not
+// waiting for the next hourly cron run. Auto-reassignment (silently picking
+// a replacement) is deliberately NOT attempted here: picking the "right"
+// replacement depends on zone/skill/day-availability/car requirements the
+// same way normal booking creation does, and guessing wrong would silently
+// create a different bad booking instead of a visibly-flagged one. A human
+// makes the actual reassignment call from the flagged issue.
+async function flagFutureBookingsForReassignment(
+  tenantId: string,
+  teamMemberId: string,
+  memberName: string
+): Promise<number> {
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).single()
+  const timezone = getTenantTimezone(tenantRow)
+  const nowNaive = toTenantNaiveString(timezone)
+
+  type FutureBookingRow = { id: string; start_time: string; clients: { name: string | null } | null }
+
+  const { data: primaryBookings } = (await supabaseAdmin
+    .from('bookings')
+    .select('id, start_time, clients(name)')
+    .eq('tenant_id', tenantId)
+    .eq('team_member_id', teamMemberId)
+    .in('status', FUTURE_BOOKING_STATUSES)
+    .gte('start_time', nowNaive)
+    .limit(500)) as { data: FutureBookingRow[] | null }
+
+  const { data: crewLinks } = await supabaseAdmin
+    .from('booking_team_members')
+    .select('booking_id')
+    .eq('tenant_id', tenantId)
+    .eq('team_member_id', teamMemberId)
+    .limit(500)
+  const crewBookingIds = (crewLinks || []).map((r) => r.booking_id).filter(Boolean)
+
+  let crewBookings: FutureBookingRow[] = []
+  if (crewBookingIds.length > 0) {
+    const { data } = (await supabaseAdmin
+      .from('bookings')
+      .select('id, start_time, clients(name)')
+      .eq('tenant_id', tenantId)
+      .in('id', crewBookingIds)
+      .in('status', FUTURE_BOOKING_STATUSES)
+      .gte('start_time', nowNaive)
+      .limit(500)) as { data: FutureBookingRow[] | null }
+    crewBookings = data || []
+  }
+
+  const seen = new Set<string>()
+  const affected: { id: string; start_time: string; clientName: string | null }[] = []
+  for (const b of [...(primaryBookings || []), ...crewBookings]) {
+    if (seen.has(b.id)) continue
+    seen.add(b.id)
+    affected.push({ id: b.id, start_time: b.start_time, clientName: (b.clients as { name: string | null } | null)?.name || null })
+  }
+
+  if (affected.length === 0) return 0
+
+  // Don't re-insert a duplicate flag for a booking that's already got an
+  // open one -- PUT can be called repeatedly with status:'inactive'.
+  const { data: existingIssues } = await supabaseAdmin
+    .from('schedule_issues')
+    .select('booking_id')
+    .eq('tenant_id', tenantId)
+    .eq('type', 'inactive_member_assigned')
+    .in('status', ['open', 'acknowledged'])
+    .in('booking_id', affected.map((b) => b.id))
+  const alreadyFlagged = new Set((existingIssues || []).map((i) => i.booking_id))
+  const toInsert = affected
+    .filter((b) => !alreadyFlagged.has(b.id))
+    .map((b) => ({
+      tenant_id: tenantId,
+      type: 'inactive_member_assigned',
+      severity: 'critical' as const,
+      message: `${memberName} was deactivated but is still assigned to ${b.clientName || 'a client'} on ${String(b.start_time).slice(0, 10)} — reassign this booking`,
+      booking_id: b.id,
+      booking_ids: [b.id],
+      team_member_id: teamMemberId,
+      date: String(b.start_time).slice(0, 10),
+      status: 'open',
+    }))
+
+  if (toInsert.length > 0) {
+    await supabaseAdmin.from('schedule_issues').insert(toInsert)
+  }
+
+  return affected.length
+}
 
 export async function GET(
   _request: Request,
@@ -105,7 +204,15 @@ export async function PUT(
 
     await audit({ tenantId, action: 'team.updated', entityType: 'team_member', entityId: id })
 
-    return NextResponse.json({ member: data })
+    // bsr-02: this is a second real path to deactivation (DELETE below is
+    // the other) -- a status:'inactive' PUT had zero booking-reassignment
+    // logic before this fix, same gap as DELETE's soft-deactivate branch.
+    let futureBookingsFlagged = 0
+    if (fields.status === 'inactive') {
+      futureBookingsFlagged = await flagFutureBookingsForReassignment(tenantId, id, data.name)
+    }
+
+    return NextResponse.json({ member: data, future_bookings_flagged: futureBookingsFlagged })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
@@ -151,9 +258,20 @@ export async function DELETE(
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      await audit({ tenantId, action: 'team.deactivated', entityType: 'team_member', entityId: id, details: { reason: 'has_booking_history', booking_count: bookingCount, crew_count: crewCount } })
+      // bsr-02: find every still-future booking this member is on (lead or
+      // crew) and flag it in schedule_issues so it doesn't silently sit
+      // assigned to someone no longer active. See flagFutureBookingsForReassignment.
+      const futureBookingsFlagged = await flagFutureBookingsForReassignment(tenantId, id, data.name)
 
-      return NextResponse.json({ success: true, deactivated: true, member: data })
+      await audit({
+        tenantId,
+        action: 'team.deactivated',
+        entityType: 'team_member',
+        entityId: id,
+        details: { reason: 'has_booking_history', booking_count: bookingCount, crew_count: crewCount, future_bookings_flagged: futureBookingsFlagged },
+      })
+
+      return NextResponse.json({ success: true, deactivated: true, member: data, future_bookings_flagged: futureBookingsFlagged })
     }
 
     const { error } = await supabaseAdmin

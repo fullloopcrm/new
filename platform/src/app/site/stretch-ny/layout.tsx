@@ -113,8 +113,14 @@ export default function RootLayout({
       className={`${sora.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`}
     >
       <head>
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/* No manual <link rel="icon">/"apple-touch-icon" here -- both
+            previously pointed at /favicon.png and /apple-touch-icon.png,
+            neither of which exists under public/ (confirmed 404, no
+            stretch-ny-specific favicon asset exists anywhere in the repo).
+            Every other tenant relies on Next's automatic favicon.ico/icon.svg
+            file-convention handling (src/app/favicon.ico, src/app/icon.svg)
+            instead of a manual tag -- removing these to match that pattern
+            rather than fabricate a fake brand asset. */}
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
         <JsonLd data={navigationSchema} />

@@ -11,6 +11,13 @@ import { getTenantTimezone, tenantCalendarToday, addCalendarDays, formatCalendar
 
 export const maxDuration = 300
 
+// Issue types only ever computed inside the isNycMaid(tenantId) block below —
+// see the self-healing reconcile step for why this matters for every other
+// tenant.
+const NYCMAID_ONLY_ISSUE_TYPES = new Set([
+  'no_show', 'stuck_pending', 'payment_overdue', 'cleaner_unpaid', 'tight_buffer', 'price_mismatch',
+])
+
 interface Issue {
   type: string
   severity: 'critical' | 'warning' | 'info'
@@ -289,14 +296,34 @@ export async function GET(request: Request) {
           }
         }
 
-        // Self-healing reconcile — resolve open issues that are past-dated or no
-        // longer in the freshly-computed set (condition cleared).
-        const validMessages = new Set(issues.map((i) => i.message))
-        const { data: openIssues } = await supabaseAdmin.from('schedule_issues').select('id, message, date').eq('tenant_id', tenantId).in('status', ['open', 'acknowledged'])
-        const staleIds = (openIssues || []).filter((i) => (i.date && i.date < todayStr) || !validMessages.has(i.message)).map((i) => i.id)
-        if (staleIds.length) {
-          await supabaseAdmin.from('schedule_issues').update({ status: 'resolved', resolved_at: nowT.toISOString(), resolved_by: 'auto', resolution_note: 'Auto-resolved: no longer applies' }).in('id', staleIds).then(() => {}, () => {})
-        }
+      }
+
+      // Self-healing reconcile — resolve open issues that are past-dated or no
+      // longer in the freshly-computed set (condition cleared). bsr-03 fix
+      // (2026-07-31): this used to live INSIDE the `if (isNycMaid(tenantId))`
+      // block above, so it only ever ran for one tenant. Live-verified the
+      // real effect: 29 unscheduled_sale issues sat 'open' platform-wide
+      // against only 7 real currently-pending bookings -- every non-nycmaid
+      // tenant's Schedule Issues panel accumulated permanently-stale alerts
+      // (bookings that were long since scheduled or cancelled kept showing
+      // as "needs scheduling" forever) because nothing ever auto-resolved
+      // them. Moved out so every tenant gets the same self-healing behavior.
+      // The 6 nycmaid-parity check types above (no_show/stuck_pending/
+      // payment_overdue/cleaner_unpaid/tight_buffer/price_mismatch) only
+      // ever get recomputed for nycmaid, so their absence from a non-nycmaid
+      // tenant's `issues` this run means "never checked," not "cleared" --
+      // guard those types out for every other tenant so this reconcile can
+      // never auto-resolve one it didn't actually just re-verify.
+      const validMessages = new Set(issues.map((i) => i.message))
+      const { data: openIssues } = await supabaseAdmin.from('schedule_issues').select('id, message, date, type').eq('tenant_id', tenantId).in('status', ['open', 'acknowledged'])
+      const staleIds = (openIssues || [])
+        .filter((i) => {
+          if (!isNycMaid(tenantId) && NYCMAID_ONLY_ISSUE_TYPES.has(i.type)) return false
+          return (i.date && i.date < todayStr) || !validMessages.has(i.message)
+        })
+        .map((i) => i.id)
+      if (staleIds.length) {
+        await supabaseAdmin.from('schedule_issues').update({ status: 'resolved', resolved_at: now.toISOString(), resolved_by: 'auto', resolution_note: 'Auto-resolved: no longer applies' }).in('id', staleIds).then(() => {}, () => {})
       }
 
       // Dedup + write
@@ -305,12 +332,26 @@ export async function GET(request: Request) {
       const newIssues = issues.filter(i => !existingMessages.has(i.message))
 
       for (const issue of newIssues) {
-        await supabaseAdmin.from('schedule_issues').insert({
+        // booking_id has a real FK to bookings(id) (schedule_issues_booking_id_fkey);
+        // booking_ids does not. Every issue type sources its ids from `bookings`
+        // EXCEPT 'unscheduled_job', which sources from `jobs` -- a job id is never
+        // a valid bookings.id, so setting booking_id to it violates the FK on every
+        // insert. That silently failed (insert()'s returned error was never checked)
+        // for every 'unscheduled_job' issue since this type was added 2026-07-30 --
+        // confirmed live: 0 rows of this type exist, ever, platform-wide, despite a
+        // real 13-day-unscheduled $365 Job that should have been flagged same-day.
+        // booking_ids (no FK) still carries the real job id either way.
+        const bookingId = issue.type === 'unscheduled_job' ? null : issue.booking_ids[0] || null
+        const { error: insertErr } = await supabaseAdmin.from('schedule_issues').insert({
           tenant_id: tenantId, type: issue.type, severity: issue.severity, message: issue.message,
-          booking_id: issue.booking_ids[0] || null, booking_ids: issue.booking_ids,
+          booking_id: bookingId, booking_ids: issue.booking_ids,
           team_member_id: issue.team_member_id || null, client_id: issue.client_id || null,
           date: issue.date || null, status: 'open',
         })
+        if (insertErr) {
+          console.error(`Schedule monitor insert failed for ${tenant.name} (${issue.type}):`, insertErr)
+          await trackError(insertErr, { source: 'api/cron/schedule-monitor:insert', severity: 'high', tenantId }).catch(() => {})
+        }
       }
       totalIssues += newIssues.length
     } catch (err) {

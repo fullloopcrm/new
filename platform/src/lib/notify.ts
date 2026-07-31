@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
+import { sendPushToTeamMember, sendPushToTenantAdmins, sendPushToClient } from './push'
 import { sendTelegram, notifyOwnerOnTelegram } from './telegram'
 import { decryptSecret } from './secret-crypto'
 import { isCommEnabled, getCommPolicy, buildTemplateData } from './comms-prefs'
@@ -165,7 +166,7 @@ async function bookingConfirmedHtml(
     teamMemberRatingAvg = cleaner?.avg_rating ? Number(cleaner.avg_rating) : undefined
     teamMemberRatingCount = cleaner?.rating_count || undefined
     portalEmail = bClient?.email || undefined
-    portalPin = bClient?.pin || undefined
+    portalPin = bClient?.pin ? decryptSecret(bClient.pin) : undefined
     isRecurring = !!b?.recurring_type
   }
   // Cancellation policy is tenant-configured (Settings → Notifications).
@@ -238,6 +239,23 @@ export async function buildBookingConfirmationEmail(
     price: fields.price,
     portalUrl: fields.portalUrl,
   }, { domain: tenant?.domain, slug: tenant?.slug })
+}
+
+// RFC 2606 reserved domains (example.com/.org/.net/.edu, plus the common
+// "test"/"invalid" placeholders) are never real deliverable mailboxes — a
+// send attempt to one is a guaranteed provider rejection (confirmed live via
+// Resend: "Invalid `to` field... use our testing email address instead of
+// domains like `example.com`"). Seed/demo tenant data has used
+// `*.lead@example.com`-style placeholder emails, and those were being queued
+// through the real send path, burning provider calls and inflating the
+// notifications-delivery-rate health check with failures that were never
+// actually deliverable to begin with. Caught here, pre-send, and classified
+// like any other "never sendable" address (see UNROUTABLE below).
+const RESERVED_TEST_EMAIL_DOMAINS = new Set(['example.com', 'example.org', 'example.net', 'example.edu', 'test.com', 'invalid'])
+function isReservedTestEmail(addr: string | null | undefined): boolean {
+  if (!addr) return false
+  const domain = addr.split('@')[1]?.toLowerCase()
+  return !!domain && RESERVED_TEST_EMAIL_DOMAINS.has(domain)
 }
 
 export async function notify({
@@ -516,6 +534,25 @@ export async function notify({
   // Check if integrations are configured
   const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
   const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+  const hasPushConfig = !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
+
+  // Push has no tenant-level "configured" flag (VAPID keys are platform-wide)
+  // and no per-recipient contact field like email/phone — it depends on a row
+  // existing in push_subscriptions. Resolve that once, up front, so the send
+  // block below can branch on it exactly like hasEmail/hasSMS.
+  let hasPushSubscription = false
+  if (channel === 'push' && hasPushConfig) {
+    if (recipientType === 'team_member' && recipientId) {
+      const { count } = await supabaseAdmin.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('team_member_id', recipientId)
+      hasPushSubscription = (count || 0) > 0
+    } else if (recipientType === 'admin' && tenantId) {
+      const { count } = await supabaseAdmin.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('role', 'admin')
+      hasPushSubscription = (count || 0) > 0
+    } else if (recipientType === 'client' && recipientId) {
+      const { count } = await supabaseAdmin.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('client_id', recipientId)
+      hasPushSubscription = (count || 0) > 0
+    }
+  }
 
   // ── Communications gate ────────────────────────────────────────────────
   // The in-app notification row is already persisted above; here we honor the
@@ -534,7 +571,9 @@ export async function notify({
 
   // Attempt primary channel
   try {
-    if (channel === 'email' && email && hasEmail) {
+    if (channel === 'email' && email && isReservedTestEmail(email)) {
+      lastError = 'Recipient email is a reserved/placeholder test domain — never deliverable'
+    } else if (channel === 'email' && email && hasEmail) {
       await sendEmail({
         to: email,
         subject: title,
@@ -551,6 +590,15 @@ export async function notify({
         telnyxPhone: tenant.telnyx_phone,
       })
       sent = true
+    } else if (channel === 'push' && hasPushSubscription) {
+      if (recipientType === 'team_member' && recipientId) {
+        await sendPushToTeamMember(recipientId, title, message)
+      } else if (recipientType === 'admin' && tenantId) {
+        await sendPushToTenantAdmins(tenantId, title, message)
+      } else if (recipientType === 'client' && recipientId) {
+        await sendPushToClient(recipientId, title, message)
+      }
+      sent = true
     } else if (channel === 'email' && !email) {
       lastError = 'No email address for recipient'
     } else if (channel === 'email' && !hasEmail) {
@@ -559,6 +607,10 @@ export async function notify({
       lastError = 'No phone number for recipient'
     } else if (channel === 'sms' && !hasSMS) {
       lastError = 'SMS not configured — no Telnyx API key'
+    } else if (channel === 'push' && !hasPushConfig) {
+      lastError = 'Push not configured — no VAPID keys'
+    } else if (channel === 'push' && !hasPushSubscription) {
+      lastError = 'No push subscription for recipient'
     }
   } catch (e) {
     lastError = e instanceof Error ? e.message : String(e)
@@ -614,6 +666,9 @@ export async function notify({
     'No phone number for recipient',
     'Email not configured — no Resend API key',
     'SMS not configured — no Telnyx API key',
+    'Push not configured — no VAPID keys',
+    'No push subscription for recipient',
+    'Recipient email is a reserved/placeholder test domain — never deliverable',
   ])
   const finalStatus = lastError && UNROUTABLE.has(lastError) ? 'skipped' : 'failed'
   await updateNotif(finalStatus, {

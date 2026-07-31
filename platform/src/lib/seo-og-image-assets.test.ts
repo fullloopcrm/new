@@ -37,16 +37,12 @@ const LOCAL_IMAGE_RE = /['"`](\/[A-Za-z0-9._/-]+\.(?:jpg|jpeg|png|webp|avif|gif)
 // missing-asset defect awaiting the SEO wave — NOT an assertion that it's fine.
 //   • 5× /og-image.jpg  → OG audit C1 (blank OG card; each needs its own
 //     opengraph-image.tsx per the florida-maid/sunnyside pattern).
-//   • stretch-ny favicon.png + apple-touch-icon.png → broken <link> icons found
-//     while writing this guard (root-path refs; public/ has only public/favicons/).
 const MISSING_ASSET_BASELINE: ReadonlySet<string> = new Set([
   'debt-service-ratio-loan::/og-image.jpg',
   'landscaping-in-nyc::/og-image.jpg',
   'stretch-ny::/og-image.jpg',
   'stretch-service::/og-image.jpg',
   'the-nyc-interior-designer::/og-image.jpg',
-  'stretch-ny::/favicon.png',
-  'stretch-ny::/apple-touch-icon.png',
 ])
 
 function siteLayouts(): Array<{ site: string; file: string }> {

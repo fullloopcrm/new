@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { getSettings } from '@/lib/settings'
 
@@ -120,7 +121,13 @@ function relativeLast(start: string, status: string | null, paymentStatus: strin
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // See GET /api/clients's comment -- same missing-permission-check gap,
+    // same fix. This route in particular returns full client PII (name,
+    // email, phone, address) joined against bookings/schedules/team, so the
+    // gap here is the highest-exposure instance of the pattern.
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const settings = await getSettings(tenantId)
     const db = tenantDb(tenantId)
 

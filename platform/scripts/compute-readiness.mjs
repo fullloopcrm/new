@@ -99,7 +99,7 @@ function computeCoverage() {
     routes_total: inventory.routes.length, routes_covered: routesCovered,
     tables_total: inventory.tables.length, tables_covered: tablesCovered,
     overall_pct: Number(((coveredItems / totalItems) * 100).toFixed(1)),
-    note: 'One overall number -- per-domain coverage needs each surface item classified into a domain, not done this pass.',
+    note: 'One overall number only. A per-domain breakdown exists at docs/readiness/per-domain-coverage-*.json but it is HAND-MAINTAINED, not pipeline-verified -- this script does not read it, no script regenerates or validates it, and it has been silently overwritten mid-audit before with no diff surfaced. Do not present its numbers as if this script computed them.',
   }
 }
 
@@ -178,7 +178,12 @@ function main() {
     console.log(`  ${r.label.padEnd(48)} weight ${String(r.weight).padStart(3)}%  score ${s.padStart(5)}  (${r.numericCount} scored, ${r.notScoredCount} not_scored)`)
   }
   console.log(`\nPLATFORM-WIDE SCORE: ${output.platform_wide_score}%`)
-  if (coverage) console.log(`SURFACE COVERAGE (overall): ${coverage.overall_pct}%  (routes ${coverage.routes_covered}/${coverage.routes_total}, tables ${coverage.tables_covered}/${coverage.tables_total})`)
+  if (coverage) {
+    console.log(`SURFACE COVERAGE (overall): ${coverage.overall_pct}%  (routes ${coverage.routes_covered}/${coverage.routes_total}, tables ${coverage.tables_covered}/${coverage.tables_total})`)
+    console.log('  NOTE: this is the only coverage number this script computes. A per-domain breakdown exists as a')
+    console.log('  hand-maintained doc (docs/readiness/per-domain-coverage-*.json) -- it is NOT pipeline-verified,')
+    console.log('  no script regenerates or checks it, and it can drift or be silently overwritten. See docs/readiness/PROCESS.md.')
+  }
 
   console.log('\nSafe-to-onboard breakdown:')
   for (const [, r] of Object.entries(safeToOnboard.domainResults)) {
