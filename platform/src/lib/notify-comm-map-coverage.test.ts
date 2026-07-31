@@ -23,12 +23,23 @@
  * NOTIFY_COMM_MAP entry or explicitly update this snapshot (and think about
  * whether that's the right call).
  *
- * Known gap worth flagging explicitly (not fixed here — a product/policy
- * call, not an engineering one): `campaign_sent` (client, email AND sms)
- * is in the ungated set below. That's a marketing send to a client that
- * currently ignores comms-preference/opt-out settings entirely, which is
- * a materially different risk profile than the mostly-transactional/
- * internal-admin-alert types that make up the rest of this list.
+ * CORRECTION (2026-07-31, same day, ai-05 second re-check): this file's
+ * original version flagged `campaign_sent` (client, email AND sms) as a
+ * real, unresolved risk — "a marketing send that currently ignores
+ * comms-preference/opt-out settings entirely." That was wrong. Deeper
+ * verification (src/app/api/campaigns/send/route.marketing-optout.test.ts,
+ * 5 passing tests against the real route logic) found campaigns/send/
+ * route.ts enforces marketing opt-out via a SEPARATE, dedicated mechanism
+ * BEFORE it ever calls notify(): it filters the audience against
+ * clients.email_marketing_opt_out / sms_marketing_opt_out / sms_consent at
+ * recipient-list-build time, so an opted-out client's id is never even
+ * passed to notify(). `campaign_sent` genuinely has no NOTIFY_COMM_MAP
+ * entry (that mechanical fact stands, see the pinned list below), but that
+ * does NOT mean opted-out clients receive marketing sends — a different,
+ * real, working guard already exists upstream. Left in the pinned ungated
+ * list below because it's still mechanically true that notify()'s own gate
+ * doesn't cover it (informational), not because it's still believed to be
+ * a live compliance risk.
  */
 import { describe, it, expect } from 'vitest'
 import ts from 'typescript'
