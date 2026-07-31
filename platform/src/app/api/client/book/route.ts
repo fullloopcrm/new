@@ -128,7 +128,7 @@ export async function POST(request: Request) {
           .insert({
             name: clientName,
             email: emailLower,
-            phone,
+            phone: phone || null,
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),

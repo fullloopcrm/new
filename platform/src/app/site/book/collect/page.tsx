@@ -156,10 +156,9 @@ function CollectFormContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Phone *</label>
+            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Phone <span className="text-gray-400 font-normal">(optional)</span></label>
             <input
               type="tel"
-              required
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base"

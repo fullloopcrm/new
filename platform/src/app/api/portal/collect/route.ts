@@ -56,19 +56,21 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CollectBody
     const { name, email, phone, address, notes, referrer_name, referrer_phone, src, convo_id, pet_name, pet_type } = body
 
-    if (!name || !phone) {
-      return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
     // Existing client match by phone (tenant-scoped)
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast to the shape actually selected.
-    const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = (await db
-      .from('clients')
-      .select('id, status')
-      .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-      .limit(1)) as { data: { id: string; status: string }[] | null }
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
+    const { data: existing } = cleanPhone
+      ? ((await db
+          .from('clients')
+          .select('id, status')
+          .ilike('phone', `%${cleanPhone.slice(-10)}%`)
+          .limit(1)) as { data: { id: string; status: string }[] | null })
+      : { data: [] as { id: string; status: string }[] }
 
     const existingClient = existing?.[0]
 
@@ -155,7 +157,7 @@ export async function POST(request: NextRequest) {
         .insert({
           name,
           email: email || null,
-          phone,
+          phone: phone || null,
           address: address || null,
           notes: notesValue,
           referrer_id: referrerId,
@@ -178,7 +180,7 @@ export async function POST(request: NextRequest) {
     await db.from('portal_leads').insert({
       name,
       email: email || null,
-      phone,
+      phone: phone || null,
       notes: notesValue,
       source: src || null,
       referrer_domain: null,

@@ -28,16 +28,18 @@ export async function POST(request: Request) {
       referrer_name, referrer_phone, src, convo_id, pet_name, pet_type,
     } = body as Record<string, string | undefined>
 
-    if (!name || !phone) {
-      return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
-    const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await tenantDb(tenant.id)
-      .from('clients')
-      .select('id, status')
-      .or(`phone.ilike.%${sanitizePostgrestValue(cleanPhone.slice(-10))}%`)
-      .limit(1)
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
+    const { data: existing } = cleanPhone
+      ? await tenantDb(tenant.id)
+          .from('clients')
+          .select('id, status')
+          .or(`phone.ilike.%${sanitizePostgrestValue(cleanPhone.slice(-10))}%`)
+          .limit(1)
+      : { data: [] }
     const existingClient = existing?.[0]
 
     // Referrer resolution (tenant-scoped)
@@ -114,7 +116,7 @@ export async function POST(request: Request) {
         .insert({
           name,
           email: email || null,
-          phone,
+          phone: phone || null,
           address: address || null,
           notes: notesValue,
           referrer_id: referrerId,
