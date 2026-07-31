@@ -274,7 +274,7 @@ Of 13 RLS migration files, **5 are applied** (\`046_rls_deny_on_new_tables\`, \`
 
 | Group | Routes |
 |---|---|
-| \`webhooks\` | 10 routes: \`/api/webhooks/clerk\` (POST), \`/api/webhooks/resend\` (POST), \`/api/webhooks/stripe\` (POST), \`/api/webhooks/stripe-platform\` (POST), \`/api/webhooks/telegram\` (GET,POST), \`/api/webhooks/telegram/[tenant]\` (POST), \`/api/webhooks/telegram/jefe\` (POST), \`/api/webhooks/telnyx\` (POST), \`/api/webhooks/telnyx-voice\` (POST), \`/api/webhooks/telnyx-voice-agent/[secret]\` (POST) |
+| \`webhooks\` | 9 routes: \`/api/webhooks/resend\` (POST), \`/api/webhooks/stripe\` (POST), \`/api/webhooks/stripe-platform\` (POST), \`/api/webhooks/telegram\` (GET,POST), \`/api/webhooks/telegram/[tenant]\` (POST), \`/api/webhooks/telegram/jefe\` (POST), \`/api/webhooks/telnyx\` (POST), \`/api/webhooks/telnyx-voice\` (POST), \`/api/webhooks/telnyx-voice-agent/[secret]\` (POST) — \`/api/webhooks/clerk\` removed 2026-07-31, Clerk fully replaced by the PIN/session system, route was dead reachable attack surface |
 
 ### Bookings & Scheduling (31 routes)
 
