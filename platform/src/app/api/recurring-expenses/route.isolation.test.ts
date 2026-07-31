@@ -5,6 +5,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * Proves the wrapper's injected .eq('tenant_id') actually excludes a foreign
  * tenant's recurring expense on GET, and that POST inserts are stamped with
  * the AUTHENTICATED tenant regardless of anything in the request body.
+ *
+ * Also proves the RBAC fix: both verbs now call requirePermission (this
+ * route previously had no permission check at all — any authenticated
+ * tenant member, any role, could view/create recurring expenses).
  */
 
 type Row = Record<string, unknown>
@@ -43,10 +47,19 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: { from: (table: string) => builder(table) },
 }))
 
-let currentTenant: string
+const h = vi.hoisted(() => ({
+  currentTenant: 'tenant-A',
+  permissionError: null as unknown,
+  requirePermission: vi.fn(),
+}))
+h.requirePermission.mockImplementation(async (..._args: unknown[]) =>
+  h.permissionError
+    ? { tenant: null, error: h.permissionError }
+    : { tenant: { tenantId: h.currentTenant }, error: null },
+)
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenant }),
+  getTenantForRequest: async () => ({ tenantId: h.currentTenant }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -55,6 +68,8 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+
+vi.mock('@/lib/require-permission', () => ({ requirePermission: h.requirePermission }))
 
 import { GET, POST } from './route'
 
@@ -65,7 +80,9 @@ beforeEach(() => {
       { id: 'exp-b', tenant_id: 'tenant-B', label: 'Rent B', amount_cents: 700000, active: true },
     ],
   }
-  currentTenant = 'tenant-A'
+  h.currentTenant = 'tenant-A'
+  h.permissionError = null
+  h.requirePermission.mockClear()
 })
 
 describe('recurring-expenses GET — tenantDb isolation', () => {
@@ -88,9 +105,31 @@ describe('recurring-expenses POST — tenantDb stamping', () => {
     const body = await res.json()
     expect(body.recurring_expense.tenant_id).toBe('tenant-A')
 
-    currentTenant = 'tenant-B'
+    h.currentTenant = 'tenant-B'
     const resB = await GET()
     const bodyB = await resB.json()
     expect(bodyB.recurring_expenses.map((r: Row) => r.id)).not.toContain(body.recurring_expense.id)
+  })
+})
+
+describe('recurring-expenses permission gate — was missing entirely', () => {
+  it('GET checks finance.view', async () => {
+    await GET()
+    expect(h.requirePermission).toHaveBeenCalledWith('finance.view')
+  })
+
+  it('POST checks finance.expenses', async () => {
+    const req = new Request('http://x/api/recurring-expenses', {
+      method: 'POST',
+      body: JSON.stringify({ label: 'Software', amount_cents: 9900, frequency: 'monthly' }),
+    })
+    await POST(req)
+    expect(h.requirePermission).toHaveBeenCalledWith('finance.expenses')
+  })
+
+  it('GET returns the permission error instead of data when denied', async () => {
+    h.permissionError = new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 })
+    const res = await GET()
+    expect(res.status).toBe(403)
   })
 })

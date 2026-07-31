@@ -107,4 +107,18 @@ describe('clerk webhook — fails closed on missing/invalid signature', () => {
 
     expect(res.status).toBe(200)
   })
+
+  it('CLERK_WEBHOOK_VERIFY=off is ignored in production — still fails closed', async () => {
+    process.env.CLERK_WEBHOOK_VERIFY = 'off'
+    vi.stubEnv('NODE_ENV', 'production')
+    try {
+      const { POST } = await import('./route')
+      const res = await POST(req({ body, signature: null }))
+
+      expect(res.status).toBe(401)
+      expect(supabaseFrom).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
 })

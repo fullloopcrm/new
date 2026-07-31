@@ -6,7 +6,12 @@ import { verifySvix } from '@/lib/webhook-verify'
 export async function POST(request: Request) {
   const rawBody = await request.text()
 
-  if (process.env.CLERK_WEBHOOK_VERIFY !== 'off') {
+  // The CLERK_WEBHOOK_VERIFY='off' escape hatch is local-dev only — it must
+  // never be honored in production, even if the env var were ever
+  // accidentally set there (stale copy-paste, leftover test config, etc).
+  const verifyBypassRequested = process.env.CLERK_WEBHOOK_VERIFY === 'off'
+  const bypassAllowed = verifyBypassRequested && process.env.NODE_ENV !== 'production'
+  if (!bypassAllowed) {
     const result = verifySvix(request.headers, rawBody, process.env.CLERK_WEBHOOK_SECRET)
     if (!result.valid) {
       console.warn('[clerk webhook] rejected:', result.reason)
