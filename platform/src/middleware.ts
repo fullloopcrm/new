@@ -10,42 +10,6 @@ function createRouteMatcher(patterns: string[]) {
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
-import {
-  findIndustryByPageSlug,
-  findMetroByPageSlug,
-  findCombo,
-  industryPath,
-  locationPath,
-  comboPath,
-} from '@/lib/marketing/combos'
-
-// --- 2026-07-28 slug redesign: 301 old marketing-site URLs to the new
-// short-tail/nested formats. Main host only — never touches tenant routing.
-// Order matters: industry hub (2 segments) before combo (also under
-// /industry/*, distinguished by whether the 2nd segment resolves to a metro).
-function redirectLegacyMarketingUrl(pathname: string): string | null {
-  // Old flat combo page: /crm-for-{industry}-businesses-in-{metro-shortSlug}
-  if (pathname.startsWith('/crm-for-') && pathname.includes('-businesses-in-')) {
-    const match = findCombo(pathname.slice(1))
-    if (match) return comboPath(match.industry, match.metro)
-  }
-
-  // Old industry hub: /industry/crm-for-{industry}-businesses
-  const industryMatch = pathname.match(/^\/industry\/(crm-for-.+)$/)
-  if (industryMatch) {
-    const industry = findIndustryByPageSlug(industryMatch[1])
-    if (industry) return industryPath(industry)
-  }
-
-  // Old location page: /location/home-service-crm-in-{metro-shortSlug}
-  const locationMatch = pathname.match(/^\/location\/(home-service-crm-in-.+)$/)
-  if (locationMatch) {
-    const metro = findMetroByPageSlug(locationMatch[1])
-    if (metro) return locationPath(metro)
-  }
-
-  return null
-}
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -139,8 +103,6 @@ const isPublicRoute = createRouteMatcher([
   '/agreement',
   '/waitlist',
   '/onboarding(.*)',
-  '/onboard(.*)',             // Public, no-login per-tenant onboarding-questionnaire link (signed token)
-  '/api/tenant-profile(.*)',  // Backs /onboard/[token] — auths itself (session OR signed token), not Clerk
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',
@@ -172,6 +134,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
+  '/api/referrals/track(.*)', // Referral click tracking
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
   '/admin-login',             // Admin PIN login page
@@ -254,7 +217,6 @@ export default async function middleware(req: NextRequest) {
     'consortiumnyc.com',
     'thenycmarketingcompany.com',
     'thenycinteriordesigner.com',
-    'miamibeachmaid.com',
   ])
   if (
     // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
@@ -291,18 +253,6 @@ export default async function middleware(req: NextRequest) {
     })
   }
 
-  // --- Legacy marketing-slug redirects (2026-07-28 redesign) ---
-  // Old industry/location/combo URLs 301 to the new short-tail/nested slugs.
-  // Main host only — never touches tenant subdomains/custom domains.
-  if (isMainHost(hostname)) {
-    const newPath = redirectLegacyMarketingUrl(req.nextUrl.pathname)
-    if (newPath) {
-      const url = req.nextUrl.clone()
-      url.pathname = newPath
-      return NextResponse.redirect(url, 301)
-    }
-  }
-
   // --- Tenant subdomain routing (runs before Clerk auth) ---
   const subdomain = extractSubdomain(hostname)
   if (subdomain) {
@@ -333,10 +283,21 @@ export default async function middleware(req: NextRequest) {
       'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
     }
     const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
-    if (emdRoute && req.nextUrl.pathname === '/') {
-      const url = req.nextUrl.clone()
-      url.pathname = emdRoute
-      return NextResponse.rewrite(url)
+    if (emdRoute) {
+      const { pathname } = req.nextUrl
+      // sitemap.xml needs its own EMD-specific rewrite (Next.js supports
+      // nested sitemap.ts generation) — without this it falls through to the
+      // tenant_domains lookup below, which resolves to the-florida-maid and
+      // serves ITS sitemap (thefloridamaid.com URLs) instead of this
+      // microsite's own. robots.txt does NOT need this: Next.js doesn't
+      // support nested robots.ts, but the root src/app/robots.ts is already
+      // host-aware (reads the Host header directly) and falls through
+      // correctly via rewriteToSite's own robots.txt passthrough below.
+      if (pathname === '/' || pathname === '/sitemap.xml') {
+        const url = req.nextUrl.clone()
+        url.pathname = pathname === '/' ? emdRoute : `${emdRoute}${pathname}`
+        return NextResponse.rewrite(url)
+      }
     }
 
     // Static fallback map — used when DB lookup at the edge is unreliable.
@@ -419,10 +380,9 @@ export default async function middleware(req: NextRequest) {
         return
       }
     }
-    // Owner self-serve login is intentionally not built (FullLoop is
-    // white-glove onboarded — see lib/owner-session.ts, 2026-07-28 decision).
-    // Protected owner routes that aren't admin-impersonated redirect to
-    // /sign-in, which explains the real (PIN, per-tenant-domain) login path.
+    // Owner login is dormant (moved off Clerk). Protected owner routes that
+    // aren't admin-impersonated redirect to sign-in until the session-based
+    // owner login is wired (P5).
     return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 }
@@ -492,15 +452,9 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // API routes + tenant-scoped app routes that live at the root are NOT
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.
-  // /quote, /invoice, /sign, /photos are public, token-authed pages
-  // (src/app/quote/[token] etc.) — also root-level, not under /site/<slug>.
-  // Without this, a proposal/invoice/agreement/photo-share link sent to a
-  // tenant's own domain rewrote to a nonexistent /site/<slug>/quote/... page
-  // and 404d for every tenant.
   const APP_ROOT_PREFIXES = [
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
-    '/quote', '/invoice', '/sign', '/photos',
   ]
   if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
     const requestHeaders = new Headers(req.headers)
@@ -637,7 +591,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
 
 export const config = {
   matcher: [
-    '/((?!_next|sentry-tunnel|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|webm|mov|m4v|mp3|wav)).*)',
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
   ],
 }
