@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import ToastProvider from './toast-provider'
+import ComhubAlerts from './comhub-alerts'
 import AutoPageSettings from './auto-page-settings'
 import SelenaBar from './selena-bar'
 import AnnouncementBanner from './announcement-banner'
@@ -616,6 +617,7 @@ function DashboardShellInner({
       <SelenaBar agentName={agentName} />
 
       <ToastProvider />
+      <ComhubAlerts />
       {/* Tawk widget removed — Selena AI bar replaces it. */}
     </div>
   )

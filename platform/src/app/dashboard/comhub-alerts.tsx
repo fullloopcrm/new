@@ -1,0 +1,264 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
+
+const POLL_MS = 8000
+
+interface Alert {
+  message_id: string
+  thread_id: string
+  channel: 'sms' | 'email' | 'web'
+  body: string
+  subject: string | null
+  sent_at: string
+  contact_name: string
+  contact_phone: string | null
+  contact_email: string | null
+}
+
+const channelLabel: Record<Alert['channel'], string> = { sms: 'Text', email: 'Email', web: 'Web chat' }
+
+// Two-tone chime synthesized via Web Audio — no asset to host, no autoplay
+// surprises. AudioContext is created lazily on first user gesture since
+// browsers block sound before any interaction on the page.
+function useChime() {
+  const ctxRef = useRef<AudioContext | null>(null)
+
+  useEffect(() => {
+    const unlock = () => {
+      if (!ctxRef.current) {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        ctxRef.current = new AC()
+      }
+      if (ctxRef.current.state === 'suspended') ctxRef.current.resume()
+    }
+    document.addEventListener('click', unlock, { once: true })
+    document.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      document.removeEventListener('click', unlock)
+      document.removeEventListener('keydown', unlock)
+    }
+  }, [])
+
+  return useCallback(() => {
+    const ctx = ctxRef.current
+    if (!ctx) return
+    const now = ctx.currentTime
+    ;[[880, now, 0.09], [1320, now + 0.09, 0.11]].forEach(([freq, start, dur]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(start)
+      osc.stop(start + dur + 0.02)
+    })
+  }, [])
+}
+
+// Requests OS notification permission on first click/keypress, alongside the
+// audio unlock — same "needs a user gesture" constraint. Browsers refuse to
+// grant permission (and refuse to play sound) before any interaction.
+function useDesktopPermission() {
+  useEffect(() => {
+    const ask = () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
+    }
+    document.addEventListener('click', ask, { once: true })
+    document.addEventListener('keydown', ask, { once: true })
+    return () => {
+      document.removeEventListener('click', ask)
+      document.removeEventListener('keydown', ask)
+    }
+  }, [])
+}
+
+// A browser tab cannot force itself in front of other native apps/windows —
+// that's blocked by every modern browser as a security/annoyance guard.
+// The closest real equivalent is an OS-level notification banner: it renders
+// above every other window regardless of what's focused, and clicking it
+// does reliably bring this tab back to the front.
+function notifyDesktop(alert: Alert) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  const n = new Notification('Full Loop CRM', {
+    body: `${alert.contact_name} · ${channelLabel[alert.channel]} — ${alert.body}`,
+    icon: '/logo.png',
+    tag: alert.message_id,
+  })
+  n.onclick = () => { window.focus(); n.close() }
+}
+
+function AlertCard({ alert, onDismiss }: { alert: Alert; onDismiss: (id: string) => void }) {
+  const [reply, setReply] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const dismissedRef = useRef(false)
+
+  const dismiss = useCallback(() => {
+    if (dismissedRef.current) return
+    dismissedRef.current = true
+    onDismiss(alert.message_id)
+  }, [alert.message_id, onDismiss])
+
+  useEffect(() => {
+    if (!sent) return
+    const t = setTimeout(dismiss, 1400)
+    return () => clearTimeout(t)
+  }, [dismiss, sent])
+
+  const send = async () => {
+    const body = reply.trim()
+    if (!body || sending) return
+    setSending(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/comhub/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thread_id: alert.thread_id, channel: alert.channel, body }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setSent(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Send failed')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <motion.div
+      layout
+      initial={{ y: -60, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: -40, opacity: 0, transition: { duration: 0.15 } }}
+      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+      className="pointer-events-auto w-[380px] rounded-lg shadow-2xl overflow-hidden"
+      style={{ background: 'var(--color-loop-bg)', border: '1px solid #E4E4E0' }}
+    >
+      <div className="px-4 pt-3 pb-2.5 flex items-start gap-2.5">
+        <span
+          className="mt-0.5 flex-shrink-0"
+          style={{ fontFamily: 'var(--mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#C22C31', background: 'rgba(229,72,77,0.1)', padding: '2px 6px', borderRadius: '3px' }}
+        >
+          {channelLabel[alert.channel]}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate" style={{ color: 'var(--color-loop-ink)', fontSize: '13px', fontWeight: 500 }}>{alert.contact_name}</span>
+            <button type="button" onClick={dismiss} aria-label="Dismiss" style={{ color: 'var(--color-loop-muted)', fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+          {alert.subject && (
+            <div className="truncate mt-0.5" style={{ color: 'var(--color-loop-muted)', fontSize: '11px' }}>{alert.subject}</div>
+          )}
+          <div className="mt-1 line-clamp-2" style={{ color: 'var(--color-loop-graphite)', fontSize: '12.5px', lineHeight: 1.4 }}>{alert.body}</div>
+        </div>
+      </div>
+
+      {sent ? (
+        <div className="px-4 pb-3" style={{ color: '#1B8A4A', fontSize: '12px', fontFamily: 'var(--mono)' }}>✓ Sent</div>
+      ) : (
+        <div className="px-3 pb-3 flex items-center gap-2">
+          <input
+            type="text"
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+            placeholder={`Reply via ${channelLabel[alert.channel].toLowerCase()}…`}
+            disabled={sending}
+            className="flex-1 min-w-0 rounded-md"
+            style={{ background: '#FFFFFF', border: '1px solid #DEDEDA', color: 'var(--color-loop-ink)', fontSize: '12.5px', padding: '7px 10px', outline: 'none' }}
+          />
+          <button
+            type="button"
+            onClick={send}
+            disabled={sending || !reply.trim()}
+            className="flex-shrink-0 rounded-md"
+            style={{ background: reply.trim() ? 'var(--color-loop-ink)' : '#E4E4E0', color: reply.trim() ? '#F4F4F1' : '#999', fontSize: '11px', fontWeight: 600, padding: '7px 12px' }}
+          >
+            {sending ? '…' : 'Send'}
+          </button>
+        </div>
+      )}
+      {error && <div className="px-4 pb-2.5 -mt-1.5" style={{ color: '#C22C31', fontSize: '11px' }}>{error}</div>}
+      <a
+        href={`/dashboard/comhub?thread=${alert.thread_id}`}
+        onClick={dismiss}
+        className="block px-4 py-2 hover:text-black"
+        style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', borderTop: '1px solid #E4E4E0' }}
+      >
+        Open in ComHub →
+      </a>
+    </motion.div>
+  )
+}
+
+export default function ComhubAlerts() {
+  const pathname = usePathname()
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const sinceRef = useRef(new Date().toISOString())
+  const seenRef = useRef(new Set<string>())
+  const playChime = useChime()
+  useDesktopPermission()
+  const onComhubPage = (pathname || '').startsWith('/dashboard/comhub')
+
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/admin/comhub/alerts?since=${encodeURIComponent(sinceRef.current)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        sinceRef.current = data.server_time || sinceRef.current
+        if (cancelled) return
+        const fresh = ((data.alerts || []) as Alert[]).filter(a => !seenRef.current.has(a.message_id))
+        if (fresh.length === 0) return
+        fresh.forEach(a => seenRef.current.add(a.message_id))
+        // Sound and desktop notification fire every time, no exceptions —
+        // including while sitting inside ComHub itself, where a different
+        // thread getting a new message wasn't audible before this.
+        fresh.forEach(notifyDesktop)
+        playChime()
+        if (!onComhubPage) {
+          setAlerts(prev => [...fresh.reverse(), ...prev].slice(0, 4))
+        }
+      } catch {
+        // Transient network hiccup — next poll retries, nothing to surface.
+      }
+    }
+    poll()
+    const id = setInterval(poll, POLL_MS)
+    // Background tabs get their timers throttled by the browser (down to
+    // roughly once a minute) — this catches the poll up the instant the
+    // operator switches back instead of waiting out the throttled interval.
+    const onVisible = () => { if (!document.hidden) poll() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { cancelled = true; clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
+  }, [onComhubPage, playChime])
+
+  const dismiss = useCallback((id: string) => {
+    setAlerts(prev => prev.filter(a => a.message_id !== id))
+  }, [])
+
+  if (alerts.length === 0) return null
+
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none" aria-live="polite">
+      <AnimatePresence initial={false}>
+        {alerts.map(a => (
+          <AlertCard key={a.message_id} alert={a} onDismiss={dismiss} />
+        ))}
+      </AnimatePresence>
+    </div>
+  )
+}
