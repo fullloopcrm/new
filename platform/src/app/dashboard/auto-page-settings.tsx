@@ -42,7 +42,7 @@ type PageEntry = {
 // so the drawer doesn't show two competing bodies. Every other page falls
 // back to the generic PAGE_MAP-driven panel below.
 const PAGES_WITH_CUSTOM_PANEL = new Set([
-  'bookings', 'campaigns', 'catalog', 'clients', 'finance', 'notifications', 'referrals', 'reviews', 'sms', 'team',
+  'bookings', 'campaigns', 'catalog', 'clients', 'comhub', 'finance', 'notifications', 'referrals', 'reviews', 'sms', 'team',
 ])
 
 const PAGE_MAP: Record<string, PageEntry> = {
@@ -103,18 +103,6 @@ const PAGE_MAP: Record<string, PageEntry> = {
     page: 'changelog', title: 'Changelog',
     tips: ['Stay current with platform updates from FullLoop — nothing configurable here yet.'],
     fields: [],
-  },
-  'comhub': {
-    page: 'comhub', title: 'ComHub',
-    tips: ['Default inbox filter and channel.'],
-    fields: [
-      { key: 'default_filter', label: 'Default filter', type: 'select', layer: 'user', helper: 'Which threads show by default.', options: [
-        { value: 'all', label: 'All' }, { value: 'unread', label: 'Unread' }, { value: 'unresponded', label: 'Unresponded' },
-      ], default: 'all' },
-      { key: 'default_channel', label: 'Default channel', type: 'select', layer: 'user', helper: 'Which channel the inbox opens filtered to.', options: [
-        { value: 'all', label: 'All' }, { value: 'sms', label: 'SMS' }, { value: 'web', label: 'Web' }, { value: 'email', label: 'Email' }, { value: 'voice', label: 'Voice' }, { value: 'admin', label: 'Admin' },
-      ], default: 'all' },
-    ],
   },
   'connect': {
     page: 'connect', title: 'Loop Connect',

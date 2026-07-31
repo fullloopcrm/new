@@ -2,8 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { usePathname } from 'next/navigation'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import { formatPhone } from '@/lib/format'
+import ComhubSettings from './comhub-settings'
 
 // Browser softphone — Telnyx WebRTC. Lazy + SSR-disabled because the SDK
 // touches `window` on import.
@@ -146,6 +148,13 @@ function renderWithMentions(text: string): React.ReactNode {
 const threadTitle = (t: Thread) => t.kind === 'channel' ? (t.name || `#${t.slug || 'channel'}`) : contactDisplay(t.comhub_contacts)
 
 export default function ComhubPage() {
+  // This component renders under two different layouts: /dashboard/comhub
+  // (dashboard-shell, which provides PageSettingsOpenProvider) and
+  // /admin/comhub (platform-admin layout, which does not). ComhubSettings
+  // depends on that provider, so it can only mount on the dashboard route.
+  const pathname = usePathname()
+  const settingsPanelAvailable = pathname?.startsWith('/dashboard') ?? false
+
   const [threads, setThreads] = useState<Thread[]>([])
   const [channels, setChannels] = useState<Thread[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -156,6 +165,7 @@ export default function ComhubPage() {
   const [authors, setAuthors] = useState<AuthorMap>({})
   const [templates, setTemplates] = useState<Template[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showAway, setShowAway] = useState(false)
   const [explainOpen, setExplainOpen] = useState<Record<string, boolean>>({})
   const [composer, setComposer] = useState('')
   const [subject, setSubject] = useState('')
@@ -302,9 +312,13 @@ export default function ComhubPage() {
   }
 
   const totalUnread = useMemo(() => threads.reduce((a, t) => a + (t.unread_count || 0), 0), [threads])
+  // Away/off-hours presets are just templates tagged hotkey:'away' — kept out
+  // of the regular Templates picker so the two lists don't blend together.
+  const awayTemplates = useMemo(() => templates.filter(t => t.hotkey === 'away'), [templates])
+  const regularTemplates = useMemo(() => templates.filter(t => t.hotkey !== 'away'), [templates])
 
   return (
-    <div className="comhub-loop flex flex-col h-[100dvh] md:h-[calc(100vh-4rem)] bg-[#F4F4F1] text-[#1C1C1C]">
+    <div className="comhub-loop flex flex-col h-full bg-[var(--color-loop-bg)] text-[var(--color-loop-ink)]">
       <ActiveCallBanner />
       <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Floating softphone — Telnyx WebRTC browser dialer. Hidden on mobile so it doesn't cover the composer. */}
@@ -320,48 +334,45 @@ export default function ComhubPage() {
         <Softphone />
       </div>
       {/* Left: thread list — full-width on mobile, sidebar on md+. Hidden on mobile when a thread is selected. */}
-      <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:shrink-0 border-r border-[#E4E2DC] flex-col`}>
-        <div className="p-4 border-b border-[#E4E2DC]">
-          <div className="mb-3" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            01 · Comhub
-          </div>
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 style={{ fontFamily: 'var(--display)', fontSize: 28, fontWeight: 500, letterSpacing: '-0.025em', color: 'var(--ink)' }}>
-              Comhub<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--muted)' }}>.</em>
-            </h2>
-            {totalUnread > 0 && (
-              <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--ink)', color: 'var(--canvas)', fontFamily: 'var(--mono)' }}>{totalUnread}</span>
-            )}
-          </div>
-          <div className="flex gap-1.5 mb-2">
+      <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-[360px] md:shrink-0 border-r border-[var(--color-loop-line-soft)] flex-col bg-[var(--color-loop-bg)]`}>
+        <div className="p-5 border-b border-[var(--color-loop-line-soft)]">
+          {/* No repeated "Comhub." headline here — the dashboard shell already
+              renders that masthead once above this column; a second one read
+              as duplicated chrome. */}
+          {totalUnread > 0 && (
+            <div className="flex justify-end mb-3">
+              <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)', fontFamily: 'var(--mono)' }}>{totalUnread} unread</span>
+            </div>
+          )}
+          <div className="flex gap-1.5 mb-3">
             <button
               onClick={() => {
                 window.dispatchEvent(new CustomEvent('comhub:focus'))
               }}
-              className="flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: 'var(--ink)', color: 'var(--canvas)' }}
+              className="flex-1 px-2 py-2 rounded-md text-xs font-medium transition-colors"
+              style={{ fontFamily: 'var(--mono)', letterSpacing: '0.04em', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
             >
-              📞 Call
+              Call
             </button>
             <button
               onClick={() => { setComposeChannel('sms'); setShowCompose(true) }}
-              className="flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: 'var(--canvas)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+              className="flex-1 px-2 py-2 rounded-md text-xs font-medium transition-colors hover:bg-[var(--color-loop-line-soft)]"
+              style={{ fontFamily: 'var(--mono)', letterSpacing: '0.04em', background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line)' }}
             >
-              💬 Text
+              Text
             </button>
             <button
               onClick={() => { setComposeChannel('email'); setShowCompose(true) }}
-              className="flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: 'var(--canvas)', color: 'var(--ink)', border: '1px solid var(--line)' }}
+              className="flex-1 px-2 py-2 rounded-md text-xs font-medium transition-colors hover:bg-[var(--color-loop-line-soft)]"
+              style={{ fontFamily: 'var(--mono)', letterSpacing: '0.04em', background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line)' }}
             >
-              ✉ Email
+              Email
             </button>
             <button
               onClick={() => setShowYinez(true)}
-              className="hidden md:inline-block px-2 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: 'var(--canvas)', color: 'var(--ink)', border: '1px solid var(--line)' }}
-              title="Chat with Yinez"
+              className="hidden md:inline-flex items-center justify-center px-2.5 py-2 rounded-md text-sm transition-colors hover:bg-[var(--color-loop-line-soft)]"
+              style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line)' }}
+              title="Chat with Assistant"
             >
               ✦
             </button>
@@ -370,52 +381,60 @@ export default function ComhubPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search threads…"
-            className="w-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
+            className="w-full bg-[var(--color-loop-canvas)] border border-[var(--color-loop-line-soft)] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--color-loop-line)]"
           />
-          <div className="flex gap-1 mt-3 text-xs">
+          <div className="flex gap-1 mt-3 text-xs" style={{ fontFamily: 'var(--mono)' }}>
             {(['all', 'unread', 'unresponded'] as Filter[]).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full ${filter === f ? 'bg-blue-600 text-white' : 'bg-[#FFFFFF] text-[#7A7A78] hover:bg-[#EFEFEC]'}`}
+                className="px-3 py-1 rounded-full transition-colors"
+                style={filter === f
+                  ? { background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }
+                  : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }}
               >
                 {f === 'all' ? 'Open' : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>
-          <div className="flex gap-1 mt-2 text-xs flex-wrap">
+          <div className="flex gap-2.5 mt-3 text-[10px] flex-wrap" style={{ fontFamily: 'var(--mono)', letterSpacing: '0.08em' }}>
             {(['all', 'sms', 'web', 'email', 'voice', 'admin'] as const).map(c => (
               <button
                 key={c}
                 onClick={() => setChannel(c)}
-                className={`px-2 py-0.5 rounded ${channel === c ? 'bg-[#F4F4F1] text-white' : 'text-[#7A7A78] hover:text-[#1C1C1C]'}`}
+                className="pb-0.5 uppercase transition-colors"
+                style={channel === c
+                  ? { color: 'var(--color-loop-ink)', fontWeight: 600, borderBottom: '1px solid var(--color-loop-ink)' }
+                  : { color: 'var(--color-loop-muted-2)', borderBottom: '1px solid transparent' }}
               >
-                {c === 'admin' ? 'YINEZ' : c.toUpperCase()}
+                {c === 'admin' ? 'Auto-reply' : c}
               </button>
             ))}
           </div>
         </div>
         {/* Channels — collapsible dropdown. Collapsed by default so Messages list gets the height. */}
-        <div className="border-b border-[#E4E2DC] shrink-0">
-          <div className="flex justify-between items-center px-4 pt-3 pb-1">
+        <div className="border-b border-[var(--color-loop-line-soft)] shrink-0">
+          <div className="flex justify-between items-center px-5 pt-3 pb-1">
             <button
               onClick={() => setChannelsOpen(v => !v)}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[#7A7A78] hover:text-[#1C1C1C]"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--color-loop-muted)] hover:text-[var(--color-loop-ink)]"
+              style={{ fontFamily: 'var(--mono)' }}
               aria-expanded={channelsOpen}
             >
               <span className="inline-block transition-transform" style={{ transform: channelsOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▸</span>
-              Channels {channels.length > 0 && <span className="text-[#7A7A78]">({channels.length})</span>}
+              Channels {channels.length > 0 && <span className="text-[var(--color-loop-muted)]">({channels.length})</span>}
             </button>
             <button
               onClick={() => setShowNewChannel(true)}
-              className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C]"
+              className="text-[11px] text-[var(--color-loop-muted)] hover:text-[var(--color-loop-ink)]"
+              style={{ fontFamily: 'var(--mono)' }}
               title="Create channel"
             >+ New</button>
           </div>
           {channelsOpen && (
             <div className="max-h-56 overflow-y-auto pb-1">
               {channels.length === 0 && (
-                <div className="px-4 pb-3 text-xs text-[#7A7A78]">No channels.</div>
+                <div className="px-5 pb-3 text-xs text-[var(--color-loop-muted)]">No channels.</div>
               )}
               {channels.map(t => {
                 const isSel = selected === t.id
@@ -423,14 +442,15 @@ export default function ComhubPage() {
                   <button
                     key={t.id}
                     onClick={() => setSelected(t.id)}
-                    className={`w-full text-left px-4 py-2 hover:bg-[#F4F4F1] transition ${isSel ? 'bg-[#FFFFFF]' : ''}`}
+                    className="w-full text-left px-5 py-2 hover:bg-[var(--color-loop-line-soft)]/40 transition"
+                    style={isSel ? { background: 'var(--color-loop-canvas)' } : undefined}
                   >
                     <div className="flex justify-between items-baseline gap-2">
                       <div className="font-medium truncate text-sm">{t.name || `#${t.slug}`}</div>
-                      <div className="text-[10px] text-[#7A7A78] shrink-0">{fmtTime(t.last_message_at)}</div>
+                      <div className="text-[10px] text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at)}</div>
                     </div>
                     {t.last_message_preview && (
-                      <div className="text-[11px] text-[#7A7A78] truncate mt-0.5">{t.last_message_preview}</div>
+                      <div className="text-[11px] text-[var(--color-loop-muted)] truncate mt-0.5">{t.last_message_preview}</div>
                     )}
                   </button>
                 )
@@ -441,41 +461,51 @@ export default function ComhubPage() {
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Messages — inbound from clients/cleaners/referrers via SMS, email, portal */}
-          <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wider text-[#7A7A78] sticky top-0 bg-[#F4F4F1]">Messages</div>
-          {loadingList && <div className="p-4 text-sm text-[#7A7A78]">Loading…</div>}
+          <div className="px-5 pt-3 pb-1.5 text-[10px] uppercase tracking-wider text-[var(--color-loop-muted)] sticky top-0 bg-[var(--color-loop-bg)]" style={{ fontFamily: 'var(--mono)', fontWeight: 600, letterSpacing: '0.14em' }}>Messages</div>
+          {loadingList && <div className="p-5 text-sm text-[var(--color-loop-muted)]">Loading…</div>}
           {!loadingList && threads.length === 0 && (
-            <div className="p-4 text-sm text-[#7A7A78]">No threads.</div>
+            <div className="p-5 text-sm text-[var(--color-loop-muted)]">No threads.</div>
           )}
           {threads.map(t => {
             const isSel = selected === t.id
             const c = t.comhub_contacts
             const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.cleaner_id ? 'cleaner' : 'unlinked'
-            const roleClass = role === 'client'
-              ? 'bg-blue-500/15 text-blue-300'
+            const roleBadgeStyle = role === 'client'
+              ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
               : role === 'cleaner'
-                ? 'bg-emerald-500/15 text-emerald-300'
-                : 'bg-[#FFFFFF] text-[#7A7A78]'
+                ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
+                : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
+            // Left accent bar: red = needs a reply, ink = has unread, else quiet gray hairline.
+            const accent = t.disposition === 'waiting_admin'
+              ? 'var(--color-loop-warn)'
+              : t.unread_count > 0
+                ? 'var(--color-loop-ink)'
+                : 'var(--color-loop-line-soft)'
             return (
               <button
                 key={t.id}
                 onClick={() => setSelected(t.id)}
-                className={`w-full text-left px-4 py-3 border-b border-[#E4E2DC] hover:bg-[#F4F4F1] transition ${isSel ? 'bg-[#FFFFFF]' : ''}`}
+                className="w-full text-left pl-4 pr-5 py-3 border-b border-[var(--color-loop-line-soft)] hover:bg-[var(--color-loop-canvas)] transition flex gap-3"
+                style={isSel ? { background: 'var(--color-loop-canvas)' } : undefined}
               >
-                <div className="flex justify-between items-baseline gap-2">
-                  <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
-                    <span className={`text-[9px] uppercase tracking-wider px-1 rounded shrink-0 ${roleClass}`}>
-                      {role === 'unlinked' ? 'lead' : role}
-                    </span>
-                    <span className="truncate">{contactDisplay(c)}</span>
+                <span style={{ width: 3, alignSelf: 'stretch', background: accent, borderRadius: 2, flexShrink: 0 }} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
+                      <span className="text-[9px] uppercase tracking-wider px-1.5 py-px rounded-sm shrink-0" style={{ ...roleBadgeStyle, fontFamily: 'var(--mono)', fontWeight: 600 }}>
+                        {role === 'unlinked' ? 'lead' : role}
+                      </span>
+                      <span className="truncate">{contactDisplay(c)}</span>
+                    </div>
+                    <div className="text-xs text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at)}</div>
                   </div>
-                  <div className="text-xs text-[#7A7A78] shrink-0">{fmtTime(t.last_message_at)}</div>
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] uppercase text-[#7A7A78]">{t.channel}</span>
-                  {t.unread_count > 0 && (
-                    <span className="text-[10px] bg-red-500 text-white rounded-full px-1.5">{t.unread_count}</span>
-                  )}
-                  <div className="text-xs text-[#7A7A78] truncate">{t.last_message_preview || '—'}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] uppercase text-[var(--color-loop-muted-2)]" style={{ fontFamily: 'var(--mono)', letterSpacing: '0.06em' }}>{t.channel}</span>
+                    {t.unread_count > 0 && (
+                      <span className="text-[10px] rounded-full px-1.5" style={{ background: 'var(--color-loop-warn)', color: 'var(--color-loop-canvas)', fontFamily: 'var(--mono)' }}>{t.unread_count}</span>
+                    )}
+                    <div className="text-xs text-[var(--color-loop-muted)] truncate">{t.last_message_preview || '—'}</div>
+                  </div>
                 </div>
               </button>
             )
@@ -485,19 +515,20 @@ export default function ComhubPage() {
       </aside>
 
       {/* Center: conversation — hidden on mobile when no thread is selected. */}
-      <main className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0 overflow-hidden`}>
+      <main className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0 overflow-hidden bg-[var(--color-loop-canvas)]`}>
         {!thread && (
-          <div className="flex-1 hidden md:flex items-center justify-center text-[#7A7A78]">
-            Select a conversation
+          <div className="flex-1 hidden md:flex flex-col items-center justify-center gap-2">
+            <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontStyle: 'italic', color: 'var(--color-loop-muted-2)' }}>Select a conversation</div>
+            <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Threads, channels &amp; calls live on the left</div>
           </div>
         )}
         {thread && (
           <>
-            <header className="px-3 md:px-6 py-3 border-b border-[#E4E2DC] flex items-center justify-between gap-2">
+            <header className="px-3 md:px-6 py-3 border-b border-[var(--color-loop-line-soft)] flex items-center justify-between gap-2">
               {/* Mobile back button — returns to thread list */}
               <button
                 onClick={() => { setSelected(null); setMobileContextOpen(false) }}
-                className="md:hidden shrink-0 px-2 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-lg leading-none"
+                className="md:hidden shrink-0 px-2 py-1 text-[var(--color-loop-graphite)] hover:text-[var(--color-loop-ink)] text-lg leading-none"
                 aria-label="Back to thread list"
               >
                 ←
@@ -506,22 +537,22 @@ export default function ComhubPage() {
               {thread.kind === 'contact' && (
                 <button
                   onClick={() => setMobileContextOpen(true)}
-                  className="md:hidden shrink-0 px-2 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-sm leading-none"
+                  className="md:hidden shrink-0 px-2 py-1 text-[var(--color-loop-graphite)] hover:text-[var(--color-loop-ink)] text-sm leading-none"
                   aria-label="Open client info"
                   title="Client info"
                 >
                   ⓘ
                 </button>
               )}
-              <div className="min-w-0 flex-1 mr-1 md:mr-3">
-                <div className="font-semibold truncate text-sm md:text-base">{threadTitle(thread)}</div>
-                <div className="text-xs text-[#7A7A78] truncate">
+              <div className="min-w-[110px] flex-1 mr-1 md:mr-3">
+                <div className="truncate text-sm md:text-base" style={{ fontFamily: 'var(--display)', fontWeight: 500 }}>{threadTitle(thread)}</div>
+                <div className="text-xs truncate" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
                   {thread.kind === 'channel'
                     ? (thread.description || 'Internal channel')
                     : `${thread.channel.toUpperCase()} · ${thread.comhub_contacts?.phone || thread.comhub_contacts?.email || ''}`}
                 </div>
               </div>
-              <div className="flex flex-nowrap gap-1.5 text-sm shrink-0 items-center overflow-x-auto">
+              <div className="flex flex-nowrap gap-1.5 text-sm shrink-0 items-center overflow-x-auto" style={{ fontFamily: 'var(--mono)' }}>
                 {thread.kind === 'contact' && thread.channel === 'sms' && (
                   thread.bot_paused_until && new Date(thread.bot_paused_until) > new Date() ? (
                     <button
@@ -533,10 +564,11 @@ export default function ComhubPage() {
                         })
                         fetchThread(thread.id)
                       }}
-                      className="px-2.5 py-1 rounded text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 whitespace-nowrap"
-                      title="Resume Yinez on this thread"
+                      className="px-2.5 py-1 rounded text-xs whitespace-nowrap"
+                      style={{ background: 'rgba(126,58,242,0.10)', color: '#6d28d9', border: '1px solid rgba(126,58,242,0.25)' }}
+                      title="Resume auto-reply on this thread"
                     >
-                      Hand back to Yinez
+                      Hand back to auto-reply
                     </button>
                   ) : (
                     <button
@@ -549,10 +581,11 @@ export default function ComhubPage() {
                         })
                         fetchThread(thread.id)
                       }}
-                      className="px-2.5 py-1 rounded text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 whitespace-nowrap"
-                      title="Pause Yinez on this thread until you hand it back"
+                      className="px-2.5 py-1 rounded text-xs whitespace-nowrap"
+                      style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)' }}
+                      title="Pause auto-reply on this thread until you hand it back"
                     >
-                      Take over (Yinez off)
+                      Take over (auto-reply off)
                     </button>
                   )
                 )}
@@ -569,7 +602,8 @@ export default function ComhubPage() {
                       fetchThread(thread.id)
                       fetchThreads()
                     }}
-                    className="px-2 py-1 rounded bg-[#FFFFFF]/60 hover:bg-[#EFEFEC] text-[#3A3A3A] text-xs border-0 cursor-pointer"
+                    className="px-2 py-1 rounded text-xs border cursor-pointer max-w-[110px] shrink"
+                    style={{ background: 'var(--color-loop-bg)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
                   >
                     <option value="">No status</option>
                     <option value="waiting_customer">Waiting on customer</option>
@@ -590,9 +624,10 @@ export default function ComhubPage() {
                         new CustomEvent('comhub:dial', { detail: { phone } })
                       )
                     }}
-                    className="px-2.5 py-1 rounded text-xs bg-emerald-700/80 hover:bg-emerald-600 text-white whitespace-nowrap"
+                    className="px-2.5 py-1 rounded text-xs whitespace-nowrap"
+                    style={{ background: 'var(--color-loop-good)', color: 'var(--color-loop-canvas)' }}
                   >
-                    📞 Call
+                    Call
                   </button>
                 )}
                 <button
@@ -605,7 +640,8 @@ export default function ComhubPage() {
                     setSelected(null)
                     fetchThreads()
                   }}
-                  className="px-2.5 py-1 rounded text-xs bg-[#FFFFFF]/60 hover:bg-[#EFEFEC] text-[#3A3A3A] whitespace-nowrap"
+                  className="px-2.5 py-1 rounded text-xs whitespace-nowrap border"
+                  style={{ background: 'var(--color-loop-bg)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
                 >
                   Close
                 </button>
@@ -617,7 +653,7 @@ export default function ComhubPage() {
                 const isAuto = m.direction === 'auto'
                 const authorName = m.author_id && authors[m.author_id]?.name
                   ? authors[m.author_id].name
-                  : (m.author === 'admin' ? 'Admin' : m.author)
+                  : (m.author === 'admin' ? 'Admin' : m.author === 'yinez' ? 'Auto-reply' : m.author)
                 const hasMetadata = m.metadata && Object.keys(m.metadata).length > 0
                 const explainShown = !!explainOpen[m.id]
                 // Which of the tenant's own DIDs this SMS came in on / went out
@@ -627,7 +663,16 @@ export default function ComhubPage() {
                 return (
                   <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'} group`}>
                     <div className="max-w-[85%] md:max-w-[70%] min-w-0">
-                      <div className={`rounded-2xl px-4 py-2 break-words overflow-hidden relative ${isOut ? (isAuto ? 'bg-purple-700' : 'bg-blue-600') : 'bg-[#FFFFFF]'} ${m.flagged_for_review ? 'ring-2 ring-amber-500' : ''}`}>
+                      <div
+                        className={`rounded-2xl px-4 py-2 break-words overflow-hidden relative ${m.flagged_for_review ? 'ring-2 ring-[var(--color-loop-warn)]' : ''}`}
+                        style={
+                          isOut
+                            ? (isAuto
+                              ? { background: '#6d28d9', color: '#fff' }
+                              : { background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' })
+                            : { background: 'var(--color-loop-bg)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line-soft)' }
+                        }
+                      >
                         {m.subject && <div className="font-medium text-sm mb-1 break-words">{m.subject}</div>}
                         <div className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{renderWithMentions(m.body || '')}</div>
                         {m.media_urls && m.media_urls.length > 0 && (
@@ -644,15 +689,15 @@ export default function ComhubPage() {
                           </div>
                         )}
                       </div>
-                      <div className="text-[10px] text-[#7A7A78] mt-1 px-1 flex gap-2 items-center">
+                      <div className="text-[10px] mt-1 px-1 flex gap-2 items-center" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
                         <span>{authorName}{isAuto ? ' · auto' : ''}</span>
                         <span>{fmtTime(m.sent_at)}</span>
                         {tenantDid && <span title="Which of your numbers this text used">via {formatPhone(tenantDid)}</span>}
                         {isAuto && (
                           <button
                             onClick={() => setExplainOpen(s => ({ ...s, [m.id]: !s[m.id] }))}
-                            className="text-[#7A7A78] hover:text-[#1C1C1C] underline-offset-2 hover:underline"
-                            title="Why did Yinez say that?"
+                            className="hover:text-[var(--color-loop-ink)] underline-offset-2 hover:underline"
+                            title="Why did auto-reply say that?"
                           >
                             {explainShown ? 'hide' : 'why?'}
                           </button>
@@ -671,25 +716,26 @@ export default function ComhubPage() {
                             }
                             fetchThread(thread.id)
                           }}
-                          className={`opacity-0 group-hover:opacity-100 transition-opacity ${m.flagged_for_review ? 'text-amber-400 opacity-100' : 'text-[#7A7A78] hover:text-amber-400'}`}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={m.flagged_for_review ? { color: 'var(--color-loop-warn)', opacity: 1 } : undefined}
                           title={m.flagged_for_review ? 'Unflag' : 'Flag for review'}
                         >
                           {m.flagged_for_review ? '🚩 flagged' : '🚩'}
                         </button>
                       </div>
                       {explainShown && isAuto && (
-                        <div className="mt-1 ml-1 px-3 py-2 rounded bg-[#FFFFFF] border border-[#E4E2DC] text-[11px] text-[#7A7A78] space-y-0.5">
-                          <div><span className="text-[#7A7A78]">channel:</span> {m.channel}</div>
-                          <div><span className="text-[#7A7A78]">author:</span> {m.author}</div>
+                        <div className="mt-1 ml-1 px-3 py-2 rounded space-y-0.5 text-[11px]" style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)', color: 'var(--color-loop-muted)' }}>
+                          <div><span className="text-[var(--color-loop-muted)]">channel:</span> {m.channel}</div>
+                          <div><span className="text-[var(--color-loop-muted)]">author:</span> {m.author}</div>
                           {hasMetadata
                             ? Object.entries(m.metadata as Record<string, unknown>).map(([k, v]) => (
-                              <div key={k}><span className="text-[#7A7A78]">{k}:</span> {typeof v === 'string' ? v : JSON.stringify(v)}</div>
+                              <div key={k}><span className="text-[var(--color-loop-muted)]">{k}:</span> {typeof v === 'string' ? v : JSON.stringify(v)}</div>
                             ))
-                            : <div className="text-[#7A7A78] italic">No structured trace recorded for this message — Yinez state-capture lands in a future build.</div>}
+                            : <div className="italic">No structured trace recorded for this message — auto-reply state-capture lands in a future build.</div>}
                         </div>
                       )}
                       {m.flagged_for_review && m.flagged_reason && (
-                        <div className="mt-1 ml-1 text-[11px] text-amber-400">⚑ {m.flagged_reason}</div>
+                        <div className="mt-1 ml-1 text-[11px]" style={{ color: 'var(--color-loop-warn)' }}>⚑ {m.flagged_reason}</div>
                       )}
                     </div>
                   </div>
@@ -697,47 +743,22 @@ export default function ComhubPage() {
               })}
               <div ref={messagesEndRef} />
             </div>
-            <div className="border-t border-[#E4E2DC] p-3 md:p-4 min-h-[140px] relative">
-              {/* Templates picker — only meaningful for SMS / email composers */}
-              {(thread.channel === 'sms' || thread.channel === 'email') && templates.length > 0 && (
-                <div className="absolute right-4 top-2">
-                  <button
-                    onClick={() => setShowTemplates(s => !s)}
-                    className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C]"
-                  >
-                    Templates ▾
-                  </button>
-                  {showTemplates && (
-                    <div className="absolute right-0 top-5 w-64 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md shadow-xl z-10 max-h-72 overflow-y-auto">
-                      {templates.map(tpl => (
-                        <button
-                          key={tpl.id}
-                          onClick={() => {
-                            setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
-                            setShowTemplates(false)
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-[#EFEFEC] border-b border-[#E4E2DC] last:border-b-0"
-                        >
-                          <div className="text-xs font-medium">{tpl.name}</div>
-                          <div className="text-[11px] text-[#7A7A78] truncate">{tpl.body}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Fixed-height header row — keeps composer same size across channels */}
-              <div className="h-9 mb-2">
+            <div className="border-t border-[var(--color-loop-line-soft)] p-3 md:p-4" style={{ background: 'var(--color-loop-bg)' }}>
+              {/* Fixed-height header row — keeps composer same size across channels.
+                  Templates lives inline here (not floated) so it can't overlap the
+                  reply box or the thread meta text. */}
+              <div className="h-9 mb-2 flex items-center gap-2">
                 {thread.channel === 'email' && (
                   <input
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder={thread.subject ? `Re: ${thread.subject}` : 'Subject'}
-                    className="w-full h-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
+                    className="flex-1 min-w-0 h-full rounded-md px-3 py-1.5 text-sm focus:outline-none"
+                    style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
                   />
                 )}
                 {thread.channel !== 'email' && (
-                  <div className="h-full flex items-center text-[11px] text-[#7A7A78] px-1">
+                  <div className="flex-1 min-w-0 h-full flex items-center text-[11px] px-1 truncate" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
                     {thread.kind === 'channel'
                       ? `${thread.name || '#' + thread.slug}${thread.description ? ' · ' + thread.description : ''}`
                       : thread.channel === 'sms'
@@ -747,28 +768,93 @@ export default function ComhubPage() {
                           : ''}
                   </div>
                 )}
+                {/* Away/off-hours presets — separate from Templates so they don't blend in with regular replies */}
+                {(thread.channel === 'sms' || thread.channel === 'email') && awayTemplates.length > 0 && (
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setShowAway(s => !s)}
+                      className="h-full px-2.5 rounded-md text-[11px] whitespace-nowrap"
+                      style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)', background: 'rgba(139,69,19,0.06)', border: '1px solid rgba(139,69,19,0.25)' }}
+                    >
+                      Away ▾
+                    </button>
+                    {showAway && (
+                      <div className="absolute right-0 bottom-[calc(100%+4px)] w-72 rounded-md shadow-xl z-10 max-h-72 overflow-y-auto" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}>
+                        {awayTemplates.map(tpl => (
+                          <button
+                            key={tpl.id}
+                            onClick={() => {
+                              setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
+                              setShowAway(false)
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
+                            style={{ borderColor: 'var(--color-loop-line-soft)' }}
+                          >
+                            <div className="text-xs font-medium">{tpl.name}</div>
+                            <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{tpl.body}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Templates picker — only meaningful for SMS / email composers */}
+                {(thread.channel === 'sms' || thread.channel === 'email') && regularTemplates.length > 0 && (
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setShowTemplates(s => !s)}
+                      className="h-full px-2.5 rounded-md text-[11px] whitespace-nowrap"
+                      style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)', background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+                    >
+                      Templates ▾
+                    </button>
+                    {showTemplates && (
+                      <div className="absolute right-0 bottom-[calc(100%+4px)] w-72 rounded-md shadow-xl z-10 max-h-72 overflow-y-auto" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}>
+                        {regularTemplates.map(tpl => (
+                          <button
+                            key={tpl.id}
+                            onClick={() => {
+                              setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
+                              setShowTemplates(false)
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
+                            style={{ borderColor: 'var(--color-loop-line-soft)' }}
+                          >
+                            <div className="text-xs font-medium">{tpl.name}</div>
+                            <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{tpl.body}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <textarea
                   value={composer}
                   onChange={(e) => setComposer(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend()
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSend()
+                    }
                   }}
                   placeholder={
                     thread.kind === 'channel'
-                      ? `Post to ${thread.name || '#' + thread.slug} (⌘+Enter to send)`
+                      ? `Post to ${thread.name || '#' + thread.slug} (Enter to send, Shift+Enter for a new line)`
                       : thread.channel === 'voice'
-                        ? `Add a note about this call (⌘+Enter to send)`
-                        : `Reply via ${thread.channel.toUpperCase()} (⌘+Enter to send)`
+                        ? `Add a note about this call (Enter to send, Shift+Enter for a new line)`
+                        : `Reply via ${thread.channel.toUpperCase()} (Enter to send, Shift+Enter for a new line)`
                   }
                   rows={3}
-                  className="flex-1 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+                  className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+                  style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
                 />
                 <button
                   onClick={handleSend}
                   disabled={!composer.trim() || sending}
-                  className="self-stretch px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78] rounded-md text-sm font-medium"
+                  className="self-stretch px-4 rounded-md text-sm font-medium disabled:opacity-50"
+                  style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
                 >
                   {sending ? 'Sending…' : 'Send'}
                 </button>
@@ -779,13 +865,13 @@ export default function ComhubPage() {
       </main>
 
       {/* Right: context panel — 320px on md+. On mobile, slides in as a fullscreen overlay when ⓘ is tapped. */}
-      <aside className={`${mobileContextOpen ? 'fixed inset-0 z-40 w-full' : 'hidden'} md:!relative md:!inset-auto md:!flex md:!w-80 md:shrink-0 md:!z-auto border-l border-[#E4E2DC] overflow-y-auto bg-[#F4F4F1] flex-col`}>
+      <aside className={`${mobileContextOpen ? 'fixed inset-0 z-40 w-full' : 'hidden'} md:!relative md:!inset-auto md:!flex md:!w-80 md:shrink-0 md:!z-auto border-l border-[var(--color-loop-line-soft)] overflow-y-auto bg-[var(--color-loop-bg)] flex-col`}>
         {mobileContextOpen && (
-          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[#E4E2DC] sticky top-0 bg-[#F4F4F1] z-10">
-            <span className="text-sm font-semibold">Client info</span>
+          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--color-loop-line-soft)] sticky top-0 bg-[var(--color-loop-bg)] z-10">
+            <span className="text-sm font-semibold" style={{ fontFamily: 'var(--display)' }}>Client info</span>
             <button
               onClick={() => setMobileContextOpen(false)}
-              className="px-3 py-1 text-[#3A3A3A] hover:text-[#1C1C1C] text-lg leading-none"
+              className="px-3 py-1 text-[var(--color-loop-graphite)] hover:text-[var(--color-loop-ink)] text-lg leading-none"
               aria-label="Close client info"
             >
               ✕
@@ -793,7 +879,7 @@ export default function ComhubPage() {
           </div>
         )}
         {!thread && (
-          <div className="p-6 text-sm text-[#7A7A78]">Select a thread.</div>
+          <div className="p-6 text-sm" style={{ fontFamily: 'var(--display)', fontStyle: 'italic', color: 'var(--color-loop-muted-2)' }}>Select a thread.</div>
         )}
         {thread?.kind === 'channel' && (
           <ChannelInfoPanel thread={thread} />
@@ -802,7 +888,7 @@ export default function ComhubPage() {
           <ContextPanelInline context={context} />
         )}
         {thread?.kind === 'contact' && !context && (
-          <div className="p-6 text-sm text-[#7A7A78]">Loading contact details…</div>
+          <div className="p-6 text-sm" style={{ color: 'var(--color-loop-muted)' }}>Loading contact details…</div>
         )}
       </aside>
 
@@ -840,6 +926,7 @@ export default function ComhubPage() {
       {showYinez && (
         <YinezModal onClose={() => setShowYinez(false)} />
       )}
+      {settingsPanelAvailable && <ComhubSettings />}
       </div>
     </div>
   )
@@ -946,39 +1033,43 @@ function ComposeModal(props: {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={props.onClose}>
-      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[400px] max-w-full p-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(28,28,28,0.35)' }} onClick={props.onClose}>
+      <div className="rounded-lg w-[400px] max-w-full p-4" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }} onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">New conversation</h3>
-          <button onClick={props.onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 500 }}>New conversation</h3>
+          <button onClick={props.onClose} className="hover:text-[var(--color-loop-ink)]" style={{ color: 'var(--color-loop-muted)' }}>✕</button>
         </div>
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-2 mb-3" style={{ fontFamily: 'var(--mono)' }}>
           {(['sms', 'email', 'call'] as const).map(c => (
             <button
               key={c}
               onClick={() => props.setChannel(c)}
-              className={`px-3 py-1.5 rounded-md text-sm ${props.channel === c ? 'bg-blue-600 text-white' : 'bg-[#FFFFFF] text-[#7A7A78] hover:bg-[#F4F4F1]'}`}
+              className="px-3 py-1.5 rounded-md text-sm transition-colors"
+              style={props.channel === c
+                ? { background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }
+                : { background: 'var(--color-loop-bg)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }}
             >
               {c.toUpperCase()}
             </button>
           ))}
         </div>
         {/* Search by client/cleaner name to auto-fill phone/email */}
-        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Find by name</label>
+        <label className="text-[10px] uppercase mb-1 block" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Find by name</label>
         <div className="relative mb-2">
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPicked(null) }}
             placeholder="Type a name to search clients + team…"
-            className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#C8C5BC]"
+            className="w-full rounded-md px-3 py-2 text-sm focus:outline-none"
+            style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
           />
           {!picked && search.trim().length >= 2 && (searching || searched) && (
-            <div className="absolute left-0 right-0 top-11 bg-[#FFFFFF] border border-[#E4E2DC] rounded-md shadow-xl z-10 max-h-60 overflow-y-auto">
+            <div className="absolute left-0 right-0 top-11 rounded-md shadow-xl z-10 max-h-60 overflow-y-auto" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}>
               {searching && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-[#7A7A78]">Searching…</div>
+                <div className="px-3 py-2 text-xs" style={{ color: 'var(--color-loop-muted)' }}>Searching…</div>
               )}
               {!searching && searched && results.length === 0 && (
-                <div className="px-3 py-2 text-xs text-[#7A7A78]">No matches in clients or team. Type the phone/email below.</div>
+                <div className="px-3 py-2 text-xs" style={{ color: 'var(--color-loop-muted)' }}>No matches in clients or team. Type the phone/email below.</div>
               )}
               {results.map(r => (
                 <button
@@ -1004,14 +1095,20 @@ function ComposeModal(props: {
                     }
                     setResults([])
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#EFEFEC] border-b border-[#E4E2DC] last:border-b-0"
+                  className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
+                  style={{ borderColor: 'var(--color-loop-line-soft)' }}
                 >
                   <div className="flex items-center gap-2 text-sm">
-                    <span className={`text-[9px] uppercase px-1 rounded ${r.role === 'client' ? 'bg-blue-900 text-blue-200' : 'bg-emerald-900 text-emerald-200'}`}>{r.role}</span>
+                    <span
+                      className="text-[9px] uppercase px-1 rounded-sm"
+                      style={{ fontFamily: 'var(--mono)', fontWeight: 600, ...(r.role === 'client'
+                        ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
+                        : { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }) }}
+                    >{r.role}</span>
                     <span className="font-medium">{r.name || '(no name)'}</span>
-                    {r.dns && <span className="text-[9px] uppercase px-1 rounded bg-red-900 text-red-200">DNS</span>}
+                    {r.dns && <span className="text-[9px] uppercase px-1 rounded-sm" style={{ fontFamily: 'var(--mono)', fontWeight: 600, background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)' }}>DNS</span>}
                   </div>
-                  <div className="text-[11px] text-[#7A7A78] truncate">{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
+                  <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
                 </button>
               ))}
             </div>
@@ -1019,21 +1116,23 @@ function ComposeModal(props: {
         </div>
         {props.channel !== 'call' && (
           <>
-            <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">
+            <label className="text-[10px] uppercase mb-1 block" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
               {props.channel === 'email' ? 'Email' : 'Phone'}
             </label>
             <input
               value={props.recipient}
               onChange={(e) => props.setRecipient(e.target.value)}
               placeholder={props.channel === 'email' ? 'name@example.com' : '+1212...'}
-              className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-[#C8C5BC]"
+              className="w-full rounded-md px-3 py-2 text-sm mb-2 focus:outline-none"
+              style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
             />
             {props.channel === 'email' && (
               <input
                 value={props.subject}
                 onChange={(e) => props.setSubject(e.target.value)}
                 placeholder="Subject"
-                className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-2 focus:outline-none focus:border-[#C8C5BC]"
+                className="w-full rounded-md px-3 py-2 text-sm mb-2 focus:outline-none"
+                style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
               />
             )}
           </>
@@ -1051,11 +1150,12 @@ function ComposeModal(props: {
             onChange={(e) => props.setBody(e.target.value)}
             placeholder="Message"
             rows={6}
-            className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+            className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+            style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
           />
         )}
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={props.onClose} className="px-3 py-1.5 rounded-md text-sm border border-[#E4E2DC] hover:bg-[#EFEFEC]">Cancel</button>
+        <div className="flex justify-end gap-2 mt-4" style={{ fontFamily: 'var(--mono)' }}>
+          <button onClick={props.onClose} className="px-3 py-1.5 rounded-md text-sm hover:bg-[var(--color-loop-bg)]" style={{ border: '1px solid var(--color-loop-line-soft)', color: 'var(--color-loop-graphite)' }}>Cancel</button>
           <button
             onClick={handleSend}
             disabled={
@@ -1063,7 +1163,8 @@ function ComposeModal(props: {
               || sending
               || (props.channel === 'call' ? !adminPhone.trim() : !props.body.trim())
             }
-            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
+            className="px-4 py-1.5 rounded-md text-sm disabled:opacity-50"
+            style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
           >
             {sending ? '…' : props.channel === 'call' ? 'Call' : 'Send'}
           </button>
@@ -1110,7 +1211,7 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
   ]
 
   return (
-    <div className="bg-[#F4F4F1] border border-[#E4E2DC] rounded-lg p-3">
+    <div className="rounded-lg p-3" style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}>
       {/* Number display */}
       <div className="text-center mb-2">
         <input
@@ -1118,10 +1219,11 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
           onChange={(e) => setRecipient(e.target.value)}
           placeholder="(555) 555-5555"
           className="w-full bg-transparent text-center text-lg font-light tracking-wide focus:outline-none"
+          style={{ fontFamily: 'var(--display)' }}
           aria-label="Phone number"
         />
         {recipient && (
-          <div className="text-[10px] text-[#7A7A78] mt-0.5">{formatPhone(recipient)}</div>
+          <div className="text-[10px] mt-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{formatPhone(recipient)}</div>
         )}
       </div>
 
@@ -1132,10 +1234,11 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
             key={digit}
             type="button"
             onClick={() => press(digit)}
-            className="h-11 bg-[#FFFFFF] hover:bg-[#EFEFEC] active:bg-[#F4F4F1] rounded-full flex flex-col items-center justify-center transition select-none"
+            className="h-11 rounded-full flex flex-col items-center justify-center transition select-none hover:bg-[var(--color-loop-line-soft)]"
+            style={{ background: 'var(--color-loop-canvas)' }}
           >
-            <div className="text-base font-medium leading-none">{digit}</div>
-            {letters && <div className="text-[8px] tracking-widest text-[#7A7A78] mt-0.5">{letters}</div>}
+            <div className="text-base font-medium leading-none" style={{ fontFamily: 'var(--display)' }}>{digit}</div>
+            {letters && <div className="text-[8px] tracking-widest mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{letters}</div>}
           </button>
         ))}
       </div>
@@ -1145,20 +1248,22 @@ function Dialer({ recipient, setRecipient, adminPhone, setAdminPhone }: {
           type="button"
           onClick={backspace}
           disabled={!recipient}
-          className="text-[11px] text-[#7A7A78] hover:text-[#1C1C1C] disabled:text-[#B5B2AC] px-3 py-1"
+          className="text-[11px] px-3 py-1 hover:text-[var(--color-loop-ink)] disabled:opacity-40"
+          style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}
         >
           ⌫ Backspace
         </button>
       </div>
 
       {/* Admin's "ring me first" phone — saved to localStorage */}
-      <div className="border-t border-[#E4E2DC] mt-2 pt-2">
-        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Your phone (we ring you first)</label>
+      <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-loop-line-soft)' }}>
+        <label className="text-[10px] uppercase mb-1 block" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Your phone (we ring you first)</label>
         <input
           value={adminPhone}
           onChange={(e) => setAdminPhone(e.target.value)}
           placeholder="+1212..."
-          className="w-full bg-[#FFFFFF] border border-[#E4E2DC] rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:border-[#C8C5BC]"
+          className="w-full rounded-md px-2.5 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
         />
       </div>
     </div>
@@ -1200,22 +1305,25 @@ function YinezModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[640px] max-w-full h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-[#E4E2DC] flex justify-between items-center">
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(28,28,28,0.35)' }} onClick={onClose}>
+      <div className="rounded-lg w-[640px] max-w-full h-[80vh] flex flex-col" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }} onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-[var(--color-loop-line-soft)] flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold">✦ Yinez</h3>
-            <div className="text-xs text-[#7A7A78]">Owner channel — terse, can teach via remember/create_skill</div>
+            <h3 style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 500 }}>✦ Assistant</h3>
+            <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Owner channel — terse, can teach via remember/create_skill</div>
           </div>
-          <button onClick={onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
+          <button onClick={onClose} className="hover:text-[var(--color-loop-ink)]" style={{ color: 'var(--color-loop-muted)' }}>✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-          {history.length === 0 && <div className="text-[#7A7A78] text-sm">Say something to Yinez…</div>}
+          {history.length === 0 && <div className="text-sm" style={{ color: 'var(--color-loop-muted)' }}>Say something to the assistant…</div>}
           {history.map((m, i) => {
             const isAdmin = m.role === 'admin'
             return (
               <div key={i} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${isAdmin ? 'bg-blue-600' : 'bg-purple-700'}`}>
+                <div
+                  className="max-w-[80%] rounded-2xl px-4 py-2"
+                  style={isAdmin ? { background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' } : { background: '#6d28d9', color: '#fff' }}
+                >
                   <div className="text-sm whitespace-pre-wrap">{m.body}</div>
                 </div>
               </div>
@@ -1223,19 +1331,21 @@ function YinezModal({ onClose }: { onClose: () => void }) {
           })}
           <div ref={endRef} />
         </div>
-        <div className="border-t border-[#E4E2DC] p-3 flex gap-2">
+        <div className="border-t border-[var(--color-loop-line-soft)] p-3 flex gap-2">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }}
-            placeholder="Ask Yinez (⌘+Enter to send)"
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+            placeholder="Ask the assistant (Enter to send, Shift+Enter for a new line)"
             rows={2}
-            className="flex-1 bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+            className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+            style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
           />
           <button
             onClick={send}
             disabled={!input.trim() || sending}
-            className="px-4 py-2 bg-purple-700 hover:bg-purple-600 disabled:bg-[#FFFFFF] rounded-md text-sm font-medium"
+            className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+            style={{ background: '#6d28d9', color: '#fff' }}
           >
             {sending ? '…' : 'Send'}
           </button>
@@ -1270,50 +1380,51 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
   }
   const role: 'client' | 'cleaner' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : 'unlinked'
 
+  const roleBadgeStyle = role === 'client'
+    ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
+    : role === 'cleaner'
+      ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
+      : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
+  const pillFont = { fontFamily: 'var(--mono)', fontWeight: 600 as const }
+
   return (
     <div>
-      <div className="p-4 border-b border-[#E4E2DC]">
+      <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
-            role === 'client' ? 'bg-blue-900 text-blue-200'
-            : role === 'cleaner' ? 'bg-emerald-900 text-emerald-200'
-            : 'bg-[#FFFFFF] text-[#7A7A78]'
-          }`}>{role}</span>
+          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...roleBadgeStyle, ...pillFont }}>{role}</span>
           {client?.do_not_service && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-900 text-red-200">DNS</span>
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}
-          {client?.active === false && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
-          )}
-          {cleaner?.active === false && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
+          {(client?.active === false || cleaner?.active === false) && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
         </div>
-        <h3 className="font-semibold mt-2">{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
-        <div className="text-xs text-[#7A7A78] mt-1 space-y-0.5">
+        <h3 className="mt-2" style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 500 }}>{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
+        <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
         </div>
       </div>
 
       {client && (
-        <div className="p-4 border-b border-[#E4E2DC] space-y-2 text-sm">
+        <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
           {(client.address || client.address_line1) && (
             <div>
-              <div className="text-[10px] uppercase text-[#7A7A78]">Address</div>
-              <div className="text-[#3A3A3A]">{client.address || client.address_line1}</div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
+              <div className="text-[var(--color-loop-graphite)]">{client.address || client.address_line1}</div>
             </div>
           )}
           {(client.pet_name || client.pet_type) && (
             <div>
-              <div className="text-[10px] uppercase text-[#7A7A78]">Pets</div>
-              <div className="text-[#3A3A3A]">{[client.pet_name, client.pet_type].filter(Boolean).join(' · ')}</div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Pets</div>
+              <div className="text-[var(--color-loop-graphite)]">{[client.pet_name, client.pet_type].filter(Boolean).join(' · ')}</div>
             </div>
           )}
           <div className="flex gap-3 pt-1">
             <a
               href={`/admin/clients?id=${client.id}`}
-              className="text-xs text-blue-400 hover:text-blue-300"
+              className="text-xs hover:underline"
+              style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)' }}
             >
               View client →
             </a>
@@ -1330,20 +1441,21 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       )}
 
       {cleaner && (
-        <div className="p-4 border-b border-[#E4E2DC] space-y-2 text-sm">
+        <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-[#7A7A78] text-xs">Hourly rate</span>
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Hourly rate</span>
             <span>${cleaner.pay_rate ?? '—'}</span>
           </div>
           {typeof cleaner.avg_rating === 'number' && cleaner.rating_count ? (
             <div className="flex justify-between">
-              <span className="text-[#7A7A78] text-xs">Rating</span>
+              <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Rating</span>
               <span>★ {cleaner.avg_rating.toFixed(2)} ({cleaner.rating_count})</span>
             </div>
           ) : null}
           <a
             href={`/admin/cleaners?id=${cleaner.id}`}
-            className="text-xs text-blue-400 hover:text-blue-300 inline-block pt-1"
+            className="text-xs inline-block pt-1 hover:underline"
+            style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)' }}
           >
             View team member →
           </a>
@@ -1351,19 +1463,19 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       )}
 
       {client && (
-        <div className="p-4 border-b border-[#E4E2DC] grid grid-cols-2 gap-2 text-sm">
+        <div className="p-4 border-b border-[var(--color-loop-line-soft)] grid grid-cols-2 gap-2 text-sm">
           <div>
-            <div className="text-[10px] uppercase text-[#7A7A78]">Total bookings</div>
-            <div className="text-[#1C1C1C]">{total_bookings}</div>
+            <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Total bookings</div>
+            <div style={{ fontFamily: 'var(--display)' }}>{total_bookings}</div>
           </div>
           <div>
-            <div className="text-[10px] uppercase text-[#7A7A78]">Lifetime spent</div>
-            <div className="text-[#1C1C1C]">{fmtMoney(total_spent_cents)}</div>
+            <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Lifetime spent</div>
+            <div style={{ fontFamily: 'var(--display)' }}>{fmtMoney(total_spent_cents)}</div>
           </div>
           {outstanding_cents > 0 && (
             <div className="col-span-2">
-              <div className="text-[10px] uppercase text-amber-500">Outstanding</div>
-              <div className="text-amber-300 font-medium">{fmtMoney(outstanding_cents)}</div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>Outstanding</div>
+              <div className="font-medium" style={{ fontFamily: 'var(--display)', color: 'var(--color-loop-warn)' }}>{fmtMoney(outstanding_cents)}</div>
             </div>
           )}
         </div>
@@ -1371,31 +1483,32 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
 
       {recent_bookings.length > 0 && (
         <div className="p-4 space-y-2">
-          <div className="text-[10px] uppercase text-[#7A7A78] mb-1">Recent bookings</div>
+          <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
           {recent_bookings.map(b => (
             <a
               key={b.id}
               href={`/admin/bookings?id=${b.id}`}
-              className="block p-2 rounded border border-[#E4E2DC] hover:border-[#C8C5BC] hover:bg-[#F4F4F1] text-sm"
+              className="block p-2 rounded text-sm transition-colors"
+              style={{ border: '1px solid var(--color-loop-line-soft)', background: 'var(--color-loop-canvas)' }}
             >
               <div className="flex justify-between items-baseline">
                 <span className="font-medium">{fmtDate(b.start_time)}</span>
-                <span className="text-xs text-[#7A7A78]">{b.status || '—'}</span>
+                <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{b.status || '—'}</span>
               </div>
-              <div className="text-xs text-[#7A7A78] mt-0.5">
+              <div className="text-xs mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>
                 {b.service_type || 'Cleaning'} · {b.price != null ? `$${(b.price / 100).toFixed(2)}` : '?'}
                 {b.payment_status && b.payment_status !== 'paid' && (
-                  <span className="text-amber-400 ml-1">({b.payment_status})</span>
+                  <span className="ml-1" style={{ color: 'var(--color-loop-warn)' }}>({b.payment_status})</span>
                 )}
               </div>
-              <div className="text-[11px] text-[#7A7A78] mt-0.5">{cleanerName(b)}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{cleanerName(b)}</div>
             </a>
           ))}
         </div>
       )}
 
       {role === 'unlinked' && (
-        <div className="p-4 text-sm text-[#7A7A78]">
+        <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
           Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
         </div>
       )}
@@ -1407,29 +1520,29 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
 function ChannelInfoPanel({ thread }: { thread: Thread }) {
   return (
     <div>
-      <div className="p-4 border-b border-[#E4E2DC]">
-        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">
+      <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
+        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ fontFamily: 'var(--mono)', fontWeight: 600, background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }}>
           Channel
         </span>
-        <h3 className="font-semibold mt-2">{thread.name || `#${thread.slug}`}</h3>
+        <h3 className="mt-2" style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 500 }}>{thread.name || `#${thread.slug}`}</h3>
         {thread.description && (
-          <div className="text-xs text-[#7A7A78] mt-1">{thread.description}</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--color-loop-muted)' }}>{thread.description}</div>
         )}
       </div>
-      <div className="p-4 border-b border-[#E4E2DC] text-sm space-y-2">
+      <div className="p-4 border-b border-[var(--color-loop-line-soft)] text-sm space-y-2">
         <div>
-          <div className="text-[10px] uppercase text-[#7A7A78]">Created</div>
-          <div className="text-[#3A3A3A] text-xs">
+          <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Created</div>
+          <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-graphite)' }}>
             {(() => { try { return new Date(thread.created_at).toLocaleString() } catch { return '' } })()}
           </div>
         </div>
         <div>
-          <div className="text-[10px] uppercase text-[#7A7A78]">Members</div>
-          <div className="text-[#7A7A78] text-xs">All admins (public channel)</div>
+          <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Members</div>
+          <div className="text-xs" style={{ color: 'var(--color-loop-muted)' }}>All admins (public channel)</div>
         </div>
       </div>
-      <div className="p-4 text-xs text-[#7A7A78]">
-        Use this channel for team posts. <code className="text-[#3A3A3A]">@here</code> pings everyone, <code className="text-[#3A3A3A]">@firstname</code> pings one person.
+      <div className="p-4 text-xs" style={{ color: 'var(--color-loop-muted)' }}>
+        Use this channel for team posts. <code style={{ color: 'var(--color-loop-graphite)' }}>@here</code> pings everyone, <code style={{ color: 'var(--color-loop-graphite)' }}>@firstname</code> pings one person.
       </div>
     </div>
   )
@@ -1476,33 +1589,35 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
   }
 
   return (
-    <div className="p-4 border-b border-[#E4E2DC] space-y-3 text-sm">
+    <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-3 text-sm">
       <div>
-        <div className="text-[10px] uppercase text-[#7A7A78] mb-1">Private notes (admin only)</div>
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Private notes (admin only)</div>
         <textarea
           value={priv}
           onChange={(e) => setPriv(e.target.value)}
           placeholder="Internal notes — never shown to the client"
           rows={3}
-          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+          className="w-full rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
         />
       </div>
       <div>
-        <div className="text-[10px] uppercase text-[#7A7A78] mb-1 flex items-center gap-1">
+        <div className="text-[10px] uppercase mb-1 flex items-center gap-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           <span>Public notes</span>
-          <span className="text-[9px] bg-emerald-900 text-emerald-200 px-1 rounded">visible to client</span>
+          <span className="text-[9px] px-1 rounded-sm" style={{ background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }}>visible to client</span>
         </div>
         <textarea
           value={pub}
           onChange={(e) => setPub(e.target.value)}
           placeholder="Notes the client sees in their portal"
           rows={3}
-          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+          className="w-full rounded-md px-2 py-1.5 text-sm resize-none focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
         />
       </div>
       <div className="flex items-center justify-between">
-        <div className="text-[11px] text-[#7A7A78]">
-          {error ? <span className="text-red-400">{error}</span>
+        <div className="text-[11px]" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
+          {error ? <span style={{ color: 'var(--color-loop-warn)' }}>{error}</span>
             : saving ? 'Saving…'
             : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
             : dirty ? 'Unsaved changes' : ''}
@@ -1510,7 +1625,8 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
         <button
           onClick={save}
           disabled={!dirty || saving}
-          className="px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
+          className="px-3 py-1 rounded text-xs disabled:opacity-50"
+          style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
         >
           Save
         </button>
@@ -1553,34 +1669,37 @@ function NewChannelModal({ onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#F4F4F1]/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-[#FFFFFF] border border-[#E4E2DC] rounded-lg w-[480px] max-w-full p-5" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(28,28,28,0.35)' }} onClick={onClose}>
+      <div className="rounded-lg w-[480px] max-w-full p-5" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }} onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">New channel</h3>
-          <button onClick={onClose} className="text-[#7A7A78] hover:text-[#1C1C1C]">✕</button>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 500 }}>New channel</h3>
+          <button onClick={onClose} className="hover:text-[var(--color-loop-ink)]" style={{ color: 'var(--color-loop-muted)' }}>✕</button>
         </div>
-        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Slug (no spaces)</label>
+        <label className="text-[10px] uppercase mb-1 block" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Slug (no spaces)</label>
         <input
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
           placeholder="e.g. dispatch, marketing, oncall"
-          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm mb-3 focus:outline-none focus:border-[#C8C5BC]"
+          className="w-full rounded-md px-3 py-2 text-sm mb-3 focus:outline-none"
+          style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
         />
-        <label className="text-[10px] uppercase text-[#7A7A78] mb-1 block">Description (optional)</label>
+        <label className="text-[10px] uppercase mb-1 block" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Description (optional)</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What's this channel for?"
           rows={3}
-          className="w-full bg-[#F4F4F1] border border-[#E4E2DC] rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-[#C8C5BC]"
+          className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+          style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
         />
-        {error && <div className="text-red-400 text-xs mt-2">{error}</div>}
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm border border-[#E4E2DC] hover:bg-[#EFEFEC]">Cancel</button>
+        {error && <div className="text-xs mt-2" style={{ color: 'var(--color-loop-warn)' }}>{error}</div>}
+        <div className="flex justify-end gap-2 mt-4" style={{ fontFamily: 'var(--mono)' }}>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm hover:bg-[var(--color-loop-bg)]" style={{ border: '1px solid var(--color-loop-line-soft)', color: 'var(--color-loop-graphite)' }}>Cancel</button>
           <button
             onClick={create}
             disabled={!slug.trim() || creating}
-            className="px-4 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-[#FFFFFF] disabled:text-[#7A7A78]"
+            className="px-4 py-1.5 rounded-md text-sm disabled:opacity-50"
+            style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
           >
             {creating ? 'Creating…' : 'Create'}
           </button>
