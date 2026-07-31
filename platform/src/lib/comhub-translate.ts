@@ -30,7 +30,23 @@ async function detectAndTranslateToEnglish(
 
     const detected = json.responseData?.detectedLanguage?.toLowerCase() || null
     const translated = json.responseData?.translatedText || null
+    // MyMemory's free tier has a daily quota — once exhausted it returns
+    // HTTP 200 with a "MYMEMORY WARNING: YOU USED ALL AVAILABLE..." string
+    // in place of a real translation, not an error status. Caught here
+    // explicitly rather than relying on `!detected` happening to also be
+    // true in that response shape (found 2026-07-31: a 1,414-message
+    // backfill exhausted the day's quota outright).
+    if (translated?.toUpperCase().includes('MYMEMORY WARNING')) return { language: null, translated: null }
     if (!detected || detected === 'en') return { language: 'en', translated: null }
+    // Short/ambiguous text (names, single words, a lone digit) makes
+    // MyMemory's auto-detect unreliable — it'll confidently call "Melanie"
+    // Portuguese or "5" Latvian. If the "translation" comes back identical
+    // to the original, there's nothing worth showing regardless of what
+    // language got detected. Found via a 2026-07-31 backfill: 6 of 9
+    // "translations" were this exact false-positive pattern.
+    if (translated && translated.trim().toLowerCase() === text.trim().toLowerCase()) {
+      return { language: 'en', translated: null }
+    }
     return { language: LANGUAGE_NAMES[detected] || detected, translated }
   } catch (err) {
     console.error('[comhub-translate] failed:', err)
