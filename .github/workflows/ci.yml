@@ -17,6 +17,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history — the ledger-sync check below computes a merge-base
+          # against origin/main, which a shallow (depth-1) checkout can't do
+          # (git has no shared history to find "no merge base" errors).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
