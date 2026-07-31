@@ -96,8 +96,36 @@ export async function getBookingAddress(opts: {
 
 // ---- CRUD (portal / admin) ------------------------------------------------
 
+// Live bug (2026-07-30, Anita Ogbara): "2782 Bedford Ave, Brooklyn, NY 11210,
+// Bklyn" and "2782 Bedford Ave Brooklyn NY 11210" are the same physical
+// address, but the trailing informal borough tag didn't normalize to match
+// the spelled-out borough already in the string, so resolveProperty() below
+// couldn't find the existing property and silently created a duplicate.
+// Canonicalize the common informal abbreviations for the 5 boroughs so a
+// redundant trailing tag collapses into the borough already present.
+const NYC_BOROUGH_ALIASES: Record<string, string> = {
+  bklyn: 'brooklyn',
+  mnhtn: 'manhattan',
+  qns: 'queens',
+  bx: 'bronx',
+  si: 'staten island',
+}
+
 export function normalizeAddress(raw: string): string {
-  return (raw || '').toLowerCase().replace(/[.,#]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const cleaned = (raw || '').toLowerCase().replace(/[.,#]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return cleaned
+  const seen = new Set<string>()
+  const tokens: string[] = []
+  for (const word of cleaned.split(' ')) {
+    const canonical = NYC_BOROUGH_ALIASES[word] || word
+    // Dedupe so a redundant alias/spelled-out repeat of a borough already
+    // present (in either order) collapses to one occurrence instead of
+    // making two addresses look different.
+    if (seen.has(canonical)) continue
+    seen.add(canonical)
+    tokens.push(canonical)
+  }
+  return tokens.join(' ')
 }
 
 function combine(address: string, unit?: string | null): string {

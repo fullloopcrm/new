@@ -11,7 +11,7 @@ import { tenantDb } from '@/lib/tenant-db'
 const COLUMNS = 'id, name, phone, email, category, address, notes, active, created_at'
 
 export async function GET() {
-  const { tenant, error: authError } = await requirePermission('bookings.view')
+  const { tenant, error: authError } = await requirePermission('finance.view')
   if (authError) return authError
 
   try {
@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {

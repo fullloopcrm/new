@@ -642,17 +642,21 @@ export async function POST(req: NextRequest) {
     await telnyxAction(callControlId, 'answer', {})
 
     // ── Voice AI agent: route to Yinez over SIP if this tenant has it set up ──
-    // Tenant-gated (both creds present), not a global flag. On success the
-    // call is handed to xAI and we stop here. On failure/absence we fall
-    // through to the normal ring/voicemail below — built-in failover, a down
-    // or unconfigured agent never means dead air.
+    // Tenant-gated (both creds present AND selena_config.voice_agent_enabled
+    // not explicitly false), not a global flag. On success the call is handed
+    // to xAI and we stop here. On failure/absence/disabled we fall through to
+    // the normal ring/voicemail below — built-in failover, a down or
+    // unconfigured agent never means dead air. voice_agent_enabled defaults
+    // true (only an explicit false turns it off) so existing tenants with
+    // creds already set keep working with no data migration.
     const { data: agentTenant } = await supabaseAdmin
       .from('tenants')
-      .select('xai_sip_username, xai_sip_password')
+      .select('xai_sip_username, xai_sip_password, selena_config')
       .eq('id', tenantId)
       .single()
-    const xaiUsername = agentTenant?.xai_sip_username || ''
-    const xaiPassword = agentTenant?.xai_sip_password ? decryptSecret(agentTenant.xai_sip_password) : ''
+    const voiceAgentEnabled = (agentTenant?.selena_config as Record<string, unknown> | null)?.voice_agent_enabled !== false
+    const xaiUsername = voiceAgentEnabled ? (agentTenant?.xai_sip_username || '') : ''
+    const xaiPassword = voiceAgentEnabled && agentTenant?.xai_sip_password ? decryptSecret(agentTenant.xai_sip_password) : ''
     if (xaiUsername && xaiPassword) {
       await startRecordingAndTranscription(callControlId)
       const routed = await transferToAgent(callControlId, p.to || '', p.from, xaiUsername, xaiPassword)

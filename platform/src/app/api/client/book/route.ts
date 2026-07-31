@@ -45,6 +45,26 @@ function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
 }
 
+// Matches the checkbox copy on /book/new and the Telnyx 10DLC campaign's
+// registered messageFlow word-for-word — the campaign record itself is what
+// carriers check consent text against.
+const SMS_MARKETING_CONSENT_TEXT = 'By providing your phone number and clicking "Submit," you agree to receive SMS updates and marketing messages from The NYC Maid. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase.'
+
+/** Only ever grants consent, never revokes it — an unchecked box on a later
+ * booking must not silently wipe out consent given earlier through another
+ * channel (site checkbox, SMS text-in, verbal). */
+function smsOptInFields(optedIn: boolean, ip: string, userAgent: string) {
+  if (!optedIn) return {}
+  return {
+    sms_opt_in: true,
+    sms_consent: true,
+    sms_consent_at: new Date().toISOString(),
+    consent_text: SMS_MARKETING_CONSENT_TEXT,
+    consent_ip: ip,
+    consent_user_agent: userAgent.slice(0, 200),
+  }
+}
+
 function templateData(tenant: { name: string; primary_color?: string | null; logo_url?: string | null }) {
   return {
     tenantName: tenant.name,
@@ -65,6 +85,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+    const smsOptedIn = body.sms_opt_in === true
+    const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
     if (typeof body.notes === 'string') {
       body.notes = sanitizeInput(body.notes)
     }
@@ -141,6 +163,7 @@ export async function POST(request: Request) {
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),
+            ...smsOptInFields(smsOptedIn, ip, userAgent),
           })
           .select()
           .single()
@@ -164,6 +187,18 @@ export async function POST(request: Request) {
           message: `${clientName} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
       }
+    }
+
+    // A returning client (matched by email/phone above, or booking with a
+    // saved client_id) checking the box on THIS booking is a fresh consent
+    // event — record it. isNewClient already got it in the insert above;
+    // this only fires for existing rows, and only adds consent, never clears it.
+    if (smsOptedIn && clientId && !isNewClient) {
+      await tenantDb(tenant.id)
+        .from('clients')
+        .update(smsOptInFields(true, ip, userAgent))
+        .eq('id', clientId)
+        .eq('tenant_id', tenant.id)
     }
 
     // Referral resolution (tenant-scoped)

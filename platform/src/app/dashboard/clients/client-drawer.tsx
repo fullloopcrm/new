@@ -20,6 +20,7 @@ type EnrichedClient = {
   source: string | null
   created_at: string
   dns_status: boolean
+  dns_reason: string | null
   health: number
   health_band: 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
   health_factors: {
@@ -417,6 +418,9 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                   <span>·</span>
                   <span>Day {dayN}</span>
                 </div>
+                {client.dns_status && client.dns_reason && (
+                  <div className="clients-drawer-dns-reason">{client.dns_reason}</div>
+                )}
               </div>
             </div>
             <button className="clients-drawer-close" onClick={onClose} aria-label="Close drawer">✕</button>
@@ -721,8 +725,9 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
             </div>
           )}
 
-          {/* Bookings — Activity tab */}
-          {drawerTab === 'activity' && (
+          {/* Bookings — Activity tab, and Service tab (where a client's actual
+              bookings belong alongside their recurring slot / cleaner affinity) */}
+          {(drawerTab === 'activity' || drawerTab === 'service') && (
           <div className="clients-section">
             <div className="clients-section-head">
               <span className="clients-section-label">Bookings · {bookings.length}</span>

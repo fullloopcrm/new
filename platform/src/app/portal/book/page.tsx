@@ -38,6 +38,7 @@ export default function BookingWizardPage() {
   const [newAddress, setNewAddress] = useState('')
   const [newAddressValid, setNewAddressValid] = useState(false)
   const [newUnit, setNewUnit] = useState('')
+  const [newLabel, setNewLabel] = useState('')
   const [addressError, setAddressError] = useState('')
   const [savingAddress, setSavingAddress] = useState(false)
 
@@ -77,12 +78,12 @@ export default function BookingWizardPage() {
     const res = await fetch('/api/portal/properties', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null }),
+      body: JSON.stringify({ address: newAddress.trim(), unit: newUnit.trim() || null, label: newLabel.trim() || null }),
     })
     setSavingAddress(false)
     if (!res.ok) { setAddressError((await res.json().catch(() => ({}))).error || 'Failed to add'); return }
     const created = (await res.json().catch(() => ({}))).property
-    setNewAddress(''); setNewUnit(''); setAddingAddress(false); setNewAddressValid(false)
+    setNewAddress(''); setNewUnit(''); setNewLabel(''); setAddingAddress(false); setNewAddressValid(false)
     const propsRes = await fetch('/api/portal/properties', { headers: { Authorization: `Bearer ${auth.token}` } })
     const data = await propsRes.json().catch(() => ({}))
     const props: Property[] = data.properties || []
@@ -182,6 +183,12 @@ export default function BookingWizardPage() {
             </select>
           ) : (
             <div className="border border-gray-200 rounded-lg p-3 mb-4 space-y-2">
+              <input
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Nickname (optional) — Home, Mom's, Office…"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
               <AddressAutocomplete
                 value={newAddress}
                 onChange={(val) => { setNewAddress(val); setNewAddressValid(false) }}
@@ -199,7 +206,7 @@ export default function BookingWizardPage() {
                 <button type="button" onClick={addAddress} disabled={savingAddress} className="flex-1 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium disabled:opacity-50">
                   {savingAddress ? 'Saving…' : 'Save address'}
                 </button>
-                <button type="button" onClick={() => { setAddingAddress(false); setNewAddress(''); setNewUnit(''); setAddressError('') }} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">
+                <button type="button" onClick={() => { setAddingAddress(false); setNewAddress(''); setNewUnit(''); setNewLabel(''); setAddressError('') }} className="flex-1 py-2 border border-gray-300 rounded-lg text-sm">
                   Cancel
                 </button>
               </div>

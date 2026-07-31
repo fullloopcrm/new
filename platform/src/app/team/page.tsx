@@ -24,6 +24,7 @@ type Job = {
   fifteen_min_alert_time: string | null
   running_late_at: string | null
   hourly_rate: number | null
+  notes: string | null
   clients: {
     name: string
     phone: string | null
@@ -223,7 +224,7 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunning
             )}
             {/* Notes — combined with TranslatedNotes */}
             {(() => {
-              const allNotes = [job.clients?.special_instructions].filter(Boolean).join('\n\n')
+              const allNotes = [job.clients?.special_instructions, job.notes].filter(Boolean).join('\n\n')
               return (
                 <div className={`p-3 rounded-xl border-2 ${allNotes ? 'bg-teal-50/50 border-teal-200/50' : 'bg-gray-50 border-gray-200'}`}>
                   {allNotes ? (

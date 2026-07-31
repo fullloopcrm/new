@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness } from '@/lib/onboarding-tasks'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
+import { runLegalOverlookCheck } from '@/lib/legal-overlook'
 
 export async function POST() {
   try {
@@ -58,6 +59,10 @@ export async function POST() {
         message: `${domainResult.domain}: ${domainResult.detail ?? 'error'} — add it manually in Vercel.`,
       }).then(() => {}, () => {})
     }
+
+    // Run the Legal Overlook match immediately for this tenant so it doesn't
+    // wait for the next daily cron pass. Never blocks activation on failure.
+    runLegalOverlookCheck([tenantId]).catch((err) => console.error('legal-overlook-check on activation failed:', err))
 
     return NextResponse.json({ activated: true, tenant, domain: domainResult })
   } catch (err) {

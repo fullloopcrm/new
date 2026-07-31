@@ -78,9 +78,25 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || (isRange ? '500' : '50')), isRange ? 1000 : 200)
     const offset = (page - 1) * limit
 
-    const { data, count, error } = await fetchBookingsListCached(tenantId, {
-      status, clientId, teamMemberId, dateFrom, dateTo, offset, limit,
-    })
+    // unstable_cache throws (not a soft-fail) when the result exceeds
+    // Next.js's data-cache entry size limit (2MB) -- a wide-range, no-filter
+    // page-1000 fetch on a tenant with a large booking history (nycmaid:
+    // 3000+ rows) blows past that every time, 500ing this endpoint outright.
+    // BookingsAdmin.tsx's loadBookings() always requests exactly that shape
+    // ("every booking for accurate stat cards and status tabs"), so this
+    // wasn't a rare edge case -- it broke the whole admin Bookings page for
+    // any tenant with enough history. Fall back to the uncached fetch rather
+    // than fail the request; large-result pages just skip the 30s cache.
+    let data: Record<string, unknown>[] | null, count: number | null, error: string | null
+    try {
+      ;({ data, count, error } = await fetchBookingsListCached(tenantId, {
+        status, clientId, teamMemberId, dateFrom, dateTo, offset, limit,
+      }))
+    } catch {
+      ;({ data, count, error } = await fetchBookingsList(tenantId, {
+        status, clientId, teamMemberId, dateFrom, dateTo, offset, limit,
+      }))
+    }
 
     if (error) {
       return NextResponse.json({ error }, { status: 500 })

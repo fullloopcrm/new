@@ -180,8 +180,11 @@ export function PageSettingsPanel({
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        {/* Content — pb-32 matches the bottom clearance every other dashboard
+            page reserves for the fixed Selena/assistant bar (same z-50 as
+            this drawer), which otherwise sits on top of the last items and
+            blocks clicks on them. */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 pb-32">
           {!loaded ? (
             <p style={{ fontSize: '12.5px', color: '#D5D5D0' }}>Loading&hellip;</p>
           ) : children ? (

@@ -77,6 +77,32 @@ describe('alertOwner — Telegram only, never email', () => {
   })
 })
 
+describe('sendTelegram — failed sends are logged, not silent', () => {
+  it('logs a non-ok Telegram response instead of swallowing it', async () => {
+    global.fetch = vi.fn(async () => new Response('{"ok":false,"description":"Forbidden: bot was blocked by the user"}', { status: 403 })) as typeof fetch
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { sendTelegram } = await import('./telegram')
+
+    const result = await sendTelegram('-100', 'test message', 'bot-token')
+
+    expect(result.ok).toBe(false)
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('sendMessage failed'))
+    errorSpy.mockRestore()
+  })
+
+  it('logs a thrown network error instead of swallowing it', async () => {
+    global.fetch = vi.fn(async () => { throw new Error('fetch failed: ENOTFOUND') }) as typeof fetch
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { sendTelegram } = await import('./telegram')
+
+    const result = await sendTelegram('-100', 'test message', 'bot-token')
+
+    expect(result.ok).toBe(false)
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('sendMessage threw'), expect.any(Error))
+    errorSpy.mockRestore()
+  })
+})
+
 describe('alertOwnerCritical — SMS via NYC Maid Telnyx', () => {
   it('sends SMS to NYC Maid owner_phone via NYC Maid Telnyx when configured', async () => {
     tenantRow = {

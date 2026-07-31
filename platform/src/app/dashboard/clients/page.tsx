@@ -56,6 +56,7 @@ type EnrichedClient = {
   source: string | null
   created_at: string
   dns_status: boolean
+  dns_reason: string | null
   health: number
   health_band: HealthBand
   health_factors: { frequency: number; spend: number; payment: number; sentiment: number }
@@ -107,6 +108,10 @@ function fmtMoneyShort(cents: number): string {
   const dollars = cents / 100
   if (dollars >= 1000) return `${(dollars / 1000).toFixed(1)}k`
   return `${Math.round(dollars)}`
+}
+
+function fmtDateAdded(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function cohortLabel(yyyymm: string): string {
@@ -442,6 +447,7 @@ export default function ClientsPage() {
           <div>Affinity</div>
           <div>Stage</div>
           <div className="right">LTV</div>
+          <div>Date Added</div>
           <div>Last</div>
           <div />
         </div>
@@ -513,6 +519,7 @@ export default function ClientsPage() {
                   {fmtMoneyShort(c.ltv_projected_cents)}
                 </div>
               </div>
+              <div className="clients-last-cell">{fmtDateAdded(c.created_at)}</div>
               <div className={`clients-last-cell ${c.last_booking?.overdue ? 'muted' : ''}`}>
                 {c.last_booking ? (
                   <>

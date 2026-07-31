@@ -281,6 +281,14 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // A pending booking left pending on save silently falls through the
+    // cracks -- it never shows as confirmed work, so nothing downstream
+    // (schedule, cleaner notification, reminders) ever fires for it. Force
+    // the status to actually change before the save is allowed through.
+    if (form.status === 'pending') {
+      alert('This booking is still Pending. Change the status before saving.')
+      return
+    }
     if (booking.recurring_type || booking.schedule_id) {
       setShowUpdateChoice(true)
       return
@@ -721,6 +729,9 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
               <option value="completed">Completed</option>
               <option value="cancelled">Canceled</option>
             </select>
+            {form.status === 'pending' && (
+              <p className="text-xs text-red-600 mt-1">Change the status before saving — a booking can&apos;t be saved while still Pending.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Notes</label>
@@ -730,7 +741,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
         <div className="flex gap-3 mt-6">
           <button type="button" onClick={onCancel} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
-          <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
+          <button type="submit" disabled={saving || form.status === 'pending'} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg disabled:bg-gray-300">
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>

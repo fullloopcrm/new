@@ -28,8 +28,15 @@ export async function sendTelegram(chatId: number | string, text: string, botTok
       body: JSON.stringify({ chat_id: chatId, text }),
     })
     const body = await r.text()
+    // No caller of sendTelegram()/alertOwner()/notifyOwnerOnTelegram() checks
+    // the returned .ok — a bad/revoked token or wrong chat_id would otherwise
+    // fail completely silently. This is the one choke point every alert path
+    // goes through, so logging here covers all of them without touching each
+    // of the 18+ call sites individually.
+    if (!r.ok) console.error(`[telegram] sendMessage failed: status=${r.status} chatId=${chatId} body=${body.slice(0, 500)}`)
     return { ok: r.ok, status: r.status, body }
   } catch (err) {
+    console.error(`[telegram] sendMessage threw: chatId=${chatId}`, err)
     return { ok: false, status: 0, body: err instanceof Error ? err.message : String(err) }
   }
 }

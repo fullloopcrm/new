@@ -12,7 +12,7 @@ type Params = { params: Promise<{ id: string }> }
 const COLUMNS = 'id, vendor_id, inventory_item_id, unit_cost_cents, lead_time_days, is_preferred, notes, created_at, inventory_items(id, name, unit_label)'
 
 export async function GET(_request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('bookings.view')
+  const { tenant, error: authError } = await requirePermission('finance.view')
   if (authError) return authError
 
   try {
@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {
@@ -72,7 +72,7 @@ export async function POST(request: Request, { params }: Params) {
 }
 
 export async function DELETE(request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {

@@ -248,7 +248,7 @@ export default function RecordedAnswer({ questionKey, label, helpText, maxSecond
       {phase === 'recording' && (
         <div>
           {kind === 'video' && (
-            <video ref={videoElRef} className="w-full max-w-xs rounded-lg bg-black mb-2" playsInline />
+            <video ref={videoElRef} className="w-full max-w-xs rounded-lg bg-black mb-2" playsInline muted autoPlay />
           )}
           {kind === 'audio' && (
             <div className="mb-2 text-sm text-red-600 font-medium">● Recording audio…</div>

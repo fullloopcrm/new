@@ -108,6 +108,7 @@ export function Footer() {
 
         <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>&copy; {new Date().getFullYear()} The Roadside Helper. All rights reserved.</p>
+          <p><Link href="/legal" className="hover:underline">Legal</Link></p>
           <p>Licensed, Bonded &amp; Insured in All 50 States</p>
         </div>
       </div>

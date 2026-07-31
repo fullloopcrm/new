@@ -28,7 +28,7 @@ function centsOrZero(v: unknown): number {
 }
 
 export async function GET(_request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('sales.view')
+  const { tenant, error: authError } = await requirePermission('finance.view')
   if (authError) return authError
 
   try {
@@ -56,7 +56,7 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('sales.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {
@@ -124,7 +124,7 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  const { tenant, error: authError } = await requirePermission('sales.edit')
+  const { tenant, error: authError } = await requirePermission('finance.expenses')
   if (authError) return authError
 
   try {

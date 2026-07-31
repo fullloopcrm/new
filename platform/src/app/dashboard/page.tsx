@@ -90,6 +90,7 @@ type FeedBooking = {
   end_time: string | null
   status: string
   service_type: string | null
+  price: number | null
   clients: { name: string | null; phone: string | null; address: string | null } | null
   team_members: { name: string | null } | null
   booking_team_members?: CrewRow[] | null
@@ -436,7 +437,7 @@ export default async function DashboardPage() {
   const tomorrowEndNaive = naiveMidnight(addDaysYMD(todayYMD, 2))
   const { data: feedRows } = await supabaseAdmin
     .from('bookings')
-    .select('id,start_time,end_time,status,service_type,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
+    .select('id,start_time,end_time,status,service_type,price,clients(name,phone,address),team_members!bookings_team_member_id_fkey(name),booking_team_members(team_member_id,is_lead,position,team_members(id,name))')
     .eq('tenant_id', tenant.id)
     .gte('start_time', startOfDayNaive.toISOString())
     .lt('start_time', tomorrowEndNaive.toISOString())
@@ -445,6 +446,8 @@ export default async function DashboardPage() {
   const feedJobs = (feedRows || []) as unknown as FeedBooking[]
   const todayJobs = feedJobs.filter(j => inRange(j, startOfDayNaive, endOfDayNaive))
   const tomorrowJobs = feedJobs.filter(j => { const d = parseNaive(j.start_time); return d >= tomorrowStartNaive && d < tomorrowEndNaive })
+  const todayTomorrowJobs = [...todayJobs, ...tomorrowJobs]
+  const expectedRevenue = todayTomorrowJobs.reduce((s, j) => s + (j.price || 0), 0)
 
   const Bar = ({ children }: { children: React.ReactNode }) => (
     <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
@@ -525,6 +528,21 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {/* TODAY + TOMORROW AT A GLANCE */}
+      <Bar>Today + Tomorrow</Bar>
+      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(2, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        <div className="px-5 py-4" style={{ borderRight: `1px solid ${V.line}` }}>
+          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>Total Jobs</div>
+          <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{todayTomorrowJobs.length}</div>
+          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{todayJobs.length} today · {tomorrowJobs.length} tomorrow</div>
+        </div>
+        <div className="px-5 py-4">
+          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>Expected Revenue</div>
+          <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(expectedRevenue)}</div>
+          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>across {todayTomorrowJobs.length} job{todayTomorrowJobs.length === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+
       {/* TODAY / TOMORROW */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {[{ label: 'Today · Schedule', jobs: todayJobs, empty: 'No jobs today', showStatus: true },
@@ -536,6 +554,7 @@ export default async function DashboardPage() {
                 <p className="p-4" style={{ color: V.muted }}>{col.empty}</p>
               ) : col.jobs.map((job, i, arr) => (
                 <div key={job.id} className="flex items-start gap-3 p-3" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+                  <span style={{ fontFamily: V.mono, fontSize: '11px', color: V.muted, width: 18, flexShrink: 0, textAlign: 'right', marginTop: 1 }}>{i + 1}</span>
                   <span style={{ width: 4, alignSelf: 'stretch', background: V.muted2, borderRadius: 2, flexShrink: 0 }} />
                   <Link href={`/dashboard/bookings?edit=${job.id}`} className="flex-1 min-w-0">
                     <p className="font-medium truncate" style={{ color: V.ink }}>{job.clients?.name || 'No client'}</p>

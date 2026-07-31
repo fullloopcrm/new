@@ -300,7 +300,7 @@
 }
 .clients-thead {
   display: grid;
-  grid-template-columns: 32px 90px 1.6fr 1.3fr 110px 110px 100px 100px 60px;
+  grid-template-columns: 32px 90px 1.6fr 1.3fr 110px 110px 100px 100px 100px 60px;
   padding: 11px 16px;
   background: var(--clients-bg);
   border-bottom: 1px solid var(--clients-line);
@@ -316,7 +316,7 @@
 .clients-thead .right { text-align: right; }
 .clients-row {
   display: grid;
-  grid-template-columns: 32px 90px 1.6fr 1.3fr 110px 110px 100px 100px 60px;
+  grid-template-columns: 32px 90px 1.6fr 1.3fr 110px 110px 100px 100px 100px 60px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--clients-line-soft);
   align-items: center;
@@ -643,6 +643,11 @@
   font-size: 11px;
   color: var(--clients-muted);
   letter-spacing: 0.06em;
+}
+.clients-drawer-dns-reason {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--clients-danger);
 }
 .clients-drawer-close {
   width: 28px;
