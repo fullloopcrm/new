@@ -382,7 +382,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
 
       <p className="text-center text-xs text-gray-400 py-6 bg-white">
         <Link href="https://www.thefloridamaid.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">
-          {config.brandName} ({PARENT_TAG}) — part of The Florida Maid family of local cleaning brands
+Part of The Florida Maid family of cleaning services across Florida, FL
         </Link>
       </p>
     </>
