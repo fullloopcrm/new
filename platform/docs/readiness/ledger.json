@@ -72,10 +72,10 @@
         },
         {
           "id": "sec-09",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "No Supabase Management API read endpoint exists for plan/PITR state (confirmed against the real OpenAPI spec 2026-07-30). Requires dashboard access not available this session.",
-          "last_verified": "2026-07-30",
+          "score": 65,
+          "evidence_type": "live_query",
+          "evidence": "Reviewed 2026-07-31 -- this checkpoint's prior 'not_scored' entry stated no Supabase Management API read endpoint exists for backup/PITR state. That was wrong (or the API changed): GET /v1/projects/{ref}/database/backups DOES return it, no dashboard access needed. Live result (confirmed twice, 2026-07-31, both identical): pitr_enabled=false, walg_enabled=true, and 7 real daily physical backups, one per day 2026-07-24 through 2026-07-30, all status=COMPLETED -- a genuine, working, reliable daily backup system, not a stub or an assumption. The real gap: Point-In-Time Recovery is OFF. With PITR disabled, a restore can only land on one of these daily snapshots (up to ~24h of data loss on the worst possible incident timing); with it enabled, restore could target any specific moment. For a live-revenue platform this is a real, live risk, not a hypothetical -- and now a known, specific one instead of an unknown. Enabling PITR is a Supabase plan/add-on decision (cost + Jeff sign-off), not something this session can flip via API. live_query evidence, cap 100 -- scored on the actual state found (reliable daily backups = a real baseline; PITR off = a real, named gap), not at ceiling.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         }
       ]
