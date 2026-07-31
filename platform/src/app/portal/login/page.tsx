@@ -1,237 +1,28 @@
-'use client'
+import { headers } from 'next/headers'
+import { supabaseAdmin } from '@/lib/supabase'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import PortalLoginForm from './PortalLoginForm'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { usePortalAuth } from '../layout'
-import AuthShell, {
-  authLabelClass,
-  authInputClass,
-  authButtonClass,
-  authErrorClass,
-} from '@/components/auth/AuthShell'
+/**
+ * Client portal login. Business name is resolved server-side, pre-auth, from
+ * the domain's signed x-tenant-id header (falls back to "Full Loop" on the
+ * main host, where the login asks for a business code instead) — same
+ * pattern as the team portal login. The PIN is matched by /api/portal/auth.
+ */
+export default async function PortalLoginPage() {
+  const h = await headers()
+  const tenantId = h.get('x-tenant-id')
+  const sig = h.get('x-tenant-sig')
 
-type Step = 'pin' | 'forgot' | 'forgot-sent'
-
-export default function PortalLoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <PortalLoginForm />
-    </Suspense>
-  )
-}
-
-function PortalLoginForm() {
-  const { setAuth } = usePortalAuth()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [step, setStep] = useState<Step>('pin')
-  const [slug, setSlug] = useState('')
-  const [needBusiness, setNeedBusiness] = useState(false)
-  const [pin, setPin] = useState('')
-  const [contact, setContact] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  function updateSlug(value: string) {
-    setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+  let businessName = 'Full Loop'
+  if (tenantId && verifyTenantHeaderSig(tenantId, sig)) {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .maybeSingle()
+    if (tenant?.name) businessName = tenant.name
   }
 
-  async function login(e?: React.FormEvent, overridePin?: string) {
-    e?.preventDefault()
-    const submitPin = overridePin ?? pin
-    if (submitPin.length < 4 || (needBusiness && !slug) || loading) return
-    setLoading(true)
-    setError('')
-    try {
-      // On a tenant's own domain the server resolves the business from the
-      // host. Only send a slug if the host couldn't (main host fallback).
-      const res = await fetch('/api/portal/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', pin: submitPin, tenant_slug: slug || undefined }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        // The server couldn't resolve a business from the host → ask for it.
-        if (data.error === 'Business code required') setNeedBusiness(true)
-        setError(data.error || 'Login failed')
-        setPin('')
-        return
-      }
-      setAuth(data)
-      router.push('/portal')
-    } catch {
-      setError('Connection error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Portal-picker deep link (?pin=...) — auto-fills and submits once.
-  const autoSubmitted = useRef(false)
-  useEffect(() => {
-    const deepLinkPin = searchParams.get('pin')
-    if (!deepLinkPin || autoSubmitted.current) return
-    autoSubmitted.current = true
-    const cleaned = deepLinkPin.replace(/\D/g, '').slice(0, 6)
-    setPin(cleaned)
-    login(undefined, cleaned)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  async function requestPin(e: React.FormEvent) {
-    e.preventDefault()
-    if (!contact.trim() || (needBusiness && !slug) || loading) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/portal/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request_pin', contact, tenant_slug: slug || undefined }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        if (data.error === 'Business code required') setNeedBusiness(true)
-        setError(data.error || 'Could not send a PIN')
-        return
-      }
-      setStep('forgot-sent')
-    } catch {
-      setError('Connection error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (step === 'forgot-sent') {
-    return (
-      <AuthShell businessName="Full Loop" subtitle="Client Portal">
-        <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
-          A PIN was emailed to you. Check your inbox, then sign in.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setStep('pin')
-            setContact('')
-            setError('')
-          }}
-          className={`mt-8 ${authButtonClass}`}
-        >
-          Back to sign in →
-        </button>
-      </AuthShell>
-    )
-  }
-
-  return (
-    <AuthShell businessName="Full Loop" subtitle="Client Portal">
-      {step === 'pin' ? (
-        <form className="mt-10" onSubmit={login}>
-          {needBusiness && (
-            <div>
-              <label htmlFor="portal-slug" className={authLabelClass}>
-                Business code
-              </label>
-              <input
-                id="portal-slug"
-                value={slug}
-                onChange={(e) => updateSlug(e.target.value)}
-                placeholder="nycmaid"
-                className={authInputClass}
-              />
-            </div>
-          )}
-
-          <div className={needBusiness ? 'mt-6' : ''}>
-            <label htmlFor="portal-pin" className={authLabelClass}>
-              PIN
-            </label>
-            <input
-              id="portal-pin"
-              autoFocus
-              type="password"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              required
-              maxLength={6}
-              placeholder="PIN"
-              className={authInputClass}
-            />
-          </div>
-
-          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading || pin.length < 4 || (needBusiness && !slug)}
-            className={`mt-8 ${authButtonClass}`}
-          >
-            {loading ? 'Signing in…' : 'Sign in →'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStep('forgot')
-              setError('')
-            }}
-            className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
-          >
-            Don&apos;t have a PIN?
-          </button>
-        </form>
-      ) : (
-        <form className="mt-10" onSubmit={requestPin}>
-          {needBusiness && (
-            <div>
-              <label htmlFor="forgot-slug" className={authLabelClass}>
-                Business code
-              </label>
-              <input
-                id="forgot-slug"
-                value={slug}
-                onChange={(e) => updateSlug(e.target.value)}
-                placeholder="nycmaid"
-                className={authInputClass}
-              />
-            </div>
-          )}
-
-          <div className={needBusiness ? 'mt-6' : ''}>
-            <label htmlFor="forgot-contact" className={authLabelClass}>
-              Phone or email on file
-            </label>
-            <input
-              id="forgot-contact"
-              autoFocus
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              required
-              placeholder="Phone or email"
-              className={authInputClass}
-            />
-          </div>
-
-          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
-
-          <button type="submit" disabled={loading || (needBusiness && !slug)} className={`mt-8 ${authButtonClass}`}>
-            {loading ? 'Sending…' : 'Email me a PIN →'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStep('pin')
-              setError('')
-            }}
-            className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
-          >
-            ← Back
-          </button>
-        </form>
-      )}
-    </AuthShell>
-  )
+  return <PortalLoginForm businessName={businessName} />
 }

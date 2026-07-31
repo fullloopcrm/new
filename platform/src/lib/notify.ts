@@ -4,6 +4,7 @@ import { sendSMS } from './sms'
 import { sendTelegram, notifyOwnerOnTelegram } from './telegram'
 import { decryptSecret } from './secret-crypto'
 import { isCommEnabled, getCommPolicy, buildTemplateData } from './comms-prefs'
+import { tenantSiteUrl } from './tenant-site'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import {
   bookingReminderEmail,
@@ -142,6 +143,7 @@ async function bookingConfirmedHtml(
   serviceName: string,
   dateTime: string,
   metadata?: Record<string, unknown>,
+  tenantSite?: { domain?: string | null; slug?: string | null },
 ): Promise<string> {
   let teamMemberPhotoUrl: string | undefined
   let teamMemberRatingAvg: number | undefined
@@ -193,7 +195,11 @@ async function bookingConfirmedHtml(
     teamMemberName: (metadata?.teamMemberName as string) || 'Your pro',
     address: metadata?.address as string | undefined,
     price: metadata?.price as string | undefined,
-    portalUrl: metadata?.portalUrl as string | undefined,
+    // Every tenant gets a working portal link + PIN on the confirmation
+    // email, not just tenants whose caller happened to pass one — this is
+    // the client's main path to portal adoption. Falls back to the shared
+    // client-portal login page on the tenant's own site.
+    portalUrl: (metadata?.portalUrl as string | undefined) || (tenantSite ? `${tenantSiteUrl(tenantSite)}/portal/login` : undefined),
     teamMemberPhotoUrl,
     teamMemberRatingAvg,
     teamMemberRatingCount,
@@ -217,7 +223,7 @@ export async function buildBookingConfirmationEmail(
 ): Promise<string> {
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, slug, primary_color, logo_url, address')
+    .select('name, slug, domain, primary_color, logo_url, address')
     .eq('id', tenantId)
     .single()
   const policy = await getCommPolicy(tenantId)
@@ -230,7 +236,7 @@ export async function buildBookingConfirmationEmail(
     address: fields.address,
     price: fields.price,
     portalUrl: fields.portalUrl,
-  })
+  }, { domain: tenant?.domain, slug: tenant?.slug })
 }
 
 export async function notify({
@@ -293,7 +299,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id, commission_rate')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, domain, email_from, primary_color, logo_url, address, email, phone, telegram_bot_token, telegram_chat_id, commission_rate')
     .eq('id', tenantId)
     .single()
 
@@ -404,7 +410,7 @@ export async function notify({
       })
       break
     case 'booking_confirmed':
-      htmlBody = await bookingConfirmedHtml(tenantId, bookingId, templateData, clientName, serviceName, message, metadata)
+      htmlBody = await bookingConfirmedHtml(tenantId, bookingId, templateData, clientName, serviceName, message, metadata, { domain: tenant.domain, slug: tenant.slug })
       break
     case 'booking_rescheduled':
       htmlBody = bookingRescheduledEmail({
