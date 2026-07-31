@@ -1301,7 +1301,7 @@ function BookingsPage() {
                     })()}
                   </div>
                   <div className="text-right flex flex-col items-end gap-1.5">
-                    <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Pending</span>
+                    <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">{b.source === 'waitlist' ? 'Pending/Waitlist' : 'Pending'}</span>
                     <p className="text-[var(--sched-ink)] text-sm font-semibold">~${(b.price / 100).toFixed(0)}</p>
                   </div>
                 </div>
@@ -1700,7 +1700,7 @@ function BookingsPage() {
                       }>
                         {b.status === 'completed' && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                         {b.status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
-                        {b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                        {b.status === 'pending' && b.source === 'waitlist' ? 'Pending/Waitlist' : b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1847,7 +1847,7 @@ function BookingsPage() {
                     }>
                       {b.status === 'completed' && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                       {b.status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
-                      {b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                      {b.status === 'pending' && b.source === 'waitlist' ? 'Pending/Waitlist' : b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">

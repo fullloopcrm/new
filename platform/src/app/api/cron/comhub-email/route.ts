@@ -8,6 +8,7 @@ import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 import { trackError } from '@/lib/error-tracking'
 
 // Automated/notification senders (payment processors, banks, dev-tool alerts,
@@ -187,6 +188,18 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         if (!fromAddr) { skipped++; continue }
         if (fromAddr.toLowerCase() === user.toLowerCase()) { skipped++; continue }
 
+        // Automated/transactional mail (Stripe receipts, vendor alerts, etc.)
+        // isn't a customer inbound — it was showing up in ComHub as a fake
+        // "lead" thread. List-Unsubscribe/Precedence/Auto-Submitted are the
+        // standard headers bulk and transactional senders carry that a real
+        // person replying to the inbox never does.
+        const precedence = String(parsed.headers.get('precedence') || '').toLowerCase()
+        const autoSubmitted = String(parsed.headers.get('auto-submitted') || '').toLowerCase()
+        const isAutomated = !!parsed.headers.get('list-unsubscribe')
+          || ['bulk', 'list', 'junk'].includes(precedence)
+          || (!!autoSubmitted && autoSubmitted !== 'no')
+        if (isAutomated) { skipped++; continue }
+
         const { data: contactId, error: cErr } = await supabaseAdmin
           .rpc('comhub_get_or_create_contact_by_email', { p_tenant_id: tenantId, p_email: fromAddr, p_name: fromName })
         if (cErr || !contactId) { skipped++; continue }
@@ -198,7 +211,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         const text = parsed.text || (typeof parsed.html === 'string' ? parsed.html.replace(/<[^>]+>/g, ' ').slice(0, 8000) : '')
         const sentAt = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 
-        await supabaseAdmin.from('comhub_messages').insert({
+        const { data: inboundMsg } = await supabaseAdmin.from('comhub_messages').insert({
           tenant_id: tenantId,
           thread_id: threadId,
           contact_id: contactId,
@@ -211,7 +224,8 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           to_address: user,
           external_id: messageId,
           sent_at: sentAt,
-        })
+        }).select('id').single()
+        if (inboundMsg) translateInboundComhubMessage(inboundMsg.id, text)
 
         // ── Yinez auto-reply ─────────────────────────────────────────────────
         // Automated/notification senders are mirrored into comhub_messages

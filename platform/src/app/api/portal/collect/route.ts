@@ -67,10 +67,10 @@ export async function POST(request: NextRequest) {
     const { data: existing } = cleanPhone
       ? ((await db
           .from('clients')
-          .select('id, status')
+          .select('id, status, special_instructions')
           .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-          .limit(1)) as { data: { id: string; status: string }[] | null })
-      : { data: [] as { id: string; status: string }[] }
+          .limit(1)) as { data: { id: string; status: string; special_instructions: string | null }[] | null })
+      : { data: [] as { id: string; status: string; special_instructions: string | null }[] }
 
     const existingClient = existing?.[0]
 
@@ -129,6 +129,15 @@ export async function POST(request: NextRequest) {
       : notes || null
     const notesValue = src ? `Source: ${src}${clientNotes ? '\n' + clientNotes : ''}` : clientNotes
 
+    // `notes` (above) lands on the client record as an operator-only field —
+    // nothing in the team/cleaner portal ever reads it, so a client's own
+    // self-entered note (gate code, pet, access instructions, etc.) silently
+    // never reached the cleaner. `special_instructions` is the field the
+    // team portal already surfaces on every booking for this client
+    // (src/app/team/page.tsx), so mirror the raw note there too — only when
+    // it's not already set, so this never clobbers something an admin wrote.
+    const specialInstructionsValue = notes?.trim() || null
+
     let data: { id: string;[key: string]: unknown }
 
     if (existingClient) {
@@ -144,6 +153,7 @@ export async function POST(request: NextRequest) {
           status: 'active',
           ...(pet_name ? { pet_name } : {}),
           ...(pet_type ? { pet_type } : {}),
+          ...(!existingClient.special_instructions && specialInstructionsValue ? { special_instructions: specialInstructionsValue } : {}),
         })
         .eq('id', existingClient.id)
         .select()
@@ -163,6 +173,7 @@ export async function POST(request: NextRequest) {
           referrer_id: referrerId,
           pet_name: pet_name || null,
           pet_type: pet_type || null,
+          special_instructions: specialInstructionsValue,
           pin: randomInt(100000, 1000000).toString(),
         })
         .select()
