@@ -63,6 +63,7 @@ type Business = {
   primary_color: string
   secondary_color: string | null
   website_url: string | null
+  onboarding_completed_at: string | null
   business_hours: string | null
   address: string | null
   tagline: string | null
@@ -460,6 +461,33 @@ export default function BusinessDetailPage() {
           {biz.slug}.fullloopcrm.com ↗
         </a>
       </div>
+
+      {/* Onboarding Link — stays pinned here (not buried in a tab) until the
+          tenant has actually submitted their profile. */}
+      {!biz.onboarding_completed_at && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-heading font-semibold text-sm text-amber-900">Onboarding Link — not yet completed</h3>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input readOnly value={onboardingUrl} placeholder="Loading…"
+              className="flex-1 min-w-[240px] bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
+            <button onClick={copyOnboardingLink} disabled={!onboardingUrl}
+              className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              Copy
+            </button>
+            <button onClick={resendOnboardingLink} disabled={linkBusy}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg text-xs font-cta font-semibold disabled:opacity-50 transition-colors">
+              {linkBusy ? 'Sending…' : 'Send to Tenant'}
+            </button>
+            <button onClick={regenerateOnboardingLink} disabled={linkBusy}
+              className="px-3 py-2 rounded-lg text-xs font-semibold border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:opacity-50">
+              Regenerate
+            </button>
+          </div>
+          {linkMsg && <p className="text-xs text-teal-700 mt-2">{linkMsg}</p>}
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
@@ -1125,31 +1153,6 @@ export default function BusinessDetailPage() {
               <input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-200 space-y-3">
-            <h3 className="font-heading font-semibold text-slate-900">Onboarding Link</h3>
-            <p className="text-xs text-slate-500">
-              No-login questionnaire — send this first, before Activate, so the site build has real
-              answers to work from. Auto-created and emailed when this tenant was created.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <input readOnly value={onboardingUrl} placeholder="Loading…"
-                className="flex-1 min-w-[240px] bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
-              <button onClick={copyOnboardingLink} disabled={!onboardingUrl}
-                className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-                Copy
-              </button>
-              <button onClick={resendOnboardingLink} disabled={linkBusy}
-                className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg text-xs font-cta font-semibold disabled:opacity-50 transition-colors">
-                {linkBusy ? 'Sending…' : 'Send to Tenant'}
-              </button>
-              <button onClick={regenerateOnboardingLink} disabled={linkBusy}
-                className="px-3 py-2 rounded-lg text-xs font-semibold border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">
-                Regenerate
-              </button>
-            </div>
-            {linkMsg && <p className="text-xs text-teal-600">{linkMsg}</p>}
           </div>
 
           <div className="pt-6 border-t border-slate-200 space-y-3">

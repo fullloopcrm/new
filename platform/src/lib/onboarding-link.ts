@@ -11,7 +11,7 @@ import { sendEmail, tenantSender } from './email'
 import { signOnboardingToken } from './onboarding-token'
 
 function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'
 }
 
 export function onboardingLinkUrl(tenantId: string, linkVersion: number): string {
