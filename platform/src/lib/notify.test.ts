@@ -147,7 +147,7 @@ describe('notify — booking_id / booking_id alias', () => {
 
 describe('notify — communications gate', () => {
   it('a mapped type (booking_confirmed:client) honors isCommEnabled=false and is skipped, not sent', async () => {
-    tableData['clients'] = { email: 'client@example.com', phone: null }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: null }
     const r = await notify({
       tenantId: TENANT_ID, type: 'booking_confirmed', title: 'Confirmed', message: 'ok',
       recipientType: 'client', recipientId: 'client-1',
@@ -168,7 +168,7 @@ describe('notify — communications gate', () => {
 
   it('an UNMAPPED type+recipient combo (payment_received:team_member has no NOTIFY_COMM_MAP entry) bypasses the gate entirely', async () => {
     isCommEnabledMock.mockResolvedValue(false) // would block if consulted
-    tableData['team_members'] = { email: 'crew@example.com', phone: null }
+    tableData['team_members'] = { email: 'crew@acme-fixture.com', phone: null }
     const r = await notify({
       tenantId: TENANT_ID, type: 'payment_received', title: 'Paid', message: 'thanks',
       recipientType: 'team_member', recipientId: 'team-1',
@@ -179,7 +179,7 @@ describe('notify — communications gate', () => {
   })
 
   it('payment_received:client is mapped to payment_receipt and honors isCommEnabled=false (client receipt gate)', async () => {
-    tableData['clients'] = { email: 'client@example.com', phone: null }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: null }
     isCommEnabledMock.mockResolvedValue(false)
     const r = await notify({
       tenantId: TENANT_ID, type: 'payment_received', title: 'Paid', message: 'thanks',
@@ -196,7 +196,7 @@ describe('notify — communications gate', () => {
 
 describe('notify — primary send success', () => {
   it('sends email to the client and marks the notification sent', async () => {
-    tableData['clients'] = { email: 'client@example.com', phone: null }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: null }
     const r = await notify({
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1',
@@ -242,7 +242,7 @@ describe('notify — unroutable recipient is skipped, not failed', () => {
     seedTenant({ resend_api_key: null })
     const originalEnv = process.env.RESEND_API_KEY
     delete process.env.RESEND_API_KEY
-    tableData['clients'] = { email: 'client@example.com', phone: null }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: null }
     const r = await notify({
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1',
@@ -257,7 +257,7 @@ describe('notify — unroutable recipient is skipped, not failed', () => {
 describe('notify — genuine send failures are classified failed', () => {
   it('a provider error on the primary channel with no fallback recipient is failed, not skipped', async () => {
     sendEmailMock.mockRejectedValue(new Error('Resend 500'))
-    tableData['clients'] = { email: 'client@example.com', phone: null } // no phone => no SMS fallback
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: null } // no phone => no SMS fallback
     const r = await notify({
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1',
@@ -271,7 +271,7 @@ describe('notify — genuine send failures are classified failed', () => {
 describe('notify — email/SMS fallback', () => {
   it('falls back to SMS when email fails and the recipient has a phone + SMS is configured', async () => {
     sendEmailMock.mockRejectedValue(new Error('bounced'))
-    tableData['clients'] = { email: 'client@example.com', phone: '+15551112222' }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: '+15551112222' }
     const r = await notify({
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1',
@@ -285,7 +285,7 @@ describe('notify — email/SMS fallback', () => {
 
   it('falls back to email when SMS fails and the recipient has an email + email is configured', async () => {
     sendSMSMock.mockRejectedValue(new Error('carrier rejected'))
-    tableData['clients'] = { email: 'client@example.com', phone: '+15551112222' }
+    tableData['clients'] = { email: 'client@acme-fixture.com', phone: '+15551112222' }
     const r = await notify({
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1', channel: 'sms',
