@@ -86,4 +86,31 @@ describe('translateToEnEs', () => {
     const r = await translateToEnEs('hi', 'plaintext-key')
     expect(r).toEqual({ en: 'hi', es: 'hola' })
   })
+
+  /**
+   * ai-04 re-check (2026-07-31): none of this function's 7 real callers set
+   * an explicit Next.js `maxDuration`, so they run under Vercel's (short)
+   * platform-level function timeout, while the Anthropic SDK's own default
+   * per-request timeout is 10 minutes (confirmed via
+   * node_modules/@anthropic-ai/sdk/client.js). A slow-but-not-erroring
+   * Anthropic response could get the whole function killed by the platform
+   * before the fail-open catch block ever runs, defeating the "translation
+   * outage must never block a send" guarantee. Fixed by passing an 8s
+   * per-request timeout to messages.create().
+   */
+  it('passes a bounded per-request timeout to messages.create so a slow response fails open well before any realistic platform timeout', async () => {
+    create.mockResolvedValueOnce(textResponse('{"en": "hi", "es": "hola"}'))
+    await translateToEnEs('hi')
+    expect(create).toHaveBeenCalledTimes(1)
+    const [, options] = create.mock.calls[0] as [unknown, { timeout?: number } | undefined]
+    expect(options?.timeout).toBeTypeOf('number')
+    expect(options?.timeout).toBeLessThanOrEqual(10000)
+    expect(options?.timeout).toBeGreaterThan(0)
+  })
+
+  it('fails open when the request times out (SDK timeout rejection)', async () => {
+    create.mockRejectedValueOnce(new Error('Request timed out.'))
+    const r = await translateToEnEs('Original message')
+    expect(r).toEqual({ en: 'Original message', es: 'Original message' })
+  })
 })
