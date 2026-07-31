@@ -212,6 +212,15 @@ export default function ComhubPage() {
     setChannels(data.threads || [])
   }, [])
 
+  // Deep-link support: the top-drop live-alert popup's "Open in ComHub" link
+  // lands here with ?thread=<id> so the operator sees the conversation they
+  // clicked, not just the top of the inbox. Read once via window.location
+  // (not useSearchParams) so this page doesn't need a Suspense boundary.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('thread')
+    if (id) setSelected(id)
+  }, [])
+
   const fetchThread = useCallback(async (id: string) => {
     const res = await fetch(`/api/admin/comhub/threads/${id}`)
     const data = await res.json()
