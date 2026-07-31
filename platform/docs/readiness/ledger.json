@@ -292,18 +292,18 @@
         },
         {
           "id": "ai-03",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 25,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-31. src/lib/telegram.ts: sendTelegram() correctly catches fetch exceptions and returns {ok,status,body} rather than throwing. alertOwner() and notifyOwnerOnTelegram() are wired at 18 real call sites -- cron monitors (health-monitor, tenant-health, comms-monitor, anthropic-health, system-check), error-tracking.ts's central alert path, audit.ts sensitive-action alerts, tenant-isolation-alert.ts, post-activation.ts, feedback route -- a broad, correct footprint, not a stub. CRITICAL severity has a real secondary channel: alertOwnerCritical() sends SMS via NYC Maid's Telnyx number as a fallback, and sendSMS() itself is wrapped in withRetry() (real retry logic). BUT: the actual 'delivery reliability' this checkpoint asks about has a hard gap -- grepped every call site of alertOwner()/notifyOwnerOnTelegram() and NONE of them inspect the returned .ok/.status. sendTelegram() never throws on a non-2xx Telegram response (bad/revoked bot token, bot removed from chat, wrong chat_id, rate-limit) by design -- it swallows the failure into the return value, which every caller then discards (`.catch(() => {})` on call sites only guards against a thrown network exception, which sendTelegram() itself never produces). Net effect: if Telegram alerting silently breaks, there is currently zero signal anywhere in the system -- no log line, no monitoring row, no fallback trigger for non-CRITICAL alerts. alertOwnerCritical()'s own SMS failure path is the same shape: caught and console.error'd only, not surfaced. Existing tests (telegram.test.ts) cover 'sends', 'no-ops when unconfigured', and 'never throws' -- none cover a non-ok API response being detected or surfaced. Capped at manual_code_read (50) -- no live probe was sent to avoid paging a real alert channel without asking first.",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
           "id": "ai-04",
-          "score": "not_scored",
-          "evidence_type": "none",
-          "evidence": "Not reviewed this session -- time-boxed out.",
-          "last_verified": null,
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Reviewed 2026-07-31. src/lib/connect-translate.ts's translateToEnEs() has a sound, deliberately fail-open design: the entire Anthropic call + response parsing (client construction, messages.create, JSON-extraction regex, JSON.parse) is inside one try/catch, so ANY failure mode -- missing/invalid API key, network error, malformed/non-JSON model output, missing en/es keys -- falls through to `return { en: text, es: text }`, i.e. both sides see the original message unmodified rather than a blocked or broken send. Real, wide adoption: 7 real call sites (team-announcements, portal/connect, dashboard/messages, team-portal/connect + its upload route, connect/messages + its upload route) covering every Loop Connect send path described in this repo's CLAUDE.md ('every Loop Connect message is now auto-translated EN/ES at send time'), not a partial rollout. Gaps: zero automated test coverage -- no connect-translate.test.ts exists at all, so the fail-open behavior and the JSON-extraction regex's edge cases (e.g. a source message that itself contains literal {}  characters) are unverified by any test, only by this code read. Did not make a live Anthropic API call to verify actual translation quality/latency -- that's a real paid API call and wasn't authorized for this pass. Capped at manual_code_read (50).",
+          "last_verified": "2026-07-31",
           "last_verified_commit": null
         },
         {
