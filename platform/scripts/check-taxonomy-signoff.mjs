@@ -26,8 +26,16 @@ function main() {
   const baseRef = resolveBaseRef()
   if (!baseRef) { console.log('check-taxonomy-signoff: could not resolve base ref, skipping.'); return }
 
+  // `git diff --name-only` returns paths relative to the repo ROOT, not to
+  // this script's cwd (platform/, in CI and in normal local usage) -- so the
+  // comparison must use TAXONOMY_GIT ('platform/docs/readiness/taxonomy.json'),
+  // not TAXONOMY_REL. Using TAXONOMY_REL here could never match, which meant
+  // this gate always printed "not touched" and returned early -- it could
+  // never actually fail, silently defeating the sign-off requirement this
+  // whole script exists to enforce. Found + fixed 2026-08-01 while running
+  // this gate for real as part of the coverage-expansion checkpoint work.
   const changed = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`]).split('\n')
-  if (!changed.includes(TAXONOMY_REL)) {
+  if (!changed.includes(TAXONOMY_GIT)) {
     console.log('check-taxonomy-signoff: taxonomy.json not touched -- nothing to check.')
     return
   }
