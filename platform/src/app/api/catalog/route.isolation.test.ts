@@ -58,7 +58,7 @@ beforeEach(() => {
 
 describe('catalog — tenant isolation', () => {
   it("GET excludes a foreign tenant's items", async () => {
-    const res = await GET()
+    const res = await GET(new Request('http://t/api/catalog'))
     expect(res.status).toBe(200)
     const body = await res.json()
     const ids = (body.items as Array<{ id: string }>).map((i) => i.id)

@@ -211,7 +211,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
           {businessName ? `Complete ${businessName}'s profile` : 'Complete your business profile'}
         </h1>
         <p className="text-sm text-slate-500">
-          This wires your account across billing, HR, finance, your site, and AI. Save and finish anytime.
+          Everything you enter here goes straight into your own Full Loop account — it&apos;s what runs your invoices, your texts and emails to clients, your booking site, and your AI agent. Save and finish anytime.
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
@@ -219,7 +219,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         </p>
         {mode.mode === 'token' && (
           <p className="mt-1 text-xs text-slate-400">
-            🔒 This link is private to your business — sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
+            🔒 This link is private to your business only — your answers are never shared outside your account, and sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
           </p>
         )}
       </div>

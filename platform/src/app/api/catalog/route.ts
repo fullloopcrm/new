@@ -9,12 +9,18 @@
  * than consumable stock -- a dumpster goes out and comes back, it isn't sold
  * off like a bag of mulch.
  *
- * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals.
+ * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals --
+ * OR, for GET/POST/DELETE only, the same signed onboarding token /api/tenant-
+ * profile accepts (resolveOnboardingTenantId), so a brand-new tenant can add
+ * their first catalog items from the "Services & Pricing" onboarding step
+ * before they've ever logged in. PATCH (edit) stays session-only -- editing
+ * existing items isn't part of first-time onboarding.
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
+import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 
 const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
@@ -25,9 +31,16 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export async function GET() {
+async function resolveTenantId(tokenFromCaller: string | null): Promise<string> {
+  const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
+  if (!tenantId) throw new AuthError('Unauthorized', 401)
+  return tenantId
+}
+
+export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { searchParams } = new URL(request.url)
+    const tenantId = await resolveTenantId(searchParams.get('token'))
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
@@ -57,8 +70,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const tenantId = await resolveTenantId(typeof body.token === 'string' ? body.token : null)
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
@@ -148,8 +161,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
     const { searchParams } = new URL(request.url)
+    const tenantId = await resolveTenantId(searchParams.get('token'))
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     const { data, error } = await tenantDb(tenantId).from('service_types').delete().eq('id', id).select('id')
