@@ -94,6 +94,13 @@ export const DASHBOARD_MODULES: DashboardModule[] = [
     children: [],
   },
   {
+    id: "virtual-assistant-service",
+    num: "—",
+    name: "Virtual Assistant Service",
+    desc: "Real human virtual assistants — fluent English, trained on your CRM — starting at $8/hour through our staffing partner. AI covers nights; people cover the rest.",
+    children: [],
+  },
+  {
     id: "platform",
     num: "—",
     name: "Platform",

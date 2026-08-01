@@ -328,7 +328,7 @@ export const featuresC: Feature[] = [
           "No. Loop Connect is part of the Full Loop platform, so messaging happens right next to the rest of your operation.",
       },
     ],
-    relatedSlugs: ["ai-receptionist", "smart-scheduling", "gps-verified-check-in"],
+    relatedSlugs: ["comhub", "telegram-ops-command-center", "ai-receptionist"],
   },
 
   {
