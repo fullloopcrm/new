@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { computeMonthly } from '@/lib/billing-pricing'
+import { getTenantProfile, isTenantVisible } from '@/lib/tenant-profile'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
 // of truth so write paths can't drift (see secret-crypto.ts).
@@ -178,6 +179,17 @@ export async function GET(
   const completedCount = allItems.filter(Boolean).length
   const totalCount = allItems.length
 
+  // Onboarding-form completion — every tenant-visible CRITICAL field filled
+  // (the same registry/tiers the public /onboard/[token] link and the
+  // in-dashboard wizard both read). Distinct from `progress` above (the
+  // manual FL-internal launch checklist) and from `onboarding_completed_at`
+  // (stamped only when the tenant clicks Finish, whether or not every field
+  // is actually filled) — this is what "the onboarding form is 100%
+  // complete" should mean.
+  const profile = await getTenantProfile(id)
+  const criticalTenantFields = (profile?.fields || []).filter((f) => isTenantVisible(f) && f.tier === 'critical')
+  const profileComplete = criticalTenantFields.length > 0 && criticalTenantFields.every((f) => f.filled)
+
   return NextResponse.json({
     business,
     members,
@@ -191,6 +203,7 @@ export async function GET(
     },
     checklist,
     progress: { completed: completedCount, total: totalCount },
+    profileComplete,
   })
 }
 

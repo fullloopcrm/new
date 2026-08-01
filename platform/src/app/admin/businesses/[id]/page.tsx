@@ -154,6 +154,7 @@ export default function BusinessDetailPage() {
   const [invites, setInvites] = useState<Invite[]>([])
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
+  const [profileComplete, setProfileComplete] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
@@ -242,6 +243,7 @@ export default function BusinessDetailPage() {
         setInvites(data.invites || [])
         setCl(data.checklist || null)
         setProgress(data.progress || { completed: 0, total: 0 })
+        setProfileComplete(!!data.profileComplete)
         if (b) {
           setOwnerName(b.owner_name || '')
           setOwnerEmail(b.owner_email || '')
@@ -477,7 +479,7 @@ export default function BusinessDetailPage() {
 
       {/* Onboarding Link — stays pinned here (not buried in a tab) until the
           tenant has actually submitted their profile. */}
-      {!biz.onboarding_completed_at && (
+      {!biz.onboarding_completed_at && !profileComplete && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-heading font-semibold text-sm text-amber-900">Onboarding Link — not yet completed</h3>
