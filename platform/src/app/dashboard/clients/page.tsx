@@ -249,6 +249,12 @@ export default function ClientsPage() {
         const searchDigits = stripPhone(search)
         const phoneMatch = searchDigits.length > 0 && stripPhone(c.phone || '').includes(searchDigits)
         if (!textMatch && !phoneMatch) return false
+      } else if (c.name === 'Unknown' && stageFilter !== 'lead') {
+        // Auto-collected contacts with no real name (bare inbound SMS/chat
+        // numbers) still get saved — for texting/reuse — but clutter every
+        // other view. Surface them only via the explicit Lead filter or a
+        // direct phone/name search, not in the general list.
+        return false
       }
       return true
     })
@@ -366,6 +372,7 @@ export default function ClientsPage() {
         <span className="clients-filter-label">Stage</span>
         {([
           ['all', 'All', null],
+          ['lead', 'Lead', null],
           ['first', 'First-Time', 'good'],
           ['active', 'Active', null],
           ['vip', 'VIP', 'vip'],

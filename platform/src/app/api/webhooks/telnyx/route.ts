@@ -599,8 +599,13 @@ export async function POST(request: Request) {
     if (!client && !member) {
       try {
         const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
+        // No name field — leave it unset (falls back to 'Unknown') rather
+        // than stamping the raw phone number as the display name. That
+        // literal-phone-as-name was what made these rows unreadable in the
+        // client list; the clients-list default view also now hides
+        // name==='Unknown' rows so this doesn't clutter it.
         const result = await createLeadAndEnterPipeline(tenantId, {
-          name: from, phone: from, source: 'sms-inbound',
+          phone: from, source: 'sms-inbound',
           notes: `First inbound SMS: ${text.slice(0, 500)}`,
         })
         newLeadClientId = result.clientId
