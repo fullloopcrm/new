@@ -7,8 +7,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * checkout.session.completed, and told the cleaner via SMS to finish up and
  * check out. Neither survived the rewrite into this shared Full Loop
  * webhook — only the in-app row and the admin SMS did. This locks both back
- * in, scoped to NYC Maid only (other tenants have no telegram_bot_token /
- * telegram_chat_id and must not fall back to Jeff's personal platform bot).
+ * in.
+ *
+ * The Telegram post is NYC-Maid-scoped (other tenants have no
+ * telegram_bot_token/telegram_chat_id and must not fall back to Jeff's
+ * personal platform bot). The cleaner checkout-line SMS is NOT scoped —
+ * made universal 2026-08-01 since "payment before the cleaner leaves" is a
+ * platform-wide policy, not an NYC Maid one.
  */
 
 const TENANT = 'nycmaid-tenant'
@@ -121,7 +126,11 @@ describe('POST /api/webhooks/stripe — NYC Maid payment notifications', () => {
     expect(cleanerCall?.[0].body).toMatch(/check out/i)
   })
 
-  it('does not post to Telegram or add the checkout line for a non-NYC-Maid tenant', async () => {
+  // The checkout-line SMS ("you can finish up and check out") was made
+  // universal 2026-08-01 — every tenant wants payment before the cleaner
+  // leaves, not just NYC Maid. Only the Telegram owner-channel post stays
+  // NYC-Maid-scoped (other tenants have no telegram_bot_token/chat_id).
+  it('does not post to Telegram for a non-NYC-Maid tenant, but still tells the cleaner to check out', async () => {
     nycMaidFlag = false
     const res = await POST(paidEvent())
     expect(res.status).toBe(200)
@@ -130,6 +139,6 @@ describe('POST /api/webhooks/stripe — NYC Maid payment notifications', () => {
 
     const cleanerCall = sendSMS.mock.calls.find(args => args[0].to === '+15551230000')
     expect(cleanerCall).toBeTruthy()
-    expect(cleanerCall?.[0].body).not.toMatch(/check out/i)
+    expect(cleanerCall?.[0].body).toMatch(/check out/i)
   })
 })

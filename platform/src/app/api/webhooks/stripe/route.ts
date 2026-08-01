@@ -711,23 +711,25 @@ export async function POST(request: Request) {
         }
       }
 
-      // 5. SMS the cleaner with payment confirmation (bilingual). No tip
-      // mention — there is no tip mechanism in this checkout, so any "tip"
-      // language here was always a false positive (see tipCents above).
+      // 5. SMS the cleaner with payment confirmation (bilingual). No amount,
+      // no tip mention — confirmed with Jeff 2026-08-01: tips ARE paid to
+      // cleaners (end-of-day), this is a deliberate choice to not disclose
+      // the amount/tip via this text, not an oversight. (The prior comment
+      // here claiming "there is no tip mechanism in this checkout" was
+      // factually wrong — tipCents above is a real computed tip on the
+      // adjustable-amount pay link path — but the no-disclosure behavior
+      // itself was correct as-is.)
+      //
+      // The actual job of this text: tell the cleaner payment landed so they
+      // know they're clear to leave (payment-before-they-leave is the
+      // policy). That "you can check out now" instruction was gated to NYC
+      // Maid only — every other tenant's cleaners got a bare "payment
+      // received" with no signal they could go. Made universal 2026-08-01.
       if (tm?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const isEs = tm.preferred_language === 'es'
-        // NYC Maid rule: the cleaner is NOT shown the client's total/details —
-        // only that payment landed. No client charge amount.
-        // NYC Maid parity restore (2026-07-25): the old independent build told
-        // the cleaner to finish up and check out once payment was confirmed —
-        // that's the actual signal the cleaner is waiting on 30 min before the
-        // job ends. Only nycmaid ran the 30-min-warning → checkout flow this
-        // line refers back to, so keep the instruction nycmaid-only.
-        const checkoutLine = isNycMaid(tenantId)
-          ? (isEs
-              ? ' Puede terminar y hacer el check-out cuando esté listo.'
-              : ' You can finish up and check out when ready.')
-          : ''
+        const checkoutLine = isEs
+          ? ' Puede terminar y hacer el check-out cuando esté listo.'
+          : ' You can finish up and check out when ready.'
         const body = isEs
           ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}`
           : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}`
