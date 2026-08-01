@@ -17,9 +17,17 @@ export async function GET(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
 
+    // Explicit column list, NOT select('*') -- excludes tax_* (SSN-last4/EIN/
+    // 1099 payroll PII) that only finance/payroll-prep (finance.view-gated)
+    // needs, not this team.view-gated single-member profile endpoint. Must be
+    // an inline literal, not a shared const -- Supabase's typed client only
+    // narrows a literal string at the call site (a `string`-typed variable
+    // widens the result to GenericStringError, same reason tenant-db.ts casts
+    // to the '*' overload for typing only). Found + fixed 2026-08-01 while
+    // building the pii-05 checkpoint.
     const { data, error } = await supabaseAdmin
       .from('team_members')
-      .select('*')
+      .select('id, tenant_id, name, email, phone, pin, role, status, hourly_rate, pay_rate, notes, push_subscription, preferred_language, created_at, updated_at, service_zones, has_car, max_travel_minutes, home_latitude, home_longitude, home_by_time, stripe_account_id, sms_consent, labor_only, photo_url, address, calendar_color, priority, schedule, unavailable_dates, working_days, working_start, working_end, max_jobs_per_day, notification_preferences, avatar_url, lat, lng, stripe_ready_at, avg_rating, rating_count, active, welcome_email_sent_at, welcome_sms_sent_at, retention_rate, clients_served, clients_retained, retention_updated_at')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()

@@ -8,13 +8,34 @@ import { getSettings } from '@/lib/settings'
 import { seedHrDefaults } from '@/lib/hr'
 import { getTenantRatingTrends } from '@/lib/team-rating-trend'
 
+// Explicit column list, NOT select('*') -- excludes the tax_* columns
+// (tax_classification/tax_address/tax_city/tax_state/tax_zip/tax_ssn_last4/
+// tax_ssn_encrypted/tax_ein/tax_business_name). Those are real 1099/payroll
+// PII that only finance/payroll-prep (gated on 'finance.view') needs; this
+// roster endpoint is reachable by anyone with 'team.view', which every role
+// including 'staff' has by default (rbac.ts) -- select('*') was shipping
+// SSN-adjacent fields to the browser for every team-roster page load with no
+// legitimate consumer (grepped src/app/dashboard for real usage: only
+// finance/reports/page.tsx reads these fields, via the finance-gated
+// payroll-prep endpoint, not this one). Found + fixed 2026-08-01 while
+// building the pii-05 checkpoint; no prod data changed, response-shape only.
+const TEAM_ROSTER_COLUMNS =
+  'id, tenant_id, name, email, phone, pin, role, status, hourly_rate, pay_rate, notes, ' +
+  'push_subscription, preferred_language, created_at, updated_at, service_zones, has_car, ' +
+  'max_travel_minutes, home_latitude, home_longitude, home_by_time, stripe_account_id, ' +
+  'sms_consent, labor_only, photo_url, address, calendar_color, priority, schedule, ' +
+  'unavailable_dates, working_days, working_start, working_end, max_jobs_per_day, ' +
+  'notification_preferences, avatar_url, lat, lng, stripe_ready_at, avg_rating, rating_count, ' +
+  'active, welcome_email_sent_at, welcome_sms_sent_at, retention_rate, clients_served, ' +
+  'clients_retained, retention_updated_at'
+
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
 
     const { data, error } = await tenantDb(tenantId)
       .from('team_members')
-      .select('*')
+      .select(TEAM_ROSTER_COLUMNS)
       .order('created_at', { ascending: false })
 
     if (error) {
