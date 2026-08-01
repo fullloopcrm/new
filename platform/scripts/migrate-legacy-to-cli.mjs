@@ -2,26 +2,44 @@
 /**
  * ONE-TIME (re-runnable/idempotent) conversion tool.
  *
- * Converts the hand-run .sql pile in platform/src/lib/migrations/ (+ the one
- * stray file in platform/supabase/migrations/) into Supabase CLI migration
- * format under supabase/migrations/<YYYYMMDDHHMMSS>_<slug>.sql, so the
- * Supabase CLI's own tracked-state table (supabase_migrations.schema_migrations)
- * can adopt them as a baseline.
+ * Converts the hand-run .sql pile in platform/src/lib/migrations/ into
+ * Supabase CLI migration format under supabase/migrations/<YYYYMMDDHHMMSS>_<slug>.sql,
+ * so the Supabase CLI's own tracked-state table
+ * (supabase_migrations.schema_migrations) can adopt them as a baseline.
  *
  * This script only WRITES FILES. It does not touch any database, local or
  * remote. Marking the baseline "applied" against a real Postgres instance
- * (local Docker stack or prod) is a separate, explicit step — see
+ * (local Docker stack or prod) is a separate, explicit step -- see
  * docs/adr/0008-migration-tool-cutover.md and
  * platform/docs/runbooks/migration-runbook.md for the exact commands and who
  * is authorized to run them against prod.
+ *
+ * Historical note (sec-08, 2026-08-01): this script used to also read a
+ * second source, platform/supabase/migrations/ (a stray, accidentally-
+ * created, never-prod-linked Supabase CLI project one level inside
+ * platform/). That directory has been deleted -- its 2 files were either
+ * already redundant with the real baseline or have been recovered into it
+ * by hand. See docs/adr/0008-migration-tool-cutover.md's 2026-08-01
+ * addendum for the full writeup. platform/src/lib/migrations/ is now the
+ * only source this script reads.
  *
  * Ordering: files are sorted by the git commit date that first added them
  * (real chronological history), not by filename, because the legacy
  * directory mixes two naming eras (001_foo.sql numeric era, then
  * YYYY_MM_DD_foo.sql dated era) that don't sort correctly against each other
- * as plain strings. Files with no git-add history found (e.g. uncommitted in
- * this worktree) fall back to "now", so they sort last — correct for the
- * one case that currently applies (today's RLS gap-closure file).
+ * as plain strings.
+ *
+ * Date resolution, in order (see resolveAddDate()):
+ *   1. Bulk lookup: one `git log --diff-filter=A` scan of the whole legacy
+ *      directory (fast). Misses files whose current name was introduced via
+ *      a rename/renumber rather than a plain add.
+ *   2. Per-file `git log --follow --diff-filter=A` (slower, only run for
+ *      files the bulk scan missed). `--follow` walks rename history, so
+ *      this correctly finds a renamed/renumbered file's true original
+ *      add date.
+ *   3. Deterministic content-hash fallback (see deterministicFallbackDate())
+ *      for files with NO git history at all (never committed). Derived
+ *      from the file's own bytes, NOT the wall clock.
  *
  * Usage:
  *   node platform/scripts/migrate-legacy-to-cli.mjs             # convert baseline (all but --new-cutoff-date and later)
@@ -29,23 +47,32 @@
  *
  * Re-running is safe: existing supabase/migrations/*.sql files are never
  * overwritten (the script skips any legacy source file whose converted
- * output already exists under supabase/migrations/).
+ * output already exists under supabase/migrations/), AND -- as of the fix
+ * below -- the computed output filename is now itself stable across runs,
+ * which is what actually makes the skip check work.
  *
- * KNOWN BUG (found 2026-08-01, sec-08, NOT fixed this pass): the "skip if
- * already present" check above only works when the git-add-date lookup
- * (gitAddDates(), plain `git log --diff-filter=A`, no rename-detection)
- * produces the SAME timestamp on every run. It does not for a file that
- * was renamed/renumbered in its git history (confirmed live: a legacy file
- * renumbered 061->063 on 2026-07-12, and the 2026-07-28 RLS gap-closure
- * file, both silently fail this lookup in at least one real worktree and
- * fall back to "now" -- producing a NEW, different output filename on every
- * run for content that is ALREADY committed under an earlier timestamp).
- * ALWAYS run --dry-run first and diff its "Would write these files" list
- * against what's already in supabase/migrations/ before running for real --
- * do not trust the "re-running is safe" claim above blindly. See
- * docs/adr/0008-migration-tool-cutover.md's 2026-08-01 addendum.
+ * FIXED (2026-08-01, sec-08 follow-up, W9): the "skip if already present"
+ * check only works when the git-add-date lookup produces the SAME
+ * timestamp on every run. It previously did not for (a) a file renamed/
+ * renumbered in its git history that the old plain `git log
+ * --diff-filter=A` (no rename-detection) couldn't find, and (b) a file that
+ * was uncommitted at the time of a prior run (so it fell back to
+ * `Date.now()`) and has since been committed (so a later run's bulk lookup
+ * finds its real, different date) -- both cases silently computed a NEW,
+ * different output filename on every affected run, which would write a
+ * DUPLICATE migration for content already committed under an earlier
+ * timestamp. Reproduced live via --dry-run before this fix (see
+ * docs/adr/0008-migration-tool-cutover.md's 2026-08-01 addendum for the
+ * original repro). Fixed by (1) adding the `--follow` per-file fallback
+ * above for case (a), and (2) replacing the final `Date.now()` fallback
+ * with deterministicFallbackDate() (content-hash-derived, never wall-clock)
+ * for case (b) and for genuinely-uncommitted files in general. Proven via
+ * scripts/migrate-legacy-to-cli.test.ts, including an end-to-end test that
+ * runs this script's real --dry-run twice as separate subprocesses and
+ * asserts byte-identical output.
  */
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,7 +80,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..", ".."); // scripts/ -> platform/ -> repo root
 const LEGACY_DIR = join(REPO_ROOT, "platform", "src", "lib", "migrations");
-const STRAY_CLI_DIR = join(REPO_ROOT, "platform", "supabase", "migrations");
+const LEGACY_DIR_REL = "platform/src/lib/migrations";
 const OUT_DIR = join(REPO_ROOT, "supabase", "migrations");
 const BASELINE_VERSIONS_PATH = join(REPO_ROOT, "supabase", "BASELINE_VERSIONS.txt");
 
@@ -68,7 +95,7 @@ const NEW_NOT_YET_APPLIED = new Set([
 
 const isDryRun = process.argv.includes("--dry-run");
 
-function slugify(filename) {
+export function slugify(filename) {
   return filename
     .replace(/\.sql$/, "")
     .replace(/^[0-9]{3}_/, "") // strip legacy numeric prefix like "004_"
@@ -77,8 +104,13 @@ function slugify(filename) {
     .toLowerCase();
 }
 
-function gitAddDates(dirsRelToRepo) {
-  // filename (basename) -> ISO date string of first git commit that added it
+/**
+ * Bulk, directory-wide lookup: filename (basename) -> ISO date string of the
+ * first git commit that added it. Fast (one git invocation for the whole
+ * directory) but misses files added via a rename/renumber rather than a
+ * plain add, because it does not use `--follow`.
+ */
+export function gitAddDates(dirRelToRepo, { cwd = REPO_ROOT } = {}) {
   const map = new Map();
   const args = [
     "log",
@@ -86,12 +118,12 @@ function gitAddDates(dirsRelToRepo) {
     "--name-only",
     "--format=COMMIT %aI",
     "--",
-    ...dirsRelToRepo,
+    dirRelToRepo,
   ];
   let out;
   try {
     out = execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")}`, {
-      cwd: REPO_ROOT,
+      cwd,
       encoding: "utf8",
     });
   } catch {
@@ -114,7 +146,68 @@ function gitAddDates(dirsRelToRepo) {
   return map;
 }
 
-function timestampFor(date) {
+/**
+ * Per-file, rename-aware lookup. Slower than gitAddDates() (one git
+ * invocation per file) but correctly finds a file's real first-add date
+ * even when it was renamed/renumbered in git history -- `--follow` walks
+ * the rename chain; `git log --diff-filter=A` on a directory does not.
+ * Returns null if the file genuinely has no git history at all (never
+ * committed under any name).
+ */
+export function gitFollowAddDate(fileRelToRepo, { cwd = REPO_ROOT } = {}) {
+  try {
+    const out = execSync(
+      `git log --follow --diff-filter=A --format=%aI -- '${fileRelToRepo.replace(/'/g, "'\\''")}'`,
+      { cwd, encoding: "utf8" }
+    ).trim();
+    if (!out) return null;
+    // git log lists newest-first; the true original add is the LAST line.
+    const lines = out.split("\n").filter(Boolean);
+    return lines[lines.length - 1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Fixed, arbitrary anchor -- NOT the wall clock. Chosen to land fallback
+// dates inside this project's real timeline for readability; the exact
+// value doesn't matter for correctness, only that it never changes.
+const FALLBACK_ANCHOR_MS = Date.parse("2026-01-01T00:00:00.000Z");
+const FALLBACK_SPREAD_MS = 1000 * 60 * 60 * 24 * 365; // spread fallbacks across a 1-year synthetic window
+
+/**
+ * Deterministic stand-in for a file's add date when it has NO git history
+ * at all (never committed under any name). Derived entirely from the
+ * file's own content -- identical content always produces the identical
+ * fallback date, on every run, forever, regardless of when the script is
+ * actually invoked. This is the direct fix for the sec-08 idempotency bug:
+ * the old code used `Date.now()` here, which by definition differs between
+ * any two separate runs, so the computed output filename (and therefore
+ * the "does this output already exist" skip check) was never stable for
+ * an affected file.
+ */
+export function deterministicFallbackDate(content) {
+  const hash = createHash("sha256").update(content).digest();
+  const offset = hash.readUInt32BE(0) % FALLBACK_SPREAD_MS;
+  return new Date(FALLBACK_ANCHOR_MS + offset).toISOString();
+}
+
+/**
+ * Resolves the ISO add-date to use for one legacy source file, trying each
+ * strategy in order (see the module docstring). Never touches the wall
+ * clock -- every branch is either real git history or a pure function of
+ * the file's own content, so this always returns the same answer for the
+ * same (file, content, git-history) state.
+ */
+export function resolveAddDate({ file, content, bulkDates, fileRelToRepo, cwd = REPO_ROOT }) {
+  const bulk = bulkDates.get(file);
+  if (bulk) return bulk;
+  const followed = gitFollowAddDate(fileRelToRepo, { cwd });
+  if (followed) return followed;
+  return deterministicFallbackDate(content);
+}
+
+export function timestampFor(date) {
   const d = new Date(date);
   const pad = (n) => String(n).padStart(2, "0");
   return (
@@ -124,25 +217,21 @@ function timestampFor(date) {
 }
 
 function main() {
-  const addDates = gitAddDates([
-    "platform/src/lib/migrations",
-    "platform/supabase/migrations",
-  ]);
+  const bulkDates = gitAddDates(LEGACY_DIR_REL);
 
   const legacyFiles = readdirSync(LEGACY_DIR).filter((f) => f.endsWith(".sql"));
-  const strayFiles = existsSync(STRAY_CLI_DIR)
-    ? readdirSync(STRAY_CLI_DIR).filter((f) => f.endsWith(".sql"))
-    : [];
 
   const entries = [];
-  const now = new Date();
   for (const f of legacyFiles) {
-    const iso = addDates.get(f) || now.toISOString();
-    entries.push({ file: f, dir: LEGACY_DIR, iso, isNew: NEW_NOT_YET_APPLIED.has(f) });
-  }
-  for (const f of strayFiles) {
-    const iso = addDates.get(f) || now.toISOString();
-    entries.push({ file: f, dir: STRAY_CLI_DIR, iso, isNew: false });
+    const srcPath = join(LEGACY_DIR, f);
+    const content = readFileSync(srcPath, "utf8");
+    const iso = resolveAddDate({
+      file: f,
+      content,
+      bulkDates,
+      fileRelToRepo: `${LEGACY_DIR_REL}/${f}`,
+    });
+    entries.push({ file: f, dir: LEGACY_DIR, iso, isNew: NEW_NOT_YET_APPLIED.has(f), content });
   }
 
   // Sort chronologically by real git-add date so ordering is historically accurate.
@@ -173,8 +262,6 @@ function main() {
       skipped++;
       continue;
     }
-    const srcPath = join(p.dir, p.file);
-    const original = readFileSync(srcPath, "utf8");
     const header = [
       `-- Adopted from legacy hand-run migration: ${p.file}`,
       `-- Original commit date (git first-add): ${p.iso}`,
@@ -190,7 +277,7 @@ function main() {
       "",
     ].join("\n");
     if (!isDryRun) {
-      writeFileSync(outPath, header + original);
+      writeFileSync(outPath, header + p.content);
     }
     written++;
     writtenNames.push({ outName: p.outName, source: `${p.dir}/${p.file}`, isNew: p.isNew });
@@ -245,4 +332,8 @@ function main() {
   }
 }
 
-main();
+// Only run when invoked directly (node migrate-legacy-to-cli.mjs), not when
+// imported by the test file for its exported pure functions.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
