@@ -25,6 +25,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import type { ServiceArea } from '@/lib/service-area'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER } from '@/lib/tenant-profile'
 
 export type FieldValue = string | number | boolean | string[] | Record<string, unknown> | null | undefined
 
@@ -56,24 +57,6 @@ function isWideField(f: ApiField): boolean {
 }
 
 type FormState = Record<string, FieldValue>
-
-const SECTION_META: Record<string, { title: string; blurb: string }> = {
-  identity: { title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
-  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
-  brand: { title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
-  services: { title: 'Services & Pricing', blurb: 'What you charge — the rest is set per-service.' },
-  scheduling: { title: 'Scheduling', blurb: 'Hours, booking rules, and holidays.' },
-  payments: { title: 'Payments', blurb: 'How clients pay you.' },
-  comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
-  reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
-  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
-  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
-  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
-  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
-  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
-  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
-}
-const SECTION_ORDER = ['identity', 'contact', 'brand', 'services', 'scheduling', 'payments', 'comms', 'reviews', 'referrals', 'proposals', 'team', 'compliance', 'seo', 'ai']
 
 type Mode = { mode: 'session' } | { mode: 'token'; token: string }
 
@@ -141,7 +124,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       const visitedSections = new Set(sections.filter((_, i) => visitedIdx.has(i)))
       const data: FormState = {}
       for (const f of fields) {
-        if (!f.readonly && visitedSections.has(f.section)) data[f.key] = form[f.key]
+        if (!f.readonly && visitedSections.has(f.section as typeof SECTION_ORDER[number])) data[f.key] = form[f.key]
       }
       await fetch('/api/tenant-profile', {
         method: 'PUT',

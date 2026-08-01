@@ -344,6 +344,40 @@ export const PROFILE_FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries
   PROFILE_FIELDS.map((f) => [f.key, f]),
 )
 
+/**
+ * Section order + display copy — the SINGLE source of truth for every
+ * surface that groups PROFILE_FIELDS into sections (the public
+ * /onboard/[token] link, the in-dashboard onboarding wizard, and the admin
+ * Profile Form all import this instead of keeping their own copy). Previously
+ * each of those kept its own hand-written order/title list and they drifted
+ * out of sync with each other (e.g. AI Persona was step 14 on one and step
+ * 12 on another) -- fixed 2026-08-01 by deleting the duplicates in favor of
+ * this one array.
+ */
+export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb: string }> = {
+  identity: { title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
+  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
+  brand: { title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
+  services: { title: 'Services & Pricing', blurb: 'What you charge — the rest is set per-service.' },
+  scheduling: { title: 'Scheduling', blurb: 'Hours, booking rules, and holidays.' },
+  payments: { title: 'Payments', blurb: 'How clients pay you.' },
+  comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
+  reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
+  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
+  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
+  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
+  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
+  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
+  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
+  account: { title: 'Account', blurb: 'Internal account details.' },
+}
+
+export const PROFILE_SECTION_ORDER: ProfileSection[] = [
+  'identity', 'contact', 'brand', 'services', 'scheduling',
+  'payments', 'comms', 'reviews', 'referrals', 'proposals',
+  'team', 'compliance', 'seo', 'ai',
+]
+
 /** Coerce an incoming value to a field's storage kind. Empty → null (clear). */
 export function coerceFieldValue(f: FieldDef, raw: unknown): unknown {
   if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return null
