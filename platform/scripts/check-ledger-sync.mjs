@@ -44,9 +44,26 @@ function resolveBaseRef() {
   }
 }
 
+// `git diff --name-only` always returns paths relative to the REPO ROOT, not
+// this script's cwd -- even run from platform/, it returns
+// 'platform/src/app/...', never 'src/app/...'. depends_on_files entries are
+// written relative to platform/ (matching LEDGER_GIT_PATH's own prefix
+// convention above), so every changed path needs that same prefix stripped
+// before comparison. Without this, `changed.has(dep)` can never be true --
+// confirmed 2026-08-01: this gate silently never caught a single stale
+// checkpoint since inception, in this exact repo layout, despite reporting
+// "clean" on every run. A file outside platform/ (nothing should be, but
+// don't silently mis-map if one ever is) is dropped rather than left
+// wrong-prefixed.
+const REPO_PREFIX = 'platform/'
 function changedFiles(baseRef) {
   const out = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`])
-  return new Set(out.split('\n').filter(Boolean))
+  const rel = out
+    .split('\n')
+    .filter(Boolean)
+    .filter((p) => p.startsWith(REPO_PREFIX))
+    .map((p) => p.slice(REPO_PREFIX.length))
+  return new Set(rel)
 }
 
 function loadLedgerAt(ref) {

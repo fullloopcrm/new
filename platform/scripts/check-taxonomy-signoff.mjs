@@ -26,8 +26,12 @@ function main() {
   const baseRef = resolveBaseRef()
   if (!baseRef) { console.log('check-taxonomy-signoff: could not resolve base ref, skipping.'); return }
 
+  // `git diff --name-only` returns repo-root-relative paths ('platform/docs/...'),
+  // never cwd-relative ones -- comparing against the bare TAXONOMY_REL below
+  // was always false, so this gate silently never fired since inception (same
+  // bug, same fix, as check-ledger-sync.mjs's changedFiles(), 2026-08-01).
   const changed = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`]).split('\n')
-  if (!changed.includes(TAXONOMY_REL)) {
+  if (!changed.includes(TAXONOMY_GIT)) {
     console.log('check-taxonomy-signoff: taxonomy.json not touched -- nothing to check.')
     return
   }
