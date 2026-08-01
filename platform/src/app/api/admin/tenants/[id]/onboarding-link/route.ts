@@ -34,7 +34,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { data: current } = await supabaseAdmin.from('tenants').select('onboarding_link_version').eq('id', id).single()
     if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const nextVersion = (current.onboarding_link_version || 1) + 1
-    const { error } = await supabaseAdmin.from('tenants').update({ onboarding_link_version: nextVersion }).eq('id', id)
+    // Regenerate means "start over" -- also reset the saved resume position
+    // (onboarding_draft.__step), or a fresh link still reopens wherever
+    // whoever last viewed it (often an admin testing) left off, instead of
+    // Step 1. Actual field VALUES already saved are untouched -- this only
+    // clears the draft blob/step, never the real profile data.
+    const { error } = await supabaseAdmin.from('tenants').update({ onboarding_link_version: nextVersion, onboarding_draft: null }).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ url: onboardingLinkUrl(id, nextVersion) })
   }

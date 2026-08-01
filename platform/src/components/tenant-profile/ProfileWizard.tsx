@@ -213,6 +213,10 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         <p className="text-sm text-slate-500">
           This wires your account across billing, HR, finance, your site, and AI. Save and finish anytime.
         </p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
+          {saving ? 'Saving…' : 'Every answer saves automatically as you type — nothing to submit until you\'re ready.'}
+        </p>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
