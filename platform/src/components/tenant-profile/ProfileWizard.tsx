@@ -44,6 +44,7 @@ export interface ApiField {
   funnels: string[] | null
   help: string | null
   platformManaged?: boolean
+  onboardingHidden?: boolean
 }
 
 // Grayed, disabled stand-in for platformManaged fields (vendor API keys,
@@ -198,7 +199,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
   const sectionKey = sections[step]
   const meta = SECTION_META[sectionKey] || { title: sectionKey, blurb: '' }
-  const sectionFields = fields.filter((f) => f.section === sectionKey && !f.readonly)
+  const sectionFields = fields.filter((f) => f.section === sectionKey && !f.readonly && !f.onboardingHidden)
   const pct = Math.round(((step + 1) / sections.length) * 100)
 
   return (
