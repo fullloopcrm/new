@@ -8,8 +8,16 @@ import { notify } from '@/lib/notify'
 export const maxDuration = 300
 
 // ── POST: Send a campaign with recipient-level tracking ──────────────
+// Gated on 'campaigns.send', not 'campaigns.create' -- these are separate,
+// independently customizable permissions (rbac.ts's PERMISSION_CATALOG lists
+// 'campaigns.send' as its own toggle, and tenants can revoke it per-role via
+// /api/settings/permissions while keeping campaigns.create). This route
+// dispatches real marketing email/SMS to real clients, which is what
+// campaigns.send exists to gate -- checking campaigns.create here let any
+// role with create-but-not-send bypass a tenant's own customized restriction.
+// Sibling /api/campaigns/[id]/send already checked the correct permission.
 export async function POST(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {
@@ -227,8 +235,10 @@ export async function POST(request: Request) {
 }
 
 // ── PUT: Retry failed recipients ─────────────────────────────────────
+// Same fix as POST above -- retrying dispatches real messages too, so this
+// must check campaigns.send, not campaigns.create.
 export async function PUT(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {

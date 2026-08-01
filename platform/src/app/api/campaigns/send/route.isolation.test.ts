@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
+import { requirePermission } from '@/lib/require-permission'
 
 /**
  * Tenant isolation — POST /api/campaigns/send (converted to tenantDb).
@@ -47,6 +48,21 @@ beforeEach(() => {
 function send(campaign_id: string) {
   return POST(new Request('http://t/api/campaigns/send', { method: 'POST', body: JSON.stringify({ campaign_id }) }))
 }
+
+describe('campaigns/send — permission gate (2026-08-01 fix)', () => {
+  // Regression lock: POST and PUT used to check 'campaigns.create' -- the
+  // wrong permission for an action that dispatches real marketing email/SMS
+  // to real clients. campaigns.create and campaigns.send are separate,
+  // independently tenant-customizable permissions (rbac.ts's
+  // PERMISSION_CATALOG lists 'campaigns.send' on its own); checking the
+  // wrong one let a role with create-but-not-send bypass a tenant's own
+  // customized restriction. Fixed to check 'campaigns.send' on both verbs.
+  it('POST requests the campaigns.send permission, not campaigns.create', async () => {
+    await send('camp-a')
+    expect(requirePermission).toHaveBeenCalledWith('campaigns.send')
+    expect(requirePermission).not.toHaveBeenCalledWith('campaigns.create')
+  })
+})
 
 describe('campaigns/send POST — tenant isolation', () => {
   it("positive control: own campaign is found; a foreign tenant's clients are NOT its audience", async () => {
