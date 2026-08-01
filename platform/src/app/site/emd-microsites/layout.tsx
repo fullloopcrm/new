@@ -31,6 +31,7 @@ export default function EmdMicrositeLayout({ children }: { children: React.React
       <main id="main-content">{children}</main>
       <ConsentGate>
         <Script id="floridamaid-analytics" src="/sites/the-florida-maid/t.js" strategy="afterInteractive" />
+        <Script id="tenant-analytics" src="/t.js" data-tenant="56490a6b-820c-49e6-8c14-cb4e54ffcb06" strategy="afterInteractive" />
       </ConsentGate>
       <ConsentBanner privacyHref="/privacy-policy" />
     </div>
