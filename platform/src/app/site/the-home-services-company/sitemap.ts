@@ -49,9 +49,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // /partnerships/[state] and /partnerships/[state]/[city] — this site's extra
   // tier; not part of the shared family tree.
   for (const st of STATES) {
-    specs.push({ loc: `${base}/partnerships/${st.slug}`, priority: 0.5, changeFrequency: 'monthly' })
+    specs.push({ loc: `${base}/partnerships/${st.slug}`, priority: 0.5, changeFrequency: 'monthly', kind: 'static' })
     for (const city of st.cities) {
-      specs.push({ loc: `${base}/partnerships/${st.slug}/${city.slug}`, priority: 0.4, changeFrequency: 'monthly' })
+      specs.push({ loc: `${base}/partnerships/${st.slug}/${city.slug}`, priority: 0.4, changeFrequency: 'monthly', kind: 'static' })
     }
   }
 

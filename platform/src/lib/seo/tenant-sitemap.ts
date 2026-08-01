@@ -21,10 +21,19 @@ import type { MetadataRoute } from 'next'
 
 export type ChangeFreq = MetadataRoute.Sitemap[number]['changeFrequency']
 
+/**
+ * Every tenant marketing site is built from the same four page families.
+ * Tagging each URL by kind lets shared seomgr systems (freshness, indexing,
+ * audits) act on "every job-posting URL across the fleet" or "every
+ * service+location page" without per-tenant special-casing.
+ */
+export type UrlKind = 'static' | 'service' | 'location' | 'service-location' | 'job-posting'
+
 export interface UrlSpec {
   loc: string
   priority: number
   changeFrequency: ChangeFreq
+  kind: UrlKind
 }
 
 export interface TenantSeoDescriptor {

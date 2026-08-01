@@ -1,9 +1,10 @@
 /**
  * The Florida Maid — tenant SEO descriptor for the shared sitemap engine.
- * Pulls from the tenant's own data modules. Mirrors the URL set verified live
- * on thefloridamaid.com (17 -> 1,161 URLs).
+ * Pulls from the tenant's own data modules. Covers all four page families
+ * every tenant site has: service, location, service+location, job-posting.
  */
 import { ALL_NEIGHBORHOODS, AREAS } from '@/app/site/the-florida-maid/_lib/seo/locations'
+import { SERVICES } from '@/app/site/the-florida-maid/_lib/seo/services'
 import { registerTenantSeo, type UrlSpec } from '@/lib/seo/tenant-sitemap'
 
 const BASE = 'https://www.thefloridamaid.com'
@@ -39,19 +40,29 @@ registerTenantSeo({
   buildUrls(): UrlSpec[] {
     const out: UrlSpec[] = []
     for (const s of STATIC) {
-      out.push({ loc: `${BASE}${s.path === '/' ? '' : s.path}`, priority: s.priority, changeFrequency: s.changeFrequency })
+      out.push({ loc: `${BASE}${s.path === '/' ? '' : s.path}`, priority: s.priority, changeFrequency: s.changeFrequency, kind: 'static' })
     }
-    // Area service pages — /[area.urlSlug] (11)
+    // Area location pages — /[area.urlSlug] (11)
     for (const a of AREAS) {
-      out.push({ loc: `${BASE}/${a.urlSlug}`, priority: 0.8, changeFrequency: 'weekly' })
+      out.push({ loc: `${BASE}/${a.urlSlug}`, priority: 0.8, changeFrequency: 'weekly', kind: 'location' })
     }
-    // Neighborhood service pages — /[neighborhood.urlSlug]
+    // Neighborhood location pages — /[neighborhood.urlSlug]
     for (const n of ALL_NEIGHBORHOODS) {
-      out.push({ loc: `${BASE}/${n.urlSlug}`, priority: 0.7, changeFrequency: 'weekly' })
+      out.push({ loc: `${BASE}/${n.urlSlug}`, priority: 0.7, changeFrequency: 'weekly', kind: 'location' })
+    }
+    // Service pages — /services/[service.urlSlug]
+    for (const s of SERVICES) {
+      out.push({ loc: `${BASE}/services/${s.urlSlug}`, priority: 0.8, changeFrequency: 'weekly', kind: 'service' })
+    }
+    // Service + location combo pages — /[neighborhood.urlSlug]/[service.slug]
+    for (const n of ALL_NEIGHBORHOODS) {
+      for (const s of SERVICES) {
+        out.push({ loc: `${BASE}/${n.urlSlug}/${s.slug}`, priority: 0.6, changeFrequency: 'monthly', kind: 'service-location' })
+      }
     }
     // Neighborhood JOB pages — /available-florida-maid-jobs/[neighborhood.slug]
     for (const n of ALL_NEIGHBORHOODS) {
-      out.push({ loc: `${BASE}/available-florida-maid-jobs/${n.slug}`, priority: 0.7, changeFrequency: 'weekly' })
+      out.push({ loc: `${BASE}/available-florida-maid-jobs/${n.slug}`, priority: 0.7, changeFrequency: 'weekly', kind: 'job-posting' })
     }
     return out
   },

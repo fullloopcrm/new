@@ -66,7 +66,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ]
   for (const tier of roadwayTiers) {
     for (const r of tier.items) {
-      specs.push({ loc: `${base}/${tier.segment}/${r.slug}`, priority: 0.5, changeFrequency: 'monthly' })
+      specs.push({ loc: `${base}/${tier.segment}/${r.slug}`, priority: 0.5, changeFrequency: 'monthly', kind: 'location' })
     }
   }
 

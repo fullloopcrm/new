@@ -51,8 +51,8 @@ export const QUEENS_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['astoria'],
   },
   {
-    slug: 'roosevelt-island',
-    urlSlug: 'roosevelt-island-maid-service',
+    slug: 'roosevelt-island-queens',
+    urlSlug: 'roosevelt-island-queens-maid-service',
     name: 'Roosevelt Island',
     area: 'queens',
     lat: 40.7620, lng: -73.9500,

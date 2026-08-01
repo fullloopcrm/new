@@ -14,7 +14,7 @@
  * who-we-serve hubs — same tradeoff the We-Pay-You-Junk sitemap already makes.
  * Every slug here comes straight from the site's own data, so no URL 404s.
  */
-import type { UrlSpec, ChangeFreq } from '../tenant-sitemap'
+import type { UrlSpec, ChangeFreq, UrlKind } from '../tenant-sitemap'
 
 interface HasSlug {
   slug: string
@@ -50,27 +50,27 @@ export function buildTowFamilyUrls(
 ): UrlSpec[] {
   const base = baseUrl.replace(/\/+$/, '')
   const urls: UrlSpec[] = []
-  const push = (path: string, priority: number, changeFrequency: ChangeFreq) => {
-    urls.push({ loc: `${base}${path === '/' ? '' : path}`, priority, changeFrequency })
+  const push = (path: string, priority: number, changeFrequency: ChangeFreq, kind: UrlKind) => {
+    urls.push({ loc: `${base}${path === '/' ? '' : path}`, priority, changeFrequency, kind })
   }
 
-  for (const s of statics) push(s.path, s.priority, s.changeFrequency)
+  for (const s of statics) push(s.path, s.priority, s.changeFrequency, 'static')
 
   for (const svc of data.services) {
-    push(`/services/${svc.slug}`, 0.8, 'weekly')
-    if (opts.serviceTips) push(`/services/${svc.slug}/tips`, 0.5, 'monthly')
+    push(`/services/${svc.slug}`, 0.8, 'weekly', 'service')
+    if (opts.serviceTips) push(`/services/${svc.slug}/tips`, 0.5, 'monthly', 'service')
   }
 
-  for (const post of data.blogPosts) push(`/blog/${post.slug}`, 0.5, 'monthly')
+  for (const post of data.blogPosts) push(`/blog/${post.slug}`, 0.5, 'monthly', 'static')
 
-  for (const ct of data.customerTypes) push(`/who-we-serve/${ct.slug}`, 0.6, 'monthly')
+  for (const ct of data.customerTypes) push(`/who-we-serve/${ct.slug}`, 0.6, 'monthly', 'static')
 
   for (const st of data.states) {
-    push(`/locations/${st.slug}`, 0.7, 'weekly')
-    push(`/careers/${st.slug}`, 0.5, 'monthly')
+    push(`/locations/${st.slug}`, 0.7, 'weekly', 'location')
+    push(`/careers/${st.slug}`, 0.5, 'monthly', 'job-posting')
     for (const city of st.cities) {
-      push(`/locations/${st.slug}/${city.slug}`, 0.6, 'monthly')
-      push(`/careers/${st.slug}/${city.slug}`, 0.4, 'monthly')
+      push(`/locations/${st.slug}/${city.slug}`, 0.6, 'monthly', 'location')
+      push(`/careers/${st.slug}/${city.slug}`, 0.4, 'monthly', 'job-posting')
     }
   }
 

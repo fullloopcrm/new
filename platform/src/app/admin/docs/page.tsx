@@ -247,7 +247,7 @@ Of 13 RLS migration files, **5 are applied** (\`046_rls_deny_on_new_tables\`, \`
 | \`/api/cron/post-job-followup\` | every 30 min | yes |
 | \`/api/cron/rating-prompt\` | every 5 min | yes |
 | \`/api/cron/recurring-expenses\` | daily 6:00 UTC | yes |
-| \`/api/cron/refresh-job-postings\` | daily 3:00 UTC | yes |
+| \`/api/cron/seo-freshness\` | daily 3:00 UTC (part of seomgr) | yes |
 | \`/api/cron/refresh-social-tokens\` | daily 3:30 UTC | yes |
 | \`/api/cron/release-due-payments\` | daily 7:00 UTC | yes |
 | \`/api/cron/reminders\` | hourly | yes |

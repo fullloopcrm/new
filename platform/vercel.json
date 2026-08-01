@@ -65,6 +65,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/seo-freshness",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/cron/seo-verify-revert",
       "schedule": "15 9 * * *"
     },
@@ -159,10 +163,6 @@
     {
       "path": "/api/cron/phone-fixup",
       "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/refresh-job-postings",
-      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/comhub-email",
