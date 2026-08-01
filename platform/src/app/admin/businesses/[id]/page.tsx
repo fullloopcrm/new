@@ -487,6 +487,12 @@ export default function BusinessDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input readOnly value={onboardingUrl} placeholder="Loading…"
               className="flex-1 min-w-[240px] bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
+            {onboardingUrl && (
+              <a href={onboardingUrl} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">
+                Open ↗
+              </a>
+            )}
             <button onClick={copyOnboardingLink} disabled={!onboardingUrl}
               className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50">
               Copy
