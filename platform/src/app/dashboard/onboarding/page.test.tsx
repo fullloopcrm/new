@@ -45,9 +45,11 @@ describe('OnboardingProfilePage — autosave', () => {
 
     render(<OnboardingProfilePage />)
 
-    await waitFor(() => expect(screen.getByLabelText('Business name')).toBeInTheDocument())
+    // ProfileWizard prefixes labels with a numbered step (e.g. "1.1 Business name"),
+    // so match on the label text rather than an exact string.
+    await waitFor(() => expect(screen.getByLabelText(/Business name/i)).toBeInTheDocument())
 
-    fireEvent.change(screen.getByLabelText('Business name'), {
+    fireEvent.change(screen.getByLabelText(/Business name/i), {
       target: { value: 'Chad Dumpster Rentals' },
     })
 
