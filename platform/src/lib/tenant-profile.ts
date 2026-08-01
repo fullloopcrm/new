@@ -225,15 +225,17 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', read: (x) => t(x, 'secondary_color') },
   { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
   { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'textarea', tier: 'critical', read: (x) => s(x, 'business_description') },
-  { key: 'businessStory', label: 'Your story', section: 'brand', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
-  { key: 'targetCustomer', label: 'Target customer', section: 'brand', store: 'selena', col: 'target_customer', input: 'textarea', tier: 'optional', read: (x) => s(x, 'target_customer') },
-  { key: 'competitors', label: 'Competitors', section: 'brand', store: 'selena', col: 'competitors', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'competitors') },
-  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', read: (x) => s(x, 'differentiators') },
+  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', help: 'The real reason a customer picks you over the next search result — faster response time, a guarantee, years in business, whatever\'s actually true.', read: (x) => s(x, 'differentiators') },
+
+  // ── Marketing (section key stays 'seo' -- see PROFILE_SECTION_META) ──
+  { key: 'businessStory', label: 'Your story', section: 'seo', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
+  { key: 'targetCustomer', label: 'Target customer', section: 'seo', store: 'selena', col: 'target_customer', input: 'textarea', tier: 'optional', help: 'Who you\'re trying to reach — e.g. "busy families in North Jersey" or "property managers with 5+ units." Helps your site and AI speak to the right person.', read: (x) => s(x, 'target_customer') },
+  { key: 'competitors', label: 'Competitors', section: 'seo', store: 'selena', col: 'competitors', kind: 'array', input: 'array', tier: 'optional', help: 'Other businesses customers compare you to. Optional, but helps us position you well in your marketing.', read: (x) => s(x, 'competitors') },
   // Whole {facebook, instagram, tiktok, linkedin, youtube, x} object, written
   // atomically as one selena_config.social key — same reasoning as serviceArea:
   // preserves the existing nested storage shape other readers (site footer,
   // schema.org) already expect, and a custom renderer handles the sub-fields.
-  { key: 'socialLinks', label: 'Social links', section: 'brand', store: 'selena', col: 'social', input: 'custom', tier: 'optional', read: (x) => x.social },
+  { key: 'socialLinks', label: 'Social links', section: 'seo', store: 'selena', col: 'social', input: 'custom', tier: 'optional', read: (x) => x.social },
 
   // ── Services & pricing ─── pricing lives in service_types (own editor); readonly here.
   { key: 'servicePricing', label: 'Per-service pricing', section: 'services', store: 'tenant', readonly: true, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => x.services.some((sv) => sv.active && (sv.rate ?? 0) > 0) },
@@ -285,11 +287,16 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'autoPayReferrals', label: 'Auto-pay referrals', section: 'referrals', store: 'selena', col: 'auto_pay_referrals', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_pay_referrals') },
   { key: 'referralMinPayout', label: 'Min referral payout ($)', section: 'referrals', store: 'selena', col: 'referral_min_payout', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'referral_min_payout') },
 
-  // ── Proposals (pipeline) ──────────────────────────────────────────
-  { key: 'proposalTerms', label: 'Proposal terms', section: 'proposals', store: 'selena', col: 'proposal_terms', input: 'textarea', tier: 'critical', funnels: ['pipeline'], read: (x) => s(x, 'proposal_terms') },
-  { key: 'proposalDepositType', label: 'Deposit type', section: 'proposals', store: 'selena', col: 'proposal_deposit_type', input: 'select', options: DEPOSIT_OPTIONS, tier: 'recommended', funnels: ['pipeline'], read: (x) => s(x, 'proposal_deposit_type') },
-  { key: 'proposalDepositValue', label: 'Deposit amount', section: 'proposals', store: 'selena', col: 'proposal_deposit_value', kind: 'number', input: 'number', tier: 'recommended', funnels: ['pipeline'], read: (x) => s(x, 'proposal_deposit_value') },
-  { key: 'proposalValidDays', label: 'Proposal valid (days)', section: 'proposals', store: 'selena', col: 'proposal_valid_days', kind: 'number', input: 'number', tier: 'optional', funnels: ['pipeline'], read: (x) => s(x, 'proposal_valid_days') },
+  // ── Agreements & Legal (section key stays 'proposals' -- see PROFILE_SECTION_META) ──
+  { key: 'proposalTerms', label: 'Proposal terms', section: 'proposals', store: 'selena', col: 'proposal_terms', input: 'textarea', tier: 'critical', funnels: ['pipeline'], help: 'The terms you attach to every quote/proposal you send — scope of work, what\'s included, payment schedule.', read: (x) => s(x, 'proposal_terms') },
+  { key: 'proposalDepositType', label: 'Deposit type', section: 'proposals', store: 'selena', col: 'proposal_deposit_type', input: 'select', options: DEPOSIT_OPTIONS, tier: 'recommended', funnels: ['pipeline'], help: 'Do you require a deposit before starting a job? None, a flat dollar amount, or a percentage of the total.', read: (x) => s(x, 'proposal_deposit_type') },
+  { key: 'proposalDepositValue', label: 'Deposit amount', section: 'proposals', store: 'selena', col: 'proposal_deposit_value', kind: 'number', input: 'number', tier: 'recommended', funnels: ['pipeline'], help: 'The dollar amount, or percentage (0-100) if Deposit type is "percent."', read: (x) => s(x, 'proposal_deposit_value') },
+  { key: 'proposalValidDays', label: 'Proposal valid (days)', section: 'proposals', store: 'selena', col: 'proposal_valid_days', kind: 'number', input: 'number', tier: 'optional', funnels: ['pipeline'], help: 'How many days a quote stays valid before it expires and needs to be re-sent.', read: (x) => s(x, 'proposal_valid_days') },
+  { key: 'refundPolicy', label: 'Refund policy', section: 'proposals', store: 'selena', col: 'refund_policy', input: 'textarea', tier: 'recommended', help: 'Under what conditions do you give a refund? This governs what your AI agent tells clients — leave blank and it will always hand refund questions to a human instead of guessing.', read: (x) => s(x, 'refund_policy') },
+  { key: 'cancellationPolicy', label: 'Cancellation policy', section: 'proposals', store: 'selena', col: 'cancellation_policy', input: 'textarea', tier: 'recommended', help: 'What happens if a client cancels — notice required, any fee. Blank means your AI agent defers to a human instead of guessing.', read: (x) => s(x, 'cancellation_policy') },
+  { key: 'reschedulePolicy', label: 'Rescheduling policy', section: 'proposals', store: 'selena', col: 'reschedule_policy', input: 'textarea', tier: 'recommended', help: 'Your rules for rescheduling a booking — how much notice, any fee. Blank means your AI agent defers to a human.', read: (x) => s(x, 'reschedule_policy') },
+  { key: 'latePaymentPolicy', label: 'Late-payment policy', section: 'proposals', store: 'selena', col: 'late_payment_policy', input: 'textarea', tier: 'recommended', help: 'How you handle an overdue invoice — late fee, follow-up timeline. Blank means your AI agent defers to a human.', read: (x) => s(x, 'late_payment_policy') },
+  { key: 'generalTerms', label: 'General terms & conditions', section: 'proposals', store: 'selena', col: 'general_terms', input: 'textarea', tier: 'optional', help: 'Any other standing rules for doing business with you — liability limits, property access, weather delays, whatever applies to your trade. Shown on proposals/agreements alongside the terms above.', read: (x) => s(x, 'general_terms') },
 
   // ── Team defaults ─────────────────────────────────────────────────
   { key: 'defaultPayRate', label: 'Default pay rate ($/hr)', section: 'team', store: 'selena', col: 'default_pay_rate', kind: 'number', input: 'number', tier: 'recommended', read: (x) => s(x, 'default_pay_rate') },
@@ -318,10 +325,10 @@ export const PROFILE_FIELDS: FieldDef[] = [
   // Blank/not-applicable is a real, supported answer: buildPlaybook/persona-file
   // render an explicit "no policy on file — escalate to a human" line instead
   // of guessing, so leaving these blank never causes a hallucinated policy.
-  { key: 'cancellationPolicy', label: 'Cancellation policy (blank = agent defers to a human)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'cancellation_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'cancellation_policy') },
-  { key: 'reschedulePolicy', label: 'Rescheduling policy (blank = agent defers to a human)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'reschedule_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'reschedule_policy') },
-  { key: 'refundPolicy', label: 'Refund policy', section: 'ai', onboardingHidden: true, store: 'selena', col: 'refund_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'refund_policy') },
-  { key: 'latePaymentPolicy', label: 'Late-payment / overdue-invoice handling (blank = agent defers to a human)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'late_payment_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'late_payment_policy') },
+  // cancellationPolicy/reschedulePolicy/refundPolicy/latePaymentPolicy moved to
+  // the Agreements & Legal section (2026-08-01) -- these are real business
+  // policies a tenant sets regardless of whether they even use the AI agent;
+  // the agent just reads the same stored value from there.
   { key: 'outOfScope', label: 'Explicitly out of scope (what you do NOT do)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'out_of_scope', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'out_of_scope') },
 
   // ── AI persona: real FAQ (2026-07-30) ──────────────────────────────
@@ -408,10 +415,10 @@ export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb
   comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
   reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
   referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
-  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
+  proposals: { title: 'Agreements & Legal', blurb: 'The terms, policies, and fine print that protect your business.' },
   team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
   compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
-  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
+  seo: { title: 'Marketing', blurb: 'Who you\'re for, how you stand out, and where customers find you.' },
   ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
   account: { title: 'Account', blurb: 'Internal account details.' },
 }
