@@ -160,7 +160,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     fetch(`/api/clients/${initialValues.clientId}`).then(r => r.ok ? r.json() : null).then(d => {
       if (!d?.client) return
       setKnownClients(prev => ({ ...prev, [d.client.id]: d.client }))
-      setClientSearch(d.client.name + (d.client.phone ? ' - ' + d.client.phone : ''))
+      setClientSearch(d.client.name + (d.client.phone ? ' - ' + d.client.phone : '') + (d.client.address ? ' - ' + d.client.address : ''))
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues?.clientId, lockedClientId])
@@ -466,7 +466,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
             <div>
               <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Client</label>
               <div className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)] bg-gray-50">
-                {lockedClient ? `${lockedClient.name}${lockedClient.phone ? ' · ' + formatPhone(lockedClient.phone) : ''}` : '…'}
+                {lockedClient ? `${lockedClient.name}${lockedClient.phone ? ' · ' + formatPhone(lockedClient.phone) : ''}${lockedClient.address ? ' · ' + lockedClient.address : ''}` : '…'}
               </div>
             </div>
           ) : (
@@ -490,6 +490,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
                       <button key={client.id} type="button" onClick={() => handleClientSelect(client)} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
                         <div className="font-medium text-[var(--sched-ink)]">{client.name}</div>
                         <div className="text-sm text-gray-500">{formatPhone(client.phone)}</div>
+                        {client.address && <div className="text-sm text-gray-500 truncate">{client.address}</div>}
                       </button>
                     ))
                   ) : clientSearch ? (
