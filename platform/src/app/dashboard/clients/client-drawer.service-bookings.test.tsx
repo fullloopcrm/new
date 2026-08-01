@@ -69,7 +69,7 @@ describe('ClientDrawer — Service tab shows clickable bookings', () => {
     push.mockReset()
   })
 
-  it('lists the booking on the Service tab and Edit opens the booking page', async () => {
+  it('lists the booking on the Service tab and Edit opens the booking pop-out', async () => {
     vi.stubGlobal('fetch', mockFetch())
     render(<ClientDrawer client={CLIENT} tenantSlug="nycmaid" open onClose={vi.fn()} />)
 
@@ -79,6 +79,17 @@ describe('ClientDrawer — Service tab shows clickable bookings', () => {
     expect(screen.getByText('Standard Cleaning', { exact: false })).toBeInTheDocument()
 
     fireEvent.click(editBtn)
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/bookings/bk-1'))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/bookings?edit=bk-1'))
+  })
+
+  it('clicking the booking row itself (not just the Edit button) opens the pop-out too', async () => {
+    vi.stubGlobal('fetch', mockFetch())
+    render(<ClientDrawer client={CLIENT} tenantSlug="nycmaid" open onClose={vi.fn()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Service' }))
+
+    const row = await screen.findByText('Standard Cleaning', { exact: false })
+    fireEvent.click(row)
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/bookings?edit=bk-1'))
   })
 })
