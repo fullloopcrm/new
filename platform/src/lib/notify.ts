@@ -62,6 +62,7 @@ export type NotificationType =
   | 'payment_due'
   | 'daily_ops_recap'
   | 'daily_digest'
+  | 'seo_digest'
   | 'booking_received'
   | 'new_lead'
   | 'waitlist'

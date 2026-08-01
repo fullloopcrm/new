@@ -9,3 +9,5 @@
 
 export { TENANT_SEO, buildTenantSitemap, registerTenantSeo } from './tenant-sitemap'
 export type { TenantSeoDescriptor, UrlSpec, ChangeFreq } from './tenant-sitemap'
+
+import './tenants/the-florida-maid'

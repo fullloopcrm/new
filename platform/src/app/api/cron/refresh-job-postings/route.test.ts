@@ -21,6 +21,11 @@ vi.mock('next/cache', () => ({
   },
 }))
 
+vi.stubGlobal(
+  'fetch',
+  vi.fn(async () => new Response(null, { status: 200 })),
+)
+
 import { GET } from './route'
 
 function req() {

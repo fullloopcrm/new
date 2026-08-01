@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { TENANT_SEO } from '@/lib/seo/tenant-seo'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 // Career-page freshness cron.
 //
@@ -16,6 +21,17 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 // every page nested under that section. One call per section therefore
 // sweeps every city/state/neighborhood page beneath it — including any
 // newly added pages — so the next crawl regenerates a fresh date.
+//
+// INVALIDATION ALONE IS NOT ENOUGH: `revalidatePath` only marks a route
+// stale — Next only actually re-renders it on the NEXT real request. A
+// long-tail job page with little/no organic traffic can sit invalidated
+// for weeks with nobody (not even Googlebot) requesting it, so its
+// `datePosted` stays frozen at whatever it was on its last real hit. For
+// any tenant with a registered per-URL sitemap descriptor (TENANT_SEO),
+// forceRegenerateJobPages() below closes that gap by fetching every
+// individual job-posting URL itself right after invalidating — so every
+// posting genuinely re-renders on THIS cron's schedule, not on however
+// often a visitor happens to show up.
 //
 // NEW TENANTS ARE AUTO-COVERED. Every new tenant renders from the shared
 // `/site/template`, so the `/site/template/...` roots below sweep all current
@@ -70,6 +86,38 @@ const CAREER_SECTION_ROOTS: readonly string[] = [
   '/site/we-pay-you-junk/careers',
 ]
 
+// Tenants with a rich per-URL sitemap descriptor (TENANT_SEO) whose job
+// postings get force-regenerated (not just cache-invalidated) below. Maps
+// tenant slug -> the public path segment that marks a job-posting URL
+// within that tenant's descriptor output. Add an entry here when a tenant
+// with individual job-posting pages gets onboarded onto TENANT_SEO.
+const FORCE_REGEN_JOB_TENANTS: Record<string, string> = {
+  'the-florida-maid': '/available-florida-maid-jobs/',
+}
+
+const FORCE_REGEN_CONCURRENCY = 15
+
+async function forceRegenerateJobPages(): Promise<{ attempted: number; failed: number }> {
+  const jobUrls: string[] = []
+  for (const [slug, marker] of Object.entries(FORCE_REGEN_JOB_TENANTS)) {
+    const descriptor = TENANT_SEO[slug]
+    if (!descriptor) continue
+    for (const u of descriptor.buildUrls()) {
+      if (u.loc.includes(marker)) jobUrls.push(u.loc)
+    }
+  }
+
+  let failed = 0
+  for (let i = 0; i < jobUrls.length; i += FORCE_REGEN_CONCURRENCY) {
+    const batch = jobUrls.slice(i, i + FORCE_REGEN_CONCURRENCY)
+    const results = await Promise.allSettled(
+      batch.map((url) => fetch(url, { cache: 'no-store', headers: { 'x-seo-refresh': '1' } })),
+    )
+    failed += results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
+  }
+  return { attempted: jobUrls.length, failed }
+}
+
 export async function GET(request: Request) {
   const authError = protectCronAPI(request)
   if (authError) return authError
@@ -89,11 +137,18 @@ export async function GET(request: Request) {
     }
   }
 
+  const forceRegen = await forceRegenerateJobPages().catch((error) => ({
+    attempted: 0,
+    failed: 0,
+    error: error instanceof Error ? error.message : String(error),
+  }))
+
   return NextResponse.json({
     refreshed: refreshed.length,
     failed: failed.length,
     sections: refreshed,
     errors: failed,
+    forceRegen,
     at: new Date().toISOString(),
   })
 }

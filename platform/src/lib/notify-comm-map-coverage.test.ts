@@ -148,6 +148,7 @@ const PINNED_UNGATED = [
   'referral_lead|admin|email',
   'review_received|admin|email',
   'running_late|admin|email',
+  'seo_digest|admin|email',
   'team_confirm_request|team_member|sms',
   'team_member_added|admin|email',
   'team_member_added|team_member|sms',
