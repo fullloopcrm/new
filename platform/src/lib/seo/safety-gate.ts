@@ -101,11 +101,21 @@ export function evaluateSafety(input: SafetyInput): SafetyResult {
   const introduced = [...claimSet(after)].filter((c) => !claimSet(before).has(c))
   if (introduced.length) reasons.push(`introduces unverified claim: ${introduced.join(', ')}`)
 
-  // 3. No competitor names.
+  // 3. No NEWLY-INTRODUCED competitor names — same principle as claims above.
+  // competitorBrands is derived from competitor domains (e.g. towing.com ->
+  // "towing", roadside.aaa.com -> "roadside"), which are often just generic
+  // industry words that legitimately belong in the tenant's own copy too
+  // (thenyctowingservice.com obviously needs to say "towing"). Don't decide
+  // whether the word is "really" a competitor callout — only block it if the
+  // rewrite introduces it where the tenant's own existing copy didn't already
+  // use it.
   const afterNorm = norm(after)
-  const namedRival = (input.competitorBrands ?? []).find(
-    (b) => b.length >= 3 && new RegExp(`\\b${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(afterNorm),
-  )
+  const beforeNorm = norm(before)
+  const namedRival = (input.competitorBrands ?? []).find((b) => {
+    if (b.length < 3) return false
+    const re = new RegExp(`\\b${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+    return re.test(afterNorm) && !re.test(beforeNorm)
+  })
   if (namedRival) reasons.push(`names competitor: ${namedRival}`)
 
   // 4. No shouting (>2 all-caps words).
