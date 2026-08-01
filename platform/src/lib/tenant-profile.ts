@@ -309,9 +309,15 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'generalTerms', label: 'General terms & conditions', section: 'proposals', store: 'selena', col: 'general_terms', input: 'textarea', tier: 'optional', help: 'Any other standing rules for doing business with you — liability limits, property access, weather delays, whatever applies to your trade. Shown on proposals/agreements alongside the terms above.', read: (x) => s(x, 'general_terms') },
 
   // ── Team defaults ─────────────────────────────────────────────────
-  { key: 'defaultPayRate', label: 'Default pay rate ($/hr)', section: 'team', store: 'selena', col: 'default_pay_rate', kind: 'number', input: 'number', tier: 'recommended', read: (x) => s(x, 'default_pay_rate') },
-  { key: 'defaultWorkingDays', label: 'Default working days', section: 'team', store: 'selena', col: 'default_working_days', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'default_working_days') },
-  { key: 'teamRoles', label: 'Team roles', section: 'team', store: 'selena', col: 'team_roles', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'team_roles') },
+  { key: 'defaultPayRate', label: 'Default pay rate ($/hr)', section: 'team', store: 'selena', col: 'default_pay_rate', kind: 'number', input: 'number', tier: 'recommended', help: 'The fallback hourly rate for a new team member when their role doesn\'t have its own rate set below.', read: (x) => s(x, 'default_pay_rate') },
+  { key: 'defaultWorkingDays', label: 'Default working days', section: 'team', store: 'selena', col: 'default_working_days', kind: 'array', input: 'array', tier: 'optional', help: 'Which days a new team member is assumed available, until you set their own schedule.', read: (x) => s(x, 'default_working_days') },
+  { key: 'teamRoles', label: 'Team roles', section: 'team', store: 'selena', col: 'team_roles', kind: 'array', input: 'custom', tier: 'optional', help: 'The job titles you\'ll assign team members to — e.g. Admin, Salesperson, Cleaner. Add one at a time.', read: (x) => s(x, 'team_roles') },
+  // {role, hourlyRate}[] -- deliberately separate from teamRoles above (a
+  // plain string[] several other consumers already read/write, see
+  // lib/settings.ts + api/settings/team) rather than changing that field's
+  // shape and risking those. Not auto-synced with the role names above; the
+  // tenant fills both. New jsonb key, no migration.
+  { key: 'teamRoleRates', label: 'Pay rate by role', section: 'team', store: 'selena', col: 'team_role_rates', input: 'custom', tier: 'optional', help: 'If different roles get paid differently (e.g. a Lead Cleaner earns more than a Cleaner), set each role\'s rate here — overrides the default pay rate above for that role.', read: (x) => s(x, 'team_role_rates') },
 
   // ── AI persona ────────────────────────────────────────────────────
   { key: 'aiName', label: 'What would you like to name your agent?', section: 'ai', store: 'selena', col: 'ai_name', tier: 'recommended', help: 'This is your digital AI administrator — it answers client questions, books jobs, and follows up, all under whatever name you give it. You can fine-tune how it talks and its policies anytime later in Settings.', read: (x) => s(x, 'ai_name') },

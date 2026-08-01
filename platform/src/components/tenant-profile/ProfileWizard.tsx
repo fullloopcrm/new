@@ -343,6 +343,19 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
       )
     }
     if (field.key === 'holidayDates') return <HolidayDatesEditor value={value} onChange={onChange} />
+    if (field.key === 'teamRoles') return <TagListEditor label={field.label} value={value} onChange={onChange} placeholder="e.g. Admin, Salesperson, Cleaner" addLabel="+ Add role" />
+    if (field.key === 'teamRoleRates') {
+      return (
+        <PairListEditor
+          label={field.label}
+          value={value}
+          onChange={onChange}
+          keyA="role" keyB="hourlyRate"
+          placeholderA="Role (e.g. Lead Cleaner)" placeholderB="$/hr"
+          addLabel="+ Add rate"
+        />
+      )
+    }
     if (field.key === 'socialLinks') return <SocialLinksEditor value={value} onChange={onChange} />
     if (field.key === 'faqs') {
       return (
@@ -571,6 +584,50 @@ function PairListEditor({
 }
 
 interface HolidayDate { date: string; label: string; recurring?: boolean }
+
+/**
+ * +Add / remove list of plain strings — for fields that used to render as
+ * "comma-separated" text inputs (a real reported confusion point: teamRoles,
+ * see task tracking 2026-08-01) but are conceptually a list of short items,
+ * not a sentence.
+ */
+function TagListEditor({ label, value, onChange, placeholder, addLabel }: {
+  label: string; value: FieldValue; onChange: (v: FieldValue) => void; placeholder: string; addLabel: string
+}) {
+  const items = (Array.isArray(value) ? value : []) as string[]
+  const [draft, setDraft] = useState('')
+  const add = () => {
+    const v = draft.trim()
+    if (!v) return
+    onChange([...items, v])
+    setDraft('')
+  }
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {items.map((item, i) => (
+          <span key={`${item}-${i}`} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+            {item}
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500">×</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder}
+          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+        />
+        <button type="button" onClick={add} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50">
+          {addLabel}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function HolidayDatesEditor({ value, onChange }: { value: FieldValue; onChange: (v: FieldValue) => void }) {
   const dates = (Array.isArray(value) ? value : []) as unknown as HolidayDate[]

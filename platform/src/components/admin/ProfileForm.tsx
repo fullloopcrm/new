@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PROFILE_SECTION_META, PROFILE_SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
 
 type Tier = 'critical' | 'recommended' | 'optional'
-type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array'
+type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array' | 'custom'
 type Opt = string | { label: string; value: string | number }
 
 interface Field {
@@ -281,6 +281,16 @@ function FieldRow({ field: f, value, state, onChange }: {
         <input className={cls} placeholder="comma, separated"
           value={Array.isArray(value) ? value.join(', ') : (value as string) ?? ''}
           onChange={(e) => onChange(f.key, e.target.value)} onBlur={(e) => commit(e.target.value)} />
+      ) : type === 'custom' ? (
+        // No structured editor ported here yet (serviceArea, socialLinks,
+        // holidayDates, faqs, objectionHandlers, addons, teamRoles,
+        // teamRoleRates) -- these are objects/arrays of objects, and the
+        // generic text input below would stringify-and-corrupt them on
+        // save. Read-only here on purpose until each gets a real editor;
+        // edit via the onboarding link/wizard, which already has one.
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+          {value ? 'Set — edit via the onboarding link or dashboard wizard' : 'Not set'}
+        </div>
       ) : (
         <input className={cls} value={(value as string) ?? ''} onChange={(e) => onChange(f.key, e.target.value)} onBlur={(e) => commit(e.target.value)} />
       )}
