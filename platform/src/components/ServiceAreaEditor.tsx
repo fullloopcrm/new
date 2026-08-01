@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { US_STATES, isStateScoped, type BusinessScope, type ServiceArea, type ServiceZone } from '@/lib/service-area'
+import { US_STATES, isStateScoped, neighboringStates, type BusinessScope, type ServiceArea, type ServiceZone } from '@/lib/service-area'
 
 interface Props {
   onSaved?: (area: ServiceArea) => void
@@ -16,9 +16,15 @@ interface Props {
   embedded?: boolean
   value?: ServiceArea
   onChange?: (area: ServiceArea) => void
+  /** Tenant's home state (from the Address & Contact 'state' field) --
+   * "Regional" defaults to this state + its direct neighbors instead of
+   * showing all 50, since "regional" is supposed to mean a bounded nearby
+   * area (e.g. NY -> NY/NJ/CT/PA/MA/VT), not the whole country. */
+  homeState?: string | null
 }
 
-export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }: Props) {
+export default function ServiceAreaEditor({ onSaved, embedded, value, onChange, homeState }: Props) {
+  const [showAllStates, setShowAllStates] = useState(false)
   const [area, setArea] = useState<ServiceArea | null>(embedded ? (value ?? { scope: 'local', states: [], zones: [] }) : null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -47,6 +53,11 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }
     setArea({ ...area, scope, states, zones: scope === 'local' ? area.zones : [] })
   }
   const stateBased = isStateScoped(area.scope)
+  const regionalDefaultCodes = neighboringStates(homeState)
+  const regionalPickerStates =
+    area.scope === 'regional' && !showAllStates && regionalDefaultCodes.length > 0
+      ? US_STATES.filter((st) => regionalDefaultCodes.includes(st.code))
+      : US_STATES
   const allStates = area.states.includes('ALL')
 
   const toggleState = (code: string) => {
@@ -134,9 +145,17 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange }
               </label>
             )}
           </div>
+          {area.scope === 'regional' && regionalDefaultCodes.length > 0 && (
+            <p className="mb-2 text-xs text-gray-500">
+              {showAllStates ? 'Showing all states.' : `Showing ${homeState?.toUpperCase()} and its neighboring states.`}{' '}
+              <button type="button" onClick={() => setShowAllStates((v) => !v)} className="text-[#1E2A4A] hover:underline">
+                {showAllStates ? 'Show nearby only' : 'Need a farther state? Show all'}
+              </button>
+            </p>
+          )}
           {!allStates && (
             <div className="grid grid-cols-4 md:grid-cols-6 gap-1.5">
-              {US_STATES.map((st) => (
+              {regionalPickerStates.map((st) => (
                 <button
                   key={st.code}
                   type="button"
