@@ -53,6 +53,7 @@ export interface Feature {
 
 import { featuresB } from "./feature-data-b";
 import { featuresC } from "./feature-data-c";
+import { featuresD } from "./feature-data-d";
 
 const SITE = "https://homeservicesbusinesscrm.com";
 
@@ -230,7 +231,7 @@ const baseFeatures: Feature[] = [
           "Typically within seconds, and consistently under 60 seconds — the window where conversion rates are highest — 24 hours a day.",
       },
     ],
-    relatedSlugs: ["ai-voice-agent", "smart-scheduling", "review-management", "autonomous-seo-engine"],
+    relatedSlugs: ["ai-voice-agent", "virtual-assistant-service", "smart-scheduling", "review-management"],
   },
 
   // ───────────────────────────────────────────────────────────────────────
@@ -328,7 +329,7 @@ const baseFeatures: Feature[] = [
           "Yes. The voice agent converses in English and Spanish, matching the language the caller uses.",
       },
     ],
-    relatedSlugs: ["ai-receptionist", "smart-scheduling", "loop-connect", "review-management"],
+    relatedSlugs: ["ai-receptionist", "virtual-assistant-service", "smart-scheduling", "review-management"],
   },
 
   // ───────────────────────────────────────────────────────────────────────
@@ -684,7 +685,7 @@ const baseFeatures: Feature[] = [
   },
 ];
 
-export const features: Feature[] = [...baseFeatures, ...featuresB, ...featuresC];
+export const features: Feature[] = [...baseFeatures, ...featuresB, ...featuresC, ...featuresD];
 
 // ── Lookups ──
 export function getFeature(slug: string): Feature | undefined {

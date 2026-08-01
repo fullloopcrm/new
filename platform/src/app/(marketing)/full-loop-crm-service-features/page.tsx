@@ -214,10 +214,43 @@ export default function FeaturesPage() {
           <p className="text-lg text-slate-600 mb-10 max-w-3xl">
             Meet our <strong>AI receptionist</strong> — your AI-powered SMS sales agent that responds to leads in
             seconds, not hours. It qualifies prospects, answers questions, and books appointments
-            while you focus on running your business.
+            while you focus on running your business. Nights, weekends, and the instant a lead
+            lands are the AI&apos;s job — for the customer service and sales conversations during the
+            day, real human virtual assistants trained on your Full Loop CRM pick up the phone too.
           </p>
 
           <div className="grid gap-8 sm:grid-cols-2">
+            <div className="rounded-2xl p-8 sm:p-10 mb-8 bg-[#7A2020] border border-[#9A3A3A] sm:col-span-2">
+              <p className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
+                <span className="text-[#E8B84B]">83%</span> of customers prefer speaking to a real
+                person over AI.
+              </p>
+              <p className="mt-3 text-sm text-[#E9C9C9]">
+                8&times;8 UK Customer Experience Research, 2025 &mdash; it&apos;s why every Full Loop
+                AI agent is backed by real human virtual assistants trained on your CRM.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 sm:col-span-2">
+              <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
+                Real Human Virtual Assistants — $8/Hour, Trained on Full Loop CRM
+              </h3>
+              <p className="text-slate-600">
+                The AI covers the hours nobody wants to staff. For everyday customer service and
+                sales conversations, Full Loop operators can staff real people through our
+                staffing partner{" "}
+                <a
+                  href="https://www.thevavirtualassistant.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-600 underline underline-offset-2 hover:text-teal-700"
+                >
+                  The VA Virtual Assistant
+                </a>
+                . Assistants speak and type fluent English, are professionally trained on your
+                specific Full Loop CRM setup, and cost $8 an hour — real people, not a script,
+                backed by the same customer data the AI already knows.
+              </p>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="font-heading text-xl font-bold text-slate-900 mb-3">
                 Our AI Receptionist &amp; Voice Agent

@@ -69,8 +69,8 @@ export default function Comparison() {
           </h2>
           <p className="text-[#3A3A3A] text-lg max-w-2xl mx-auto">
             Operators stitch together software, lead marketplaces, and office labor. Full Loop replaces
-            the stack — AI agents, smart scheduling, payments, reviews, and a bundled lead-gen network
-            you own. Column by column against{" "}
+            the stack — AI agents, $8/hr human virtual assistants, smart scheduling, payments,
+            reviews, and a bundled lead-gen network you own. Column by column against{" "}
             <Link href="/full-loop-crm-service-features" className="text-[#1F4D2C] underline underline-offset-2">the alternatives</Link>.
           </p>
         </motion.div>
