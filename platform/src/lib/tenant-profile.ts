@@ -81,6 +81,27 @@ export interface FieldDef {
    * the one who fills these in.
    */
   platformManaged?: boolean
+  /**
+   * Real, tenant-owned, fully editable field -- just not worth asking during
+   * first-time onboarding (e.g. 22 of the 23 AI-persona fields: a business
+   * owner filling out a signup form isn't going to write preferred sign-offs
+   * and banned phrases before they've even seen their AI agent work). Hidden
+   * from ProfileWizard (the public /onboard/[token] link + dashboard
+   * onboarding) specifically; still fully visible/editable later in Settings
+   * (AdditionalDetailsTab.tsx), which reads this same registry without this
+   * filter. Distinct from `audience: 'admin'` (never tenant-visible at all)
+   * and `readonly` (no editor anywhere, "set elsewhere").
+   */
+  onboardingHidden?: boolean
+  /**
+   * Only shown/writable when another field in the SAME form currently has
+   * this exact value (e.g. the referral commission/payout fields only
+   * appear once "Do you want to run a referral program?" is answered yes)
+   * -- keeps a section from front-loading detail fields nobody needs yet
+   * instead of asking a simple yes/no first. Checked against live in-form
+   * state, not the saved value, so toggling updates visibility immediately.
+   */
+  dependsOn?: { key: string; value: unknown }
   /** If set, the field only applies to these funnels (delta 1 funnel-awareness). */
   funnels?: FunnelMode[]
   /**
@@ -136,7 +157,15 @@ const c = (ctx: ProfileContext, k: string) => ctx.compliance[k]
  * respects `critical` + `funnels`, so adding a field wires it end-to-end.
  */
 const ENTITY_TYPE_OPTIONS = ['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietor', 'Partnership', 'Nonprofit'] as const
-const PAYMENT_OPTIONS = ['stripe', 'zelle', 'venmo', 'apple_cash', 'cash', 'check'] as const
+const MONTH_OPTIONS: FieldOption[] = [
+  { label: 'January', value: 1 }, { label: 'February', value: 2 }, { label: 'March', value: 3 },
+  { label: 'April', value: 4 }, { label: 'May', value: 5 }, { label: 'June', value: 6 },
+  { label: 'July', value: 7 }, { label: 'August', value: 8 }, { label: 'September', value: 9 },
+  { label: 'October', value: 10 }, { label: 'November', value: 11 }, { label: 'December', value: 12 },
+]
+const PAYMENT_OPTIONS: FieldOption[] = [
+  { label: 'Stripe (card, Apple Pay, Cash App)', value: 'stripe' },
+]
 const TONE_OPTIONS = ['warm_friendly', 'professional', 'casual', 'luxury'] as const
 const LANGUAGE_OPTIONS: FieldOption[] = [{ label: 'English', value: 'en' }, { label: 'Spanish', value: 'es' }]
 const EMOJI_OPTIONS = ['none', 'one_per_message', 'frequent'] as const
@@ -157,7 +186,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'legalName', label: 'Legal entity name', section: 'identity', store: 'entity', col: 'legal_name', tier: 'recommended', read: (x) => e(x, 'legal_name'), help: 'The official name on your business registration/tax paperwork — often the same as your business name, but not always (e.g. "Smith Cleaning LLC" vs. "Sparkle Clean"). Leave blank if you\'re not sure; we can fix it later.' },
   { key: 'entityType', label: 'Entity type', section: 'identity', store: 'entity', col: 'entity_type', input: 'select', options: ENTITY_TYPE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'entity_type'), help: 'How your business is legally structured. Check a past tax filing or ask your accountant if you\'re unsure — it\'s fine to skip for now.' },
   { key: 'ein', label: 'EIN / Tax ID', section: 'identity', store: 'entity', col: 'ein', tier: 'recommended', read: (x) => e(x, 'ein'), help: 'Your business\'s federal tax ID (like a Social Security number, but for the business) — the 9-digit number on your IRS confirmation letter. Not the same as your Social Security number. Skip if you don\'t have one yet.' },
-  { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'number', tier: 'optional', read: (x) => e(x, 'fiscal_year_start'), help: 'The month your business "year" starts for accounting purposes. Most businesses use January — leave this blank unless you know yours is different.' },
+  { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'select', options: MONTH_OPTIONS, tier: 'optional', read: (x) => e(x, 'fiscal_year_start'), help: 'The month your business "year" starts for accounting purposes. Most businesses use January — leave this blank unless you know yours is different.' },
 
   // ── Contact & location ────────────────────────────────────────────
   { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', read: (x) => t(x, 'phone') },
@@ -168,7 +197,13 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', read: (x) => e(x, 'zip') },
   { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', read: (x) => t(x, 'website_url') },
   { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
-  { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', read: (x) => t(x, 'lead_notification_email') },
+  { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', help: 'Where WE send you an alert the moment a new lead comes in from your website or booking form — usually the same as your business email, but can be different if you want leads routed to someone else.', read: (x) => t(x, 'lead_notification_email') },
+
+  // ── Secondary contact ── kept with the rest of primary contact info,
+  // not buried near the service-area settings below.
+  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', help: 'A backup person we can reach if you\'re unavailable — a partner, manager, or office admin. Optional.', read: (x) => t(x, 'secondary_contact_name') },
+  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
+  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
 
   // ── Service area ─── scope/states/zones owned by ServiceAreaEditor (selena_config.service_area).
   // `serviceScope` stays readonly (unchanged, still drives readiness). `serviceArea`
@@ -183,10 +218,6 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'serviceLat', label: 'Geocoded center', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => t(x, 'service_area_lat') },
   { key: 'timezone', label: 'Timezone', section: 'scheduling', store: 'tenant', col: 'timezone', tier: 'critical', read: (x) => t(x, 'timezone') },
 
-  // ── Secondary contact ──────────────────────────────────────────────
-  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', read: (x) => t(x, 'secondary_contact_name') },
-  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
-  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
   // Locations beyond the primary are a 1:N relationship (tenant_locations) —
   // not a scalar field. This is a readonly readiness signal only; the actual
   // add/edit/remove UI is its own small component + API (see file header).
@@ -198,15 +229,17 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', read: (x) => t(x, 'secondary_color') },
   { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
   { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'textarea', tier: 'critical', read: (x) => s(x, 'business_description') },
-  { key: 'businessStory', label: 'Your story', section: 'brand', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
-  { key: 'targetCustomer', label: 'Target customer', section: 'brand', store: 'selena', col: 'target_customer', input: 'textarea', tier: 'optional', read: (x) => s(x, 'target_customer') },
-  { key: 'competitors', label: 'Competitors', section: 'brand', store: 'selena', col: 'competitors', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'competitors') },
-  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', read: (x) => s(x, 'differentiators') },
+  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', help: 'The real reason a customer picks you over the next search result — faster response time, a guarantee, years in business, whatever\'s actually true.', read: (x) => s(x, 'differentiators') },
+
+  // ── Marketing (section key stays 'seo' -- see PROFILE_SECTION_META) ──
+  { key: 'businessStory', label: 'Your story', section: 'seo', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
+  { key: 'targetCustomer', label: 'Target customer', section: 'seo', store: 'selena', col: 'target_customer', input: 'textarea', tier: 'optional', help: 'Who you\'re trying to reach — e.g. "busy families in North Jersey" or "property managers with 5+ units." Helps your site and AI speak to the right person.', read: (x) => s(x, 'target_customer') },
+  { key: 'competitors', label: 'Competitors', section: 'seo', store: 'selena', col: 'competitors', kind: 'array', input: 'array', tier: 'optional', help: 'Other businesses customers compare you to. Optional, but helps us position you well in your marketing.', read: (x) => s(x, 'competitors') },
   // Whole {facebook, instagram, tiktok, linkedin, youtube, x} object, written
   // atomically as one selena_config.social key — same reasoning as serviceArea:
   // preserves the existing nested storage shape other readers (site footer,
   // schema.org) already expect, and a custom renderer handles the sub-fields.
-  { key: 'socialLinks', label: 'Social links', section: 'brand', store: 'selena', col: 'social', input: 'custom', tier: 'optional', read: (x) => x.social },
+  { key: 'socialLinks', label: 'Social links', section: 'seo', store: 'selena', col: 'social', input: 'custom', tier: 'optional', read: (x) => x.social },
 
   // ── Services & pricing ─── pricing lives in service_types (own editor); readonly here.
   { key: 'servicePricing', label: 'Per-service pricing', section: 'services', store: 'tenant', readonly: true, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => x.services.some((sv) => sv.active && (sv.rate ?? 0) > 0) },
@@ -227,16 +260,14 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'holidayDates', label: 'Holidays / blackout dates', section: 'scheduling', store: 'selena', col: 'holiday_dates', input: 'custom', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'holiday_dates') },
 
   // ── Payments (booking/pipeline) ───────────────────────────────────
-  { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'payment_methods') },
+  { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], help: 'We process everything through Stripe — card, Apple Pay, and Cash App are all handled through the same Stripe checkout, nothing separate to set up for each.', read: (x) => t(x, 'payment_methods') },
   { key: 'stripeKey', label: 'Stripe secret key', section: 'payments', store: 'tenant', col: 'stripe_api_key', tier: 'recommended', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_api_key') },
   { key: 'stripeAccountId', label: 'Stripe account ID', section: 'payments', store: 'tenant', col: 'stripe_account_id', tier: 'optional', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_account_id') },
-  { key: 'zelleEmail', label: 'Zelle email', section: 'payments', store: 'tenant', col: 'zelle_email', tier: 'optional', read: (x) => t(x, 'zelle_email') },
-  { key: 'appleCashPhone', label: 'Apple Cash phone', section: 'payments', store: 'tenant', col: 'apple_cash_phone', tier: 'optional', read: (x) => t(x, 'apple_cash_phone') },
 
   // ── Comms & integrations ──────────────────────────────────────────
   { key: 'resendKey', label: 'Sending email key (Resend)', section: 'comms', store: 'tenant', col: 'resend_api_key', tier: 'critical', platformManaged: true, read: (x) => t(x, 'resend_api_key') },
   { key: 'resendDomain', label: 'Sending domain', section: 'comms', store: 'tenant', col: 'resend_domain', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'resend_domain') },
-  { key: 'emailFrom', label: 'From address', section: 'comms', store: 'tenant', col: 'email_from', tier: 'recommended', read: (x) => t(x, 'email_from') },
+  { key: 'emailFrom', label: 'Sender email address', section: 'comms', store: 'tenant', col: 'email_from', tier: 'recommended', help: 'The email address clients see as the sender when we email them on your behalf — invoices, booking confirmations, receipts. Usually something like hello@yourbusiness.com.', read: (x) => t(x, 'email_from') },
   { key: 'telnyxKey', label: 'SMS key (Telnyx)', section: 'comms', store: 'tenant', col: 'telnyx_api_key', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'telnyx_api_key') },
   { key: 'telnyxPhone', label: 'SMS number', section: 'comms', store: 'tenant', col: 'telnyx_phone', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'telnyx_phone') },
   { key: 'telegramBotToken', label: 'Telegram bot token', section: 'comms', store: 'tenant', col: 'telegram_bot_token', tier: 'optional', platformManaged: true, read: (x) => t(x, 'telegram_bot_token') },
@@ -245,92 +276,109 @@ export const PROFILE_FIELDS: FieldDef[] = [
 
   // ── Reviews (booking/pipeline) ────────────────────────────────────
   { key: 'reviewTarget', label: 'Google Place ID', section: 'reviews', store: 'tenant', col: 'google_place_id', tier: 'recommended', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'google_place_id') || s(x, 'google_review_link') },
-  { key: 'reviewLink', label: 'Review link', section: 'reviews', store: 'selena', col: 'google_review_link', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'google_review_link') },
-  { key: 'reviewFollowupEnabled', label: 'Auto review follow-up', section: 'reviews', store: 'selena', col: 'review_followup_enabled', kind: 'bool', input: 'toggle', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'review_followup_enabled') },
+  { key: 'reviewLink', label: 'Review link', section: 'reviews', store: 'selena', col: 'google_review_link', tier: 'optional', funnels: ['booking', 'pipeline'], help: 'Where a customer lands when we ask them to leave you a review (e.g. your Google Business Profile review link). You can add more than one.', read: (x) => s(x, 'google_review_link') },
+  // Auto Review Follow-up removed from onboarding (2026-08-01) -- an
+  // adjust-later setting, not a decision to force during first-time setup.
+  // No dedicated Reviews-settings page has this toggle yet either; the
+  // underlying tenants.selena_config.review_followup_enabled column and
+  // its behavior are untouched, just no editor anywhere right now.
 
   // ── Referrals ─────────────────────────────────────────────────────
-  { key: 'commissionRate', label: 'Referral commission %', section: 'referrals', store: 'tenant', col: 'commission_rate', kind: 'number', input: 'number', tier: 'recommended', read: (x) => t(x, 'commission_rate') },
-  { key: 'autoPayReferrals', label: 'Auto-pay referrals', section: 'referrals', store: 'selena', col: 'auto_pay_referrals', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_pay_referrals') },
-  { key: 'referralMinPayout', label: 'Min referral payout ($)', section: 'referrals', store: 'selena', col: 'referral_min_payout', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'referral_min_payout') },
+  { key: 'runReferralProgram', label: 'Do you want to run a referral program?', section: 'referrals', store: 'selena', col: 'run_referral_program', kind: 'bool', input: 'toggle', tier: 'optional', help: 'Pay people (clients, partners, anyone) a commission for sending you new business. Skip this if you don\'t want one — nothing below applies unless you turn this on.', read: (x) => s(x, 'run_referral_program') },
+  { key: 'commissionRate', label: 'Referral commission %', section: 'referrals', store: 'tenant', col: 'commission_rate', kind: 'number', input: 'number', tier: 'recommended', dependsOn: { key: 'runReferralProgram', value: true }, help: 'What percentage of the job\'s price you pay out as a referral commission — e.g. 10 means 10% of what the referred client pays.', read: (x) => t(x, 'commission_rate') },
+  { key: 'autoPayReferrals', label: 'Auto-pay referrals', section: 'referrals', store: 'selena', col: 'auto_pay_referrals', kind: 'bool', input: 'toggle', tier: 'optional', dependsOn: { key: 'runReferralProgram', value: true }, help: 'Pay the commission automatically once the referred job is paid, instead of you approving each payout by hand.', read: (x) => s(x, 'auto_pay_referrals') },
+  { key: 'referralMinPayout', label: 'Min referral payout ($)', section: 'referrals', store: 'selena', col: 'referral_min_payout', kind: 'number', input: 'number', tier: 'optional', dependsOn: { key: 'runReferralProgram', value: true }, help: 'Don\'t send a payout below this dollar amount — instead it accumulates until it crosses the threshold. Leave blank to pay out every time.', read: (x) => s(x, 'referral_min_payout') },
 
-  // ── Proposals (pipeline) ──────────────────────────────────────────
-  { key: 'proposalTerms', label: 'Proposal terms', section: 'proposals', store: 'selena', col: 'proposal_terms', input: 'textarea', tier: 'critical', funnels: ['pipeline'], read: (x) => s(x, 'proposal_terms') },
-  { key: 'proposalDepositType', label: 'Deposit type', section: 'proposals', store: 'selena', col: 'proposal_deposit_type', input: 'select', options: DEPOSIT_OPTIONS, tier: 'recommended', funnels: ['pipeline'], read: (x) => s(x, 'proposal_deposit_type') },
-  { key: 'proposalDepositValue', label: 'Deposit amount', section: 'proposals', store: 'selena', col: 'proposal_deposit_value', kind: 'number', input: 'number', tier: 'recommended', funnels: ['pipeline'], read: (x) => s(x, 'proposal_deposit_value') },
-  { key: 'proposalValidDays', label: 'Proposal valid (days)', section: 'proposals', store: 'selena', col: 'proposal_valid_days', kind: 'number', input: 'number', tier: 'optional', funnels: ['pipeline'], read: (x) => s(x, 'proposal_valid_days') },
+  // ── Agreements & Legal (section key stays 'proposals' -- see PROFILE_SECTION_META) ──
+  { key: 'proposalTerms', label: 'Proposal terms', section: 'proposals', store: 'selena', col: 'proposal_terms', input: 'textarea', tier: 'critical', funnels: ['pipeline'], help: 'The terms you attach to every quote/proposal you send — scope of work, what\'s included, payment schedule.', read: (x) => s(x, 'proposal_terms') },
+  { key: 'proposalDepositType', label: 'Deposit type', section: 'proposals', store: 'selena', col: 'proposal_deposit_type', input: 'select', options: DEPOSIT_OPTIONS, tier: 'recommended', funnels: ['pipeline'], help: 'Do you require a deposit before starting a job? None, a flat dollar amount, or a percentage of the total.', read: (x) => s(x, 'proposal_deposit_type') },
+  { key: 'proposalDepositValue', label: 'Deposit amount', section: 'proposals', store: 'selena', col: 'proposal_deposit_value', kind: 'number', input: 'number', tier: 'recommended', funnels: ['pipeline'], help: 'The dollar amount, or percentage (0-100) if Deposit type is "percent."', read: (x) => s(x, 'proposal_deposit_value') },
+  { key: 'proposalValidDays', label: 'Proposal valid (days)', section: 'proposals', store: 'selena', col: 'proposal_valid_days', kind: 'number', input: 'number', tier: 'optional', funnels: ['pipeline'], help: 'How many days a quote stays valid before it expires and needs to be re-sent.', read: (x) => s(x, 'proposal_valid_days') },
+  { key: 'refundPolicy', label: 'Refund policy', section: 'proposals', store: 'selena', col: 'refund_policy', input: 'textarea', tier: 'recommended', help: 'Under what conditions do you give a refund? This governs what your AI agent tells clients — leave blank and it will always hand refund questions to a human instead of guessing.', read: (x) => s(x, 'refund_policy') },
+  { key: 'cancellationPolicy', label: 'Cancellation policy', section: 'proposals', store: 'selena', col: 'cancellation_policy', input: 'textarea', tier: 'recommended', help: 'What happens if a client cancels — notice required, any fee. Blank means your AI agent defers to a human instead of guessing.', read: (x) => s(x, 'cancellation_policy') },
+  { key: 'reschedulePolicy', label: 'Rescheduling policy', section: 'proposals', store: 'selena', col: 'reschedule_policy', input: 'textarea', tier: 'recommended', help: 'Your rules for rescheduling a booking — how much notice, any fee. Blank means your AI agent defers to a human.', read: (x) => s(x, 'reschedule_policy') },
+  { key: 'latePaymentPolicy', label: 'Late-payment policy', section: 'proposals', store: 'selena', col: 'late_payment_policy', input: 'textarea', tier: 'recommended', help: 'How you handle an overdue invoice — late fee, follow-up timeline. Blank means your AI agent defers to a human.', read: (x) => s(x, 'late_payment_policy') },
+  { key: 'generalTerms', label: 'General terms & conditions', section: 'proposals', store: 'selena', col: 'general_terms', input: 'textarea', tier: 'optional', help: 'Any other standing rules for doing business with you — liability limits, property access, weather delays, whatever applies to your trade. Shown on proposals/agreements alongside the terms above.', read: (x) => s(x, 'general_terms') },
 
   // ── Team defaults ─────────────────────────────────────────────────
-  { key: 'defaultPayRate', label: 'Default pay rate ($/hr)', section: 'team', store: 'selena', col: 'default_pay_rate', kind: 'number', input: 'number', tier: 'recommended', read: (x) => s(x, 'default_pay_rate') },
-  { key: 'defaultWorkingDays', label: 'Default working days', section: 'team', store: 'selena', col: 'default_working_days', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'default_working_days') },
-  { key: 'teamRoles', label: 'Team roles', section: 'team', store: 'selena', col: 'team_roles', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'team_roles') },
+  { key: 'defaultPayRate', label: 'Default pay rate ($/hr)', section: 'team', store: 'selena', col: 'default_pay_rate', kind: 'number', input: 'number', tier: 'recommended', help: 'The fallback hourly rate for a new team member when their role doesn\'t have its own rate set below.', read: (x) => s(x, 'default_pay_rate') },
+  { key: 'defaultWorkingDays', label: 'Default working days', section: 'team', store: 'selena', col: 'default_working_days', kind: 'array', input: 'array', tier: 'optional', help: 'Which days a new team member is assumed available, until you set their own schedule.', read: (x) => s(x, 'default_working_days') },
+  { key: 'teamRoles', label: 'Team roles', section: 'team', store: 'selena', col: 'team_roles', kind: 'array', input: 'custom', tier: 'optional', help: 'The job titles you\'ll assign team members to — e.g. Admin, Salesperson, Cleaner. Add one at a time.', read: (x) => s(x, 'team_roles') },
+  // {role, hourlyRate}[] -- deliberately separate from teamRoles above (a
+  // plain string[] several other consumers already read/write, see
+  // lib/settings.ts + api/settings/team) rather than changing that field's
+  // shape and risking those. Not auto-synced with the role names above; the
+  // tenant fills both. New jsonb key, no migration.
+  { key: 'teamRoleRates', label: 'Pay rate by role', section: 'team', store: 'selena', col: 'team_role_rates', input: 'custom', tier: 'optional', help: 'If different roles get paid differently (e.g. a Lead Cleaner earns more than a Cleaner), set each role\'s rate here — overrides the default pay rate above for that role.', read: (x) => s(x, 'team_role_rates') },
 
   // ── AI persona ────────────────────────────────────────────────────
-  { key: 'aiName', label: 'Agent name', section: 'ai', store: 'selena', col: 'ai_name', tier: 'recommended', read: (x) => s(x, 'ai_name') },
-  { key: 'tone', label: 'Voice / tone', section: 'ai', store: 'selena', col: 'tone', input: 'select', options: TONE_OPTIONS, tier: 'recommended', read: (x) => s(x, 'tone') },
-  { key: 'language', label: 'Primary language', section: 'ai', store: 'selena', col: 'language', input: 'select', options: LANGUAGE_OPTIONS, tier: 'recommended', read: (x) => s(x, 'language') },
-  { key: 'greeting', label: 'Chat greeting', section: 'ai', store: 'selena', col: 'greeting', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'greeting') },
-  { key: 'emojiUsage', label: 'Emoji usage', section: 'ai', store: 'selena', col: 'emoji_usage', input: 'select', options: EMOJI_OPTIONS, tier: 'optional', read: (x) => s(x, 'emoji_usage') },
+  { key: 'aiName', label: 'What would you like to name your agent?', section: 'ai', store: 'selena', col: 'ai_name', tier: 'recommended', help: 'This is your digital AI administrator — it answers client questions, books jobs, and follows up, all under whatever name you give it. You can fine-tune how it talks and its policies anytime later in Settings.', read: (x) => s(x, 'ai_name') },
+  { key: 'tone', label: 'Voice / tone', section: 'ai', onboardingHidden: true, store: 'selena', col: 'tone', input: 'select', options: TONE_OPTIONS, tier: 'recommended', read: (x) => s(x, 'tone') },
+  { key: 'language', label: 'Primary language', section: 'ai', onboardingHidden: true, store: 'selena', col: 'language', input: 'select', options: LANGUAGE_OPTIONS, tier: 'recommended', read: (x) => s(x, 'language') },
+  { key: 'greeting', label: 'Chat greeting', section: 'ai', onboardingHidden: true, store: 'selena', col: 'greeting', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'greeting') },
+  { key: 'emojiUsage', label: 'Emoji usage', section: 'ai', onboardingHidden: true, store: 'selena', col: 'emoji_usage', input: 'select', options: EMOJI_OPTIONS, tier: 'optional', read: (x) => s(x, 'emoji_usage') },
 
   // ── AI persona: voice & personality (2026-07-30) ───────────────────
   // openingLines/signOff/phrasesToAvoid/neverDo all round-trip through
   // persona-file.ts's Persona keys of the SAME name (opening_lines, sign_off,
   // banned_phrases, never_do) — already folded into the assembled prompt,
   // just previously had no onboarding UI field to populate them from.
-  { key: 'openingLines', label: 'Preferred opening lines', section: 'ai', store: 'selena', col: 'opening_lines', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'opening_lines') },
-  { key: 'signOff', label: 'Preferred sign-offs', section: 'ai', store: 'selena', col: 'sign_off', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'sign_off') },
-  { key: 'phrasesToUse', label: 'Phrases to use', section: 'ai', store: 'selena', col: 'phrases_to_use', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'phrases_to_use') },
-  { key: 'phrasesToAvoid', label: 'Phrases / words to never say', section: 'ai', store: 'selena', col: 'banned_phrases', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'banned_phrases') },
-  { key: 'neverDo', label: 'Things the agent must never do or promise (e.g. "never say guaranteed", "never discuss competitors by name")', section: 'ai', store: 'selena', col: 'never_do', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'never_do') },
+  { key: 'openingLines', label: 'Preferred opening lines', section: 'ai', onboardingHidden: true, store: 'selena', col: 'opening_lines', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'opening_lines') },
+  { key: 'signOff', label: 'Preferred sign-offs', section: 'ai', onboardingHidden: true, store: 'selena', col: 'sign_off', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'sign_off') },
+  { key: 'phrasesToUse', label: 'Phrases to use', section: 'ai', onboardingHidden: true, store: 'selena', col: 'phrases_to_use', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'phrases_to_use') },
+  { key: 'phrasesToAvoid', label: 'Phrases / words to never say', section: 'ai', onboardingHidden: true, store: 'selena', col: 'banned_phrases', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'banned_phrases') },
+  { key: 'neverDo', label: 'Things the agent must never do or promise (e.g. "never say guaranteed", "never discuss competitors by name")', section: 'ai', onboardingHidden: true, store: 'selena', col: 'never_do', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'never_do') },
 
   // ── AI persona: policies the agent needs to know, not guess (2026-07-30) ──
   // Blank/not-applicable is a real, supported answer: buildPlaybook/persona-file
   // render an explicit "no policy on file — escalate to a human" line instead
   // of guessing, so leaving these blank never causes a hallucinated policy.
-  { key: 'cancellationPolicy', label: 'Cancellation policy (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'cancellation_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'cancellation_policy') },
-  { key: 'reschedulePolicy', label: 'Rescheduling policy (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'reschedule_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'reschedule_policy') },
-  { key: 'refundPolicy', label: 'Refund policy', section: 'ai', store: 'selena', col: 'refund_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'refund_policy') },
-  { key: 'latePaymentPolicy', label: 'Late-payment / overdue-invoice handling (blank = agent defers to a human)', section: 'ai', store: 'selena', col: 'late_payment_policy', input: 'textarea', tier: 'recommended', read: (x) => s(x, 'late_payment_policy') },
-  { key: 'outOfScope', label: 'Explicitly out of scope (what you do NOT do)', section: 'ai', store: 'selena', col: 'out_of_scope', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'out_of_scope') },
+  // cancellationPolicy/reschedulePolicy/refundPolicy/latePaymentPolicy moved to
+  // the Agreements & Legal section (2026-08-01) -- these are real business
+  // policies a tenant sets regardless of whether they even use the AI agent;
+  // the agent just reads the same stored value from there.
+  { key: 'outOfScope', label: 'Explicitly out of scope (what you do NOT do)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'out_of_scope', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'out_of_scope') },
 
   // ── AI persona: real FAQ (2026-07-30) ──────────────────────────────
   // Structured {question, answer} pairs, in the tenant's own words — distinct
   // from objectionHandlers below (a customer QUESTION vs. a sales OBJECTION).
-  { key: 'faqs', label: 'Real customer FAQ (5-10 questions customers actually ask)', section: 'ai', store: 'selena', col: 'faqs', input: 'custom', tier: 'recommended', read: (x) => s(x, 'faqs') },
-  { key: 'objectionHandlers', label: 'Known objections & how to handle them', section: 'ai', store: 'selena', col: 'objection_handlers', input: 'custom', tier: 'optional', read: (x) => s(x, 'objection_handlers') },
+  { key: 'faqs', label: 'Real customer FAQ (5-10 questions customers actually ask)', section: 'ai', onboardingHidden: true, store: 'selena', col: 'faqs', input: 'custom', tier: 'recommended', read: (x) => s(x, 'faqs') },
+  { key: 'objectionHandlers', label: 'Known objections & how to handle them', section: 'ai', onboardingHidden: true, store: 'selena', col: 'objection_handlers', input: 'custom', tier: 'optional', read: (x) => s(x, 'objection_handlers') },
 
   // ── AI persona: escalation preferences (2026-07-30) ────────────────
-  { key: 'escalationTriggers', label: 'When the agent should hand off to a human', section: 'ai', store: 'selena', col: 'escalation_triggers', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'escalation_triggers') },
-  { key: 'escalationContact', label: 'Who escalations go to (name + phone/email — not "someone")', section: 'ai', store: 'selena', col: 'escalation_contact', tier: 'critical', read: (x) => s(x, 'escalation_contact') },
-  { key: 'escalationResponseTime', label: 'Response-time promise made to customers', section: 'ai', store: 'selena', col: 'escalation_response_time', tier: 'recommended', read: (x) => s(x, 'escalation_response_time') },
+  { key: 'escalationTriggers', label: 'When the agent should hand off to a human', section: 'ai', onboardingHidden: true, store: 'selena', col: 'escalation_triggers', kind: 'array', input: 'array', tier: 'recommended', read: (x) => s(x, 'escalation_triggers') },
+  { key: 'escalationContact', label: 'Who escalations go to (name + phone/email — not "someone")', section: 'ai', onboardingHidden: true, store: 'selena', col: 'escalation_contact', tier: 'critical', read: (x) => s(x, 'escalation_contact') },
+  { key: 'escalationResponseTime', label: 'Response-time promise made to customers', section: 'ai', onboardingHidden: true, store: 'selena', col: 'escalation_response_time', tier: 'recommended', read: (x) => s(x, 'escalation_response_time') },
 
   // ── AI persona: upsell / cross-sell guidance (2026-07-30) ──────────
-  { key: 'addons', label: 'Add-ons to proactively offer', section: 'ai', store: 'selena', col: 'addons', input: 'custom', tier: 'optional', read: (x) => s(x, 'addons') },
-  { key: 'upsellTriggers', label: 'When to upsell', section: 'ai', store: 'selena', col: 'upsell_triggers', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'upsell_triggers') },
-  { key: 'neverUpsell', label: 'What to never push', section: 'ai', store: 'selena', col: 'never_upsell', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'never_upsell') },
+  { key: 'addons', label: 'Add-ons to proactively offer', section: 'ai', onboardingHidden: true, store: 'selena', col: 'addons', input: 'custom', tier: 'optional', read: (x) => s(x, 'addons') },
+  { key: 'upsellTriggers', label: 'When to upsell', section: 'ai', onboardingHidden: true, store: 'selena', col: 'upsell_triggers', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'upsell_triggers') },
+  { key: 'neverUpsell', label: 'What to never push', section: 'ai', onboardingHidden: true, store: 'selena', col: 'never_upsell', kind: 'array', input: 'array', tier: 'optional', read: (x) => s(x, 'never_upsell') },
 
   // ── AI persona: operational context (2026-07-30) ───────────────────
   // Business hours already exist (businessHoursStart/End, scheduling section)
   // and are now surfaced to the agent automatically — no separate field here.
-  { key: 'capacityNote', label: 'Current team-capacity heads-up (e.g. "fully booked through next week") — blank = agent relies on real availability tools only', section: 'ai', store: 'selena', col: 'capacity_note', input: 'textarea', tier: 'optional', read: (x) => s(x, 'capacity_note') },
+  { key: 'capacityNote', label: 'Current team-capacity heads-up (e.g. "fully booked through next week") — blank = agent relies on real availability tools only', section: 'ai', onboardingHidden: true, store: 'selena', col: 'capacity_note', input: 'textarea', tier: 'optional', read: (x) => s(x, 'capacity_note') },
 
   // ── Finance display ───────────────────────────────────────────────
-  { key: 'taxRate', label: 'Tax rate %', section: 'referrals', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
-  { key: 'expenseCategories', label: 'Expense categories', section: 'referrals', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
+  { key: 'taxRate', label: 'Tax rate %', section: 'identity', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
+  { key: 'expenseCategories', label: 'Expense categories', section: 'identity', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
 
   // ── Compliance ────────────────────────────────────────────────────
-  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', read: (x) => c(x, 'license_number') },
-  { key: 'licenseState', label: 'License state', section: 'compliance', store: 'compliance', col: 'license_state', tier: 'optional', read: (x) => c(x, 'license_state') },
-  { key: 'licenseExpiry', label: 'License expiry', section: 'compliance', store: 'compliance', col: 'license_expiry', tier: 'optional', read: (x) => c(x, 'license_expiry') },
-  { key: 'insuranceCarrier', label: 'Insurance carrier', section: 'compliance', store: 'compliance', col: 'insurance_carrier', tier: 'recommended', read: (x) => c(x, 'insurance_carrier') },
-  { key: 'insurancePolicy', label: 'Policy #', section: 'compliance', store: 'compliance', col: 'insurance_policy', tier: 'optional', read: (x) => c(x, 'insurance_policy') },
-  { key: 'insuranceCoverage', label: 'Coverage amount', section: 'compliance', store: 'compliance', col: 'insurance_coverage', tier: 'optional', read: (x) => c(x, 'insurance_coverage') },
-  { key: 'bonded', label: 'Bonded', section: 'compliance', store: 'compliance', col: 'bonded', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => c(x, 'bonded') },
-  // Doc URLs — the form reuses whatever upload widget the job-photo flow
-  // already has, POSTs to storage, and writes the resulting URL through this
-  // same text field. No new upload plumbing.
-  { key: 'insuranceCertUrl', label: 'Certificate of insurance', section: 'compliance', store: 'compliance', col: 'insurance_cert_url', tier: 'recommended', read: (x) => c(x, 'insurance_cert_url') },
-  { key: 'licenseDocUrl', label: 'Business license (scan)', section: 'compliance', store: 'compliance', col: 'license_doc_url', tier: 'optional', read: (x) => c(x, 'license_doc_url') },
-  { key: 'w9Url', label: 'W-9', section: 'compliance', store: 'compliance', col: 'w9_url', tier: 'optional', read: (x) => c(x, 'w9_url') },
+  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', help: 'Your state or local trade license number (contractor, HVAC, electrical, etc. — whatever applies to your trade). We show this on your site and proposals to build trust with customers; some states require it to be displayed.', read: (x) => c(x, 'license_number') },
+  { key: 'licenseState', label: 'License state', section: 'compliance', store: 'compliance', col: 'license_state', tier: 'optional', help: 'Which state issued the license above.', read: (x) => c(x, 'license_state') },
+  { key: 'licenseExpiry', label: 'License expiry', section: 'compliance', store: 'compliance', col: 'license_expiry', tier: 'optional', help: 'When your license needs to be renewed — we can remind you before it lapses.', read: (x) => c(x, 'license_expiry') },
+  { key: 'insuranceCarrier', label: 'Insurance carrier', section: 'compliance', store: 'compliance', col: 'insurance_carrier', tier: 'recommended', help: 'The company your business (general liability, not personal) insurance is through — e.g. State Farm, Progressive Commercial.', read: (x) => c(x, 'insurance_carrier') },
+  { key: 'insurancePolicy', label: 'Insurance policy #', section: 'compliance', store: 'compliance', col: 'insurance_policy', tier: 'optional', help: 'The policy number for your general liability insurance (the policy that covers accidents/damage on the job — not your license number above).', read: (x) => c(x, 'insurance_policy') },
+  { key: 'insuranceCoverage', label: 'Coverage amount', section: 'compliance', store: 'compliance', col: 'insurance_coverage', tier: 'optional', help: 'How much your general liability policy covers (e.g. "$1,000,000") — from your insurance declarations page.', read: (x) => c(x, 'insurance_coverage') },
+  { key: 'bonded', label: 'Bonded', section: 'compliance', store: 'compliance', col: 'bonded', kind: 'bool', input: 'toggle', tier: 'optional', help: 'A surety bond protects a customer financially if you don\'t complete a job as agreed. Turn this on if you carry one — it\'s a trust signal on your site, not required to operate.', read: (x) => c(x, 'bonded') },
+  // Doc URLs — no real upload widget wired to this form yet (the comment
+  // this replaced claimed one existed; it didn't). Until that's built, help
+  // text is honest about what's actually expected: upload the file
+  // somewhere (Drive, Dropbox) and paste the link.
+  { key: 'insuranceCertUrl', label: 'Certificate of insurance', section: 'compliance', store: 'compliance', col: 'insurance_cert_url', tier: 'recommended', help: 'The actual certificate document from your insurer proving the coverage above is real. Upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'insurance_cert_url') },
+  { key: 'licenseDocUrl', label: 'Business license (scan)', section: 'compliance', store: 'compliance', col: 'license_doc_url', tier: 'optional', help: 'A photo or scan of your actual license document. Upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'license_doc_url') },
+  { key: 'w9Url', label: 'W-9', section: 'compliance', store: 'compliance', col: 'w9_url', tier: 'optional', help: 'The IRS Form W-9 with your business\'s tax info — we need it on file to send you a 1099 at tax time if you\'re paid as a contractor. Fill out the form (get a blank one at irs.gov/w9), then upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'w9_url') },
 
   // ── Lead handling / SEO ───────────────────────────────────────────
   { key: 'autoRespondLeads', label: 'Auto-respond to leads', section: 'seo', store: 'selena', col: 'auto_respond_leads', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_respond_leads') },
@@ -375,11 +423,11 @@ export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb
   payments: { title: 'Payments', blurb: 'How clients pay you.' },
   comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
   reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
-  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
-  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
+  referrals: { title: 'Referrals', blurb: 'Optional — pay people who send you new business.' },
+  proposals: { title: 'Agreements & Legal', blurb: 'The terms, policies, and fine print that protect your business.' },
   team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
-  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
-  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
+  compliance: { title: 'Licensing & Insurance', blurb: 'We show these on your site and proposals — customers trust a business that\'s licensed and insured, and some states legally require you to display them. Nothing here is required to use Full Loop.' },
+  seo: { title: 'Marketing', blurb: 'Who you\'re for, how you stand out, and where customers find you.' },
   ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
   account: { title: 'Account', blurb: 'Internal account details.' },
 }

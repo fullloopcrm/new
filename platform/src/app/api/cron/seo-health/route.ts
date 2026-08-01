@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { runFleetHealth } from '@/lib/seo/health'
+import { runFleetHealth, runCanaryHealth } from '@/lib/seo/health'
 import { safeEqual } from '@/lib/secret-compare'
 
 export const runtime = 'nodejs'
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const summary = await runFleetHealth()
-    return NextResponse.json({ ok: true, ...summary })
+    const [fleet, canary] = await Promise.all([runFleetHealth(), runCanaryHealth()])
+    return NextResponse.json({ ok: true, fleet, canary })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }

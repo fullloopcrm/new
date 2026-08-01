@@ -34,14 +34,12 @@ export default function FeedbackWidget({ source, token }: { source: string; toke
 
   return (
     <>
-      <div className="text-center py-6">
-        <button
-          onClick={() => setOpen(true)}
-          className="text-gray-400 text-sm hover:text-slate-900 transition-colors"
-        >
-          Feedback?
-        </button>
-      </div>
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed top-3 right-3 z-[90] rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-yellow-300 shadow-md hover:bg-red-700 transition-colors"
+      >
+        Feedback?
+      </button>
 
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[100] p-4" onClick={() => setOpen(false)}>

@@ -5,7 +5,7 @@
  * the 055_tenant_domains_routing.{sql,backfill.sql} pair W1 authored. This test
  * pins the one contract in that set that can silently ROT: the backfill decides
  * `routing_mode = 'bespoke'` from a slug list that is copied VERBATIM from the
- * `BESPOKE_SITE_TENANTS` set in src/middleware.ts (the backfill header says
+ * `BESPOKE_SITE_TENANTS` set in src/middleware/tenant-routing.ts (the backfill header says
  * "keep them in sync until the middleware set is retired"). If someone adds a
  * bespoke tenant to middleware and forgets the backfill (or vice-versa), the
  * DB's routing diverges from the live runtime routing — a hand-copied list with
@@ -25,7 +25,10 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url)) // .../src/lib
-const middlewareSrc = readFileSync(resolve(HERE, '../middleware.ts'), 'utf8')
+// BESPOKE_SITE_TENANTS lives in the tenant-routing module (moved out of the
+// monolithic src/middleware.ts on 2026-08-01), not the middleware.ts
+// orchestrator file itself.
+const middlewareSrc = readFileSync(resolve(HERE, '../middleware/tenant-routing.ts'), 'utf8')
 const backfillSrc = readFileSync(resolve(HERE, 'migrations/055_tenant_domains_routing.backfill.sql'), 'utf8')
 const migrationSrc = readFileSync(resolve(HERE, 'migrations/055_tenant_domains_routing.sql'), 'utf8')
 

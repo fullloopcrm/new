@@ -22,6 +22,7 @@ type Item = {
   item_type: 'service' | 'project' | 'product' | 'equipment' | string
   per_unit: string
   price_cents: number
+  description: string | null
 }
 
 const TYPE_LABELS: Record<string, string> = { service: 'Labor', project: 'Project', product: 'Product', equipment: 'Equipment' }
@@ -87,8 +88,11 @@ export default function OnboardingCatalog({ token }: { token?: string }) {
 
   return (
     <div>
-      <p className="mb-3 text-sm text-slate-500">
+      <p className="mb-1 text-sm text-slate-500">
         Add what you sell — a few services, projects, or products with a price. This goes straight into your real Catalog; you can add more or fine-tune pricing anytime.
+      </p>
+      <p className="mb-3 text-xs text-slate-400">
+        ✨ Our AI drafts a short customer-facing description for each item automatically — review it below, and edit or rewrite it anytime in Catalog.
       </p>
 
       {!loading && items.length > 0 && (
@@ -96,10 +100,13 @@ export default function OnboardingCatalog({ token }: { token?: string }) {
           {items.map((it) => (
             <div key={it.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <div className="min-w-0">
-                <span className="font-medium text-slate-900">{it.name}</span>
-                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  {TYPE_LABELS[it.item_type] || it.item_type}
-                </span>
+                <div>
+                  <span className="font-medium text-slate-900">{it.name}</span>
+                  <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {TYPE_LABELS[it.item_type] || it.item_type}
+                  </span>
+                </div>
+                {it.description && <p className="mt-0.5 truncate text-xs text-slate-500">{it.description}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className="text-slate-600">{money(it.price_cents)} {it.per_unit !== 'job' ? `/ ${it.per_unit}` : ''}</span>
@@ -139,7 +146,7 @@ export default function OnboardingCatalog({ token }: { token?: string }) {
           disabled={saving || !name.trim()}
           className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
         >
-          + Add
+          {saving ? 'Adding…' : '+ Add'}
         </button>
       </div>
     </div>
