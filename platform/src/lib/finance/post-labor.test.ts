@@ -76,12 +76,22 @@ beforeEach(() => {
   h.seq = 0
   h.store = {
     chart_of_accounts: [], journal_entries: [], journal_entry_lines: [],
-    team_member_payouts: [], payroll_payments: [], hr_employee_profiles: [],
+    team_member_payouts: [], payroll_payments: [], hr_employee_profiles: [], bookings: [],
   }
   seedChart(A)
   seedChart(B)
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
+
+function seedBooking(id: string, tenantId: string, fields: Record<string, unknown>) {
+  ;(h.store.bookings ||= []).push({
+    id, tenant_id: tenantId, status: 'completed', team_member_paid: false, team_member_pay: 0, ...fields,
+  })
+}
+
+function seedBookingCogsEntry(tenantId: string, bookingId: string) {
+  ;(h.store.journal_entries ||= []).push({ id: `je-bc-${bookingId}`, tenant_id: tenantId, source: 'booking_cogs', source_id: bookingId })
+}
 
 describe('postPayoutToLedger — contractor payout defaults to 1099 (5000)', () => {
   it('posts DR 5000 / CR 2450 for a paid payout with no HR profile on file, balanced', async () => {
@@ -187,6 +197,53 @@ describe('postPayrollToLedger — manual payroll payment', () => {
     const again = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_dupe' })
     expect(again).toMatchObject({ posted: false, reason: 'already_posted' })
     expect(h.store.journal_entries.filter((e) => e.source === 'payroll')).toHaveLength(1)
+  })
+})
+
+describe('postPayrollToLedger — nets out labor already accrued via booking_cogs (payroll-lag gap)', () => {
+  it('posts nothing when the full payroll amount was already accrued via booking_cogs for pending bookings', async () => {
+    // The residual gap this closes: booking_cogs fires first (cron, off
+    // customer payment), the manual payroll run happens later for the same
+    // job and would otherwise re-expense the identical $100.
+    seedBooking('bkg_1', A, { team_member_id: 'tm_1', team_member_pay: 10000 })
+    seedBookingCogsEntry(A, 'bkg_1')
+    seedPayroll('pr_lag', A, { team_member_id: 'tm_1', amount: 10000 })
+
+    const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_lag' })
+    expect(r).toMatchObject({ posted: false, reason: 'zero_amount' })
+    expect(h.store.journal_entries.filter((e) => e.source === 'payroll')).toHaveLength(0)
+  })
+
+  it('posts only the NOT-yet-accrued remainder when the payroll amount covers multiple bookings, only some already accrued', async () => {
+    seedBooking('bkg_a', A, { team_member_id: 'tm_2', team_member_pay: 10000 })
+    seedBookingCogsEntry(A, 'bkg_a') // already accrued
+    seedBooking('bkg_b', A, { team_member_id: 'tm_2', team_member_pay: 15000 }) // NOT yet accrued
+    seedPayroll('pr_partial', A, { team_member_id: 'tm_2', amount: 25000 }) // covers both bookings
+
+    const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_partial' })
+    expect(r.posted).toBe(true)
+    const byCode = linesByCode(r.entryId!, A)
+    expect(byCode['5000']).toEqual({ debit: 15000, credit: 0 }) // only bkg_b's portion
+    expect(isBalanced(r.entryId!)).toBe(true)
+  })
+
+  it('posts the full amount unchanged when nothing was previously accrued (no regression on the common case)', async () => {
+    seedBooking('bkg_c', A, { team_member_id: 'tm_3', team_member_pay: 8000 }) // no booking_cogs entry
+    seedPayroll('pr_normal', A, { team_member_id: 'tm_3', amount: 8000 })
+
+    const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_normal' })
+    expect(r.posted).toBe(true)
+    expect(linesByCode(r.entryId!, A)['5000'].debit).toBe(8000)
+  })
+
+  it('ignores a booking already marked team_member_paid=true when computing the accrued offset (not part of "pending")', async () => {
+    seedBooking('bkg_d', A, { team_member_id: 'tm_4', team_member_pay: 10000, team_member_paid: true })
+    seedBookingCogsEntry(A, 'bkg_d')
+    seedPayroll('pr_paid_already', A, { team_member_id: 'tm_4', amount: 10000 })
+
+    const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_paid_already' })
+    expect(r.posted).toBe(true) // not netted -- bkg_d isn't in the "pending" set payroll-pending.ts uses
+    expect(linesByCode(r.entryId!, A)['5000'].debit).toBe(10000)
   })
 })
 
