@@ -314,8 +314,8 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'capacityNote', label: 'Current team-capacity heads-up (e.g. "fully booked through next week") — blank = agent relies on real availability tools only', section: 'ai', store: 'selena', col: 'capacity_note', input: 'textarea', tier: 'optional', read: (x) => s(x, 'capacity_note') },
 
   // ── Finance display ───────────────────────────────────────────────
-  { key: 'taxRate', label: 'Tax rate %', section: 'referrals', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
-  { key: 'expenseCategories', label: 'Expense categories', section: 'referrals', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
+  { key: 'taxRate', label: 'Tax rate %', section: 'identity', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
+  { key: 'expenseCategories', label: 'Expense categories', section: 'identity', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
 
   // ── Compliance ────────────────────────────────────────────────────
   { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', read: (x) => c(x, 'license_number') },
