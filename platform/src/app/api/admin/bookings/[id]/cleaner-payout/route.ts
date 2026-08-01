@@ -59,7 +59,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     })
     .select()
     .single()
-  if (payErr) return NextResponse.json({ error: payErr.message }, { status: 500 })
+  if (payErr) {
+    // 23505 = uq_payouts_tenant_booking (tenant_id, booking_id) -- at most one
+    // payout row per booking, DB-enforced. Without this branch the raw Postgres
+    // constraint-violation text (naming the index) leaked to the client as a
+    // generic 500, instead of a clean, actionable 409. Found + fixed 2026-08-01
+    // while building the fin-payment-payout checkpoint; underlying one-payout-
+    // per-booking limitation (doesn't account for multi-member crews) is a
+    // real product question, not something to silently work around here --
+    // left for a real decision, not touched.
+    if (payErr.code === '23505') {
+      return NextResponse.json(
+        { error: 'This booking already has a payout recorded. Delete or edit the existing payout instead.' },
+        { status: 409 },
+      )
+    }
+    return NextResponse.json({ error: payErr.message }, { status: 500 })
+  }
 
   if (booking.team_member_id === teamMemberId) {
     await db

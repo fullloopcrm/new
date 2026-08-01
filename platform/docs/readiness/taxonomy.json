@@ -2,7 +2,7 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5 (per Jeff's explicit in-session instruction, after reviewing the Sentry/error_logs cross-check findings: \"The notification-delivery-rate failure gets its own checkpoint, not folded into ai-03 ... Add it as its own item and flag it high-severity given it's been broken for a week\"): added ai-06 (notification delivery pipeline health, severity 4) to ai_agent_communications, covering the real recurring unresolved high-severity error_logs finding from the 2026-07-31 cross-check (src/app/api/cron/system-check/route.ts's Notifications 24h check, failing ~daily since at least 2026-07-25). No existing checkpoint's severity or weight changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5 (per Jeff's explicit in-session instruction, after reviewing the Sentry/error_logs cross-check findings: \"The notification-delivery-rate failure gets its own checkpoint, not folded into ai-03 ... Add it as its own item and flag it high-severity given it's been broken for a week\"): added ai-06 (notification delivery pipeline health, severity 4) to ai_agent_communications, covering the real recurring unresolved high-severity error_logs finding from the 2026-07-31 cross-check (src/app/api/cron/system-check/route.ts's Notifications 24h check, failing ~daily since at least 2026-07-25). No existing checkpoint's severity or weight changed. | 2026-08-01 addendum #6 (coverage-expansion work, batch A, per COVERAGE-EXPANSION-PLAN-2026-08-01.md's Tier-2 payment/finance priority): added fin-10 (platform billing webhook -- paid-proposal tenant auto-creation, severity 5), fin-11 (sales-partner Stripe Connect endpoint surface, severity 4), fin-12 (manual team-member payout endpoint, severity 4). Extended fin-08's depends_on_files with the bank_accounts/bank_transactions table names (the real tables its existing route surface operates on; previously only the route files were listed, so these two tables read as 'uncovered' by compute-readiness.mjs's coverage stat despite being in scope of an already-scored checkpoint). No existing checkpoint's severity or weight changed.",
   "domain_weights": {
     "security_auth_infra": 25,
     "finance_payroll_billing": 20,
@@ -287,6 +287,8 @@
             "src/app/api/finance/reconcile-candidates/route.ts",
             "bank_import_batches",
             "bank_statements",
+            "bank_accounts",
+            "bank_transactions",
             "categorization_patterns",
             "journal_entries",
             "journal_lines",
@@ -308,6 +310,35 @@
             "src/app/api/finance/receipts/attach/route.ts",
             "src/app/api/finance/upload/route.ts",
             "inventory_items"
+          ]
+        },
+        {
+          "id": "fin-10",
+          "name": "Platform billing webhook (paid-proposal tenant auto-creation)",
+          "severity": 5,
+          "depends_on_files": [
+            "src/app/api/webhooks/stripe-platform/route.ts",
+            "src/lib/create-tenant-from-lead.ts"
+          ]
+        },
+        {
+          "id": "fin-11",
+          "name": "Sales-partner Stripe Connect endpoint surface",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/sales-partners/[id]/stripe-status/route.ts",
+            "src/app/api/sales-partners/[id]/stripe-onboard/route.ts",
+            "src/app/api/sales-partners/[id]/stripe-invite/route.ts",
+            "src/lib/sales-partner-portal-auth.ts"
+          ]
+        },
+        {
+          "id": "fin-12",
+          "name": "Manual team-member payout endpoint (cleaner-payout)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/api/admin/bookings/[id]/cleaner-payout/route.ts",
+            "src/lib/migrations/2026_07_11_team_member_payouts_unique.sql"
           ]
         }
       ]
