@@ -93,6 +93,15 @@ export interface FieldDef {
    * and `readonly` (no editor anywhere, "set elsewhere").
    */
   onboardingHidden?: boolean
+  /**
+   * Only shown/writable when another field in the SAME form currently has
+   * this exact value (e.g. the referral commission/payout fields only
+   * appear once "Do you want to run a referral program?" is answered yes)
+   * -- keeps a section from front-loading detail fields nobody needs yet
+   * instead of asking a simple yes/no first. Checked against live in-form
+   * state, not the saved value, so toggling updates visibility immediately.
+   */
+  dependsOn?: { key: string; value: unknown }
   /** If set, the field only applies to these funnels (delta 1 funnel-awareness). */
   funnels?: FunnelMode[]
   /**
@@ -283,9 +292,10 @@ export const PROFILE_FIELDS: FieldDef[] = [
   // its behavior are untouched, just no editor anywhere right now.
 
   // ── Referrals ─────────────────────────────────────────────────────
-  { key: 'commissionRate', label: 'Referral commission %', section: 'referrals', store: 'tenant', col: 'commission_rate', kind: 'number', input: 'number', tier: 'recommended', read: (x) => t(x, 'commission_rate') },
-  { key: 'autoPayReferrals', label: 'Auto-pay referrals', section: 'referrals', store: 'selena', col: 'auto_pay_referrals', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_pay_referrals') },
-  { key: 'referralMinPayout', label: 'Min referral payout ($)', section: 'referrals', store: 'selena', col: 'referral_min_payout', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'referral_min_payout') },
+  { key: 'runReferralProgram', label: 'Do you want to run a referral program?', section: 'referrals', store: 'selena', col: 'run_referral_program', kind: 'bool', input: 'toggle', tier: 'optional', help: 'Pay people (clients, partners, anyone) a commission for sending you new business. Skip this if you don\'t want one — nothing below applies unless you turn this on.', read: (x) => s(x, 'run_referral_program') },
+  { key: 'commissionRate', label: 'Referral commission %', section: 'referrals', store: 'tenant', col: 'commission_rate', kind: 'number', input: 'number', tier: 'recommended', dependsOn: { key: 'runReferralProgram', value: true }, help: 'What percentage of the job\'s price you pay out as a referral commission — e.g. 10 means 10% of what the referred client pays.', read: (x) => t(x, 'commission_rate') },
+  { key: 'autoPayReferrals', label: 'Auto-pay referrals', section: 'referrals', store: 'selena', col: 'auto_pay_referrals', kind: 'bool', input: 'toggle', tier: 'optional', dependsOn: { key: 'runReferralProgram', value: true }, help: 'Pay the commission automatically once the referred job is paid, instead of you approving each payout by hand.', read: (x) => s(x, 'auto_pay_referrals') },
+  { key: 'referralMinPayout', label: 'Min referral payout ($)', section: 'referrals', store: 'selena', col: 'referral_min_payout', kind: 'number', input: 'number', tier: 'optional', dependsOn: { key: 'runReferralProgram', value: true }, help: 'Don\'t send a payout below this dollar amount — instead it accumulates until it crosses the threshold. Leave blank to pay out every time.', read: (x) => s(x, 'referral_min_payout') },
 
   // ── Agreements & Legal (section key stays 'proposals' -- see PROFILE_SECTION_META) ──
   { key: 'proposalTerms', label: 'Proposal terms', section: 'proposals', store: 'selena', col: 'proposal_terms', input: 'textarea', tier: 'critical', funnels: ['pipeline'], help: 'The terms you attach to every quote/proposal you send — scope of work, what\'s included, payment schedule.', read: (x) => s(x, 'proposal_terms') },
@@ -414,7 +424,7 @@ export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb
   payments: { title: 'Payments', blurb: 'How clients pay you.' },
   comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
   reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
-  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
+  referrals: { title: 'Referrals', blurb: 'Optional — pay people who send you new business.' },
   proposals: { title: 'Agreements & Legal', blurb: 'The terms, policies, and fine print that protect your business.' },
   team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
   compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
