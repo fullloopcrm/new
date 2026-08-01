@@ -25,6 +25,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import type { ServiceArea } from '@/lib/service-area'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
+import OnboardingCatalog from './OnboardingCatalog'
 
 export type FieldValue = string | number | boolean | string[] | Record<string, unknown> | null | undefined
 
@@ -41,6 +43,23 @@ export interface ApiField {
   options: Array<string | { label: string; value: string | number }> | null
   funnels: string[] | null
   help: string | null
+  platformManaged?: boolean
+}
+
+// Grayed, disabled stand-in for platformManaged fields (vendor API keys,
+// internal SEO/analytics config) -- a home-service business owner has no
+// reason to have these on hand. Shown so the question isn't just silently
+// missing (they can see it exists and why it's locked), but never an active
+// input: nothing here should look like something they're expected to fill.
+function PlatformManagedField({ number, label }: { number: string | undefined; label: string }) {
+  return (
+    <div className="opacity-60">
+      <label className="mb-1 block text-sm font-medium text-slate-500">{number ? `${number} ` : ''}{label}</label>
+      <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
+        <span aria-hidden>🔒</span> Full Loop sets this up for you — no action needed here.
+      </div>
+    </div>
+  )
 }
 
 function FieldHelp({ text }: { text: string | null | undefined }) {
@@ -56,24 +75,6 @@ function isWideField(f: ApiField): boolean {
 }
 
 type FormState = Record<string, FieldValue>
-
-const SECTION_META: Record<string, { title: string; blurb: string }> = {
-  identity: { title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
-  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
-  brand: { title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
-  services: { title: 'Services & Pricing', blurb: 'What you charge — the rest is set per-service.' },
-  scheduling: { title: 'Scheduling', blurb: 'Hours, booking rules, and holidays.' },
-  payments: { title: 'Payments', blurb: 'How clients pay you.' },
-  comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
-  reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
-  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
-  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
-  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
-  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
-  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
-  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
-}
-const SECTION_ORDER = ['identity', 'contact', 'brand', 'services', 'scheduling', 'payments', 'comms', 'reviews', 'referrals', 'proposals', 'team', 'compliance', 'seo', 'ai']
 
 type Mode = { mode: 'session' } | { mode: 'token'; token: string }
 
@@ -141,7 +142,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       const visitedSections = new Set(sections.filter((_, i) => visitedIdx.has(i)))
       const data: FormState = {}
       for (const f of fields) {
-        if (!f.readonly && visitedSections.has(f.section)) data[f.key] = form[f.key]
+        if (!f.readonly && visitedSections.has(f.section as typeof SECTION_ORDER[number])) data[f.key] = form[f.key]
       }
       await fetch('/api/tenant-profile', {
         method: 'PUT',
@@ -211,8 +212,17 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
           {businessName ? `Complete ${businessName}'s profile` : 'Complete your business profile'}
         </h1>
         <p className="text-sm text-slate-500">
-          This wires your account across billing, HR, finance, your site, and AI. Save and finish anytime.
+          Everything you enter here goes straight into your own Full Loop account — it&apos;s what runs your invoices, your texts and emails to clients, your booking site, and your AI agent. Save and finish anytime.
         </p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
+          {saving ? 'Saving…' : 'Every answer saves automatically as you type — nothing to submit until you\'re ready.'}
+        </p>
+        {mode.mode === 'token' && (
+          <p className="mt-1 text-xs text-slate-400">
+            🔒 This link is private to your business only — your answers are never shared outside your account, and sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
+          </p>
+        )}
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -261,10 +271,20 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         <h2 className="font-heading text-lg font-semibold text-slate-900">{meta.title}</h2>
         {meta.blurb && <p className="mb-5 text-sm text-slate-500">{meta.blurb}</p>}
 
+        {sectionKey === 'services' && <OnboardingCatalog token={token} />}
+
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (
             <div key={f.key} className={isWideField(f) ? 'md:col-span-2' : undefined}>
-              <FieldRenderer field={f} value={form[f.key]} onChange={(v) => set(f.key, v)} />
+              {f.platformManaged ? (
+                <PlatformManagedField number={PROFILE_FIELD_NUMBER[f.key]} label={f.label} />
+              ) : (
+                <FieldRenderer
+                  field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                  value={form[f.key]}
+                  onChange={(v) => set(f.key, v)}
+                />
+              )}
             </div>
           ))}
         </div>

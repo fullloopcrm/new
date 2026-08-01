@@ -10,6 +10,7 @@
  * and returns fresh readiness, which drives the completeness rail + launch gate.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PROFILE_SECTION_META, PROFILE_SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
 
 type Tier = 'critical' | 'recommended' | 'optional'
 type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array'
@@ -30,14 +31,16 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 interface ActivationStep { key: string; label: string; status: string; detail?: string }
 interface ActivationResult { ok?: boolean; activated?: boolean; ready?: boolean; steps?: ActivationStep[]; ownerPin?: string | null; error?: string }
 
-const SECTION_TITLES: Record<string, string> = {
-  identity: 'Business Identity', contact: 'Contact & Location', brand: 'Brand & Site',
-  services: 'Services & Pricing', scheduling: 'Scheduling', payments: 'Payments',
-  comms: 'Comms & Integrations', reviews: 'Reviews', referrals: 'Referrals & Finance',
-  proposals: 'Proposals', team: 'Team Defaults', compliance: 'Licensing & Insurance',
-  ai: 'AI Persona', seo: 'Leads & SEO',
-}
-const SECTION_ORDER = ['identity', 'contact', 'brand', 'services', 'scheduling', 'payments', 'comms', 'reviews', 'referrals', 'proposals', 'team', 'ai', 'compliance', 'seo']
+// Section order/titles come from the shared registry (tenant-profile.ts) --
+// this used to keep its own copy, which drifted out of sync with the public
+// onboarding link and dashboard wizard (e.g. AI Persona was a different step
+// number on each). 'account' appended at the end: admin-only fields (account
+// owner, contract terms, etc.) that the tenant-facing surfaces never show,
+// but this admin form is the one place they should be visible/editable.
+const SECTION_TITLES: Record<string, string> = Object.fromEntries(
+  Object.entries(PROFILE_SECTION_META).map(([k, v]) => [k, v.title]),
+)
+const SECTION_ORDER = [...PROFILE_SECTION_ORDER, 'account']
 
 const optValue = (o: Opt) => (typeof o === 'string' ? o : o.value)
 const optLabel = (o: Opt) => (typeof o === 'string' ? o : o.label)
@@ -132,7 +135,13 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
               </div>
               <div className="space-y-4">
                 {visible.map((f) => (
-                  <FieldRow key={f.key} field={f} value={values[f.key]} state={saveState[f.key] || 'idle'} onChange={onChange} />
+                  <FieldRow
+                    key={f.key}
+                    field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                    value={values[f.key]}
+                    state={saveState[f.key] || 'idle'}
+                    onChange={onChange}
+                  />
                 ))}
               </div>
             </section>

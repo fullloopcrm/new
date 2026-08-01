@@ -69,6 +69,18 @@ export interface FieldDef {
    * session on admin/tenants/[id].
    */
   audience?: 'tenant' | 'admin'
+  /**
+   * Real question with a real value the tenant DOES own (unlike `audience:
+   * 'admin'`, which hides a field entirely) -- but not something a typical
+   * home-service business owner has on hand or should be typing into a
+   * signup form: vendor API keys/secrets and internal
+   * SEO/analytics config Full Loop provisions on their behalf. The public
+   * /onboard/[token] link and dashboard wizard show these locked/grayed
+   * with a "Full Loop sets this up" note instead of a live input. The admin
+   * Profile Form ignores this flag and renders them normally -- an admin IS
+   * the one who fills these in.
+   */
+  platformManaged?: boolean
   /** If set, the field only applies to these funnels (delta 1 funnel-awareness). */
   funnels?: FunnelMode[]
   /**
@@ -216,23 +228,23 @@ export const PROFILE_FIELDS: FieldDef[] = [
 
   // ── Payments (booking/pipeline) ───────────────────────────────────
   { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'payment_methods') },
-  { key: 'stripeKey', label: 'Stripe secret key', section: 'payments', store: 'tenant', col: 'stripe_api_key', tier: 'recommended', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_api_key') },
-  { key: 'stripeAccountId', label: 'Stripe account ID', section: 'payments', store: 'tenant', col: 'stripe_account_id', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_account_id') },
+  { key: 'stripeKey', label: 'Stripe secret key', section: 'payments', store: 'tenant', col: 'stripe_api_key', tier: 'recommended', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_api_key') },
+  { key: 'stripeAccountId', label: 'Stripe account ID', section: 'payments', store: 'tenant', col: 'stripe_account_id', tier: 'optional', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_account_id') },
   { key: 'zelleEmail', label: 'Zelle email', section: 'payments', store: 'tenant', col: 'zelle_email', tier: 'optional', read: (x) => t(x, 'zelle_email') },
   { key: 'appleCashPhone', label: 'Apple Cash phone', section: 'payments', store: 'tenant', col: 'apple_cash_phone', tier: 'optional', read: (x) => t(x, 'apple_cash_phone') },
 
   // ── Comms & integrations ──────────────────────────────────────────
-  { key: 'resendKey', label: 'Sending email key (Resend)', section: 'comms', store: 'tenant', col: 'resend_api_key', tier: 'critical', read: (x) => t(x, 'resend_api_key') },
-  { key: 'resendDomain', label: 'Sending domain', section: 'comms', store: 'tenant', col: 'resend_domain', tier: 'recommended', read: (x) => t(x, 'resend_domain') },
+  { key: 'resendKey', label: 'Sending email key (Resend)', section: 'comms', store: 'tenant', col: 'resend_api_key', tier: 'critical', platformManaged: true, read: (x) => t(x, 'resend_api_key') },
+  { key: 'resendDomain', label: 'Sending domain', section: 'comms', store: 'tenant', col: 'resend_domain', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'resend_domain') },
   { key: 'emailFrom', label: 'From address', section: 'comms', store: 'tenant', col: 'email_from', tier: 'recommended', read: (x) => t(x, 'email_from') },
-  { key: 'telnyxKey', label: 'SMS key (Telnyx)', section: 'comms', store: 'tenant', col: 'telnyx_api_key', tier: 'recommended', read: (x) => t(x, 'telnyx_api_key') },
-  { key: 'telnyxPhone', label: 'SMS number', section: 'comms', store: 'tenant', col: 'telnyx_phone', tier: 'recommended', read: (x) => t(x, 'telnyx_phone') },
-  { key: 'telegramBotToken', label: 'Telegram bot token', section: 'comms', store: 'tenant', col: 'telegram_bot_token', tier: 'optional', read: (x) => t(x, 'telegram_bot_token') },
-  { key: 'telegramChatId', label: 'Telegram chat ID', section: 'comms', store: 'tenant', col: 'telegram_chat_id', tier: 'optional', read: (x) => t(x, 'telegram_chat_id') },
-  { key: 'anthropicKey', label: 'Anthropic key (AI)', section: 'comms', store: 'tenant', col: 'anthropic_api_key', tier: 'optional', read: (x) => t(x, 'anthropic_api_key') },
+  { key: 'telnyxKey', label: 'SMS key (Telnyx)', section: 'comms', store: 'tenant', col: 'telnyx_api_key', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'telnyx_api_key') },
+  { key: 'telnyxPhone', label: 'SMS number', section: 'comms', store: 'tenant', col: 'telnyx_phone', tier: 'recommended', platformManaged: true, read: (x) => t(x, 'telnyx_phone') },
+  { key: 'telegramBotToken', label: 'Telegram bot token', section: 'comms', store: 'tenant', col: 'telegram_bot_token', tier: 'optional', platformManaged: true, read: (x) => t(x, 'telegram_bot_token') },
+  { key: 'telegramChatId', label: 'Telegram chat ID', section: 'comms', store: 'tenant', col: 'telegram_chat_id', tier: 'optional', platformManaged: true, read: (x) => t(x, 'telegram_chat_id') },
+  { key: 'anthropicKey', label: 'Anthropic key (AI)', section: 'comms', store: 'tenant', col: 'anthropic_api_key', tier: 'optional', platformManaged: true, read: (x) => t(x, 'anthropic_api_key') },
 
   // ── Reviews (booking/pipeline) ────────────────────────────────────
-  { key: 'reviewTarget', label: 'Google Place ID', section: 'reviews', store: 'tenant', col: 'google_place_id', tier: 'recommended', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'google_place_id') || s(x, 'google_review_link') },
+  { key: 'reviewTarget', label: 'Google Place ID', section: 'reviews', store: 'tenant', col: 'google_place_id', tier: 'recommended', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'google_place_id') || s(x, 'google_review_link') },
   { key: 'reviewLink', label: 'Review link', section: 'reviews', store: 'selena', col: 'google_review_link', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'google_review_link') },
   { key: 'reviewFollowupEnabled', label: 'Auto review follow-up', section: 'reviews', store: 'selena', col: 'review_followup_enabled', kind: 'bool', input: 'toggle', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'review_followup_enabled') },
 
@@ -322,8 +334,8 @@ export const PROFILE_FIELDS: FieldDef[] = [
 
   // ── Lead handling / SEO ───────────────────────────────────────────
   { key: 'autoRespondLeads', label: 'Auto-respond to leads', section: 'seo', store: 'selena', col: 'auto_respond_leads', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_respond_leads') },
-  { key: 'attributionWindow', label: 'Attribution window (hrs)', section: 'seo', store: 'tenant', col: 'attribution_window_hours', kind: 'number', input: 'number', tier: 'optional', read: (x) => t(x, 'attribution_window_hours') },
-  { key: 'indexnow', label: 'IndexNow key', section: 'seo', store: 'tenant', col: 'indexnow_key', tier: 'optional', read: (x) => t(x, 'indexnow_key') },
+  { key: 'attributionWindow', label: 'Attribution window (hrs)', section: 'seo', store: 'tenant', col: 'attribution_window_hours', kind: 'number', input: 'number', tier: 'optional', platformManaged: true, read: (x) => t(x, 'attribution_window_hours') },
+  { key: 'indexnow', label: 'IndexNow key', section: 'seo', store: 'tenant', col: 'indexnow_key', tier: 'optional', platformManaged: true, read: (x) => t(x, 'indexnow_key') },
 
   // ── Account (FL-internal — never shown on the public onboarding link) ──
   { key: 'accountOwner', label: 'Account owner', section: 'account', store: 'tenant', col: 'account_owner', audience: 'admin', tier: 'optional', read: (x) => t(x, 'account_owner') },
@@ -343,6 +355,68 @@ export const PROFILE_FIELDS: FieldDef[] = [
 export const PROFILE_FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries(
   PROFILE_FIELDS.map((f) => [f.key, f]),
 )
+
+/**
+ * Section order + display copy — the SINGLE source of truth for every
+ * surface that groups PROFILE_FIELDS into sections (the public
+ * /onboard/[token] link, the in-dashboard onboarding wizard, and the admin
+ * Profile Form all import this instead of keeping their own copy). Previously
+ * each of those kept its own hand-written order/title list and they drifted
+ * out of sync with each other (e.g. AI Persona was step 14 on one and step
+ * 12 on another) -- fixed 2026-08-01 by deleting the duplicates in favor of
+ * this one array.
+ */
+export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb: string }> = {
+  identity: { title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
+  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
+  brand: { title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
+  services: { title: 'Services & Pricing', blurb: 'What you charge — the rest is set per-service.' },
+  scheduling: { title: 'Scheduling', blurb: 'Hours, booking rules, and holidays.' },
+  payments: { title: 'Payments', blurb: 'How clients pay you.' },
+  comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
+  reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
+  referrals: { title: 'Referrals', blurb: 'Commission and payout rules for your referral program.' },
+  proposals: { title: 'Proposals', blurb: 'Terms and deposit rules for pipeline-funnel quotes.' },
+  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
+  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
+  seo: { title: 'Lead Handling & SEO', blurb: 'How leads are captured and attributed.' },
+  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
+  account: { title: 'Account', blurb: 'Internal account details.' },
+}
+
+export const PROFILE_SECTION_ORDER: ProfileSection[] = [
+  'identity', 'contact', 'brand', 'services', 'scheduling',
+  'payments', 'comms', 'reviews', 'referrals', 'proposals',
+  'team', 'compliance', 'seo', 'ai',
+]
+
+/**
+ * Stable "6.3"-style display number for every non-readonly field — section
+ * index . position within section, both computed purely from PROFILE_FIELDS'
+ * own declaration order. Dot-notation instead of letters (6A, 6B) because
+ * some sections (ai) run past 20 fields.
+ *
+ * Every surface that shows a field to a person (the public /onboard/[token]
+ * link, the in-dashboard wizard, the admin Profile Form) imports this instead
+ * of computing its own -- that's what makes "field 6.3" mean the exact same
+ * field everywhere, structurally, not by coincidence. Readonly/derived
+ * fields (serviceScope, servicePricing, …) are excluded: they're
+ * supplementary "(set elsewhere)" context on the admin form, not a numbered
+ * question, and the tenant-facing wizard never shows them at all -- giving
+ * them a number would make the two surfaces' counts disagree.
+ */
+export const PROFILE_FIELD_NUMBER: Record<string, string> = (() => {
+  const out: Record<string, string> = {}
+  PROFILE_SECTION_ORDER.forEach((section, sectionIdx) => {
+    let n = 0
+    for (const f of PROFILE_FIELDS) {
+      if (f.section !== section || f.readonly) continue
+      n += 1
+      out[f.key] = `${sectionIdx + 1}.${n}`
+    }
+  })
+  return out
+})()
 
 /** Coerce an incoming value to a field's storage kind. Empty → null (clear). */
 export function coerceFieldValue(f: FieldDef, raw: unknown): unknown {

@@ -8,6 +8,7 @@ import { LaunchPanel } from '@/components/admin/LaunchPanel'
 import DocumentsPanel from '@/components/DocumentsPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 
 type Business = {
   id: string
@@ -34,6 +35,7 @@ type Business = {
   last_active_at: string | null
   created_at: string
   gmail_account: string | null
+  domain: string | null
   domain_name: string | null
   dns_configured: boolean
   email_domain_verified: boolean
@@ -152,6 +154,9 @@ export default function BusinessDetailPage() {
   const [invites, setInvites] = useState<Invite[]>([])
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
+  const [profileComplete, setProfileComplete] = useState(false)
+  const [verifyChecks, setVerifyChecks] = useState<Record<string, { ok: boolean; detail: string }> | null>(null)
+  const [verifying, setVerifying] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
@@ -240,6 +245,7 @@ export default function BusinessDetailPage() {
         setInvites(data.invites || [])
         setCl(data.checklist || null)
         setProgress(data.progress || { completed: 0, total: 0 })
+        setProfileComplete(!!data.profileComplete)
         if (b) {
           setOwnerName(b.owner_name || '')
           setOwnerEmail(b.owner_email || '')
@@ -389,6 +395,32 @@ export default function BusinessDetailPage() {
     fetchData()
   }
 
+  // Deep-links the master PIN as a `?pin=` query param -- these surfaces are
+  // served on the TENANT'S OWN domain and authenticate via a completely
+  // separate PIN-only system (team_members/clients tables), so there's no
+  // cookie-based impersonation equivalent (ported from the old /admin/portals
+  // picker, which this replaces).
+  function portalUrl(domain: string, path: string): string {
+    const url = new URL(`https://${domain}${path}`)
+    url.searchParams.set('pin', UNIVERSAL_PIN)
+    return url.toString()
+  }
+
+  // Live DNS/SSL/Resend/Telnyx/Stripe checks, auto-ticking the checklist
+  // above. Ported from the legacy /admin/businesses/[id]/wizard page (now
+  // removed) -- the one real feature in it that wasn't duplicated anywhere
+  // else.
+  async function runVerify() {
+    setVerifying(true)
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/verify-checklist`, { method: 'POST' })
+      const data = await res.json()
+      setVerifyChecks(data.checks || null)
+      fetchData()
+    } catch { /* leave prior results visible on failure */ }
+    setVerifying(false)
+  }
+
   async function startImpersonation() {
     setImpersonating(true)
     const res = await fetch('/api/admin/impersonate', {
@@ -464,7 +496,7 @@ export default function BusinessDetailPage() {
 
       {/* Onboarding Link — stays pinned here (not buried in a tab) until the
           tenant has actually submitted their profile. */}
-      {!biz.onboarding_completed_at && (
+      {!biz.onboarding_completed_at && !profileComplete && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-heading font-semibold text-sm text-amber-900">Onboarding Link — not yet completed</h3>
@@ -472,6 +504,12 @@ export default function BusinessDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <input readOnly value={onboardingUrl} placeholder="Loading…"
               className="flex-1 min-w-[240px] bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />
+            {onboardingUrl && (
+              <a href={onboardingUrl} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50">
+                Open ↗
+              </a>
+            )}
             <button onClick={copyOnboardingLink} disabled={!onboardingUrl}
               className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50">
               Copy
@@ -513,18 +551,32 @@ export default function BusinessDetailPage() {
             href={`/admin/businesses/${id}/profile`}
             className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
           >
-            Profile Form (new) →
-          </Link>
-          <Link
-            href={`/admin/businesses/${id}/wizard`}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
-          >
-            Onboarding Wizard →
+            Profile Form →
           </Link>
           <button onClick={startImpersonation} disabled={impersonating}
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
             {impersonating ? 'Entering...' : 'Enter Business Profile'}
           </button>
+          {(biz.domain || biz.domain_name) && (
+            <>
+              <a
+                href={portalUrl((biz.domain || biz.domain_name) as string, '/team/login')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Team Portal ↗
+              </a>
+              <a
+                href={portalUrl((biz.domain || biz.domain_name) as string, '/portal/login')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Client Portal ↗
+              </a>
+            </>
+          )}
         </div>
       </div>
 
@@ -549,6 +601,29 @@ export default function BusinessDetailPage() {
               <div className={`h-2.5 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-teal-600' : 'bg-orange-500'}`} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-sm font-mono text-slate-500">{progress.completed}/{progress.total}</span>
+          </div>
+
+          {/* Live verification — checks DNS/SSL/Resend/Telnyx/Stripe and
+              auto-ticks the matching items below instead of manual toggling. */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-slate-900">Run live checks</p>
+              <button onClick={runVerify} disabled={verifying}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50">
+                {verifying ? 'Checking…' : 'Run checks'}
+              </button>
+            </div>
+            {verifyChecks && (
+              <div className="space-y-1.5">
+                {Object.entries(verifyChecks).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2 text-sm">
+                    <span className={v.ok ? 'text-green-600' : 'text-red-600'}>{v.ok ? '✓' : '✗'}</span>
+                    <span className="font-medium text-slate-900">{k.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-slate-500">{v.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {cl ? (
