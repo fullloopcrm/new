@@ -148,3 +148,125 @@ single source of truth for "did it land" instead of institutional memory.
 Docker-local staging environment this composes with), `docs/TEAM-READINESS.md`
 Phase C (the checklist item this closes the tooling half of),
 `docs/runbooks/migration-runbook.md` (the still-accurate prod-apply gate).
+
+---
+
+## 2026-08-01 addendum — reality check on "the 158 files question" (sec-08)
+
+Re-audited this ADR against the actual repo state, prompted by the readiness
+ledger's own sec-08 checkpoint (named exactly "the 158 files question").
+Findings below are corrections/additions to the record above, not a redo of
+the decision. **Status stays Proposed — nothing in this addendum applies the
+baseline against prod; that remains gated on Jeff's go, same as before.**
+
+### Correction: the 158-file baseline conversion IS real and committed
+
+The original ADR text above is easy to misread as describing work that only
+ever happened locally in one worker's session. Checked directly: commit
+`6db15574a` ("feat: item 6 - real Supabase CLI migration tooling, replacing
+214 hand-run SQL files", 2026-07-28) really did commit the converted files to
+`supabase/migrations/` at the **repo root**, and that commit is a real
+ancestor of this branch's HEAD (`git merge-base --is-ancestor` confirmed).
+The directory holds 163 files as of this addendum (158 baseline + a few
+genuinely-new native migrations authored directly through the CLI workflow
+since, exactly as this ADR intended going forward, + the 1 recovered file
+below). **This part of "the 158 files question" is settled: yes, they were
+committed, and the count has kept growing correctly since.**
+
+### New finding: a second, disconnected Supabase CLI project
+
+`platform/supabase/` (note: **inside** `platform/`, not the repo-root
+`supabase/` this ADR describes) is a **separate, accidentally-created local
+Supabase CLI project** — `project_id = "platform"` (the directory-name
+default, not the deliberate `fullloopcrm-staging` this ADR's "What already
+existed" section names), and critically, it has **no
+`supabase/.temp/project-ref`** — it has never been `supabase link`-ed to
+prod at all. It was created by commit `47bc4acf8` (2026-07-29, an unrelated
+tenant-profile feature commit) — almost certainly a worker running a
+Supabase CLI command from inside `platform/` (this whole readiness effort's
+own working-directory convention) without realizing a real, already-linked
+`supabase/` project existed one level up at the repo root.
+
+**This silently swallowed a real migration.** sec-06's RLS deny-all policy
+migration (`docs/security/rls-policy-review-2026-07-30.md`,
+`platform/supabase/migrations/20260730190000_explicit_deny_all_rls_policies.sql`)
+was authored into this wrong, unlinked directory and was never picked up by
+`scripts/migrate-legacy-to-cli.mjs` (its `STRAY_CLI_DIR` constant only knows
+about `platform/supabase/migrations/`, but the script's *output* goes to the
+repo-root `supabase/migrations/` — the file sat converted-nowhere in
+between). Confirmed via `git ls-files` that the real, prod-linked baseline
+never contained this file. Independently confirmed via sec-06's own
+2026-07-31 `live_http_check` evidence that the policies this file defines
+**are** genuinely active in prod (real anon-key PostgREST requests against
+`tenants`/`platform_settings`/`security_events` correctly returned empty
+results against non-empty tables) — so converting it into the real baseline
+as "already live" is accurate, not a guess. **Fixed this pass**: manually
+added `supabase/migrations/20260730191108_20260730190000_explicit_deny_all_rls_policies.sql`
+to the real, prod-linked baseline directory (content byte-identical to the
+stray file, same header convention the conversion script uses) and included
+its version in the regenerated `supabase/BASELINE_VERSIONS.txt` below.
+
+**Not fixed this pass, flagged as open**: the stray `platform/supabase/`
+directory itself still exists with its 2 files
+(`20260722145537_management_applications_resume_optional.sql`, already
+long-baselined under a different timestamp in the real tree, and the
+now-recovered RLS file above). Deleting it wasn't attempted here — it may
+still be depended on by ADR 0007's local-Docker-staging scripts
+(`scripts/staging-up.sh` etc.), which weren't audited this pass. Whoever
+owns ADR 0007 next should confirm before removing it, and going forward:
+**always run Supabase CLI commands from the repo root, never from inside
+`platform/`**, until this is cleaned up or the two are reconciled.
+
+### New finding: `scripts/migrate-legacy-to-cli.mjs`'s "safe to re-run" claim is not always true
+
+The script's own docstring claims re-running it is always safe (skips any
+source whose converted output already exists). Verified via `--dry-run`
+(read-only, wrote nothing) that this is **false for at least 3 files**:
+the RLS gap-closure migration and both `061→063`-renumbered
+nycmaid-routing-reconcile migrations. All three were renamed/renumbered at
+some point in their git history; the script's `gitAddDates()` helper
+(`git log --diff-filter=A`, no rename-detection / `--follow`) fails to find
+their real first-add commit in this worktree and silently falls back to
+"now" — meaning it computes a **different, wrong timestamp on every run**
+for these specific files, which would write a **duplicate** migration file
+for content that is already committed under an earlier, correct timestamp.
+Root-caused, not just observed: manually ran `git log --follow --diff-filter=A`
+on each affected source file and confirmed real, stable git history exists
+that the script's own (non-`--follow`, directory-wide) query misses. **Not
+fixed this pass** — the correct fix requires a real design decision (does a
+renumbered file's "first add" mean its first add under ANY name, or under
+its CURRENT name? different tools disagree, and this codebase's own
+`gitAddDates()` doc-comment already picks one convention for a different
+reason) — flagged here with the exact repro instead of a rushed patch.
+Added a prominent warning to the script's own docstring so nobody trusts
+"re-running is safe" blindly again, and confirmed via a fresh `--dry-run`
+that all 3 affected files are correctly left alone as long as `--dry-run`
+is checked before a real run (which is now the documented recommended
+practice).
+
+### Correction: `supabase/BASELINE_VERSIONS.txt` did not actually exist
+
+This ADR's own "What was built this pass" table lists this file as an
+artifact of the original work. It never existed — the script only ever
+printed the same version list to stdout, it never called `writeFileSync` for
+this path. Confirmed via `git ls-files` (never tracked) and a fresh disk
+check (not present, and `git status` shows no local untracked copy either
+— genuinely never generated). **Fixed this pass**: added the missing
+`writeFileSync` call to `scripts/migrate-legacy-to-cli.mjs` and generated
+`supabase/BASELINE_VERSIONS.txt` for real — but sourced from the **actual
+committed contents of `supabase/migrations/`** (164 files total now — 163
+pre-existing + the 1 newly-recovered RLS file — minus the 1 still-pending
+RLS gap-closure file = 163 baseline versions) rather than a live re-run of
+the buggy date heuristic above, for the reason explained in that finding.
+The file explains this choice inline.
+
+### Net effect on "the 158 files question"
+
+The core question this ADR and sec-08 exist to answer — did the legacy
+migration pile actually get converted and committed — is **yes, confirmed,
+and growing correctly**. What's genuinely still open: (1) the baseline
+"applied" repair against prod's tracking table (unchanged, still gated on
+Jeff's go), (2) the disconnected `platform/supabase/` project needs a real
+cleanup decision, and (3) the conversion script's date-lookup bug needs a
+real fix before it's run for real again without a `--dry-run` sanity check
+first.
