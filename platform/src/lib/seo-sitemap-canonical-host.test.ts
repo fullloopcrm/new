@@ -34,7 +34,10 @@ import { join } from 'node:path'
 //     sitemap-www-vs-apex-detection.md). This is the source-level invariant only.
 
 const SITE_ROOT = join(process.cwd(), 'src/app/site')
-const MIDDLEWARE = join(process.cwd(), 'src/middleware.ts')
+// APEX_CANONICAL_DOMAINS lives in the canonical-redirects module (moved out
+// of the monolithic src/middleware.ts on 2026-08-01), not the middleware.ts
+// orchestrator file itself.
+const MIDDLEWARE = join(process.cwd(), 'src/middleware/canonical-redirects.ts')
 
 // Parse `APEX_CANONICAL_DOMAINS = new Set<string>(['a', 'b', ...])` out of
 // middleware (same technique as sitemap-presence.test.ts::parseRichSitemapSet).

@@ -239,8 +239,10 @@ async function main() {
     return d
   }
 
-  // Source 3 + 4 from the working tree.
-  const bespokeSet = parseBespokeSet(readFileSync(join(REPO, 'src', 'middleware.ts'), 'utf8'))
+  // Source 3 + 4 from the working tree. BESPOKE_SITE_TENANTS lives in the
+  // tenant-routing module (moved out of the monolithic src/middleware.ts on
+  // 2026-08-01), not the middleware.ts orchestrator file itself.
+  const bespokeSet = parseBespokeSet(readFileSync(join(REPO, 'src', 'middleware', 'tenant-routing.ts'), 'utf8'))
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)

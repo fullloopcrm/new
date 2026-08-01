@@ -32,7 +32,11 @@ import { join } from 'node:path'
 // invariant only: a rich-set slug always has a sitemap route FILE on disk.
 
 const SITE_ROOT = join(process.cwd(), 'src/app/site')
-const MIDDLEWARE = join(process.cwd(), 'src/middleware.ts')
+// TENANTS_WITH_RICH_SITEMAP lives in the tenant-routing module (moved out of
+// the monolithic src/middleware.ts on 2026-08-01 — see middleware.ts's own
+// top-of-file comment for why), not the middleware.ts orchestrator file
+// itself.
+const MIDDLEWARE = join(process.cwd(), 'src/middleware/tenant-routing.ts')
 
 // `template` is the scaffold every bespoke site is cloned from. It ships a
 // sitemap.xml/ Route Handler but is NEVER routed as a tenant — middleware never

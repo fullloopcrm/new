@@ -52,12 +52,12 @@ export const CARRYING_HOST = 'fullloopcrm.com'
  * drift from it. Mirrors scripts/verify-protected-tenants.mjs.
  */
 export function bespokeSlugsFromMiddleware(): string[] {
-  const mwPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'middleware.ts')
+  const mwPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'middleware', 'tenant-routing.ts')
   const mw = readFileSync(mwPath, 'utf8')
   const block = mw.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
   if (!block) {
     throw new Error(
-      'Could not find BESPOKE_SITE_TENANTS in src/middleware.ts — the set was ' +
+      'Could not find BESPOKE_SITE_TENANTS in src/middleware/tenant-routing.ts — the set was ' +
         'renamed or removed. Fix the parse before trusting the smoke fixture.',
     )
   }

@@ -7,7 +7,7 @@
  * WHY THIS EXISTS
  * ---------------
  * Which tenants keep their own site is decided by a hardcoded `Set`,
- * `BESPOKE_SITE_TENANTS`, inside src/middleware.ts. Every tenant NOT in that set
+ * `BESPOKE_SITE_TENANTS`, inside src/middleware/tenant-routing.ts. Every tenant NOT in that set
  * is rewritten to /site/template. That means a single dropped line in a merge —
  * or a deleted /site/<slug> folder — silently replaces a live business's
  * website with the generic template, with no error and no alert. That is exactly
@@ -27,7 +27,7 @@
  *   node scripts/verify-protected-tenants.mjs
  *
  * TO PROTECT A NEW TENANT: add it to PROTECTED below, add its slug to
- * BESPOKE_SITE_TENANTS in src/middleware.ts, and make sure its
+ * BESPOKE_SITE_TENANTS in src/middleware/tenant-routing.ts, and make sure its
  * src/app/site/<slug>/ folder exists. All three or the guard fails.
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
@@ -69,16 +69,18 @@ const violations = []
 // --- 1. Extract the BESPOKE_SITE_TENANTS set from middleware source text. ---
 // Static text parse on purpose: the failure mode we guard against is a human or
 // a merge editing this exact literal, so we check the literal itself.
-const mwPath = join(REPO, 'src', 'middleware.ts')
+// Lives in the tenant-routing module (moved out of the monolithic
+// src/middleware.ts on 2026-08-01), not the middleware.ts orchestrator file.
+const mwPath = join(REPO, 'src', 'middleware', 'tenant-routing.ts')
 let bespokeSet = null
 if (!existsSync(mwPath)) {
-  violations.push(`middleware not found at src/middleware.ts — cannot verify routing`)
+  violations.push(`middleware not found at src/middleware/tenant-routing.ts — cannot verify routing`)
 } else {
   const mw = readFileSync(mwPath, 'utf8')
   const block = mw.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
   if (!block) {
     violations.push(
-      `could not find the BESPOKE_SITE_TENANTS set in src/middleware.ts — it was ` +
+      `could not find the BESPOKE_SITE_TENANTS set in src/middleware/tenant-routing.ts — it was ` +
       `renamed or removed. Bespoke-site routing may be broken; verify manually.`
     )
   } else {
@@ -91,7 +93,7 @@ for (const t of PROTECTED) {
   if (bespokeSet && !bespokeSet.has(t.slug)) {
     violations.push(
       `'${t.slug}' (${t.domain}) is NOT in BESPOKE_SITE_TENANTS → it would render ` +
-      `the global template instead of its own site. Re-add it to the set in src/middleware.ts.`
+      `the global template instead of its own site. Re-add it to the set in src/middleware/tenant-routing.ts.`
     )
   }
   // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route group

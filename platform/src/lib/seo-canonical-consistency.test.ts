@@ -24,7 +24,10 @@ import { join } from 'node:path'
 // vitest runs with the platform package root as cwd.
 
 const SITE_ROOT = join(process.cwd(), 'src/app/site')
-const MIDDLEWARE = join(process.cwd(), 'src/middleware.ts')
+// APEX_CANONICAL_DOMAINS lives in the canonical-redirects module (moved out
+// of the monolithic src/middleware.ts on 2026-08-01), not the middleware.ts
+// orchestrator file itself.
+const MIDDLEWARE = join(process.cwd(), 'src/middleware/canonical-redirects.ts')
 
 // --- tracked-RED defects (see deploy-prep/seo-remediation-spec.md) ---
 const KNOWN_CANONICAL_REDIRECT = new Set<string>([
@@ -134,7 +137,7 @@ function effectiveCanonicalHost(slug: string, src: string): string | null {
 function apexCanonicalDomains(): Set<string> {
   const mw = readFileSync(MIDDLEWARE, 'utf8')
   const block = mw.match(/APEX_CANONICAL_DOMAINS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  if (!block) throw new Error('Could not locate APEX_CANONICAL_DOMAINS in middleware.ts')
+  if (!block) throw new Error('Could not locate APEX_CANONICAL_DOMAINS in src/middleware/canonical-redirects.ts')
   return new Set([...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1].toLowerCase()))
 }
 

@@ -1,325 +1,42 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-// Local path matcher — replaces Clerk's createRouteMatcher. Patterns use the
-// same '(.*)' glob syntax; each is anchored and tested against the pathname.
-function createRouteMatcher(patterns: string[]) {
-  const res = patterns.map((p) => new RegExp('^' + p.replace(/\(\.\*\)/g, '.*') + '$'))
-  return (req: NextRequest) => res.some((re) => re.test(req.nextUrl.pathname))
-}
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
-import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
+import { redirectLegacyMarketingUrl } from './middleware/legacy-redirects'
+import { getBrandConsolidationRedirect, getCanonicalWwwRedirect } from './middleware/canonical-redirects'
+import { isKilledRoute } from './middleware/killed-routes'
+import { getEmdMicrositeRewrite } from './middleware/emd-microsites'
 import {
-  findIndustryByPageSlug,
-  findMetroByPageSlug,
-  findCombo,
-  industryPath,
-  locationPath,
-  comboPath,
-} from '@/lib/marketing/combos'
+  isMainHost,
+  extractSubdomain,
+  tenantServesSite,
+  getStaticTenant,
+  rewriteToSite,
+} from './middleware/tenant-routing'
+import { isPublicRoute } from './middleware/public-routes'
+import { isAdminBypassPath } from './middleware/admin-bypass'
 
-// --- 2026-07-28 slug redesign: 301 old marketing-site URLs to the new
-// short-tail/nested formats. Main host only — never touches tenant routing.
-// Order matters: industry hub (2 segments) before combo (also under
-// /industry/*, distinguished by whether the 2nd segment resolves to a metro).
-function redirectLegacyMarketingUrl(pathname: string): string | null {
-  // Old flat combo page: /crm-for-{industry}-businesses-in-{metro-shortSlug}
-  if (pathname.startsWith('/crm-for-') && pathname.includes('-businesses-in-')) {
-    const match = findCombo(pathname.slice(1))
-    if (match) return comboPath(match.industry, match.metro)
-  }
-
-  // Old industry hub: /industry/crm-for-{industry}-businesses
-  const industryMatch = pathname.match(/^\/industry\/(crm-for-.+)$/)
-  if (industryMatch) {
-    const industry = findIndustryByPageSlug(industryMatch[1])
-    if (industry) return industryPath(industry)
-  }
-
-  // Old location page: /location/home-service-crm-in-{metro-shortSlug}
-  const locationMatch = pathname.match(/^\/location\/(home-service-crm-in-.+)$/)
-  if (locationMatch) {
-    const metro = findMetroByPageSlug(locationMatch[1])
-    if (metro) return locationPath(metro)
-  }
-
-  return null
-}
-
-// Hosts that are the marketing site / main app (not tenant sites)
-const MAIN_HOSTS = new Set([
-  'homeservicesbusinesscrm.com',
-  'www.homeservicesbusinesscrm.com',
-  'fullloopcrm.com',
-  'www.fullloopcrm.com',
-  'localhost',
-  '127.0.0.1',
-  'platform-ten-psi.vercel.app',
-])
-
-// A tenant's public site (carrying domain or custom domain) serves in every
-// state EXCEPT the ones where it should be dark. New tenants are 'setup'/
-// 'pending' and must still show their live site immediately (booking + collect
-// work before full activation) — gating on status==='active' hid every new
-// tenant behind the Full Loop marketing page until the onboarding gate passed.
-const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'])
-function tenantServesSite(status: string | null | undefined): boolean {
-  return !NON_SERVING_STATUSES.has(status ?? '')
-}
-
-function isMainHost(hostname: string): boolean {
-  // Strip port AND lowercase for comparison — MAIN_HOSTS entries are all
-  // lowercase, so a mixed-case Host header (e.g. curl sending
-  // "WWW.FULLLOOPCRM.COM") would otherwise miss this Set, fall through to the
-  // custom-domain branch below, fail the domain lookup, and return
-  // NextResponse.next() — skipping the Clerk/admin-token auth gate entirely
-  // for the main dashboard.
-  const host = hostname.split(':')[0].toLowerCase()
-  return MAIN_HOSTS.has(host)
-}
-
-// EU + EEA + UK + Switzerland — the jurisdiction where GDPR/ePrivacy require
-// opt-in consent before non-essential cookies load. Matches the "EEA, UK, or
-// Switzerland" language already published in tenant privacy policies.
-const EU_JURISDICTION_COUNTRIES = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
-  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
-  'SE', // EU
-  'IS', 'LI', 'NO', // EEA
-  'GB', // UK
-  'CH', // Switzerland
-])
-
-const EU_REGION_COOKIE = 'fl_region_eu'
-
-/** Vercel sets this header at the edge for every request; absent in local dev. */
-function isEuJurisdiction(req: NextRequest): boolean {
-  const country = req.headers.get('x-vercel-ip-country')
-  return !!country && EU_JURISDICTION_COUNTRIES.has(country.toUpperCase())
-}
-
-// Routes killed during the 2026-05-03 teaser pivot. Strategy shifted away
-// from licensing the platform to operators; these pages all assumed a
-// buyer/applicant funnel that no longer exists. Returning 410 (not 404)
-// tells Google to drop them from the index quickly.
-const KILLED_ROUTES = [
-  // /apply is tenant-scoped hiring, not part of the Full Loop buyer funnel —
-  // kept 410 on the main host only. The buyer funnel was restored 2026-06-22.
-  '/apply',
-]
-
-function isKilledRoute(pathname: string): boolean {
-  return KILLED_ROUTES.some(p => pathname === p || pathname.startsWith(p + '/'))
-}
-
-function extractSubdomain(hostname: string): string | null {
-  // Lowercase for the same reason as isMainHost — a mixed-case tenant
-  // subdomain Host header must still match the regex below.
-  const host = hostname.split(':')[0].toLowerCase()
-  // Match *.homeservicesbusinesscrm.com or *.fullloopcrm.com (carrying/holding
-  // domain — tenants are served at <slug>.fullloopcrm.com until their real
-  // custom domain is pointed at the platform).
-  const match = host.match(/^([a-z0-9-]+)\.(?:homeservicesbusinesscrm|fullloopcrm)\.com$/)
-  if (match && match[1] !== 'www') {
-    return match[1]
-  }
-  return null
-}
-
-// Public routes that don't require auth
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/full-loop-crm-service-features',
-  '/partner-with-full-loop-crm',
-  '/full-loop-crm-pricing',
-  '/full-loop-crm-frequently-asked-questions',
-  '/agreement',
-  '/waitlist',
-  '/onboarding(.*)',
-  '/onboard(.*)',             // Public, no-login per-tenant onboarding-questionnaire link (signed token)
-  '/api/tenant-profile(.*)',  // Backs /onboard/[token] — auths itself (session OR signed token), not Clerk
-  '/api/catalog(.*)',         // GET/POST/DELETE auth themselves the same way (session OR signed token) so
-                              // /onboard/[token]'s Services & Pricing step can add real catalog items before
-                              // login; PATCH still requires a real session internally (route.ts, unchanged).
-  '/businesses',
-  '/full-loop-crm-service-business-industries',
-  '/industry(.*)',
-  '/feature(.*)',           // Per-feature SEO landing pages
-  '/(.*)-business-crm',
-  '/crm-for-(.*)',
-  '/locations(.*)',
-  '/home-service-crm-locations',
-  '/services(.*)',
-  '/about-full-loop-crm',
-  '/contact',
-  '/privacy-policy',
-  '/terms',
-  '/accessibility',
-  '/full-loop-crm-101-educational-tips',
-  '/why-you-should-choose-full-loop-crm-for-your-business',
-  '/case-study(.*)',
-  '/home-service-business-blog(.*)',
-  '/feedback',
-  '/location(.*)',
-  '/api/webhooks(.*)',
-  '/api/cron(.*)',
-  '/team(.*)',              // Team portal uses PIN auth, not Clerk
-  '/portal(.*)',            // Client portal uses phone/email auth, not Clerk
-  '/join(.*)',              // Invite acceptance page
-  '/referral(.*)',          // Public referral pages
-  '/sales(.*)',             // Sales partner portal (email+PIN auth, not Clerk)
-  '/api/portal(.*)',        // Portal API routes
-  '/api/team-portal(.*)',   // Team portal API routes
-  '/api/leads',             // Lead capture from onboarding
-  '/api/leads/visits(.*)',  // Visit tracking pixel
-  '/api/referrals/track(.*)', // Referral click tracking
-  '/api/health',              // Health check endpoint
-  '/admin(.*)',               // Admin uses PIN auth, not Clerk
-  '/admin-login',             // Admin PIN login page
-  '/fullloop',                // Per-tenant operator PIN login page
-  '/reset-pin',               // Self-service tenant PIN reset page
-  '/api/pin-reset(.*)',       // Self-service PIN reset (tenant via signed header)
-  '/api/admin-auth(.*)',       // Admin PIN auth endpoint
-  '/api/admin(.*)',            // Admin API routes use PIN auth, not Clerk
-  '/proposal(.*)',            // Post-payment redirect pages (thank-you / cancelled)
-  '/api/requests',            // Partnership form submissions
-  '/api/territories/options', // Public territory/category options for the lead form (no PII)
-  '/geo(.*)',                 // Static map assets (US county polygons) for the territory map
-  '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
-  '/api/feedback',            // Feedback form submissions
-  '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
-  '/api/public-upload',       // Public tenant-aware media upload for marketing-site forms (size/type limited)
-  '/api/ingest(.*)',          // Cross-site application ingest (INGEST_SECRET-gated, tenant via slug)
-  '/api/chat',                // Public web chat for tenant sites
-  '/api/yinez(.*)',           // Public Yinez agent chat endpoint
-  '/api/admin-chat(.*)',      // Admin chat (Yinez owner-side) uses admin PIN auth
-  '/api/auth(.*)',            // Ported nycmaid cookie/bcrypt auth endpoints
-  '/api/client-analytics(.*)', // Client analytics admin endpoint (admin PIN gated in route)
-  '/api/selena(.*)',          // Selena API routes
-  '/api/tenant-sitemap',       // Tenant sitemap endpoint
-  '/sitemap.xml',             // Sitemap
-  '/robots.txt',              // Robots
-  '/(.*)-crm-(.*)',           // Combo pages (industry x location)
-  '/site(.*)',                // Tenant sites are public
-  '/quote/(.*)',              // Public quote view + accept flow (token-auth)
-  '/api/quotes/public(.*)',   // Public quote API (token-auth)
-  '/invoice/(.*)',            // Public invoice view + pay flow (token-auth)
-  '/api/invoices/public(.*)', // Public invoice API (token-auth)
-  '/sign/(.*)',               // Public document signer view (token-auth)
-  '/api/documents/public(.*)', // Public document signer API (token-auth)
-  '/photos/(.*)',              // Public job-photo timeline view (token-auth)
-  '/api/jobs/public(.*)',      // Public job-photo timeline API (token-auth)
-  '/api/cpa/(.*)',             // CPA read-only access (token-auth)
-  '/qualify',                  // Public prospect application form
-  '/qualify(.*)',              // e.g. /qualify?cancelled=1
-  '/welcome',                  // Post-Stripe-payment landing page
-  '/api/prospects',            // Public prospect intake
-  '/api/territories/options',  // Public territory + service-category options for lead forms
-  '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
-                               // resolved via signed x-tenant-id header, not Clerk
-  '/api/cleaner-applications', // Alias → /api/team-applications
-  '/api/errors',               // Client-side error reporting — runs from any page
-  '/api/track',                // Visit tracking pixel
-  '/api/unsubscribe',          // Email unsubscribe (signed token verified in route)
-])
-
+// This file is deliberately a thin orchestrator. Each concern below (brand
+// redirects, legacy-URL redirects, killed routes, EMD microsites, tenant
+// routing, the public-route allowlist, the admin bypass list) lives in its
+// own module under ./middleware/ specifically so an unrelated feature commit
+// touching ONE concern can't collaterally delete a DIFFERENT one — which is
+// exactly what happened on 2026-08-01 (e51fe908e deleted the entire legacy
+// redirect block while adding EMD microsites, 404ing the site's #1-ranked
+// keyword page for a day-plus before anyone noticed). Order of the checks
+// below is load-bearing — see each inline comment for why.
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
   // --- fullloopcrm.com brand consolidation (308) ---
-  // The FullLoop brand's own domain no longer serves the app independently
-  // -- both bare and www now forward straight to the main marketing site.
   // Checked before anything else (MAIN_HOSTS, tenant lookup, canonical-www
   // below) so it can't be shadowed or looped by that logic.
-  const rawHost = hostname.split(':')[0].toLowerCase()
-  if (rawHost === 'fullloopcrm.com' || rawHost === 'www.fullloopcrm.com') {
-    return NextResponse.redirect(new URL(req.nextUrl.pathname + req.nextUrl.search, 'https://www.homeservicesbusinesscrm.com'), 308)
-  }
+  const brandRedirect = getBrandConsolidationRedirect(hostname, req)
+  if (brandRedirect) return brandRedirect
 
   // --- Canonical www redirect (301) ---
-  // Every apex domain redirects to its www. equivalent so www is canonical
-  // everywhere. Excludes: hosts already on www, localhost, raw IPs,
-  // *.vercel.app preview hosts, and the *.fullloopcrm.com /
-  // *.homeservicesbusinesscrm.com carrying SUBDOMAINS (a subdomain has no www).
-  // The bare apex fullloopcrm.com / homeservicesbusinesscrm.com are NOT excluded
-  // — they don't end with the leading-dot suffix — so they flip to www too.
-  // NOTE: the old www.homeservicesbusinesscrm.com -> apex redirect in
-  // next.config.ts was removed alongside this; keeping it would infinite-loop.
-  const canonicalHost = hostname.split(':')[0].toLowerCase()
-  // Apex-canonical tenants: their site is served at the bare apex, NOT www.
-  // These are ex-standalone builds migrated to FL whose www subdomain isn't
-  // cleanly served on FL (Vercel treats the apex as primary and 307s www->apex,
-  // which fights the apex->www redirect below and infinite-loops). Serving them
-  // at the apex — their original canonical — breaks the loop with no DNS work.
-  const APEX_CANONICAL_DOMAINS = new Set<string>([
-    'consortiumnyc.com',
-    'thenycmarketingcompany.com',
-    'thenycinteriordesigner.com',
-    'miamibeachmaid.com',
-    'westpalmbeachmaid.com',
-    'fortlauderdalemaid.com',
-    'gainesvillemaid.com',
-    'orlandoflmaid.com',
-    'pompanobeachmaid.com',
-    'tallahasseeflmaid.com',
-    'cocoabeachmaid.com',
-    'destinmaid.com',
-    'pensacolamaid.com',
-    'portstluciemaid.com',
-    'verobeachmaid.com',
-    'coralgablesmaid.com',
-    'fortmyersmaid.com',
-    'naplesflmaid.com',
-    'bocaratonflmaid.com',
-    'sarasotaflmaid.com',
-    'stpetemaid.com',
-    'daytonabeachmaid.com',
-    'panamacitymaid.com',
-    'brandonmaid.com',
-    'celebrationmaid.com',
-    'clermontmaid.com',
-    'coralspringsmaid.com',
-    'delandmaid.com',
-    'lakemarymaid.com',
-    'longwoodmaid.com',
-    'sanfordmaid.com',
-    'thevillagesmaid.com',
-    'wellingtonmaid.com',
-    'wesleychapelmaid.com',
-    'westonflmaid.com',
-    'wintergardenmaid.com',
-    'winterparkmaid.com',
-    'oviedomaid.com',
-    'palmbeachgardensflmaid.com',
-    'parklandmaid.com',
-    'riverviewmaid.com',
-    'windermeremaid.com',
-    'altamontespringsmaid.com',
-  ])
-  if (
-    // Never canonical-redirect API routes. A 301 on a POST is downgraded to GET
-    // with the body dropped, so an apex-host admin POST (e.g. Activate) gets
-    // bounced to another host as a bodiless GET and 405s. Canonicalization is
-    // for pages/SEO, not APIs.
-    !req.nextUrl.pathname.startsWith('/api/') &&
-    !canonicalHost.startsWith('www.') &&
-    !APEX_CANONICAL_DOMAINS.has(canonicalHost) &&
-    canonicalHost !== 'localhost' &&
-    canonicalHost.includes('.') &&
-    !canonicalHost.endsWith('.vercel.app') &&
-    !canonicalHost.endsWith('.fullloopcrm.com') &&
-    !canonicalHost.endsWith('.homeservicesbusinesscrm.com') &&
-    !/^\d+\.\d+\.\d+\.\d+$/.test(canonicalHost)
-  ) {
-    const url = req.nextUrl.clone()
-    url.protocol = 'https'
-    url.hostname = `www.${canonicalHost}`
-    url.port = ''
-    return NextResponse.redirect(url, 301)
-  }
+  const canonicalRedirect = getCanonicalWwwRedirect(hostname, req)
+  if (canonicalRedirect) return canonicalRedirect
 
   // --- Killed routes: return 410 Gone for the marketing-site buyer-funnel
   // pages we shut down in the 2026-05-03 teaser pivot. Only applies on the
@@ -346,7 +63,7 @@ export default async function middleware(req: NextRequest) {
     }
   }
 
-  // --- Tenant subdomain routing (runs before Clerk auth) ---
+  // --- Tenant subdomain routing (runs before the auth gate) ---
   const subdomain = extractSubdomain(hostname)
   if (subdomain) {
     try {
@@ -360,85 +77,14 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // --- Custom domain routing (runs before Clerk auth) ---
+  // --- Custom domain routing (runs before the auth gate) ---
   if (!isMainHost(hostname)) {
     const cleanHost = hostname.split(':')[0].toLowerCase()
 
-    // EMD (exact-match-domain) microsites — one-page marketing sites that
-    // fund into the-florida-maid tenant for record-keeping (tenant_domains)
-    // but render a dedicated static page with no tenant/CRM machinery: no
-    // booking, no auth, every CTA links out to thefloridamaid.com. Rewritten
-    // directly (bypassing rewriteToSite) so these stay statically
-    // generatable and never force the shared /site/the-florida-maid tree —
-    // and by extension thefloridamaid.com's own homepage — into dynamic
-    // per-request rendering.
-    const EMD_MICROSITE_ROUTES: Record<string, string> = {
-      'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
-      'westpalmbeachmaid.com': '/site/emd-microsites/west-palm-beach-maid',
-      'fortlauderdalemaid.com': '/site/emd-microsites/fort-lauderdale-maid',
-      'gainesvillemaid.com': '/site/emd-microsites/gainesville-maid',
-      'orlandoflmaid.com': '/site/emd-microsites/orlando-maid',
-      'pompanobeachmaid.com': '/site/emd-microsites/pompano-beach-maid',
-      'tallahasseeflmaid.com': '/site/emd-microsites/tallahassee-maid',
-      'cocoabeachmaid.com': '/site/emd-microsites/cocoa-beach-maid',
-      'destinmaid.com': '/site/emd-microsites/destin-maid',
-      'pensacolamaid.com': '/site/emd-microsites/pensacola-maid',
-      'portstluciemaid.com': '/site/emd-microsites/port-st-lucie-maid',
-      'verobeachmaid.com': '/site/emd-microsites/vero-beach-maid',
-      'coralgablesmaid.com': '/site/emd-microsites/coral-gables-maid',
-      'fortmyersmaid.com': '/site/emd-microsites/fort-myers-maid',
-      'naplesflmaid.com': '/site/emd-microsites/naples-maid',
-      'bocaratonflmaid.com': '/site/emd-microsites/boca-raton-maid',
-      'sarasotaflmaid.com': '/site/emd-microsites/sarasota-maid',
-      'stpetemaid.com': '/site/emd-microsites/st-pete-maid',
-      'daytonabeachmaid.com': '/site/emd-microsites/daytona-beach-maid',
-      'panamacitymaid.com': '/site/emd-microsites/panama-city-maid',
-      'brandonmaid.com': '/site/emd-microsites/brandon-maid',
-      'celebrationmaid.com': '/site/emd-microsites/celebration-maid',
-      'clermontmaid.com': '/site/emd-microsites/clermont-maid',
-      'coralspringsmaid.com': '/site/emd-microsites/coral-springs-maid',
-      'delandmaid.com': '/site/emd-microsites/deland-maid',
-      'lakemarymaid.com': '/site/emd-microsites/lake-mary-maid',
-      'longwoodmaid.com': '/site/emd-microsites/longwood-maid',
-      'sanfordmaid.com': '/site/emd-microsites/sanford-maid',
-      'thevillagesmaid.com': '/site/emd-microsites/the-villages-maid',
-      'wellingtonmaid.com': '/site/emd-microsites/wellington-maid',
-      'wesleychapelmaid.com': '/site/emd-microsites/wesley-chapel-maid',
-      'westonflmaid.com': '/site/emd-microsites/weston-maid',
-      'wintergardenmaid.com': '/site/emd-microsites/winter-garden-maid',
-      'winterparkmaid.com': '/site/emd-microsites/winter-park-maid',
-      'oviedomaid.com': '/site/emd-microsites/oviedo-maid',
-      'palmbeachgardensflmaid.com': '/site/emd-microsites/palm-beach-gardens-maid',
-      'parklandmaid.com': '/site/emd-microsites/parkland-maid',
-      'riverviewmaid.com': '/site/emd-microsites/riverview-maid',
-      'windermeremaid.com': '/site/emd-microsites/windermere-maid',
-      'altamontespringsmaid.com': '/site/emd-microsites/altamonte-springs-maid',
-    }
-    const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
-    if (emdRoute) {
-      const { pathname } = req.nextUrl
-      // sitemap.xml needs its own EMD-specific rewrite (Next.js supports
-      // nested sitemap.ts generation) — without this it falls through to the
-      // tenant_domains lookup below, which resolves to the-florida-maid and
-      // serves ITS sitemap (thefloridamaid.com URLs) instead of this
-      // microsite's own. robots.txt does NOT need this: Next.js doesn't
-      // support nested robots.ts, but the root src/app/robots.ts is already
-      // host-aware (reads the Host header directly) and falls through
-      // correctly via rewriteToSite's own robots.txt passthrough below.
-      if (pathname === '/' || pathname === '/sitemap.xml') {
-        const url = req.nextUrl.clone()
-        url.pathname = pathname === '/' ? emdRoute : `${emdRoute}${pathname}`
-        return NextResponse.rewrite(url)
-      }
-    }
+    const emdRewrite = getEmdMicrositeRewrite(cleanHost, req)
+    if (emdRewrite) return emdRewrite
 
-    // Static fallback map — used when DB lookup at the edge is unreliable.
-    // The tenant id here is informational only; rewriteToSite signs the slug.
-    const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
-      'thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
-      'www.thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
-    }
-    const staticTenant = STATIC_TENANT_MAP[cleanHost]
+    const staticTenant = getStaticTenant(cleanHost)
     if (staticTenant) {
       return rewriteToSite(req, staticTenant.id, staticTenant.slug)
     }
@@ -461,269 +107,24 @@ export default async function middleware(req: NextRequest) {
 
   // --- Main site / dashboard (existing behavior) ---
   if (!isPublicRoute(req)) {
-    // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
-    // A verified admin_token is enough — an admin hitting /dashboard directly
-    // (no active impersonation) must not fall through to Clerk's handshake.
-    // Verified (not just present) — see admin-token-edge-verify.ts; a
-    // presence-only check let any cookie value reach the route handler (which
-    // does verify), so this was a weak edge-layer check, not a live bypass.
+    // Allow admin (PIN-auth) to bypass the sign-in redirect on dashboard +
+    // its API routes. A verified admin_token is enough — an admin hitting
+    // /dashboard directly (no active impersonation) must not fall through
+    // to the sign-in redirect. Verified (not just present) — see
+    // admin-token-edge-verify.ts; a presence-only check let any cookie
+    // value reach the route handler (which does verify), so this was a
+    // weak edge-layer check, not a live bypass.
     const adminCookie = req.cookies.get('admin_token')?.value
     if (adminCookie && verifyAdminTokenEdge(adminCookie, process.env.ADMIN_TOKEN_SECRET)) {
-      const p = req.nextUrl.pathname
-      if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
-          p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
-          p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
-          p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||
-          p.startsWith('/api/security') || p.startsWith('/api/availability') || p.startsWith('/api/setup-checklist') ||
-          p.startsWith('/api/notifications') || p.startsWith('/api/cleaners') || p.startsWith('/api/domain-notes') ||
-          p.startsWith('/api/docs') || p.startsWith('/api/test-emails') || p.startsWith('/api/test/') ||
-          p.startsWith('/api/migrate-') || p.startsWith('/api/reviews') || p.startsWith('/api/deals') ||
-          p.startsWith('/api/attribution') || p.startsWith('/api/leads') || p.startsWith('/api/service-types') ||
-          p.startsWith('/api/waitlist') || p.startsWith('/api/referrers') || p.startsWith('/api/dashboard') ||
-          p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
-          p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
-          p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
-          p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
-          p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
-          p.startsWith('/api/referral-commissions') ||
-          p.startsWith('/api/sales-partners') || p.startsWith('/api/sales-partner-commissions') ||
-          // H-01: these owner APIs were missing, so super-admin impersonation
-          // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
-          // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
-          p.startsWith('/api/pipeline') || p.startsWith('/api/sidebar-counts') ||
-          p.startsWith('/api/invoices') || p.startsWith('/api/documents') ||
-          p.startsWith('/api/payments') || p.startsWith('/api/recurring-expenses') ||
-          p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
-          p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
-          p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
-          p.startsWith('/api/booking-notes') ||
-          p.startsWith('/api/uploads') ||
-          // These were missing entirely -- /api/vendors has been unreachable
-          // for admin/impersonation sessions since it was added (same class
-          // of gap as the booking-notes fix above); /api/inventory and
-          // /api/categories are new this pass.
-          p.startsWith('/api/vendors') || p.startsWith('/api/inventory') || p.startsWith('/api/categories') ||
-          p.startsWith('/api/equipment') ||
-          // /api/quote-budgets was never added here either -- Master Budget
-          // has likely been unreachable for admin/impersonation sessions
-          // since it was built (same gap class as vendors/booking-notes).
-          p.startsWith('/api/quote-budgets') || p.startsWith('/api/budget-templates') ||
-          p.startsWith('/api/tenant/public')) {
+      if (isAdminBypassPath(req.nextUrl.pathname)) {
         return
       }
     }
-    // Owner login is dormant (moved off Clerk). Protected owner routes that
-    // aren't admin-impersonated redirect to sign-in until the session-based
-    // owner login is wired (P5).
+    // Owner login is dormant. Protected owner routes that aren't
+    // admin-impersonated redirect to sign-in until the session-based owner
+    // login is wired (P5).
     return NextResponse.redirect(new URL('/sign-in', req.url))
   }
-}
-
-/**
- * Rewrite the request to the /site route group, passing tenant context via headers.
- * External URL stays clean (e.g. the-nyc-maid.homeservicesbusinesscrm.com/services)
- * but internally Next.js renders /site/services.
- */
-function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): NextResponse {
-  const pathname = req.nextUrl.pathname // e.g. "/" or "/services" or "/about"
-
-  const tenantSig = signTenantHeader(tenantId)
-
-  // Rewrite /sitemap.xml. Tenants in TENANTS_WITH_RICH_SITEMAP own a
-  // sitemap.ts at /site/<slug>/sitemap.xml that enumerates their full
-  // route tree. All other tenants fall back to the generic 7-URL
-  // /api/tenant-sitemap until they ship their own rich sitemap.
-  const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator', 'the-florida-maid', 'nycmaid', 'nyc-mobile-salon', 'the-nyc-seo', 'consortium-nyc', 'the-nyc-marketing-company', 'nyc-tow', 'theroadsidehelper', 'toll-trucks-near-me', 'we-pay-you-junk', 'the-home-services-company', 'nycroadsideemergencyassistance', 'fla-dumpster-rentals', 'landscaping-in-nyc', 'the-nyc-interior-designer', 'debt-service-ratio-loan', 'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'wash-and-fold-nyc'])
-  if (pathname === '/sitemap.xml') {
-    const url = req.nextUrl.clone()
-    if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {
-      url.pathname = `/site/${tenantSlug}/sitemap.xml`
-    } else {
-      url.pathname = '/api/tenant-sitemap'
-      url.searchParams.set('slug', tenantSlug)
-    }
-    const requestHeaders = new Headers(req.headers)
-    requestHeaders.delete('x-tenant-sig') // strip any caller-supplied
-    requestHeaders.set('x-tenant-id', tenantId)
-    requestHeaders.set('x-tenant-slug', tenantSlug)
-    requestHeaders.set('x-tenant-sig', tenantSig)
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
-  }
-
-  // /robots.txt runs at its own path with tenant headers injected so the
-  // generator in src/app/robots.ts emits the tenant's own sitemap URL.
-  if (pathname === '/robots.txt') {
-    const requestHeaders = new Headers(req.headers)
-    requestHeaders.delete('x-tenant-sig')
-    requestHeaders.set('x-tenant-id', tenantId)
-    requestHeaders.set('x-tenant-slug', tenantSlug)
-    requestHeaders.set('x-tenant-sig', tenantSig)
-    return NextResponse.next({ request: { headers: requestHeaders } })
-  }
-
-  // On a tenant domain, /admin IS that tenant's own Loop dashboard (mirrors
-  // the standalone nycmaid, which serves its Loop at /admin). The platform
-  // super-admin /admin only exists on the main host. We rewrite the page
-  // route /admin(/*) -> /dashboard(/*) so the tenant gets the Loop layout,
-  // scoped to itself via the injected signed x-tenant-id header. Note this
-  // does NOT match /api/admin/* (those start with /api/, not /admin/), which
-  // remain the platform admin APIs.
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    const url = req.nextUrl.clone()
-    url.pathname = pathname === '/admin'
-      ? '/dashboard'
-      : `/dashboard${pathname.slice('/admin'.length)}`
-    const requestHeaders = new Headers(req.headers)
-    requestHeaders.delete('x-tenant-sig')
-    requestHeaders.set('x-tenant-id', tenantId)
-    requestHeaders.set('x-tenant-slug', tenantSlug)
-    requestHeaders.set('x-tenant-sig', tenantSig)
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
-  }
-
-  // API routes + tenant-scoped app routes that live at the root are NOT
-  // rewritten under /site — they run at their own path with tenant headers
-  // injected so getTenantFromHeaders() can resolve them.
-  const APP_ROOT_PREFIXES = [
-    '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
-    '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
-    // Public token-doc links (quote/invoice/sign/photos) — regression fix:
-    // these were dropped from this list, which silently rewrote them under
-    // /site/template, breaking every public quote/invoice/signature/photo
-    // link sent to real clients. See src/middleware.public-doc-links.test.ts.
-    '/quote', '/invoice', '/sign', '/photos',
-  ]
-  if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
-    const requestHeaders = new Headers(req.headers)
-    requestHeaders.delete('x-tenant-sig')
-    requestHeaders.set('x-tenant-id', tenantId)
-    requestHeaders.set('x-tenant-slug', tenantSlug)
-    requestHeaders.set('x-tenant-sig', tenantSig)
-    return NextResponse.next({ request: { headers: requestHeaders } })
-  }
-
-  // Tenants opt into the per-tenant subtree pattern by having their site files
-  // at /site/<slug>/ — the onboarding script writes there. Tenants without a
-  // subtree fall back to the legacy shared /site/* tree (FullLoop was built from
-  // nycmaid's site, which lives at the /site root and has no /site/nycmaid dir).
-  const ROOT_SITE_TENANTS = new Set<string>([])
-  // Tenants with their own hand-built /site/<slug> subtree. Every other tenant —
-  // including all newly-created ones — is served by the shared de-branded
-  // template at /site/template, which renders from the tenant's own config
-  // (see src/app/site/template/_config/load.ts). No per-tenant file copy or
-  // redeploy is needed: a new tenant resolves to the template automatically.
-  // Cleaning tenants (the-florida-maid, sunnyside-clean-nyc) are routed to the
-  // shared /site/template — a config-driven copy of nycmaid's full
-  // smart-scheduling site — so they get the same booking flow as nycmaid without
-  // a per-tenant file copy. They are intentionally NOT listed here.
-  // The remaining tenants are non-cleaning verticals (tow, exterminator, salon,
-  // SEO, etc.); the template is cleaning-specific, so they keep their bespoke
-  // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
-  // CUTOVER: most non-nycmaid tenants are REAL tenants served by the shared,
-  // config-driven global template (/site/template) — no forked per-tenant code.
-  // The tenants listed below are LIVE businesses whose bespoke site the template
-  // cannot represent, so they keep their own /site/<slug> subtree. This set is
-  // the single source of truth for that routing; dropping a live tenant from it
-  // (or deleting its folder) silently replaces their site with the template, so
-  // every entry here is locked by scripts/verify-protected-tenants.mjs, which
-  // runs at build time (npm prebuild) and fails the deploy if one goes missing.
-  const BESPOKE_SITE_TENANTS = new Set<string>([
-    'nycmaid',
-    'we-pay-you-junk',
-    'nyc-mobile-salon',
-    'the-florida-maid',
-    'the-nyc-exterminator',
-    'nyc-tow',
-    'nycroadsideemergencyassistance',
-    'theroadsidehelper',
-    'toll-trucks-near-me',
-    'sunnyside-clean-nyc',
-    'wash-and-fold-nyc',
-    'landscaping-in-nyc',
-    'debt-service-ratio-loan',
-    'fla-dumpster-rentals',
-    'stretch-ny',
-    'stretch-service',
-    'the-home-services-company',
-    'the-nyc-interior-designer',
-    'the-nyc-marketing-company',
-    'the-nyc-seo',
-    'consortium-nyc',
-  ])
-  // Sales-partner portal carve-out: /site/template/sales is tenant-agnostic
-  // (no config coupling, resolves everything through tenant-scoped APIs), so
-  // any BESPOKE_SITE_TENANTS tenant WITHOUT its own hand-built /sales subtree
-  // falls through to it instead of 404ing. nycmaid is excluded -- it has its
-  // own bespoke /site/nycmaid/sales and must keep routing there unchanged.
-  const BESPOKE_TENANTS_WITH_OWN_SALES_PORTAL = new Set<string>(['nycmaid'])
-  const wantsSharedSalesPortal =
-    (pathname === '/sales' || pathname.startsWith('/sales/')) &&
-    !BESPOKE_TENANTS_WITH_OWN_SALES_PORTAL.has(tenantSlug)
-
-  const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
-    ? '/site'
-    : BESPOKE_SITE_TENANTS.has(tenantSlug)
-      ? (wantsSharedSalesPortal ? '/site/template' : `/site/${tenantSlug}`)
-      : '/site/template'
-  const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
-
-  const url = req.nextUrl.clone()
-  url.pathname = sitePathname
-
-  // x-tenant-sig is intentionally NOT set on response.headers below — it must
-  // stay on the internal request only (see requestHeaders further down).
-  // signTenantHeader(tenantId) is a static HMAC with no nonce/expiry, so
-  // echoing it back to the client would let any visitor to a tenant's site
-  // harvest a permanently-valid (tenantId, sig) pair and replay it on direct
-  // API calls, defeating the "only middleware can mint this" guarantee every
-  // downstream consumer (dashboard/layout, admin-auth, chat, yinez, tenant.ts,
-  // etc.) relies on.
-  const response = NextResponse.rewrite(url)
-  response.headers.set('x-tenant-id', tenantId)
-  response.headers.set('x-tenant-slug', tenantSlug)
-  // NB: never echo x-tenant-sig on the RESPONSE. The sig is a static
-  // HMAC(secret, tenantId) with no nonce/expiry; returning it to the client
-  // hands out a permanent forge-token that defeats the "only middleware can
-  // mint the sig" guarantee. Downstream code reads the sig from the REQUEST
-  // headers (set below), which never reach the client.
-
-  // The national VA SEO pages (1,500+) are force-dynamic because they read
-  // tenant headers, but their content is identical for every visitor on this
-  // host — so cache them at the edge instead of rendering each on every request.
-  // Big reduction in function/ISR cost. Marketing content, so an hour of
-  // staleness with background revalidation is fine.
-  if (req.method === 'GET' && pathname.startsWith('/virtual-assistant')) {
-    response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400')
-  }
-
-  // Also set request headers so server components / route handlers can read them
-  const requestHeaders = new Headers(req.headers)
-  requestHeaders.delete('x-tenant-sig')
-  requestHeaders.set('x-tenant-id', tenantId)
-  requestHeaders.set('x-tenant-slug', tenantSlug)
-  requestHeaders.set('x-tenant-sig', tenantSig)
-
-  // NextResponse.rewrite with modified headers
-  const rewriteUrl = req.nextUrl.clone()
-  rewriteUrl.pathname = sitePathname
-  const siteResponse = NextResponse.rewrite(rewriteUrl, {
-    headers: response.headers,
-    request: {
-      headers: requestHeaders,
-    },
-  })
-
-  // Geo-detect EU/EEA/UK/Switzerland so the client-side consent banner can
-  // switch to GDPR opt-in without every marketing page becoming dynamic.
-  // Only set on actual site-page responses — not sitemap/robots/admin/API
-  // branches above, which return earlier and never reach here.
-  siteResponse.cookies.set(EU_REGION_COOKIE, isEuJurisdiction(req) ? '1' : '0', {
-    path: '/',
-    maxAge: 60 * 60 * 24, // re-checked daily in case a visitor's IP/geo changes
-    sameSite: 'lax',
-  })
-
-  return siteResponse
 }
 
 export const config = {

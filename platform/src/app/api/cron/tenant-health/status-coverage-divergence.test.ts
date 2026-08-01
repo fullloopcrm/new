@@ -38,11 +38,11 @@ import { describe, it, expect } from 'vitest'
 // Fortress Source-2 coverage deny-list: every status EXCEPT these is monitored.
 const CRON_NON_MONITORED_STATUSES = ['suspended', 'cancelled', 'deleted'] as const
 
-// ── MIRRORED from src/middleware.ts:29 ───────────────────────────────────────
+// ── MIRRORED from src/middleware/tenant-routing.ts ─────────────────────────
 // Middleware serves a tenant's public site for EVERY status EXCEPT these three.
 const MIDDLEWARE_NON_SERVING_STATUSES = ['suspended', 'cancelled', 'deleted'] as const
 
-/** Mirror of src/middleware.ts:30 `tenantServesSite()`. */
+/** Mirror of src/middleware/tenant-routing.ts `tenantServesSite()`. */
 function middlewareServesSite(status: string): boolean {
   return !(MIDDLEWARE_NON_SERVING_STATUSES as readonly string[]).includes(status)
 }
