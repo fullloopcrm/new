@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { alertOwner } from '@/lib/telegram'
 import { nowNaiveET } from '@/lib/recurring'
+import { isKnownTestTenant } from '@/lib/test-tenants'
 
 export const maxDuration = 120
 
@@ -67,14 +68,24 @@ export async function GET(request: Request) {
   }
 
   // 4. PER-TENANT INTEGRATION STATUS
+  // Excludes known internal test/sim tenants (isKnownTestTenant — seed data
+  // from scripts/sim-all-trades.ts and one-off provisioning tests, never real
+  // customers). Found live 2026-08-01: 12 such tenants were active, every one
+  // missing every integration by design, drowning the real per-tenant signal
+  // this check exists to surface. testTenantIds is reused by check 6 below so
+  // the notification-delivery-rate metric isn't diluted by the same noise.
+  let testTenantIds = new Set<string>()
   try {
     const { data: tenants } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, stripe_api_key')
+      .select('id, name, slug, selena_config, resend_api_key, telnyx_api_key, telnyx_phone, stripe_api_key')
       .eq('status', 'active')
 
+    testTenantIds = new Set((tenants || []).filter(isKnownTestTenant).map(t => t.id))
+    const realTenants = (tenants || []).filter(t => !testTenantIds.has(t.id))
+
     const tenantChecks: string[] = []
-    for (const t of tenants || []) {
+    for (const t of realTenants) {
       const missing: string[] = []
       if (!t.resend_api_key) missing.push('email')
       if (!t.telnyx_api_key || !t.telnyx_phone) missing.push('sms')
@@ -85,7 +96,7 @@ export async function GET(request: Request) {
     }
 
     if (tenantChecks.length === 0) {
-      checks.push({ name: 'Tenant Integrations', status: 'pass', detail: `All ${tenants?.length || 0} tenants fully configured` })
+      checks.push({ name: 'Tenant Integrations', status: 'pass', detail: `All ${realTenants.length} tenants fully configured` })
     } else {
       checks.push({ name: 'Tenant Integrations', status: 'warn', detail: tenantChecks.join('; ') })
     }
@@ -125,20 +136,32 @@ export async function GET(request: Request) {
   }
 
   // 6. NOTIFICATION DELIVERY RATE (last 24h)
+  // Excludes the same known test/sim tenants as check 4 -- their sends are
+  // placeholder-domain/unconfigured-channel by construction and already
+  // classify as 'skipped' (not counted here either way), but excluding the
+  // tenant outright keeps this metric reading real production traffic only
+  // as more sim tenants get created/renamed over time.
   try {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const testTenantFilter = testTenantIds.size > 0 ? `(${[...testTenantIds].join(',')})` : null
 
-    const { count: sent } = await supabaseAdmin
+    let sentQuery = supabaseAdmin
       .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gte('created_at', oneDayAgo)
-
-    const { count: failed } = await supabaseAdmin
+    let failedQuery = supabaseAdmin
       .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'failed')
       .gte('created_at', oneDayAgo)
+    if (testTenantFilter) {
+      sentQuery = sentQuery.not('tenant_id', 'in', testTenantFilter)
+      failedQuery = failedQuery.not('tenant_id', 'in', testTenantFilter)
+    }
+
+    const { count: sent } = await sentQuery
+    const { count: failed } = await failedQuery
 
     const total = (sent || 0) + (failed || 0)
     const rate = total > 0 ? Math.round(((sent || 0) / total) * 100) : 100
