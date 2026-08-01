@@ -27,6 +27,18 @@ type GapIssue = {
   }
 }
 
+/**
+ * Auto-apply eligibility, mirroring remediate.ts's tier logic: a competitor_gap
+ * issue can fire for any our_position <= STRIKING_MAX_POS (20) in competitors.ts
+ * -- including page-1 positions 1-10, where we're merely behind a rival but
+ * still ranking well ourselves. Editing a page-1 ranking's title/meta without
+ * human review is exactly the risk this whole tier system exists to prevent,
+ * regardless of which detection path (base or competitor) found the issue.
+ */
+function tierForPosition(ourPosition: number | undefined): number {
+  return ourPosition != null && ourPosition > 10 ? 1 : 2
+}
+
 function buildPrompt(
   query: string,
   current: { title: string; meta: string },
@@ -81,7 +93,7 @@ async function proposeForGap(issue: GapIssue): Promise<number> {
     tenant_id: issue.tenant_id,
     target_url: url,
     recipe: 'competitor_title_meta',
-    tier: 1,
+    tier: tierForPosition(issue.detail?.our_position),
     status: 'proposed',
     rationale: parsed.rationale ?? null,
     before_metric: issue.detail,

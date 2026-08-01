@@ -34,11 +34,13 @@ type ChangeRow = {
   field: 'title' | 'meta_description'
   before_value: string | null
   after_value: string | null
+  before_metric: { top_query?: string; query?: string } | null
 }
 
 type UrlBundle = {
   property: string
   url: string
+  topQuery?: string
   title?: { id: string; before: string; after: string }
   meta?: { id: string; before: string; after: string }
 }
@@ -92,7 +94,7 @@ export async function runAutopilot(): Promise<AutopilotResult> {
   // Highest-value proposed Tier-1 title/meta first.
   const { data } = await supabaseAdmin
     .from('seo_changes')
-    .select('id,property,tenant_id,target_url,field,before_value,after_value')
+    .select('id,property,tenant_id,target_url,field,before_value,after_value,before_metric')
     .eq('status', 'proposed')
     .eq('tier', 1)
     .in('field', ['title', 'meta_description'])
@@ -106,6 +108,7 @@ export async function runAutopilot(): Promise<AutopilotResult> {
   for (const c of changes) {
     if (!c.target_url || !c.after_value) continue
     const b = bundles.get(c.target_url) ?? { property: c.property, url: c.target_url }
+    if (!b.topQuery) b.topQuery = c.before_metric?.top_query ?? c.before_metric?.query
     const entry = { id: c.id, before: c.before_value ?? '', after: c.after_value }
     if (c.field === 'title') b.title = entry
     else b.meta = entry
@@ -144,6 +147,7 @@ export async function runAutopilot(): Promise<AutopilotResult> {
         before: f.e.before,
         url: b.url,
         competitorBrands: rivals,
+        topQuery: b.topQuery,
       }
       const res = evaluateSafety(input)
       if (!res.pass) failures.push(`${f.key}: ${res.reasons.join('; ')}`)

@@ -15,6 +15,7 @@ export type SafetyInput = {
   before: string
   url: string
   competitorBrands?: string[] // e.g. ['merrymaids','care'] — never name a rival
+  topQuery?: string // e.g. 'nyc maid' — the query this page's data is keyed on
 }
 
 export type SafetyResult = { pass: boolean; reasons: string[] }
@@ -53,6 +54,22 @@ function brandOf(title: string): string | null {
   return brand.length >= 3 ? norm(brand) : null
 }
 
+/**
+ * Is this query effectively the tenant's own brand name (e.g. "nyc maid",
+ * "florida maid")? True when every word in the query also appears in the
+ * page's own brand tail — deliberately achieved #1 rankings for a business's
+ * own name are exactly the pages an automated system should never touch,
+ * regardless of ranking tier. No length filter on words here (unlike
+ * significantWords) since brand tokens like "nyc" are often short.
+ */
+function isBrandQuery(query: string, brand: string | null): boolean {
+  if (!brand) return false
+  const brandWords = new Set(norm(brand).split(' ').filter(Boolean))
+  const queryWords = norm(query).split(' ').filter(Boolean)
+  if (!queryWords.length) return false
+  return queryWords.every((w) => brandWords.has(w))
+}
+
 function slugWords(url: string): string[] {
   try {
     const seg = new URL(url).pathname.split('/').filter(Boolean).pop() ?? ''
@@ -67,6 +84,13 @@ export function evaluateSafety(input: SafetyInput): SafetyResult {
   const after = input.after?.trim() ?? ''
   const before = input.before?.trim() ?? ''
   const limit = LIMITS[input.field]
+
+  // 0. Never touch a page ranking for the tenant's own brand name — a
+  // deliberately-achieved #1 for "nyc maid" or "florida maid" is exactly the
+  // kind of ranking an automated system should leave alone, full stop.
+  if (input.topQuery && isBrandQuery(input.topQuery, brandOf(before))) {
+    reasons.push(`page ranks for tenant's own brand query: "${input.topQuery}"`)
+  }
 
   // 1. Length / non-empty.
   if (!after) reasons.push('empty value')
