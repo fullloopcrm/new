@@ -1,0 +1,79 @@
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+// EMD (exact-match-domain) microsites — one-page marketing sites that fund
+// into the-florida-maid tenant for record-keeping (tenant_domains) but
+// render a dedicated static page with no tenant/CRM machinery: no booking,
+// no auth, every CTA links out to thefloridamaid.com. Rewritten directly
+// (bypassing rewriteToSite) so these stay statically generatable and never
+// force the shared /site/the-florida-maid tree — and by extension
+// thefloridamaid.com's own homepage — into dynamic per-request rendering.
+export const EMD_MICROSITE_ROUTES: Record<string, string> = {
+  'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
+  'westpalmbeachmaid.com': '/site/emd-microsites/west-palm-beach-maid',
+  'fortlauderdalemaid.com': '/site/emd-microsites/fort-lauderdale-maid',
+  'gainesvillemaid.com': '/site/emd-microsites/gainesville-maid',
+  'orlandoflmaid.com': '/site/emd-microsites/orlando-maid',
+  'pompanobeachmaid.com': '/site/emd-microsites/pompano-beach-maid',
+  'tallahasseeflmaid.com': '/site/emd-microsites/tallahassee-maid',
+  'cocoabeachmaid.com': '/site/emd-microsites/cocoa-beach-maid',
+  'destinmaid.com': '/site/emd-microsites/destin-maid',
+  'pensacolamaid.com': '/site/emd-microsites/pensacola-maid',
+  'portstluciemaid.com': '/site/emd-microsites/port-st-lucie-maid',
+  'verobeachmaid.com': '/site/emd-microsites/vero-beach-maid',
+  'coralgablesmaid.com': '/site/emd-microsites/coral-gables-maid',
+  'fortmyersmaid.com': '/site/emd-microsites/fort-myers-maid',
+  'naplesflmaid.com': '/site/emd-microsites/naples-maid',
+  'bocaratonflmaid.com': '/site/emd-microsites/boca-raton-maid',
+  'sarasotaflmaid.com': '/site/emd-microsites/sarasota-maid',
+  'stpetemaid.com': '/site/emd-microsites/st-pete-maid',
+  'daytonabeachmaid.com': '/site/emd-microsites/daytona-beach-maid',
+  'panamacitymaid.com': '/site/emd-microsites/panama-city-maid',
+  'brandonmaid.com': '/site/emd-microsites/brandon-maid',
+  'celebrationmaid.com': '/site/emd-microsites/celebration-maid',
+  'clermontmaid.com': '/site/emd-microsites/clermont-maid',
+  'coralspringsmaid.com': '/site/emd-microsites/coral-springs-maid',
+  'delandmaid.com': '/site/emd-microsites/deland-maid',
+  'lakemarymaid.com': '/site/emd-microsites/lake-mary-maid',
+  'longwoodmaid.com': '/site/emd-microsites/longwood-maid',
+  'sanfordmaid.com': '/site/emd-microsites/sanford-maid',
+  'thevillagesmaid.com': '/site/emd-microsites/the-villages-maid',
+  'wellingtonmaid.com': '/site/emd-microsites/wellington-maid',
+  'wesleychapelmaid.com': '/site/emd-microsites/wesley-chapel-maid',
+  'westonflmaid.com': '/site/emd-microsites/weston-maid',
+  'wintergardenmaid.com': '/site/emd-microsites/winter-garden-maid',
+  'winterparkmaid.com': '/site/emd-microsites/winter-park-maid',
+  'oviedomaid.com': '/site/emd-microsites/oviedo-maid',
+  'palmbeachgardensflmaid.com': '/site/emd-microsites/palm-beach-gardens-maid',
+  'parklandmaid.com': '/site/emd-microsites/parkland-maid',
+  'riverviewmaid.com': '/site/emd-microsites/riverview-maid',
+  'windermeremaid.com': '/site/emd-microsites/windermere-maid',
+  'altamontespringsmaid.com': '/site/emd-microsites/altamonte-springs-maid',
+}
+
+/**
+ * Rewrites a known EMD domain's "/" and "/sitemap.xml" to its dedicated
+ * static page. Returns null for any other path on an EMD domain, or for a
+ * host that isn't an EMD domain at all — the caller falls through to normal
+ * tenant-domain routing in both cases.
+ */
+export function getEmdMicrositeRewrite(cleanHost: string, req: NextRequest): NextResponse | null {
+  const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
+  if (!emdRoute) return null
+
+  const { pathname } = req.nextUrl
+  // sitemap.xml needs its own EMD-specific rewrite (Next.js supports nested
+  // sitemap.ts generation) — without this it falls through to the
+  // tenant_domains lookup below, which resolves to the-florida-maid and
+  // serves ITS sitemap (thefloridamaid.com URLs) instead of this microsite's
+  // own. robots.txt does NOT need this: Next.js doesn't support nested
+  // robots.ts, but the root src/app/robots.ts is already host-aware (reads
+  // the Host header directly) and falls through correctly via
+  // rewriteToSite's own robots.txt passthrough.
+  if (pathname === '/' || pathname === '/sitemap.xml') {
+    const url = req.nextUrl.clone()
+    url.pathname = pathname === '/' ? emdRoute : `${emdRoute}${pathname}`
+    return NextResponse.rewrite(url)
+  }
+  return null
+}
