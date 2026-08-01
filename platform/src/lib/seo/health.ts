@@ -86,3 +86,68 @@ export async function runFleetHealth(): Promise<{ checked: number; down: SiteHea
   }
   return { checked: results.length, down }
 }
+
+// ---------------------------------------------------------------------------
+// Canary pages — 2026-08-01 incident: a commit deleted the entire
+// /location, /industry, and /crm-for- legacy-URL redirect block from
+// middleware.ts. checkFleetHealth() above only ever pings tenant HOMEPAGES,
+// so it never saw this — the marketing site's own homepage kept returning
+// 200 the whole time the site's #1-ranked keyword page 404'd. This sample
+// of real, deep marketing-site URLs (legacy redirect sources + their live
+// destinations) exists specifically to catch that class of regression.
+// Mirrors runFleetHealth's self-healing pattern: clear + re-open every run.
+// ---------------------------------------------------------------------------
+export type CanaryPage = { label: string; path: string }
+
+export const CANARY_PAGES: CanaryPage[] = [
+  { label: 'legacy location redirect', path: '/location/home-service-crm-in-seattle' },
+  { label: 'legacy industry redirect', path: '/industry/crm-for-cleaning-service-businesses' },
+  { label: 'legacy combo redirect', path: '/crm-for-cleaning-businesses-in-seattle' },
+  { label: 'location page (new format)', path: '/locations/wa/seattle' },
+  { label: 'homepage', path: '/' },
+]
+
+const CANARY_HOST = 'https://www.homeservicesbusinesscrm.com'
+
+export type CanaryHealth = { label: string; path: string; status: number; error?: string; ok: boolean }
+
+/** Fetch every canary page (following redirects) — ok = final status is 2xx. */
+export async function checkCanaryPages(): Promise<CanaryHealth[]> {
+  return Promise.all(
+    CANARY_PAGES.map(async (c): Promise<CanaryHealth> => {
+      try {
+        const res = await safeFetch(`${CANARY_HOST}${c.path}`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(12000),
+          headers: { 'user-agent': 'seomgr-health/1.0' },
+        })
+        return { label: c.label, path: c.path, status: res.status, ok: res.status >= 200 && res.status < 300 }
+      } catch (e) {
+        return { label: c.label, path: c.path, status: 0, error: e instanceof Error ? e.message : 'fetch failed', ok: false }
+      }
+    }),
+  )
+}
+
+/** Run the canary check, persist failures as critical seo_issues, return the summary. */
+export async function runCanaryHealth(): Promise<{ checked: number; down: CanaryHealth[] }> {
+  const results = await checkCanaryPages()
+  const down = results.filter((r) => !r.ok)
+
+  await supabaseAdmin.from('seo_issues').delete().eq('type', 'canary_page_down')
+  if (down.length) {
+    await supabaseAdmin.from('seo_issues').insert(
+      down.map((d) => ({
+        property: 'sc-domain:homeservicesbusinesscrm.com',
+        tenant_id: null,
+        type: 'canary_page_down',
+        severity: 'critical',
+        tier: 0,
+        status: 'open',
+        target_url: `${CANARY_HOST}${d.path}`,
+        detail: { label: d.label, http_status: d.status, error: d.error ?? null },
+      })),
+    )
+  }
+  return { checked: results.length, down }
+}
