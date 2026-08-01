@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
         { source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' },
         { source: '/site/referral', destination: '/site/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
         { source: '/site/emergency', destination: '/site/service/nyc-emergency-cleaning-service' },
+        // seomgr Search Console FILE-method verification tokens — serves at the
+        // root of ANY domain (see src/app/api/seo/verify-file/[file]/route.ts;
+        // that route only ever echoes a token it minted itself, so this is safe
+        // to leave permanently wired rather than added ad hoc per verify batch).
+        { source: '/:file(google[\\w-]+\\.html)', destination: '/api/seo/verify-file/:file' },
       ],
       fallback: [],
     }

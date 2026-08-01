@@ -5,9 +5,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // seomgr — serves Google Search Console FILE-method verification tokens.
-// A `next.config` rewrite maps `/:file(google[\\w-]+\\.html)` here (added at
-// deploy time — the routing config files are shared, so the rewrite is applied
-// in the deploy worktree, not the working tree).
+// A `next.config.ts` rewrite maps `/:file(google[\\w-]+\\.html)` here
+// (permanent, global — works for any domain routed through this deployment).
 //
 // GUARDRAIL: only serves a token that seomgr itself issued and stored on a
 // property (meta.verify_token). Arbitrary `google*.html` requests 404 — we never
