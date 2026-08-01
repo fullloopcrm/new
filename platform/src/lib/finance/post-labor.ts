@@ -39,9 +39,13 @@ export interface PostLaborResult {
 
 /**
  * Resolve the labor expense account for a worker by their HR employment type.
- * Defaults to 1099/Contractor Pay when no HR profile exists yet.
+ * Defaults to 1099/Contractor Pay when no HR profile exists yet. Exported so
+ * post-revenue.ts's booking-level labor accrual (for tenants with no
+ * ledger-postable payout signal, e.g. manual Zelle/Venmo payments) routes to
+ * the same account a real payout/payroll post would, instead of hardcoding
+ * 5000 regardless of employment type.
  */
-async function laborAccountId(tenantId: string, teamMemberId: string | null): Promise<string | null> {
+export async function laborAccountId(tenantId: string, teamMemberId: string | null): Promise<string | null> {
   let code = '5000'
   if (teamMemberId) {
     const { data: profile } = await supabaseAdmin

@@ -74,7 +74,14 @@ export default function HrPeoplePage() {
     const w2 = employees.filter(e => e.employment_type === 'employee_w2').length
     const contractors = employees.filter(e => e.employment_type === 'contractor_1099').length
     const connected = employees.filter(e => e.stripe_connected).length
-    return { total: employees.length, active, w2, contractors, connected }
+    // profile_id === null means this worker has no real hr_employee_profiles
+    // row — employment_type is showing the DB column's bare default
+    // ('contractor_1099'), not an actual decision anyone made. Every payout
+    // is posted under that default (see post-labor.ts's laborAccountId), so
+    // an unreviewed worker here is a live 1099-vs-W-2 misclassification risk,
+    // not just an incomplete profile.
+    const unclassified = employees.filter(e => e.profile_id === null).length
+    return { total: employees.length, active, w2, contractors, connected, unclassified }
   }, [employees])
 
   const filtered = useMemo(() => {
@@ -111,12 +118,15 @@ export default function HrPeoplePage() {
       </div>
 
       {/* Stat row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <Stat label="Headcount" value={stats.total} />
         <Stat label="Active" value={stats.active} accent="text-green-600" />
         <Stat label="1099" value={stats.contractors} />
         <Stat label="W-2" value={stats.w2} />
         <Stat label="Payouts connected" value={`${stats.connected}/${stats.total}`} accent="text-teal-600" />
+        {stats.unclassified > 0 && (
+          <Stat label="Needs classification" value={stats.unclassified} accent="text-amber-600" />
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -163,11 +173,22 @@ export default function HrPeoplePage() {
                       {e.email && <div className="text-xs text-gray-400">{e.email}</div>}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        e.employment_type === 'employee_w2' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {EMPLOYMENT_LABEL[e.employment_type]}
-                      </span>
+                      {e.profile_id === null ? (
+                        <Link
+                          href={`/dashboard/hr/${e.team_member_id}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          title="No employment-type decision has been made — every payout is currently defaulting to 1099. Confirm to clear this."
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Unclassified (defaults to 1099)
+                        </Link>
+                      ) : (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          e.employment_type === 'employee_w2' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {EMPLOYMENT_LABEL[e.employment_type]}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-600">{e.title || e.role || '—'}</td>
                     <td className="px-5 py-3 text-sm text-right text-slate-900">{fmtPay(e)}</td>

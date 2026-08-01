@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
+import { postEquipmentAcquisition } from '@/lib/finance/post-equipment-acquisition'
 
 const COLUMNS =
   'id, service_type_id, category_id, name, asset_tag, acquisition_cost_cents, acquisition_date, useful_life_months, salvage_value_cents, depreciation_method, accumulated_depreciation_cents, status, notes, active, created_at'
@@ -59,6 +60,14 @@ export async function POST(request: Request) {
       .select(COLUMNS)
       .single()
     if (error) throw error
+
+    // Capitalize the purchase (DR 1500 Equipment / CR 2000 Accounts Payable)
+    // so the balance sheet reflects the asset from day one, not just its
+    // monthly depreciation. Fire-and-forget: a ledger hiccup shouldn't block
+    // adding the equipment row itself; cron/finance-post backfills it.
+    postEquipmentAcquisition({ tenantId, equipmentId: data.id as string })
+      .catch(err => console.error('[equipment] acquisition ledger post failed:', err))
+
     return NextResponse.json({ equipment: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -99,6 +108,15 @@ export async function PATCH(request: Request) {
       .select(COLUMNS)
       .single()
     if (error) throw error
+
+    // Capitalize now if the cost was set/raised above zero after creation
+    // (e.g. added with cost 0, backfilled later). postEquipmentAcquisition
+    // is idempotent per equipment id, so this is a no-op once already posted.
+    if ('acquisition_cost_cents' in patch && Number(patch.acquisition_cost_cents) > 0) {
+      postEquipmentAcquisition({ tenantId, equipmentId: id })
+        .catch(err => console.error('[equipment] acquisition ledger post failed:', err))
+    }
+
     return NextResponse.json({ equipment: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
