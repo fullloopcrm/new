@@ -387,6 +387,8 @@ export function clientReminderEmail(booking: any, daysOut: string) {
       : 'First-time and one-time services <strong>cannot be cancelled or rescheduled</strong>.'
     } We hold your spot without taking payment upfront, turning away other clients. Late changes directly affect our team members who depend on this income.`, 'warning')}
 
+    ${daysOut === 'tomorrow' ? noteBox('Within 30 minutes of completion of the job, you are going to receive a text with a payment link. Please make sure payment is made before completion of the job. Thank you.') : ''}
+
     <p style="color: #666; font-size: 14px; margin: 24px 0 0 0;">
       Questions? <a href="sms:6464900130" style="color: #000;">(646) 490-0130</a>
     </p>

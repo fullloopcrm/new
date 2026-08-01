@@ -123,6 +123,7 @@ export function bookingReminderEmail(data: TemplateData & {
     `)}
     ${data.bookingUrl ? ctaButton('View Details', data.bookingUrl, data.primaryColor) : ''}
     ${policyText ? noteBox(policyText, 'warning') : ''}
+    ${data.timeUntil === 'tomorrow' ? noteBox('Within 30 minutes of completion of the job, you are going to receive a text with a payment link. Please make sure payment is made before completion of the job. Thank you.') : ''}
     ${contactLine(data)}
   `, data)
 }

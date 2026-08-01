@@ -24,13 +24,16 @@ export function smsBookingConfirmation(bizName: string, booking: { start_time: s
   return `${bizName}: Confirmed — ${date} at ${time} with ${memberName}. Payment collected at end of service.${link}${STOP_TEXT}`
 }
 
+const PAYMENT_LINK_HEADS_UP = ' Within 30 minutes of completion of the job, you are going to receive a text with a payment link. Please make sure payment is made before completion of the job. Thank you.'
+
 export function smsReminder(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }, timeframe: string): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Your pro'
+  const paymentHeadsUp = timeframe === 'tomorrow' ? PAYMENT_LINK_HEADS_UP : ''
   if (timeframe === 'in 2 hours') {
     return `${bizName}: Reminder — ${memberName} arrives at ${time}. Almost time!${STOP_TEXT}`
   }
-  return `${bizName}: Reminder — appointment ${timeframe} at ${time} with ${memberName}.${STOP_TEXT}`
+  return `${bizName}: Reminder — appointment ${timeframe} at ${time} with ${memberName}.${paymentHeadsUp}${STOP_TEXT}`
 }
 
 export function smsCancellation(bizName: string, booking: { start_time: string }, portalUrl?: string): string {
@@ -164,15 +167,18 @@ export function smsBookingConfirmationES(bizName: string, booking: { start_time:
   return `${bizName}: Su cita esta confirmada para ${date} a las ${time} con ${memberName}.${STOP_TEXT_ES}`
 }
 
+const PAYMENT_LINK_HEADS_UP_ES = ' Dentro de los 30 minutos posteriores a la finalizacion del trabajo, recibira un mensaje de texto con un enlace de pago. Por favor asegurese de que el pago se realice antes de la finalizacion del trabajo. Gracias.'
+
 export function smsReminderES(bizName: string, booking: { start_time: string; team_members?: { name?: string | null } | null }, timeframe: string): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name?.split(' ')[0] || 'Su profesional'
   const tfMap: Record<string, string> = { 'tomorrow': 'manana', 'in 2 hours': 'en 2 horas', 'in 3 days': 'en 3 dias' }
   const tf = tfMap[timeframe] || timeframe
+  const paymentHeadsUp = timeframe === 'tomorrow' ? PAYMENT_LINK_HEADS_UP_ES : ''
   if (timeframe === 'in 2 hours') {
     return `${bizName}: Recordatorio — ${memberName} llega a las ${time}. Ya casi!${STOP_TEXT_ES}`
   }
-  return `${bizName}: Recordatorio — cita ${tf} a las ${time} con ${memberName}.${STOP_TEXT_ES}`
+  return `${bizName}: Recordatorio — cita ${tf} a las ${time} con ${memberName}.${paymentHeadsUp}${STOP_TEXT_ES}`
 }
 
 export function smsCancellationES(bizName: string, booking: { start_time: string }): string {
