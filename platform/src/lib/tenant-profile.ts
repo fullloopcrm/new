@@ -367,19 +367,20 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'expenseCategories', label: 'Expense categories', section: 'identity', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
 
   // ── Compliance ────────────────────────────────────────────────────
-  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', read: (x) => c(x, 'license_number') },
-  { key: 'licenseState', label: 'License state', section: 'compliance', store: 'compliance', col: 'license_state', tier: 'optional', read: (x) => c(x, 'license_state') },
-  { key: 'licenseExpiry', label: 'License expiry', section: 'compliance', store: 'compliance', col: 'license_expiry', tier: 'optional', read: (x) => c(x, 'license_expiry') },
-  { key: 'insuranceCarrier', label: 'Insurance carrier', section: 'compliance', store: 'compliance', col: 'insurance_carrier', tier: 'recommended', read: (x) => c(x, 'insurance_carrier') },
-  { key: 'insurancePolicy', label: 'Policy #', section: 'compliance', store: 'compliance', col: 'insurance_policy', tier: 'optional', read: (x) => c(x, 'insurance_policy') },
-  { key: 'insuranceCoverage', label: 'Coverage amount', section: 'compliance', store: 'compliance', col: 'insurance_coverage', tier: 'optional', read: (x) => c(x, 'insurance_coverage') },
-  { key: 'bonded', label: 'Bonded', section: 'compliance', store: 'compliance', col: 'bonded', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => c(x, 'bonded') },
-  // Doc URLs — the form reuses whatever upload widget the job-photo flow
-  // already has, POSTs to storage, and writes the resulting URL through this
-  // same text field. No new upload plumbing.
-  { key: 'insuranceCertUrl', label: 'Certificate of insurance', section: 'compliance', store: 'compliance', col: 'insurance_cert_url', tier: 'recommended', read: (x) => c(x, 'insurance_cert_url') },
-  { key: 'licenseDocUrl', label: 'Business license (scan)', section: 'compliance', store: 'compliance', col: 'license_doc_url', tier: 'optional', read: (x) => c(x, 'license_doc_url') },
-  { key: 'w9Url', label: 'W-9', section: 'compliance', store: 'compliance', col: 'w9_url', tier: 'optional', read: (x) => c(x, 'w9_url') },
+  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', help: 'Your state or local trade license number (contractor, HVAC, electrical, etc. — whatever applies to your trade). We show this on your site and proposals to build trust with customers; some states require it to be displayed.', read: (x) => c(x, 'license_number') },
+  { key: 'licenseState', label: 'License state', section: 'compliance', store: 'compliance', col: 'license_state', tier: 'optional', help: 'Which state issued the license above.', read: (x) => c(x, 'license_state') },
+  { key: 'licenseExpiry', label: 'License expiry', section: 'compliance', store: 'compliance', col: 'license_expiry', tier: 'optional', help: 'When your license needs to be renewed — we can remind you before it lapses.', read: (x) => c(x, 'license_expiry') },
+  { key: 'insuranceCarrier', label: 'Insurance carrier', section: 'compliance', store: 'compliance', col: 'insurance_carrier', tier: 'recommended', help: 'The company your business (general liability, not personal) insurance is through — e.g. State Farm, Progressive Commercial.', read: (x) => c(x, 'insurance_carrier') },
+  { key: 'insurancePolicy', label: 'Insurance policy #', section: 'compliance', store: 'compliance', col: 'insurance_policy', tier: 'optional', help: 'The policy number for your general liability insurance (the policy that covers accidents/damage on the job — not your license number above).', read: (x) => c(x, 'insurance_policy') },
+  { key: 'insuranceCoverage', label: 'Coverage amount', section: 'compliance', store: 'compliance', col: 'insurance_coverage', tier: 'optional', help: 'How much your general liability policy covers (e.g. "$1,000,000") — from your insurance declarations page.', read: (x) => c(x, 'insurance_coverage') },
+  { key: 'bonded', label: 'Bonded', section: 'compliance', store: 'compliance', col: 'bonded', kind: 'bool', input: 'toggle', tier: 'optional', help: 'A surety bond protects a customer financially if you don\'t complete a job as agreed. Turn this on if you carry one — it\'s a trust signal on your site, not required to operate.', read: (x) => c(x, 'bonded') },
+  // Doc URLs — no real upload widget wired to this form yet (the comment
+  // this replaced claimed one existed; it didn't). Until that's built, help
+  // text is honest about what's actually expected: upload the file
+  // somewhere (Drive, Dropbox) and paste the link.
+  { key: 'insuranceCertUrl', label: 'Certificate of insurance', section: 'compliance', store: 'compliance', col: 'insurance_cert_url', tier: 'recommended', help: 'The actual certificate document from your insurer proving the coverage above is real. Upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'insurance_cert_url') },
+  { key: 'licenseDocUrl', label: 'Business license (scan)', section: 'compliance', store: 'compliance', col: 'license_doc_url', tier: 'optional', help: 'A photo or scan of your actual license document. Upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'license_doc_url') },
+  { key: 'w9Url', label: 'W-9', section: 'compliance', store: 'compliance', col: 'w9_url', tier: 'optional', help: 'The IRS Form W-9 with your business\'s tax info — we need it on file to send you a 1099 at tax time if you\'re paid as a contractor. Fill out the form (get a blank one at irs.gov/w9), then upload it to Google Drive/Dropbox and paste a shareable link here.', read: (x) => c(x, 'w9_url') },
 
   // ── Lead handling / SEO ───────────────────────────────────────────
   { key: 'autoRespondLeads', label: 'Auto-respond to leads', section: 'seo', store: 'selena', col: 'auto_respond_leads', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_respond_leads') },
@@ -427,7 +428,7 @@ export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb
   referrals: { title: 'Referrals', blurb: 'Optional — pay people who send you new business.' },
   proposals: { title: 'Agreements & Legal', blurb: 'The terms, policies, and fine print that protect your business.' },
   team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
-  compliance: { title: 'Licensing & Insurance', blurb: 'Trade credentials that build trust and meet compliance.' },
+  compliance: { title: 'Licensing & Insurance', blurb: 'We show these on your site and proposals — customers trust a business that\'s licensed and insured, and some states legally require you to display them. Nothing here is required to use Full Loop.' },
   seo: { title: 'Marketing', blurb: 'Who you\'re for, how you stand out, and where customers find you.' },
   ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
   account: { title: 'Account', blurb: 'Internal account details.' },
