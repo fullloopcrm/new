@@ -1,3 +1,24 @@
+-- Adopted from legacy hand-run migration: 20260730190000_explicit_deny_all_rls_policies.sql
+-- Original commit date (git first-add): 2026-07-30T15:11:08-04:00
+-- STATUS: part of the baseline. Assumed already live in prod as of
+-- the 2026-07-28 cutover -- marked applied without re-running, per
+-- docs/adr/0008-migration-tool-cutover.md. Do NOT re-run against prod.
+-- Confirmed genuinely live in prod (not just "assumed") by sec-06's
+-- 2026-07-31 live_http_check: real anon-key PostgREST requests against 3 of
+-- these tables (tenants, platform_settings, security_events) returned
+-- HTTP 200 empty-array against tables holding real rows -- the exact
+-- deny-all behavior this migration's policies produce.
+--
+-- sec-08 finding (2026-08-01): this file previously existed ONLY at
+-- platform/supabase/migrations/20260730190000_explicit_deny_all_rls_policies.sql
+-- -- a SEPARATE, accidentally-created, disconnected local Supabase CLI
+-- project (project_id "platform", never linked to prod via `supabase link`,
+-- created by commit 47bc4acf8) that is NOT this real, prod-linked project.
+-- It was never picked up by scripts/migrate-legacy-to-cli.mjs's baseline
+-- conversion and so was silently absent from the real tracked baseline
+-- until converted here by hand. See docs/adr/0008-migration-tool-cutover.md's
+-- 2026-08-01 addendum for the full writeup of the duplicate-directory issue.
+
 -- sec-06: explicit deny-all RLS policies for tables that had RLS enabled
 -- with zero policies.
 --

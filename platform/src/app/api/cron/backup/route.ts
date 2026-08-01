@@ -2,9 +2,21 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export const maxDuration = 60
+
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives
 // per-tenant granular snapshots we control
+//
+// Tenants are processed in parallel, not sequentially. Sequential
+// processing worked when this route launched (real "Nightly Backup
+// Complete" log entries exist through 2026-07-26) but tenant count has
+// since grown to 34+ (mostly the Florida Maid EMD microsite rollout) --
+// 34 tenants x (11 queries + 1 storage upload) run one at a time almost
+// certainly exceeds the function's execution limit, killing it mid-run
+// with no error logged (a hard timeout doesn't get a chance to reach the
+// catch block or the notification insert) -- consistent with zero
+// "Nightly Backup Complete" rows since 07-26 and zero errors either.
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -14,10 +26,7 @@ export async function GET(request: Request) {
     .select('id, name, slug')
     .eq('status', 'active')
 
-  let backed = 0
-  const errors: string[] = []
-
-  for (const tenant of tenants || []) {
+  const results = await Promise.all((tenants || []).map(async (tenant) => {
     try {
       // Export all tenant data
       const [
@@ -75,14 +84,16 @@ export async function GET(request: Request) {
         })
 
       if (uploadError) {
-        errors.push(`${tenant.slug}: ${uploadError.message}`)
-      } else {
-        backed++
+        return { ok: false, error: `${tenant.slug}: ${uploadError.message}` }
       }
+      return { ok: true, error: null }
     } catch (err) {
-      errors.push(`${tenant.slug}: ${err instanceof Error ? err.message : 'unknown error'}`)
+      return { ok: false, error: `${tenant.slug}: ${err instanceof Error ? err.message : 'unknown error'}` }
     }
-  }
+  }))
+
+  const backed = results.filter(r => r.ok).length
+  const errors = results.filter(r => !r.ok).map(r => r.error as string)
 
   // Log backup results — platform-wide marker, not tied to any one tenant.
   // Previously stamped tenant_id on whichever tenant happened to sort first
