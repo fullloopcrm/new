@@ -737,11 +737,27 @@ export async function POST(request: Request) {
             // First message from this phone — always create the conversation
             // and log the inbound message (so it reaches ComHub), regardless
             // of reply settings.
+            //
+            // client_id must fall back to newLeadClientId (set above at
+            // createLeadAndEnterPipeline, same request, when neither `client`
+            // nor `member` matched this phone): without it, a brand-new lead's
+            // very first inbound SMS creates a `clients` row but leaves this
+            // conversation's client_id permanently null (nothing ever
+            // backfills it later). Every client-facing Yinez tool
+            // (lookup_bookings/check_payment/confirm_payment/update_account/
+            // reschedule_booking/cancel_booking) hard-requires
+            // sms_conversations.client_id and returns "No account" otherwise —
+            // live audit_logs confirmed this: 34 real conversations in the
+            // trailing 30 days had client_id null despite a real, phone-
+            // matching clients row existing (found 2026-08-01, ai-01 re-check).
+            // The notification insert a few lines above this block already
+            // got this right (`client?.id || newLeadClientId`); this insert
+            // was the one place that missed it.
             const { data: newConvo } = await supabaseAdmin.from('sms_conversations').insert({
               tenant_id: tenantId,
               phone: cleanPhone,
               to_phone: to,
-              client_id: client?.id || null,
+              client_id: client?.id || newLeadClientId || null,
               name: clientName,
               state: 'welcome',
             }).select('id, client_id, name').single()
