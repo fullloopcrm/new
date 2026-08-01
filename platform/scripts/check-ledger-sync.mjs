@@ -47,24 +47,28 @@ function resolveBaseRef() {
 
 // `git diff --name-only` always returns paths relative to the REPO ROOT, not
 // this script's cwd -- even run from platform/, it returns
-// 'platform/src/app/...', never 'src/app/...'. depends_on_files entries are
-// written relative to platform/ (matching LEDGER_GIT_PATH's own prefix
-// convention above), so every changed path needs that same prefix stripped
-// before comparison. Without this, `changed.has(dep)` can never be true --
-// confirmed 2026-08-01: this gate silently never caught a single stale
-// checkpoint since inception, in this exact repo layout, despite reporting
-// "clean" on every run. A file outside platform/ (nothing should be, but
-// don't silently mis-map if one ever is) is dropped rather than left
-// wrong-prefixed.
+// 'platform/src/app/...', never 'src/app/...'. Most depends_on_files entries
+// are written relative to platform/ (matching LEDGER_GIT_PATH's own prefix
+// convention above), so those need the prefix stripped before comparison.
+// But some are genuinely repo-root-relative already -- e.g. sec-01/sec-03
+// cite '.github/workflows/db-backup.yml' / '.github/workflows/ci.yml',
+// which live OUTSIDE platform/ entirely and were never platform/-prefixed to
+// begin with. An earlier version of this fix (2026-08-01) only added the
+// strip-if-platform-prefixed case and silently dropped every non-platform/
+// path instead, confirmed via an independent re-check: those checkpoints
+// could still never be flagged stale. Fixed by keeping BOTH the
+// prefix-stripped form (for platform/-relative deps) and the raw form (for
+// deps that are already repo-root-relative) in the comparison set, so a dep
+// written either way can match.
 const REPO_PREFIX = 'platform/'
 function changedFiles(baseRef) {
   const out = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`])
-  const rel = out
-    .split('\n')
-    .filter(Boolean)
-    .filter((p) => p.startsWith(REPO_PREFIX))
-    .map((p) => p.slice(REPO_PREFIX.length))
-  return new Set(rel)
+  const paths = out.split('\n').filter(Boolean)
+  const rel = new Set(paths)
+  for (const p of paths) {
+    if (p.startsWith(REPO_PREFIX)) rel.add(p.slice(REPO_PREFIX.length))
+  }
+  return rel
 }
 
 function loadLedgerAt(ref) {
