@@ -128,6 +128,7 @@ type ClientRow = {
   status: string | null
   active: boolean | null
   do_not_service: boolean | null
+  dns_reason: string | null
   pet_name: string | null
   pet_type: string | null
   notes_private: string | null
@@ -332,8 +333,13 @@ export default function ComhubPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
+  // Do-not-service clients get zero ComHub communications — the API
+  // enforces this too (send/route.ts), this just keeps an admin from typing
+  // a message that's guaranteed to 403.
+  const isDnsBlocked = thread?.kind === 'contact' && context?.client?.do_not_service === true
+
   const handleSend = async () => {
-    if (!thread || !composer.trim() || sending) return
+    if (!thread || !composer.trim() || sending || isDnsBlocked) return
     setSending(true)
     try {
       const res = await fetch('/api/admin/comhub/send', {
@@ -892,6 +898,11 @@ export default function ComhubPage() {
                   </div>
                 )}
               </div>
+              {isDnsBlocked && (
+                <div className="text-xs mb-1.5 px-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>
+                  This client is marked Do Not Service — no communications allowed.
+                </div>
+              )}
               <div className="flex gap-2">
                 <textarea
                   value={composer}
@@ -902,20 +913,23 @@ export default function ComhubPage() {
                       handleSend()
                     }
                   }}
+                  disabled={isDnsBlocked}
                   placeholder={
-                    thread.kind === 'channel'
-                      ? `Post to ${thread.name || '#' + thread.slug} (Enter to send, Shift+Enter for a new line)`
-                      : thread.channel === 'voice'
-                        ? `Add a note about this call (Enter to send, Shift+Enter for a new line)`
-                        : `Reply via ${thread.channel.toUpperCase()} (Enter to send, Shift+Enter for a new line)`
+                    isDnsBlocked
+                      ? 'Do Not Service — sending is disabled for this contact'
+                      : thread.kind === 'channel'
+                        ? `Post to ${thread.name || '#' + thread.slug} (Enter to send, Shift+Enter for a new line)`
+                        : thread.channel === 'voice'
+                          ? `Add a note about this call (Enter to send, Shift+Enter for a new line)`
+                          : `Reply via ${thread.channel.toUpperCase()} (Enter to send, Shift+Enter for a new line)`
                   }
                   rows={3}
-                  className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+                  className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none disabled:opacity-60"
                   style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!composer.trim() || sending}
+                  disabled={!composer.trim() || sending || isDnsBlocked}
                   className="self-stretch px-4 rounded-md text-sm font-medium disabled:opacity-50"
                   style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
                 >
@@ -1487,6 +1501,9 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
         </div>
+        {client?.do_not_service && client.dns_reason && (
+          <div className="text-xs mt-1" style={{ color: 'var(--color-loop-warn)' }}>{client.dns_reason}</div>
+        )}
         <h3 className="mt-2" style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 500 }}>{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}

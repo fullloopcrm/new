@@ -223,6 +223,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // DNS gate — a client marked do_not_service gets zero communications,
+  // not just skipped auto-replies. Checked here (not just in the UI) so a
+  // direct API call can't bypass it either.
+  if (contactId) {
+    const { data: linkedContact } = await supabaseAdmin
+      .from('comhub_contacts')
+      .select('client_id')
+      .eq('id', contactId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (linkedContact?.client_id) {
+      const { data: linkedClient } = await supabaseAdmin
+        .from('clients')
+        .select('do_not_service')
+        .eq('id', linkedContact.client_id)
+        .maybeSingle()
+      if (linkedClient?.do_not_service) {
+        return NextResponse.json({ error: 'This client is marked Do Not Service — no communications allowed.' }, { status: 403 })
+      }
+    }
+  }
+
   if (!threadId) {
     const { data, error } = await supabaseAdmin
       .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: body.channel })

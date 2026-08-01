@@ -584,7 +584,7 @@ export async function POST(request: Request) {
 
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('id, name')
+      .select('id, name, do_not_service')
       .eq('tenant_id', tenantId)
       .ilike('phone', `%${inboundLast10}%`)
       .limit(1)
@@ -701,8 +701,13 @@ export async function POST(request: Request) {
     // ============================================
     // AI CHATBOT — Route to Selena if enabled
     // ============================================
-    // Skip chatbot for team members (they're staff, not customers)
-    if (!member && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // Skip chatbot for team members (they're staff, not customers), and for
+    // do_not_service clients entirely — this block is what creates the
+    // sms_conversations/sms_conversation_messages rows that feed ComHub via
+    // the comhub_mirror_sms_message trigger, so skipping it here is what
+    // keeps a DNS client's texts from ever surfacing as a ComHub thread, not
+    // just skipping the bot's auto-reply.
+    if (!member && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         const settings = await getSettings(tenantId)
         if (settings.chatbot_enabled) {
