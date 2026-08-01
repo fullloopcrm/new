@@ -10,6 +10,42 @@ function createRouteMatcher(patterns: string[]) {
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
+import {
+  findIndustryByPageSlug,
+  findMetroByPageSlug,
+  findCombo,
+  industryPath,
+  locationPath,
+  comboPath,
+} from '@/lib/marketing/combos'
+
+// --- 2026-07-28 slug redesign: 301 old marketing-site URLs to the new
+// short-tail/nested formats. Main host only — never touches tenant routing.
+// Order matters: industry hub (2 segments) before combo (also under
+// /industry/*, distinguished by whether the 2nd segment resolves to a metro).
+function redirectLegacyMarketingUrl(pathname: string): string | null {
+  // Old flat combo page: /crm-for-{industry}-businesses-in-{metro-shortSlug}
+  if (pathname.startsWith('/crm-for-') && pathname.includes('-businesses-in-')) {
+    const match = findCombo(pathname.slice(1))
+    if (match) return comboPath(match.industry, match.metro)
+  }
+
+  // Old industry hub: /industry/crm-for-{industry}-businesses
+  const industryMatch = pathname.match(/^\/industry\/(crm-for-.+)$/)
+  if (industryMatch) {
+    const industry = findIndustryByPageSlug(industryMatch[1])
+    if (industry) return industryPath(industry)
+  }
+
+  // Old location page: /location/home-service-crm-in-{metro-shortSlug}
+  const locationMatch = pathname.match(/^\/location\/(home-service-crm-in-.+)$/)
+  if (locationMatch) {
+    const metro = findMetroByPageSlug(locationMatch[1])
+    if (metro) return locationPath(metro)
+  }
+
+  return null
+}
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -296,6 +332,18 @@ export default async function middleware(req: NextRequest) {
         'Cache-Control': 'public, max-age=86400',
       },
     })
+  }
+
+  // --- Legacy marketing-slug redirects (2026-07-28 redesign) ---
+  // Old industry/location/combo URLs 301 to the new short-tail/nested slugs.
+  // Main host only — never touches tenant subdomains/custom domains.
+  if (isMainHost(hostname)) {
+    const newPath = redirectLegacyMarketingUrl(req.nextUrl.pathname)
+    if (newPath) {
+      const url = req.nextUrl.clone()
+      url.pathname = newPath
+      return NextResponse.redirect(url, 301)
+    }
   }
 
   // --- Tenant subdomain routing (runs before Clerk auth) ---
