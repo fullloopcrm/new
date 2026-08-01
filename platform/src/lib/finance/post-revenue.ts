@@ -22,6 +22,7 @@ import {
   isUniqueViolation,
   type JournalLineInput,
 } from '../ledger'
+import { laborAccountId } from './post-labor'
 
 // Statuses that represent money actually received (full or partial).
 const REVENUE_STATUSES = ['completed', 'succeeded', 'partial']
@@ -114,19 +115,51 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
  * because the `payments` table is sparse/stale (most paid bookings have no
  * completed payment row). Posts, per paid/partial booking, idempotently:
  *   Revenue  DR 1050 (price+tip)  CR 4000 (price)  CR 4100 (tip)   source='booking'
- *   Labor    DR 5000 (pay)        CR 2450 (pay)                     source='booking_cogs'
+ *   Labor    DR 5000/5010 (pay)   CR 2450 (pay)                     source='booking_cogs'
  * price/tip/team_member_pay are stored in CENTS. Idempotent by source+booking id.
+ *
+ * Labor is CONDITIONAL: only accrued via 'booking_cogs' when no real,
+ * ledger-postable payout record exists for that booking yet — this is
+ * because a real payout (Stripe Connect `team_member_payouts`, keyed by
+ * booking_id) or a completed payroll run (which flips a booking's own
+ * `status` to 'paid') already posts labor cost correctly via post-labor.ts,
+ * employment-type-aware. Double-posting the same job's labor was a real bug
+ * here (see booking-labor-single-post.test.ts) for tenants that DO use those
+ * paths.
+ *
+ * But for a tenant with NO ledger-postable payout signal at all — confirmed
+ * live on NYC Maid: `team_member_payouts` and `payroll_payments` both had
+ * ZERO rows across 6 months and 629 completed/paid jobs, because cleaners are
+ * actually paid manually off-platform (Zelle/Venmo/cash/Apple Pay) and only
+ * marked via the `team_member_paid` checkbox, which posts nothing — removing
+ * this accrual entirely would have zeroed out 100% of that tenant's real
+ * labor expense going forward. `booking_cogs` is the fallback that keeps
+ * their books honest until/unless they wire a real payout mechanism.
+ *
+ * Note: `team_member_paid` is NOT used as the skip signal — it fires for
+ * that same off-ledger manual-checkout path, so treating it as "already
+ * posted" would reproduce the exact zeroed-books problem this exists to
+ * avoid. The skip check only looks at signals that correspond to an actual
+ * ledger post: a `team_member_payouts` row for this booking, or this
+ * booking's own `status` already flipped to 'paid' (which only the Payroll
+ * POST route does, and only after it calls postPayrollToLedger).
+ *
+ * Known residual gap: payroll_payments has no per-booking link, and a
+ * PARTIAL payroll payment doesn't flip booking.status to 'paid' — so a
+ * booking whose labor was partially paid out via the Payroll tab, without
+ * yet covering the full amount owed, isn't detected here and could still
+ * double-post if 'booking_cogs' already fired first. Flagged, not fixed —
+ * the schema has no booking-level payroll_payments linkage to check against.
  */
 export async function backfillRevenueFromBookings(
   tenantId: string,
   limit = 10000,
 ): Promise<{ scanned: number; revenuePosted: number; cogsPosted: number }> {
   await ensureChartAccounts(tenantId)
-  const [undeposited, revenueAcct, tipsAcct, contractorAcct, transitAcct] = await Promise.all([
+  const [undeposited, revenueAcct, tipsAcct, transitAcct] = await Promise.all([
     getAccountIdByCode(tenantId, '1050'),
     getAccountIdByCode(tenantId, '4000'),
     getAccountIdByCode(tenantId, '4100'),
-    getAccountIdByCode(tenantId, '5000'),
     getAccountIdByCode(tenantId, '2450'),
   ])
   if (!undeposited || !revenueAcct) throw new Error('backfill: revenue accounts missing')
@@ -141,7 +174,7 @@ export async function backfillRevenueFromBookings(
     if (scanned >= limit) break
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, price, team_member_pay, tip_amount, payment_date, start_time')
+      .select('id, price, team_member_id, team_member_pay, tip_amount, payment_date, start_time, status')
       .eq('tenant_id', tenantId)
       .in('payment_status', ['paid', 'partial'])
       // A booking can carry a stale 'paid'/'partial' payment_status from
@@ -184,22 +217,28 @@ export async function backfillRevenueFromBookings(
       }
 
       const pay = Math.round(Number(b.team_member_pay) || 0)
-      if (pay > 0 && contractorAcct && transitAcct && !(await journalEntryExists(tenantId, 'booking_cogs', id))) {
-        try {
-          await postJournalEntry({
-            tenant_id: tenantId,
-            entry_date: date,
-            memo: `Booking labor ${id.slice(0, 8)}`,
-            source: 'booking_cogs',
-            source_id: id,
-            lines: [
-              { coa_id: contractorAcct, debit_cents: pay, memo: 'Contractor pay' },
-              { coa_id: transitAcct, credit_cents: pay, memo: 'Payouts in transit' },
-            ],
-          })
-          cogsPosted++
-        } catch (e) {
-          if (!isUniqueViolation(e)) throw e
+      if (pay > 0 && transitAcct && !(await journalEntryExists(tenantId, 'booking_cogs', id))) {
+        const alreadyHasRealPayout = await bookingHasRealPayoutRecord(tenantId, id, b.status as string)
+        if (!alreadyHasRealPayout) {
+          const laborAcct = await laborAccountId(tenantId, (b.team_member_id as string) || null)
+          if (laborAcct) {
+            try {
+              await postJournalEntry({
+                tenant_id: tenantId,
+                entry_date: date,
+                memo: `Booking labor ${id.slice(0, 8)}`,
+                source: 'booking_cogs',
+                source_id: id,
+                lines: [
+                  { coa_id: laborAcct, debit_cents: pay, memo: 'Labor cost' },
+                  { coa_id: transitAcct, credit_cents: pay, memo: 'Payouts in transit' },
+                ],
+              })
+              cogsPosted++
+            } catch (e) {
+              if (!isUniqueViolation(e)) throw e
+            }
+          }
         }
       }
     }
@@ -209,6 +248,29 @@ export async function backfillRevenueFromBookings(
   }
 
   return { scanned, revenuePosted, cogsPosted }
+}
+
+/**
+ * Does this booking already have a REAL, ledger-postable payout record —
+ * as opposed to just the manual `team_member_paid` checkbox, which posts
+ * nothing? See backfillRevenueFromBookings's docstring for why that
+ * distinction matters.
+ */
+async function bookingHasRealPayoutRecord(tenantId: string, bookingId: string, bookingStatus: string): Promise<boolean> {
+  // The Payroll POST route only flips a booking's own status to 'paid' after
+  // postPayrollToLedger has posted that payment — see src/app/api/finance/payroll/route.ts.
+  if (bookingStatus === 'paid') return true
+
+  // team_member_payouts carries a direct booking_id link (see cleaner-payout.ts's
+  // cleanerAlreadyPaid, the same check used before a Stripe Connect transfer).
+  const { data } = await supabaseAdmin
+    .from('team_member_payouts')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+    .limit(1)
+    .maybeSingle()
+  return !!data
 }
 
 /**

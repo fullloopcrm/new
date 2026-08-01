@@ -2,15 +2,16 @@
   "$schema": "readiness-taxonomy-v1",
   "version": 1,
   "approved_by": "Jeff",
-  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5 (per Jeff's explicit in-session instruction, after reviewing the Sentry/error_logs cross-check findings: \"The notification-delivery-rate failure gets its own checkpoint, not folded into ai-03 ... Add it as its own item and flag it high-severity given it's been broken for a week\"): added ai-06 (notification delivery pipeline health, severity 4) to ai_agent_communications, covering the real recurring unresolved high-severity error_logs finding from the 2026-07-31 cross-check (src/app/api/cron/system-check/route.ts's Notifications 24h check, failing ~daily since at least 2026-07-25). No existing checkpoint's severity or weight changed.",
+  "approved_note": "Initial taxonomy, 2026-07-30 v2 hardening pass. 7 domains, 40 checkpoints, severity assigned by blast radius. | 2026-07-30 addendum (approved by Jeff, same session): added process_doc pointer to docs/readiness/PROCESS.md -- no checkpoints, severities, or weights changed. | 2026-07-30 addendum #2 (approved by Jeff, same session): fin-04 depends_on_files was missing src/lib/finance/ar-aging.ts (the real query logic; the route file is a thin wrapper) -- added so check-ledger-sync.mjs actually protects this checkpoint. No severities/weights changed. | 2026-07-30 addendum #3 (approved by Jeff, same session): sec-07 depends_on_files was wrong (pointed at src/lib/tenant-query.ts, unrelated to PIN storage) -- replaced with the real 15 files the PIN-encryption fix touches. No severities/weights changed. | 2026-07-31 addendum #4 (per Jeff's explicit in-session instruction: \"Start adding real, evidence-backed checkpoints for more of the unmapped 782 surface items, prioritizing Security and Finance routes first\"): added 7 new checkpoints (sec-10..sec-13, fin-07..fin-09) covering 31 previously-unmapped Security routes + 9 files/8 tables (auth/session/PIN-reset, admin RBAC, audit/monitoring visibility, webhook/internal/cron auth) and 27 previously-unmapped Finance routes (invoicing/payments, bank reconciliation, expenses/vendors). Severities assigned by blast radius consistent with existing checkpoints in each domain. No existing checkpoint's severity or weight changed. | 2026-07-31 addendum #5 (per Jeff's explicit in-session instruction, after reviewing the Sentry/error_logs cross-check findings: \"The notification-delivery-rate failure gets its own checkpoint, not folded into ai-03 ... Add it as its own item and flag it high-severity given it's been broken for a week\"): added ai-06 (notification delivery pipeline health, severity 4) to ai_agent_communications, covering the real recurring unresolved high-severity error_logs finding from the 2026-07-31 cross-check (src/app/api/cron/system-check/route.ts's Notifications 24h check, failing ~daily since at least 2026-07-25). No existing checkpoint's severity or weight changed. | 2026-08-01 addendum #6 (per Jeff's explicit in-session instruction, deep finance re-verification + first-ever HR domain scoring): fixed fin-01/fin-02's depends_on_files (was src/lib/jobs.ts, the wrong file -- same class of bug as the fin-04/sec-07 fixes already recorded above; the real post_journal_entry()/balance-invariant logic lives in src/lib/ledger.ts). Added fin-10..fin-15 (6 new finance checkpoints) covering the money-spine posting core + today's booking-labor-double-post and equipment-capitalization fixes, commissions/deposits/refunds/chargebacks (post-adjustments.ts, previously flagged as skipped), the financial reporting endpoint surface, admin cross-tenant finance rollups, equipment/inventory/vendor costing + budget templates, and remaining misc finance utility routes -- closing the previously-silent 36-route + entire-money-spine-lib coverage gap identified this pass. Added a new domain, hr_workforce (10 checkpoints, hr-01..hr-10), covering team roster/roles, HR employee profile records, documents/requirements/reminders, notes, pay-rate management, time tracking, PTO, 1099/W-2 classification, compliance fields, and performance/ratings -- HR had never been scored as its own domain before this pass. Weight rebalance: finance_payroll_billing 20->15, hr_workforce introduced at 5 (weights still sum to 100) -- HR gets its own domain rather than folding into Finance because it has its own distinct routed UI/API surface (src/app/dashboard/hr, hr_employee_profiles/hr_documents/hr_notes -- not finance tables) genuinely separate from payroll math, even though the two domains share real data dependencies (employment_type, pay_rate). The 5-point weight taken from Finance (rather than spread across all domains) reflects that HR is the closest conceptual neighbor being carved out, not an arbitrary cut. This is a recommendation Jeff can revise the weighting on; the domain-existence decision and checkpoint definitions are the real content here, not the exact point allocation. | 2026-08-01 addendum #7 (per Jeff's explicit in-session instruction: Finance/HR are intentionally light versions integrated into the platform, not standalone QuickBooks/full-HR-suite replacements -- recalibrate the taxonomy to measure against that real target, not an unstated full-suite bar): re-worded hr-02/hr-03/hr-10's checkpoint names to state the light-version bar explicitly (fields exist and work vs. 100% adoption; minimal checklist vs. full document-management; customer-rating signal is the intended feature, not a partial stand-in). Added a new ledger score value, 'out_of_scope' -- distinct from 'not_scored' (roadmap item, not yet verified) -- for checkpoints deliberately not part of this product; compute-readiness.mjs updated to exclude out_of_scope checkpoints from domain scoring and report them in their own section, separate from real gaps. Marked hr-07 (PTO) and hr-09 (structured compliance/cert tracking, distinct from hr-03's generic checklist) out_of_scope -- both are MY judgment calls (Jeff asked for confirmation; no roadmap doc exists either way), explicitly flagged as overridable. hr-04 (HR notes) and fin-14 (inventory/vendor costing) were investigated for the same light-scope question and kept AS-IS (not reclassified) -- no evidence supports treating either as intentionally deprioritized rather than a real, if low-severity, gap. hr-08 (1099/W-2 classification) was explicitly NOT treated as a scope question per Jeff's instruction -- it is a live tax-compliance risk, fixed this same pass with a default-and-flag UI mechanism (src/app/dashboard/hr/page.tsx) rather than a hard blocking requirement at worker creation, keeping the rest of onboarding light while surfacing the risk for review. fin-13 was clarified as a testing gap, not a scope question, distinguishing it from the checkpoints that genuinely are about product-intent. No severities or weights changed in this addendum. | 2026-08-01 addendum #8 (independent adversarial re-check of addenda #6/#7, per PROCESS.md): found two real bugs the original session missed. (1) check-ledger-sync.mjs was STILL completely inert after addendum #6's path-prefix fix, for a deeper, separate reason: it read depends_on_files off LEDGER checkpoint objects, but that field only ever existed in taxonomy.json -- always undefined, so the staleness loop could never fire regardless of the prefix bug. Fixed to join against taxonomy.json; verified by deliberately committing a stale dependency change and confirming the script now correctly fails (then reverted the test commit). (2) The payroll-lag netting fix (postPayrollToLedger) was likely neutralized by its real caller: src/app/api/finance/payroll/route.ts fired postPayrollToLedger without awaiting it, then separately awaited a booking-status-flip update right after -- since the ledger post has several more sequential round-trips than the single status update, the update would almost always land first in production, flipping the very bookings the netting query depends on to status='paid' before that query ran, netting to $0 already-accrued and re-posting the full amount. Fixed by awaiting postPayrollToLedger before the status update. Disclosed limitation: the new regression test for this (route.payroll-lag-race.test.ts) cannot actually distinguish awaited vs. fire-and-forget in the shared fake-supabase harness, which resolves every query synchronously -- the fix is correct by reasoning about real network I/O timing, not by a test that caught the original bug failing. No severities or weights changed.",
   "domain_weights": {
     "security_auth_infra": 25,
-    "finance_payroll_billing": 20,
+    "finance_payroll_billing": 15,
     "lead_sale_schedule": 12,
     "booking_scheduling_recurring": 8,
     "crm_core": 10,
     "ai_agent_communications": 10,
-    "onboarding_activation": 15
+    "onboarding_activation": 15,
+    "hr_workforce": 5
   },
   "domains": {
     "security_auth_infra": {
@@ -204,7 +205,7 @@
           "name": "Ledger balance invariant",
           "severity": 5,
           "depends_on_files": [
-            "src/lib/jobs.ts"
+            "src/lib/ledger.ts"
           ]
         },
         {
@@ -212,7 +213,7 @@
           "name": "post_journal_entry() function correctness",
           "severity": 5,
           "depends_on_files": [
-            "src/lib/jobs.ts"
+            "src/lib/ledger.ts"
           ]
         },
         {
@@ -308,6 +309,103 @@
             "src/app/api/finance/receipts/attach/route.ts",
             "src/app/api/finance/upload/route.ts",
             "inventory_items"
+          ]
+        },
+        {
+          "id": "fin-10",
+          "name": "Money-spine posting core (ledger.ts, post-revenue/labor/depreciation/equipment-acquisition) + today's booking-labor & equipment-capitalization fixes",
+          "severity": 5,
+          "depends_on_files": [
+            "src/lib/ledger.ts",
+            "src/lib/finance/post-revenue.ts",
+            "src/lib/finance/post-labor.ts",
+            "src/lib/finance/post-depreciation.ts",
+            "src/lib/finance/post-equipment-acquisition.ts",
+            "src/lib/finance/reconcile.ts",
+            "src/app/api/equipment/route.ts",
+            "src/app/api/cron/finance-post/route.ts",
+            "src/app/api/cron/post-depreciation/route.ts",
+            "journal_entries",
+            "journal_lines",
+            "chart_of_accounts"
+          ]
+        },
+        {
+          "id": "fin-11",
+          "name": "Commissions, deposits, refunds & chargebacks (post-adjustments.ts)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/lib/finance/post-adjustments.ts",
+            "src/app/api/referral-commissions/route.ts",
+            "src/app/api/sales-partner-commissions/route.ts",
+            "referral_commissions",
+            "sales_partner_commissions"
+          ]
+        },
+        {
+          "id": "fin-12",
+          "name": "Financial reporting endpoint surface (P&L, balance sheet, trial balance, cash flow, tax export, statements, chart of accounts, periods, entities, CPA tokens)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/finance/pnl/route.ts",
+            "src/app/api/finance/balance-sheet/route.ts",
+            "src/app/api/finance/trial-balance/route.ts",
+            "src/app/api/finance/cash-flow/route.ts",
+            "src/app/api/finance/summary/route.ts",
+            "src/app/api/finance/revenue/route.ts",
+            "src/app/api/finance/statements/route.ts",
+            "src/app/api/finance/entities/route.ts",
+            "src/app/api/finance/entities/[id]/route.ts",
+            "src/app/api/finance/periods/route.ts",
+            "src/app/api/finance/periods/[id]/route.ts",
+            "src/app/api/finance/chart-of-accounts/route.ts",
+            "src/app/api/finance/tax-export/route.ts",
+            "src/app/api/finance/year-end-zip/route.ts",
+            "src/app/api/finance/cpa-tokens/route.ts",
+            "src/lib/finance/ledger-reports.ts"
+          ]
+        },
+        {
+          "id": "fin-13",
+          "name": "Admin cross-tenant finance rollups -- IN SCOPE, fully functional (confirmed correctly requireAdmin-gated); low score reflects a TESTING gap (no automated test coverage exists), not a product-scope question -- distinguishing this explicitly per Jeff's 2026-08-01 recalibration instruction, since not every sub-90 score is either \"fix the feature\" or \"mark it light-scope.\"",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/admin/finance/route.ts",
+            "src/app/api/admin/finance/margin/route.ts",
+            "src/app/api/admin/finance/more/route.ts",
+            "src/app/api/admin/finance/jobs/route.ts"
+          ]
+        },
+        {
+          "id": "fin-14",
+          "name": "Equipment bookings, inventory/vendor costing & budget templates -- INVESTIGATED for light-scope intent (2026-08-01): no roadmap doc or code comment supports \"intentionally minimal\" -- migration 2026_07_21_inventory_vendor_catalog_costing.sql's own comment frames this as feeding the budget engine \"real costs instead of a hand-typed guess,\" i.e. built to improve job-costing/margin accuracy, which is core CRM value, not a nice-to-have. Kept as a genuine usage gap, NOT reclassified out_of_scope.",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/equipment/[id]/bookings/route.ts",
+            "src/lib/finance/budget-line-items.ts",
+            "inventory_items",
+            "vendor_items",
+            "catalog_item_materials",
+            "budget_line_items",
+            "budget_template_line_items"
+          ]
+        },
+        {
+          "id": "fin-15",
+          "name": "Misc finance utility routes (mark-paid, pending, receipts, payroll-prep, backfill, ai-ask, bank-connect, cleaner-income, job expenses)",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/finance/mark-paid/route.ts",
+            "src/app/api/finance/pending/route.ts",
+            "src/app/api/finance/receipts/route.ts",
+            "src/app/api/finance/payroll-prep/route.ts",
+            "src/app/api/finance/backfill/route.ts",
+            "src/app/api/finance/ai-ask/route.ts",
+            "src/app/api/finance/bank-connect/session/route.ts",
+            "src/app/api/finance/cleaner-income/route.ts",
+            "src/app/api/jobs/[id]/expenses/route.ts",
+            "src/lib/finance/cleaner-payout.ts",
+            "src/lib/finance/payroll-pending.ts"
           ]
         }
       ]
@@ -545,6 +643,99 @@
           "name": "Phase 2 build-out (industry service lists, national geocoding, Projects-vs-Services toggle)",
           "severity": 2,
           "depends_on_files": []
+        }
+      ]
+    },
+    "hr_workforce": {
+      "label": "HR & Workforce Management",
+      "checkpoints": [
+        {
+          "id": "hr-01",
+          "name": "Team member roster (roles, active status, contact info)",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/team/route.ts",
+            "src/app/api/team/[id]/route.ts",
+            "team_members"
+          ]
+        },
+        {
+          "id": "hr-02",
+          "name": "HR employee profile records (employment type, comp, hire/termination dates, title/department, emergency contact) -- LIGHT-VERSION BAR: the fields exist and the API/UI correctly read/write them; 100% tenant adoption is explicitly NOT the target for this product.",
+          "severity": 3,
+          "depends_on_files": [
+            "src/app/api/dashboard/hr/route.ts",
+            "src/app/api/dashboard/hr/[id]/route.ts",
+            "hr_employee_profiles"
+          ]
+        },
+        {
+          "id": "hr-03",
+          "name": "HR documents, requirements checklist & reminders -- LIGHT-VERSION BAR: a minimal checklist/upload surface, not a full document-management or compliance-tracking system.",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/dashboard/hr/[id]/documents/route.ts",
+            "hr_documents",
+            "hr_document_requirements",
+            "hr_document_reminders"
+          ]
+        },
+        {
+          "id": "hr-04",
+          "name": "HR notes -- MY JUDGMENT CALL, no roadmap doc found confirming or ruling this out either way: kept IN SCOPE as cheap, low-effort light-HR scaffolding (a free-text note field is standard even in minimal HR tooling), not reclassified as out_of_scope. Flagging this explicitly as a call Jeff should override if wrong.",
+          "severity": 1,
+          "depends_on_files": [
+            "src/app/api/dashboard/hr/[id]/notes/route.ts",
+            "hr_notes"
+          ]
+        },
+        {
+          "id": "hr-05",
+          "name": "Pay rate management",
+          "severity": 3,
+          "depends_on_files": [
+            "team_members",
+            "hr_employee_profiles"
+          ]
+        },
+        {
+          "id": "hr-06",
+          "name": "Time tracking / hours worked (check-in / check-out)",
+          "severity": 4,
+          "depends_on_files": [
+            "src/app/dashboard/bookings/BookingsAdmin.tsx",
+            "bookings"
+          ]
+        },
+        {
+          "id": "hr-07",
+          "name": "PTO / time-off requests and approval flow -- MARKED OUT OF SCOPE for the light-version product (my judgment call, no roadmap doc found either confirming or ruling this out; flagging for Jeff to override if wrong). A request/approval/balance-tracking workflow is a substantially-sized feature, not light scaffolding -- doesn't fit \"light HR integrated into the platform,\" not \"full HR-suite replacement.\" No table, route, or UI exists for it at all.",
+          "severity": 2,
+          "depends_on_files": []
+        },
+        {
+          "id": "hr-08",
+          "name": "1099 vs W-2 classification in practice -- NOT a scope question (per Jeff's explicit instruction): a live tax-compliance-risk item that must be addressed regardless of how light the rest of HR stays.",
+          "severity": 3,
+          "depends_on_files": [
+            "hr_employee_profiles",
+            "src/lib/finance/post-labor.ts"
+          ]
+        },
+        {
+          "id": "hr-09",
+          "name": "Compliance fields (certifications, permits, licenses) as a DISTINCT structured feature -- MARKED OUT OF SCOPE for the light version (my judgment call, no roadmap doc found either way; flagging for override). The light-version need is already served by hr-03's generic document-requirements checklist; a separate structured cert/permit/license system with expiry tracking and renewal reminders would be full-suite territory, not light scaffolding.",
+          "severity": 1,
+          "depends_on_files": []
+        },
+        {
+          "id": "hr-10",
+          "name": "Team performance / customer ratings of workers -- LIGHT-VERSION BAR (Jeff's framing): a customer-submitted per-booking rating signal IS the intended light version of this feature, not a stand-in for a missing formal performance-review system.",
+          "severity": 2,
+          "depends_on_files": [
+            "src/app/api/team-portal/rating/route.ts",
+            "ratings"
+          ]
         }
       ]
     }

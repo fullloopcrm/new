@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs'
 
 const LEDGER_REL_PATH = 'docs/readiness/ledger.json' // relative to platform/ (this script's cwd in CI)
 const LEDGER_GIT_PATH = 'platform/docs/readiness/ledger.json' // relative to repo root (for git show)
+const TAXONOMY_REL_PATH = 'docs/readiness/taxonomy.json'
 
 function sh(cmd, args) {
   return execFileSync(cmd, args, { encoding: 'utf8' }).trim()
@@ -44,9 +45,30 @@ function resolveBaseRef() {
   }
 }
 
+// `git diff --name-only` always returns paths relative to the REPO ROOT, not
+// this script's cwd -- even run from platform/, it returns
+// 'platform/src/app/...', never 'src/app/...'. Most depends_on_files entries
+// are written relative to platform/ (matching LEDGER_GIT_PATH's own prefix
+// convention above), so those need the prefix stripped before comparison.
+// But some are genuinely repo-root-relative already -- e.g. sec-01/sec-03
+// cite '.github/workflows/db-backup.yml' / '.github/workflows/ci.yml',
+// which live OUTSIDE platform/ entirely and were never platform/-prefixed to
+// begin with. An earlier version of this fix (2026-08-01) only added the
+// strip-if-platform-prefixed case and silently dropped every non-platform/
+// path instead, confirmed via an independent re-check: those checkpoints
+// could still never be flagged stale. Fixed by keeping BOTH the
+// prefix-stripped form (for platform/-relative deps) and the raw form (for
+// deps that are already repo-root-relative) in the comparison set, so a dep
+// written either way can match.
+const REPO_PREFIX = 'platform/'
 function changedFiles(baseRef) {
   const out = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`])
-  return new Set(out.split('\n').filter(Boolean))
+  const paths = out.split('\n').filter(Boolean)
+  const rel = new Set(paths)
+  for (const p of paths) {
+    if (p.startsWith(REPO_PREFIX)) rel.add(p.slice(REPO_PREFIX.length))
+  }
+  return rel
 }
 
 function loadLedgerAt(ref) {
@@ -60,6 +82,24 @@ function loadLedgerAt(ref) {
 function checkpointIndex(ledger) {
   const map = new Map()
   for (const domain of Object.values(ledger.domains)) {
+    for (const cp of domain.checkpoints) map.set(cp.id, cp)
+  }
+  return map
+}
+
+// depends_on_files lives ONLY in taxonomy.json, never in ledger.json --
+// ledger checkpoints are just {id, score, evidence_type, evidence,
+// last_verified, last_verified_commit}. This function used to read
+// `newCp.depends_on_files` off a LEDGER checkpoint object, which is always
+// undefined -- confirmed 2026-08-01 (independent adversarial re-check) that
+// this gate has never once fired since the ledger system's inception for
+// this reason, entirely separate from (and deeper than) the path-prefix bug
+// fixed earlier the same day. taxonomy checkpoints also carry `name`, which
+// ledger checkpoints don't -- used below for the stale-report printout,
+// which previously printed `undefined`.
+function taxonomyIndex(taxonomy) {
+  const map = new Map()
+  for (const domain of Object.values(taxonomy.domains)) {
     for (const cp of domain.checkpoints) map.set(cp.id, cp)
   }
   return map
@@ -82,13 +122,16 @@ function main() {
     return
   }
   const newLedger = loadLedgerAt('WORKTREE')
+  const taxonomy = JSON.parse(readFileSync(TAXONOMY_REL_PATH, 'utf8'))
+  const taxIndex = taxonomyIndex(taxonomy)
 
   const oldIndex = checkpointIndex(oldLedger)
   const newIndex = checkpointIndex(newLedger)
 
   const stale = []
   for (const [id, newCp] of newIndex) {
-    const deps = newCp.depends_on_files || []
+    const taxCp = taxIndex.get(id)
+    const deps = taxCp?.depends_on_files || []
     // A dependency path is written relative to `platform/` (this script's
     // own cwd) except when it's an absolute home-dir path (operational
     // scripts under ~/.claude, checked as informational only -- CI can't
@@ -101,7 +144,7 @@ function main() {
     const oldCp = oldIndex.get(id)
     const unchanged = oldCp && JSON.stringify(oldCp) === JSON.stringify(newCp)
     if (unchanged) {
-      stale.push({ id, name: newCp.name, file: touchedDep })
+      stale.push({ id, name: taxCp?.name || '(unknown)', file: touchedDep })
     }
   }
 

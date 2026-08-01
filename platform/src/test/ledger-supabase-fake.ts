@@ -49,6 +49,7 @@ type State = {
   gts: Array<{ col: string; val: unknown }>
   gtes: Array<{ col: string; val: unknown }>
   lts: Array<{ col: string; val: unknown }>
+  nots: Array<{ col: string; op: string; val: unknown }>
   head: boolean
   payload: unknown
   upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } | null
@@ -61,6 +62,14 @@ function matches(r: Record<string, unknown>, s: State): boolean {
   for (const g of s.gts) if (!(Number(r[g.col]) > Number(g.val))) return false
   for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
   for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
+  // .not(col, 'is', val): real Postgres `NOT (col IS val)` -- excludes only an
+  // exact match (including boolean true/false), null/undefined always passes.
+  // Only 'is' is implemented (the one real call site needs); other operators
+  // are intentionally left unfiltered rather than silently mis-filtering.
+  for (const n of s.nots) {
+    if (n.op !== 'is') continue
+    if (r[n.col] === n.val) return false
+  }
   return true
 }
 
@@ -209,7 +218,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], gts: [], gtes: [], lts: [], head: false, payload: null, upsertOpts: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], gts: [], gtes: [], lts: [], nots: [], head: false, payload: null, upsertOpts: null }
       const chain: Record<string, unknown> = {
         select: (_c?: unknown, opts?: { head?: boolean }) => { if (opts?.head) state.head = true; return chain },
         insert: (p: unknown) => { state.op = 'insert'; state.payload = p; return chain },
@@ -221,7 +230,8 @@ export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
         gt: (c: string, v: unknown) => { state.gts.push({ col: c, val: v }); return chain },
         gte: (c: string, v: unknown) => { state.gtes.push({ col: c, val: v }); return chain },
         lt: (c: string, v: unknown) => { state.lts.push({ col: c, val: v }); return chain },
-        not: () => chain, order: () => chain, range: () => chain, limit: () => chain,
+        not: (c: string, op: string, v: unknown) => { state.nots.push({ col: c, op, val: v }); return chain },
+        order: () => chain, range: () => chain, limit: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),
         maybeSingle: () => Promise.resolve(runQuery(h, state, 'maybeSingle')),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>

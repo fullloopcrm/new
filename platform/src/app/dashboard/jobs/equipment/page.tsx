@@ -217,7 +217,7 @@ export default function EquipmentPage() {
             <input style={inp} type="number" step="0.01" value={draft.salvage_value} onChange={(e) => setDraft({ ...draft, salvage_value: e.target.value })} placeholder="0.00" />
           </div>
           <div>
-            <label style={label}>Category <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(ties depreciation to the right ledger account)</span></label>
+            <label style={label}>Category <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(for reporting/grouping only — depreciation always posts to Depreciation Expense / Accumulated Depreciation)</span></label>
             <select style={inp} value={draft.category_id} onChange={(e) => setDraft({ ...draft, category_id: e.target.value })}>
               <option value="">No category</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

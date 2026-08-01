@@ -50,10 +50,18 @@ function joinTaxonomyAndLedger(taxonomy, ledger) {
 function domainScore(domain) {
   const numeric = domain.checkpoints.filter((c) => typeof c.score === 'number')
   const notScored = domain.checkpoints.filter((c) => c.score === 'not_scored' || c.score === undefined)
-  if (numeric.length === 0) return { score: null, numericCount: 0, notScoredCount: notScored.length }
+  // out_of_scope is distinct from not_scored: not_scored means "on the roadmap,
+  // just not verified yet" (a real gap to eventually close); out_of_scope means
+  // "not intended to be built for this product" (e.g. a light-version HR/Finance
+  // module deliberately not replicating a full HR-suite/QuickBooks feature) --
+  // excluded from both the numeric average AND the "gaps to close" reporting,
+  // per Jeff's 2026-08-01 instruction that a checkpoint measured against a bar
+  // nobody intended to hit is not an honest gap.
+  const outOfScope = domain.checkpoints.filter((c) => c.score === 'out_of_scope')
+  if (numeric.length === 0) return { score: null, numericCount: 0, notScoredCount: notScored.length, outOfScopeCount: outOfScope.length }
   const weightSum = numeric.reduce((a, c) => a + c.severity, 0)
   const weighted = numeric.reduce((a, c) => a + c.severity * c.score, 0)
-  return { score: weighted / weightSum, numericCount: numeric.length, notScoredCount: notScored.length }
+  return { score: weighted / weightSum, numericCount: numeric.length, notScoredCount: notScored.length, outOfScopeCount: outOfScope.length }
 }
 
 function computeScores(joined, weights) {
@@ -175,7 +183,8 @@ function main() {
   console.log('Domain breakdown (severity-weighted):')
   for (const [, r] of Object.entries(platformWide.domainResults)) {
     const s = r.score !== null ? r.score.toFixed(1) : 'N/A'
-    console.log(`  ${r.label.padEnd(48)} weight ${String(r.weight).padStart(3)}%  score ${s.padStart(5)}  (${r.numericCount} scored, ${r.notScoredCount} not_scored)`)
+    const scopeNote = r.outOfScopeCount ? `, ${r.outOfScopeCount} out_of_scope` : ''
+    console.log(`  ${r.label.padEnd(48)} weight ${String(r.weight).padStart(3)}%  score ${s.padStart(5)}  (${r.numericCount} scored, ${r.notScoredCount} not_scored${scopeNote})`)
   }
   console.log(`\nPLATFORM-WIDE SCORE: ${output.platform_wide_score}%`)
   if (coverage) {
@@ -194,8 +203,14 @@ function main() {
 
   const allNotScored = Object.values(joined).flatMap((d) => d.checkpoints.filter((c) => c.score === 'not_scored' || c.score === undefined))
   if (allNotScored.length > 0) {
-    console.log(`\nNOT SCORED (${allNotScored.length}):`)
+    console.log(`\nNOT SCORED (${allNotScored.length}) -- on the roadmap, not yet verified:`)
     for (const c of allNotScored) console.log(`  - ${c.id}: ${c.name}`)
+  }
+
+  const allOutOfScope = Object.values(joined).flatMap((d) => d.checkpoints.filter((c) => c.score === 'out_of_scope'))
+  if (allOutOfScope.length > 0) {
+    console.log(`\nOUT OF SCOPE (${allOutOfScope.length}) -- not intended to be built for this product, excluded from scoring:`)
+    for (const c of allOutOfScope) console.log(`  - ${c.id}: ${c.name}`)
   }
   console.log('')
 }
