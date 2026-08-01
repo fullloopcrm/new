@@ -103,13 +103,20 @@ type Filter = 'all' | 'unread' | 'unresponded'
 type Booking = {
   id: string
   start_time: string
+  end_time: string | null
   service_type: string | null
   status: string | null
   payment_status: string | null
   hourly_rate: number | null
   actual_hours: number | null
   price: number | null
+  notes: string | null
+  check_in_time: string | null
+  check_out_time: string | null
+  team_member_pay: number | null
+  team_member_paid: boolean | null
   cleaners: { name: string } | { name: string }[] | null
+  clients: { name: string } | { name: string }[] | null
 }
 type ClientRow = {
   id: string
@@ -144,6 +151,8 @@ type ContactContext = {
   total_bookings: number
   total_spent_cents: number
   outstanding_cents: number
+  cleaner_recent_jobs: Booking[]
+  cleaner_owed_cents: number
 }
 
 const fmtTime = (iso: string) => {
@@ -1414,13 +1423,19 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
 function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
-  const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents } = context
+  const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_recent_jobs, cleaner_owed_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDate = (iso: string) => {
     try {
       const d = new Date(iso)
       return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
     } catch { return iso }
+  }
+  const fmtTime = (iso: string | null) => {
+    if (!iso) return null
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    } catch { return null }
   }
   const fmtPhone = (p: string | null | undefined) => {
     if (!p) return ''
@@ -1431,6 +1446,19 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
     if (!b.cleaners) return '—'
     const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
     return c?.name || '—'
+  }
+  const clientName = (b: Booking): string => {
+    if (!b.clients) return '—'
+    const c = Array.isArray(b.clients) ? b.clients[0] : b.clients
+    return c?.name || '—'
+  }
+  // Actual worked hours from check-in/out, not the booked/estimated hours —
+  // the whole point of surfacing this is to answer "did they actually clock
+  // in and out, and for how long" without leaving ComHub to check.
+  const hoursWorked = (b: Booking): string | null => {
+    if (!b.check_in_time || !b.check_out_time) return null
+    const ms = new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()
+    return ms > 0 ? (ms / 3_600_000).toFixed(1) : null
   }
   const role: 'client' | 'cleaner' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : 'unlinked'
 
@@ -1513,6 +1541,10 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
               <span>★ {cleaner.avg_rating.toFixed(2)} ({cleaner.rating_count})</span>
             </div>
           ) : null}
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>We owe them</span>
+            <span className="font-medium" style={{ color: cleaner_owed_cents > 0 ? 'var(--color-loop-warn)' : undefined }}>{fmtMoney(cleaner_owed_cents)}</span>
+          </div>
           <a
             href={`/admin/cleaners?id=${cleaner.id}`}
             className="text-xs inline-block pt-1 hover:underline"
@@ -1533,19 +1565,92 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
             <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Lifetime spent</div>
             <div style={{ fontFamily: 'var(--display)' }}>{fmtMoney(total_spent_cents)}</div>
           </div>
-          {outstanding_cents > 0 && (
-            <div className="col-span-2">
-              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>Outstanding</div>
-              <div className="font-medium" style={{ fontFamily: 'var(--display)', color: 'var(--color-loop-warn)' }}>{fmtMoney(outstanding_cents)}</div>
-            </div>
-          )}
+          <div className="col-span-2">
+            <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: outstanding_cents > 0 ? 'var(--color-loop-warn)' : 'var(--color-loop-muted)' }}>They owe us</div>
+            <div className="font-medium" style={{ fontFamily: 'var(--display)', color: outstanding_cents > 0 ? 'var(--color-loop-warn)' : undefined }}>{fmtMoney(outstanding_cents)}</div>
+          </div>
         </div>
       )}
 
       {recent_bookings.length > 0 && (
-        <div className="p-4 space-y-2">
-          <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
-          {recent_bookings.map(b => (
+        <JobHistory title="Last job" listTitle="Last 5 jobs" jobs={recent_bookings} counterpartyOf={cleanerName}
+          fmtDate={fmtDate} fmtTime={fmtTime} fmtMoney={fmtMoney} hoursWorked={hoursWorked} />
+      )}
+
+      {cleaner_recent_jobs.length > 0 && (
+        <JobHistory title="Last job worked" listTitle="Last 5 jobs" jobs={cleaner_recent_jobs} counterpartyOf={clientName}
+          fmtDate={fmtDate} fmtTime={fmtTime} fmtMoney={fmtMoney} hoursWorked={hoursWorked} />
+      )}
+
+      {role === 'unlinked' && (
+        <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
+          Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Shared "last job in detail, then a compact list of the last 5" block —
+// used for both a client's bookings (counterparty = the cleaner) and a
+// cleaner's worked jobs (counterparty = the client). The whole point is
+// answering "what happened on their last job, and the few before it"
+// without leaving ComHub for the bookings page.
+function JobHistory({ title, listTitle, jobs, counterpartyOf, fmtDate, fmtTime, fmtMoney, hoursWorked }: {
+  title: string
+  listTitle: string
+  jobs: Booking[]
+  counterpartyOf: (b: Booking) => string
+  fmtDate: (iso: string) => string
+  fmtTime: (iso: string | null) => string | null
+  fmtMoney: (cents: number) => string
+  hoursWorked: (b: Booking) => string | null
+}) {
+  const last = jobs[0]
+  const hrs = hoursWorked(last)
+  const checkIn = fmtTime(last.check_in_time)
+  const checkOut = fmtTime(last.check_out_time)
+  return (
+    <>
+      <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-1.5 text-sm">
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{title}</div>
+        <div className="flex justify-between items-baseline">
+          <span className="font-medium">{fmtDate(last.start_time)}</span>
+          <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{last.status || '—'}</span>
+        </div>
+        <div style={{ color: 'var(--color-loop-graphite)' }}>
+          {last.service_type || 'Cleaning'} with {counterpartyOf(last)}
+        </div>
+        <div className="flex justify-between">
+          <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Price</span>
+          <span>
+            {last.price != null ? fmtMoney(last.price) : '—'}
+            {last.payment_status && last.payment_status !== 'paid' && (
+              <span className="ml-1 text-xs" style={{ color: 'var(--color-loop-warn)' }}>({last.payment_status})</span>
+            )}
+          </span>
+        </div>
+        {(checkIn || checkOut) && (
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Checked in / out</span>
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)' }}>
+              {checkIn || '—'} – {checkOut || '—'}{hrs ? ` (${hrs}h)` : ''}
+            </span>
+          </div>
+        )}
+        {last.notes && (
+          <div className="text-xs pt-1" style={{ color: 'var(--color-loop-muted)' }}>{last.notes}</div>
+        )}
+        <a href={`/admin/bookings?id=${last.id}`} className="text-xs inline-block pt-0.5 hover:underline" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)' }}>
+          View booking →
+        </a>
+      </div>
+
+      <div className="p-4 space-y-2">
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{listTitle}</div>
+        {jobs.map(b => {
+          const bHrs = hoursWorked(b)
+          return (
             <a
               key={b.id}
               href={`/admin/bookings?id=${b.id}`}
@@ -1557,23 +1662,18 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
                 <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{b.status || '—'}</span>
               </div>
               <div className="text-xs mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>
-                {b.service_type || 'Cleaning'} · {b.price != null ? `$${(b.price / 100).toFixed(2)}` : '?'}
+                {b.service_type || 'Cleaning'} · {b.price != null ? fmtMoney(b.price) : '?'}
+                {bHrs && ` · ${bHrs}h`}
                 {b.payment_status && b.payment_status !== 'paid' && (
                   <span className="ml-1" style={{ color: 'var(--color-loop-warn)' }}>({b.payment_status})</span>
                 )}
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{cleanerName(b)}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{counterpartyOf(b)}</div>
             </a>
-          ))}
-        </div>
-      )}
-
-      {role === 'unlinked' && (
-        <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
-          Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
-        </div>
-      )}
-    </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 

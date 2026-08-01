@@ -80,6 +80,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   let totalSpent = 0
   let totalBookings = 0
   let outstandingCents = 0
+  let cleanerRecentJobs: Array<Record<string, unknown>> = []
+  let cleanerOwedCents = 0
+
+  const BOOKING_FIELDS = 'id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, notes, check_in_time, check_out_time, team_member_id'
 
   if (clientId) {
     const { data: c } = await db
@@ -90,11 +94,14 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     client = c
     const { data: bks } = await db
       .from('bookings')
-      .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members!bookings_team_member_id_fkey(name)')
+      // Aliased `cleaners:` — the panel reads booking.cleaners, not
+      // booking.team_members (the raw FK relation name); without the alias
+      // every cleaner name in this list silently rendered as "—".
+      .select(`${BOOKING_FIELDS}, cleaners:team_members!bookings_team_member_id_fkey(name)`)
       .eq('tenant_id', tenantId)
       .eq('client_id', clientId)
       .order('start_time', { ascending: false })
-      .limit(10)
+      .limit(5)
     recentBookings = (bks || []) as Array<Record<string, unknown>>
     const { count } = await db
       .from('bookings')
@@ -104,7 +111,16 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (typeof count === 'number') totalBookings = count
     else totalBookings = recentBookings.length
 
-    for (const b of recentBookings) {
+    // Totals/outstanding computed over the FULL booking history, not just
+    // the 5 shown — the old version summed only the 5 most recent rows,
+    // which silently undercounted outstanding balance for any client with
+    // more than 5 unpaid bookings.
+    const { data: moneyRows } = await db
+      .from('bookings')
+      .select('price, partial_payment_cents, payment_status, status')
+      .eq('tenant_id', tenantId)
+      .eq('client_id', clientId)
+    for (const b of moneyRows || []) {
       const priceCents = (b.price as number) || 0
       const partialCents = (b.partial_payment_cents as number) || 0
       if (b.payment_status === 'paid') totalSpent += priceCents
@@ -121,15 +137,35 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .eq('id', teamMemberId)
       .single()
     teamMember = tm
+
+    const { data: jobs } = await db
+      .from('bookings')
+      .select(`${BOOKING_FIELDS}, clients(name)`)
+      .eq('tenant_id', tenantId)
+      .eq('team_member_id', teamMemberId)
+      .order('start_time', { ascending: false })
+      .limit(5)
+    cleanerRecentJobs = (jobs || []) as Array<Record<string, unknown>>
+
+    const { data: unpaidRows } = await db
+      .from('bookings')
+      .select('team_member_pay')
+      .eq('tenant_id', tenantId)
+      .eq('team_member_id', teamMemberId)
+      .eq('status', 'completed')
+      .eq('team_member_paid', false)
+    cleanerOwedCents = (unpaidRows || []).reduce((s, b) => s + ((b.team_member_pay as number) || 0), 0)
   }
 
   return NextResponse.json({
     contact,
     client,
     cleaner: teamMember,
-    recent_bookings: recentBookings.slice(0, 5),
+    recent_bookings: recentBookings,
     total_bookings: totalBookings,
     total_spent_cents: totalSpent,
     outstanding_cents: outstandingCents,
+    cleaner_recent_jobs: cleanerRecentJobs,
+    cleaner_owed_cents: cleanerOwedCents,
   })
 }
