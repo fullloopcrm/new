@@ -288,6 +288,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
                   field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
                   value={form[f.key]}
                   onChange={(v) => set(f.key, v)}
+                  homeState={form.state as string | undefined}
                 />
               )}
             </div>
@@ -327,7 +328,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 }
 
 /* ---- generic field renderer, dispatches to a custom block by key when input === 'custom' ---- */
-export function FieldRenderer({ field, value, onChange }: { field: ApiField; value: FieldValue; onChange: (v: FieldValue) => void }) {
+export function FieldRenderer({ field, value, onChange, homeState }: { field: ApiField; value: FieldValue; onChange: (v: FieldValue) => void; homeState?: string }) {
   if (field.input === 'custom') {
     if (field.key === 'serviceArea') {
       return (
@@ -338,6 +339,7 @@ export function FieldRenderer({ field, value, onChange }: { field: ApiField; val
             embedded
             value={(value as ServiceArea | undefined) ?? { scope: 'local', states: [], zones: [] }}
             onChange={(v) => onChange(v as unknown as Record<string, unknown>)}
+            homeState={homeState}
           />
         </div>
       )
