@@ -6,6 +6,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
 import { isUniqueViolation } from '@/lib/ledger'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -110,7 +111,13 @@ export async function POST(request: Request) {
           email: email.toLowerCase(),
           name: email.split('@')[0],
           phone: phone || '',
-          pin: String(100000 + randomInt(0, 900000)),
+          // encryptSecretSafe (not a raw plaintext string) — this was a 10th
+          // plaintext-PIN client-creation site sec-07's audit didn't reach
+          // (its own evidence lists 9 sites found+fixed; this route wasn't
+          // among them). Same fail-open variant used at every other fixed
+          // site (contact/route.ts, portal/collect/route.ts, lead/route.ts)
+          // so a missing SECRET_ENCRYPTION_KEY doesn't 500 this login flow.
+          pin: encryptSecretSafe(String(100000 + randomInt(0, 900000))),
         })
         .select()
         .single()

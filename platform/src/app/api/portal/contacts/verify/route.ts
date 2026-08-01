@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { tenantSender } from '@/lib/email'
 import { generateCode, verifyPortalToken } from '../../auth/token'
+import { safeEqual } from '@/lib/secret-compare'
 
 // Verifies ownership of a NEW phone/email before it can opt into comms.
 // Reuses the exact OTP primitives from /api/portal/auth (generateCode,
@@ -121,7 +122,12 @@ export async function POST(request: Request) {
       .single()
 
     if (!stored) return NextResponse.json({ error: 'Code expired or not found' }, { status: 400 })
-    if (stored.code !== code) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
+    // Timing-safe compare — every other OTP/PIN comparison in this codebase
+    // (referrers/auth/verify, pin-lookup.ts) uses safeEqual; this one used a
+    // plain !== until this pass. Rate limiting (5/15min, checked above) is
+    // the primary defense either way, but there's no reason to be the one
+    // inconsistent comparison in the whole auth-code surface.
+    if (!safeEqual(stored.code, code)) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
 
     await db.from('portal_contact_verify_codes').update({ used: true }).eq('id', stored.id)
 

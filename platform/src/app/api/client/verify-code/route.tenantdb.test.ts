@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * W4 isolation probe for the tenantDb() conversion of POST /api/client/verify-code.
@@ -87,5 +87,41 @@ describe('POST /api/client/verify-code — tenantDb scoping', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.client.id).toBe('client-mine')
+  })
+})
+
+describe('POST /api/client/verify-code — auto-created client PIN storage (2026-08-01 fix)', () => {
+  // Regression lock: this route's auto-create-on-first-login path (email flow,
+  // no existing client) used to write `pin: String(100000 + randomInt(...))`
+  // straight to the clients table -- a plaintext PIN. sec-07's audit found and
+  // fixed 9 other plaintext-PIN client-creation sites but never reached this
+  // one. Now uses encryptSecretSafe(), matching every other fixed site
+  // (contact/route.ts, portal/collect/route.ts, lead/route.ts).
+  const ORIGINAL_KEY = process.env.SECRET_ENCRYPTION_KEY
+  const TEST_KEY = 'b'.repeat(64)
+
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.SECRET_ENCRYPTION_KEY
+    else process.env.SECRET_ENCRYPTION_KEY = ORIGINAL_KEY
+  })
+
+  it('stores the new client PIN encrypted, not as a raw 6-digit string', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = TEST_KEY
+    DB.verification_codes.push({ tenant_id: TENANT_A, identifier: 'newclient@example.com', code: '999888', expires_at: '2099-01-01T00:00:00Z' })
+
+    const req = new Request('https://x', { method: 'POST', body: JSON.stringify({ email: 'newclient@example.com', code: '999888' }) })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const created = DB.clients.find((c) => c.email === 'newclient@example.com')
+    expect(created).toBeTruthy()
+    const storedPin = String(created!.pin)
+    // A plaintext PIN is exactly 6 digits (100000-999999). The encrypted form
+    // is a structurally different (longer, non-numeric) envelope.
+    expect(/^\d{6}$/.test(storedPin)).toBe(false)
+
+    const { decryptSecret } = await import('@/lib/secret-crypto')
+    const decrypted = decryptSecret(storedPin)
+    expect(/^\d{6}$/.test(decrypted)).toBe(true)
   })
 })
