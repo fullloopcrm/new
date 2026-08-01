@@ -32,8 +32,9 @@ function main() {
   // not TAXONOMY_REL. Using TAXONOMY_REL here could never match, which meant
   // this gate always printed "not touched" and returned early -- it could
   // never actually fail, silently defeating the sign-off requirement this
-  // whole script exists to enforce. Found + fixed 2026-08-01 while running
-  // this gate for real as part of the coverage-expansion checkpoint work.
+  // whole script exists to enforce. Found independently by two concurrent
+  // sessions on 2026-08-01 while actually running this gate for real as part
+  // of the coverage-expansion checkpoint work; both landed the identical fix.
   const changed = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`]).split('\n')
   if (!changed.includes(TAXONOMY_GIT)) {
     console.log('check-taxonomy-signoff: taxonomy.json not touched -- nothing to check.')
