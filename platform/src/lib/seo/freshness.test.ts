@@ -31,12 +31,16 @@ vi.stubGlobal(
   }),
 )
 
+const pushUrlsUpdated = vi.fn(async (urls: string[]) => urls.map((url) => ({ url, ok: true })))
+vi.mock('./indexing', () => ({ pushUrlsUpdated: (urls: string[]) => pushUrlsUpdated(urls) }))
+
 import { refreshJobPostings, getJobPostingUrls } from './freshness'
 import './tenant-seo'
 
 beforeEach(() => {
   revalidated.length = 0
   fetched.length = 0
+  pushUrlsUpdated.mockClear()
 })
 
 describe('seomgr job-posting freshness', () => {
@@ -62,5 +66,15 @@ describe('seomgr job-posting freshness', () => {
     const urls = getJobPostingUrls()
     expect(urls.length).toBeGreaterThan(0)
     expect(urls.every((u) => typeof u.url === 'string' && u.url.startsWith('https://'))).toBe(true)
+  })
+
+  it('pushes every job-posting URL through the Indexing API after force-refetching them', async () => {
+    const result = await refreshJobPostings()
+    expect(pushUrlsUpdated).toHaveBeenCalledTimes(1)
+    const pushedUrls: string[] = pushUrlsUpdated.mock.calls[0][0]
+    expect(pushedUrls.length).toBe(result.attempted)
+    expect(pushedUrls.some((u) => u.includes('thefloridamaid.com/available-florida-maid-jobs/'))).toBe(true)
+    expect(result.indexingPushed).toBe(result.attempted)
+    expect(result.indexingFailed).toBe(0)
   })
 })

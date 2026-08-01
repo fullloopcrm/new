@@ -22,9 +22,15 @@
  *    guaranteeing a real re-render on THIS cron's schedule. Onboarding a
  *    tenant onto TENANT_SEO (already required for its sitemap) is what
  *    upgrades it from tier 1 to tier 2 — no separate registration step.
+ *
+ * 3. INDEXING-API PUSH (indexing.ts) — after the force-refetch re-renders a
+ *    URL with its current data, push URL_UPDATED so Google recrawls in
+ *    minutes instead of on its own schedule. Fails open, currently blocked on
+ *    a one-time GCP setting — see indexing.ts for the exact remaining step.
  */
 import { revalidatePath } from 'next/cache'
 import { TENANT_SEO } from './tenant-seo'
+import { pushUrlsUpdated, type IndexingResult } from './indexing'
 
 const FORCE_REGEN_CONCURRENCY = 15
 
@@ -58,6 +64,9 @@ export interface FreshnessResult {
   attempted: number
   failed: number
   errors: { url: string; error: string }[]
+  indexingPushed: number
+  indexingFailed: number
+  indexingErrors: IndexingResult[]
 }
 
 export function getJobPostingUrls(): { slug: string; url: string }[] {
@@ -103,5 +112,18 @@ export async function refreshJobPostings(): Promise<FreshnessResult> {
     })
   }
 
-  return { invalidated, invalidateErrors, tenants, attempted: urls.length, failed, errors }
+  const indexingResults = await pushUrlsUpdated(urls.map((u) => u.url))
+  const indexingErrors = indexingResults.filter((r) => !r.ok)
+
+  return {
+    invalidated,
+    invalidateErrors,
+    tenants,
+    attempted: urls.length,
+    failed,
+    errors,
+    indexingPushed: indexingResults.length - indexingErrors.length,
+    indexingFailed: indexingErrors.length,
+    indexingErrors,
+  }
 }
