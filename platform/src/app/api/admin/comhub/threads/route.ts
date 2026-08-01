@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       subject, status, disposition, assignee_id, bot_paused_until,
       last_message_at, last_message_preview, unread_count, snoozed_until, created_at,
       ${join} (
-        id, name, phone, email, client_id, team_member_id
+        id, name, phone, email, client_id, team_member_id, tag
       )
     `)
     .eq('tenant_id', tenantId)
@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     email: string | null
     client_id: string | null
     team_member_id: string | null
+    tag: string | null
   }
   type RawThread = {
     id: string
