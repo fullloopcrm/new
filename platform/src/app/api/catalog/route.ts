@@ -21,6 +21,8 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
+import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { supabaseAdmin } from '@/lib/supabase'
 
 const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
@@ -35,6 +37,39 @@ async function resolveTenantId(tokenFromCaller: string | null): Promise<string> 
   const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
   if (!tenantId) throw new AuthError('Unauthorized', 401)
   return tenantId
+}
+
+const ITEM_TYPE_NOUN: Record<string, string> = { service: 'service', project: 'project', product: 'product', equipment: 'piece of equipment' }
+
+/**
+ * Draft a short customer-facing description when the caller didn't supply
+ * one -- mainly for onboarding (OnboardingCatalog.tsx), where a tenant is
+ * naming items fast and shouldn't have to write ad copy for each one to
+ * finish signup. Best-effort: a generation failure never blocks item
+ * creation, the item just saves with no description, same as if AI
+ * generation didn't exist.
+ */
+async function draftDescription(tenantId: string, name: string, itemType: string, priceCents: number, perUnit: string): Promise<string | null> {
+  try {
+    const { data: tenant } = await supabaseAdmin.from('tenants').select('name, industry, anthropic_api_key').eq('id', tenantId).single()
+    if (!tenant) return null
+    const client = anthropicFromStoredKey(tenant.anthropic_api_key as string | null)
+    const noun = ITEM_TYPE_NOUN[itemType] || 'item'
+    const priceStr = priceCents > 0 ? `$${(priceCents / 100).toLocaleString('en-US')}${perUnit !== 'job' ? ` per ${perUnit}` : ''}` : 'price not set yet'
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 200,
+      messages: [{
+        role: 'user',
+        content: `You write short catalog descriptions for a ${(tenant.industry as string) || 'home service'} business called "${tenant.name}". Write ONE customer-facing sentence (under 25 words, no marketing fluff, no emojis) describing this ${noun}: "${name}" (${priceStr}). Return only the sentence, nothing else.`,
+      }],
+    })
+    const text = message.content.find((b) => b.type === 'text')
+    return text && text.type === 'text' ? text.text.trim().replace(/^"|"$/g, '') : null
+  } catch (err) {
+    console.error('draftDescription failed:', err)
+    return null
+  }
 }
 
 export async function GET(request: Request) {
@@ -77,18 +112,22 @@ export async function POST(request: Request) {
 
     const item_type = ITEM_TYPES.includes(body.item_type as string) ? (body.item_type as string) : 'service'
     const per_unit = PER_UNITS.includes(body.per_unit as string) ? (body.per_unit as string) : 'job'
+    const priceCents = num(body.price_cents) ?? 0
+    const description = typeof body.description === 'string' && body.description.trim()
+      ? body.description.trim()
+      : (body.autoDescribe === false ? null : await draftDescription(tenantId, name, item_type, priceCents, per_unit))
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .insert({
         name,
-        description: (body.description as string) || null,
+        description,
         notes: (body.notes as string) || null,
         image_url: (body.image_url as string) || null,
         item_type,
         per_unit,
         unit_label: per_unit === 'custom' ? ((body.unit_label as string) || null) : null,
-        price_cents: num(body.price_cents) ?? 0,
+        price_cents: priceCents,
         min_charge_cents: num(body.min_charge_cents),
         cost_cents: num(body.cost_cents),
         taxable: body.taxable !== false,

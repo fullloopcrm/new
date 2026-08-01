@@ -13,12 +13,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PROFILE_SECTION_META, PROFILE_SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
 
 type Tier = 'critical' | 'recommended' | 'optional'
-type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array'
+type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array' | 'custom'
 type Opt = string | { label: string; value: string | number }
 
 interface Field {
   key: string; label: string; section: string; value: unknown; filled: boolean
   tier: Tier; readonly: boolean; kind: string; input: Input; options: Opt[] | null; funnels: string[] | null
+  help?: string | null; dependsOn?: { key: string; value: unknown } | null
 }
 interface Readiness {
   funnel: string
@@ -124,7 +125,10 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
       <div className="flex-1 space-y-8 max-w-2xl">
         {SECTION_ORDER.filter((s) => bySection[s]?.length).map((section) => {
           const all = bySection[section]
-          const visible = all.filter((f) => f.tier !== 'optional' || showOptional)
+          const visible = all.filter((f) =>
+            (f.tier !== 'optional' || showOptional) &&
+            (!f.dependsOn || values[f.dependsOn.key] === f.dependsOn.value),
+          )
           if (!visible.length) return null
           const sec = readiness?.sections.find((x) => x.section === section)
           return (
@@ -235,12 +239,13 @@ function FieldRow({ field: f, value, state, onChange }: {
       <StateDot state={state} />
     </div>
   )
+  const helpEl = f.help ? <p className="mb-1.5 text-xs text-slate-500">{f.help}</p> : null
   const cls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500'
 
   if (f.readonly) {
     const shown = Array.isArray(value) ? value.join(', ') : value == null || value === '' ? '—' : String(value)
     return (
-      <div>{labelEl}
+      <div>{labelEl}{helpEl}
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">{shown}
           <span className="ml-2 text-[11px] text-slate-400">(set elsewhere)</span>
         </div>
@@ -276,6 +281,16 @@ function FieldRow({ field: f, value, state, onChange }: {
         <input className={cls} placeholder="comma, separated"
           value={Array.isArray(value) ? value.join(', ') : (value as string) ?? ''}
           onChange={(e) => onChange(f.key, e.target.value)} onBlur={(e) => commit(e.target.value)} />
+      ) : type === 'custom' ? (
+        // No structured editor ported here yet (serviceArea, socialLinks,
+        // holidayDates, faqs, objectionHandlers, addons, teamRoles,
+        // teamRoleRates) -- these are objects/arrays of objects, and the
+        // generic text input below would stringify-and-corrupt them on
+        // save. Read-only here on purpose until each gets a real editor;
+        // edit via the onboarding link/wizard, which already has one.
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+          {value ? 'Set — edit via the onboarding link or dashboard wizard' : 'Not set'}
+        </div>
       ) : (
         <input className={cls} value={(value as string) ?? ''} onChange={(e) => onChange(f.key, e.target.value)} onBlur={(e) => commit(e.target.value)} />
       )}
