@@ -533,12 +533,43 @@ export async function POST(request: Request) {
       // not audited further here.
       let tipCents = 0
       let isPartial = false
+      let suspiciousTipCents = 0
       if (expectedCents > 0) {
         if (viaAdjustableAmountPayLink && amountCents >= expectedCents) {
-          tipCents = amountCents - expectedCents
+          const rawGapCents = amountCents - expectedCents
+          // 2026-08-01: a stale expectedCents (price edited after quote, or a
+          // booking that never went through the 30-min-alert price-sync at
+          // all) produced a real $97 "tip" — money actually transferred to
+          // the cleaner, not just a wrong number on a screen. Cap what gets
+          // trusted as a genuine tip; anything past the cap is far more
+          // likely a stale-price mismatch than a real tip, so hold it back
+          // and flag it for a human instead of auto-paying it out.
+          const maxPlausibleTipCents = Math.max(2000, Math.round(expectedCents * 0.35))
+          tipCents = Math.min(rawGapCents, maxPlausibleTipCents)
+          suspiciousTipCents = rawGapCents - tipCents
         } else if (amountCents < expectedCents * 0.95) {
           isPartial = true
         }
+      }
+
+      // Money actually paid above the capped/trusted tip stays on the
+      // books (still counted in amountCents/the payment row below) — it's
+      // just not auto-credited to the cleaner as tip. Flag it so an admin
+      // resolves whether booking.price was stale or this really was a big
+      // tip, instead of it silently vanishing either direction.
+      if (suspiciousTipCents > 0) {
+        await supabaseAdmin.from('admin_tasks').insert({
+          tenant_id: tenantId,
+          type: 'suspicious_tip',
+          priority: 'high',
+          title: `Unusually large "tip" held back — booking #${bookingId.slice(0, 8)}`,
+          description: `Client paid $${(amountCents / 100).toFixed(2)}, expected $${(expectedCents / 100).toFixed(2)}. `
+            + `$${(tipCents / 100).toFixed(2)} credited to the cleaner as tip; `
+            + `$${(suspiciousTipCents / 100).toFixed(2)} held back pending review — likely a stale price, not a real tip. `
+            + `Check whether booking.price was current when the client paid.`,
+          related_type: 'booking',
+          related_id: bookingId,
+        }).then(() => {}, (err) => console.error('[stripe] suspicious-tip admin_task insert failed:', err))
       }
 
       // 1. Insert payment row (capture id → post revenue to ledger immediately).
