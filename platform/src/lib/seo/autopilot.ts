@@ -45,6 +45,20 @@ type UrlBundle = {
   meta?: { id: string; before: string; after: string }
 }
 
+/**
+ * Registrable-domain brand label, e.g. 'merrymaids.com' -> 'merrymaids'.
+ * Takes the label before the TLD, NOT split('.')[0] — for a domain with a
+ * subdomain (brooklyn.news12.com, m.yelp.com, magazine.northeast.aaa.com),
+ * split('.')[0] grabs the subdomain instead of the actual site, producing
+ * garbage "brand" tokens like "brooklyn", "m", "magazine" that then falsely
+ * flag totally unrelated words (a borough name, a single letter) as if they
+ * named a rival. This is what's actually distinctive about the domain.
+ */
+export function brandLabel(domain: string): string {
+  const parts = domain.split('.').filter(Boolean)
+  return parts.length >= 2 ? parts[parts.length - 2] : domain
+}
+
 /** competitor domain -> brand token, e.g. 'merrymaids.com' -> 'merrymaids'. */
 async function competitorBrands(property: string): Promise<string[]> {
   const { data } = await supabaseAdmin
@@ -53,7 +67,7 @@ async function competitorBrands(property: string): Promise<string[]> {
     .eq('property', property)
     .eq('is_directory', false)
   return (data ?? [])
-    .map((r) => (r.competitor_domain as string).split('.')[0])
+    .map((r) => brandLabel(r.competitor_domain as string))
     .filter((b) => b.length >= 4)
 }
 
