@@ -20,6 +20,7 @@ type Issue = {
   target_url: string | null
   recipe: string | null
   tier: number | null
+  type: string
   detail: Record<string, unknown>
 }
 
@@ -90,7 +91,14 @@ async function proposeForIssue(issue: Issue): Promise<number> {
     tenant_id: issue.tenant_id,
     target_url: issue.target_url,
     recipe: 'title_meta',
-    tier: 1,
+    // Auto-apply eligibility, NOT the source issue's priority tier (which
+    // conflates page-1 low_ctr and page-2 striking_distance under the same
+    // value). A page-1 ranking (low_ctr, position 6-10) must never be
+    // auto-applied without human review — only a genuine page-2+ opportunity
+    // (striking_distance, position 11-20) is eligible. tier=1 here is what
+    // autopilot.ts's `.eq('tier', 1)` filter actually auto-applies; anything
+    // else sits in the existing admin approval queue (/admin/seo dashboard).
+    tier: issue.type === 'striking_distance' ? 1 : 2,
     status: 'proposed',
     rationale: parsed.rationale ?? null,
     before_metric: issue.detail,
@@ -117,7 +125,7 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
   const limit = opts?.limit ?? 25
   const { data } = await supabaseAdmin
     .from('seo_issues')
-    .select('id,property,tenant_id,target_url,recipe,tier,detail')
+    .select('id,property,tenant_id,target_url,recipe,tier,type,detail')
     .eq('status', 'open')
     .eq('tier', 1)
     .in('type', ['striking_distance', 'low_ctr'])

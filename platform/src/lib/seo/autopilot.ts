@@ -1,5 +1,13 @@
 // ---------------------------------------------------------------------------
-// SIGNAL autopilot — canary auto-apply of Tier-1 title/meta fixes.
+// seomgr autopilot — canary auto-apply of tier-1 (auto-eligible) proposals.
+//
+// tier here means AUTO-APPLY ELIGIBILITY, set by remediate.ts from the source
+// issue's type — NOT the seo_issues detection-priority tier (which conflates
+// page-1 low_ctr and page-2 striking_distance under the same value; see the
+// comment on `common.tier` in remediate.ts). Only striking_distance
+// (position 11-20, page 2) proposals ever reach tier=1 here. Anything on
+// page 1 (low_ctr, position 6-10) is tier=2 — generated as a suggestion, but
+// only ever applied by an admin through /admin/seo, never by this cron.
 //
 // OFF unless SEO_AUTOPILOT_ENABLED === 'true'. Even on, it is deliberately
 // timid: every change must clear the safety gate, and per site it applies at
