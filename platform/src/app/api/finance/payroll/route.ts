@@ -146,8 +146,18 @@ export async function POST(request: Request) {
     }
 
     // Post the wage payment to the ledger (account by HR employment type).
+    // AWAITED, not fire-and-forget: postPayrollToLedger nets out any amount
+    // already accrued via 'booking_cogs' for this member's pending (still
+    // status='completed') bookings before posting -- if the booking-status
+    // flip below ran concurrently with (or before) that netting query, the
+    // very bookings being paid right now would already read status='paid'
+    // and silently drop out of the netting sum, defeating the whole point of
+    // the fix in exactly the common, full-payment case. Sequencing this
+    // strictly before the update closes that race. A ledger-post failure is
+    // still logged, not thrown -- the payment itself already succeeded and
+    // real money is involved; don't fail the request over a ledger hiccup.
     if (data?.id) {
-      postPayrollToLedger({ tenantId, payrollPaymentId: data.id })
+      await postPayrollToLedger({ tenantId, payrollPaymentId: data.id })
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 

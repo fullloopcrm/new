@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs'
 
 const LEDGER_REL_PATH = 'docs/readiness/ledger.json' // relative to platform/ (this script's cwd in CI)
 const LEDGER_GIT_PATH = 'platform/docs/readiness/ledger.json' // relative to repo root (for git show)
+const TAXONOMY_REL_PATH = 'docs/readiness/taxonomy.json'
 
 function sh(cmd, args) {
   return execFileSync(cmd, args, { encoding: 'utf8' }).trim()
@@ -82,6 +83,24 @@ function checkpointIndex(ledger) {
   return map
 }
 
+// depends_on_files lives ONLY in taxonomy.json, never in ledger.json --
+// ledger checkpoints are just {id, score, evidence_type, evidence,
+// last_verified, last_verified_commit}. This function used to read
+// `newCp.depends_on_files` off a LEDGER checkpoint object, which is always
+// undefined -- confirmed 2026-08-01 (independent adversarial re-check) that
+// this gate has never once fired since the ledger system's inception for
+// this reason, entirely separate from (and deeper than) the path-prefix bug
+// fixed earlier the same day. taxonomy checkpoints also carry `name`, which
+// ledger checkpoints don't -- used below for the stale-report printout,
+// which previously printed `undefined`.
+function taxonomyIndex(taxonomy) {
+  const map = new Map()
+  for (const domain of Object.values(taxonomy.domains)) {
+    for (const cp of domain.checkpoints) map.set(cp.id, cp)
+  }
+  return map
+}
+
 function main() {
   const baseRef = resolveBaseRef()
   const changed = changedFiles(baseRef)
@@ -99,13 +118,16 @@ function main() {
     return
   }
   const newLedger = loadLedgerAt('WORKTREE')
+  const taxonomy = JSON.parse(readFileSync(TAXONOMY_REL_PATH, 'utf8'))
+  const taxIndex = taxonomyIndex(taxonomy)
 
   const oldIndex = checkpointIndex(oldLedger)
   const newIndex = checkpointIndex(newLedger)
 
   const stale = []
   for (const [id, newCp] of newIndex) {
-    const deps = newCp.depends_on_files || []
+    const taxCp = taxIndex.get(id)
+    const deps = taxCp?.depends_on_files || []
     // A dependency path is written relative to `platform/` (this script's
     // own cwd) except when it's an absolute home-dir path (operational
     // scripts under ~/.claude, checked as informational only -- CI can't
@@ -118,7 +140,7 @@ function main() {
     const oldCp = oldIndex.get(id)
     const unchanged = oldCp && JSON.stringify(oldCp) === JSON.stringify(newCp)
     if (unchanged) {
-      stale.push({ id, name: newCp.name, file: touchedDep })
+      stale.push({ id, name: taxCp?.name || '(unknown)', file: touchedDep })
     }
   }
 
