@@ -1,13 +1,16 @@
 // Role-based access control for tenant members
-// Roles: owner > admin > manager > staff
+// General hierarchy: owner > admin > manager > staff.
+// virtual_assistant/accountant/bookkeeper are lateral specialized roles, not
+// slotted into that ladder — each scoped to a job function (front-office,
+// full finance, light finance) rather than a rung of general authority.
 //
 // Model: the permission SETS below are the hard-coded standard (the defaults
-// every tenant starts from). A tenant may re-tune what admin/manager/staff can
-// do via a per-tenant DELTA override stored in tenants.selena_config.role_permissions.
+// every tenant starts from). A tenant may re-tune any CUSTOMIZABLE_ROLES entry
+// via a per-tenant DELTA override stored in tenants.selena_config.role_permissions.
 // `owner` is never customizable — it always keeps every permission, which is
 // what prevents a tenant from locking itself out.
 
-export type Role = 'owner' | 'admin' | 'manager' | 'staff'
+export type Role = 'owner' | 'admin' | 'manager' | 'staff' | 'accountant' | 'bookkeeper' | 'virtual_assistant'
 
 export type Permission =
   | 'clients.view' | 'clients.create' | 'clients.edit' | 'clients.delete'
@@ -83,6 +86,32 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view',
     'reviews.view',
     'sales.view',
+    'notifications.view',
+  ],
+  // Front-office/remote support: phones, customers, bookings, schedule,
+  // adding clients. Deliberately no delete anywhere and zero finance/HR
+  // (team.create/edit/delete) access — 2026-08-01, first VA hire.
+  virtual_assistant: [
+    'clients.view', 'clients.create', 'clients.edit',
+    'bookings.view', 'bookings.create', 'bookings.edit',
+    'schedules.view', 'schedules.create', 'schedules.edit',
+    'team.view',
+    'reviews.view', 'reviews.request',
+    'leads.view', 'notifications.view',
+  ],
+  // Full financial authority (view + run payroll/payouts + manage
+  // expenses), no operational or HR access.
+  accountant: [
+    'finance.view', 'finance.payroll', 'finance.expenses',
+    'clients.view', 'bookings.view',
+    'sales.view',
+    'audit.view', 'notifications.view',
+  ],
+  // Lighter financial tier than accountant — reviews/categorizes but
+  // doesn't execute payroll/payouts.
+  bookkeeper: [
+    'finance.view', 'finance.expenses',
+    'clients.view', 'bookings.view',
     'notifications.view',
   ],
 }
@@ -174,7 +203,7 @@ export function isValidPermission(value: string): value is Permission {
 }
 
 // Roles a tenant is allowed to customize (owner is excluded on purpose).
-export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff']
+export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff', 'accountant', 'bookkeeper', 'virtual_assistant']
 
 export function isCustomizableRole(value: string): value is Exclude<Role, 'owner'> {
   return (CUSTOMIZABLE_ROLES as string[]).includes(value)
@@ -224,4 +253,7 @@ export const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'admin', label: 'Admin', description: 'Full access except deleting team and integrations' },
   { value: 'manager', label: 'Manager', description: 'Manage day-to-day operations, no finance payroll or settings' },
   { value: 'staff', label: 'Staff', description: 'View-only access, can create bookings' },
+  { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'Phones, customers, bookings, and scheduling — no delete, no finance, no HR/team management' },
+  { value: 'accountant', label: 'Accountant', description: 'Full financial access (view, payroll, expenses) — no operational or HR access' },
+  { value: 'bookkeeper', label: 'Bookkeeper', description: 'Reviews and categorizes finances — no payroll authority, no operational or HR access' },
 ]

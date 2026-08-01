@@ -12,8 +12,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
+import { ROLES } from '@/lib/rbac'
 
-const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
+// Single source of truth — was a separately hardcoded list here (and AGAIN
+// in PUT below) that had drifted from rbac.ts's actual role catalog; adding
+// a role to rbac.ts silently wouldn't have made it assignable here.
+const VALID_ROLES = ROLES.map((r) => r.value)
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('settings.edit')
@@ -134,11 +138,10 @@ export async function PUT(request: NextRequest) {
   const { id, role, name, phone } = await request.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const validRoles = ['owner', 'admin', 'manager', 'staff']
   const update: Record<string, unknown> = {}
   if (role) {
-    if (!validRoles.includes(role)) {
-      return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+    if (!VALID_ROLES.includes(role)) {
+      return NextResponse.json({ error: `Invalid role. Must be: ${VALID_ROLES.join(', ')}` }, { status: 400 })
     }
     // Granting 'owner' is owner-only — see POST for why this can't be left open.
     if (role === 'owner' && tenant.role !== 'owner') {
