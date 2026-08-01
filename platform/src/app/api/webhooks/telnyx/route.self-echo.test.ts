@@ -42,6 +42,11 @@ const mock = vi.hoisted(() => {
         eqVal = val
         return chain
       },
+      ilike: (col: string, val: unknown) => {
+        eqCol = col
+        eqVal = val
+        return chain
+      },
       is: () => chain,
       single: async () => resolveTenant(table, eqCol, eqVal, 'single'),
       maybeSingle: async () => resolveTenant(table, eqCol, eqVal, 'maybeSingle'),

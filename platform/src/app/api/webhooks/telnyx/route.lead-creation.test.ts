@@ -21,19 +21,34 @@ vi.mock('@/lib/lead-intake', () => ({ createLeadAndEnterPipeline }))
 
 let clientsSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
 let membersSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
+let applicationsSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
 const tenantRow = { id: 'tid-1', name: 'Test Tenant', telnyx_api_key: null, telnyx_phone: '+15550001111', owner_phone: null, timezone: 'America/New_York', telegram_bot_token: null, telegram_chat_id: null }
 
 function makeChain(table: string) {
   const eqs: Record<string, unknown> = {}
+  const ilikes: Record<string, unknown> = {}
+  // Real code matches phone via .ilike('phone', '%last10digits%') (tolerant
+  // of a stored +1) — mirror that here instead of exact string equality.
+  const phoneMatches = (seedPhone: string) => {
+    if (eqs.phone !== undefined) return seedPhone === eqs.phone
+    if (ilikes.phone !== undefined) {
+      const pattern = String(ilikes.phone).replace(/%/g, '').replace(/\D/g, '')
+      return seedPhone.replace(/\D/g, '').includes(pattern)
+    }
+    return true
+  }
   const resolveList = () => {
     if (table === 'tenants') return { data: [tenantRow] }
-    if (table === 'clients') return { data: clientsSeed.filter((c) => c.phone === eqs.phone) }
-    if (table === 'team_members') return { data: membersSeed.filter((m) => m.phone === eqs.phone) }
+    if (table === 'clients') return { data: clientsSeed.filter((c) => phoneMatches(c.phone)) }
+    if (table === 'team_members') return { data: membersSeed.filter((m) => phoneMatches(m.phone)) }
     return { data: [] }
   }
   const resolveOne = () => {
-    if (table === 'clients') return { data: clientsSeed.find((c) => c.phone === eqs.phone) || null, error: null }
-    if (table === 'team_members') return { data: membersSeed.find((m) => m.phone === eqs.phone) || null, error: null }
+    if (table === 'clients') return { data: clientsSeed.find((c) => phoneMatches(c.phone)) || null, error: null }
+    if (table === 'team_members') return { data: membersSeed.find((m) => phoneMatches(m.phone)) || null, error: null }
+    if (table === 'team_applications') return { data: applicationsSeed.find((a) => phoneMatches(a.phone)) || null, error: null }
+    // cleaner_applications: unseeded in this suite — always "no match",
+    // same as production when the tenant's live table is team_applications.
     return { data: null, error: null }
   }
   const chain: Record<string, unknown> = {
@@ -41,6 +56,7 @@ function makeChain(table: string) {
     insert: () => chain,
     update: () => chain,
     eq: (col: string, val: unknown) => { eqs[col] = val; return chain },
+    ilike: (col: string, val: unknown) => { ilikes[col] = val; return chain },
     order: () => chain,
     limit: () => chain,
     maybeSingle: async () => resolveOne(),
@@ -98,6 +114,7 @@ beforeEach(() => {
   delete process.env.TELNYX_WEBHOOK_VERIFY
   clientsSeed = []
   membersSeed = []
+  applicationsSeed = []
   createLeadAndEnterPipeline.mockClear()
 })
 
@@ -121,6 +138,27 @@ describe('telnyx inbound SMS — unknown-sender lead creation', () => {
   it('a phone matching a team member does NOT create a lead', async () => {
     membersSeed = [{ id: 'm-1', tenant_id: 'tid-1', phone: '+19175551234', name: 'Crew Member' }]
     const res = await post(inboundSms('+19175551234'))
+    expect(res.status).toBe(200)
+    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
+  })
+
+  // 2026-08-01: a real team member (Juana, 929-284-6130) texted in and got
+  // a bogus duplicate "client" row created because her stored phone lacked
+  // the country code the inbound event carries. Exact .eq() matching missed
+  // her; last-10-digit .ilike() matching must not.
+  it('a team member phone stored WITHOUT the country code still matches (no duplicate lead)', async () => {
+    membersSeed = [{ id: 'm-1', tenant_id: 'tid-1', phone: '9175551234', name: 'Crew Member' }]
+    const res = await post(inboundSms('+19175551234'))
+    expect(res.status).toBe(200)
+    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
+  })
+
+  // 2026-08-01: a real job applicant (Karina, 603-719-8274) texted back and
+  // got funneled into the sales pipeline as a brand-new lead because the
+  // route never checked team_applications at all.
+  it('a phone matching a pending job applicant does NOT create a lead', async () => {
+    applicationsSeed = [{ id: 'a-1', tenant_id: 'tid-1', phone: '6037198274', name: 'Karina Arango' }]
+    const res = await post(inboundSms('+16037198274'))
     expect(res.status).toBe(200)
     expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
   })
