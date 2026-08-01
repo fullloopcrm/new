@@ -211,6 +211,9 @@ export async function proposeCrossLinks(opts?: { max?: number }): Promise<{
     // Idempotent per (property,target_url,recipe): clear stale proposals for
     // this recipe before writing fresh ones, same pattern as remediate.ts.
     for (const p of proposals) {
+      // tenant-scope-ok: cross-tenant by design (see file header) — a single proposal
+      // batch spans two DIFFERENT tenants' properties (the linking tenant + its partner),
+      // so this can't be pinned to one tenant_id; scoped instead by property/target_url.
       await supabaseAdmin
         .from('seo_changes')
         .delete()
@@ -219,7 +222,7 @@ export async function proposeCrossLinks(opts?: { max?: number }): Promise<{
         .eq('recipe', 'cross_tenant_link')
         .eq('status', 'proposed')
     }
-    const { error } = await supabaseAdmin.from('seo_changes').insert(proposals)
+    const { error } = await supabaseAdmin.from('seo_changes').insert(proposals) // tenant-scope-ok: insert stamps each row's own tenant_id from `proposals` (see push above); batch itself spans multiple tenants by design
     if (error) throw new Error(`cross-link proposals insert failed: ${error.message}`)
   }
 

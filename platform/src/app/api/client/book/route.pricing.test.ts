@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 
 /**
  * client/book — client-controlled pricing on a PUBLIC, unauthenticated endpoint.
@@ -181,6 +181,24 @@ function bookReqNewClient(body: Record<string, unknown>) {
     }),
   )
 }
+
+// The NYC Maid weekend/emergency tests below assert against fixed calendar
+// dates (2026-08-01 Sat / 08-02 Sun / 08-03 Mon / 08-07 Fri) so the
+// weekday-vs-weekend split is unambiguous. The route derives same-day/
+// under-48hr "emergency" pricing from the REAL wall clock (`new Date()`),
+// so without a pinned system time these tests silently break the moment
+// the real calendar catches up to (or passes) those hardcoded dates — every
+// booking starts looking same-day/imminent and gets emergency-priced. Pin
+// "now" comfortably before all of them so emergency detection stays false
+// regardless of when this suite actually runs.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-25T12:00:00-04:00'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 beforeEach(() => {
   holder.rpcCalls.length = 0

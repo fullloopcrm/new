@@ -84,7 +84,10 @@ async function avgPosition(property: string, startDate: string, endDate: string)
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
 export async function computeFleetDeltas(): Promise<PropertyDelta[]> {
-  const { data: props } = await supabaseAdmin.from('seo_properties').select('property,domain').eq('enabled', true)
+  // Fleet-wide by design (see file header, approved Jeff 2026-07-16) — a real Google
+  // algorithm rollout is detected by correlated movement ACROSS tenants, so this
+  // intentionally reads every tenant's seo_properties, not just one.
+  const { data: props } = await supabaseAdmin.from('seo_properties').select('property,domain').eq('enabled', true) // tenant-scope-ok: fleet-wide monitor, cross-tenant by design
 
   const now = Date.now()
   const recentEnd = ymd(new Date(now - BASELINE_GAP_DAYS * 86_400_000))

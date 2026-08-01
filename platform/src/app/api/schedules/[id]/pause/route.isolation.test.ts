@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
@@ -48,6 +48,21 @@ function seed() {
     notifications: [] as Record<string, unknown>[],
   }
 }
+
+// The pause route only cancels bookings with `start_time >= now` (real wall
+// clock, `new Date().toISOString()` in route.ts), and the seeded booking is
+// pinned to 2026-08-01T00:00:00Z. Without a pinned system time this test
+// only passes while the suite happens to run before that instant — once the
+// real calendar catches up, the seeded booking is silently treated as
+// already-past and never gets cancelled. Pin "now" comfortably before it.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-25T12:00:00Z'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 let h: Harness
 beforeEach(() => {

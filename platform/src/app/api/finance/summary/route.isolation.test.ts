@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
@@ -48,6 +48,20 @@ function seed() {
     ],
   }
 }
+
+// monthJobs/monthReferralCommissions etc. are windowed against the REAL
+// current calendar month (`new Date()` in route.ts), and the seed rows are
+// pinned to 2026-07-10. Without a pinned system time this test only passes
+// while the suite happens to run in July 2026 — pin "now" inside that month
+// so the fixture stays in-window regardless of when this actually runs.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-20T12:00:00Z'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 let h: Harness
 beforeEach(() => {

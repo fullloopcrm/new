@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 import { nowNaiveET } from '@/lib/recurring'
 
@@ -57,6 +57,21 @@ function seed() {
     ],
   }
 }
+
+// The "-2h → same month, before now" assumption in seed() only holds if the
+// real run time isn't within 2h after a calendar-month rollover in ET (e.g.
+// 00:20 ET on the 1st minus 2h lands in the PREVIOUS month, silently pushing
+// a-c1/a-c2/b-c out of the route's monthStart window). Pin "now" to a safe
+// mid-month instant so the +2d/-2h offsets below can never cross a month (or
+// week) boundary, regardless of when this suite actually runs.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-15T12:00:00-04:00'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 let h: Harness
 beforeEach(() => {
