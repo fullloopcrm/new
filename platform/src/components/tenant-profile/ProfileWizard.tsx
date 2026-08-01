@@ -42,6 +42,23 @@ export interface ApiField {
   options: Array<string | { label: string; value: string | number }> | null
   funnels: string[] | null
   help: string | null
+  platformManaged?: boolean
+}
+
+// Grayed, disabled stand-in for platformManaged fields (vendor API keys,
+// internal SEO/analytics config) -- a home-service business owner has no
+// reason to have these on hand. Shown so the question isn't just silently
+// missing (they can see it exists and why it's locked), but never an active
+// input: nothing here should look like something they're expected to fill.
+function PlatformManagedField({ number, label }: { number: string | undefined; label: string }) {
+  return (
+    <div className="opacity-60">
+      <label className="mb-1 block text-sm font-medium text-slate-500">{number ? `${number} ` : ''}{label}</label>
+      <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
+        <span aria-hidden>🔒</span> Full Loop sets this up for you — no action needed here.
+      </div>
+    </div>
+  )
 }
 
 function FieldHelp({ text }: { text: string | null | undefined }) {
@@ -256,11 +273,15 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (
             <div key={f.key} className={isWideField(f) ? 'md:col-span-2' : undefined}>
-              <FieldRenderer
-                field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
-                value={form[f.key]}
-                onChange={(v) => set(f.key, v)}
-              />
+              {f.platformManaged ? (
+                <PlatformManagedField number={PROFILE_FIELD_NUMBER[f.key]} label={f.label} />
+              ) : (
+                <FieldRenderer
+                  field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                  value={form[f.key]}
+                  onChange={(v) => set(f.key, v)}
+                />
+              )}
             </div>
           ))}
         </div>

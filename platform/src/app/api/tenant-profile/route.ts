@@ -48,7 +48,7 @@ export async function GET(request: Request) {
         key: f.key, label: f.label, section: f.section, value: f.value, filled: f.filled,
         tier: f.tier, readonly: !!f.readonly, kind: f.kind || 'text',
         input: f.input || 'text', options: f.options || null, funnels: f.funnels || null,
-        help: f.help || null,
+        help: f.help || null, platformManaged: !!f.platformManaged,
       })),
       draft: (tenant?.onboarding_draft as Json) || null,
     })
