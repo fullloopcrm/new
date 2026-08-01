@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: NextRequest) {
-  let tenant
-  try {
-    tenant = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // audit_logs is gated behind 'audit.view' (owner/admin only, per rbac.ts)
+  // everywhere else it's exposed (e.g. /api/finance/audit-log). This route
+  // only checked for ANY valid tenant session via bare getTenantForRequest(),
+  // so a 'staff' or 'manager' team member — neither of which has audit.view
+  // — could read the full tenant audit log. Same gap fixed the same pass in
+  // the sibling /api/security/events route.
+  const { tenant, error: permError } = await requirePermission('audit.view')
+  if (permError) return permError
 
   const limit = Math.min(Number(request.nextUrl.searchParams.get('limit')) || 50, 200)
   const offset = Number(request.nextUrl.searchParams.get('offset')) || 0

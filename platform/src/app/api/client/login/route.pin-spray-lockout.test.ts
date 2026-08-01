@@ -38,7 +38,18 @@ vi.mock('@/lib/rate-limit-db', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: () => ({
-      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }),
+      // First .eq() is tenantDb's own internal tenant_id scoping; the object
+      // it returns needs both the second .eq('pin', ...).maybeSingle() path
+      // (findRowByPin's fast lookup) and a sibling .limit() path (its
+      // decrypt-and-scan fallback) — this test never seeds a real row, so
+      // both paths correctly resolve to "no match" and rate-limit behavior
+      // is exercised the same as before.
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+          limit: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
     }),
   },
 }))

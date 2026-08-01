@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * W4 isolation probe for the tenantDb() conversion of POST /api/client/login.
@@ -21,6 +21,7 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    limit: () => Promise.resolve({ data: matched(), error: null }),
     maybeSingle: async () => ({ data: matched()[0] || null, error: null }),
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
@@ -76,5 +77,38 @@ describe('POST /api/client/login — tenantDb scoping', () => {
     const res = await POST(req('654321'))
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ client_id: 'c-real' })
+  })
+})
+
+describe('POST /api/client/login — encrypted PIN (2026-08-01 fix)', () => {
+  // Regression lock: before this fix, the route did a bare .eq('pin', pin)
+  // lookup with no decrypt-and-scan fallback (unlike the sibling
+  // /api/portal/auth, which already used findRowByPin). clients.pin is
+  // encrypted at rest with a random IV per encryption, so the same PIN never
+  // produces the same ciphertext twice — a plaintext-guess .eq() match can
+  // NEVER succeed against an encrypted row. Any real client whose PIN was
+  // written through the encrypted path could never log in here. Proven by
+  // reverting the route change (git stash) and re-running this exact test:
+  // it fails 401 pre-fix, passes 200 post-fix.
+  const ORIGINAL_KEY = process.env.SECRET_ENCRYPTION_KEY
+  const TEST_KEY = 'a'.repeat(64)
+
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.SECRET_ENCRYPTION_KEY
+    else process.env.SECRET_ENCRYPTION_KEY = ORIGINAL_KEY
+  })
+
+  it('logs in a client whose PIN is stored encrypted (not plaintext)', async () => {
+    process.env.SECRET_ENCRYPTION_KEY = TEST_KEY
+    const { encryptSecret } = await import('@/lib/secret-crypto')
+    const encryptedPin = encryptSecret('987654')
+    // Sanity: the encrypted value is never byte-equal to the plaintext guess —
+    // this is exactly why a bare .eq('pin', guess) lookup can't work.
+    expect(encryptedPin).not.toBe('987654')
+
+    DB.clients.push({ id: 'c-encrypted', tenant_id: TENANT_A, pin: encryptedPin, do_not_service: false })
+    const res = await POST(req('987654'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ client_id: 'c-encrypted' })
   })
 })

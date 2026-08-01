@@ -10,6 +10,12 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * the `{ count: 'exact' }` total reflects only the acting tenant's rows. The
  * optional `entity_type` filter is a within-tenant refinement, not an
  * isolation boundary.
+ *
+ * Also covers the 2026-08-01 fix: this route used to accept ANY authenticated
+ * tenant session (bare getTenantForRequest()) with no permission check, even
+ * though audit_logs is gated everywhere else (e.g. /api/finance/audit-log)
+ * behind 'audit.view' (owner/admin only). A 'staff' or 'manager' role could
+ * read the full log. Now requires requirePermission('audit.view').
  */
 
 const A = 'tid-a'
@@ -17,6 +23,8 @@ const B = 'tid-b'
 
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
@@ -28,7 +36,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: roleHolder.role })),
   }
 })
 
@@ -49,6 +57,27 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
+})
+
+describe('audit — permission gate', () => {
+  it('rejects a staff-role session with 403 (lacks audit.view)', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET(new NextRequest('http://t/api/audit'))
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects a manager-role session with 403 (lacks audit.view)', async () => {
+    roleHolder.role = 'manager'
+    const res = await GET(new NextRequest('http://t/api/audit'))
+    expect(res.status).toBe(403)
+  })
+
+  it('allows an admin-role session (has audit.view)', async () => {
+    roleHolder.role = 'admin'
+    const res = await GET(new NextRequest('http://t/api/audit'))
+    expect(res.status).toBe(200)
+  })
 })
 
 describe('audit — tenant isolation', () => {

@@ -8,6 +8,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * conversion swaps `supabaseAdmin.from('security_events').eq('tenant_id', …)`
  * for tenantDb's injected filter. No by-id caller input (no IDOR surface).
  * Probe proves a foreign tenant's security event never appears in the feed.
+ *
+ * Also covers the 2026-08-01 fix: this route used to accept ANY authenticated
+ * tenant session (bare getTenantForRequest()) with no permission check, even
+ * though security_events carries the same sensitivity class as audit_logs
+ * (admin impersonation history, invite/token actions, settings changes) —
+ * gated everywhere else behind 'audit.view' (owner/admin only). A 'staff' or
+ * 'manager' role could read the full feed. Now requires requirePermission('audit.view').
  */
 
 const A = 'tid-a'
@@ -15,6 +22,8 @@ const B = 'tid-b'
 
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
@@ -26,7 +35,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: roleHolder.role })),
   }
 })
 
@@ -45,6 +54,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
 })
 
 describe('security/events — tenant isolation', () => {
@@ -55,5 +65,25 @@ describe('security/events — tenant isolation', () => {
     const ids = (body.events as Array<{ id: string }>).map((e) => e.id)
     expect(ids).toEqual(['ev-a1'])
     expect(ids).not.toContain('ev-b1')
+  })
+})
+
+describe('security/events — permission gate', () => {
+  it('rejects a staff-role session with 403 (lacks audit.view)', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET(new Request('http://t/api/security/events'))
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects a manager-role session with 403 (lacks audit.view)', async () => {
+    roleHolder.role = 'manager'
+    const res = await GET(new Request('http://t/api/security/events'))
+    expect(res.status).toBe(403)
+  })
+
+  it('allows an admin-role session (has audit.view)', async () => {
+    roleHolder.role = 'admin'
+    const res = await GET(new Request('http://t/api/security/events'))
+    expect(res.status).toBe(200)
   })
 })

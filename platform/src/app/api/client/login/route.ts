@@ -11,6 +11,10 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
 import { audit } from '@/lib/audit'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { findRowByPin } from '@/lib/pin-lookup'
+
+// Same cap as /api/portal/auth's identical fallback scan.
+const PIN_SCAN_CAP = 5000
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -35,11 +39,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter your 6-digit PIN' }, { status: 400 })
   }
 
-  const { data: client } = await tenantDb(tenant.id)
-    .from('clients')
-    .select('id, do_not_service')
-    .eq('pin', pin)
-    .maybeSingle()
+  // findRowByPin: clients.pin is encrypted at rest (secret-crypto AES-256-GCM,
+  // random IV per encryption), so the same PIN never produces the same
+  // ciphertext twice — a plain `.eq('pin', pin)` lookup can only ever match a
+  // legacy plaintext row. Without the decrypt-and-scan fallback below, every
+  // client whose PIN was written through the encrypted path (sec-07's fix)
+  // could never log in here — a real, live bug found 2026-08-01: this route
+  // was the one caller of the clients-PIN-login flow that never adopted the
+  // findRowByPin pattern already used by the sibling /api/portal/auth route.
+  const client = await findRowByPin(
+    pin,
+    async () => {
+      const { data } = await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, do_not_service, pin')
+        .eq('pin', pin)
+        .maybeSingle()
+      return data as { id: string; do_not_service: boolean; pin: string | null } | null
+    },
+    async () => {
+      const { data } = await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, do_not_service, pin')
+        .limit(PIN_SCAN_CAP)
+      return (data || []) as { id: string; do_not_service: boolean; pin: string | null }[]
+    },
+  )
 
   if (!client || client.do_not_service) {
     await logAuthFailure({ surface: 'client/login', tenantId: tenant.id, ip, lockedOut: false, remaining: Math.min(rlIp.remaining, rlTenant.remaining) })
