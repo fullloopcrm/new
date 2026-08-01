@@ -39,9 +39,13 @@ export interface PostLaborResult {
 
 /**
  * Resolve the labor expense account for a worker by their HR employment type.
- * Defaults to 1099/Contractor Pay when no HR profile exists yet.
+ * Defaults to 1099/Contractor Pay when no HR profile exists yet. Exported so
+ * post-revenue.ts's booking-level labor accrual (for tenants with no
+ * ledger-postable payout signal, e.g. manual Zelle/Venmo payments) routes to
+ * the same account a real payout/payroll post would, instead of hardcoding
+ * 5000 regardless of employment type.
  */
-async function laborAccountId(tenantId: string, teamMemberId: string | null): Promise<string | null> {
+export async function laborAccountId(tenantId: string, teamMemberId: string | null): Promise<string | null> {
   let code = '5000'
   if (teamMemberId) {
     const { data: profile } = await supabaseAdmin
@@ -118,7 +122,44 @@ export async function postPayoutToLedger(opts: { tenantId: string; payoutId: str
   })
 }
 
-/** Post a manual payroll payment (payroll_payments row) to the ledger. */
+/**
+ * Sum of team_member_pay across this member's completed-not-yet-paid bookings
+ * that ALREADY have a 'booking_cogs' journal entry (see post-revenue.ts).
+ * payroll_payments has no per-booking link, so a manual payroll run has no
+ * direct way to know it's re-covering money booking_cogs already accrued for
+ * the same jobs -- this is the closest real proxy: the same booking set
+ * payroll-pending.ts already treats as "what this member is owed."
+ */
+async function alreadyAccruedViaBookingCogs(tenantId: string, teamMemberId: string): Promise<number> {
+  const { data: bookings } = await supabaseAdmin
+    .from('bookings')
+    .select('id, team_member_pay')
+    .eq('tenant_id', tenantId)
+    .eq('team_member_id', teamMemberId)
+    .eq('status', 'completed')
+    .not('team_member_paid', 'is', true)
+  let sum = 0
+  for (const b of bookings || []) {
+    const pay = Math.round(Number(b.team_member_pay) || 0)
+    if (pay > 0 && (await journalEntryExists(tenantId, 'booking_cogs', b.id as string))) sum += pay
+  }
+  return sum
+}
+
+/**
+ * Post a manual payroll payment (payroll_payments row) to the ledger.
+ *
+ * Nets out any portion of the payment that booking_cogs already accrued for
+ * this member's pending bookings (see alreadyAccruedViaBookingCogs above) --
+ * without this, a payroll run that lags behind the finance-post cron (the
+ * common case: cron runs continuously off customer payment; a manual payroll
+ * run happens whenever the admin gets to it, often days later) would post the
+ * SAME job's labor cost twice: once as 'booking_cogs' when the customer paid,
+ * again here when the admin actually pays the worker. The worker is still
+ * genuinely owed the FULL payroll amount in cash (payroll-pending.ts's
+ * "pending" figure is intentionally untouched by this) -- only the GL-side
+ * expense re-recognition is suppressed for the already-accrued portion.
+ */
 export async function postPayrollToLedger(opts: { tenantId: string; payrollPaymentId: string }): Promise<PostLaborResult> {
   const { tenantId, payrollPaymentId } = opts
   const { data: row } = await supabaseAdmin
@@ -128,13 +169,21 @@ export async function postPayrollToLedger(opts: { tenantId: string; payrollPayme
     .eq('id', payrollPaymentId)
     .maybeSingle()
   if (!row) return { posted: false, reason: 'not_found' }
+
+  const teamMemberId = (row.team_member_id as string) || null
+  const rawAmount = Number(row.amount) || 0
+  const alreadyAccrued = teamMemberId ? await alreadyAccruedViaBookingCogs(tenantId, teamMemberId) : 0
+  const amountCents = Math.max(0, rawAmount - alreadyAccrued)
+
   return postLabor({
     tenantId,
     source: 'payroll',
     sourceId: payrollPaymentId,
-    teamMemberId: (row.team_member_id as string) || null,
-    amountCents: Number(row.amount) || 0,
-    memo: 'Payroll payment',
+    teamMemberId,
+    amountCents,
+    memo: alreadyAccrued > 0
+      ? `Payroll payment ($${(rawAmount / 100).toFixed(2)} total, $${(alreadyAccrued / 100).toFixed(2)} already accrued via booking_cogs)`
+      : 'Payroll payment',
   })
 }
 
