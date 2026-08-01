@@ -164,12 +164,7 @@ const MONTH_OPTIONS: FieldOption[] = [
   { label: 'October', value: 10 }, { label: 'November', value: 11 }, { label: 'December', value: 12 },
 ]
 const PAYMENT_OPTIONS: FieldOption[] = [
-  { label: 'Stripe (card)', value: 'stripe' },
-  { label: 'Zelle', value: 'zelle' },
-  { label: 'Venmo', value: 'venmo' },
-  { label: 'Apple Cash', value: 'apple_cash' },
-  { label: 'Cash', value: 'cash' },
-  { label: 'Check', value: 'check' },
+  { label: 'Stripe (card, Apple Pay, Cash App)', value: 'stripe' },
 ]
 const TONE_OPTIONS = ['warm_friendly', 'professional', 'casual', 'luxury'] as const
 const LANGUAGE_OPTIONS: FieldOption[] = [{ label: 'English', value: 'en' }, { label: 'Spanish', value: 'es' }]
@@ -265,12 +260,9 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'holidayDates', label: 'Holidays / blackout dates', section: 'scheduling', store: 'selena', col: 'holiday_dates', input: 'custom', tier: 'optional', funnels: ['booking', 'pipeline'], read: (x) => s(x, 'holiday_dates') },
 
   // ── Payments (booking/pipeline) ───────────────────────────────────
-  { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'payment_methods') },
+  { key: 'paymentMethods', label: 'Payment methods', section: 'payments', store: 'tenant', col: 'payment_methods', kind: 'array', input: 'array', options: PAYMENT_OPTIONS, tier: 'critical', funnels: ['booking', 'pipeline'], help: 'We process everything through Stripe — card, Apple Pay, and Cash App are all handled through the same Stripe checkout, nothing separate to set up for each.', read: (x) => t(x, 'payment_methods') },
   { key: 'stripeKey', label: 'Stripe secret key', section: 'payments', store: 'tenant', col: 'stripe_api_key', tier: 'recommended', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_api_key') },
   { key: 'stripeAccountId', label: 'Stripe account ID', section: 'payments', store: 'tenant', col: 'stripe_account_id', tier: 'optional', platformManaged: true, funnels: ['booking', 'pipeline'], read: (x) => t(x, 'stripe_account_id') },
-  { key: 'zelleEmail', label: 'Zelle email', section: 'payments', store: 'tenant', col: 'zelle_email', tier: 'optional', help: 'The email address tied to your business\'s Zelle account — this is what we show clients so they know where to send a Zelle payment.', read: (x) => t(x, 'zelle_email') },
-  { key: 'venmoHandle', label: 'Venmo @handle', section: 'payments', store: 'tenant', col: 'venmo_handle', tier: 'optional', help: 'Your business\'s Venmo username (the "@name" clients search for to pay you) — shown to clients as a payment option.', read: (x) => t(x, 'venmo_handle') },
-  { key: 'appleCashPhone', label: 'Apple Cash phone number', section: 'payments', store: 'tenant', col: 'apple_cash_phone', tier: 'optional', help: 'Apple Cash lets iPhone users send money straight from Messages, like Venmo but built into iMessage. If you accept it, this is the phone number clients send payment to. Skip if you don\'t use it.', read: (x) => t(x, 'apple_cash_phone') },
 
   // ── Comms & integrations ──────────────────────────────────────────
   { key: 'resendKey', label: 'Sending email key (Resend)', section: 'comms', store: 'tenant', col: 'resend_api_key', tier: 'critical', platformManaged: true, read: (x) => t(x, 'resend_api_key') },
