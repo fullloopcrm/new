@@ -18,6 +18,8 @@ const ActiveCallBanner = dynamic(() => import('@/components/comhub/ActiveCallBan
   loading: () => null,
 })
 
+type ContactTag = 'potential_lead' | 'spam' | 'vendor' | 'other'
+
 type Contact = {
   id: string
   name: string | null
@@ -26,6 +28,26 @@ type Contact = {
   address: string | null
   client_id: string | null
   team_member_id: string | null
+  tag: ContactTag | null
+}
+
+const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
+  potential_lead: 'Potential Lead',
+  spam: 'Spam',
+  vendor: 'Vendor',
+  other: 'Other',
+}
+
+// A manual tag is a standing correction — once set, it drives the badge
+// everywhere this contact shows up (sidebar + panel) instead of the
+// linkage-derived guess, for every future message from them too, since the
+// tag lives on the comhub_contacts row (one row per phone/email) rather than
+// per-message.
+const CONTACT_TAG_BADGE_STYLE: Record<ContactTag, { background: string; color: string; border: string }> = {
+  potential_lead: { background: 'rgba(126,58,242,0.08)', color: '#6d28d9', border: '1px solid rgba(126,58,242,0.25)' },
+  spam: { background: 'rgba(220,38,38,0.08)', color: '#b91c1c', border: '1px solid rgba(220,38,38,0.25)' },
+  vendor: { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' },
+  other: { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' },
 }
 
 type Thread = {
@@ -490,11 +512,13 @@ export default function ComhubPage() {
             const isSel = selected === t.id
             const c = t.comhub_contacts
             const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.team_member_id ? 'cleaner' : 'unlinked'
-            const roleBadgeStyle = role === 'client'
-              ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
-              : role === 'cleaner'
-                ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
-                : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
+            const roleBadgeStyle = c?.tag
+              ? CONTACT_TAG_BADGE_STYLE[c.tag]
+              : role === 'client'
+                ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
+                : role === 'cleaner'
+                  ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
+                  : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
             // Left accent bar: red = needs a reply, ink = has unread, else quiet gray hairline.
             const accent = t.disposition === 'waiting_admin'
               ? 'var(--color-loop-warn)'
@@ -513,7 +537,7 @@ export default function ComhubPage() {
                   <div className="flex justify-between items-baseline gap-2">
                     <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
                       <span className="text-[9px] uppercase tracking-wider px-1.5 py-px rounded-sm shrink-0" style={{ ...roleBadgeStyle, fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                        {role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}
+                        {c?.tag ? CONTACT_TAG_LABELS[c.tag] : role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'team' : role}
                       </span>
                       <span className="truncate">{contactDisplay(c)}</span>
                     </div>
@@ -916,7 +940,7 @@ export default function ComhubPage() {
           <ChannelInfoPanel thread={thread} />
         )}
         {thread?.kind === 'contact' && context && (
-          <ContextPanelInline context={context} />
+          <ContextPanelInline context={context} onTagChanged={fetchThreads} />
         )}
         {thread?.kind === 'contact' && !context && (
           <div className="p-6 text-sm" style={{ color: 'var(--color-loop-muted)' }}>Loading contact details…</div>
@@ -1390,7 +1414,7 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // Right-side panel: contact + linked client/cleaner + recent bookings
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
-function ContextPanelInline({ context }: { context: ContactContext }) {
+function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
   const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDateTime = (iso: string) => {
@@ -1417,12 +1441,18 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
       : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
   const pillFont = { fontFamily: 'var(--mono)', fontWeight: 600 as const }
+  // A manual tag overrides the linkage-derived role badge — that's the whole
+  // point of tagging (see 2026_08_01_comhub_contact_tags migration): once an
+  // admin corrects the classification, it's a standing correction that
+  // applies to every future message from this contact, not a one-time fix.
+  const displayLabel = contact.tag ? CONTACT_TAG_LABELS[contact.tag] : (role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'team' : role)
+  const displayBadgeStyle = contact.tag ? CONTACT_TAG_BADGE_STYLE[contact.tag] : roleBadgeStyle
 
   return (
     <div>
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...roleBadgeStyle, ...pillFont }}>{role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}</span>
+          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...displayBadgeStyle, ...pillFont }}>{displayLabel}</span>
           {client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}
@@ -1434,6 +1464,7 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
         </div>
+        <ContactTagSelect contactId={contact.id} initialTag={contact.tag} onSaved={onTagChanged} />
       </div>
 
       <ContactDetailsEditor
@@ -1667,6 +1698,55 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
         </button>
       </div>
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manual contact classification — quick dropdown, works whether or not the
+// contact is linked to a client/team member (that's the point: it's for
+// reclassifying the ones that AREN'T).
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactTagSelect({ contactId, initialTag, onSaved }: {
+  contactId: string
+  initialTag: ContactTag | null
+  onSaved?: () => void
+}) {
+  const [tag, setTag] = useState<ContactTag | null>(initialTag)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { setTag(initialTag) }, [initialTag, contactId])
+
+  const change = async (next: ContactTag | null) => {
+    const prev = tag
+    setTag(next) // optimistic
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/comhub/contacts/${contactId}/tag`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: next }),
+      })
+      if (!res.ok) { setTag(prev); return }
+      onSaved?.()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <select
+      value={tag || ''}
+      disabled={saving}
+      onChange={(e) => change((e.target.value || null) as ContactTag | null)}
+      className="mt-2 px-2 py-1 rounded text-xs border cursor-pointer w-full"
+      style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-bg)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
+      title="Manually tag this contact"
+    >
+      <option value="">Tag contact…</option>
+      {Object.entries(CONTACT_TAG_LABELS).map(([value, label]) => (
+        <option key={value} value={value}>{label}</option>
+      ))}
+    </select>
   )
 }
 
