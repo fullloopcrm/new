@@ -9,6 +9,8 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { createPrimaryContact } from '@/lib/client-contacts'
+import { syncComhubContactName } from '@/lib/comhub-contact-sync'
+import { normalizePhone } from '@/lib/phone'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -133,6 +135,15 @@ export async function POST(request: Request) {
         console.error('createPrimaryContact error:', e)
       })
     }
+
+    // Whoever filled this out just handed us their real name -- that should
+    // replace whatever placeholder (usually nothing) ComHub has for them.
+    await syncComhubContactName(tenant.id, {
+      name,
+      phone: normalizePhone(phone),
+      email: email || null,
+      clientId: data.id,
+    }).catch((e) => console.error('[client/collect] syncComhubContactName failed:', e))
 
     await notify({
       tenantId: tenant.id,

@@ -1,0 +1,56 @@
+name: Nightly Security Scan
+
+# Re-runs the two static security analyzers on a schedule, not just on push.
+# ci.yml already gates every push/PR — this catches drift that isn't caused
+# by a push at all (e.g. someone editing a baseline file by hand, or the
+# baseline simply going stale because nobody has pushed in a while). Same
+# "second, time-based layer" role db-backup.yml plays for backups.
+#
+# SECRETS REQUIRED: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (same ones
+# db-backup.yml and ci.yml's notify-failure job already use).
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 10:00 UTC daily — one hour after the nightly DB backup
+  workflow_dispatch: {}
+
+concurrency:
+  group: security-nightly
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: platform
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: IDOR baseline drift check
+        id: idor
+        run: npx tsx scripts/idor-lint-guard.ts
+
+      - name: Tenant-scope guard
+        id: tenant_scope
+        if: always()
+        run: node scripts/audit-tenant-scope.mjs
+
+      - name: Alert on failure (Telegram)
+        if: failure() && env.TG_TOKEN != ''
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -sS "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d text="🔴 FullLoop nightly security scan FAILED — run: ${{ github.run_id }}. New IDOR candidate or unscoped tenant query found outside a push. Check the Action log." || true

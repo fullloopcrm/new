@@ -70,6 +70,16 @@ const stages: Stage[] = [
             breakdown of why operators switch
           </Link>.
         </p>
+        <p className="mt-4">
+          Nights and instant first response are the AI&apos;s job. For customer service and
+          sales conversations during the day, Full Loop operators can also staff real
+          human virtual assistants &mdash; fluent English, trained on your Full Loop CRM
+          &mdash; for $8 an hour through our staffing partner{" "}
+          <a href="https://www.thevavirtualassistant.com/" target="_blank" rel="noopener noreferrer" style={link}>
+            The VA Virtual Assistant
+          </a>
+          .
+        </p>
       </>
     ),
   },

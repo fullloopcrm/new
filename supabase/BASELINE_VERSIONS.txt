@@ -1,0 +1,70 @@
+# Baseline migration versions -- ground truth as of 2026-08-01 (W9 pass),
+# derived from the ACTUAL committed contents of supabase/migrations/ (ls,
+# not a re-run of scripts/migrate-legacy-to-cli.mjs's git-add-date logic --
+# see below for why that's still the right call even after this pass's fix).
+#
+# W9 (2026-08-01) update to this file, 2 changes from the prior version:
+#
+# 1. Dropped 20260722145927 -- confirmed a genuine duplicate. It and
+#    20260722145926 both convert the SAME underlying migration (nullable
+#    management_applications.resume_url): 20260722145926 came from
+#    platform/src/lib/migrations/2026_07_22_management_applications_resume_optional.sql
+#    (the real legacy source), 20260722145927 came from the disconnected
+#    platform/supabase/migrations/ project's own pre-converted copy of the
+#    identical SQL (20260722145537_management_applications_resume_optional.sql
+#    -- this was the "one stray already-CLI-formatted file" the original ADR
+#    counted as the 158th legacy file). The old version of
+#    scripts/migrate-legacy-to-cli.mjs treated both directories as separate
+#    sources and converted the same content twice under two adjacent
+#    timestamps. Found while auditing platform/supabase/'s dependents ahead
+#    of deleting it (see docs/adr/0008-migration-tool-cutover.md's 2026-08-01
+#    addendum). Removed supabase/migrations/20260722145927_20260722145537_management_applications_resume_optional.sql
+#    and its version from this list; kept 20260722145926 (fuller
+#    provenance header, sourced from the real legacy pile). No prod impact
+#    -- neither version has ever been marked applied.
+#
+# 2. platform/supabase/ (the disconnected, never-prod-linked Supabase CLI
+#    project responsible for both the above duplicate and the previously-
+#    recovered 20260730191108 RLS file) has been deleted outright -- nothing
+#    in the repo depended on it (grepped scripts, CI workflows, package.json,
+#    env vars; the local-staging scripts read the repo-root supabase/, not
+#    this one). scripts/migrate-legacy-to-cli.mjs no longer reads it.
+#
+# Why still not a live re-run of the script: this pass ALSO fixed the
+# idempotency bug flagged in the prior version of this file (the 3 files
+# whose git-add-date lookup fell back to a non-deterministic value) --
+# scripts/migrate-legacy-to-cli.mjs now resolves add-dates via bulk lookup,
+# then a per-file `git log --follow` fallback, then a content-hash
+# (never wall-clock) fallback, proven stable across repeated runs by
+# scripts/migrate-legacy-to-cli.test.ts. But the fix makes the script
+# compute the CORRECT historical timestamps for those 3 files (verified:
+# 20260712150652/53 for the two nycmaid-routing-reconcile files instead of
+# the already-committed 20260728194627/28, and 20260728164617 for the RLS
+# gap-closure file instead of 20260728194629) -- which now differ from what
+# is already committed under supabase/migrations/. Re-running the script
+# for real today would therefore write 3 MORE files (correct content, just
+# a different version number than history already recorded), not update
+# the existing ones in place. Reconciling those 3 already-committed
+# entries to their now-known-correct timestamps is a separate, deliberate
+# baseline-renumbering decision (touches files that may already be
+# referenced elsewhere by name) that this pass did not make -- flagged in
+# the ADR addendum for whoever does the actual `supabase migration repair`
+# baseline-apply step to decide alongside it. This file, as before, stays
+# sourced from the actual committed directory contents (ground truth), not
+# a fresh script run.
+#
+# These 162 versions are the hand-run .sql pile (+ 1 previously-orphaned
+# file recovered from the now-deleted disconnected duplicate Supabase CLI
+# project) converted to Supabase-CLI format and assumed already live in
+# prod as of the 2026-07-28 cutover (docs/adr/0008-migration-tool-cutover.md).
+# Marking them "applied" in the CLI's own tracking table
+# (supabase_migrations.schema_migrations) is a separate, gated, NOT-yet-
+# executed step -- requires Jeff's explicit go per the ADR, same approval
+# class as any other prod write. 1 additional file
+# (20260728194629_rls_gap_closure_post_july15.sql) exists in this same
+# directory but is deliberately EXCLUDED from this list -- it is genuinely
+# pending, not yet applied to prod, and stays that way until `supabase db
+# push` runs it for real after Jeff's go.
+#
+# Command to run once approved:
+supabase migration repair --status applied 20260309195434 20260309195435 20260311050820 20260311060110 20260312024622 20260312024623 20260324001923 20260420021012 20260420021013 20260420021014 20260420135127 20260420143022 20260420150429 20260420154714 20260420161403 20260420162019 20260420171604 20260420172216 20260420172745 20260420174226 20260420174339 20260420180818 20260421125110 20260421131414 20260421132106 20260421133945 20260421134850 20260421142909 20260421144842 20260421150325 20260421151609 20260421152756 20260421153858 20260421161557 20260421175517 20260421175518 20260421182018 20260422150735 20260422171340 20260422172517 20260422200224 20260423155115 20260423155959 20260425144908 20260425150507 20260428000319 20260429224536 20260606151817 20260606191314 20260606191405 20260626120858 20260626140730 20260628164943 20260702182450 20260703005153 20260703015505 20260704151824 20260704184310 20260704202805 20260704203423 20260704210540 20260705132638 20260705141328 20260705142256 20260705143629 20260705145322 20260705151428 20260705153748 20260705153749 20260705200407 20260706001948 20260706013339 20260706013340 20260711125048 20260711155349 20260711155350 20260711155351 20260711160359 20260711161520 20260711161521 20260711163854 20260711164506 20260711171452 20260711174933 20260711175436 20260712000721 20260712005136 20260713153818 20260713153820 20260713153822 20260713155259 20260713160101 20260713161106 20260713162008 20260713164114 20260713210037 20260713210038 20260713210051 20260713210105 20260713220300 20260713222845 20260713230411 20260713231646 20260713234201 20260714010655 20260714130531 20260714131231 20260715010037 20260715182655 20260718135452 20260718232518 20260718232519 20260719231806 20260719231807 20260719233204 20260719233205 20260719233206 20260719233207 20260719233208 20260719233209 20260721002040 20260721002041 20260721144611 20260721144612 20260721144613 20260721144614 20260721154543 20260721174741 20260721174742 20260721174743 20260721192917 20260721192918 20260721192919 20260721192920 20260722145926 20260722193231 20260722194537 20260722213618 20260722213745 20260722222823 20260722223840 20260722231517 20260723003223 20260723003224 20260723124230 20260723132402 20260724151010 20260724153130 20260724153307 20260725184902 20260725191131 20260725191132 20260727161500 20260727162618 20260728194627 20260728194628 20260729184331 20260730004424 20260730032023 20260730120000 20260730140000 20260730191108

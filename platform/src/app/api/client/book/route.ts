@@ -33,6 +33,8 @@ import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
+import { isValidLeadSource } from '@/lib/lead-sources'
+import { syncComhubContactName } from '@/lib/comhub-contact-sync'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -81,6 +83,11 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const rl = await rateLimitDb(`client-book:${tenant.id}:${ip}`, 3, 10 * 60 * 1000)
     if (!rl.allowed) {
+      // 'low' severity: this is routine abuse-prevention, not a bug — logged
+      // (not alerted) purely so a client's "kept failing then worked" report
+      // is diagnosable later instead of leaving zero trace, which is what
+      // happened investigating the Sara Davis / nycmaid 2026-08-01 report.
+      await trackError(new Error('rate limited'), { source: 'client/book:rate_limited', tenantId: tenant.id, severity: 'low', extra: ip })
       return NextResponse.json({ error: 'Too many booking attempts. Please wait a few minutes.' }, { status: 429 })
     }
 
@@ -98,6 +105,7 @@ export async function POST(request: Request) {
     }
 
     if (!body.client_id && !body.email && !body.phone) {
+      await trackError(new Error('missing client_id/email/phone'), { source: 'client/book:missing_contact', tenantId: tenant.id, severity: 'low', extra: ip })
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
@@ -154,6 +162,16 @@ export async function POST(request: Request) {
       }
 
       if (!clientId) {
+        // Required for every direct-booking path that creates a client without
+        // ever going through the deals pipeline (see lss-08 readiness finding,
+        // 2026-08-01): 90% of real clients had zero lead-source record at all,
+        // not just an unsold deal. Enforced here, not just in the form -- this
+        // is an unauthenticated public endpoint, so a caller-supplied body
+        // can't be trusted to have included it.
+        if (!isValidLeadSource(body.lead_source)) {
+          return NextResponse.json({ error: 'lead_source is required and must be one of the known options' }, { status: 400 })
+        }
+
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
@@ -163,6 +181,7 @@ export async function POST(request: Request) {
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),
+            source: body.lead_source as string,
             ...smsOptInFields(smsOptedIn, ip, userAgent),
           })
           .select()
@@ -187,6 +206,18 @@ export async function POST(request: Request) {
           message: `${clientName} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
       }
+    }
+
+    // Whoever's booking just handed us their real name -- that should
+    // replace whatever placeholder (usually nothing) ComHub has for them,
+    // client-new or returning alike. Never block the booking on this.
+    if (clientId && body.name) {
+      await syncComhubContactName(tenant.id, {
+        name: formatName(body.name as string),
+        phone: normalizePhone(body.phone as string | undefined),
+        email: (body.email as string) || null,
+        clientId,
+      }).catch((e) => console.error('[client/book] syncComhubContactName failed:', e))
     }
 
     // A returning client (matched by email/phone above, or booking with a
@@ -262,7 +293,10 @@ export async function POST(request: Request) {
       startTime = `${body.date}T${pad(hour)}:${pad(minute)}:00`
       endTime = `${body.date}T${pad(hour + duration)}:${pad(minute)}:00`
     }
-    if (!startTime) return NextResponse.json({ error: 'start_time or date+time required' }, { status: 400 })
+    if (!startTime) {
+      await trackError(new Error('missing start_time/date+time'), { source: 'client/book:missing_start_time', tenantId: tenant.id, severity: 'low', extra: ip })
+      return NextResponse.json({ error: 'start_time or date+time required' }, { status: 400 })
+    }
 
     const cleanerToken = generateCleanerToken()
     const tokenExpiresAt = new Date(startTime)
@@ -411,6 +445,7 @@ export async function POST(request: Request) {
     }
     if (!claim?.created) {
       if (claim?.reason === 'duplicate_date') {
+        await trackError(new Error('duplicate_date on submit'), { source: 'client/book:duplicate_date', tenantId: tenant.id, severity: 'low', extra: clientId })
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
       await trackError(new Error(`create_booking_atomic returned created:false, reason:${claim?.reason}`), { source: 'client/book:atomic_not_created', tenantId: tenant.id, severity: 'high' })

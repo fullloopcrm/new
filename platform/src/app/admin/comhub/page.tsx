@@ -23,6 +23,7 @@ type Contact = {
   name: string | null
   phone: string | null
   email: string | null
+  address: string | null
   client_id: string | null
   team_member_id: string | null
 }
@@ -1392,10 +1393,10 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 function ContextPanelInline({ context }: { context: ContactContext }) {
   const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
-  const fmtDate = (iso: string) => {
+  const fmtDateTime = (iso: string) => {
     try {
       const d = new Date(iso)
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
+      return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
     } catch { return iso }
   }
   const fmtPhone = (p: string | null | undefined) => {
@@ -1429,27 +1430,33 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
         </div>
-        <h3 className="mt-2" style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 500 }}>{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
         </div>
       </div>
 
+      <ContactDetailsEditor
+        contactId={contact.id}
+        initialName={contact.name || client?.name || cleaner?.name || ''}
+        initialAddress={contact.address || client?.address || client?.address_line1 || ''}
+      />
+
       {client && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
-          {(client.address || client.address_line1) && (
-            <div>
-              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
-              <div className="text-[var(--color-loop-graphite)]">{client.address || client.address_line1}</div>
-            </div>
-          )}
           {(client.pet_name || client.pet_type) && (
             <div>
               <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Pets</div>
               <div className="text-[var(--color-loop-graphite)]">{[client.pet_name, client.pet_type].filter(Boolean).join(' · ')}</div>
             </div>
           )}
+          <a
+            href={`/dashboard/bookings?new=1&client_id=${client.id}`}
+            className="block text-center text-xs font-medium px-3 py-1.5 rounded"
+            style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+          >
+            Book →
+          </a>
           <div className="flex gap-3 pt-1">
             <a
               href={`/admin/clients?id=${client.id}`}
@@ -1522,7 +1529,7 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
               style={{ border: '1px solid var(--color-loop-line-soft)', background: 'var(--color-loop-canvas)' }}
             >
               <div className="flex justify-between items-baseline">
-                <span className="font-medium">{fmtDate(b.start_time)}</span>
+                <span className="font-medium">{fmtDateTime(b.start_time)}</span>
                 <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{b.status || '—'}</span>
               </div>
               <div className="text-xs mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>
@@ -1573,6 +1580,91 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
       </div>
       <div className="p-4 text-xs" style={{ color: 'var(--color-loop-muted)' }}>
         Use this channel for team posts. <code style={{ color: 'var(--color-loop-graphite)' }}>@here</code> pings everyone, <code style={{ color: 'var(--color-loop-graphite)' }}>@firstname</code> pings one person.
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline editor for the contact's name + address. Works pre-client (leads
+// that haven't booked yet) — saves onto comhub_contacts, mirrored onto the
+// linked client record (if any) so the rest of the CRM stays in sync.
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
+  contactId: string
+  initialName: string
+  initialAddress: string
+}) {
+  const [name, setName] = useState(initialName)
+  const [address, setAddress] = useState(initialAddress)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => { setName(initialName); setAddress(initialAddress); setError(null) }, [initialName, initialAddress, contactId])
+
+  const dirty = name !== initialName || address !== initialAddress
+
+  const save = async () => {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/comhub/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name || null, address: address || null }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `HTTP ${res.status}`)
+      } else {
+        setSavedAt(Date.now())
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
+      <div>
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Name</div>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Unknown"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)', fontFamily: 'var(--display)', fontSize: 16 }}
+        />
+      </div>
+      <div>
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="No address on file"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+        />
+      </div>
+      <div className="flex items-center justify-between pt-0.5">
+        <div className="text-[11px]" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
+          {error ? <span style={{ color: 'var(--color-loop-warn)' }}>{error}</span>
+            : saving ? 'Saving…'
+            : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : dirty ? 'Unsaved changes' : ''}
+        </div>
+        <button
+          onClick={save}
+          disabled={!dirty || saving}
+          className="px-3 py-1 rounded text-xs disabled:opacity-50"
+          style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+        >
+          Save
+        </button>
       </div>
     </div>
   )

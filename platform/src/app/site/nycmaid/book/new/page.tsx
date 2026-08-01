@@ -6,6 +6,7 @@ import AddressAutocomplete from '@/app/site/nycmaid/_components/AddressAutocompl
 import { validateEmail } from '@/app/site/nycmaid/_lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -54,6 +55,7 @@ function BookFormContent() {
     estimated_hours: 2,
     max_hours: null as number | null,
     notes: '',
+    lead_source: '',
     referrer_name: '',
     referrer_phone: '',
     cleaner_id: '' as string,
@@ -297,6 +299,7 @@ function BookFormContent() {
     if (!emailCheck.valid) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'email' }); setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
     if (!form.address.trim()) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'address' }); setError('Please enter your address.'); return }
+    if (!form.lead_source) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'lead_source' }); setError('Please tell us how you found us.'); return }
     if (!form.date) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'date' }); setError('Please choose a date.'); return }
 
     trackBookingEvent('form_recap', sessionIdRef.current)
@@ -323,6 +326,7 @@ function BookFormContent() {
           estimated_hours: estimatedHours,
           max_hours: form.max_hours,
           notes: form.notes.trim(),
+          lead_source: form.lead_source,
           ref_code: refCode || null,
           src: srcDomain || null,
           referrer_name: form.referrer_name.trim() || null,
@@ -548,6 +552,22 @@ function BookFormContent() {
             <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
               <strong>Address must be correct.</strong> If not, travel time will be charged to the client.
             </div>
+          </div>
+
+          {/* How did you hear about us */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
+            <select
+              required
+              value={form.lead_source}
+              onChange={(e) => update('lead_source', e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+            >
+              <option value="">Select one...</option>
+              {LEAD_SOURCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* More options — supplies, hours, team size, notes, referrer. Clients

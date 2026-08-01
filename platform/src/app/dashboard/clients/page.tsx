@@ -10,6 +10,7 @@ import ClientsSettings from './clients-settings'
 import { SettingsHint } from '@/components/page-settings'
 import { formatPhone as formatPhoneDisplay } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
+import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -159,7 +160,7 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [drawerId, setDrawerId] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [addForm, setAddForm] = useState({ name: '', phone: '', email: '', address: '', notes: '', source: '' })
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState('')
 
@@ -187,6 +188,10 @@ export default function ClientsPage() {
       setAddError('Name is required')
       return
     }
+    if (!addForm.source) {
+      setAddError('Lead source is required')
+      return
+    }
     setAddSaving(true)
     setAddError('')
     try {
@@ -199,6 +204,7 @@ export default function ClientsPage() {
           email: addForm.email || undefined,
           address: addForm.address || undefined,
           notes: addForm.notes || undefined,
+          source: addForm.source,
         }),
       })
       const data = await res.json()
@@ -207,7 +213,7 @@ export default function ClientsPage() {
         return
       }
       setShowAddModal(false)
-      setAddForm({ name: '', phone: '', email: '', address: '', notes: '' })
+      setAddForm({ name: '', phone: '', email: '', address: '', notes: '', source: '' })
       loadClients()
     } catch {
       setAddError('Failed to add client')
@@ -613,6 +619,20 @@ export default function ClientsPage() {
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="123 Main St, New York, NY"
                 />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Lead Source *</label>
+                <select
+                  value={addForm.source}
+                  onChange={(e) => setAddForm({ ...addForm, source: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">How did they find you?</option>
+                  {LEAD_SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Notes</label>

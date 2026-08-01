@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 
 /**
  * client/book — client-controlled pricing on a PUBLIC, unauthenticated endpoint.
@@ -176,11 +176,52 @@ function bookReqNewClient(body: Record<string, unknown>) {
       body: JSON.stringify({
         name: 'Nora NewClient', email: 'nora@example.com', phone: '5551234567', address: '1 Main St',
         start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00',
+        lead_source: 'website',
         ...body,
       }),
     }),
   )
 }
+
+// lss-08 readiness finding (2026-08-01): direct-booking flows (this one
+// included) let a new client through with zero lead-source record. Now
+// required on the new-client path specifically -- an existing client
+// (bookReq, matched by email) is unaffected since they'd already have
+// been asked once.
+describe('new-client self-book — lead_source is required', () => {
+  it('rejects a new client with no lead_source at all', async () => {
+    const res = await bookReqNewClient({ lead_source: undefined })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a lead_source value outside the curated list', async () => {
+    const res = await bookReqNewClient({ lead_source: 'made-up-value' })
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts a valid curated lead_source and creates the client with it', async () => {
+    const res = await bookReqNewClient({ lead_source: 'google' })
+    expect(res.status).toBe(200)
+  })
+})
+
+// The NYC Maid weekend/emergency tests below assert against fixed calendar
+// dates (2026-08-01 Sat / 08-02 Sun / 08-03 Mon / 08-07 Fri) so the
+// weekday-vs-weekend split is unambiguous. The route derives same-day/
+// under-48hr "emergency" pricing from the REAL wall clock (`new Date()`),
+// so without a pinned system time these tests silently break the moment
+// the real calendar catches up to (or passes) those hardcoded dates — every
+// booking starts looking same-day/imminent and gets emergency-priced. Pin
+// "now" comfortably before all of them so emergency detection stays false
+// regardless of when this suite actually runs.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-25T12:00:00-04:00'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 beforeEach(() => {
   holder.rpcCalls.length = 0

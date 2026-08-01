@@ -102,7 +102,7 @@ describe('clients POST — tenant isolation', () => {
     const res = await POST(
       new Request('http://t/api/clients', {
         method: 'POST',
-        body: JSON.stringify({ name: 'New', email: 'shared@example.com', phone: '5559990000' }),
+        body: JSON.stringify({ name: 'New', email: 'shared@example.com', phone: '5559990000', source: 'referral' }),
       }),
     )
     // If the dedup read leaked tenant B, cli-b's shared email would 409 this.
@@ -115,7 +115,7 @@ describe('clients POST — tenant isolation', () => {
     const res = await POST(
       new Request('http://t/api/clients', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Forged', phone: '5558887777', tenant_id: B }),
+        body: JSON.stringify({ name: 'Forged', phone: '5558887777', tenant_id: B, source: 'referral' }),
       }),
     )
     expect(res.status).toBe(201)

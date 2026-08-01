@@ -54,3 +54,38 @@ describe('safety-gate brand-query guard', () => {
     expect(res.pass).toBe(true)
   })
 })
+
+/**
+ * Competitor-name false-positive fix (2026-08-01): competitorBrands is
+ * derived from competitor domains (towing.com -> "towing", roadside.aaa.com
+ * -> "roadside") — often generic industry words that legitimately belong in
+ * the tenant's own copy (thenyctowingservice.com obviously needs to say
+ * "towing"). Real bug found via live simulation: this blocked 2 genuinely
+ * good proposals for a towing tenant. Fix: only flag a word the rewrite
+ * NEWLY introduces — if the tenant's own existing copy already used it,
+ * it's not a competitor callout.
+ */
+describe('safety-gate competitor-name guard — only newly-introduced words', () => {
+  it('does NOT reject a generic industry word already in the tenant\'s own copy', () => {
+    const res = evaluateSafety({
+      field: 'title',
+      before: '24/7 Towing & Roadside in All 5 Boroughs | The NYC Towing Service',
+      after: 'Towing & Roadside Help, Sunset Park | The NYC Towing Service',
+      url: 'https://www.thenyctowingservice.com/locations/brooklyn/sunset-park',
+      competitorBrands: ['towing', 'roadside'],
+    })
+    expect(res.pass).toBe(true)
+  })
+
+  it('still rejects a competitor word genuinely NEW to this page', () => {
+    const res = evaluateSafety({
+      field: 'title',
+      before: 'Towing Service in Sunset Park | The NYC Towing Service',
+      after: 'Better Than MerryMaids in Sunset Park | The NYC Towing Service',
+      url: 'https://www.thenyctowingservice.com/locations/brooklyn/sunset-park',
+      competitorBrands: ['merrymaids'],
+    })
+    expect(res.pass).toBe(false)
+    expect(res.reasons.some((r) => r.includes('names competitor'))).toBe(true)
+  })
+})

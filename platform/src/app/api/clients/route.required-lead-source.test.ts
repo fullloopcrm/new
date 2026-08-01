@@ -1,21 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * POST /api/clients built its insert row from a validate() allow-list that
- * silently dropped referrer_id and notes -- even though BookingsAdmin.tsx's
- * "New Client" modal sends both on every create (a <select> for referrer_id,
- * a <textarea> for notes). referrer_id loss meant the sticky commission
- * attribution (clients.referrer_id, read on every completed cleaning per
- * 2026_07_18_sales_partners.sql) never got set for phone-booked clients
- * whose referrer staff picked manually, silently losing that referrer's
- * commission on every future booking for that client. Same allow-list-drops-
- * a-real-field shape as the bookings/batch fix in 8b6486b2.
+ * lss-08 readiness finding (2026-08-01): 90% of real clients had zero
+ * lead-source record at all, because every direct-client-creation path
+ * (this one included) let it through as fully optional free text. Now
+ * required and constrained to the curated LEAD_SOURCE_OPTIONS list.
  */
 
 const TENANT = 'aaaaaaaa-1111-2222-3333-444444444444'
-const OTHER_TENANT = 'cccccccc-9999-8888-7777-666666666666'
-const OWN_REFERRER = 'bbbbbbbb-0001-0001-0001-000000000001'
-const FOREIGN_REFERRER = 'bbbbbbbb-0002-0002-0002-000000000002'
 
 type Row = Record<string, unknown>
 const store: Record<string, Row[]> = {}
@@ -39,7 +31,7 @@ vi.mock('@/lib/supabase', () => {
       },
       single: async () => {
         if (kind === 'insert') {
-          const row = { id: genId(), ...payload }
+          const row = { id: genId(), tenant_id: TENANT, ...payload }
           store[table] = [...(store[table] || []), row]
           return { data: row, error: null }
         }
@@ -78,31 +70,30 @@ function jsonReq(body: Row): Request {
   })
 }
 
-describe('POST /api/clients — referrer_id and notes', () => {
+describe('POST /api/clients — required lead source', () => {
   beforeEach(() => {
     store.clients = []
     store.sales_partners = []
-    store.referrers = [
-      { id: OWN_REFERRER, tenant_id: TENANT, name: 'Own Referrer' },
-      { id: FOREIGN_REFERRER, tenant_id: OTHER_TENANT, name: 'Foreign Referrer' },
-    ]
+    store.referrers = []
     idSeq = 0
   })
 
-  it('persists referrer_id and notes instead of silently dropping them', async () => {
-    const res = await POST(jsonReq({
-      name: 'Jane Doe', phone: '212-555-1234', referrer_id: OWN_REFERRER, notes: 'Met at the farmers market', source: 'referral',
-    }))
-    expect(res.status).toBe(201)
+  it('rejects a new client with no source at all', async () => {
+    const res = await POST(jsonReq({ name: 'Jane Doe', phone: '212-555-1234' }))
+    expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.client.referrer_id).toBe(OWN_REFERRER)
-    expect(body.client.notes).toBe('Met at the farmers market')
+    expect(body.error).toMatch(/lead source/i)
   })
 
-  it('rejects a referrer_id belonging to a different tenant', async () => {
-    const res = await POST(jsonReq({
-      name: 'Jane Doe', phone: '212-555-1234', referrer_id: FOREIGN_REFERRER, source: 'referral',
-    }))
+  it('rejects a source value outside the curated list', async () => {
+    const res = await POST(jsonReq({ name: 'Jane Doe', phone: '212-555-1234', source: 'made-up-value' }))
     expect(res.status).toBe(400)
+  })
+
+  it('accepts a valid curated source value', async () => {
+    const res = await POST(jsonReq({ name: 'Jane Doe', phone: '212-555-1234', source: 'referral' }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.client.source).toBe('referral')
   })
 })

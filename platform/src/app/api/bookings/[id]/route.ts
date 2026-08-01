@@ -326,6 +326,14 @@ export async function DELETE(
     const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const cancelSeries = url.searchParams.get('cancel_series') === 'true'
+    // The frontend has sent this on every batched delete since the recurring-
+    // series cancel flow was built (BookingsAdmin.tsx handleCancel: "Cancel
+    // first with email, rest skip email"), but nothing here ever read it —
+    // every booking in a bulk delete sent its own client email/SMS regardless.
+    // Now also the explicit signal for a genuine hard-delete ("Delete" button,
+    // as opposed to "Cancel"): the whole point of deleting instead of
+    // cancelling is that the client is never told anything happened.
+    const skipNotify = url.searchParams.get('skip_email') === 'true'
 
     // Get booking details before deleting for notifications
     // tenantDb's select() takes a non-literal `columns` param, which widens
@@ -421,8 +429,10 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Send cancellation notifications
-    if (booking) {
+    // Send cancellation notifications — skipped entirely for a silent delete
+    // (skip_email=true). This is a hard DELETE, not the /status cancel path;
+    // "the client never finds out" is the whole point of using this over Cancel.
+    if (booking && !skipNotify) {
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')

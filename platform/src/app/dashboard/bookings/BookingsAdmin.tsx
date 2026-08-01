@@ -1741,15 +1741,9 @@ function BookingsPage() {
                         <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-gray-400 hover:text-[var(--sched-ink)] hover:bg-gray-100 transition-colors" title="Edit">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-                        {b.status === 'cancelled' ? (
-                          <button onClick={async () => { if (confirm(`Permanently delete this canceled booking for ${b.clients?.name || 'this client'}?`)) { try { const res = await fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to delete: ${err.error || 'Unknown error'}`); } await loadBookings() } catch (e) { alert(`Failed to delete: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        ) : (
-                          <button onClick={async () => { if (confirm(`Cancel booking for ${b.clients?.name || 'this client'}?`)) { try { const res = await fetch('/api/bookings/' + b.id + '/status', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'cancelled' }) }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to cancel: ${err.error || 'Unknown error'}`); } await loadBookings() } catch (e) { alert(`Failed to cancel: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Cancel">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        )}
+                        <button onClick={async () => { if (confirm(`Delete this booking for ${b.clients?.name || 'this client'}? This is permanent and the client is not notified.`)) { try { const res = await fetch('/api/bookings/' + b.id + '?skip_email=true', { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to delete: ${err.error || 'Unknown error'}`); } await loadBookings() } catch (e) { alert(`Failed to delete: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete (permanent, silent)">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -2454,20 +2448,17 @@ function BookingsPage() {
 
             {/* ── ACTIONS ── */}
             <div className="flex gap-2 pt-3 border-t border-gray-100">
-              {editingBooking.status === 'cancelled' ? (
-                <button type="button" onClick={async () => { if (confirm(`Permanently delete this cancelled booking for ${editingBooking.clients?.name || 'this client'}? This cannot be undone.`)) { try { const res = await fetch('/api/bookings/' + editingBooking.id, { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to delete: ${err.error || 'Unknown error'}`); return } setShowModal(false); setEditingBooking(null); await loadBookings() } catch (e) { alert(`Failed to delete: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Delete</button>
-              ) : (editingBooking.recurring_type || editingBooking.schedule_id) ? (
+              <button type="button" onClick={async () => { if (confirm(`Delete this booking for ${editingBooking.clients?.name || 'this client'}? This is permanent and the client is not notified.`)) { try { const res = await fetch('/api/bookings/' + editingBooking.id + '?skip_email=true', { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to delete: ${err.error || 'Unknown error'}`); return } setShowModal(false); setEditingBooking(null); await loadBookings() } catch (e) { alert(`Failed to delete: ${e instanceof Error ? e.message : 'Network error'}`) } } }} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Delete</button>
+              {(editingBooking.recurring_type || editingBooking.schedule_id) && editingBooking.status !== 'cancelled' && (
                 <div className="relative">
-                  <button type="button" onClick={() => setShowCancelMenu(!showCancelMenu)} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Cancel ▾</button>
+                  <button type="button" onClick={() => setShowCancelMenu(!showCancelMenu)} className="px-3 py-2 text-gray-500 hover:bg-gray-50 rounded-lg text-sm" title="Stops future occurrences from being generated — notifies the client">Cancel series ▾</button>
                   {showCancelMenu && (
                     <div className="absolute left-0 bottom-full mb-1 bg-white border rounded-lg shadow-lg py-1 min-w-[160px] z-10">
-                      <button type="button" onClick={() => { setShowCancelMenu(false); handleCancel('single') }} className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 text-sm">This booking</button>
-                      <button type="button" onClick={() => { setShowCancelMenu(false); handleCancel('all') }} className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 text-sm">All future</button>
+                      <button type="button" onClick={() => { setShowCancelMenu(false); handleCancel('single') }} className="w-full px-3 py-2 text-left text-gray-600 hover:bg-gray-50 text-sm">This booking</button>
+                      <button type="button" onClick={() => { setShowCancelMenu(false); handleCancel('all') }} className="w-full px-3 py-2 text-left text-gray-600 hover:bg-gray-50 text-sm">All future</button>
                     </div>
                   )}
                 </div>
-              ) : (
-                <button type="button" onClick={() => handleCancel('single')} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Cancel</button>
               )}
               <div className="flex-1" />
               <button type="button" onClick={() => { setShowModal(false); setEditingBooking(null) }} className="px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)] text-sm">Close</button>

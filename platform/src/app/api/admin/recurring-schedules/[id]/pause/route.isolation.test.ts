@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
@@ -29,6 +29,21 @@ import { POST, DELETE } from './route'
 
 const postReq = (body: unknown) => new Request('http://x', { method: 'POST', body: JSON.stringify(body) })
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
+
+// The pause route only cancels bookings with `start_time >= now` (real wall
+// clock, `new Date().toISOString()` in route.ts), and the seeded bookings are
+// pinned to 2026-08-01T10:00:00. Without a pinned system time this test only
+// passes while the suite happens to run before that instant — once the real
+// calendar catches up, the seeded bookings are silently treated as
+// already-past and never get cancelled. Pin "now" comfortably before it.
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-25T12:00:00Z'))
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 beforeEach(() => {
   h.tenantId = 'tenant-A'
