@@ -31,6 +31,9 @@ import { theVillagesMaidConfig } from './the-villages-maid'
 import { wellingtonMaidConfig } from './wellington-maid'
 import { wesleyChapelMaidConfig } from './wesley-chapel-maid'
 import { westonMaidConfig } from './weston-maid'
+import { winterGardenMaidConfig } from './winter-garden-maid'
+import { winterParkMaidConfig } from './winter-park-maid'
+import { oviedoMaidConfig } from './oviedo-maid'
 
 const CONFIGS: EmdMicrositeConfig[] = [
   miamiBeachMaidConfig,
@@ -65,6 +68,9 @@ const CONFIGS: EmdMicrositeConfig[] = [
   wellingtonMaidConfig,
   wesleyChapelMaidConfig,
   westonMaidConfig,
+  winterGardenMaidConfig,
+  winterParkMaidConfig,
+  oviedoMaidConfig,
 ]
 
 const BY_DOMAIN = new Map<string, EmdMicrositeConfig>(
