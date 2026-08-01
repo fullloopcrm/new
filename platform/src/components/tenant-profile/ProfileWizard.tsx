@@ -26,6 +26,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import type { ServiceArea } from '@/lib/service-area'
 import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
+import OnboardingCatalog from './OnboardingCatalog'
 
 export type FieldValue = string | number | boolean | string[] | Record<string, unknown> | null | undefined
 
@@ -269,6 +270,8 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
         <h2 className="font-heading text-lg font-semibold text-slate-900">{meta.title}</h2>
         {meta.blurb && <p className="mb-5 text-sm text-slate-500">{meta.blurb}</p>}
+
+        {sectionKey === 'services' && <OnboardingCatalog token={token} />}
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (

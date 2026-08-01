@@ -105,6 +105,9 @@ const isPublicRoute = createRouteMatcher([
   '/onboarding(.*)',
   '/onboard(.*)',             // Public, no-login per-tenant onboarding-questionnaire link (signed token)
   '/api/tenant-profile(.*)',  // Backs /onboard/[token] — auths itself (session OR signed token), not Clerk
+  '/api/catalog(.*)',         // GET/POST/DELETE auth themselves the same way (session OR signed token) so
+                              // /onboard/[token]'s Services & Pricing step can add real catalog items before
+                              // login; PATCH still requires a real session internally (route.ts, unchanged).
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',
