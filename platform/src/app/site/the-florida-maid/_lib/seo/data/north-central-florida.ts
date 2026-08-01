@@ -275,8 +275,8 @@ export const NORTH_CENTRAL_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Lake County ===
   {
-    slug: 'leesburg',
-    urlSlug: 'leesburg-maid-service',
+    slug: 'leesburg-north-central',
+    urlSlug: 'leesburg-north-central-maid-service',
     name: 'Leesburg',
     area: 'north-central-florida',
     lat: 28.8108, lng: -81.8779,
@@ -287,8 +287,8 @@ export const NORTH_CENTRAL_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['the-villages', 'eustis', 'tavares', 'wildwood'],
   },
   {
-    slug: 'eustis',
-    urlSlug: 'eustis-maid-service',
+    slug: 'eustis-north-central',
+    urlSlug: 'eustis-north-central-maid-service',
     name: 'Eustis',
     area: 'north-central-florida',
     lat: 28.8528, lng: -81.6854,
@@ -299,8 +299,8 @@ export const NORTH_CENTRAL_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['tavares', 'leesburg'],
   },
   {
-    slug: 'tavares',
-    urlSlug: 'tavares-maid-service',
+    slug: 'tavares-north-central',
+    urlSlug: 'tavares-north-central-maid-service',
     name: 'Tavares',
     area: 'north-central-florida',
     lat: 28.8036, lng: -81.7256,
@@ -325,8 +325,8 @@ export const NORTH_CENTRAL_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['lady-lake', 'leesburg', 'wildwood', 'belleview'],
   },
   {
-    slug: 'lady-lake',
-    urlSlug: 'lady-lake-maid-service',
+    slug: 'lady-lake-north-central',
+    urlSlug: 'lady-lake-north-central-maid-service',
     name: 'Lady Lake',
     area: 'north-central-florida',
     lat: 28.9175, lng: -81.9236,
@@ -449,8 +449,8 @@ export const NORTH_CENTRAL_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['gainesville', 'palatka', 'lake-city'],
   },
   {
-    slug: 'palatka',
-    urlSlug: 'palatka-maid-service',
+    slug: 'palatka-north-central',
+    urlSlug: 'palatka-north-central-maid-service',
     name: 'Palatka',
     area: 'north-central-florida',
     lat: 29.6486, lng: -81.6376,

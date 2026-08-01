@@ -465,7 +465,7 @@ export const SOUTHWEST_FLORIDA_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['sarasota', 'bee-ridge', 'osprey', 'siesta-key'],
   },
   {
-    slug: 'university-park',
+    slug: 'university-park-southwest',
     urlSlug: 'university-park-maid-service',
     name: 'University Park',
     area: 'southwest-florida',

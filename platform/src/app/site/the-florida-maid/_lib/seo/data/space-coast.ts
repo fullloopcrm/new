@@ -537,8 +537,8 @@ export const SPACE_COAST_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['jensen-beach', 'stuart', 'fort-pierce'],
   },
   {
-    slug: 'hobe-sound',
-    urlSlug: 'hobe-sound-maid-service',
+    slug: 'hobe-sound-space-coast',
+    urlSlug: 'hobe-sound-space-coast-maid-service',
     name: 'Hobe Sound',
     area: 'space-coast',
     lat: 27.0594, lng: -80.1361,

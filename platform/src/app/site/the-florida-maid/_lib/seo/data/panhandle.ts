@@ -395,7 +395,7 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['panama-city', 'springfield', 'callaway', 'cedar-grove'],
   },
   {
-    slug: 'springfield',
+    slug: 'springfield-panhandle',
     urlSlug: 'springfield-maid-service',
     name: 'Springfield',
     area: 'panhandle',
@@ -793,8 +793,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Suwannee County ===
   {
-    slug: 'live-oak',
-    urlSlug: 'live-oak-maid-service',
+    slug: 'live-oak-panhandle',
+    urlSlug: 'live-oak-panhandle-maid-service',
     name: 'Live Oak',
     area: 'panhandle',
     lat: 30.2949, lng: -82.9842,
@@ -831,8 +831,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Columbia County ===
   {
-    slug: 'lake-city',
-    urlSlug: 'lake-city-maid-service',
+    slug: 'lake-city-panhandle',
+    urlSlug: 'lake-city-panhandle-maid-service',
     name: 'Lake City',
     area: 'panhandle',
     lat: 30.1898, lng: -82.6393,
@@ -855,8 +855,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['lake-city', 'high-springs'],
   },
   {
-    slug: 'high-springs',
-    urlSlug: 'high-springs-maid-service',
+    slug: 'high-springs-panhandle',
+    urlSlug: 'high-springs-panhandle-maid-service',
     name: 'High Springs',
     area: 'panhandle',
     lat: 29.8268, lng: -82.5966,
@@ -869,8 +869,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Baker County ===
   {
-    slug: 'macclenny',
-    urlSlug: 'macclenny-maid-service',
+    slug: 'macclenny-panhandle',
+    urlSlug: 'macclenny-panhandle-maid-service',
     name: 'Macclenny',
     area: 'panhandle',
     lat: 30.2824, lng: -82.1219,
@@ -881,8 +881,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['lake-city', 'starke', 'glen-st-mary'],
   },
   {
-    slug: 'glen-st-mary',
-    urlSlug: 'glen-st-mary-maid-service',
+    slug: 'glen-st-mary-panhandle',
+    urlSlug: 'glen-st-mary-panhandle-maid-service',
     name: 'Glen St. Mary',
     area: 'panhandle',
     lat: 30.2788, lng: -82.1655,
@@ -895,8 +895,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Bradford County ===
   {
-    slug: 'starke',
-    urlSlug: 'starke-maid-service',
+    slug: 'starke-panhandle',
+    urlSlug: 'starke-panhandle-maid-service',
     name: 'Starke',
     area: 'panhandle',
     lat: 29.9441, lng: -82.1092,
@@ -907,8 +907,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['macclenny', 'lake-city', 'keystone-heights'],
   },
   {
-    slug: 'keystone-heights',
-    urlSlug: 'keystone-heights-maid-service',
+    slug: 'keystone-heights-panhandle',
+    urlSlug: 'keystone-heights-panhandle-maid-service',
     name: 'Keystone Heights',
     area: 'panhandle',
     lat: 29.7863, lng: -82.0315,
@@ -921,8 +921,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
 
   // === Dixie / Gilchrist / Levy (rural north central) ===
   {
-    slug: 'cross-city',
-    urlSlug: 'cross-city-maid-service',
+    slug: 'cross-city-panhandle',
+    urlSlug: 'cross-city-panhandle-maid-service',
     name: 'Cross City',
     area: 'panhandle',
     lat: 29.6344, lng: -83.1253,
@@ -933,8 +933,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['perry', 'steinhatchee', 'chiefland'],
   },
   {
-    slug: 'chiefland',
-    urlSlug: 'chiefland-maid-service',
+    slug: 'chiefland-panhandle',
+    urlSlug: 'chiefland-panhandle-maid-service',
     name: 'Chiefland',
     area: 'panhandle',
     lat: 29.4750, lng: -82.8598,
@@ -945,8 +945,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['cross-city', 'high-springs', 'cedar-key'],
   },
   {
-    slug: 'cedar-key',
-    urlSlug: 'cedar-key-maid-service',
+    slug: 'cedar-key-panhandle',
+    urlSlug: 'cedar-key-panhandle-maid-service',
     name: 'Cedar Key',
     area: 'panhandle',
     lat: 29.1367, lng: -83.0351,
@@ -957,8 +957,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['chiefland', 'cross-city'],
   },
   {
-    slug: 'trenton',
-    urlSlug: 'trenton-maid-service',
+    slug: 'trenton-panhandle',
+    urlSlug: 'trenton-panhandle-maid-service',
     name: 'Trenton',
     area: 'panhandle',
     lat: 29.6127, lng: -82.8178,
@@ -969,8 +969,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['chiefland', 'high-springs', 'cross-city'],
   },
   {
-    slug: 'alachua',
-    urlSlug: 'alachua-maid-service',
+    slug: 'alachua-panhandle',
+    urlSlug: 'alachua-panhandle-maid-service',
     name: 'Alachua',
     area: 'panhandle',
     lat: 29.7514, lng: -82.4948,
@@ -981,8 +981,8 @@ export const PANHANDLE_NEIGHBORHOODS: Neighborhood[] = [
     nearby: ['high-springs', 'lake-city', 'newberry'],
   },
   {
-    slug: 'newberry',
-    urlSlug: 'newberry-maid-service',
+    slug: 'newberry-panhandle',
+    urlSlug: 'newberry-panhandle-maid-service',
     name: 'Newberry',
     area: 'panhandle',
     lat: 29.6463, lng: -82.6065,
