@@ -10,7 +10,7 @@
  * and returns fresh readiness, which drives the completeness rail + launch gate.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PROFILE_SECTION_META, PROFILE_SECTION_ORDER } from '@/lib/tenant-profile'
+import { PROFILE_SECTION_META, PROFILE_SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
 
 type Tier = 'critical' | 'recommended' | 'optional'
 type Input = 'text' | 'textarea' | 'number' | 'select' | 'color' | 'toggle' | 'array'
@@ -135,7 +135,13 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
               </div>
               <div className="space-y-4">
                 {visible.map((f) => (
-                  <FieldRow key={f.key} field={f} value={values[f.key]} state={saveState[f.key] || 'idle'} onChange={onChange} />
+                  <FieldRow
+                    key={f.key}
+                    field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                    value={values[f.key]}
+                    state={saveState[f.key] || 'idle'}
+                    onChange={onChange}
+                  />
                 ))}
               </div>
             </section>

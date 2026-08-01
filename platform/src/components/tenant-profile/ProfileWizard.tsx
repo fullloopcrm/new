@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import type { ServiceArea } from '@/lib/service-area'
-import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER } from '@/lib/tenant-profile'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
 
 export type FieldValue = string | number | boolean | string[] | Record<string, unknown> | null | undefined
 
@@ -256,7 +256,11 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (
             <div key={f.key} className={isWideField(f) ? 'md:col-span-2' : undefined}>
-              <FieldRenderer field={f} value={form[f.key]} onChange={(v) => set(f.key, v)} />
+              <FieldRenderer
+                field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                value={form[f.key]}
+                onChange={(v) => set(f.key, v)}
+              />
             </div>
           ))}
         </div>

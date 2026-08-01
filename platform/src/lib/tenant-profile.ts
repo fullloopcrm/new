@@ -378,6 +378,34 @@ export const PROFILE_SECTION_ORDER: ProfileSection[] = [
   'team', 'compliance', 'seo', 'ai',
 ]
 
+/**
+ * Stable "6.3"-style display number for every non-readonly field — section
+ * index . position within section, both computed purely from PROFILE_FIELDS'
+ * own declaration order. Dot-notation instead of letters (6A, 6B) because
+ * some sections (ai) run past 20 fields.
+ *
+ * Every surface that shows a field to a person (the public /onboard/[token]
+ * link, the in-dashboard wizard, the admin Profile Form) imports this instead
+ * of computing its own -- that's what makes "field 6.3" mean the exact same
+ * field everywhere, structurally, not by coincidence. Readonly/derived
+ * fields (serviceScope, servicePricing, …) are excluded: they're
+ * supplementary "(set elsewhere)" context on the admin form, not a numbered
+ * question, and the tenant-facing wizard never shows them at all -- giving
+ * them a number would make the two surfaces' counts disagree.
+ */
+export const PROFILE_FIELD_NUMBER: Record<string, string> = (() => {
+  const out: Record<string, string> = {}
+  PROFILE_SECTION_ORDER.forEach((section, sectionIdx) => {
+    let n = 0
+    for (const f of PROFILE_FIELDS) {
+      if (f.section !== section || f.readonly) continue
+      n += 1
+      out[f.key] = `${sectionIdx + 1}.${n}`
+    }
+  })
+  return out
+})()
+
 /** Coerce an incoming value to a field's storage kind. Empty → null (clear). */
 export function coerceFieldValue(f: FieldDef, raw: unknown): unknown {
   if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return null
