@@ -38,12 +38,11 @@ export default function LoginForm({ businessName }: LoginFormProps) {
         setPin('')
         return
       }
-      // Deep links from the portal picker (?next=/dashboard) land straight on
-      // the tenant surface being visited; a fresh super-admin login with no
-      // next= otherwise defaults into the picker instead of the platform
-      // panel, since a bare /admin lands you nowhere tenant-specific.
+      // Deep links (?next=/dashboard) land straight on the tenant surface
+      // being visited; a fresh login with no next= lands on the platform
+      // Overview instead.
       const next = searchParams.get('next')
-      router.push(next || (data.role === 'super_admin' ? '/admin/portals' : '/admin'))
+      router.push(next || '/admin')
       router.refresh()
     } catch {
       setError('Connection error')

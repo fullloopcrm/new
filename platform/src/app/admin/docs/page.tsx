@@ -928,12 +928,11 @@ Both programs are GLOBAL (one implementation, all tenants) per the platform's ar
 | # | Section | Route |
 |---|---|---|
 | 00 | Overview | \`/admin\` — explicitly, per its own comment: "This is what Jefe watches: tenant health, provisioning gaps, comms/cron/error signals... NOT a build checklist and NOT tenant ops." This is the closest thing to a Jefe-facing dashboard, even though Jefe itself has no chat UI (see the corrected Jefe section). |
-| 01 | Portals | \`/admin/portals\` — the landing page after a fresh super-admin PIN login: one click into any tenant's operator dashboard, team portal, or client portal, without needing to already be on that tenant's own domain. |
-| 02 | Sales | \`/admin/sales\` — cross-tenant Contacts/Leads/Accounts views. Both \`/admin/leads\` and \`/admin/requests\` now redirect here (\`admin/requests\` → \`admin/leads\` → \`admin/sales\`, a double-redirect chain — harmless but worth collapsing to a direct redirect if anyone's touching that code). The \`admin/requests\` API endpoints (proposal/agreement/checkout) are still fully live — see Platform Admin notes — only the standalone page moved. |
-| 03 | Tenants | \`/admin/businesses\` — sub: Territories (\`/admin/territories\`, the interactive USA map of the one-tenant-per-category-per-territory exclusivity grid). |
-| 04 | Tenant Chats | \`/admin/tenant-chats\` — admin side of Platform Messaging. **Its own comment says inbound capture is still phase 2** — see the correction in the Platform Messaging section; don't assume this is fully bidirectional-live yet. |
-| 05 | ComHub | \`/admin/comhub\` — the Telnyx WebRTC softphone lives here (lazy/SSR-disabled). |
-| 06 | SEO | \`/admin/seo\` |
+| 01 | Sales | \`/admin/sales\` — cross-tenant Contacts/Leads/Accounts views. Both \`/admin/leads\` and \`/admin/requests\` now redirect here (\`admin/requests\` → \`admin/leads\` → \`admin/sales\`, a double-redirect chain — harmless but worth collapsing to a direct redirect if anyone's touching that code). The \`admin/requests\` API endpoints (proposal/agreement/checkout) are still fully live — see Platform Admin notes — only the standalone page moved. |
+| 02 | Tenants | \`/admin/businesses\` — sub: Territories (\`/admin/territories\`, the interactive USA map of the one-tenant-per-category-per-territory exclusivity grid). Each tenant's own profile page (\`/admin/businesses/[id]\`) has one-click Dashboard / Team Portal / Client Portal links — the standalone \`/admin/portals\` picker this replaced (2026-08-01) was a redundant duplicate of this same tenant list. |
+| 03 | Tenant Chats | \`/admin/tenant-chats\` — admin side of Platform Messaging. **Its own comment says inbound capture is still phase 2** — see the correction in the Platform Messaging section; don't assume this is fully bidirectional-live yet. |
+| 04 | ComHub | \`/admin/comhub\` — the Telnyx WebRTC softphone lives here (lazy/SSR-disabled). |
+| 05 | SEO | \`/admin/seo\` |
 
 **Admin platform-utility links:** Tenant Health (the "Fortress board" — every tenant site's live health, written by the tenant-health cron every 15 min, read-only), Feedback, System Status, Activity Log, Monitoring *(see Jefe section)*, AI Usage (30-day cost window, capped at a 100,000-row app-side aggregation — "revisit if volume grows" per its own comment, a known future scaling limit), Security *(color-coded event types: suspicious_login, api_key_change, status_change, plan_change, login, impersonation)*, Announcements, Settings.
 
@@ -1591,7 +1590,6 @@ export default function AdminDocsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
           {[
             { label: 'Admin Overview', href: '/admin' },
-            { label: 'Portals', href: '/admin/portals' },
             { label: 'All Businesses', href: '/admin/businesses' },
             { label: 'Territories', href: '/admin/territories' },
             { label: 'Tenant Chats', href: '/admin/tenant-chats' },

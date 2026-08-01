@@ -8,6 +8,7 @@ import { LaunchPanel } from '@/components/admin/LaunchPanel'
 import DocumentsPanel from '@/components/DocumentsPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { UNIVERSAL_PIN } from '@/lib/universal-pin'
 
 type Business = {
   id: string
@@ -34,6 +35,7 @@ type Business = {
   last_active_at: string | null
   created_at: string
   gmail_account: string | null
+  domain: string | null
   domain_name: string | null
   dns_configured: boolean
   email_domain_verified: boolean
@@ -389,6 +391,17 @@ export default function BusinessDetailPage() {
     fetchData()
   }
 
+  // Deep-links the master PIN as a `?pin=` query param -- these surfaces are
+  // served on the TENANT'S OWN domain and authenticate via a completely
+  // separate PIN-only system (team_members/clients tables), so there's no
+  // cookie-based impersonation equivalent (ported from the old /admin/portals
+  // picker, which this replaces).
+  function portalUrl(domain: string, path: string): string {
+    const url = new URL(`https://${domain}${path}`)
+    url.searchParams.set('pin', UNIVERSAL_PIN)
+    return url.toString()
+  }
+
   async function startImpersonation() {
     setImpersonating(true)
     const res = await fetch('/api/admin/impersonate', {
@@ -525,6 +538,26 @@ export default function BusinessDetailPage() {
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
             {impersonating ? 'Entering...' : 'Enter Business Profile'}
           </button>
+          {(biz.domain || biz.domain_name) && (
+            <>
+              <a
+                href={portalUrl((biz.domain || biz.domain_name) as string, '/team/login')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Team Portal ↗
+              </a>
+              <a
+                href={portalUrl((biz.domain || biz.domain_name) as string, '/portal/login')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Client Portal ↗
+              </a>
+            </>
+          )}
         </div>
       </div>
 
