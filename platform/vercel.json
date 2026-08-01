@@ -57,24 +57,8 @@
       "schedule": "30 6 * * *"
     },
     {
-      "path": "/api/cron/seo-propose",
-      "schedule": "0 7 * * 1"
-    },
-    {
-      "path": "/api/cron/seo-competitors",
-      "schedule": "15 7 1 * *"
-    },
-    {
-      "path": "/api/cron/seo-enrich",
-      "schedule": "30 7 * * 4"
-    },
-    {
       "path": "/api/cron/seo-autoverify",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/seo-autopilot",
-      "schedule": "30 8 * * *"
     },
     {
       "path": "/api/cron/seo-health",
