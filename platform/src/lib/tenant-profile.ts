@@ -193,7 +193,13 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', read: (x) => e(x, 'zip') },
   { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', read: (x) => t(x, 'website_url') },
   { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
-  { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', read: (x) => t(x, 'lead_notification_email') },
+  { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', help: 'Where WE send you an alert the moment a new lead comes in from your website or booking form — usually the same as your business email, but can be different if you want leads routed to someone else.', read: (x) => t(x, 'lead_notification_email') },
+
+  // ── Secondary contact ── kept with the rest of primary contact info,
+  // not buried near the service-area settings below.
+  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', help: 'A backup person we can reach if you\'re unavailable — a partner, manager, or office admin. Optional.', read: (x) => t(x, 'secondary_contact_name') },
+  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
+  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
 
   // ── Service area ─── scope/states/zones owned by ServiceAreaEditor (selena_config.service_area).
   // `serviceScope` stays readonly (unchanged, still drives readiness). `serviceArea`
@@ -208,10 +214,6 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'serviceLat', label: 'Geocoded center', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => t(x, 'service_area_lat') },
   { key: 'timezone', label: 'Timezone', section: 'scheduling', store: 'tenant', col: 'timezone', tier: 'critical', read: (x) => t(x, 'timezone') },
 
-  // ── Secondary contact ──────────────────────────────────────────────
-  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', read: (x) => t(x, 'secondary_contact_name') },
-  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
-  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
   // Locations beyond the primary are a 1:N relationship (tenant_locations) —
   // not a scalar field. This is a readonly readiness signal only; the actual
   // add/edit/remove UI is its own small component + API (see file header).
