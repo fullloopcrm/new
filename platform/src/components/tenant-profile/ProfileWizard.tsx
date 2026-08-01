@@ -200,6 +200,11 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
           {saving ? 'Saving…' : 'Every answer saves automatically as you type — nothing to submit until you\'re ready.'}
         </p>
+        {mode.mode === 'token' && (
+          <p className="mt-1 text-xs text-slate-400">
+            🔒 This link is private to your business — sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
+          </p>
+        )}
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
