@@ -573,11 +573,20 @@ export async function POST(request: Request) {
     // ============================================
     // GENERAL INBOUND SMS — Log, notify admin, chatbot
     // ============================================
+    // Last-10-digit tolerant match, not exact .eq('phone', from) — `from`
+    // arrives E.164 ("+19292846130") but clients/team_members/applications
+    // phone columns are inconsistently stored with or without the country
+    // code. An exact match silently missed real matches (e.g. an active
+    // team member texting in got treated as a brand-new lead purely because
+    // her stored phone lacked the "+1"), which is what created bogus
+    // duplicate "client" rows for people already in the system.
+    const inboundLast10 = from.replace(/\D/g, '').slice(-10)
+
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('id, name')
+      .select('id, name, do_not_service')
       .eq('tenant_id', tenantId)
-      .eq('phone', from)
+      .ilike('phone', `%${inboundLast10}%`)
       .limit(1)
       .maybeSingle()
 
@@ -585,22 +594,41 @@ export async function POST(request: Request) {
       .from('team_members')
       .select('id, name')
       .eq('tenant_id', tenantId)
-      .eq('phone', from)
+      .ilike('phone', `%${inboundLast10}%`)
       .limit(1)
       .maybeSingle()
 
-    // An SMS from a phone that matches neither an existing client nor a team
-    // member is a brand-new prospect texting in cold. Before this fix, that
-    // case created only the notification below — no client, no portal_lead,
-    // no sales deal — so it was invisible to Sales unless an admin happened
-    // to notice the alert (2026-07-30 pipeline trace finding). Give it the
-    // same real lead record every other intake source gets.
+    // A job applicant texting back (e.g. answering a screening question)
+    // isn't a sales prospect — recognize them too, alongside client/member,
+    // so they don't get funneled into createLeadAndEnterPipeline below as a
+    // brand-new lead. Checked across both application tables since which
+    // one is live depends on the tenant's industry preset.
+    const [{ data: teamApplicant }, { data: cleanerApplicant }] = await Promise.all([
+      supabaseAdmin.from('team_applications').select('id, name')
+        .eq('tenant_id', tenantId).ilike('phone', `%${inboundLast10}%`).limit(1).maybeSingle(),
+      supabaseAdmin.from('cleaner_applications').select('id, name')
+        .eq('tenant_id', tenantId).ilike('phone', `%${inboundLast10}%`).limit(1).maybeSingle(),
+    ])
+    const applicant = teamApplicant || cleanerApplicant
+
+    // An SMS from a phone that matches neither an existing client, team
+    // member, nor applicant is a brand-new prospect texting in cold. Before
+    // this fix, that case created only the notification below — no client,
+    // no portal_lead, no sales deal — so it was invisible to Sales unless an
+    // admin happened to notice the alert (2026-07-30 pipeline trace
+    // finding). Give it the same real lead record every other intake source
+    // gets.
     let newLeadClientId: string | null = null
-    if (!client && !member) {
+    if (!client && !member && !applicant) {
       try {
         const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
+        // No name field — leave it unset (falls back to 'Unknown') rather
+        // than stamping the raw phone number as the display name. That
+        // literal-phone-as-name was what made these rows unreadable in the
+        // client list; the clients-list default view also now hides
+        // name==='Unknown' rows so this doesn't clutter it.
         const result = await createLeadAndEnterPipeline(tenantId, {
-          name: from, phone: from, source: 'sms-inbound',
+          phone: from, source: 'sms-inbound',
           notes: `First inbound SMS: ${text.slice(0, 500)}`,
         })
         newLeadClientId = result.clientId
@@ -610,10 +638,10 @@ export async function POST(request: Request) {
       }
     }
 
-    const senderName = client?.name || member?.name || from
+    const senderName = client?.name || member?.name || applicant?.name || from
 
     // Create notification for inbound SMS
-    const inboundSmsTitle = `SMS from ${senderName}`
+    const inboundSmsTitle = `SMS from ${senderName}${applicant && !member && !client ? ' (applicant)' : ''}`
     const inboundSmsMsg = text.slice(0, 500)
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
@@ -626,6 +654,7 @@ export async function POST(request: Request) {
         to_phone: to,
         client_id: client?.id || newLeadClientId,
         team_member_id: member?.id || null,
+        applicant_id: applicant?.id || null,
         sender_name: senderName,
       },
       status: 'sent',
@@ -672,8 +701,13 @@ export async function POST(request: Request) {
     // ============================================
     // AI CHATBOT — Route to Selena if enabled
     // ============================================
-    // Skip chatbot for team members (they're staff, not customers)
-    if (!member && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // Skip chatbot for team members (they're staff, not customers), and for
+    // do_not_service clients entirely — this block is what creates the
+    // sms_conversations/sms_conversation_messages rows that feed ComHub via
+    // the comhub_mirror_sms_message trigger, so skipping it here is what
+    // keeps a DNS client's texts from ever surfacing as a ComHub thread, not
+    // just skipping the bot's auto-reply.
+    if (!member && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         const settings = await getSettings(tenantId)
         if (settings.chatbot_enabled) {

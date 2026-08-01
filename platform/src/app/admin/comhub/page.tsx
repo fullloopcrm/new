@@ -18,6 +18,8 @@ const ActiveCallBanner = dynamic(() => import('@/components/comhub/ActiveCallBan
   loading: () => null,
 })
 
+type ContactTag = 'potential_lead' | 'spam' | 'vendor' | 'other'
+
 type Contact = {
   id: string
   name: string | null
@@ -25,6 +27,26 @@ type Contact = {
   email: string | null
   client_id: string | null
   team_member_id: string | null
+  tag: ContactTag | null
+}
+
+const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
+  potential_lead: 'Potential Lead',
+  spam: 'Spam',
+  vendor: 'Vendor',
+  other: 'Other',
+}
+
+// A manual tag is a standing correction — once set, it drives the badge
+// everywhere this contact shows up (sidebar + panel) instead of the
+// linkage-derived guess, for every future message from them too, since the
+// tag lives on the comhub_contacts row (one row per phone/email) rather than
+// per-message.
+const CONTACT_TAG_BADGE_STYLE: Record<ContactTag, { background: string; color: string; border: string }> = {
+  potential_lead: { background: 'rgba(126,58,242,0.08)', color: '#6d28d9', border: '1px solid rgba(126,58,242,0.25)' },
+  spam: { background: 'rgba(220,38,38,0.08)', color: '#b91c1c', border: '1px solid rgba(220,38,38,0.25)' },
+  vendor: { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' },
+  other: { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' },
 }
 
 type Thread = {
@@ -81,13 +103,20 @@ type Filter = 'all' | 'unread' | 'unresponded'
 type Booking = {
   id: string
   start_time: string
+  end_time: string | null
   service_type: string | null
   status: string | null
   payment_status: string | null
   hourly_rate: number | null
   actual_hours: number | null
   price: number | null
+  notes: string | null
+  check_in_time: string | null
+  check_out_time: string | null
+  team_member_pay: number | null
+  team_member_paid: boolean | null
   cleaners: { name: string } | { name: string }[] | null
+  clients: { name: string } | { name: string }[] | null
 }
 type ClientRow = {
   id: string
@@ -99,6 +128,7 @@ type ClientRow = {
   status: string | null
   active: boolean | null
   do_not_service: boolean | null
+  dns_reason: string | null
   pet_name: string | null
   pet_type: string | null
   notes_private: string | null
@@ -122,6 +152,8 @@ type ContactContext = {
   total_bookings: number
   total_spent_cents: number
   outstanding_cents: number
+  cleaner_recent_jobs: Booking[]
+  cleaner_owed_cents: number
 }
 
 const fmtTime = (iso: string) => {
@@ -301,8 +333,13 @@ export default function ComhubPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
+  // Do-not-service clients get zero ComHub communications — the API
+  // enforces this too (send/route.ts), this just keeps an admin from typing
+  // a message that's guaranteed to 403.
+  const isDnsBlocked = thread?.kind === 'contact' && context?.client?.do_not_service === true
+
   const handleSend = async () => {
-    if (!thread || !composer.trim() || sending) return
+    if (!thread || !composer.trim() || sending || isDnsBlocked) return
     setSending(true)
     try {
       const res = await fetch('/api/admin/comhub/send', {
@@ -489,11 +526,13 @@ export default function ComhubPage() {
             const isSel = selected === t.id
             const c = t.comhub_contacts
             const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.team_member_id ? 'cleaner' : 'unlinked'
-            const roleBadgeStyle = role === 'client'
-              ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
-              : role === 'cleaner'
-                ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
-                : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
+            const roleBadgeStyle = c?.tag
+              ? CONTACT_TAG_BADGE_STYLE[c.tag]
+              : role === 'client'
+                ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
+                : role === 'cleaner'
+                  ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
+                  : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
             // Left accent bar: red = needs a reply, ink = has unread, else quiet gray hairline.
             const accent = t.disposition === 'waiting_admin'
               ? 'var(--color-loop-warn)'
@@ -512,7 +551,7 @@ export default function ComhubPage() {
                   <div className="flex justify-between items-baseline gap-2">
                     <div className="font-medium truncate flex items-center gap-1.5 min-w-0">
                       <span className="text-[9px] uppercase tracking-wider px-1.5 py-px rounded-sm shrink-0" style={{ ...roleBadgeStyle, fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                        {role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}
+                        {c?.tag ? CONTACT_TAG_LABELS[c.tag] : role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'team' : role}
                       </span>
                       <span className="truncate">{contactDisplay(c)}</span>
                     </div>
@@ -859,6 +898,11 @@ export default function ComhubPage() {
                   </div>
                 )}
               </div>
+              {isDnsBlocked && (
+                <div className="text-xs mb-1.5 px-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>
+                  This client is marked Do Not Service — no communications allowed.
+                </div>
+              )}
               <div className="flex gap-2">
                 <textarea
                   value={composer}
@@ -869,20 +913,23 @@ export default function ComhubPage() {
                       handleSend()
                     }
                   }}
+                  disabled={isDnsBlocked}
                   placeholder={
-                    thread.kind === 'channel'
-                      ? `Post to ${thread.name || '#' + thread.slug} (Enter to send, Shift+Enter for a new line)`
-                      : thread.channel === 'voice'
-                        ? `Add a note about this call (Enter to send, Shift+Enter for a new line)`
-                        : `Reply via ${thread.channel.toUpperCase()} (Enter to send, Shift+Enter for a new line)`
+                    isDnsBlocked
+                      ? 'Do Not Service — sending is disabled for this contact'
+                      : thread.kind === 'channel'
+                        ? `Post to ${thread.name || '#' + thread.slug} (Enter to send, Shift+Enter for a new line)`
+                        : thread.channel === 'voice'
+                          ? `Add a note about this call (Enter to send, Shift+Enter for a new line)`
+                          : `Reply via ${thread.channel.toUpperCase()} (Enter to send, Shift+Enter for a new line)`
                   }
                   rows={3}
-                  className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+                  className="flex-1 rounded-md px-3 py-2 text-sm resize-none focus:outline-none disabled:opacity-60"
                   style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!composer.trim() || sending}
+                  disabled={!composer.trim() || sending || isDnsBlocked}
                   className="self-stretch px-4 rounded-md text-sm font-medium disabled:opacity-50"
                   style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
                 >
@@ -915,7 +962,7 @@ export default function ComhubPage() {
           <ChannelInfoPanel thread={thread} />
         )}
         {thread?.kind === 'contact' && context && (
-          <ContextPanelInline context={context} />
+          <ContextPanelInline context={context} onTagChanged={fetchThreads} />
         )}
         {thread?.kind === 'contact' && !context && (
           <div className="p-6 text-sm" style={{ color: 'var(--color-loop-muted)' }}>Loading contact details…</div>
@@ -1389,14 +1436,20 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // Right-side panel: contact + linked client/cleaner + recent bookings
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
-function ContextPanelInline({ context }: { context: ContactContext }) {
-  const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents } = context
+function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
+  const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_recent_jobs, cleaner_owed_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDate = (iso: string) => {
     try {
       const d = new Date(iso)
       return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
     } catch { return iso }
+  }
+  const fmtTime = (iso: string | null) => {
+    if (!iso) return null
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    } catch { return null }
   }
   const fmtPhone = (p: string | null | undefined) => {
     if (!p) return ''
@@ -1408,6 +1461,19 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
     const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
     return c?.name || '—'
   }
+  const clientName = (b: Booking): string => {
+    if (!b.clients) return '—'
+    const c = Array.isArray(b.clients) ? b.clients[0] : b.clients
+    return c?.name || '—'
+  }
+  // Actual worked hours from check-in/out, not the booked/estimated hours —
+  // the whole point of surfacing this is to answer "did they actually clock
+  // in and out, and for how long" without leaving ComHub to check.
+  const hoursWorked = (b: Booking): string | null => {
+    if (!b.check_in_time || !b.check_out_time) return null
+    const ms = new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()
+    return ms > 0 ? (ms / 3_600_000).toFixed(1) : null
+  }
   const role: 'client' | 'cleaner' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : 'unlinked'
 
   const roleBadgeStyle = role === 'client'
@@ -1416,12 +1482,18 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
       ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
       : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
   const pillFont = { fontFamily: 'var(--mono)', fontWeight: 600 as const }
+  // A manual tag overrides the linkage-derived role badge — that's the whole
+  // point of tagging (see 2026_08_01_comhub_contact_tags migration): once an
+  // admin corrects the classification, it's a standing correction that
+  // applies to every future message from this contact, not a one-time fix.
+  const displayLabel = contact.tag ? CONTACT_TAG_LABELS[contact.tag] : (role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'team' : role)
+  const displayBadgeStyle = contact.tag ? CONTACT_TAG_BADGE_STYLE[contact.tag] : roleBadgeStyle
 
   return (
     <div>
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...roleBadgeStyle, ...pillFont }}>{role === 'unlinked' ? 'lead' : role === 'cleaner' ? 'team' : role}</span>
+          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...displayBadgeStyle, ...pillFont }}>{displayLabel}</span>
           {client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}
@@ -1429,11 +1501,15 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
         </div>
+        {client?.do_not_service && client.dns_reason && (
+          <div className="text-xs mt-1" style={{ color: 'var(--color-loop-warn)' }}>{client.dns_reason}</div>
+        )}
         <h3 className="mt-2" style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 500 }}>{contact.name || client?.name || cleaner?.name || 'Unknown'}</h3>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
         </div>
+        <ContactTagSelect contactId={contact.id} initialTag={contact.tag} onSaved={onTagChanged} />
       </div>
 
       {client && (
@@ -1482,6 +1558,10 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
               <span>★ {cleaner.avg_rating.toFixed(2)} ({cleaner.rating_count})</span>
             </div>
           ) : null}
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>We owe them</span>
+            <span className="font-medium" style={{ color: cleaner_owed_cents > 0 ? 'var(--color-loop-warn)' : undefined }}>{fmtMoney(cleaner_owed_cents)}</span>
+          </div>
           <a
             href={`/admin/cleaners?id=${cleaner.id}`}
             className="text-xs inline-block pt-1 hover:underline"
@@ -1502,19 +1582,92 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
             <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Lifetime spent</div>
             <div style={{ fontFamily: 'var(--display)' }}>{fmtMoney(total_spent_cents)}</div>
           </div>
-          {outstanding_cents > 0 && (
-            <div className="col-span-2">
-              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>Outstanding</div>
-              <div className="font-medium" style={{ fontFamily: 'var(--display)', color: 'var(--color-loop-warn)' }}>{fmtMoney(outstanding_cents)}</div>
-            </div>
-          )}
+          <div className="col-span-2">
+            <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: outstanding_cents > 0 ? 'var(--color-loop-warn)' : 'var(--color-loop-muted)' }}>They owe us</div>
+            <div className="font-medium" style={{ fontFamily: 'var(--display)', color: outstanding_cents > 0 ? 'var(--color-loop-warn)' : undefined }}>{fmtMoney(outstanding_cents)}</div>
+          </div>
         </div>
       )}
 
       {recent_bookings.length > 0 && (
-        <div className="p-4 space-y-2">
-          <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
-          {recent_bookings.map(b => (
+        <JobHistory title="Last job" listTitle="Last 5 jobs" jobs={recent_bookings} counterpartyOf={cleanerName}
+          fmtDate={fmtDate} fmtTime={fmtTime} fmtMoney={fmtMoney} hoursWorked={hoursWorked} />
+      )}
+
+      {cleaner_recent_jobs.length > 0 && (
+        <JobHistory title="Last job worked" listTitle="Last 5 jobs" jobs={cleaner_recent_jobs} counterpartyOf={clientName}
+          fmtDate={fmtDate} fmtTime={fmtTime} fmtMoney={fmtMoney} hoursWorked={hoursWorked} />
+      )}
+
+      {role === 'unlinked' && (
+        <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
+          Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Shared "last job in detail, then a compact list of the last 5" block —
+// used for both a client's bookings (counterparty = the cleaner) and a
+// cleaner's worked jobs (counterparty = the client). The whole point is
+// answering "what happened on their last job, and the few before it"
+// without leaving ComHub for the bookings page.
+function JobHistory({ title, listTitle, jobs, counterpartyOf, fmtDate, fmtTime, fmtMoney, hoursWorked }: {
+  title: string
+  listTitle: string
+  jobs: Booking[]
+  counterpartyOf: (b: Booking) => string
+  fmtDate: (iso: string) => string
+  fmtTime: (iso: string | null) => string | null
+  fmtMoney: (cents: number) => string
+  hoursWorked: (b: Booking) => string | null
+}) {
+  const last = jobs[0]
+  const hrs = hoursWorked(last)
+  const checkIn = fmtTime(last.check_in_time)
+  const checkOut = fmtTime(last.check_out_time)
+  return (
+    <>
+      <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-1.5 text-sm">
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{title}</div>
+        <div className="flex justify-between items-baseline">
+          <span className="font-medium">{fmtDate(last.start_time)}</span>
+          <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{last.status || '—'}</span>
+        </div>
+        <div style={{ color: 'var(--color-loop-graphite)' }}>
+          {last.service_type || 'Cleaning'} with {counterpartyOf(last)}
+        </div>
+        <div className="flex justify-between">
+          <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Price</span>
+          <span>
+            {last.price != null ? fmtMoney(last.price) : '—'}
+            {last.payment_status && last.payment_status !== 'paid' && (
+              <span className="ml-1 text-xs" style={{ color: 'var(--color-loop-warn)' }}>({last.payment_status})</span>
+            )}
+          </span>
+        </div>
+        {(checkIn || checkOut) && (
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Checked in / out</span>
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)' }}>
+              {checkIn || '—'} – {checkOut || '—'}{hrs ? ` (${hrs}h)` : ''}
+            </span>
+          </div>
+        )}
+        {last.notes && (
+          <div className="text-xs pt-1" style={{ color: 'var(--color-loop-muted)' }}>{last.notes}</div>
+        )}
+        <a href={`/admin/bookings?id=${last.id}`} className="text-xs inline-block pt-0.5 hover:underline" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)' }}>
+          View booking →
+        </a>
+      </div>
+
+      <div className="p-4 space-y-2">
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{listTitle}</div>
+        {jobs.map(b => {
+          const bHrs = hoursWorked(b)
+          return (
             <a
               key={b.id}
               href={`/admin/bookings?id=${b.id}`}
@@ -1526,23 +1679,18 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
                 <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{b.status || '—'}</span>
               </div>
               <div className="text-xs mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>
-                {b.service_type || 'Cleaning'} · {b.price != null ? `$${(b.price / 100).toFixed(2)}` : '?'}
+                {b.service_type || 'Cleaning'} · {b.price != null ? fmtMoney(b.price) : '?'}
+                {bHrs && ` · ${bHrs}h`}
                 {b.payment_status && b.payment_status !== 'paid' && (
                   <span className="ml-1" style={{ color: 'var(--color-loop-warn)' }}>({b.payment_status})</span>
                 )}
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{cleanerName(b)}</div>
+              <div className="text-[11px] mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>{counterpartyOf(b)}</div>
             </a>
-          ))}
-        </div>
-      )}
-
-      {role === 'unlinked' && (
-        <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
-          Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
-        </div>
-      )}
-    </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -1575,6 +1723,55 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
         Use this channel for team posts. <code style={{ color: 'var(--color-loop-graphite)' }}>@here</code> pings everyone, <code style={{ color: 'var(--color-loop-graphite)' }}>@firstname</code> pings one person.
       </div>
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manual contact classification — quick dropdown, works whether or not the
+// contact is linked to a client/team member (that's the point: it's for
+// reclassifying the ones that AREN'T).
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactTagSelect({ contactId, initialTag, onSaved }: {
+  contactId: string
+  initialTag: ContactTag | null
+  onSaved?: () => void
+}) {
+  const [tag, setTag] = useState<ContactTag | null>(initialTag)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { setTag(initialTag) }, [initialTag, contactId])
+
+  const change = async (next: ContactTag | null) => {
+    const prev = tag
+    setTag(next) // optimistic
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/comhub/contacts/${contactId}/tag`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag: next }),
+      })
+      if (!res.ok) { setTag(prev); return }
+      onSaved?.()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <select
+      value={tag || ''}
+      disabled={saving}
+      onChange={(e) => change((e.target.value || null) as ContactTag | null)}
+      className="mt-2 px-2 py-1 rounded text-xs border cursor-pointer w-full"
+      style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-bg)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
+      title="Manually tag this contact"
+    >
+      <option value="">Tag contact…</option>
+      {Object.entries(CONTACT_TAG_LABELS).map(([value, label]) => (
+        <option key={value} value={value}>{label}</option>
+      ))}
+    </select>
   )
 }
 

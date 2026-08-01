@@ -65,6 +65,58 @@ describe('RBAC', () => {
     })
   })
 
+  describe('virtual_assistant', () => {
+    it('can view/create/edit clients, bookings, and schedules', () => {
+      expect(hasPermission('virtual_assistant', 'clients.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'clients.create')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'clients.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'bookings.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'schedules.edit')).toBe(true)
+    })
+
+    it('cannot delete anything', () => {
+      expect(hasPermission('virtual_assistant', 'clients.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'bookings.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+    })
+
+    it('has zero finance or HR (team management) access', () => {
+      expect(hasPermission('virtual_assistant', 'finance.view')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'finance.payroll')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.create')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.edit')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'settings.edit')).toBe(false)
+    })
+  })
+
+  describe('accountant', () => {
+    it('has full financial access', () => {
+      expect(hasPermission('accountant', 'finance.view')).toBe(true)
+      expect(hasPermission('accountant', 'finance.payroll')).toBe(true)
+      expect(hasPermission('accountant', 'finance.expenses')).toBe(true)
+    })
+
+    it('has no operational or HR access', () => {
+      expect(hasPermission('accountant', 'clients.edit')).toBe(false)
+      expect(hasPermission('accountant', 'bookings.edit')).toBe(false)
+      expect(hasPermission('accountant', 'team.view')).toBe(false)
+      expect(hasPermission('accountant', 'team.create')).toBe(false)
+    })
+  })
+
+  describe('bookkeeper', () => {
+    it('can view finance and manage expenses, but cannot run payroll', () => {
+      expect(hasPermission('bookkeeper', 'finance.view')).toBe(true)
+      expect(hasPermission('bookkeeper', 'finance.expenses')).toBe(true)
+      expect(hasPermission('bookkeeper', 'finance.payroll')).toBe(false)
+    })
+
+    it('has no operational or HR access', () => {
+      expect(hasPermission('bookkeeper', 'bookings.edit')).toBe(false)
+      expect(hasPermission('bookkeeper', 'team.view')).toBe(false)
+    })
+  })
+
   describe('unknown role', () => {
     it('has no permissions', () => {
       expect(hasPermission('unknown', 'clients.view')).toBe(false)

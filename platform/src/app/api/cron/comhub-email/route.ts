@@ -200,6 +200,20 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           || (!!autoSubmitted && autoSubmitted !== 'no')
         if (isAutomated) { skipped++; continue }
 
+        // DNS gate — a do_not_service client gets zero ComHub communications,
+        // not just a skipped auto-reply. Checked BEFORE contact/thread/message
+        // creation (the auto-reply DNS check further below only ever skipped
+        // the reply — the inbound email still landed as a normal ComHub
+        // thread by then).
+        const { data: dnsCheckClient } = await supabaseAdmin
+          .from('clients')
+          .select('do_not_service')
+          .eq('tenant_id', tenantId)
+          .ilike('email', fromAddr)
+          .limit(1)
+          .single()
+        if (dnsCheckClient?.do_not_service) { skipped++; continue }
+
         const { data: contactId, error: cErr } = await supabaseAdmin
           .rpc('comhub_get_or_create_contact_by_email', { p_tenant_id: tenantId, p_email: fromAddr, p_name: fromName })
         if (cErr || !contactId) { skipped++; continue }

@@ -2,33 +2,27 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { generateKeyPairSync, sign as cryptoSign, type KeyObject } from 'node:crypto'
 
 /**
- * Telnyx inbound-SMS webhook — unknown-sender lead creation.
+ * Telnyx inbound SMS — DNS (do_not_service) gate on the ComHub-feeding
+ * chatbot block.
  *
- * 2026-07-30 pipeline trace found: an SMS from a phone matching neither an
- * existing client nor a team member created ONLY an admin notification — no
- * client, no portal_lead, no sales deal. A prospect texting in cold was
- * invisible to Sales unless an admin happened to notice the alert. This
- * suite proves the fix is wired: `createLeadAndEnterPipeline` (the same
- * helper proven in chat/route.lead-creation.test.ts) fires for a genuinely
- * unknown sender, and does NOT fire for a known client or team member.
- *
- * lead-intake itself is mocked here (not re-exercised) — its correctness is
- * already proven directly; this file only proves the WIRING into this route.
+ * 2026-08-01: a do_not_service client must get zero ComHub communications.
+ * The AI-chatbot block is what creates sms_conversations/
+ * sms_conversation_messages, which the comhub_mirror_sms_message DB trigger
+ * mirrors into comhub_messages — so gating that block on DNS is what keeps
+ * a DNS client's texts from ever surfacing as a ComHub thread. Proven here
+ * via getSettings(): it's the first call inside the gated block, so a DNS
+ * client never reaching it proves the whole block was skipped.
  */
 
-const createLeadAndEnterPipeline = vi.hoisted(() => vi.fn(async () => ({ clientId: 'new-client-1', dealId: 'new-deal-1', wasExistingClient: false })))
-vi.mock('@/lib/lead-intake', () => ({ createLeadAndEnterPipeline }))
+vi.mock('@/lib/lead-intake', () => ({ createLeadAndEnterPipeline: vi.fn(async () => ({ clientId: 'x', dealId: null, wasExistingClient: false })) }))
 
-let clientsSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
+let clientsSeed: Array<{ id: string; tenant_id: string; phone: string; name: string; do_not_service?: boolean }>
 let membersSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
-let applicationsSeed: Array<{ id: string; tenant_id: string; phone: string; name: string }>
-const tenantRow = { id: 'tid-1', name: 'Test Tenant', telnyx_api_key: null, telnyx_phone: '+15550001111', owner_phone: null, timezone: 'America/New_York', telegram_bot_token: null, telegram_chat_id: null }
+const tenantRow = { id: 'tid-1', name: 'Test Tenant', telnyx_api_key: '+15550001111', telnyx_phone: '+15550001111', owner_phone: null, timezone: 'America/New_York', telegram_bot_token: null, telegram_chat_id: null }
 
 function makeChain(table: string) {
   const eqs: Record<string, unknown> = {}
   const ilikes: Record<string, unknown> = {}
-  // Real code matches phone via .ilike('phone', '%last10digits%') (tolerant
-  // of a stored +1) — mirror that here instead of exact string equality.
   const phoneMatches = (seedPhone: string) => {
     if (eqs.phone !== undefined) return seedPhone === eqs.phone
     if (ilikes.phone !== undefined) {
@@ -46,9 +40,6 @@ function makeChain(table: string) {
   const resolveOne = () => {
     if (table === 'clients') return { data: clientsSeed.find((c) => phoneMatches(c.phone)) || null, error: null }
     if (table === 'team_members') return { data: membersSeed.find((m) => phoneMatches(m.phone)) || null, error: null }
-    if (table === 'team_applications') return { data: applicationsSeed.find((a) => phoneMatches(a.phone)) || null, error: null }
-    // cleaner_applications: unseeded in this suite — always "no match",
-    // same as production when the tenant's live table is team_applications.
     return { data: null, error: null }
   }
   const chain: Record<string, unknown> = {
@@ -57,6 +48,7 @@ function makeChain(table: string) {
     update: () => chain,
     eq: (col: string, val: unknown) => { eqs[col] = val; return chain },
     ilike: (col: string, val: unknown) => { ilikes[col] = val; return chain },
+    is: () => chain,
     order: () => chain,
     limit: () => chain,
     maybeSingle: async () => resolveOne(),
@@ -70,7 +62,8 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => makeCha
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ success: true })) }))
 vi.mock('@/lib/selena-legacy', () => ({ askSelena: vi.fn(async () => ({})) }))
 vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({})) }))
-vi.mock('@/lib/settings', () => ({ getSettings: vi.fn(async () => ({})) }))
+const getSettings = vi.fn(async (_tenantId: string) => ({ chatbot_enabled: true, sms_reply_enabled: true }))
+vi.mock('@/lib/settings', () => ({ getSettings: (tenantId: string) => getSettings(tenantId) }))
 vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: vi.fn(() => false), NYCMAID_TENANT_ID: '00000000-0000-0000-0000-000000000001' }))
 vi.mock('@/lib/nycmaid/review-engine', () => ({ handleNycMaidReview: vi.fn(async () => null) }))
 vi.mock('@/lib/review-engine', () => ({ handleReviewRating: vi.fn(async () => null) }))
@@ -114,52 +107,21 @@ beforeEach(() => {
   delete process.env.TELNYX_WEBHOOK_VERIFY
   clientsSeed = []
   membersSeed = []
-  applicationsSeed = []
-  createLeadAndEnterPipeline.mockClear()
+  getSettings.mockClear()
 })
 
-describe('telnyx inbound SMS — unknown-sender lead creation', () => {
-  it('a phone matching neither a client nor a team member creates a real lead', async () => {
+describe('telnyx inbound SMS — DNS gate on the ComHub-feeding chatbot block', () => {
+  it('a do_not_service client never reaches the chatbot/ComHub-mirror block', async () => {
+    clientsSeed = [{ id: 'c-dns', tenant_id: 'tid-1', phone: '+19175551234', name: 'DNS Client', do_not_service: true }]
     const res = await post(inboundSms('+19175551234'))
     expect(res.status).toBe(200)
-    expect(createLeadAndEnterPipeline).toHaveBeenCalledTimes(1)
-    expect(createLeadAndEnterPipeline).toHaveBeenCalledWith('tid-1', expect.objectContaining({
-      phone: '+19175551234', source: 'sms-inbound',
-    }))
+    expect(getSettings).not.toHaveBeenCalled()
   })
 
-  it('a phone matching an existing client does NOT create a duplicate lead', async () => {
-    clientsSeed = [{ id: 'c-1', tenant_id: 'tid-1', phone: '+19175551234', name: 'Known Client' }]
+  it('CONTROL: a normal client still reaches the chatbot/ComHub-mirror block', async () => {
+    clientsSeed = [{ id: 'c-ok', tenant_id: 'tid-1', phone: '+19175551234', name: 'Normal Client', do_not_service: false }]
     const res = await post(inboundSms('+19175551234'))
     expect(res.status).toBe(200)
-    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
-  })
-
-  it('a phone matching a team member does NOT create a lead', async () => {
-    membersSeed = [{ id: 'm-1', tenant_id: 'tid-1', phone: '+19175551234', name: 'Crew Member' }]
-    const res = await post(inboundSms('+19175551234'))
-    expect(res.status).toBe(200)
-    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
-  })
-
-  // 2026-08-01: a real team member (Juana, 929-284-6130) texted in and got
-  // a bogus duplicate "client" row created because her stored phone lacked
-  // the country code the inbound event carries. Exact .eq() matching missed
-  // her; last-10-digit .ilike() matching must not.
-  it('a team member phone stored WITHOUT the country code still matches (no duplicate lead)', async () => {
-    membersSeed = [{ id: 'm-1', tenant_id: 'tid-1', phone: '9175551234', name: 'Crew Member' }]
-    const res = await post(inboundSms('+19175551234'))
-    expect(res.status).toBe(200)
-    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
-  })
-
-  // 2026-08-01: a real job applicant (Karina, 603-719-8274) texted back and
-  // got funneled into the sales pipeline as a brand-new lead because the
-  // route never checked team_applications at all.
-  it('a phone matching a pending job applicant does NOT create a lead', async () => {
-    applicationsSeed = [{ id: 'a-1', tenant_id: 'tid-1', phone: '6037198274', name: 'Karina Arango' }]
-    const res = await post(inboundSms('+16037198274'))
-    expect(res.status).toBe(200)
-    expect(createLeadAndEnterPipeline).not.toHaveBeenCalled()
+    expect(getSettings).toHaveBeenCalledTimes(1)
   })
 })

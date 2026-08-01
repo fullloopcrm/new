@@ -1097,7 +1097,7 @@ function BookingsPage() {
     const profitCents = revenueCents - laborTotalCents
     const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
     const avgTicketCents = todaysJobs.length > 0 ? revenueCents / todaysJobs.length : 0
-    return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
+    return { jobsCount: todaysJobs.length, revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
   })()
 
   // Pagination
@@ -1397,7 +1397,11 @@ function BookingsPage() {
               {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
               <div className="mb-4">
                 <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+                  <div className="bg-white rounded-xl border border-indigo-200/60 p-3">
+                    <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide mb-1">Jobs Today</p>
+                    <p className="text-xl font-semibold text-[var(--sched-ink)]">{dailyOverview.jobsCount}</p>
+                  </div>
                   <div className="bg-white rounded-xl border border-emerald-200/60 p-3">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1">Revenue Today</p>
                     <p className="text-xl font-semibold text-[var(--sched-ink)]">${(dailyOverview.revenueCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>

@@ -738,7 +738,14 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {bookings.map((b) => (
-                  <div key={b.id} style={{ border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12 }}>
+                  <div
+                    key={b.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/dashboard/bookings?edit=${b.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/dashboard/bookings?edit=${b.id}`) }}
+                    style={{ border: '1px solid var(--clients-line)', borderRadius: 4, padding: 12, cursor: 'pointer' }}
+                  >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, color: 'var(--clients-ink)', fontWeight: 500 }}>
@@ -771,7 +778,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                         type="button"
                         className="clients-btn clients-btn-ghost"
                         style={{ fontSize: 12, padding: '4px 10px' }}
-                        onClick={() => router.push(`/dashboard/bookings/${b.id}`)}
+                        onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/bookings?edit=${b.id}`) }}
                       >Edit</button>
                     </div>
                   </div>

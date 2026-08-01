@@ -82,6 +82,8 @@ export function bookingConfirmation(brand: TenantBrand, booking: BookingLike): s
   return `${brand.name}: Confirmed — ${date}, arrival window ${time}, ${cleanerLine}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${cancelPolicy} We hold your spot, turn other clients away, and our team plans around it.\n\nPayment: a secure link (Apple Pay, card, or Cash App) we text you ~30 min before end. If payment isn't received the cleaner waits — billable time. Billed in 30-min increments.\n\nPortal: ${brand.bookUrl}${STOP_TEXT}`
 }
 
+const PAYMENT_LINK_HEADS_UP = 'Within 30 minutes of completion, you\'ll get a text with your balance due and a secure link to pay by credit card, Apple Pay, or Cash App. Watch for that text and pay before the 30 minutes is up — payment must be made before the cleaner leaves, or billable time keeps going.'
+
 export function reminder(brand: TenantBrand, booking: BookingLike, timeframe: string): string {
   const time = clientArrivalWindow(booking.start_time)
   const cleanerName = proFirst(booking, 'Your cleaner')
@@ -94,7 +96,8 @@ export function reminder(brand: TenantBrand, booking: BookingLike, timeframe: st
   if (timeframe === 'in 2 hours') {
     return `${brand.name}: Reminder — ${subject} ${teamSize > 1 ? 'arrive' : 'arrives'} within your ${time} window. Almost time!\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
   }
-  return `${brand.name}: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
+  const paymentHeadsUp = timeframe === 'tomorrow' ? `\n\n${PAYMENT_LINK_HEADS_UP}` : ''
+  return `${brand.name}: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${paymentHeadsUp}${STOP_TEXT}`
 }
 
 export function cancellation(brand: TenantBrand, booking: BookingLike): string {
@@ -127,6 +130,8 @@ export function bookingConfirmationES(brand: TenantBrand, booking: BookingLike):
   return `${brand.name}: Tu limpieza está confirmada para ${date}, ventana de llegada ${time}, con ${cleanerName}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
 }
 
+const PAYMENT_LINK_HEADS_UP_ES = 'Dentro de los 30 minutos posteriores a la finalización, recibirás un mensaje de texto con tu saldo pendiente y un enlace seguro para pagar con tarjeta de crédito, Apple Pay o Cash App. Espera ese mensaje y paga antes de que se cumplan los 30 minutos — el pago debe realizarse antes de que el/la limpiador(a) se vaya, o el tiempo facturable sigue corriendo.'
+
 export function reminderES(brand: TenantBrand, booking: BookingLike, timeframe: string): string {
   const time = clientArrivalWindow(booking.start_time)
   const cleanerName = proFirst(booking, 'Tu limpiador/a')
@@ -135,7 +140,8 @@ export function reminderES(brand: TenantBrand, booking: BookingLike, timeframe: 
   if (timeframe === 'in 2 hours') {
     return `${brand.name}: Recordatorio — ${cleanerName} llega dentro de tu ventana de ${time}. ¡Ya casi!\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
   }
-  return `${brand.name}: Recordatorio — limpieza ${tfES}, ventana de llegada ${time}, con ${cleanerName}.\n\n${ARRIVAL_WINDOW_NOTE_ES}${STOP_TEXT_ES}`
+  const paymentHeadsUp = timeframe === 'tomorrow' ? `\n\n${PAYMENT_LINK_HEADS_UP_ES}` : ''
+  return `${brand.name}: Recordatorio — limpieza ${tfES}, ventana de llegada ${time}, con ${cleanerName}.\n\n${ARRIVAL_WINDOW_NOTE_ES}${paymentHeadsUp}${STOP_TEXT_ES}`
 }
 
 export function cancellationES(brand: TenantBrand, booking: BookingLike): string {

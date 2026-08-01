@@ -123,6 +123,7 @@ export function bookingReminderEmail(data: TemplateData & {
     `)}
     ${data.bookingUrl ? ctaButton('View Details', data.bookingUrl, data.primaryColor) : ''}
     ${policyText ? noteBox(policyText, 'warning') : ''}
+    ${data.timeUntil === 'tomorrow' ? noteBox('Within 30 minutes of completion, you\'ll receive a text with your balance due and a secure link to pay by credit card, Apple Pay, or Cash App. Watch for that text and make sure payment is made before the 30 minutes is up — payment must be made before the cleaner leaves, or billable time keeps going.') : ''}
     ${contactLine(data)}
   `, data)
 }
@@ -280,6 +281,7 @@ export function bookingConfirmationEmail(data: TemplateData & {
     ${data.suppliesIncluded !== undefined
       ? noteBox(data.suppliesIncluded ? 'All supplies included — nothing to prepare.' : 'Please have your own supplies ready for this appointment.', data.suppliesIncluded ? 'success' : 'warning')
       : ''}
+    ${noteBox('Within 30 minutes of completion, you\'ll receive a text with your balance due and a secure link to pay by credit card, Apple Pay, or Cash App. Watch for that text and make sure payment is made before the 30 minutes is up — payment must be made before the cleaner leaves, or billable time keeps going.', 'info')}
     ${noteBox('Tips are always appreciated but never required. 100% of tips go directly to your team member.', 'info')}
     ${policyText ? noteBox(policyText, 'danger') : ''}
     ${prepBlock}

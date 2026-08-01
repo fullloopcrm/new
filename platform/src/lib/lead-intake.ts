@@ -63,7 +63,15 @@ export async function createLeadAndEnterPipeline(
       .from('clients')
       // sec-07: encrypt at creation — real gap, this path was creating
       // plaintext pins outside the audited write-site sweep.
-      .insert({ name, email, phone, notes: input.notes || null, pin: encryptSecretSafe(randomInt(100000, 1000000).toString()) })
+      // status: 'potential' matches the convention every other lead-creation
+      // path already uses (Selena tools, voice agent, legacy email intake) —
+      // this was the one gap where a brand-new inbound contact landed in the
+      // client list indistinguishable from a real, converted client.
+      .insert({
+        name, email, phone, notes: input.notes || null,
+        status: 'potential', source: input.source,
+        pin: encryptSecretSafe(randomInt(100000, 1000000).toString()),
+      })
       .select('id')
       .single()
     if (error) throw error

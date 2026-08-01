@@ -533,12 +533,43 @@ export async function POST(request: Request) {
       // not audited further here.
       let tipCents = 0
       let isPartial = false
+      let suspiciousTipCents = 0
       if (expectedCents > 0) {
         if (viaAdjustableAmountPayLink && amountCents >= expectedCents) {
-          tipCents = amountCents - expectedCents
+          const rawGapCents = amountCents - expectedCents
+          // 2026-08-01: a stale expectedCents (price edited after quote, or a
+          // booking that never went through the 30-min-alert price-sync at
+          // all) produced a real $97 "tip" — money actually transferred to
+          // the cleaner, not just a wrong number on a screen. Cap what gets
+          // trusted as a genuine tip; anything past the cap is far more
+          // likely a stale-price mismatch than a real tip, so hold it back
+          // and flag it for a human instead of auto-paying it out.
+          const maxPlausibleTipCents = Math.max(2000, Math.round(expectedCents * 0.35))
+          tipCents = Math.min(rawGapCents, maxPlausibleTipCents)
+          suspiciousTipCents = rawGapCents - tipCents
         } else if (amountCents < expectedCents * 0.95) {
           isPartial = true
         }
+      }
+
+      // Money actually paid above the capped/trusted tip stays on the
+      // books (still counted in amountCents/the payment row below) — it's
+      // just not auto-credited to the cleaner as tip. Flag it so an admin
+      // resolves whether booking.price was stale or this really was a big
+      // tip, instead of it silently vanishing either direction.
+      if (suspiciousTipCents > 0) {
+        await supabaseAdmin.from('admin_tasks').insert({
+          tenant_id: tenantId,
+          type: 'suspicious_tip',
+          priority: 'high',
+          title: `Unusually large "tip" held back — booking #${bookingId.slice(0, 8)}`,
+          description: `Client paid $${(amountCents / 100).toFixed(2)}, expected $${(expectedCents / 100).toFixed(2)}. `
+            + `$${(tipCents / 100).toFixed(2)} credited to the cleaner as tip; `
+            + `$${(suspiciousTipCents / 100).toFixed(2)} held back pending review — likely a stale price, not a real tip. `
+            + `Check whether booking.price was current when the client paid.`,
+          related_type: 'booking',
+          related_id: bookingId,
+        }).then(() => {}, (err) => console.error('[stripe] suspicious-tip admin_task insert failed:', err))
       }
 
       // 1. Insert payment row (capture id → post revenue to ledger immediately).
@@ -711,23 +742,25 @@ export async function POST(request: Request) {
         }
       }
 
-      // 5. SMS the cleaner with payment confirmation (bilingual). No tip
-      // mention — there is no tip mechanism in this checkout, so any "tip"
-      // language here was always a false positive (see tipCents above).
+      // 5. SMS the cleaner with payment confirmation (bilingual). No amount,
+      // no tip mention — confirmed with Jeff 2026-08-01: tips ARE paid to
+      // cleaners (end-of-day), this is a deliberate choice to not disclose
+      // the amount/tip via this text, not an oversight. (The prior comment
+      // here claiming "there is no tip mechanism in this checkout" was
+      // factually wrong — tipCents above is a real computed tip on the
+      // adjustable-amount pay link path — but the no-disclosure behavior
+      // itself was correct as-is.)
+      //
+      // The actual job of this text: tell the cleaner payment landed so they
+      // know they're clear to leave (payment-before-they-leave is the
+      // policy). That "you can check out now" instruction was gated to NYC
+      // Maid only — every other tenant's cleaners got a bare "payment
+      // received" with no signal they could go. Made universal 2026-08-01.
       if (tm?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const isEs = tm.preferred_language === 'es'
-        // NYC Maid rule: the cleaner is NOT shown the client's total/details —
-        // only that payment landed. No client charge amount.
-        // NYC Maid parity restore (2026-07-25): the old independent build told
-        // the cleaner to finish up and check out once payment was confirmed —
-        // that's the actual signal the cleaner is waiting on 30 min before the
-        // job ends. Only nycmaid ran the 30-min-warning → checkout flow this
-        // line refers back to, so keep the instruction nycmaid-only.
-        const checkoutLine = isNycMaid(tenantId)
-          ? (isEs
-              ? ' Puede terminar y hacer el check-out cuando esté listo.'
-              : ' You can finish up and check out when ready.')
-          : ''
+        const checkoutLine = isEs
+          ? ' Puede terminar y hacer el check-out cuando esté listo.'
+          : ' You can finish up and check out when ready.'
         const body = isEs
           ? `Pago recibido del trabajo de ${client?.name || 'cliente'}.${checkoutLine}${payoutSent ? ' Enviado a tu cuenta.' : ''}`
           : `Payment received for ${client?.name || 'client'}'s job.${checkoutLine}${payoutSent ? ' Sent to your account.' : ''}`
