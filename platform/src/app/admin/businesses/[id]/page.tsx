@@ -155,6 +155,8 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [profileComplete, setProfileComplete] = useState(false)
+  const [verifyChecks, setVerifyChecks] = useState<Record<string, { ok: boolean; detail: string }> | null>(null)
+  const [verifying, setVerifying] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
@@ -404,6 +406,21 @@ export default function BusinessDetailPage() {
     return url.toString()
   }
 
+  // Live DNS/SSL/Resend/Telnyx/Stripe checks, auto-ticking the checklist
+  // above. Ported from the legacy /admin/businesses/[id]/wizard page (now
+  // removed) -- the one real feature in it that wasn't duplicated anywhere
+  // else.
+  async function runVerify() {
+    setVerifying(true)
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/verify-checklist`, { method: 'POST' })
+      const data = await res.json()
+      setVerifyChecks(data.checks || null)
+      fetchData()
+    } catch { /* leave prior results visible on failure */ }
+    setVerifying(false)
+  }
+
   async function startImpersonation() {
     setImpersonating(true)
     const res = await fetch('/api/admin/impersonate', {
@@ -534,13 +551,7 @@ export default function BusinessDetailPage() {
             href={`/admin/businesses/${id}/profile`}
             className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
           >
-            Profile Form (new) →
-          </Link>
-          <Link
-            href={`/admin/businesses/${id}/wizard`}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
-          >
-            Onboarding Wizard →
+            Profile Form →
           </Link>
           <button onClick={startImpersonation} disabled={impersonating}
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
@@ -590,6 +601,29 @@ export default function BusinessDetailPage() {
               <div className={`h-2.5 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 50 ? 'bg-teal-600' : 'bg-orange-500'}`} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-sm font-mono text-slate-500">{progress.completed}/{progress.total}</span>
+          </div>
+
+          {/* Live verification — checks DNS/SSL/Resend/Telnyx/Stripe and
+              auto-ticks the matching items below instead of manual toggling. */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-slate-900">Run live checks</p>
+              <button onClick={runVerify} disabled={verifying}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50">
+                {verifying ? 'Checking…' : 'Run checks'}
+              </button>
+            </div>
+            {verifyChecks && (
+              <div className="space-y-1.5">
+                {Object.entries(verifyChecks).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2 text-sm">
+                    <span className={v.ok ? 'text-green-600' : 'text-red-600'}>{v.ok ? '✓' : '✗'}</span>
+                    <span className="font-medium text-slate-900">{k.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-slate-500">{v.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {cl ? (

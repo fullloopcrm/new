@@ -2,9 +2,10 @@ import Link from 'next/link'
 import { ProfileForm } from '@/components/admin/ProfileForm'
 
 /**
- * New registry-driven tenant-profile page — the one live-save form. Additive:
- * lives alongside the legacy mega-page ([id]) until parity is verified and we cut
- * over. Server shell resolves params, then mounts the client ProfileForm.
+ * Registry-driven tenant-profile page — the one live-save form (the older
+ * hand-rolled /admin/businesses/[id]/wizard page it was meant to replace was
+ * removed 2026-08-01). Server shell resolves params, then mounts the client
+ * ProfileForm.
  */
 export default async function TenantProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
