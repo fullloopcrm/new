@@ -33,6 +33,7 @@ import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
+import { isValidLeadSource } from '@/lib/lead-sources'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -154,6 +155,16 @@ export async function POST(request: Request) {
       }
 
       if (!clientId) {
+        // Required for every direct-booking path that creates a client without
+        // ever going through the deals pipeline (see lss-08 readiness finding,
+        // 2026-08-01): 90% of real clients had zero lead-source record at all,
+        // not just an unsold deal. Enforced here, not just in the form -- this
+        // is an unauthenticated public endpoint, so a caller-supplied body
+        // can't be trusted to have included it.
+        if (!isValidLeadSource(body.lead_source)) {
+          return NextResponse.json({ error: 'lead_source is required and must be one of the known options' }, { status: 400 })
+        }
+
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
@@ -163,6 +174,7 @@ export async function POST(request: Request) {
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),
+            source: body.lead_source as string,
             ...smsOptInFields(smsOptedIn, ip, userAgent),
           })
           .select()

@@ -10,6 +10,7 @@ import { getSettings } from '@/lib/settings'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { formatName } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
+import { isValidLeadSource } from '@/lib/lead-sources'
 
 export async function GET(request: NextRequest) {
   try {
@@ -93,6 +94,13 @@ export async function POST(request: Request) {
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
     if (fields?.name) fields.name = formatName(fields.name as string)
+
+    // Required for every direct-client-creation path that bypasses the deals
+    // pipeline (see lss-08 readiness finding, 2026-08-01): 90% of real clients
+    // had zero lead-source record at all, not just an unsold deal.
+    if (!isValidLeadSource(fields?.source)) {
+      return NextResponse.json({ error: 'source (lead source) is required and must be one of the known options' }, { status: 400 })
+    }
 
     // Tenant rules: enforce required fields, default the lifecycle status.
     if (settings.require_client_phone && !fields?.phone) {

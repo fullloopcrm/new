@@ -10,6 +10,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import ClientContacts from '../clients/client-contacts'
 import ClientAddresses from '../clients/client-addresses'
 import { formatPhone } from '@/lib/format'
+import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
 
 interface Referrer { id: string; name: string; ref_code: string; active: boolean }
 interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
@@ -32,11 +33,13 @@ export interface NewClientModalProps {
 export default function NewClientModal({ initialClientId, initialClientName, referrers, salesPartners, onCreated, onDone }: NewClientModalProps) {
   const [clientId, setClientId] = useState<string | null>(initialClientId ?? null)
   const [clientName, setClientName] = useState(initialClientName || '')
-  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '' })
+  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '', address: '', unit: '', referrer_id: '', sales_partner_id: '', notes: '', source: '' })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const handleNewClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     setSaving(true)
     const fullAddress = newClientForm.unit
       ? `${newClientForm.address}, ${newClientForm.unit}`
@@ -44,7 +47,7 @@ export default function NewClientModal({ initialClientId, initialClientName, ref
     const res = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newClientForm.name, phone: newClientForm.phone, email: newClientForm.email, address: fullAddress, referrer_id: newClientForm.referrer_id || null, sales_partner_id: newClientForm.sales_partner_id || null, notes: newClientForm.notes || null })
+      body: JSON.stringify({ name: newClientForm.name, phone: newClientForm.phone, email: newClientForm.email, address: fullAddress, referrer_id: newClientForm.referrer_id || null, sales_partner_id: newClientForm.sales_partner_id || null, notes: newClientForm.notes || null, source: newClientForm.source })
     })
     if (res.ok) {
       // API responds { client: {...} }, not the bare row -- see route.ts:184.
@@ -52,6 +55,9 @@ export default function NewClientModal({ initialClientId, initialClientName, ref
       setClientId(newClient.id)
       setClientName(newClient.name)
       onCreated?.(newClient)
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Failed to create client')
     }
     setSaving(false)
   }
@@ -102,6 +108,13 @@ export default function NewClientModal({ initialClientId, initialClientName, ref
                 <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" placeholder="Apt 4B" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source *</label>
+                <select required value={newClientForm.source} onChange={(e) => setNewClientForm({ ...newClientForm, source: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
+                  <option value="">How did they find you?</option>
+                  {LEAD_SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sales Person</label>
                 <select value={newClientForm.sales_partner_id} onChange={(e) => setNewClientForm({ ...newClientForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]">
                   <option value="">None</option>
@@ -119,6 +132,7 @@ export default function NewClientModal({ initialClientId, initialClientName, ref
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--sched-ink)]" rows={3} placeholder="Any special instructions..." />
               </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={onDone} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">Cancel</button>
                 <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--sched-ink)] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
