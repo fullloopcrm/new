@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { C, display, proseStyle } from "./editorial";
+import { C, display, body, proseStyle } from "./editorial";
 import SectionHead from "./SectionHead";
 import SectionCloser from "./SectionCloser";
 
@@ -81,6 +81,55 @@ export default function AIAgent() {
             is the{" "}
             <Link href="/full-loop-crm-service-features" style={link}>AI sales and operations engine</Link>{" "}
             that the seven-stage loop runs on.
+          </p>
+
+          <div
+            style={{
+              background: "#7A2020",
+              border: "1px solid #9A3A3A",
+              borderRadius: "16px",
+              padding: "28px 32px",
+              margin: "12px 0",
+            }}
+          >
+            <p
+              style={{
+                fontFamily: display,
+                fontWeight: 700,
+                fontSize: "clamp(22px, 2.6vw, 30px)",
+                color: "#FFFFFF",
+                lineHeight: 1.2,
+                margin: 0,
+              }}
+            >
+              <span style={{ color: "#E8B84B" }}>83%</span> of customers prefer speaking to a
+              real person over AI.
+            </p>
+            <p style={{ fontFamily: body, fontSize: "14px", color: "#E9C9C9", marginTop: "10px", marginBottom: 0 }}>
+              8&times;8 UK Customer Experience Research, 2025 &mdash; it&apos;s why every Full
+              Loop AI agent is backed by real human virtual assistants trained on your CRM.
+            </p>
+          </div>
+
+          <h3 style={subhead}>
+            Nights and overflow are AI. Everyday conversations can be real people.
+          </h3>
+          <p>
+            The voice and text agent covers the hours nobody wants to staff &mdash; nights,
+            weekends, the instant a lead comes in &mdash; and never sleeps. For the customer
+            service and sales conversations during the day, Full Loop pairs it with real
+            human virtual assistants: fluent English, speaking and typing, professionally
+            trained on your specific Full Loop CRM setup. Through our staffing partner{" "}
+            <a
+              href="https://www.thevavirtualassistant.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={link}
+            >
+              The VA Virtual Assistant
+            </a>
+            , you can staff them for $8 an hour &mdash; real people, not a script, working from
+            the same customer data the AI already knows.
           </p>
 
           <h3 style={subhead}>

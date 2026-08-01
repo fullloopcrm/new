@@ -8,6 +8,7 @@ import {
   useScroll,
   useMotionValueEvent,
 } from "framer-motion";
+import { features as allFeatures } from "@/lib/marketing/features";
 
 const navLinks = [
   { label: "Case Study", href: "/case-study/the-nyc-maid" },
@@ -16,6 +17,28 @@ const navLinks = [
   { label: "Industries", href: "/full-loop-crm-service-business-industries" },
   { label: "Pricing", href: "/full-loop-crm-pricing" },
 ];
+
+// Every live feature gets a nav link, grouped by category. Sourced from
+// features.ts / feature-data-*.ts — add a feature there and it shows up here,
+// no second place to update.
+const FEATURE_CATEGORY_ORDER = [
+  "Growth & SEO",
+  "AI & Sales",
+  "Scheduling",
+  "Field Operations",
+  "Reputation",
+  "Payments",
+  "Finance",
+  "Retention",
+  "Platform",
+  "Back Office",
+  "Portals",
+];
+
+const FEATURE_GROUPS = FEATURE_CATEGORY_ORDER.map((category) => ({
+  category,
+  items: allFeatures.filter((f) => f.category === category),
+})).filter((g) => g.items.length > 0);
 
 const moreLinks = [
   { label: "About", href: "/about-full-loop-crm" },
@@ -30,8 +53,11 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [mobileFeaturesOpen, setMobileFeaturesOpen] = useState(false);
 
   const moreRef = useRef<HTMLDivElement>(null);
+  const featuresRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
@@ -42,6 +68,9 @@ export default function Navbar() {
     function handleClick(e: MouseEvent) {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
+      }
+      if (featuresRef.current && !featuresRef.current.contains(e.target as Node)) {
+        setFeaturesOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -118,15 +147,69 @@ export default function Navbar() {
 
           {/* Desktop Nav — centered */}
           <div className="hidden items-center justify-center gap-6 lg:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) =>
+              link.label === "Features" ? (
+                <div key="features" ref={featuresRef} className="relative">
+                  <button
+                    onClick={() => setFeaturesOpen(!featuresOpen)}
+                    className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                  >
+                    {link.label}
+                    {chevron(featuresOpen)}
+                  </button>
+                  <AnimatePresence>
+                    {featuresOpen && (
+                      <motion.div
+                        variants={dropdownVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="absolute left-1/2 top-full mt-3 w-72 -translate-x-1/2 border bg-white p-1 max-h-[75vh] overflow-y-auto"
+                        style={{ borderColor: "#1C1C1C", borderRadius: 4 }}
+                      >
+                        <Link
+                          href={link.href}
+                          onClick={() => setFeaturesOpen(false)}
+                          className="block px-4 py-2.5 text-[13px] font-semibold transition-colors hover:bg-[#FBFBF8] border-b"
+                          style={{ color: "#1F4D2C", borderColor: "#E4E2DC" }}
+                        >
+                          All {allFeatures.length} Features &rarr;
+                        </Link>
+                        {FEATURE_GROUPS.map((group) => (
+                          <div key={group.category}>
+                            <div
+                              className="px-4 pt-2.5 pb-0.5 text-[10px] font-bold uppercase tracking-[0.12em] font-mono"
+                              style={{ color: "#A8A8A4" }}
+                            >
+                              {group.category}
+                            </div>
+                            {group.items.map((f) => (
+                              <Link
+                                key={f.slug}
+                                href={`/feature/${f.slug}`}
+                                onClick={() => setFeaturesOpen(false)}
+                                className="block px-4 py-1.5 text-[13px] transition-colors hover:bg-[#FBFBF8]"
+                                style={{ color: "#1C1C1C" }}
+                              >
+                                {f.name}
+                              </Link>
+                            ))}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
 
             {/* More Dropdown */}
             <div ref={moreRef} className="relative">
@@ -231,16 +314,67 @@ export default function Navbar() {
               className="fixed right-0 top-0 z-50 flex h-full w-[80vw] max-w-sm flex-col bg-white px-6 pt-24 pb-8 shadow-2xl lg:hidden"
             >
               <div className="flex flex-col gap-1 overflow-y-auto">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {navLinks.map((link) =>
+                  link.label === "Features" ? (
+                    <div key="features">
+                      <button
+                        onClick={() => setMobileFeaturesOpen(!mobileFeaturesOpen)}
+                        className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                      >
+                        {link.label} {chevron(mobileFeaturesOpen)}
+                      </button>
+                      <AnimatePresence>
+                        {mobileFeaturesOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="ml-4 flex flex-col gap-2 border-l-2 border-green-200 pl-3">
+                              <Link
+                                href={link.href}
+                                onClick={() => setMobileOpen(false)}
+                                className="rounded-lg px-3 py-1 text-sm font-semibold text-green-700"
+                              >
+                                All {allFeatures.length} Features &rarr;
+                              </Link>
+                              {FEATURE_GROUPS.map((group) => (
+                                <div key={group.category}>
+                                  <div className="px-3 mb-0.5 text-[10px] font-bold uppercase tracking-[1.5px] text-slate-400 font-cta">
+                                    {group.category}
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    {group.items.map((f) => (
+                                      <Link
+                                        key={f.slug}
+                                        href={`/feature/${f.slug}`}
+                                        onClick={() => setMobileOpen(false)}
+                                        className="rounded-lg px-3 py-1.5 text-sm text-slate-600 transition-colors hover:text-green-600"
+                                      >
+                                        {f.name}
+                                      </Link>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-lg px-4 py-3 text-base font-medium text-slate-800 transition-colors hover:bg-slate-50 font-cta"
+                    >
+                      {link.label}
+                    </Link>
+                  )
+                )}
 
                 <div className="my-2 h-px bg-slate-200" />
 
