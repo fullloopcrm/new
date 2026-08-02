@@ -506,6 +506,12 @@ export default function WebChatWidget({
     <div className="fixed bottom-5 right-5 z-[200] flex flex-col items-end gap-3 font-[family-name:var(--font-inter,inherit)]">
       {open && panel}
 
+      {!open && (
+        <span className="rounded-full bg-slate-950 text-white text-[11px] font-semibold tracking-wide px-3 py-1 shadow-lg">
+          Human Chat
+        </span>
+      )}
+
       {/* Launcher — gradient-ring orb, no flat icon-in-circle */}
       <button
         onClick={() => setOpen(v => !v)}
@@ -524,11 +530,9 @@ export default function WebChatWidget({
             <svg aria-hidden="true" className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          ) : logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" className="w-full h-full rounded-full object-cover" />
           ) : (
-            <div className="w-full h-full rounded-full" style={{ background: `radial-gradient(circle at 35% 30%, ${accentColor}, ${brandColor})` }} />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/full-loop-icon.svg" alt="" className="w-9 h-9" />
           )}
         </div>
         {!open && unread > 0 && (
