@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
@@ -66,7 +66,15 @@ const fetchBookingsListCached = unstable_cache(fetchBookingsList, ['bookings-lis
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // Same gap class as crm-04's clients/route.ts fix (b8d91d602): POST here
+    // and PUT/DELETE on [id] are gated by requirePermission('bookings.*'),
+    // but this GET only called getTenantForRequest() -- a tenant using the
+    // real, documented per-role permission override feature to revoke
+    // bookings.view from a role would have that revocation silently ignored
+    // here. Fixed to match the sibling routes' pattern.
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const url = request.nextUrl
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')

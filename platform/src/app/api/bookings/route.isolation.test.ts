@@ -63,7 +63,10 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: currentTenantId }, error: null }),
+  // GET now goes through requirePermission (bookings.view) too -- matches
+  // TenantContext's real nested shape ({tenantId, tenant: {slug}}) so GET's
+  // `tenant.slug` response field and POST's `tenant.tenantId` both resolve.
+  requirePermission: async () => ({ tenant: { tenantId: currentTenantId, tenant: { slug: currentTenantId } }, error: null }),
 }))
 vi.mock('@/lib/settings', () => ({
   getSettings: async () => ({

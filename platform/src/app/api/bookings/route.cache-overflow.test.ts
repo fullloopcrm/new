@@ -25,6 +25,15 @@ vi.mock('@/lib/tenant-query', () => ({
   AuthError: class AuthError extends Error {},
 }))
 
+// GET now goes through requirePermission (bookings.view) instead of calling
+// getTenantForRequest directly -- see the route's own comment. Without this
+// mock the real requirePermission runs, calls the mocked getTenantForRequest
+// above (which has no `.role`), and hasPermission() denies -> a 403 that has
+// nothing to do with what this file actually tests (the cache-overflow fallback).
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: vi.fn(async () => ({ tenant: { tenantId: 'tenant-A', tenant: { slug: 'nycmaid' } }, error: null })),
+}))
+
 // A single self-chaining thenable: every filter method the real PostgREST
 // builder supports (eq/gte/lte/order/range) can be called in any order and
 // returns the same object, which resolves to the fixed result when awaited --

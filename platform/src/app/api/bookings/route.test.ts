@@ -224,7 +224,11 @@ beforeEach(() => {
   h.getTenantForRequest.mockReset()
   h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: { slug: h.tenantId } }))
   h.requirePermission.mockReset()
-  h.requirePermission.mockImplementation(async () => ({ tenant: { tenantId: h.tenantId }, error: null }))
+  // GET now also goes through requirePermission (bookings.view) -- see the
+  // route's own comment; matches TenantContext's real nested shape
+  // ({tenantId, tenant: {slug}, role}) so GET's `tenant.slug` read on the
+  // response and POST's `tenant.tenantId` read both work off this one mock.
+  h.requirePermission.mockImplementation(async () => ({ tenant: { tenantId: h.tenantId, tenant: { slug: h.tenantId } }, error: null }))
   h.getSettings.mockReset()
   h.getSettings.mockResolvedValue({ booking_buffer_minutes: 0 })
   h.checkMemberDayOff.mockReset()
@@ -254,13 +258,36 @@ beforeEach(() => {
 })
 
 describe('GET /api/bookings — permission + tenant isolation', () => {
-  it('propagates an AuthError from getTenantForRequest unchanged', async () => {
-    const { AuthError } = await import('@/lib/tenant-query')
-    h.getTenantForRequest.mockRejectedValueOnce(new AuthError('Unauthorized', 401))
+  it('propagates a requirePermission error (e.g. unauthenticated) unchanged', async () => {
+    h.requirePermission.mockResolvedValueOnce({
+      tenant: null,
+      error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    })
 
     const res = await GET(getReq())
 
     expect(res.status).toBe(401)
+  })
+
+  it('denies the request with a 403 when the caller lacks bookings.view (e.g. a tenant-configured role override) instead of silently listing every booking', async () => {
+    // Regression lock (2026-08-01): GET used to call getTenantForRequest()
+    // directly, bypassing requirePermission entirely -- same gap class as
+    // crm-04's clients/route.ts fix (b8d91d602). Proves GET now honors a
+    // denied bookings.view the same way POST already honored bookings.create.
+    h.requirePermission.mockResolvedValueOnce({
+      tenant: null,
+      error: new Response(JSON.stringify({ error: 'Forbidden: insufficient permissions' }), { status: 403 }),
+    })
+
+    const res = await GET(getReq())
+
+    expect(res.status).toBe(403)
+  })
+
+  it('calls requirePermission with bookings.view, not some other permission', async () => {
+    await GET(getReq())
+
+    expect(h.requirePermission).toHaveBeenCalledWith('bookings.view')
   })
 
   it("only ever returns the caller tenant's own bookings", async () => {
