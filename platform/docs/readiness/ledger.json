@@ -349,6 +349,14 @@
           "evidence": "Read POST in full. Auth-only (getTenantForRequest, any authenticated role) -- appropriate, since the action is narrow and low-risk: it emails ADMIN_NOTIFICATION_EMAIL (platform team) with a title/description the tenant can't act on directly (a new automation trigger requires code, per the file's own comment). Title/description are HTML-escaped via escapeHtml() before being interpolated into the email body, closing an HTML-injection path into the platform team's inbox. No bug found.",
           "last_verified": "2026-08-02",
           "last_verified_commit": null
+        },
+        {
+          "id": "sec-44",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). Read in full, no bug found. Correctly gated requirePermission('settings.view'). Real, already-applied IDOR-prevention fix confirmed by reading it, not taken on the comment alone: a caller-supplied sessionId (an existing sms_conversations row id) is verified via .eq('id', sessionId).eq('tenant_id', tenant.tenantId) to belong to the caller's OWN tenant before askSelena() is allowed to load context and act on it -- the route's own comment explicitly names the exact attack it prevents (a manager+ from tenant A passing another tenant's admin-dashboard conversation id to get Selena to read/act on tenant B's data and return it in the response). New-session creation correctly looks up an existing active admin-dashboard conversation for the owner phone before inserting, avoiding a unique-constraint violation on the partial index that only allows one active conversation per phone. Score held at the manual_code_read cap (50, see validate-ledger-evidence.mjs) -- no live/test check ran this pass; the underlying askSelena() agent logic itself was not independently opened, only this route's own auth/ownership layer.",
+          "last_verified": "2026-08-01",
+          "last_verified_commit": null
         }
       ]
     },
@@ -761,6 +769,14 @@
           "evidence": "Read GET/POST (video) and POST (retry-process) in full. All three gated getTenantForRequest(), each independently verifying the target booking/job (or existing note, for retry) belongs to the caller's tenant via tenantDb() before issuing a signed upload URL, inserting the note row, or re-invoking processMediaNote(). video/route.ts constrains uploaded MIME/extension to an explicit allowlist and falls back to a safe default extension for anything outside it, so a crafted filename extension can't be spliced unsanitized into the storage path. retry-process is documented as the dashboard-session counterpart to the team-portal crew's own retry route, sharing the same processMediaNote() implementation rather than a forked copy. No bug found.",
           "last_verified": "2026-08-02",
           "last_verified_commit": null
+        },
+        {
+          "id": "bsr-17",
+          "score": 78,
+          "evidence_type": "test_run",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). TWO REAL BUGS FOUND AND FIXED. (1) GET had the same dormant-override-class permission gap as bookings.ts/clients.ts/projects.ts this session -- only getTenantForRequest(), no permission check -- fixed to require bookings.view. (2) POST's rate limiter was an in-memory Map (`RL_MAX = 5` per 10-minute window), which does not work on Vercel's serverless runtime: it resets on every cold start, and concurrent invocations can land on separate instances each with their own empty Map, so the limit was never actually enforced in production. Real, live cost/abuse exposure: every accepted submission fires a genuine Telnyx SMS to admins (smsAdmins) and can create a real client row + pending booking. Switched to the persistent rate_limit_events-backed limiter already used elsewhere in this codebase (referrers, feedback). Updated 2 existing test files whose fake supabaseAdmin mocks didn't support the .gte() chain rateLimitDb needs, and didn't mock requirePermission (GET was previously calling getTenantForRequest directly). Added 4 new regression tests: 403-on-denied + permission-arg assertion for the GET gate, and allows-under-limit + rejects-at-429-with-no-insert for the rate-limit switch. Verified via git-stash: all 3 assertions that could meaningfully fail (403 test, permission-arg test, 429 test) fail against pre-fix code. Score 78: two real, fixed, test-verified bugs of different classes (a dormant permission gap plus a genuinely broken-in-production rate limiter) found via full code read, held below 80s because the union logic with the legacy sms_conversations waitlist source (GET's second query branch) was read but not independently re-tested this pass.",
+          "last_verified": "2026-08-01",
+          "last_verified_commit": "e160f4950"
         }
       ]
     },
@@ -917,6 +933,14 @@
           "evidence_type": "manual_code_read",
           "evidence": "Read GET/POST/PATCH/DELETE in full. requireAdmin()-gated on all four verbs. subject_type is constrained to a 'lead'|'tenant' literal union via validType() before every query, so subject_id can't be used to pivot into an unrelated table. POST requires at least text or an image (rejects an empty note). No bug found.",
           "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-20",
+          "score": 70,
+          "evidence_type": "live_http_check",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). Both are PLATFORM-level intake systems (not tenant-scoped -- gated on requireAdmin(), the super-admin PIN session, not a tenant role/permission), feeding admin-only dashboards at /admin/feedback and /admin/requests. feedback.ts: GET correctly gated requireAdmin(); POST is public by design (the in-app feedback widget), rate-limited 5/10min per IP via the persistent DB-backed limiter (not the broken in-memory kind fixed on waitlist.ts this same batch), HTML-escapes the message body before embedding it in the admin notification email (`.replace(/</g,'&lt;').replace(/>/g,'&gt;')`), and correctly resolves an optional tenant tag via the same resolveOnboardingTenantId() session-or-token pattern already reviewed on catalog.ts. requests.ts (partner/reseller applications): GET's status-filtered branch correctly requires requireAdmin(); the unfiltered branch is intentionally public but returns ONLY a count of approved partnerships, no row data -- confirmed by reading the exact select ({count:'exact', head:true}), not assumed from the branch name. POST is public, Zod-validated, rate-limited by a 24h same-email dedupe check, and the notification email template runs every interpolated field through a local escapeHtml() before rendering. No bugs found in either route. Live-curled against production: GET /api/feedback (no auth) -> 401 'Unauthorized'; GET /api/requests (no status param) -> 200 {total:0} -- both match the exact behavior the code predicts, not just plausible-sounding. Score 70: two real live checks confirming the core access-control shape on both routes, held below 80s because the status-filtered admin branch of requests.ts and the PATCH mark-read paths on both routes were read but not live-exercised (would require a real admin session) this pass.",
+          "last_verified": "2026-08-01",
           "last_verified_commit": null
         }
       ]
