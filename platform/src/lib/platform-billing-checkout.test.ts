@@ -87,9 +87,14 @@ describe('createProposalCheckout — flat monthly line item + $1 first-month cou
     expect(res).toEqual({ url: 'https://checkout.stripe.test/cs_test_1', id: 'cs_test_1' })
   })
 
-  it('success_url carries the lead id so the thank-you page can render wire instructions', async () => {
+  it('success_url carries the lead id + a signed token so the thank-you page can render wire instructions', async () => {
     await checkout({ leadId: 'lead-XYZ', origin: 'https://app.test' })
-    expect(cap.sessions[0].success_url).toBe('https://app.test/proposal/thank-you?lead=lead-XYZ')
+    const url = new URL(cap.sessions[0].success_url as string)
+    expect(url.origin + url.pathname).toBe('https://app.test/proposal/thank-you')
+    expect(url.searchParams.get('lead')).toBe('lead-XYZ')
+    // Signed so a copied/guessed lead id can't see real bank wire details —
+    // just assert it's present and non-trivial, not the literal value.
+    expect(url.searchParams.get('t')?.length).toBeGreaterThanOrEqual(16)
   })
 
   it('includes customer_email only when an email is supplied', async () => {
