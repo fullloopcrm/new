@@ -52,7 +52,7 @@ const TIPS: string[] = [
 
 export function OnboardingWelcome({ businessName, sections, onStart }: { businessName: string; sections: ProfileSection[]; onStart: () => void }) {
   return (
-    <div className="mx-auto max-w-6xl px-6 py-12 lg:px-10">
+    <div className="mx-auto max-w-6xl px-6 pt-12 pb-28 lg:px-10">
       <div className="mb-8 flex items-center gap-2 text-sm font-semibold text-slate-900">
         <span className="font-heading text-slate-900">Full Loop</span>
         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-900">CRM</span>
