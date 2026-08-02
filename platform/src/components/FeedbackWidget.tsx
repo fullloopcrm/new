@@ -1,8 +1,12 @@
 'use client'
 import { useState } from 'react'
+import { formatPhone } from '@/lib/format'
 
 export default function FeedbackWidget({ source, token, variant = 'fixed' }: { source: string; token?: string; variant?: 'fixed' | 'inline' }) {
   const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [anonymous, setAnonymous] = useState(false)
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [sending, setSending] = useState(false)
@@ -17,14 +21,21 @@ export default function FeedbackWidget({ source, token, variant = 'fixed' }: { s
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, source, ...(token ? { token } : {}) })
+        body: JSON.stringify({
+          message,
+          source,
+          name: anonymous ? null : name.trim() || null,
+          phone: anonymous ? null : phone.trim() || null,
+          anonymous,
+          ...(token ? { token } : {}),
+        })
       })
       if (!res.ok) {
         setError('Failed to submit. Please try again.')
         return
       }
       setSubmitted(true)
-      setTimeout(() => { setOpen(false); setSubmitted(false); setMessage('') }, 2000)
+      setTimeout(() => { setOpen(false); setSubmitted(false); setMessage(''); setName(''); setPhone(''); setAnonymous(false) }, 2000)
     } catch {
       setError('Failed to send feedback. Please try again.')
     } finally {
@@ -44,8 +55,8 @@ export default function FeedbackWidget({ source, token, variant = 'fixed' }: { s
       {open && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[100] p-4" onClick={() => setOpen(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">Anonymous Feedback</h3>
-            <p className="text-gray-500 text-sm mb-4">Your feedback is completely anonymous.</p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Feedback</h3>
+            <p className="text-gray-500 text-sm mb-4">Tell us what&apos;s on your mind, or stay anonymous — your call.</p>
 
             {submitted ? (
               <div className="text-center py-6">
@@ -54,6 +65,35 @@ export default function FeedbackWidget({ source, token, variant = 'fixed' }: { s
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
+                <label className="flex items-center gap-2.5 mb-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={anonymous}
+                    onChange={(e) => setAnonymous(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-600/30"
+                  />
+                  <span className="text-sm text-gray-600">Prefer to stay anonymous?</span>
+                </label>
+
+                {!anonymous && (
+                  <div className="space-y-2 mb-3">
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-teal-600"
+                    />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(formatPhone(e.target.value))}
+                      placeholder="Phone"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-teal-600"
+                    />
+                  </div>
+                )}
+
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -61,7 +101,6 @@ export default function FeedbackWidget({ source, token, variant = 'fixed' }: { s
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-slate-900 text-sm resize-none focus:outline-none focus:border-teal-600"
                   rows={4}
                   required
-                  autoFocus
                 />
                 {error && (
                   <p className="text-red-600 text-sm mt-2">{error}</p>

@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { formatPhone } from '@/lib/format'
 
 function SiteNav() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -53,6 +54,9 @@ function SiteNav() {
 export default function FeedbackPage() {
   const [message, setMessage] = useState('')
   const [category, setCategory] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [anonymous, setAnonymous] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
@@ -67,7 +71,13 @@ export default function FeedbackPage() {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.trim(), category: category || 'general' }),
+        body: JSON.stringify({
+          message: message.trim(),
+          category: category || 'general',
+          name: anonymous ? null : name.trim() || null,
+          phone: anonymous ? null : phone.trim() || null,
+          anonymous,
+        }),
       })
       if (!res.ok) {
         const data = await res.json()
@@ -94,14 +104,14 @@ export default function FeedbackPage() {
           </div>
           <h1 className="text-2xl font-bold text-white mb-3">Thank You!</h1>
           <p className="text-gray-400 mb-8">
-            Your feedback has been submitted anonymously. We read every submission and use it to improve the platform.
+            Your feedback has been submitted{anonymous ? ' anonymously' : ''}. We read every submission and use it to improve the platform.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link href="/" className="inline-block bg-white text-gray-900 font-semibold px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors">
               Back to Home
             </Link>
             <button
-              onClick={() => { setSubmitted(false); setMessage(''); setCategory('') }}
+              onClick={() => { setSubmitted(false); setMessage(''); setCategory(''); setName(''); setPhone(''); setAnonymous(false) }}
               className="text-sm text-gray-500 hover:text-white transition-colors"
             >
               Submit Another
@@ -119,14 +129,51 @@ export default function FeedbackPage() {
       <div className="max-w-xl mx-auto px-4 pt-12 pb-20">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">
-            Anonymous Feedback
+            Feedback
           </h1>
           <p className="text-gray-400">
-            Share your thoughts, suggestions, or concerns. No account or identity required.
+            Share your thoughts, suggestions, or concerns — with your name attached, or completely anonymous. Your call.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={anonymous}
+                onChange={(e) => setAnonymous(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-white focus:ring-gray-600"
+              />
+              <span className="text-sm text-gray-400">Prefer to stay anonymous?</span>
+            </label>
+          </div>
+
+          {!anonymous && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-600 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">Phone</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(formatPhone(e.target.value))}
+                  placeholder="Your phone"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-600 transition-colors"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="text-sm text-gray-400 mb-1.5 block">Category</label>
             <select
@@ -174,7 +221,7 @@ export default function FeedbackPage() {
               {submitting ? 'Submitting...' : 'Submit Feedback'}
             </button>
             <p className="text-xs text-gray-600 mt-4">
-              100% anonymous. No tracking, no cookies, no identity collected.
+              {anonymous ? '100% anonymous. No tracking, no cookies, no identity collected.' : "We'll only use your info to follow up on this feedback."}
             </p>
           </div>
         </form>

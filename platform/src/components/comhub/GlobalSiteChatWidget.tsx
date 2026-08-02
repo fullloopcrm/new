@@ -53,12 +53,12 @@ export default function GlobalSiteChatWidget() {
       .finally(() => setReady(true))
   }, [])
 
-  const handleSend = useCallback(async ({ body, imageDataUrl }: { body: string; imageDataUrl?: string }) => {
+  const handleSend = useCallback(async ({ body, imageDataUrl, visitorName, visitorPhone }: { body: string; imageDataUrl?: string; visitorName?: string; visitorPhone?: string }) => {
     const current = typeof window !== 'undefined' ? localStorage.getItem(THREAD_STORAGE_KEY) : threadId
     const res = await fetch('/api/public/webchat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threadId: current, body, imageDataUrl }),
+      body: JSON.stringify({ threadId: current, body, imageDataUrl, visitorName, visitorPhone }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to send')
@@ -87,6 +87,7 @@ export default function GlobalSiteChatWidget() {
       brandColor={tenant.primary_color || undefined}
       logoUrl={tenant.logo_url || undefined}
       pulse
+      requireIdentity
       initialMessages={initialMessages}
       onSend={handleSend}
       pollForReplies={pollForReplies}
