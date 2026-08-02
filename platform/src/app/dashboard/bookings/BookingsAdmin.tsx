@@ -1098,7 +1098,7 @@ function BookingsPage() {
     const profitCents = revenueCents - laborTotalCents
     const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
     const avgTicketCents = todaysJobs.length > 0
-      ? todaysJobs.reduce((sum, b) => sum + (b.price || 0), 0) / todaysJobs.length
+      ? Math.round(todaysJobs.reduce((sum, b) => sum + (b.price || 0), 0) / todaysJobs.length)
       : 0
     return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
   })()
