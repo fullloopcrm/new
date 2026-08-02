@@ -548,15 +548,9 @@ export default function BusinessDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/businesses/${id}/profile`}
-            className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
-          >
-            Profile Form →
-          </Link>
           <button onClick={startImpersonation} disabled={impersonating}
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
-            {impersonating ? 'Entering...' : 'Enter Business Profile'}
+            {impersonating ? 'Logging in...' : 'Log In As Tenant'}
           </button>
           {(biz.domain || biz.domain_name) && (
             <>
