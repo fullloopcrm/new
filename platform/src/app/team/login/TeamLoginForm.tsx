@@ -1,21 +1,38 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTeamAuth } from '../layout'
-import PinLoginCard from '@/components/auth/PinLoginCard'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+} from '@/components/auth/AuthShell'
+
+type Step = 'pin' | 'forgot' | 'forgot-sent'
 
 interface TeamLoginFormProps {
   businessName: string
 }
 
 export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
-  const { setAuth, t } = useTeamAuth()
+  return (
+    <Suspense fallback={null}>
+      <TeamLoginFormInner businessName={businessName} />
+    </Suspense>
+  )
+}
+
+function TeamLoginFormInner({ businessName }: TeamLoginFormProps) {
+  const { setAuth, t, lang, setLang } = useTeamAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [step, setStep] = useState<Step>('pin')
   const [pin, setPin] = useState('')
   const [slug, setSlug] = useState('')
   const [needBusiness, setNeedBusiness] = useState(false)
+  const [contact, setContact] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -37,14 +54,39 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
       if (!res.ok) {
         // 400 = server couldn't resolve a business from the host → ask for it.
         if (res.status === 400) setNeedBusiness(true)
-        setError(data.error || 'Login failed')
+        setError(data.error || t('Login failed', 'Error al iniciar sesión'))
         setPin('')
         return
       }
       setAuth(data)
       router.push('/team')
     } catch {
-      setError('Connection error')
+      setError(t('Connection error', 'Error de conexión'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function requestPin(e: React.FormEvent) {
+    e.preventDefault()
+    if (!contact.trim() || (needBusiness && !slug) || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/team-portal/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_pin', contact, tenant_slug: slug || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (res.status === 400) setNeedBusiness(true)
+        setError(data.error || t('Could not send a PIN', 'No se pudo enviar el PIN'))
+        return
+      }
+      setStep('forgot-sent')
+    } catch {
+      setError(t('Connection error', 'Error de conexión'))
     } finally {
       setLoading(false)
     }
@@ -63,40 +105,138 @@ export default function TeamLoginForm({ businessName }: TeamLoginFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
+  const businessCodeField = needBusiness && (
+    <div>
+      <label htmlFor="team-business-code" className={authLabelClass}>
+        {t('Business code', 'Código de negocio')}
+      </label>
+      <input
+        id="team-business-code"
+        value={slug}
+        onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+        placeholder="nycmaid"
+        className={authInputClass}
+      />
+    </div>
+  )
+
+  if (step === 'forgot-sent') {
+    return (
+      <AuthShell businessName={businessName} subtitle={t('Team Portal', 'Portal de Equipo')} lang={lang} onToggleLang={setLang}>
+        <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
+          {t('A PIN was sent to you. Check your phone or email, then sign in.', 'Te enviamos un PIN. Revisa tu teléfono o correo, y luego inicia sesión.')}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setStep('pin')
+            setContact('')
+            setError('')
+          }}
+          className={`mt-8 ${authButtonClass}`}
+        >
+          {t('Back to sign in →', 'Volver a iniciar sesión →')}
+        </button>
+      </AuthShell>
+    )
+  }
+
   return (
-    <PinLoginCard
+    <AuthShell
       businessName={businessName}
       subtitle={t('Team Portal', 'Portal de Equipo')}
-      label={t('PIN', 'PIN')}
-      placeholder={t('PIN', 'PIN')}
-      value={pin}
-      onChange={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
-      onSubmit={login}
-      error={error}
-      loading={loading}
-      submitDisabled={pin.length < 4 || (needBusiness && !slug)}
-      maxLength={6}
-      buttonLabel={t('Sign in →', 'Entrar →')}
-      loadingLabel={t('Signing in…', 'Entrando…')}
+      lang={lang}
+      onToggleLang={setLang}
       helpLinks={[{ label: t('Feedback', 'Comentarios'), href: '/feedback' }]}
     >
-      {needBusiness && (
-        <div>
-          <label
-            htmlFor="team-business-code"
-            className="block font-mono text-xs font-bold uppercase tracking-widest text-neutral-800"
+      {step === 'pin' ? (
+        <form
+          className="mt-10"
+          onSubmit={(e) => {
+            e.preventDefault()
+            login()
+          }}
+        >
+          {businessCodeField}
+
+          <div className={needBusiness ? 'mt-6' : ''}>
+            <label htmlFor="team-pin" className={authLabelClass}>
+              {t('PIN', 'PIN')}
+            </label>
+            <input
+              id="team-pin"
+              autoFocus
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder={t('PIN', 'PIN')}
+              className={authInputClass}
+            />
+          </div>
+
+          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading || pin.length < 4 || (needBusiness && !slug)}
+            className={`mt-8 ${authButtonClass}`}
           >
-            {t('Business code', 'Código de negocio')}
-          </label>
-          <input
-            id="team-business-code"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-            placeholder="nycmaid"
-            className="mt-2 w-full rounded-none border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none"
-          />
-        </div>
+            {loading ? t('Signing in…', 'Entrando…') : t('Sign in →', 'Entrar →')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStep('forgot')
+              setError('')
+            }}
+            className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+          >
+            {t("Don't have a PIN?", '¿No tienes un PIN?')}
+          </button>
+        </form>
+      ) : (
+        <form className="mt-10" onSubmit={requestPin}>
+          {businessCodeField}
+
+          <div className={needBusiness ? 'mt-6' : ''}>
+            <label htmlFor="team-forgot-contact" className={authLabelClass}>
+              {t('Phone or email on file', 'Teléfono o correo registrado')}
+            </label>
+            <input
+              id="team-forgot-contact"
+              autoFocus
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              required
+              placeholder={t('Phone or email', 'Teléfono o correo')}
+              className={authInputClass}
+            />
+          </div>
+
+          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading || !contact.trim() || (needBusiness && !slug)}
+            className={`mt-8 ${authButtonClass}`}
+          >
+            {loading ? t('Sending…', 'Enviando…') : t('Send me a PIN →', 'Enviarme un PIN →')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStep('pin')
+              setError('')
+            }}
+            className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+          >
+            {t('Back to sign in', 'Volver a iniciar sesión')}
+          </button>
+        </form>
       )}
-    </PinLoginCard>
+    </AuthShell>
   )
 }

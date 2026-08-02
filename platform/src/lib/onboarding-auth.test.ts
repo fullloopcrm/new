@@ -75,4 +75,41 @@ describe('resolveOnboardingTenantId', () => {
     getTenantForRequestMock.mockRejectedValue(new Error('DB connection lost'))
     await expect(resolveOnboardingTenantId(null)).rejects.toThrow('DB connection lost')
   })
+
+  describe('PIN gate', () => {
+    it('rejects a valid, current-version token that has not been PIN-verified when the tenant has a phone on file', async () => {
+      getTenantForRequestMock.mockRejectedValue(new AuthError('no session'))
+      h.tenant = { onboarding_link_version: 1, phone: '(555) 123-4567', owner_phone: null }
+      const token = signOnboardingToken('tenant-A', 1)
+      expect(await resolveOnboardingTenantId(token)).toBeNull()
+    })
+
+    it('accepts a PIN-verified token when the tenant has a phone on file', async () => {
+      getTenantForRequestMock.mockRejectedValue(new AuthError('no session'))
+      h.tenant = { onboarding_link_version: 1, phone: '(555) 123-4567', owner_phone: null }
+      const token = signOnboardingToken('tenant-A', 1, undefined, { pinVerified: true })
+      expect(await resolveOnboardingTenantId(token)).toBe('tenant-A')
+    })
+
+    it('does not require PIN verification when the tenant has no phone on file at all', async () => {
+      getTenantForRequestMock.mockRejectedValue(new AuthError('no session'))
+      h.tenant = { onboarding_link_version: 1, phone: null, owner_phone: null }
+      const token = signOnboardingToken('tenant-A', 1)
+      expect(await resolveOnboardingTenantId(token)).toBe('tenant-A')
+    })
+
+    it('requirePin: false bypasses the gate even when the tenant has a phone on file (used by /api/onboarding/pin itself)', async () => {
+      getTenantForRequestMock.mockRejectedValue(new AuthError('no session'))
+      h.tenant = { onboarding_link_version: 1, phone: '(555) 123-4567', owner_phone: null }
+      const token = signOnboardingToken('tenant-A', 1)
+      expect(await resolveOnboardingTenantId(token, { requirePin: false })).toBe('tenant-A')
+    })
+
+    it('a stale PIN-verified token still gets rejected by the version check after regenerate', async () => {
+      getTenantForRequestMock.mockRejectedValue(new AuthError('no session'))
+      const oldToken = signOnboardingToken('tenant-A', 1, undefined, { pinVerified: true })
+      h.tenant = { onboarding_link_version: 2, phone: '(555) 123-4567', owner_phone: null }
+      expect(await resolveOnboardingTenantId(oldToken)).toBeNull()
+    })
+  })
 })

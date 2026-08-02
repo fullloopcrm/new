@@ -5,21 +5,53 @@
  * the moment they're created (see src/lib/onboarding-link.ts). No Clerk, no
  * dashboard chrome: this route is reachable by anyone holding the signed
  * token in the URL, verified server-side on every /api/tenant-profile call
- * (src/lib/onboarding-token.ts). Renders the exact same ProfileWizard the
+ * (src/lib/onboarding-token.ts). Gated behind a PIN screen first (see
+ * onboarding-pin.ts) — the raw URL token alone isn't accepted by the
+ * profile/catalog/uploads/etc APIs until it's exchanged here for an
+ * elevated, PIN-verified token. Renders the exact same ProfileWizard the
  * in-dashboard onboarding page does, in token mode.
  */
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ProfileWizard } from '@/components/tenant-profile/ProfileWizard'
 import FeedbackWidget from '@/components/FeedbackWidget'
 import OnboardingChatWidget from '@/components/tenant-profile/OnboardingChatWidget'
+import { OnboardingPinGate } from '@/components/tenant-profile/OnboardingPinGate'
+
+const elevatedTokenKey = (rawToken: string) => `fl-onboarding-pin-token:${rawToken}`
 
 export default function PublicOnboardingPage() {
   const params = useParams<{ token: string }>()
-  const token = params.token
+  const rawToken = params.token
   const [done, setDone] = useState(false)
+  const [activeToken, setActiveToken] = useState<string | null>(null)
+  const [checkedCache, setCheckedCache] = useState(false)
 
-  if (!token) return null
+  useEffect(() => {
+    if (!rawToken) return
+    // Cached in localStorage (not sessionStorage) so a tenant who closes the
+    // tab and reopens the same link later doesn't have to re-enter the PIN
+    // — matches the "leaves and comes back" behavior ProfileWizard's welcome
+    // screen already promises, since it's keyed off this same token value.
+    setActiveToken(window.localStorage.getItem(elevatedTokenKey(rawToken)))
+    setCheckedCache(true)
+  }, [rawToken])
+
+  if (!rawToken || !checkedCache) return null
+
+  if (!activeToken) {
+    return (
+      <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
+        <OnboardingPinGate
+          token={rawToken}
+          onVerified={(elevatedToken) => {
+            window.localStorage.setItem(elevatedTokenKey(rawToken), elevatedToken)
+            setActiveToken(elevatedToken)
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
@@ -31,10 +63,10 @@ export default function PublicOnboardingPage() {
           </p>
         </div>
       ) : (
-        <ProfileWizard mode={{ mode: 'token', token }} onComplete={() => setDone(true)} />
+        <ProfileWizard mode={{ mode: 'token', token: activeToken }} onComplete={() => setDone(true)} />
       )}
-      <FeedbackWidget source="onboarding_link" token={token} />
-      <OnboardingChatWidget token={token} tenantName="" />
+      <FeedbackWidget source="onboarding_link" token={activeToken} />
+      <OnboardingChatWidget token={activeToken} tenantName="" />
     </div>
   )
 }

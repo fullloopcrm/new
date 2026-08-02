@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
@@ -31,11 +32,17 @@ function clientIp(request: Request): string {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
+  const tenant_slug_early: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
+
+  if (body.action === 'request_pin') {
+    return handleRequestPin(body, tenant_slug_early, request)
+  }
+
   const pin = body.pin
   // Prefer an explicit slug, but fall back to the middleware-injected tenant
   // header (set on every tenant domain/subdomain). This lets a cleaner log in
   // on their own site without typing a "business code".
-  const tenant_slug: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
+  const tenant_slug: string = tenant_slug_early
 
   if (!pin || !tenant_slug) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
@@ -142,4 +149,89 @@ export async function POST(request: Request) {
     },
     tenant: { id: tenant.id, name: tenant.name, phone: tenant.phone },
   })
+}
+
+/**
+ * "Forgot my PIN" for the field-staff portal. Mirrors /api/portal/auth's
+ * request_pin: look the member up by whatever contact they give (phone or
+ * email), mint a fresh PIN, deliver it over whichever channel matches what
+ * they entered. Cleaners are SMS-first (that's how every other team-portal
+ * notification already reaches them), so phone is tried first; email is the
+ * fallback for members who only have that on file.
+ */
+async function handleRequestPin(body: Record<string, unknown>, tenant_slug: string, request: Request) {
+  const contact = String(body.contact || '').trim()
+  if (!contact || !tenant_slug) {
+    return NextResponse.json({ error: 'Phone or email, and tenant required' }, { status: 400 })
+  }
+
+  const ip = clientIp(request)
+  const rl = await rateLimitDb(`team_portal_pin_request:${tenant_slug}:${contact}`, 5, 15 * 60 * 1000, { failClosed: true })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, telnyx_api_key, telnyx_phone, email_from, resend_api_key')
+    .eq('slug', tenant_slug)
+    .eq('status', 'active')
+    .single()
+  if (!tenant) {
+    return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+  }
+
+  const digits = contact.replace(/\D/g, '')
+  const isPhone = digits.length >= 10 && digits.length <= 11
+  type Member = { id: string; name: string; phone: string | null; email: string | null }
+  const { data: member } = (await tenantDb(tenant.id)
+    .from('team_members')
+    .select('id, name, phone, email')
+    .eq('status', 'active')
+    .eq(isPhone ? 'phone' : 'email', isPhone ? contact.replace(/[^\d+]/g, '') : contact.toLowerCase())
+    .maybeSingle()) as { data: Member | null }
+
+  // Always return the same response whether or not a member was found --
+  // otherwise this becomes a "is this phone/email a team member" oracle.
+  if (!member) {
+    return NextResponse.json({ sent: true })
+  }
+
+  const newPin = String(100000 + randomInt(0, 900000))
+
+  const { error: updErr } = await tenantDb(tenant.id)
+    .from('team_members')
+    .update({ pin: newPin })
+    .eq('id', member.id)
+  if (updErr) {
+    return NextResponse.json({ error: 'Could not set a new PIN. Try again.' }, { status: 500 })
+  }
+
+  try {
+    if (isPhone && member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      const { sendSMS } = await import('@/lib/sms')
+      await sendSMS({
+        to: member.phone,
+        body: `Your ${tenant.name} team portal PIN is: ${newPin}`,
+        telnyxApiKey: tenant.telnyx_api_key,
+        telnyxPhone: tenant.telnyx_phone,
+      })
+    } else if (member.email) {
+      const { sendEmail, tenantSender } = await import('@/lib/email')
+      await sendEmail({
+        to: member.email,
+        from: tenantSender(tenant),
+        subject: `Your ${tenant.name} team portal PIN`,
+        html: `<p>Your ${tenant.name} team portal PIN is: <strong>${newPin}</strong></p>`,
+        resendApiKey: tenant.resend_api_key,
+      })
+    } else {
+      return NextResponse.json({ error: 'No phone or email on file. Contact your manager.' }, { status: 503 })
+    }
+  } catch (e) {
+    console.error('[team-portal/auth] request_pin send error:', e)
+    return NextResponse.json({ error: 'Unable to send your PIN. Contact your manager.' }, { status: 503 })
+  }
+
+  return NextResponse.json({ sent: true })
 }

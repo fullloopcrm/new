@@ -10,13 +10,19 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { verifyPin } from '@/lib/sales-partner-auth'
+import { verifyPin, generatePin, hashPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
 
 export async function POST(request: Request) {
   try {
-    const { email, pin } = await request.json()
+    const body = await request.json()
+
+    if (body.action === 'request_pin') {
+      return handleRequestPin(body, request)
+    }
+
+    const { email, pin } = body
     if (!email || !pin) {
       return NextResponse.json({ error: 'Email and PIN required' }, { status: 400 })
     }
@@ -58,4 +64,62 @@ export async function POST(request: Request) {
     console.error('Sales partner login error:', err)
     return NextResponse.json({ error: 'Login failed' }, { status: 500 })
   }
+}
+
+/** "Forgot my PIN" — mint a fresh PIN, email it. Same shape as team-portal/client-portal request_pin. */
+async function handleRequestPin(body: { email?: string }, request: Request) {
+  const email = String(body.email || '').trim()
+  if (!email) {
+    return NextResponse.json({ error: 'Email required' }, { status: 400 })
+  }
+
+  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  const rl = await rateLimitDb(`sales-partner-pin-request:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+  }
+
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
+
+  const { data: partner } = await supabaseAdmin
+    .from('sales_partners')
+    .select('id, name, email')
+    .eq('tenant_id', tenant.id)
+    .ilike('email', email)
+    .eq('active', true)
+    .maybeSingle()
+
+  // Always the same response regardless of match, so this can't be used to
+  // probe which emails are approved sales partners.
+  if (!partner) {
+    return NextResponse.json({ sent: true })
+  }
+
+  const newPin = generatePin()
+  const { pinHash, pinSalt } = hashPin(newPin)
+
+  const { error: updErr } = await supabaseAdmin
+    .from('sales_partners')
+    .update({ pin_hash: pinHash, pin_salt: pinSalt })
+    .eq('id', partner.id)
+  if (updErr) {
+    return NextResponse.json({ error: 'Could not set a new PIN. Try again.' }, { status: 500 })
+  }
+
+  try {
+    const { sendEmail, tenantSender } = await import('@/lib/email')
+    await sendEmail({
+      to: partner.email,
+      from: tenantSender(tenant),
+      subject: `Your ${tenant.name} sales partner portal PIN`,
+      html: `<p>Your ${tenant.name} sales partner portal PIN is: <strong>${newPin}</strong></p>`,
+      resendApiKey: (tenant as { resend_api_key?: string }).resend_api_key,
+    })
+  } catch (e) {
+    console.error('[sales-partners/login] request_pin email send error:', e)
+    return NextResponse.json({ error: 'Unable to send your PIN. Contact the business.' }, { status: 503 })
+  }
+
+  return NextResponse.json({ sent: true })
 }
