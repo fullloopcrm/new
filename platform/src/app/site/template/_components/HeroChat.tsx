@@ -25,7 +25,9 @@ export default function HeroChat() {
   )
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
   const [waitingForPhone, setWaitingForPhone] = useState(false)
+  const [waitingForContactInfo, setWaitingForContactInfo] = useState(false)
   const [clientPhone, setClientPhone] = useState<string | null>(null)
+  const [clientName, setClientName] = useState<string | null>(null)
   const chatRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -52,9 +54,37 @@ export default function HeroChat() {
       setMessages(prev => [
         ...prev,
         { role: 'user', content: msg },
-        { role: 'assistant', content: 'Welcome! Let\'s get you set up 😊 What kind of cleaning do you need?' },
+        { role: 'assistant', content: "Welcome! Let's get you set up 😊 What's your name and phone number?" },
       ])
       setInput('')
+      setQuickReplies([])
+      setWaitingForContactInfo(true)
+      return
+    }
+
+    // Handle name + phone capture for new clients
+    if (waitingForContactInfo) {
+      const phoneMatch = msg.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
+      const digits = phoneMatch ? phoneMatch[0].replace(/\D/g, '').slice(-10) : ''
+      const name = msg.replace(phoneMatch?.[0] || '', '').replace(/[,|·-]+/g, ' ').trim()
+      if (digits.length !== 10 || !name) {
+        setMessages(prev => [
+          ...prev,
+          { role: 'user', content: msg },
+          { role: 'assistant', content: "I didn't quite catch that — can you send your name and a 10-digit phone number?" },
+        ])
+        setInput('')
+        return
+      }
+      setMessages(prev => [
+        ...prev,
+        { role: 'user', content: msg },
+        { role: 'assistant', content: `Thanks, ${name}! What kind of cleaning do you need?` },
+      ])
+      setInput('')
+      setWaitingForContactInfo(false)
+      setClientName(name)
+      setClientPhone(digits)
       setQuickReplies(['Regular cleaning', 'Deep cleaning', 'Move-in/move-out', 'Airbnb turnover'])
       return
     }
@@ -119,7 +149,11 @@ export default function HeroChat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, sessionId, ...(clientPhone ? { phone: clientPhone } : {}) }),
+        body: JSON.stringify({
+          message: msg, sessionId,
+          ...(clientPhone ? { phone: clientPhone } : {}),
+          ...(clientName ? { name: clientName } : {}),
+        }),
       })
       const data = await res.json()
       if (data.sessionId) setSessionId(data.sessionId)
@@ -197,7 +231,7 @@ export default function HeroChat() {
       <form onSubmit={e => { e.preventDefault(); send() }} className="flex items-center gap-3">
         <div className="flex-1">
           <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
-            placeholder={open ? 'Type a message...' : PLACEHOLDERS[placeholderIdx]}
+            placeholder={waitingForContactInfo ? "What's your name and phone number?" : open ? 'Type a message...' : PLACEHOLDERS[placeholderIdx]}
             className="w-full bg-white border-2 border-yellow-400 rounded-xl px-5 py-4 text-[var(--brand)] placeholder-gray-400 text-base font-medium focus:outline-none focus:border-yellow-300 focus:ring-2 focus:ring-yellow-400/50 transition-all shadow-lg shadow-yellow-400/20"
             disabled={loading} />
         </div>
