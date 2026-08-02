@@ -1102,19 +1102,19 @@ export default function BusinessDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-slate-400 uppercase">Admins (${PRICING.adminMonthly.toLocaleString()}/mo)</label>
+              <label className="text-xs text-slate-400 uppercase">Admins (headcount, unlimited)</label>
               <input type="number" min={0} value={adminSeats}
-                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setAdminSeats(v); setMonthlyRate(computeMonthly(v, teamSeats)) }}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setAdminSeats(v) }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase">Portal team (${PRICING.teamMemberMonthly}/mo)</label>
+              <label className="text-xs text-slate-400 uppercase">Portal team (headcount, unlimited)</label>
               <input type="number" min={0} value={teamSeats}
-                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setTeamSeats(v); setMonthlyRate(computeMonthly(adminSeats, v)) }}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setTeamSeats(v) }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
           </div>
-          <p className="text-xs text-slate-400 -mt-2">Seats auto-compute the monthly rate. Stripe proration applies once billing keys are wired.</p>
+          <p className="text-xs text-slate-400 -mt-2">Flat $2,500/mo, unlimited admins &amp; team — these are headcounts only, they no longer change the rate.</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-slate-400 uppercase">Monthly Rate ($)</label>

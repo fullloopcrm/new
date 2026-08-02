@@ -11,6 +11,12 @@ process.env.SUPABASE_JWT_SECRET ||= 'test-only-jwt-signing-secret-not-used-again
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'https://test-only-project.supabase.co'
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||= 'test-only-anon-key-not-used-against-real-supabase'
 
+// signWireToken/verifyWireToken (src/lib/wire-instructions.ts) sign the
+// proposal-checkout success link with PORTAL_SECRET so a copied/guessed lead
+// id can't see real bank wire details. Same pattern as the stubs above — a
+// fixed non-production value, never used against anything real.
+process.env.PORTAL_SECRET ||= 'test-only-portal-secret-not-used-against-real-services'
+
 // Node 25's built-in `localStorage`/`sessionStorage` globals shadow jsdom's real
 // implementation: vitest only copies window properties that are either unknown to
 // Node or on its own allowlist, and `localStorage`/`sessionStorage` are on neither,

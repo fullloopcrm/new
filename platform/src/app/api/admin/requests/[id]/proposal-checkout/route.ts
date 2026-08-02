@@ -1,9 +1,11 @@
 /**
  * POST /api/admin/requests/:id/proposal-checkout
  *
- * Generates the Stripe Checkout link for an accepted proposal (seats + $25k
- * setup, ACH or card). Admin sends/opens it; the customer pays; the platform
- * webhook then creates the tenant. Uses the lead's saved proposal seat counts.
+ * Generates the Stripe Checkout link for the RECURRING $2,500/mo subscription
+ * only (first invoice $1) — the $25k setup fee is a separate bank wire, never
+ * charged here. Admin sends/opens it; the customer pays; the platform webhook
+ * records the subscription on the lead. The tenant itself is created
+ * separately, once the wire is confirmed (see requests/[id]/wire-received).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -18,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: lead } = await supabaseAdmin
     .from('partner_requests')
-    .select('id, email, proposal_admins, proposal_team_members, proposal_sent_at, converted_tenant_id')
+    .select('id, email, proposal_sent_at, converted_tenant_id')
     .eq('id', id)
     .single()
 
@@ -33,8 +35,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { url } = await createProposalCheckout({
       leadId: lead.id,
       email: lead.email,
-      admins: lead.proposal_admins || 1,
-      teamMembers: lead.proposal_team_members || 0,
       origin,
     })
     return NextResponse.json({ url })

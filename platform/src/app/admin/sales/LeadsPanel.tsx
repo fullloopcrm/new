@@ -85,6 +85,9 @@ export function LeadsPanel() {
   const [proposalErr, setProposalErr] = useState('')
   const [payLinkLoading, setPayLinkLoading] = useState(false)
   const [payUrl, setPayUrl] = useState('')
+  const [wireLoading, setWireLoading] = useState(false)
+  const [wireErr, setWireErr] = useState('')
+  const [wireDone, setWireDone] = useState(false)
   const [notesList, setNotesList] = useState<Note[]>([])
   const [noteImages, setNoteImages] = useState<string[]>([])
   const [uploadingImg, setUploadingImg] = useState(false)
@@ -227,6 +230,22 @@ export function LeadsPanel() {
       setProposalErr(e instanceof Error ? e.message : 'Failed')
     }
     setPayLinkLoading(false)
+  }
+
+  async function markWireReceived() {
+    if (!selected) return
+    if (!confirm(`Confirm the $${PRICING.setupFee.toLocaleString()} wire actually landed for ${selected.business_name}? This creates the tenant and sends the onboarding questionnaire.`)) return
+    setWireLoading(true); setWireErr('')
+    try {
+      const res = await fetch(`/api/admin/requests/${selected.id}/wire-received`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not confirm wire')
+      setWireDone(true)
+      await fetchLeads()
+    } catch (e) {
+      setWireErr(e instanceof Error ? e.message : 'Failed')
+    }
+    setWireLoading(false)
   }
 
   async function sendProposal() {
@@ -668,24 +687,10 @@ export function LeadsPanel() {
               {/* Proposal builder — Proposed stage only */}
               {selected.status === 'proposed' && (
                 <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Proposal</p>
-                  <div className="grid grid-cols-2 gap-3 mb-2">
-                    <label className="block">
-                      <span className="block text-[10px] text-slate-500 uppercase mb-1">Admins · ${PRICING.adminMonthly.toLocaleString()}/mo</span>
-                      <select value={propAdmins} onChange={e => setPropAdmins(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="block text-[10px] text-slate-500 uppercase mb-1">Portal team · ${PRICING.teamMemberMonthly}/mo</span>
-                      <select value={propTeam} onChange={e => setPropTeam(Number(e.target.value))} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-                        {Array.from({ length: 51 }, (_, i) => i).map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </label>
-                  </div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Proposal — flat pricing, unlimited admins &amp; team</p>
                   <div className="text-xs text-slate-600 space-y-0.5 mb-2">
-                    <div className="flex justify-between"><span>Setup (one-time, ACH)</span><span className="font-mono">${PRICING.setupFee.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Monthly (recurring)</span><span className="font-mono">${computeMonthly(propAdmins, propTeam).toLocaleString()}/mo</span></div>
+                    <div className="flex justify-between"><span>Setup (one-time, 100% upfront, bank wire)</span><span className="font-mono">${PRICING.setupFee.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Monthly (recurring, starts at signing)</span><span className="font-mono">${computeMonthly().toLocaleString()}/mo</span></div>
                   </div>
                   <button
                     onClick={sendProposal}
@@ -720,6 +725,20 @@ export function LeadsPanel() {
                     </div>
                   )}
                   {proposalErr && <p className="text-xs text-red-600 mt-1">{proposalErr}</p>}
+
+                  {selected.proposal_sent_at && !selected.converted_tenant_id && (
+                    <div className="mt-4 pt-3 border-t border-indigo-200">
+                      <button
+                        onClick={markWireReceived}
+                        disabled={wireLoading || wireDone}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      >
+                        {wireLoading ? 'Confirming…' : wireDone ? '✓ Wire confirmed — tenant created' : `Mark $${PRICING.setupFee.toLocaleString()} wire received →`}
+                      </button>
+                      <p className="text-[11px] text-slate-500 mt-1">Creates the tenant login and auto-sends the onboarding questionnaire. Does not go live yet.</p>
+                      {wireErr && <p className="text-xs text-red-600 mt-1">{wireErr}</p>}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -13,11 +13,9 @@ import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { QUALIFY_OPTIONS } from '@/lib/lead-fit'
 
 export async function getPricing(): Promise<string> {
-  const example = computeMonthly(1, 0)
   return [
-    `Full Loop pricing: a one-time $${(PRICING.setupFee / 1000).toFixed(0)}k setup fee (paid by ACH), `,
-    `then $${PRICING.adminMonthly}/month per admin seat and $${PRICING.teamMemberMonthly}/month per team-member seat.`,
-    `A single-admin business runs $${example}/month after setup.`,
+    `Full Loop pricing: a one-time $${(PRICING.setupFee / 1000).toFixed(0)}k setup fee, paid 100% upfront by bank wire, `,
+    `then a flat $${computeMonthly()}/month — unlimited admins and team members, no per-seat charges.`,
     `This isn't priced like a cheap CRM — it's automation that runs the business, not a tool you configure yourself.`,
   ].join(' ')
 }
