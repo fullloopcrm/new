@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
@@ -9,8 +9,17 @@ import { encryptTenantSecrets } from '@/lib/secret-crypto'
 
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
-    return NextResponse.json({ tenant })
+    // Real, default-config gap (not just override-dependent): 'staff' lacks
+    // settings.view by default in src/lib/rbac.ts, but this GET returned the
+    // FULL tenant row (business config, integration on/off state, and the
+    // encrypted-at-rest vendor-secret ciphertext blobs) to any authenticated
+    // tenant member. The secret VALUES themselves are still opaque ciphertext
+    // (encryptTenantSecrets on PUT), so this isn't a raw-secret leak, but it
+    // is a real settings.view bypass -- same fix pattern as bookings/jobs
+    // this pass.
+    const { tenant: authTenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    return NextResponse.json({ tenant: authTenant.tenant })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

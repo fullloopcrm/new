@@ -102,7 +102,7 @@ describe('jobs — permission gate + finance-field split (regression, 2026-08-01
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    const jobA = (body.jobs as Array<{ id: string; contracted: number; paid: number; due: number; overdue: number }>)
+    const jobA = (body.jobs as Array<{ id: string; contracted: number; paid: number; due: number; overdue: number; client_name: string | null }>)
       .find((j) => j.id === 'job-a1')!
     expect(jobA.contracted).toBe(0)
     expect(jobA.paid).toBe(0)
