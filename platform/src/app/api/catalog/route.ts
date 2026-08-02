@@ -17,10 +17,12 @@
  * existing items isn't part of first-time onboarding.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
+import { requirePermission } from '@/lib/require-permission'
+import type { Permission } from '@/lib/rbac'
 
 const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
@@ -31,16 +33,39 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-async function resolveTenantId(tokenFromCaller: string | null): Promise<string> {
-  const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
-  if (!tenantId) throw new AuthError('Unauthorized', 401)
-  return tenantId
+// resolveOnboardingTenantId() tries a real session FIRST, and if one exists
+// returns tenantId immediately -- with NO role/permission check at all,
+// regardless of role. That's correct for the onboarding-token fallback path
+// (a brand-new tenant has no session yet, so no role check is possible), but
+// it meant a real, authenticated SESSION of any role -- including staff, who
+// correctly lacks bookings.edit on every sibling route touching this same
+// service_types table (equipment.ts, categories.ts) -- could create/edit/
+// delete catalog pricing items here with zero permission check. Live,
+// default-config gap, not override-dependent: staff doesn't have
+// bookings.edit by default, but this route never asked.
+//
+// Fixed by checking the permission FIRST when a real session exists
+// (requirePermission's own 401-vs-403 distinction tells us whether there
+// was no session at all vs. a session with the wrong role), and only
+// falling back to the onboarding token when there's genuinely no session --
+// preserving the intentional pre-login onboarding flow unchanged.
+async function resolveTenantId(tokenFromCaller: string | null, permission: Permission): Promise<string> {
+  const { tenant, error } = await requirePermission(permission)
+  if (tenant) return tenant.tenantId
+  if (error.status === 401) {
+    // No session at all -- fall back to the signed onboarding token.
+    const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
+    if (tenantId) return tenantId
+  }
+  // Either a real session with the wrong role (403), or no session and no
+  // valid token (401) -- both are a genuine denial, not a fallback case.
+  throw new AuthError(error.status === 403 ? 'Forbidden' : 'Unauthorized', error.status)
 }
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const tenantId = await resolveTenantId(searchParams.get('token'))
+    const tenantId = await resolveTenantId(searchParams.get('token'), 'bookings.view')
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
@@ -71,7 +96,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
-    const tenantId = await resolveTenantId(typeof body.token === 'string' ? body.token : null)
+    const tenantId = await resolveTenantId(typeof body.token === 'string' ? body.token : null, 'bookings.edit')
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
@@ -115,7 +140,15 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Session-only by design (editing existing items isn't part of
+    // first-time onboarding, see the file header comment) -- but this
+    // called bare getTenantForRequest() with no permission check, the same
+    // live gap as GET/POST/DELETE's session path. Fixed to require
+    // bookings.edit, matching the sibling equipment.ts/categories.ts routes
+    // over the same service_types table.
+    const { tenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -162,7 +195,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const tenantId = await resolveTenantId(searchParams.get('token'))
+    const tenantId = await resolveTenantId(searchParams.get('token'), 'bookings.edit')
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     const { data, error } = await tenantDb(tenantId).from('service_types').delete().eq('id', id).select('id')

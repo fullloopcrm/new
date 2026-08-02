@@ -21,6 +21,7 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 const A = 'tid-a'
 const B = 'tid-b'
 
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
@@ -34,7 +35,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A, selena_config: null }, role: roleHolder.role })),
   }
 })
 
@@ -54,6 +55,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
 })
 
 describe('catalog — tenant isolation', () => {
@@ -109,5 +111,62 @@ describe('catalog — tenant isolation', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(false)
+  })
+})
+
+describe('catalog — permission gate on the session path (regression, 2026-08-01)', () => {
+  // Live bug found while sweeping previously-uncovered routes: with a real
+  // session present, GET/POST/PATCH/DELETE never checked bookings.view/
+  // bookings.edit at all -- unlike the sibling equipment.ts/categories.ts
+  // routes over this same service_types table, which correctly gate
+  // mutations on bookings.edit. 'staff' lacks bookings.edit by DEFAULT (no
+  // tenant override needed), so any staff-role session could create/edit/
+  // delete pricing catalog items for their tenant. Fixed to check the
+  // permission on the session path while leaving the onboarding-token
+  // fallback (no session at all) untouched.
+
+  it('GET still succeeds for staff (has bookings.view by default)', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET(new Request('http://t/api/catalog'))
+    expect(res.status).toBe(200)
+  })
+
+  it('POST is denied with 403 for staff (lacks bookings.edit by default) and does not insert', async () => {
+    roleHolder.role = 'staff'
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Staff-created item' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(h.capture.inserts.find((i) => i.table === 'service_types' && i.rows[0].name === 'Staff-created item')).toBeFalsy()
+  })
+
+  it('PATCH is denied with 403 for staff and does not update', async () => {
+    roleHolder.role = 'staff'
+    const req = new Request('http://t/api/catalog', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 'svc-a1', price_cents: 1 }),
+    })
+    const res = await PATCH(req)
+    expect(res.status).toBe(403)
+    expect(h.seed.service_types.find((r) => r.id === 'svc-a1')!.price_cents).toBe(5000)
+  })
+
+  it('DELETE is denied with 403 for staff and the item survives', async () => {
+    roleHolder.role = 'staff'
+    const res = await DELETE(new Request('http://t/api/catalog?id=svc-a1', { method: 'DELETE' }))
+    expect(res.status).toBe(403)
+    expect(h.seed.service_types.some((r) => r.id === 'svc-a1')).toBe(true)
+  })
+
+  it('manager (has bookings.edit by default) can still POST', async () => {
+    roleHolder.role = 'manager'
+    const req = new Request('http://t/api/catalog', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Manager-created item' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
   })
 })

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantClient } from '@/lib/tenant-supabase'
@@ -13,7 +13,14 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same gap class as crm-04/bookings.ts/jobs.ts this session: POST here
+    // is gated requirePermission('bookings.create'), but this GET only
+    // called getTenantForRequest() -- a tenant using the real per-role
+    // permission-override feature to revoke bookings.view would have that
+    // silently ignored here. Fixed to match the sibling routes' pattern.
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('*, clients(name)')
