@@ -553,6 +553,14 @@
           "evidence": "Read both in full. Both CRON_SECRET Bearer via safeEqual (constant-time). finance-post's own file comment documents a real double-count trap it avoids: it runs backfillRevenueFromBookings (source='booking') and explicitly must NOT also run backfillUnpostedRevenue in the same job, since both would post the same job under different keys -- confirmed the route only calls the one function, not both. post-depreciation is idempotent per (equipment, month) per its own comment, and supports ?month=YYYY-MM for a manual backfill of a missed month -- read postEquipmentDepreciationForTenant() far enough to confirm the idempotency key is (equipment_id, month), not just take the comment's word. No bug found in either.",
           "last_verified": "2026-08-02",
           "last_verified_commit": null
+        },
+        {
+          "id": "fin-24",
+          "score": 90,
+          "evidence_type": "test_run",
+          "evidence": "Investigated by W4 (real code reads, real test runs), committed here on W4's behalf and credited to that investigation per Jeff's standing authorization, \"Of course it does\" -- W4 is holding to its own stricter authorization standard for committing directly, not overruled on the underlying finding. Independently re-verified before committing rather than copying the evidence blind: all 10 files exist. W4 claimed '11 test files, 48/48 passing'; I found and ran the actual test files myself and can only confirm 10 real files, not 11 -- 8 under referral-commissions (happy-path, commission-race, connect-transfer, race, get-auth-gate, paid-race, isolation, route.test) + 1 under sales-partner-commissions (stripe-transfer) + 1 under quote-budgets/recurring/[scheduleId] (route.test, which W4's own prose omitted -- it described the coverage as 'concentrated entirely on referral-commissions (8 files) and sales-partner-commissions (1)', but a 3rd route also has real test coverage). The TEST COUNT matches exactly though: 43 tests across the 9 commission-route files + 5 more in quote-budgets/recurring/[scheduleId]/route.test.ts = 48/48 passing, confirmed via a real vitest run just now. Also independently spot-checked W4's 'all 10 routes confirmed properly authenticated' claim by grepping each of the 6 untested routes for their auth call directly (not just trusting the summary): admin/finance uses requireAdmin(); quote-budgets/[quoteId], quote-budgets/recurring, budget-templates/[id], and both apply-to-* routes all use requirePermission() with a real permission string (sales.view/sales.edit/finance.view/finance.expenses) -- none of the 6 are bare getTenantForRequest()-only gaps. Severity 4 per W4's own elevation rationale (real money movement across 7 of 10 routes with zero dedicated test coverage) -- agree with that assessment based on what I independently confirmed.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
         }
       ]
     },
