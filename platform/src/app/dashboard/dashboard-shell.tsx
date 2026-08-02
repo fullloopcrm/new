@@ -11,6 +11,7 @@ import AnnouncementBanner from './announcement-banner'
 import { WorkerLabelProvider } from './worker-label-context'
 import { PageSettingsOpenProvider, usePageSettingsOpen } from '@/components/page-settings'
 import { KnowledgePanelButton } from '@/components/knowledge-panel'
+import FeedbackWidget from '@/components/FeedbackWidget'
 
 type SidebarCounts = {
   clients: number
@@ -511,21 +512,18 @@ function DashboardShellInner({
             </svg>
           </button>
 
-          {/* TOPBAR — compact single row. Not sticky on ComHub since the page
-              itself no longer scrolls. */}
+          {/* TOPBAR — compact single row, title lives in the masthead below
+              (same on every page, ComHub included). Not sticky on ComHub
+              since the page itself no longer scrolls. */}
           <div
-            className={`flex items-center gap-4 ${isComhub ? 'py-2 justify-between' : 'sticky top-0 z-20 py-3 mb-3 justify-end'}`}
+            className={`flex items-center gap-4 py-2 justify-end ${isComhub ? '' : 'sticky top-0 z-20 mb-3'}`}
             style={{ background: 'var(--color-loop-bg)' }}
           >
-            {isComhub && (
-              <h1 style={{ fontFamily: 'var(--display)', fontSize: '20px', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                {title}<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
-              </h1>
-            )}
-            <div className={`flex items-center gap-4 ${isComhub ? 'ml-auto' : ''}`}>
+            <div className="flex items-center gap-4">
               <span className={isComhub ? 'hidden md:inline-block whitespace-nowrap' : ''} style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 {meta}
               </span>
+              <FeedbackWidget source="dashboard" variant="inline" />
               <KnowledgePanelButton />
               <button
                 type="button"
@@ -571,36 +569,32 @@ function DashboardShellInner({
             </div>
           </div>
 
-          {!isComhub && (
-            <>
-              {/* PERSISTENT PLATFORM-UPDATES BANNER */}
-              <AnnouncementBanner />
+          {/* PERSISTENT PLATFORM-UPDATES BANNER — not on ComHub, it doesn't scroll */}
+          {!isComhub && <AnnouncementBanner />}
 
-              {/* MASTHEAD */}
-              <div className="flex items-start justify-between pb-[22px] mb-8" style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
-                <div>
-                  <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                    {title}
-                    <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
-                  </h1>
-                  {isLoop && (
-                    <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
-                      <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
-                      {quote.text}
-                      <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        — {quote.author}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {isLoop && (
-                  <span className="text-right" style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
-                    Day {day}<br />of building
+          {/* MASTHEAD — same title layout/size/spacing on every page, ComHub included */}
+          <div className={`flex items-start justify-between pb-[22px] mb-8 ${isComhub ? 'shrink-0' : ''}`} style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
+            <div>
+              <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {title}
+                <em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
+              </h1>
+              {isLoop && (
+                <div className="mt-3 relative pl-4 max-w-[640px]" style={{ fontFamily: 'var(--display)', fontSize: '16px', fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-graphite)', letterSpacing: '-0.005em', lineHeight: 1.4 }}>
+                  <span className="absolute -left-0.5 -top-1.5" style={{ fontSize: '32px', color: 'var(--color-loop-muted-2)', fontStyle: 'normal', lineHeight: 1 }}>“</span>
+                  {quote.text}
+                  <span className="ml-2 whitespace-nowrap" style={{ fontFamily: 'var(--mono)', fontStyle: 'normal', fontSize: '10.5px', color: 'var(--color-loop-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    — {quote.author}
                   </span>
-                )}
-              </div>
-            </>
-          )}
+                </div>
+              )}
+            </div>
+            {isLoop && (
+              <span className="text-right" style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.6 }}>
+                Day {day}<br />of building
+              </span>
+            )}
+          </div>
 
           <AutoPageSettings />
           {isComhub ? (

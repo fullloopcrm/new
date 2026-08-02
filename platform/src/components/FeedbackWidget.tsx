@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 
-export default function FeedbackWidget({ source, token }: { source: string; token?: string }) {
+export default function FeedbackWidget({ source, token, variant = 'fixed' }: { source: string; token?: string; variant?: 'fixed' | 'inline' }) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -36,7 +36,7 @@ export default function FeedbackWidget({ source, token }: { source: string; toke
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-3 right-3 z-[90] rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-yellow-300 shadow-md hover:bg-red-700 transition-colors"
+        className={`rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-yellow-300 shadow-md hover:bg-red-700 transition-colors flex-shrink-0 whitespace-nowrap ${variant === 'fixed' ? 'fixed top-3 right-3 z-[90]' : ''}`}
       >
         Feedback?
       </button>
