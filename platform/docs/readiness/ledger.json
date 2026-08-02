@@ -293,6 +293,62 @@
           "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). All 3 routes read in full, no bugs found. uploads.ts: caller-supplied folder/filename-extension values are stripped to a safe charset (`[^a-zA-Z0-9_-]` for folder, `[^a-z0-9]` for ext) before being spliced into the tenant-prefixed storage key -- the route's own comment explicitly names this as the same exfil-prevention class already fixed on public-upload (7c17cb47), confirmed by reading that fix's shape too, not taken on the comment's word alone. Size (15MB) and MIME type allowlist both enforced app-side; route's own comment honestly discloses the real limitation (Vercel's ~4.5MB serverless body ceiling still applies underneath this check for standard functions, so a file between ~4.5MB and 15MB may still 413 at the platform layer before this code runs) rather than presenting the 15MB cap as a real guarantee. domain-notes.ts: correctly gated settings.view/settings.edit, tenant-scoped via tenantDb. docs.ts: gated settings.view, returns a static platform-documentation blob including a list of env VAR NAMES (CRON_SECRET, SECRET_ENCRYPTION_KEY, ADMIN_TOKEN_SECRET, etc.) but never their values -- confirmed this is genuinely low-sensitivity (knowing a var name exists is not itself exploitable, and anyone with source access already knows it), not glossed over as fine without checking what was actually returned. Score held at the manual_code_read cap (50, see validate-ledger-evidence.mjs) since no live/test check was run this pass -- code-read only, though all 3 routes were read in full.",
           "last_verified": "2026-08-01",
           "last_verified_commit": null
+        },
+        {
+          "id": "sec-37",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/PUT in full. requireAdmin()-gated on both verbs. PUT writes go through an explicit EDITABLE_TENANT_COLUMNS allowlist (rejects any key not on the list with a 400) before touching the tenants row -- id/slug/created_at/system-managed columns (google_tokens, stripe_account_id) are not writable via this route. Values are passed through encryptTenantSecrets() before the update, which (per its own module, confirmed by reading it) only encrypts the columns that actually hold vendor secrets (resend_api_key, telnyx_api_key, stripe_api_key, imap_pass, anthropic_api_key) and passes everything else through unchanged -- so a plaintext API key or IMAP password is never written to the tenants row. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-38",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST in full. requireAdmin()-gated on both. GET aggregates tenant_domains + website_visits (capped at a 5000-row scan) into per-tenant visit/CTA stats; POST inserts a tenant_domains row. Both platform-admin-only, no tenant-facing exposure. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-39",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST in full. GET gated settings.view, POST gated settings.edit via requirePermission() -- staff role (no settings.edit by default per rbac.ts) cannot create/edit priced service types. POST validates the body with the shared validate() schema helper (name/duration/rate/pricing bounds) before insert; tenantDb() insert auto-stamps tenant_id so a caller cannot write into another tenant's service catalog. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-40",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/PUT in full. GET is auth-only (getTenantForRequest, any authenticated role) -- appropriate, since it only returns a non-sensitive per-page UI layout blob (widget order/visibility) stored under tenants.setup_progress, gated against a fixed VALID_PAGES allowlist so an arbitrary page key can't be probed. PUT (the actual mutation) is gated settings.edit via requirePermission(). No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-41",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/PUT in full. GET is auth-only (returns configured roles/pay-rates/working-days, read by any authenticated dashboard role to populate pickers). PUT (the actual roles/pay-rate change) is gated settings.edit via requirePermission() -- staff cannot self-grant a new role or alter pay rates. Built-in roles (worker/lead/manager) are always force-included even if the caller's array omits them, so this route can't be used to lock the tenant out of its own default roles. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-42",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST in full. GET auth-only (any role reads the announcement feed). POST gated settings.edit via requirePermission() -- staff cannot post/broadcast. The optional notifyTeam path sends a real paid SMS per active team member via notify(); this is behind the same settings.edit gate, not separately throttled, but only a permissioned admin/manager/owner can trigger it. File header documents this replaced a prior broken single-blob guidelines field that silently never reached cleaners -- confirmed the new feed actually persists to team_announcements and is read back by GET. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "sec-43",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read POST in full. Auth-only (getTenantForRequest, any authenticated role) -- appropriate, since the action is narrow and low-risk: it emails ADMIN_NOTIFICATION_EMAIL (platform team) with a title/description the tenant can't act on directly (a new automation trigger requires code, per the file's own comment). Title/description are HTML-escaped via escapeHtml() before being interpolated into the email body, closing an HTML-injection path into the platform team's inbox. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
         }
       ]
     },
@@ -673,6 +729,38 @@
           "evidence": "New checkpoint 2026-08-01 (self-queued catch-all sweep; renumbered from an original bsr-10 draft after a concurrent session independently used bsr-10/bsr-11 for the unrelated field-ops/recurring-schedule-creation checkpoints in the same push cycle -- a plain id-numbering collision, resolved by renumbering rather than re-litigating). Code read: admin/recurring-schedules/[id]/regenerate/route.ts is the atomic 'edit recurring pattern' rewrite -- its own comment documents it replaced an old client-side N+N delete-then-recreate loop ('fragile, partial-failure prone') with one server call (update rule -> hard-delete future scheduled/pending bookings from a cutoff date, never touching completed/paid/cancelled history -> insert the new pattern's bookings). This is the exact subsystem this platform's project history shows had a real duplicate-booking bug from the old client-loop approach -- confirmed the current route.ts genuinely uses the newer atomic, set-based approach, not the old pattern. All 5 routes (list, [id], pause, regenerate, exception) consistently gated requirePermission('schedules.edit'/'schedules.view'). pause/route.ts's own comment confirms client notifications are deliberately suppressed on pause (matches the no-client-SMS admin-managed-flow pattern already established for the parent admin/recurring-schedules/route.ts). Live-curled with no auth: GET list -> 401; GET [id] -> 401; POST pause -> 401; POST regenerate -> 401 (4 of 5 sampled; exception is POST-only, not independently curled with auth headers this pass). Live DB query: recurring_exceptions has 0 real rows -- unused feature, code exists and is gated but never exercised in prod. Score 76: real historical-bug-class subsystem confirmed to use the current, correct atomic pattern (not the old buggy one), consistent auth; held below 80s because recurring_exceptions' complete lack of real usage means its actual behavior is unproven, and exception/route.ts itself wasn't read in depth this pass.",
           "last_verified": "2026-08-01",
           "last_verified_commit": "e6ba346f6"
+        },
+        {
+          "id": "bsr-13",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET in full. requirePortalPermission(req,'schedule.view_crew')-gated, then further scoped to the caller's pod via scopedMemberIds() (manager sees all, worker sees only their pod) -- a worker cannot widen the query to see another pod's jobs. The route's own comment documents a real prior bug class it avoids: start_time is a naive ET wall-clock column, so the lower bound is built via nowNaiveET() (naive-ET 'now') rather than a real-instant Date, matching the same fix already applied to cron/no-show-check -- confirmed by reading nowNaiveET()/formatNaiveET() in lib/recurring.ts, not taken on the comment's word alone. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-14",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET in full. requirePortalPermission(req,'team.view_roster')-gated, scoped to the caller's pod via scopedMemberIds() (same helper as bsr-13), further filtered to status:'active'. Only id/name columns are selected -- no PII (phone, tax fields, address) is exposed to a field-staff caller populating a reassign dropdown. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-15",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read POST (upload) and DELETE in full. Both gated getTenantForRequest(). upload/route.ts's own comment states the real risk it defends against -- booking_id/job_id are caller-supplied and used both as an insert value and as a storage-path segment, and booking_notes has no cross-tenant FK check, so an unverified id would both let a note attach to a booking outside the caller's tenant AND let a path-traversal-shaped id write outside the tenant's storage prefix; the code verifies ownership via a tenantDb-scoped lookup on bookings/jobs before either write, confirmed by reading past the comment into the actual query. [id] DELETE's own comment documents a prior real gap already fixed: 'the delete GAINS a tenant_id filter it previously lacked' -- confirmed the current code does filter through tenantDb(ctx.tenantId), and storage objects referenced by the note's images[] are removed from the uploads bucket before the row delete (no orphaned files left in a public bucket after a note is deleted). No new bug found; this pass reconfirms an already-fixed gap stayed fixed.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "bsr-16",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST (video) and POST (retry-process) in full. All three gated getTenantForRequest(), each independently verifying the target booking/job (or existing note, for retry) belongs to the caller's tenant via tenantDb() before issuing a signed upload URL, inserting the note row, or re-invoking processMediaNote(). video/route.ts constrains uploaded MIME/extension to an explicit allowlist and falls back to a safe default extension for anything outside it, so a crafted filename extension can't be spliced unsanitized into the storage path. retry-process is documented as the dashboard-session counterpart to the team-portal crew's own retry route, sharing the same processMediaNote() implementation rather than a forked copy. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
         }
       ]
     },
@@ -814,6 +902,22 @@
           "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). Public by design, signed-token gated -- the route's own header comment explicitly names the guardrail: without a signed token, any caller could opt out any client by guessing UUIDs, and this design prevents that. GET redirects to the unsubscribe confirmation page after verifying the token; POST performs the actual write, scoped by both clientId and tenantId pulled from the verified token payload (not caller-supplied), so a valid token for one tenant can never write another tenant's client row. Live-curled against production with a deliberately invalid token: GET/POST /api/unsubscribe?t=invalid-token-test -> 400 'Invalid or expired link', confirming the token verification is real and actually gates the route, not just present in the code. No bug found. Score 65: one genuine live check confirming the core security property (a bad token is rejected), held below 70s because a VALID token's full round-trip (an actual opt-out write landing in clients + marketing_opt_out_log) was not exercised this pass -- would require minting a real signed token against a real client, not attempted given the write side-effect.",
           "last_verified": "2026-08-01",
           "last_verified_commit": null
+        },
+        {
+          "id": "crm-18",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST and [id] PUT/DELETE in full. requireAdmin()-gated on every verb -- tenants have no direct access to this route. POST always inserts a new tip with is_active:false regardless of caller input (the field isn't even accepted from the request body), so a tip can only reach a tenant after a human flips is_active via the [id] PUT -- matches the file header's stated compliance intent (attorney review gate before anything ships). No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "crm-19",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST/PATCH/DELETE in full. requireAdmin()-gated on all four verbs. subject_type is constrained to a 'lead'|'tenant' literal union via validType() before every query, so subject_id can't be used to pivot into an unrelated table. POST requires at least text or an image (rejects an empty note). No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
         }
       ]
     },
@@ -922,6 +1026,30 @@
           "evidence": "New checkpoint 2026-08-01 (catch-all tier, continuing per the coordinator's standing instruction to keep working continuously). REAL STRUCTURAL FIX (not a live leak): GET ?conversation_id queried sms_conversation_messages UNSCOPED (by conversation_id alone via supabaseAdmin) BEFORE checking the conversation belonged to the caller's tenant -- the ownership check ran afterward and correctly blocked the response from ever including the cross-tenant messages (a pre-existing W4 regression-lock test, route.cross-tenant.test.ts, already pinned this exact secure OUTCOME and explicitly flagged the ordering as a named structural risk, not yet fixed at the code level). Reordered so the ownership check runs before the message fetch, closing the risk structurally rather than leaving it as an accident of statement order (same failure shape as the already-fixed selena convoId IDOR, 722ed11d, that W4's test docstring explicitly named as the sibling bug this pattern could reopen). Added a new assertion to W4's existing test proving the messages query never runs at all once ownership fails (previously it ran unconditionally, its result just got discarded) -- verified via git-stash that this new assertion fails against the pre-fix ordering, confirming it's a real regression lock, not a tautology. No permission gate exists on this route (bare getTenantForRequest() only) -- no sms.* permission exists anywhere in src/lib/rbac.ts to gate on, confirmed by grep, so this isn't an omission of an available control, just an area without role-based differentiation built yet; not fixed since inventing a new permission unilaterally during a checkpoint pass would be a product decision beyond scope. Score 78: one real structural risk found and closed with a verified regression-lock assertion (test_run cap 90), held below 80s because the rest of the route (conversation-list branch, POST's Telnyx send path) was read but not independently exercised by a new test this pass.",
           "last_verified": "2026-08-01",
           "last_verified_commit": "d62517c36"
+        },
+        {
+          "id": "ai-14",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST in full, plus both existing test files (route.test.ts, route.csrf-guard.test.ts). requireAdmin()-gated on all verbs -- platform-admin-only, matches CLAUDE.md's description of this as the admin side of the two-way owner messaging system. The single-thread GET marks inbound messages read as a side effect, but skips that write on a cross-site GET (isCrossSiteRequest() check against SameSite=Lax's top-level-navigation gap) so a forged cross-site request can't silently mark a real admin's unread messages as read -- confirmed this CSRF guard is real by reading route.csrf-guard.test.ts, not just the inline comment. Level-1-in-platform-only design confirmed (POST inserts channel:'platform', no SMS/email side effect) matching CLAUDE.md. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "ai-15",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST and [id] PUT/DELETE in full. requireAdmin()-gated on every verb -- platform-admin-only. POST fans out to notifications inserts for the targeted tenant/industry/all-tenants scope only when published is true; the cross-tenant bulk insert on the 'all' and 'industry' paths is explicitly commented tenant-scope-ok since this is the platform super-admin surface by design (matches the pattern already used elsewhere in admin/*). Minor note (not a security bug, not fixed): [id] PUT does `.update(body)` with the raw request body and no field allowlist -- low-value to harden since the actor is already a platform super-admin (same trust tier as every other admin/* route), but flagging the pattern difference from admin/settings' explicit EDITABLE_TENANT_COLUMNS allowlist in case a future contributor copies this route as a template for a less-trusted surface.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "ai-16",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "Read GET/POST and resolveThread() in full. requirePortalPermission(req,'messages.use')-gated. The file's own comment states the load-bearing invariant and the read confirms it: team_member_id and tenant_id used to resolve/create the comhub thread come from auth.id/auth.tid (the VERIFIED bearer token), never from the request body or query params -- a caller cannot read or post into another team member's or another tenant's office thread by supplying a different id. POST persists the message then fires translateInboundComhubMessage() (EN/ES) and bumps the thread's unread_count/last_message_preview. No bug found.",
+          "last_verified": "2026-08-02",
+          "last_verified_commit": null
         }
       ]
     },
