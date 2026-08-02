@@ -6,6 +6,7 @@ import AuthShell, {
   authErrorClass,
   type AuthHelpLink,
 } from './AuthShell'
+import type { Lang } from './useAuthLang'
 
 interface PinLoginCardProps {
   /** Business / brand name shown in serif at the top (e.g. "The NYC Maid"). */
@@ -33,6 +34,9 @@ interface PinLoginCardProps {
   autoFocus?: boolean
   /** Footer help links (Forgot PIN, Feedback, Contact, etc.). */
   helpLinks?: AuthHelpLink[]
+  /** Current language + toggle handler. Omit both to hide the switcher. */
+  lang?: Lang
+  onToggleLang?: (lang: Lang) => void
   /** Optional extra fields rendered above the credential field (e.g. a business code). */
   children?: ReactNode
 }
@@ -60,10 +64,12 @@ export default function PinLoginCard({
   inputType = 'password',
   autoFocus = true,
   helpLinks,
+  lang,
+  onToggleLang,
   children,
 }: PinLoginCardProps) {
   return (
-    <AuthShell businessName={businessName} subtitle={subtitle} helpLinks={helpLinks}>
+    <AuthShell businessName={businessName} subtitle={subtitle} helpLinks={helpLinks} lang={lang} onToggleLang={onToggleLang}>
       <form
         className="mt-10"
         onSubmit={(e) => {

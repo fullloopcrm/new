@@ -5,15 +5,19 @@
  * tenant Connect webhook at /api/webhooks/stripe so the two event streams and
  * signing secrets never cross-wire.
  *
- * On a completed proposal checkout, create the tenant (status 'new') via the
- * shared createTenantFromLead path. Idempotent — a re-delivered event is a no-op.
+ * On a completed proposal checkout, the customer has only started the
+ * $2,500/mo recurring subscription ($1 first invoice) — the tenant is NOT
+ * created here. The $25k setup fee is a separate bank wire; the tenant is
+ * created when an admin confirms that wire landed (see
+ * requests/[id]/wire-received). This handler just records the subscription
+ * on the lead so wire-received can find it. Idempotent — a re-delivered
+ * event is a no-op (same subscription id gets written twice, harmless).
  *
  * Env: STRIPE_PLATFORM_WEBHOOK_SECRET (from the Stripe dashboard endpoint).
  */
 import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
-import { createTenantFromLead } from '@/lib/create-tenant-from-lead'
-import { activateTenant } from '@/lib/activate-tenant'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
@@ -45,23 +49,19 @@ export async function POST(request: Request) {
     if (meta.kind === 'platform_proposal' && meta.lead_id) {
       const stripeSubscriptionId =
         typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null
-      const result = await createTenantFromLead(meta.lead_id, { status: 'new', stripeSubscriptionId })
-      if (!result.ok) {
-        console.error('[stripe-platform] tenant create failed:', result.error)
-        // Return 500 so Stripe retries — better than silently dropping a paid sale.
-        return NextResponse.json({ error: result.error }, { status: 500 })
-      }
 
-      // Paid → drive the tenant to live automatically (seeds team + review dest,
-      // domains, runs the gate, flips 'active' when ready). Idempotent and
-      // best-effort: an activation failure must NOT fail the webhook — the paid
-      // tenant already exists and an admin can re-run activation from the board.
-      if (result.tenant && !result.alreadyConverted) {
-        try {
-          await activateTenant(result.tenant.id)
-        } catch (e) {
-          console.error('[stripe-platform] auto-activate failed:', e)
-        }
+      const { error } = await supabaseAdmin
+        .from('partner_requests')
+        .update({
+          stripe_subscription_id: stripeSubscriptionId,
+          subscription_started_at: new Date().toISOString(),
+        })
+        .eq('id', meta.lead_id)
+
+      if (error) {
+        console.error('[stripe-platform] failed to record subscription on lead:', error)
+        // Return 500 so Stripe retries — better than silently losing the sub id.
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
     }
   }
