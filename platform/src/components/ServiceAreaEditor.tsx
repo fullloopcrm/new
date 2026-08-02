@@ -58,6 +58,7 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange, 
   const [autoPopulating, setAutoPopulating] = useState(false)
   const [autoFilled, setAutoFilled] = useState(false)
   const [zoneDraft, setZoneDraft] = useState('')
+  const [refreshError, setRefreshError] = useState<string | null>(null)
 
   useEffect(() => {
     if (embedded) return
@@ -99,6 +100,36 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange, 
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [area?.scope, radiusMiles])
+
+  // Manual re-run of the same lookup above, for when the tenant changes the
+  // radius (or address) AFTER zones already exist -- the auto-populate effect
+  // intentionally won't touch a non-empty zone list (never clobber a manual
+  // edit silently), so once it's fired once there's no other way to pick up
+  // a new radius. This replaces the zone list on click -- an explicit,
+  // opt-in overwrite, not automatic.
+  const refreshFromAddress = async () => {
+    if (!radiusMiles || radiusMiles <= 0 || !area) return
+    setRefreshError(null)
+    setAutoPopulating(true)
+    try {
+      const res = await fetch('/api/onboarding/coverage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, radiusMiles }),
+      })
+      const d = await res.json().catch(() => null) as { zones?: ServiceZone[]; error?: string } | null
+      if (!res.ok || !d?.zones?.length) {
+        setRefreshError(d?.error || 'Could not find areas for this address/radius.')
+        return
+      }
+      setAutoFilled(true)
+      setArea((a) => (a ? { ...a, zones: d.zones! } : a))
+    } catch {
+      setRefreshError('Could not reach the coverage lookup — try again.')
+    } finally {
+      setAutoPopulating(false)
+    }
+  }
 
   if (!area) return <div className="text-sm text-gray-400">Loading service area…</div>
 
@@ -202,15 +233,33 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange, 
       {/* Radius — drives real-address auto-populate below, so it comes first. */}
       <div>
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Service radius (mi)</div>
-        <input
-          type="number"
-          min={1}
-          value={radiusMiles ?? ''}
-          onChange={(e) => onRadiusChange?.(e.target.value === '' ? null : Number(e.target.value))}
-          placeholder="e.g. 15"
-          className="w-32 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-        />
-        {autoPopulating && <p className="mt-1.5 text-xs text-gray-500">Finding areas near you…</p>}
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            value={radiusMiles ?? ''}
+            onChange={(e) => onRadiusChange?.(e.target.value === '' ? null : Number(e.target.value))}
+            placeholder="e.g. 15"
+            className="w-32 px-3 py-2 rounded-lg border border-gray-200 text-sm"
+          />
+          {area.scope === 'local' && (
+            <button
+              type="button"
+              onClick={refreshFromAddress}
+              disabled={autoPopulating || !radiusMiles || radiusMiles <= 0}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              title="Re-look-up coverage areas from your address and the radius above — replaces the zones below"
+            >
+              {autoPopulating ? 'Refreshing…' : 'Refresh areas from address + radius'}
+            </button>
+          )}
+        </div>
+        {area.scope === 'local' && (
+          <p className="mt-1.5 text-xs text-gray-500">
+            Areas below only auto-fill once, the first time. Changed the radius or address since? Use Refresh to update them — this replaces whatever&apos;s in the list below.
+          </p>
+        )}
+        {refreshError && <p className="mt-1.5 text-xs text-red-600">{refreshError}</p>}
       </div>
 
       {/* Scope */}

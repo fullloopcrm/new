@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     const tenantId = await resolveTenantId(searchParams.get('token'))
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .order('sort_order', { ascending: true })
     if (error) throw error
     // Legacy/seeded rows carry the hourly rate in the OLD booking column
@@ -128,6 +128,7 @@ export async function POST(request: Request) {
         per_unit,
         unit_label: per_unit === 'custom' ? ((body.unit_label as string) || null) : null,
         price_cents: priceCents,
+        price_is_starting: body.price_is_starting === true,
         min_charge_cents: num(body.min_charge_cents),
         cost_cents: num(body.cost_cents),
         taxable: body.taxable !== false,
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
         sort_order: num(body.sort_order) ?? 0,
         active: body.active !== false,
       })
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -167,6 +168,7 @@ export async function PATCH(request: Request) {
     if ('active' in body) patch.active = !!body.active
     if ('sort_order' in body) patch.sort_order = num(body.sort_order) ?? 0
     if ('price_cents' in body) patch.price_cents = num(body.price_cents) ?? 0
+    if ('price_is_starting' in body) patch.price_is_starting = !!body.price_is_starting
     if ('min_charge_cents' in body) patch.min_charge_cents = num(body.min_charge_cents)
     if ('cost_cents' in body) patch.cost_cents = num(body.cost_cents)
     if ('taxable' in body) patch.taxable = !!body.taxable
@@ -187,7 +189,7 @@ export async function PATCH(request: Request) {
       .from('service_types')
       .update(patch)
       .eq('id', id)
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })

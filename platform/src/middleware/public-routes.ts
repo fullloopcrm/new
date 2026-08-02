@@ -26,6 +26,9 @@ export const isPublicRoute = createRouteMatcher([
                               // login; PATCH still requires a real session internally (route.ts, unchanged).
   '/api/onboarding/messages(.*)', // Backs the /onboard/[token] chat widget — same dual auth as /api/tenant-profile.
   '/api/onboarding/coverage(.*)', // Backs the /onboard/[token] radius-based zone auto-populate — same dual auth.
+  '/api/uploads(.*)',         // Same dual auth (session OR signed token) — lets /onboard/[token]'s Licensing &
+                              // Insurance step upload real files (insurance cert, license scan, W-9) before login.
+                              // Still 401s without either a session or a valid token — see route.ts.
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',
