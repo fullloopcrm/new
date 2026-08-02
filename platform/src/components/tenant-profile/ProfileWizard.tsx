@@ -462,6 +462,12 @@ export function FieldRenderer({ field, value, onChange, homeState, homeCity, rad
     if (field.key === 'targetCustomer') {
       return <TapAppendChips label={field.label} help={field.help} value={value} onChange={onChange} industry={industry} />
     }
+    if (field.key === 'businessDescription') {
+      return <TapAppendChips label={field.label} help={field.help} value={value} onChange={onChange} industry={industry} presetMap={BUSINESS_DESCRIPTION_PRESETS} />
+    }
+    if (field.key === 'secondaryContacts') {
+      return <SecondaryContactsEditor label={field.label} help={field.help} value={value} onChange={onChange} />
+    }
     return null
   }
 
@@ -726,6 +732,57 @@ function HolidayDatesEditor({ value, onChange }: { value: FieldValue; onChange: 
   )
 }
 
+interface SecondaryContact { name: string; email: string; phone: string; isPrimary?: boolean }
+
+/** Repeatable contact list, "+Add contact" not capped at one, with a single
+ *  Primary radio across all rows (picking one clears it from the others —
+ *  the system needs exactly one or zero primary, never two). */
+function SecondaryContactsEditor({ label, help, value, onChange }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void
+}) {
+  const contacts = (Array.isArray(value) ? value : []) as unknown as SecondaryContact[]
+
+  const update = (next: SecondaryContact[]) => onChange(next as unknown as Record<string, unknown>)
+  const updateRow = (i: number, patch: Partial<SecondaryContact>) =>
+    update(contacts.map((c, j) => (j === i ? { ...c, ...patch } : c)))
+  const setPrimary = (i: number) =>
+    update(contacts.map((c, j) => ({ ...c, isPrimary: j === i })))
+  const addContact = () =>
+    update([...contacts, { name: '', email: '', phone: '', isPrimary: contacts.length === 0 }])
+  const removeContact = (i: number) => {
+    const wasPrimary = contacts[i]?.isPrimary
+    const next = contacts.filter((_, j) => j !== i)
+    update(wasPrimary ? next.map((c) => ({ ...c, isPrimary: false })) : next)
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <FieldHelp text={help} />
+      <div className="space-y-3">
+        {contacts.map((c, i) => (
+          <div key={i} className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                <input type="radio" name="secondary-contact-primary" checked={!!c.isPrimary} onChange={() => setPrimary(i)} />
+                Primary contact
+              </label>
+              <button type="button" onClick={() => removeContact(i)} className="text-xs text-slate-400 hover:text-red-500">Remove</button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <input value={c.name} onChange={(e) => updateRow(i, { name: e.target.value })} placeholder="Name" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
+              <input value={c.email} onChange={(e) => updateRow(i, { email: e.target.value })} placeholder="Email" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
+              <input value={c.phone} onChange={(e) => updateRow(i, { phone: e.target.value })} placeholder="Phone" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
+            </div>
+          </div>
+        ))}
+        {contacts.length === 0 && <p className="text-xs text-slate-400">No additional contacts yet.</p>}
+        <button type="button" onClick={addContact} className="text-xs font-medium text-teal-600 hover:text-teal-700">+ Add contact</button>
+      </div>
+    </div>
+  )
+}
+
 const DIFFERENTIATOR_PRESETS = ['Family-owned', 'Licensed & insured', 'Same-day service', 'Eco-friendly', 'Veteran-owned']
 
 /** Multi-select chips storing a real string[] (see PROFILE_FIELDS
@@ -819,10 +876,28 @@ const TARGET_CUSTOMER_PRESETS: Record<string, string[]> = {
  *  AI persona reads directly (see persona-file.ts), not a structured array,
  *  so chips are a fast-start, not the whole answer. Voice/typing still fully
  *  edit the result below. */
-function TapAppendChips({ label, help, value, onChange, industry }: {
-  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void; industry?: string
+const BUSINESS_DESCRIPTION_PRESETS: Record<string, string[]> = {
+  cleaning: ['Residential cleaning', 'Commercial/office cleaning', 'Deep cleaning', 'Move-in/move-out cleaning', 'Recurring maintenance cleaning'],
+  window_cleaning: ['Residential window cleaning', 'Commercial storefront cleaning', 'High-rise/multi-story cleaning'],
+  carpet_cleaning: ['Residential carpet cleaning', 'Commercial carpet cleaning', 'Upholstery cleaning', 'Stain/pet-odor treatment'],
+  landscaping: ['Lawn maintenance', 'Landscape design & installation', 'Seasonal cleanup', 'Irrigation & hardscape'],
+  lawn_care: ['Weekly/biweekly mowing', 'Fertilization & weed control', 'Seasonal cleanup'],
+  hvac: ['AC/heating repair', 'System installation', 'Maintenance plans', 'Emergency service'],
+  plumbing: ['Repairs & leak fixes', 'Drain cleaning', 'Water heater service', 'Emergency plumbing'],
+  electrical: ['Repairs & troubleshooting', 'Panel upgrades', 'New installations', 'Emergency electrical'],
+  handyman: ['General home repairs', 'Small remodels', 'Furniture assembly', 'Punch-list/to-do-list work'],
+  moving: ['Local moving', 'Long-distance moving', 'Packing services', 'Commercial/office moves'],
+  junk_removal: ['Residential junk removal', 'Estate cleanouts', 'Construction debris removal', 'Commercial hauling'],
+  pest: ['Residential pest control', 'Commercial pest control', 'Termite treatment', 'Preventive/recurring service'],
+  pool: ['Weekly pool maintenance', 'Pool cleaning & chemical balancing', 'Equipment repair', 'Opening/closing service'],
+  general: ['Residential service', 'Commercial service', 'Repairs & maintenance', 'Installation'],
+}
+
+function TapAppendChips({ label, help, value, onChange, industry, presetMap }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void; industry?: string; presetMap?: Record<string, string[]>
 }) {
-  const presets = TARGET_CUSTOMER_PRESETS[industry || 'general'] || TARGET_CUSTOMER_PRESETS.general
+  const map = presetMap || TARGET_CUSTOMER_PRESETS
+  const presets = map[industry || 'general'] || map.general
   const text = (value as string) || ''
   const append = (phrase: string) => {
     if (text.toLowerCase().includes(phrase.toLowerCase())) return

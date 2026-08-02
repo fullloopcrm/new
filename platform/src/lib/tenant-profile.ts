@@ -267,11 +267,15 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
   { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', help: 'Where WE send you an alert the moment a new lead comes in from your website or booking form — usually the same as your business email, but can be different if you want leads routed to someone else.', read: (x) => t(x, 'lead_notification_email') },
 
-  // ── Secondary contact ── kept with the rest of primary contact info,
-  // not buried near the service-area settings below.
-  { key: 'secondaryContactName', label: 'Secondary contact name', section: 'contact', store: 'tenant', col: 'secondary_contact_name', tier: 'optional', help: 'A backup person we can reach if you\'re unavailable — a partner, manager, or office admin. Optional.', read: (x) => t(x, 'secondary_contact_name') },
-  { key: 'secondaryContactEmail', label: 'Secondary contact email', section: 'contact', store: 'tenant', col: 'secondary_contact_email', tier: 'optional', read: (x) => t(x, 'secondary_contact_email') },
-  { key: 'secondaryContactPhone', label: 'Secondary contact phone', section: 'contact', store: 'tenant', col: 'secondary_contact_phone', tier: 'optional', read: (x) => t(x, 'secondary_contact_phone') },
+  // Was 3 separate scalar fields (name/email/phone), capped at exactly one
+  // contact. Converted 2026-08-02 to a real repeatable list -- confirmed via
+  // grep that nothing else in the codebase read the old secondary_contact_*
+  // tenant columns, so no other consumer to update. Stored in selena_config
+  // (jsonb) like faqs/teamRoleRates/addons -- no migration needed for a new
+  // key. Each row: {name, email, phone, isPrimary}. NOTE: no `kind` set
+  // (array-of-objects) -- do NOT set kind:'array', that coercion path
+  // flattens to strings and corrupts the objects (caught live 2026-08-02).
+  { key: 'secondaryContacts', label: 'Additional contacts', section: 'contact', store: 'selena', col: 'secondary_contacts', input: 'custom', tier: 'optional', help: 'Backup people we can reach — partners, managers, office admin. Add as many as you need; mark one as Primary if you have several.', read: (x) => s(x, 'secondary_contacts') },
 
   // ── Service area ─── scope/states/zones owned by ServiceAreaEditor (selena_config.service_area).
   // `serviceScope` stays readonly (unchanged, still drives readiness). `serviceArea`
@@ -296,7 +300,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'primaryColor', label: 'Primary color', section: 'brand', store: 'tenant', col: 'primary_color', input: 'color', tier: 'recommended', read: (x) => t(x, 'primary_color') },
   { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', read: (x) => t(x, 'secondary_color') },
   { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
-  { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'textarea', tier: 'critical', read: (x) => s(x, 'business_description') },
+  { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'custom', tier: 'critical', help: 'Tap what applies to start, then edit or add to it — type or talk.', read: (x) => s(x, 'business_description') },
   { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', kind: 'array', input: 'custom', tier: 'optional', help: 'The real reasons a customer picks you over the next search result — tap what applies, add your own if it\'s not listed.', read: (x) => s(x, 'differentiators') },
 
   // ── Marketing (section key stays 'seo' -- see PROFILE_SECTION_META) ──
