@@ -69,13 +69,11 @@ export function buildProposalEmail(o: ProposalEmailOpts): { subject: string; htm
 
     <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin:0 0 6px;">Your pricing</div>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:6px;">
-      ${row(`Admin seats (${fmt(PRICING.adminMonthly)}/mo each)`, `${o.admins}`)}
-      ${row(`Portal team members (${fmt(PRICING.teamMemberMonthly)}/mo each)`, `${o.teamMembers}`)}
-      ${row('One-time setup', fmt(PRICING.setupFee))}
-      ${row('Monthly', `${fmt(o.monthly)}/mo`)}
+      ${row('One-time setup (100% upfront, bank wire)', fmt(PRICING.setupFee))}
+      ${row('Monthly (flat, unlimited admins &amp; team members)', `${fmt(o.monthly)}/mo`)}
       ${row('First-year total', fmt(firstYear), true)}
     </table>
-    <p style="color:#64748b;font-size:13px;margin:0 0 22px;">Pay the one-time setup by bank transfer (ACH) to skip card fees; your monthly runs on the same checkout. You own your business, your data, and your customers — cancel anytime, no lock-in contract.</p>
+    <p style="color:#64748b;font-size:13px;margin:0 0 22px;">The one-time setup is paid by bank wire — we'll send wire instructions once you accept. Your monthly starts with a $1 first charge to verify your card, then runs at the full rate. You own your business, your data, and your customers — cancel anytime, no lock-in contract.</p>
 
     <div style="margin:6px 0 10px;">${cta}</div>
     <p style="color:#94a3b8;font-size:12px;margin:0 0 22px;">This proposal is held for 7 days. After you accept, we start setup within one business day and you're live in under a week.</p>

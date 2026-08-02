@@ -1,26 +1,25 @@
 /**
- * ensurePlatformPrices — the find-OR-CREATE price minting path (platform-billing.ts),
- * P1/W1 16:43 queue item c: a real money path with NO prior coverage.
+ * ensurePlatformMonthlyPrice + ensureFirstMonthCoupon — the find-OR-CREATE
+ * paths for flat platform pricing (platform-billing.ts, 2026-08-02 rewrite).
  *
- * Every OTHER test in the suite stubs `stripe.prices.list` to return all three
- * prices, so ensurePlatformPrices always takes the "found" branch and the CREATE
- * branch — what actually runs the first time, before any price exists in the Stripe
- * account — has never been exercised. That branch carries the load-bearing
- * dollars->cents conversion (`unit_amount = PRICING.x * 100`) and the recurring vs
- * one-time interval choice. A missing `* 100` would mint the $25,000 setup fee at
- * $250; billing the one-time setup as `recurring` would charge $25k every month.
- * This pins the created price shapes so those money bugs can't ship silently.
+ * Every OTHER test in the suite stubs the "found" branch, so the CREATE
+ * branch — what actually runs the first time, before the price/coupon exists
+ * in the Stripe account — needs its own coverage. It carries the load-bearing
+ * dollars->cents conversion (`unit_amount = PRICING.monthlyFee * 100`) and the
+ * coupon math that brings the first invoice down to exactly $1
+ * (`amount_off = monthlyFee*100 - 100`). A missing `* 100` would mint the
+ * $2,500/mo price at $25; a wrong amount_off would make the "verification"
+ * charge $0 or negative.
  *
  * Real code under test; a captured fake Stripe (no network) whose prices.list
- * returns a controllable subset, so each per-price find-vs-create branch is reachable.
+ * / coupons.retrieve return a controllable state, so both the find and create
+ * branches are reachable for each function independently.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PRICING } from './billing-pricing'
-import {
-  PLATFORM_ADMIN_LOOKUP,
-  PLATFORM_MEMBER_LOOKUP,
-  PLATFORM_SETUP_LOOKUP,
-} from '@/test/platform-billing-lookup-keys'
+
+const MONTHLY_LOOKUP = 'fl_flat_monthly_2500'
+const FIRST_MONTH_COUPON_ID = 'fl_first_month_1_dollar_2500'
 
 type CreatedPrice = {
   product: string
@@ -29,19 +28,25 @@ type CreatedPrice = {
   recurring?: { interval: string }
   lookup_key: string
 }
+type CreatedCoupon = {
+  id: string
+  amount_off: number
+  currency: string
+  duration: string
+  name: string
+}
 
 const cap = vi.hoisted(() => ({
-  existing: [] as Array<{ id: string; lookup_key: string }>,
+  existingPrice: null as { id: string; lookup_key: string } | null,
+  existingCoupon: null as { id: string; deleted?: boolean } | null,
   productNames: [] as string[],
   createdPrices: [] as CreatedPrice[],
+  createdCoupons: [] as CreatedCoupon[],
 }))
 
-// prices.list returns a CONTROLLABLE subset (cap.existing) so the find-vs-create
-// branch per price is reachable; create captures its params and returns a
-// deterministic id (`price_<lookup_key>`) so the returned ids are assertable.
 const fakeStripe = {
   prices: {
-    list: () => Promise.resolve({ data: cap.existing }),
+    list: () => Promise.resolve({ data: cap.existingPrice ? [cap.existingPrice] : [] }),
     create: (params: CreatedPrice) => {
       cap.createdPrices.push(params)
       return Promise.resolve({ id: `price_${params.lookup_key}`, ...params })
@@ -53,75 +58,85 @@ const fakeStripe = {
       return Promise.resolve({ id: `prod_${cap.productNames.length}` })
     },
   },
+  coupons: {
+    retrieve: () => {
+      if (cap.existingCoupon) return Promise.resolve(cap.existingCoupon)
+      return Promise.reject(new Error('No such coupon'))
+    },
+    create: (params: CreatedCoupon) => {
+      cap.createdCoupons.push(params)
+      return Promise.resolve({ ...params })
+    },
+  },
 }
 vi.mock('./stripe', () => ({ getStripe: () => fakeStripe }))
 
-import { ensurePlatformPrices } from './platform-billing'
+import { ensurePlatformMonthlyPrice, ensureFirstMonthCoupon } from './platform-billing'
 
-const createdByLookup = (k: string) => cap.createdPrices.find((p) => p.lookup_key === k)
+const createdMonthlyPrice = () => cap.createdPrices.find((p) => p.lookup_key === MONTHLY_LOOKUP)
+const createdCoupon = () => cap.createdCoupons.find((c) => c.id === FIRST_MONTH_COUPON_ID)
 
 beforeEach(() => {
-  cap.existing = []
+  cap.existingPrice = null
+  cap.existingCoupon = null
   cap.productNames = []
   cap.createdPrices = []
+  cap.createdCoupons = []
 })
 
-describe('ensurePlatformPrices — CREATE branch mints prices at the correct amount + interval (never covered before)', () => {
-  it('mints all three prices when none exist, each at PRICING.* dollars converted to cents (*100)', async () => {
-    const res = await ensurePlatformPrices()
-
-    expect(createdByLookup(PLATFORM_ADMIN_LOOKUP)?.unit_amount).toBe(PRICING.adminMonthly * 100)       // 2500 -> 250000
-    expect(createdByLookup(PLATFORM_MEMBER_LOOKUP)?.unit_amount).toBe(PRICING.teamMemberMonthly * 100) // 250 -> 25000
-    expect(createdByLookup(PLATFORM_SETUP_LOOKUP)?.unit_amount).toBe(PRICING.setupFee * 100)           // 25000 -> 2500000
-
-    for (const k of [PLATFORM_ADMIN_LOOKUP, PLATFORM_MEMBER_LOOKUP, PLATFORM_SETUP_LOOKUP]) {
-      expect(createdByLookup(k)?.currency).toBe('usd')
-    }
-
-    // returns the ids of the freshly-created prices
-    expect(res).toEqual({
-      adminPriceId: `price_${PLATFORM_ADMIN_LOOKUP}`,
-      memberPriceId: `price_${PLATFORM_MEMBER_LOOKUP}`,
-      setupPriceId: `price_${PLATFORM_SETUP_LOOKUP}`,
-    })
+describe('ensurePlatformMonthlyPrice', () => {
+  it('mints the flat monthly price when none exists, at PRICING.monthlyFee dollars converted to cents (*100)', async () => {
+    const id = await ensurePlatformMonthlyPrice()
+    expect(createdMonthlyPrice()?.unit_amount).toBe(PRICING.monthlyFee * 100) // 2500 -> 250000
+    expect(createdMonthlyPrice()?.currency).toBe('usd')
+    expect(id).toBe(`price_${MONTHLY_LOOKUP}`)
   })
 
-  it('admin + member seats are RECURRING monthly; the setup fee is ONE-TIME (no recurring) — the interval money-bug guard', async () => {
-    await ensurePlatformPrices()
-    expect(createdByLookup(PLATFORM_ADMIN_LOOKUP)?.recurring).toEqual({ interval: 'month' })
-    expect(createdByLookup(PLATFORM_MEMBER_LOOKUP)?.recurring).toEqual({ interval: 'month' })
-    // The setup fee must NOT be recurring — a monthly $25k setup charge is catastrophic.
-    const setup = createdByLookup(PLATFORM_SETUP_LOOKUP)
-    expect(setup).toBeDefined()
-    expect(setup).not.toHaveProperty('recurring')
+  it('the price is RECURRING monthly, not one-time', async () => {
+    await ensurePlatformMonthlyPrice()
+    expect(createdMonthlyPrice()?.recurring).toEqual({ interval: 'month' })
   })
 
-  it('the $25,000 setup fee mints at 2,500,000 cents, not $250 — the missing-*100 guard', async () => {
-    await ensurePlatformPrices()
-    expect(PRICING.setupFee).toBe(25000)
-    expect(createdByLookup(PLATFORM_SETUP_LOOKUP)?.unit_amount).toBe(2_500_000)
+  it('names the created product for the Stripe dashboard', async () => {
+    await ensurePlatformMonthlyPrice()
+    expect(cap.productNames).toContain('Full Loop CRM — monthly (flat, unlimited)')
   })
 
-  it('find-OR-create is PER price: an already-existing admin price is reused, only the missing two are created', async () => {
-    cap.existing = [{ id: 'price_admin_existing', lookup_key: PLATFORM_ADMIN_LOOKUP }]
-    const res = await ensurePlatformPrices()
+  it('reuses an existing price by lookup_key instead of minting a new one', async () => {
+    cap.existingPrice = { id: 'price_existing', lookup_key: MONTHLY_LOOKUP }
+    const id = await ensurePlatformMonthlyPrice()
+    expect(id).toBe('price_existing')
+    expect(createdMonthlyPrice()).toBeUndefined()
+    expect(cap.productNames).toHaveLength(0)
+  })
+})
 
-    expect(createdByLookup(PLATFORM_ADMIN_LOOKUP)).toBeUndefined() // reused, not created
-    expect(createdByLookup(PLATFORM_MEMBER_LOOKUP)).toBeDefined()
-    expect(createdByLookup(PLATFORM_SETUP_LOOKUP)).toBeDefined()
-
-    expect(res.adminPriceId).toBe('price_admin_existing') // the found id, not a minted one
-    expect(res.memberPriceId).toBe(`price_${PLATFORM_MEMBER_LOOKUP}`)
-    expect(res.setupPriceId).toBe(`price_${PLATFORM_SETUP_LOOKUP}`)
-
-    // only two products created — the admin product was never touched
-    expect(cap.productNames).toHaveLength(2)
+describe('ensureFirstMonthCoupon', () => {
+  it('mints a $1-first-month coupon when none exists: amount_off brings $2,500 down to exactly $1', async () => {
+    const id = await ensureFirstMonthCoupon()
+    // The missing-*100 / off-by-one guard: 250000 - 100 = 249900, i.e. a $2,499 discount
+    // leaving a $1 (100-cent) first charge — not $0, not negative.
+    expect(createdCoupon()?.amount_off).toBe(PRICING.monthlyFee * 100 - 100)
+    expect(createdCoupon()?.amount_off).toBe(249_900)
+    expect(id).toBe(FIRST_MONTH_COUPON_ID)
   })
 
-  it('names each created product for the Stripe dashboard', async () => {
-    await ensurePlatformPrices()
-    expect(cap.productNames).toContain('Full Loop — Admin seat')
-    expect(cap.productNames).toContain('Full Loop — Portal team seat')
-    expect(cap.productNames).toContain('Full Loop — Setup fee (one-time)')
+  it('the coupon applies ONCE, not forever — every invoice after month one is full price', async () => {
+    await ensureFirstMonthCoupon()
+    expect(createdCoupon()?.duration).toBe('once')
+  })
+
+  it('reuses an existing, non-deleted coupon instead of minting a new one', async () => {
+    cap.existingCoupon = { id: FIRST_MONTH_COUPON_ID, deleted: false }
+    const id = await ensureFirstMonthCoupon()
+    expect(id).toBe(FIRST_MONTH_COUPON_ID)
+    expect(createdCoupon()).toBeUndefined()
+  })
+
+  it('re-creates when the existing coupon was deleted in Stripe', async () => {
+    cap.existingCoupon = { id: FIRST_MONTH_COUPON_ID, deleted: true }
+    const id = await ensureFirstMonthCoupon()
+    expect(id).toBe(FIRST_MONTH_COUPON_ID)
+    expect(createdCoupon()).toBeDefined()
   })
 })

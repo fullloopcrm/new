@@ -1,16 +1,6 @@
 /**
- * Money-math edge cases: refund + proration + partial-payment correctness,
- * tenant-scoped (P1/W1 queue item b, re-queued).
- *
- * Scope + honesty about what "proration" means here:
- *
- *  - PRORATION (syncSubscriptionSeats, platform-billing.ts): the platform does
- *    NOT hand-roll any proration formula — it delegates proration to Stripe via
- *    `proration_behavior: 'create_prorations'`. So "proration correctness" is (1)
- *    the SEAT-QUANTITY math we feed Stripe (admin clamp >=1, team floor >=0,
- *    fractional flooring, team-line removal at 0) and (2) the CONTRACT that every
- *    seat change actually requests proration. A hand-rolled proration test would
- *    have to test code that does not exist; these tests pin the real surface.
+ * Money-math edge cases: refund + partial-payment correctness, tenant-scoped
+ * (P1/W1 queue item b, re-queued).
  *
  *  - PARTIAL-PAYMENT (processPayment, payment-processor.ts): the 95% threshold,
  *    tip = overpayment, shortfall, prior-payment accumulation flipping
@@ -24,59 +14,28 @@
  *
  * Real code under test; a shared in-memory Supabase fake (with the
  * `post_journal_entry` RPC + upsert idempotency the ledger path needs — the
- * extracted src/test/supabase-fake.ts intentionally omits both) and a captured
- * fake Stripe. No network, no DB.
+ * extracted src/test/supabase-fake.ts intentionally omits both). No network,
+ * no DB.
+ *
+ * NOTE (2026-08-02): this file used to also pin platform-billing.ts seat
+ * PRORATION math (syncSubscriptionSeats + a fake Stripe). Platform pricing
+ * moved to a flat $2,500/mo — syncSubscriptionSeats is now a no-op, there is
+ * no seat-quantity math left to test, so that describe block and its
+ * supporting fake-Stripe/lookup-key scaffolding were removed rather than
+ * tests-for-code-that-doesn't-exist. See platform-billing.ts.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 // Import the fake BEFORE any module that pulls @/lib/supabase (e.g. ./ledger),
 // so its binding is initialized before the hoisted vi.mock factory fires.
 import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
-import {
-  PLATFORM_ADMIN_LOOKUP as ADMIN_LOOKUP,
-  PLATFORM_MEMBER_LOOKUP as MEMBER_LOOKUP,
-  PLATFORM_SETUP_LOOKUP as SETUP_LOOKUP,
-} from '@/test/platform-billing-lookup-keys'
 import { DEFAULT_CHART } from './ledger'
 
 // ---- hoisted state the vi.mock factories close over --------------------------
 const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<string, unknown>>> }))
-const sfx = vi.hoisted(() => ({
-  // fake Stripe capture for the proration tests
-  sub: { items: { data: [] as Array<{ id: string; price: { id: string } }> } },
-  updateCalls: [] as Array<{ id: string; params: Record<string, unknown> }>,
-}))
-
-// The three lookup_key constants are shared via @/test/platform-billing-lookup-keys
-// (imported above, aliased). They mirror platform-billing.ts's module-private
-// constants; if those drift, ensurePlatformPrices() won't match a returned price and
-// falls through to products.create — which throws below, failing LOUD rather than
-// silently minting a phantom price. Centralized so drift is reconciled in one place.
 
 // ---- in-memory Supabase fake (ledger RPC + upsert idempotency) ---------------
 // Shared with money-adjustments.test.ts via @/test/ledger-supabase-fake.
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
-
-// Fake Stripe for proration: prices.list returns the three expected prices so
-// ensurePlatformPrices() finds them all; subscriptions.retrieve/update are driven
-// by / captured into `sfx`. Any unexpected create throws (drift guard).
-const fakeStripe = {
-  prices: {
-    list: () => Promise.resolve({
-      data: [
-        { id: 'price_admin', lookup_key: ADMIN_LOOKUP },
-        { id: 'price_member', lookup_key: MEMBER_LOOKUP },
-        { id: 'price_setup', lookup_key: SETUP_LOOKUP },
-      ],
-    }),
-    create: () => { throw new Error('unexpected prices.create — lookup_key drift?') },
-  },
-  products: { create: () => { throw new Error('unexpected products.create — lookup_key drift?') } },
-  subscriptions: {
-    retrieve: () => Promise.resolve(sfx.sub),
-    update: (id: string, params: Record<string, unknown>) => { sfx.updateCalls.push({ id, params }); return Promise.resolve({}) },
-  },
-}
-vi.mock('@/lib/stripe', () => ({ getStripe: () => fakeStripe }))
 
 // Side-effect modules processPayment reaches — silence them (no SMS / network /
 // extra ledger writes); the math under test is unaffected.
@@ -88,7 +47,6 @@ vi.mock('@/lib/finance/post-labor', () => ({ postPayoutToLedger: () => Promise.r
 
 import { postRefundToLedger } from './finance/post-adjustments'
 import { processPayment } from './payment-processor'
-import { syncSubscriptionSeats } from './platform-billing'
 
 const A = 'tenant-A'
 const B = 'tenant-B'
@@ -131,64 +89,8 @@ beforeEach(() => {
   h.store = { chart_of_accounts: [], journal_entries: [], journal_entry_lines: [], bookings: [], payments: [], admin_tasks: [], clients: [] }
   seedChart(A)
   seedChart(B)
-  sfx.sub = { items: { data: [] } }
-  sfx.updateCalls = []
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
-})
-
-// ============================================================================
-// PRORATION — seat-quantity math + the create_prorations contract we hand Stripe
-// ============================================================================
-describe('syncSubscriptionSeats — proration is Stripe-delegated; we feed it correct seat quantities', () => {
-  const lastItems = () => (sfx.updateCalls[0].params.items as Array<Record<string, unknown>>)
-
-  it('every seat change requests create_prorations (the whole reason we do not hand-roll proration)', async () => {
-    sfx.sub = { items: { data: [] } }
-    await syncSubscriptionSeats('sub_1', 2, 1)
-    expect(sfx.updateCalls).toHaveLength(1)
-    expect(sfx.updateCalls[0].params.proration_behavior).toBe('create_prorations')
-  })
-
-  it('clamps admin seats to a minimum of 1 and floors fractional counts', async () => {
-    sfx.sub = { items: { data: [
-      { id: 'si_admin', price: { id: 'price_admin' } },
-      { id: 'si_member', price: { id: 'price_member' } },
-    ] } }
-    await syncSubscriptionSeats('sub_1', 0, 2.9)   // admins 0 -> 1; team 2.9 -> 2
-    const items = lastItems()
-    expect(items).toContainEqual({ id: 'si_admin', quantity: 1 })
-    expect(items).toContainEqual({ id: 'si_member', quantity: 2 })
-  })
-
-  it('adds a NEW price line when that seat is not already on the subscription', async () => {
-    sfx.sub = { items: { data: [] } }
-    await syncSubscriptionSeats('sub_1', 3, 1)
-    const items = lastItems()
-    expect(items).toContainEqual({ price: 'price_admin', quantity: 3 })
-    expect(items).toContainEqual({ price: 'price_member', quantity: 1 })
-  })
-
-  it('removes the team line item when team seats drop to 0 (deleted, not quantity 0)', async () => {
-    sfx.sub = { items: { data: [
-      { id: 'si_admin', price: { id: 'price_admin' } },
-      { id: 'si_member', price: { id: 'price_member' } },
-    ] } }
-    await syncSubscriptionSeats('sub_1', 2, 0)
-    const items = lastItems()
-    expect(items).toContainEqual({ id: 'si_admin', quantity: 2 })
-    expect(items).toContainEqual({ id: 'si_member', deleted: true })
-    // never a quantity:0 team line (Stripe would keep billing it)
-    expect(items.some((i) => i.id === 'si_member' && 'quantity' in i)).toBe(false)
-  })
-
-  it('emits no team line at all when team seats are 0 and none exists yet', async () => {
-    sfx.sub = { items: { data: [{ id: 'si_admin', price: { id: 'price_admin' } }] } }
-    await syncSubscriptionSeats('sub_1', 1, 0)
-    const items = lastItems()
-    expect(items).toHaveLength(1)
-    expect(items[0]).toMatchObject({ id: 'si_admin', quantity: 1 })
-  })
 })
 
 // ============================================================================
