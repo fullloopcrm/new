@@ -43,7 +43,7 @@ interface WebChatWidgetProps {
 }
 
 const DEFAULT_GREETING = "Hey — questions about pricing, availability, or your booking? Send a message, or a photo, and we'll get right back to you."
-const DEFAULT_AGENT_INTRO = "Have a question? A real human's here, live."
+const DEFAULT_AGENT_INTRO = "Have a question? A real human's here, live. No AI, Crazy Concept..."
 const DEFAULT_SELF_INTRO = "We'd love to help you."
 const DEFAULT_COMPOSER_PLACEHOLDER = "Ask us anything..."
 const DEFAULT_QUICK_REPLIES = ['I have a question', 'I need help']
