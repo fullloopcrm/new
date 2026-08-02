@@ -4,45 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PRICING } from '@/lib/billing-pricing'
+import { INDUSTRY_OPTIONS as industries } from '@/lib/industry-presets'
 
-const industries = [
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'hvac', label: 'HVAC' },
-  { value: 'landscaping', label: 'Landscaping' },
-  { value: 'painting', label: 'Painting' },
-  { value: 'roofing', label: 'Roofing' },
-  { value: 'pest_control', label: 'Pest Control' },
-  { value: 'handyman', label: 'Handyman' },
-  { value: 'moving', label: 'Moving' },
-  { value: 'carpet_cleaning', label: 'Carpet Cleaning' },
-  { value: 'window_cleaning', label: 'Window Cleaning' },
-  { value: 'pressure_washing', label: 'Pressure Washing' },
-  { value: 'pool_service', label: 'Pool Service' },
-  { value: 'garage_door', label: 'Garage Door' },
-  { value: 'locksmith', label: 'Locksmith' },
-  { value: 'appliance_repair', label: 'Appliance Repair' },
-  { value: 'flooring', label: 'Flooring' },
-  { value: 'fencing', label: 'Fencing' },
-  { value: 'tree_service', label: 'Tree Service' },
-  { value: 'snow_removal', label: 'Snow Removal' },
-  { value: 'junk_removal', label: 'Junk Removal' },
-  { value: 'auto_detailing', label: 'Auto Detailing' },
-  { value: 'dog_walking', label: 'Dog Walking / Pet Care' },
-  { value: 'tutoring', label: 'Tutoring' },
-  { value: 'photography', label: 'Photography' },
-  { value: 'catering', label: 'Catering' },
-  { value: 'personal_training', label: 'Personal Training' },
-  { value: 'massage', label: 'Massage Therapy' },
-  { value: 'salon', label: 'Salon / Barbershop' },
-  { value: 'daycare', label: 'Daycare / Childcare' },
-  { value: 'home_inspection', label: 'Home Inspection' },
-  { value: 'solar', label: 'Solar Installation' },
-  { value: 'security', label: 'Security Systems' },
-  { value: 'general_contractor', label: 'General Contractor' },
-  { value: 'other', label: 'Other' },
-]
+// Previously a hand-typed list that had drifted from the real IndustryKey
+// union — several values here (pool_service, pest_control, dog_walking,
+// tutoring, photography, catering, personal_training, massage, salon,
+// daycare, security, general_contractor, other) matched nothing in
+// SERVICE_PRESETS, so picking one silently fell back to the 'general' preset
+// with no indication anything was wrong. Now imports the same canonical list
+// the tenant-profile 'industry' field uses — see industry-presets.ts.
 
 export default function NewBusinessPage() {
   const router = useRouter()

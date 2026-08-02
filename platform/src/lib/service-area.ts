@@ -107,6 +107,48 @@ export function stateName(code: string): string {
   return US_STATES.find((s) => s.code === code.toUpperCase())?.name ?? code
 }
 
+/** The 5 NYC boroughs, plain — the auto-detected default for a "local" NYC
+ *  tenant. Distinct from NYC_DEFAULT_ZONES above (9 zones incl. Manhattan
+ *  split 3 ways, Long Island, NJ Hudson): that's the manual "quick add"
+ *  preset for a tenant who wants finer detail; this is the simple 5-borough
+ *  set that address-based auto-detection fills in by default. */
+export const NYC_FIVE_BOROUGHS: ServiceZone[] = [
+  { id: 'manhattan', label: 'Manhattan' },
+  { id: 'brooklyn', label: 'Brooklyn' },
+  { id: 'queens', label: 'Queens' },
+  { id: 'bronx', label: 'Bronx' },
+  { id: 'staten_island', label: 'Staten Island', car_required: true },
+]
+
+const NYC_BOROUGH_NAMES = new Set(['manhattan', 'brooklyn', 'queens', 'bronx', 'staten island'])
+
+/** True when Radar resolved this address to one of the 5 NYC boroughs —
+ *  AddressAutocomplete.tsx already puts the borough name in `city` for a NYC
+ *  address (addr.borough || addr.city), so this is a plain string check, no
+ *  separate borough field needs to be threaded through. */
+export function isNycAddress(city: string | null | undefined, state: string | null | undefined): boolean {
+  return (state || '').toUpperCase() === 'NY' && NYC_BOROUGH_NAMES.has((city || '').trim().toLowerCase())
+}
+
+/**
+ * Auto-fill for a verified address, per scope (2026-08-02 — Jeff, explicit
+ * rule): a NYC address gets a real default instead of an empty map the
+ * tenant has to build by hand. Returns null when nothing to auto-fill (no
+ * verified address yet, or an address outside the one case we have real
+ * preset data for) — caller should leave the existing area untouched, never
+ * silently guess for a metro we don't have data on.
+ */
+export function deriveServiceAreaForAddress(
+  scope: BusinessScope,
+  city: string | null | undefined,
+  state: string | null | undefined,
+): Pick<ServiceArea, 'states' | 'zones'> | null {
+  if (scope === 'national') return { states: ['ALL'], zones: [] }
+  if (!isNycAddress(city, state)) return null
+  if (scope === 'local') return { states: ['NY'], zones: NYC_FIVE_BOROUGHS }
+  return { states: ['NY', 'CT', 'NJ'], zones: [] } // regional
+}
+
 /** Default zones for a NYC-metro local tenant (the NYC Maid preset). */
 export const NYC_DEFAULT_ZONES: ServiceZone[] = [
   { id: 'manhattan_downtown', label: 'Manhattan — Downtown (below 34th)' },

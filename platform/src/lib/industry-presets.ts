@@ -30,6 +30,28 @@ export type IndustryKey =
   // fallback
   | 'general'
 
+// Human-readable label per key, auto-derived (underscore -> space, title case)
+// with overrides for acronyms/compound trade names that don't title-case
+// cleanly. This is the ONE label source — the admin business-creation form and
+// the tenant-profile 'industry' field both import ALL_INDUSTRY_KEYS/labelFor
+// instead of keeping their own hand-typed list, so a tenant can never end up
+// with an industry value the provisioning presets don't recognize.
+const LABEL_OVERRIDES: Partial<Record<IndustryKey, string>> = {
+  hvac: 'HVAC',
+  air_duct: 'Air Duct Cleaning',
+  bin_cleaning: 'Trash Bin Cleaning',
+  pest: 'Pest Control',
+  pool: 'Pool Service',
+  home_inspection: 'Home Inspection',
+  windows_doors: 'Windows & Doors',
+  smart_home: 'Smart Home Installation',
+  general: 'Other / General',
+}
+
+export function labelForIndustry(key: IndustryKey): string {
+  return LABEL_OVERRIDES[key] || key.split('_').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ')
+}
+
 export interface DefaultService {
   name: string
   description: string
@@ -633,6 +655,17 @@ export const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     svc('Consultation', 'Assessment + written estimate', 1, 75, 6),
   ],
 }
+
+// Runtime enumeration of every valid IndustryKey, in SERVICE_PRESETS' own
+// declared order. Derived from its keys rather than hand-copied, so this list
+// is structurally incapable of drifting from the type — the admin
+// business-creation form and the tenant-profile 'industry' field both import
+// this instead of keeping their own list (which is how the admin form ended
+// up offering values like 'pool_service'/'pest_control' that SERVICE_PRESETS
+// has never recognized, silently falling back to the 'general' preset).
+export const ALL_INDUSTRY_KEYS = Object.keys(SERVICE_PRESETS) as IndustryKey[]
+export const INDUSTRY_OPTIONS: { value: IndustryKey; label: string }[] =
+  ALL_INDUSTRY_KEYS.map((value) => ({ value, label: labelForIndustry(value) }))
 
 /** Standard 9-field booking checklist with a trade-specific service_type question. */
 function stdChecklist(serviceQuestion: string, smsOptions: string, opts?: { addressRequired?: boolean; emailRequired?: boolean }): ChecklistField[] {
