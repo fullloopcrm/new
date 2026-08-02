@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { decryptSecret } from '@/lib/secret-crypto'
+
+// Some client/team-member pin values got written through encryptSecret() by
+// a stray call elsewhere and now sit in the DB as a 'v1:' envelope instead
+// of the plain 6-digit code — decryptSecret() passes plaintext through
+// unchanged and correctly recovers the real value for the encrypted ones, so
+// this is safe to run on every pin unconditionally.
+const safeDecryptPin = (pin: string | null | undefined): string | null => {
+  if (!pin) return null
+  try {
+    return decryptSecret(pin)
+  } catch {
+    return pin
+  }
+}
 
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
@@ -90,7 +105,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .select('id, name, email, phone, address, address_line1, status, active, do_not_service, sms_consent, pin, pet_name, pet_type, notes_private, notes_public, created_at')
       .eq('id', clientId)
       .single()
-    client = c
+    client = c ? { ...c, pin: safeDecryptPin(c.pin as string | null) } : c
     const { data: bks } = await db
       .from('bookings')
       .select('id, start_time, end_time, service_type, status, payment_status, hourly_rate, actual_hours, price, partial_payment_cents, team_member_id, team_members!bookings_team_member_id_fkey(name)')
@@ -123,7 +138,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .select('id, name, email, phone, address, pin, active, pay_rate, avg_rating, rating_count, has_car, created_at')
       .eq('id', teamMemberId)
       .single()
-    teamMember = tm
+    teamMember = tm ? { ...tm, pin: safeDecryptPin(tm.pin as string | null) } : tm
 
     const { data: cbks } = await db
       .from('bookings')

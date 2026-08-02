@@ -1605,7 +1605,13 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
-          {role === 'client' && client?.pin && <div>Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span></div>}
+          {role === 'client' && client?.pin && (
+            <div>
+              Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span>
+              {' · '}
+              <a href="/portal/login" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: 'var(--color-loop-ink)' }}>Open client portal →</a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1691,9 +1697,13 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
             </div>
           )}
           {cleaner.pin && (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Portal PIN</span>
-              <span style={{ fontWeight: 600 }}>{cleaner.pin}</span>
+              <span>
+                <span style={{ fontWeight: 600 }}>{cleaner.pin}</span>
+                {' · '}
+                <a href="/team/login" target="_blank" rel="noopener noreferrer" className="text-xs hover:underline" style={{ color: 'var(--color-loop-ink)' }}>Open team portal →</a>
+              </span>
             </div>
           )}
           <div className="flex justify-between">
