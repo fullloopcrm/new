@@ -249,6 +249,9 @@ export default function ServiceAreaEditor({ onSaved, embedded, value, onChange, 
               </label>
             )}
           </div>
+          {!allStates && (
+            <p className="mb-2 text-xs text-gray-500">Click a state below to add it — click it again to remove it. Selected states are highlighted.</p>
+          )}
           {area.scope === 'regional' && regionalDefaultCodes.length > 0 && (
             <p className="mb-2 text-xs text-gray-500">
               {showAllStates ? 'Showing all states.' : `Showing ${homeState?.toUpperCase()} and its neighboring states.`}{' '}
