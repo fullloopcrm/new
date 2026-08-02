@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/inquiry — single contact form for the marketing teaser site.
 // Strategy pivot 2026-05-03: no longer selling territory licenses; this form
@@ -63,6 +64,20 @@ async function sendOwnerSms(text: string): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
+  // Unlike its siblings (prospects.ts: 3/hour, waitlist.ts, feedback.ts),
+  // this route had NO rate limit at all -- a real, live abuse vector, not
+  // just a hypothetical one. It sends a real "we got your application"
+  // confirmation email to the caller-supplied `email` address with zero
+  // verification that address belongs to the caller, so an attacker could
+  // spam arbitrary third-party inboxes (email-bombing/harassment) in
+  // addition to running up admin email/SMS costs and unbounded row growth
+  // in inquiries + partner_requests. Matches feedback.ts's limit.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`inquiry:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'too_many_requests' }, { status: 429 })
+  }
+
   let body: InquiryBody
   try {
     body = (await req.json()) as InquiryBody

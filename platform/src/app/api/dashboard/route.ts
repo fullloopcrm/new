@@ -4,7 +4,9 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 
 interface BookingRow {
   price: number | null
@@ -13,7 +15,20 @@ interface BookingRow {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // The main admin dashboard aggregator had NO permission check at all --
+    // only getTenantForRequest() -- and returned real financial data (today/
+    // week/month/pending revenue) plus full client PII unconditionally. Same
+    // live, default-config gap class as jobs.ts's GET this session: 'staff'
+    // has bookings.view but lacks finance.view by default, so any staff-role
+    // team member could already see the full revenue breakdown here. Gated
+    // on bookings.view (matches the dashboard's own primary content -- jobs/
+    // clients), and the `financials` field is zeroed out for roles without
+    // finance.view, same split already established on jobs.ts and
+    // jobs/[id]/route.ts.
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
+    const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
     const db = tenantDb(tenantId)
 
     const now = new Date()
@@ -144,11 +159,16 @@ export async function GET() {
         week: normalizeMapJobs(mapWeekRes.data as BookingRow[] | null),
         month: normalizeMapJobs(mapMonthRes.data as BookingRow[] | null),
       },
-      financials: {
+      financials: canViewFinance ? {
         today: { revenue: calcRevenue(todayPaidRes.data as BookingRow[] | null), jobs: todayPaidRes.data?.length || 0 },
         week: { revenue: calcRevenue(weekPaidRes.data as BookingRow[] | null), jobs: weekPaidRes.data?.length || 0 },
         month: { revenue: calcRevenue(monthPaidRes.data as BookingRow[] | null), jobs: monthPaidRes.data?.length || 0 },
         pending: { revenue: calcRevenue(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
+      } : {
+        today: { revenue: 0, jobs: 0 },
+        week: { revenue: 0, jobs: 0 },
+        month: { revenue: 0, jobs: 0 },
+        pending: { revenue: 0, jobs: 0 },
       },
       clients: {
         total: allClientsRes.count || 0,
