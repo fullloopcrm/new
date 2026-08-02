@@ -21,6 +21,7 @@ type P = {
   stripe_checkout_url: string | null
   reject_reason: string | null
   created_at: string
+  tenant_id: string | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -66,6 +67,20 @@ export default function ProspectsAdminPage() {
       navigator.clipboard.writeText(data.prospect.stripe_checkout_url)
       setMsg('Checkout link copied. Email it to the prospect.')
     }
+    setBusy(null); load()
+  }
+
+  async function markWireReceived(id: string, businessName: string) {
+    if (!confirm(`Confirm the $${PRICING.setupFee.toLocaleString()} wire actually landed for ${businessName}? This creates the tenant and sends the login invite.`)) return
+    setBusy(id); setMsg('')
+    const seatsArg = seatFor(id)
+    const res = await fetch(`/api/admin/prospects/${id}/wire-received`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admins: seatsArg.admins, team_members: seatsArg.team }),
+    })
+    const data = await res.json()
+    if (!res.ok) { alert(data.error || 'Failed'); setBusy(null); return }
+    setMsg('Wire confirmed — tenant created.')
     setBusy(null); load()
   }
 
@@ -130,8 +145,8 @@ export default function ProspectsAdminPage() {
                         <input type="number" min={0} value={seatFor(p.id).team}
                           onChange={e => setSeat(p.id, 'team', Number(e.target.value))}
                           className="w-12 border border-slate-300 rounded px-1 py-0.5 text-xs" />
-                        <span className="text-[10px] font-medium text-slate-600">
-                          ${(seatFor(p.id).admins * PRICING.adminMonthly + seatFor(p.id).team * PRICING.teamMemberMonthly).toLocaleString()}/mo
+                        <span className="text-[10px] font-medium text-slate-600" title="Flat rate — headcount doesn't change the price">
+                          ${PRICING.monthlyFee.toLocaleString()}/mo flat
                         </span>
                         <button disabled={busy === p.id} onClick={() => act(p.id, 'approve', seatFor(p.id))}
                           className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
@@ -148,6 +163,15 @@ export default function ProspectsAdminPage() {
                         className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-50">
                         Copy link
                       </button>
+                    )}
+                    {p.status === 'paid' && !p.tenant_id && (
+                      <button disabled={busy === p.id} onClick={() => markWireReceived(p.id, p.business_name)}
+                        className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                        {busy === p.id ? 'Confirming…' : `Mark $${PRICING.setupFee.toLocaleString()} wire received`}
+                      </button>
+                    )}
+                    {p.status === 'paid' && p.tenant_id && (
+                      <span className="text-xs text-emerald-700">✓ tenant created</span>
                     )}
                     {p.status === 'rejected' && p.reject_reason && (
                       <span className="text-xs text-slate-500" title={p.reject_reason}>reason ℹ</span>
