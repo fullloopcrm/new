@@ -81,6 +81,7 @@ export const isPublicRoute = createRouteMatcher([
   '/api/client-analytics(.*)', // Client analytics admin endpoint (admin PIN gated in route)
   '/api/selena(.*)',          // Selena API routes
   '/api/tenant-sitemap',       // Tenant sitemap endpoint
+  '/api/tenant/public',        // Public tenant branding (name/colors/logo) for anonymous visitors
   '/sitemap.xml',             // Sitemap
   '/robots.txt',              // Robots
   '/(.*)-crm-(.*)',           // Combo pages (industry x location)

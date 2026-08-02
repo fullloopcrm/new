@@ -11,7 +11,6 @@ import ConsentBanner from '@/components/consent/ConsentBanner'
 import ConsentGate from '@/components/consent/ConsentGate'
 import TenantAnalyticsScript from '@/components/analytics/TenantAnalyticsScript'
 import ClientErrorMonitor from '@/components/monitoring/ClientErrorMonitor'
-import SiteChatWidget from '@/app/site/the-florida-maid/_components/marketing/SiteChatWidget'
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,7 +35,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <TenantAnalyticsScript slug="the-florida-maid" />
       <ConsentBanner privacyHref="/privacy-policy" />
       <ClientErrorMonitor slug="the-florida-maid" />
-      <SiteChatWidget />
     </div>
   )
 }

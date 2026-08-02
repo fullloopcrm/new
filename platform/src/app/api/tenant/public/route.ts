@@ -12,7 +12,9 @@ export async function GET() {
 
   return NextResponse.json({
     name: tenant.name,
+    agent_name: tenant.agent_name || null,
     primary_color: tenant.primary_color || null,
+    secondary_color: tenant.secondary_color || null,
     logo_url: tenant.logo_url || null,
     domain: tenant.domain || null,
     privacy_url: tenant.privacy_url || null,
