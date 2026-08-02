@@ -91,8 +91,26 @@ function computeCoverage() {
       for (const f of cp.depends_on_files || []) allDeps.add(f)
     }
   }
-  const routesCovered = inventory.routes.filter((r) => [...allDeps].some((d) => d.includes(r) || r.includes(d))).length
-  const tablesCovered = inventory.tables.filter((t) => [...allDeps].some((d) => d.toLowerCase().includes(t.toLowerCase()))).length
+  // EXACT matching only. depends_on_files entries are always either a full
+  // route path (e.g. 'src/app/api/foo/route.ts', matching surface-inventory's
+  // routes list verbatim) or a bare exact table name (e.g. 'jobs', matching
+  // the tables list verbatim, case-insensitively by convention) -- confirmed
+  // against the real data (2026-08-02 audit): of 590 unique deps, 394 exact-
+  // match a route and 112 exact-match a table; the remaining 84 are lib
+  // files/migrations/docs/workflows that were never meant to match either
+  // list. No entry relies on partial-path matching.
+  //
+  // The previous loose substring check (d.includes(r) || r.includes(d) for
+  // routes; d.toLowerCase().includes(t.toLowerCase()) for tables) produced
+  // real false positives: e.g. checkpoint sec-29 (Voice AI webhooks) lists
+  // the bare table dep 'tenants', which under substring matching also
+  // silently marked src/app/api/admin/tenants/route.ts -- an unrelated admin
+  // route with zero actual checkpoint coverage -- as "covered" (confirmed via
+  // a 2026-08-02 20-item random audit sample; 1/10 covered items sampled was
+  // this exact false positive).
+  const routesCovered = inventory.routes.filter((r) => allDeps.has(r)).length
+  const tableDepsLower = new Set([...allDeps].map((d) => d.toLowerCase()))
+  const tablesCovered = inventory.tables.filter((t) => tableDepsLower.has(t.toLowerCase())).length
   const totalItems = inventory.routes.length + inventory.tables.length
   const coveredItems = routesCovered + tablesCovered
   return {
