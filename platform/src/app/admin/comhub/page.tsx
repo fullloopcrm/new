@@ -1590,25 +1590,25 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...displayBadgeStyle, ...pillFont }}>{displayLabel}</span>
-          {client?.do_not_service && (
+          {role === 'client' && client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}
-          {(client?.active === false || cleaner?.active === false) && (
+          {((role === 'client' && client?.active === false) || (role === 'cleaner' && cleaner?.active === false)) && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
         </div>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
-          {client?.pin && <div>Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span></div>}
+          {role === 'client' && client?.pin && <div>Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span></div>}
         </div>
         <ContactTagSelect contactId={contact.id} initialTag={contact.tag} onSaved={onTagChanged} />
       </div>
 
       <ContactDetailsEditor
         contactId={contact.id}
-        initialName={contact.name || client?.name || cleaner?.name || ''}
-        initialAddress={contact.address || client?.address || client?.address_line1 || ''}
+        initialName={contact.name || cleaner?.name || client?.name || ''}
+        initialAddress={contact.address || cleaner?.address || client?.address || client?.address_line1 || ''}
       />
 
       {applicant && (
@@ -1643,7 +1643,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         </div>
       )}
 
-      {client && (
+      {role === 'client' && client && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
           {(client.pet_name || client.pet_type) && (
             <div>
@@ -1670,7 +1670,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         </div>
       )}
 
-      {client && (
+      {role === 'client' && client && (
         <NotesEditor
           contactId={contact.id}
           initialPrivate={client.notes_private || ''}
@@ -1678,7 +1678,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         />
       )}
 
-      {cleaner && (
+      {role === 'cleaner' && cleaner && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
           {cleaner.address && (
             <div>
@@ -1716,7 +1716,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         </div>
       )}
 
-      {cleaner && cleaner_bookings.length > 0 && (
+      {role === 'cleaner' && cleaner && cleaner_bookings.length > 0 && (
         <div className="p-4 space-y-2">
           <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
           {cleaner_bookings.map(b => (
@@ -1738,7 +1738,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         </div>
       )}
 
-      {client && (
+      {role === 'client' && client && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] grid grid-cols-2 gap-2 text-sm">
           <div>
             <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Total bookings</div>
@@ -1757,7 +1757,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         </div>
       )}
 
-      {recent_bookings.length > 0 && (
+      {role === 'client' && recent_bookings.length > 0 && (
         <div className="p-4 space-y-2">
           <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
           {recent_bookings.map(b => (
