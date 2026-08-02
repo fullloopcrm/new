@@ -661,6 +661,14 @@
           "evidence": "Read the route in full plus pickNextTouch()/sendRenurtureTouch(). verifyCronSecret-gated, isNycMaid()-scoped (not yet generalized platform-wide, matches the same scoping pattern used elsewhere for nycmaid parity ports per the file's own comment, and per Jeff's 2026-07-17 call on the source cited inline). Confirmed all 3 documented safety nets are real, not just described: (1) a Telnyx balance check runs before any send and fails closed (sends nothing) rather than discovering thin funds mid-run; (2) a per-run cap triggers an admin alert; (3) renurture_log has a DB unique constraint (not just in-memory logic) enforcing each client gets each of the 3 touches AT MOST ONCE ever -- a client who rebooks exits the segment naturally. No bug found.",
           "last_verified": "2026-08-02",
           "last_verified_commit": null
+        },
+        {
+          "id": "lss-14",
+          "score": 76,
+          "evidence_type": "test_run",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). REAL BUG FOUND AND FIXED: referral-commissions.ts's admin-session GET branch (no referrer_id query param) only called getTenantForRequest(), no permission check, exposing real financial data (commission_cents, gross_amount_cents, client names) to any authenticated tenant role. Inconsistent with this same route's already-fixed POST (referrals.create) and PUT (referrals.payout) -- a prior pass's own isolation-test docstring documents that earlier fix but the GET admin-path was missed. Fixed to require referrals.view. The route's separate referrer-portal GET branch (?referrer_id=...) was ALREADY correctly session-token-gated with real ownership verification (rid must match, tenant_id cross-checked) -- confirmed by reading it, not just the admin path. pipeline.ts: read in full, no bug -- correctly gated sales.view, tenant-scoped deal aggregation feeding the Kanban view, stable pinned-sort. quote-templates.ts: read in full, no bug -- correctly gated sales.view/sales.edit. Added 3 new tests to referral-commissions.ts's existing real-requirePermission isolation suite (owner allowed, manager allowed since it has referrals.view by default, staff denied). Verified via git-stash: the staff-denial test fails against pre-fix code (200 instead of 403). Score 76: one real, fixed, test-verified bug found via full code read across a 3-route bundle, held below 80s because quote-templates.ts's downstream usage in the quote-builder (how templates actually populate a quote) wasn't traced this pass.",
+          "last_verified": "2026-08-01",
+          "last_verified_commit": "51208f490"
         }
       ]
     },
@@ -809,6 +817,14 @@
           "evidence": "Read in full. verifyCronSecret-gated. Finds bookings (all tenants, platform-wide by cron design) with a walkthrough_video_url or final_video_url older than 30 days and removes the aged video, tracked via trackError() on failures for observability. No bug found; not live-verified this pass (no evidence of a stale-video accumulation problem was checked against prod storage usage).",
           "last_verified": "2026-08-02",
           "last_verified_commit": null
+        },
+        {
+          "id": "bsr-19",
+          "score": 78,
+          "evidence_type": "test_run",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). REAL BUG FOUND AND FIXED: all 4 verbs (GET/POST/PATCH/DELETE) called bare getTenantForRequest() with no permission check -- same dormant-override-class gap found elsewhere this session, but here spanning the whole route rather than a single verb. Mapped onto the existing team.view/team.edit permission family since a crew is fundamentally a named team-member grouping, not a distinct concept warranting a new permission. staff and manager both have team.view but NOT team.edit by default in src/lib/rbac.ts, so the 3 mutating verbs were a real, live gap for two roles, not just an override-dependent one. Fixed: GET requires team.view; POST/PATCH/DELETE require team.edit. The route ALREADY had a real, well-documented P0 fix in place for a separate cross-tenant crew_members-wipe IDOR (setMembers() re-verifies crew ownership as its own first line, confirmed by reading it, not assumed from the comment) -- that part was correct before this pass and untouched. Updated 2 existing test files whose mocks predated the requirePermission call (both mocked getTenantForRequest with no role field, causing every request to 403 once the real permission check ran). Added 4 new regression tests to the isolation suite: GET still succeeds for staff, POST/PATCH/DELETE all correctly 403 for staff with no side effect (no insert, no crew mutation, no delete). Verified via git-stash: all 3 mutation-denial tests fail against pre-fix code (200 instead of 403). Score 78: a real, fixed, test-verified permission gap spanning an entire route found via full code read, held below 80s because crew_members' cross-table consistency beyond the already-existing IDOR fix (e.g. what happens to crew assignments on a booking when a crew is deleted) wasn't traced this pass.",
+          "last_verified": "2026-08-01",
+          "last_verified_commit": "51208f490"
         }
       ]
     },
@@ -1173,6 +1189,14 @@
           "evidence_type": "manual_code_read",
           "evidence": "Read in full. verifyCronSecret (safeEqual, constant-time) gated. Targets tenants live 3+ days with no login (last_active_at null or before activated_at); sends exactly once via an onboarding_nudge_sent_at stamp, confirmed the update sets this stamp so the same tenant can't be re-nudged daily. File comment explains a real, correct design choice: uses plain platform email rather than notifyTenantOwner, because notifyTenantOwner only sends over a channel the TENANT has configured (their own Telnyx/Resend key) -- a tenant that's never logged in almost certainly hasn't configured either, so the 'personalized' send path would silently no-op for exactly the tenants this cron exists to reach. No bug found.",
           "last_verified": "2026-08-02",
+          "last_verified_commit": null
+        },
+        {
+          "id": "onb-07",
+          "score": 50,
+          "evidence_type": "manual_code_read",
+          "evidence": "New checkpoint 2026-08-01 (catch-all sweep, continuing per the coordinator standing instruction to keep going continuously without pausing between batches). Read in full, no bug found. Deliberately dual-authed by design: resolveOnboardingTenantId() (session-first, signed-token fallback -- same helper already reviewed in depth on catalog.ts this session) resolves the tenant for GET/PUT/POST alike, so the in-dashboard onboarding wizard (Clerk session) and the public no-login /onboard/[token] link share one handler body. No narrower permission applies here -- unlike catalog.ts (where the same dual-auth pattern had a real gap because a role-differentiated permission, bookings.edit, WAS the intended control and simply wasn't checked), this route is explicitly self-service data: any authenticated tenant member or valid token holder is SUPPOSED to read/edit their own tenant's onboarding profile, there's no role that should be excluded. Field-level defense in depth confirmed by reading it, not assumed: every write path (PUT's data field, POST's data field) filters through isTenantVisible(PROFILE_FIELD_BY_KEY[key]) before reaching applyProfileWrite -- admin-only fields (audience==='admin': account ownership, contract terms, cancellation, payout method) are dropped even if a caller forges the key, confirmed by reading isTenantVisible's actual predicate, not just the comment claiming it. Score held at the manual_code_read cap (50, see validate-ledger-evidence.mjs) -- no live/test check ran this pass; applyProfileWrite's own internals (the shared write path both PUT and POST funnel through) were not independently opened.",
+          "last_verified": "2026-08-01",
           "last_verified_commit": null
         }
       ]
