@@ -60,7 +60,7 @@ export default function MarketingNav() {
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
-              <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Pay Now</a>
+              <span className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px]">Pay Now</span>
               <span className="text-white/30">|</span>
               <a href="/portal/login" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
               <span className="text-white/30">|</span>
@@ -198,7 +198,7 @@ export default function MarketingNav() {
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
                 <Link href="/portal/login" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</Link>
-                <a href="https://buy.stripe.com/8x2aEZ4FL0wYfxe5f0fnO03" target="_blank" rel="noopener noreferrer" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Pay Now</a>
+                <span className="block py-3 text-[#A8F0DC] font-medium">Pay Now</span>
                 <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Referral Program</Link>
               </div>
 

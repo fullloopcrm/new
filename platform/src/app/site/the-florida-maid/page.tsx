@@ -127,10 +127,10 @@ export default function HomePage() {
         <div className="flex flex-col lg:flex-row gap-10 lg:gap-8 items-stretch">
           <div className="lg:w-[68%]">
           <div className="flex flex-wrap items-center gap-4 mb-8">
-            <a href="https://share.google/Iq9oblq3vJr07aP27" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+            <span className="flex items-center gap-1.5">
               <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-              <span className="text-white text-sm font-medium underline underline-offset-2">5.0 on Google</span>
-            </a>
+              <span className="text-white text-sm font-medium">5.0 on Google</span>
+            </span>
             <span className="text-white/20 hidden sm:inline">|</span>
             <a href="https://www.bbb.org/" target="_blank" rel="noopener noreferrer" className="text-white text-sm font-medium underline underline-offset-2 hover:text-white transition-colors">A Rating on BBB</a>
             <span className="text-white/20 hidden sm:inline">|</span>
