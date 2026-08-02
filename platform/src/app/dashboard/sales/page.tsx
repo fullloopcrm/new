@@ -525,7 +525,19 @@ function SalesPageInner() {
                             <>
                               <div className="sl-proposal-head">Contact</div>
                               <div className="sl-contact-line">
-                                {d.clients?.phone && <a href={`tel:${d.clients.phone}`} className="sl-contact-item">{d.clients.phone}</a>}
+                                {d.clients?.phone && (
+                                  <>
+                                    <a href={`/admin/comhub?dial=${encodeURIComponent(d.clients.phone)}`} className="sl-contact-item">{d.clients.phone}</a>
+                                    <a href={`/admin/comhub?text=${encodeURIComponent(d.clients.phone)}`} className="sl-contact-item">Text</a>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(d.clients!.phone!).catch(() => {})}
+                                      className="sl-contact-item"
+                                    >
+                                      Copy
+                                    </button>
+                                  </>
+                                )}
                                 {d.clients?.email && <a href={`mailto:${d.clients.email}`} className="sl-contact-item">{d.clients.email}</a>}
                                 {d.clients?.address && <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.clients.address)}`} target="_blank" rel="noopener noreferrer" className="sl-contact-item">{d.clients.address}</a>}
                               </div>

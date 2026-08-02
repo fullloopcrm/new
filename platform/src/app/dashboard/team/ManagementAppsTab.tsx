@@ -132,7 +132,20 @@ export default function ManagementAppsTab() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 12, fontSize: 13, color: '#374151' }}>
-          <div><strong>Phone:</strong> <a href={`tel:${app.phone}`} style={{ color: '#2563eb' }}>{app.phone}</a></div>
+          <div>
+            <strong>Phone:</strong>{' '}
+            <a href={`/admin/comhub?dial=${encodeURIComponent(app.phone)}`} style={{ color: '#2563eb' }}>{app.phone}</a>
+            {' · '}
+            <a href={`/admin/comhub?text=${encodeURIComponent(app.phone)}`} style={{ color: '#2563eb' }}>Text</a>
+            {' · '}
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(app.phone).catch(() => {})}
+              style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
+            >
+              Copy
+            </button>
+          </div>
           <div><strong>Email:</strong> {app.email ? <a href={`mailto:${app.email}`} style={{ color: '#2563eb' }}>{app.email}</a> : '—'}</div>
           <div><strong>Years experience:</strong> {app.years_experience || '—'}</div>
           <div><strong>Bilingual:</strong> {app.bilingual || '—'}</div>

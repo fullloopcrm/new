@@ -312,6 +312,23 @@ export default function ComhubPage() {
     url.searchParams.delete('dial')
     window.history.replaceState({}, '', url.toString())
   }, [])
+
+  // Pickup ?text=+1... from the URL -- opens the compose modal pre-filled
+  // for that phone number, same pattern as ?dial above but for SMS. Lets
+  // every "Text" button dashboard-wide route through ComHub instead of the
+  // device's own sms: app, matching what "Call" already does via ?dial.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const text = params.get('text')
+    if (!text) return
+    setComposeChannel('sms')
+    setComposeRecipient(text)
+    setShowCompose(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('text')
+    window.history.replaceState({}, '', url.toString())
+  }, [])
   useEffect(() => {
     const t = setInterval(() => { fetchThreads(); fetchChannels() }, 5000)
     return () => clearInterval(t)

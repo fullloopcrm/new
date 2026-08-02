@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
 import { normalizeWorkingHours } from '@/lib/day-availability'
 import { SERVICE_ZONES } from '@/lib/service-zones'
+import { CallTextCopy } from '../../_components/CallTextCopy'
 
 // Last-10-digits match so a formatted profile phone lines up with the
 // normalized application phone stored as digits.
@@ -657,12 +658,7 @@ export default function TeamMemberDetailPage() {
                     <dt className="text-slate-400">Phone</dt>
                     <dd className="flex items-center gap-2">
                       <span>{member.phone || '—'}</span>
-                      {member.phone && (
-                        <>
-                          <a href={`tel:${member.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                          <a href={`sms:${member.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
-                        </>
-                      )}
+                      {member.phone && <CallTextCopy phone={member.phone} />}
                     </dd>
                   </div>
                   <div className="flex justify-between"><dt className="text-slate-400">Address</dt><dd>{member.address || '—'}</dd></div>
@@ -1045,12 +1041,7 @@ export default function TeamMemberDetailPage() {
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              {member.phone && (
-                <>
-                  <a href={`tel:${member.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">Call</a>
-                  <a href={`sms:${member.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">Text</a>
-                </>
-              )}
+              {member.phone && <CallTextCopy phone={member.phone} variant="block" />}
               <button
                 onClick={() => {
                   const link = `${window.location.origin}/team-portal`

@@ -11,6 +11,7 @@ import { SettingsHint } from '@/components/page-settings'
 import { formatPhone as formatPhoneDisplay } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import { CallTextCopy } from '../_components/CallTextCopy'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -22,10 +23,8 @@ function ContactChips({ phone, address }: { phone?: string | null; address?: str
     <div className="flex items-center gap-1.5 mt-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
       {phone && (
         <>
-          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
-            {formatPhoneDisplay(phone)}
-          </a>
-          <a href={`sms:${phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100" title="Text">Text</a>
+          <span className="text-[11px] text-gray-500 whitespace-nowrap">{formatPhoneDisplay(phone)}</span>
+          <CallTextCopy phone={phone} size="xs" />
         </>
       )}
       {address && (

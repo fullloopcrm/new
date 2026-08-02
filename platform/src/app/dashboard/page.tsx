@@ -7,6 +7,7 @@ import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
 import JobsMap, { type MapJob } from './_components/JobsMap'
+import { CallTextCopy } from './_components/CallTextCopy'
 import { crewNames, type CrewRow } from '@/lib/crew'
 import { formatPhone } from '@/lib/format'
 
@@ -48,10 +49,8 @@ function ContactChips({ phone, address }: { phone?: string | null; address?: str
     <div className="flex flex-col items-end gap-1 flex-shrink-0 mx-1" style={{ fontFamily: V.mono }}>
       {phone && (
         <div className="flex items-center gap-1">
-          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
-            {formatPhone(phone)}
-          </a>
-          <a href={`sms:${phone}`} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
+          <span className="text-[10px] text-gray-500 whitespace-nowrap">{formatPhone(phone)}</span>
+          <CallTextCopy phone={phone} size="xs" />
         </div>
       )}
       {address && (
