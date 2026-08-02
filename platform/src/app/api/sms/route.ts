@@ -15,18 +15,16 @@ export async function GET(request: NextRequest) {
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
     if (conversationId) {
-      // Return messages for a specific conversation
-      const { data: messages, error } = await supabaseAdmin
-        .from('sms_conversation_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-
-      // Verify conversation belongs to this tenant
+      // Verify conversation belongs to this tenant BEFORE reading its
+      // messages -- previously this order was reversed (messages fetched
+      // unscoped by conversation_id via supabaseAdmin, tenant ownership
+      // checked only afterward). The response never actually returned the
+      // cross-tenant messages read that way (the 404 path short-circuited
+      // before the `return`), so this wasn't a live leak, but it left a
+      // fragile ordering where a future edit (e.g. moving the ownership
+      // check, or an early return added above it) could turn it into one.
+      // Checking ownership first makes the safe behavior the only possible
+      // one, not an accident of statement order.
       const { data: convo } = await db
         .from('sms_conversations')
         .select('id')
@@ -36,6 +34,16 @@ export async function GET(request: NextRequest) {
 
       if (!convo) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+
+      const { data: messages, error } = await supabaseAdmin
+        .from('sms_conversation_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
       return NextResponse.json({ messages: messages || [] })
