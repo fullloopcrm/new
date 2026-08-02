@@ -155,7 +155,16 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       // whole form. Not-yet-visited sections are blank in `form`, and
       // coerceFieldValue turns blank into an explicit clear, so sending them
       // would null out real data on every autosave.
-      const visitedIdx = new Set([...visitedSteps, stepOverride ?? step])
+      //
+      // `step` (the section being left, if this call came from goto) is
+      // unioned in explicitly rather than relying solely on `visitedSteps`
+      // state: setVisitedSteps below won't have propagated into this
+      // closure yet when goto calls saveDraft synchronously right after it,
+      // so without this a tenant filling a section and immediately clicking
+      // Next/"Save for later" would have that section's data land only in
+      // the draft blob, not the real profile, until they revisited it or
+      // hit Finish.
+      const visitedIdx = new Set([...visitedSteps, step, stepOverride ?? step])
       const visitedSections = new Set(sections.filter((_, i) => visitedIdx.has(i)))
       const data: FormState = {}
       for (const f of fields) {
@@ -166,6 +175,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, draft: form, step: stepOverride ?? step, data }),
       }).catch(() => {})
+      setVisitedSteps(visitedIdx)
       setSaving(false)
       if (!silent) {
         setMsg('Saved — you can pick up where you left off anytime.')
