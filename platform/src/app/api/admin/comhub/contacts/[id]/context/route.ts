@@ -184,6 +184,30 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     }
   }
 
+  // A "name" that's just the phone digits (e.g. '19292169760') is the
+  // lead-intake placeholder, not a real name — happens when a phantom
+  // `clients` row got auto-created for a phone that also belongs to a real
+  // team_member (legacy data from before the webhook's dedupe guard). Prefer
+  // an active team_member's real name over that placeholder every time; fall
+  // back to the client's name only if it isn't the same placeholder pattern.
+  const digitsOf = (v: string | null | undefined) => (v || '').replace(/\D/g, '')
+  const isPlaceholderName = (name: string | null | undefined) => {
+    const nameDigits = digitsOf(name)
+    const phoneDigits = digitsOf(contact.phone as string | null)
+    return !!nameDigits && !!phoneDigits && nameDigits.slice(-10) === phoneDigits.slice(-10)
+  }
+  const teamMemberName = teamMember?.name as string | undefined
+  const clientName = client?.name as string | undefined
+  const bestName = (teamMemberName && !isPlaceholderName(teamMemberName))
+    ? teamMemberName
+    : (clientName && !isPlaceholderName(clientName))
+      ? clientName
+      : (applicant?.name as string | undefined) || null
+  if (bestName && (!contact.name || isPlaceholderName(contact.name as string))) {
+    await db.from('comhub_contacts').update({ name: bestName, updated_at: new Date().toISOString() }).eq('id', id)
+    contact.name = bestName
+  }
+
   return NextResponse.json({
     contact,
     client,

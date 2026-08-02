@@ -626,7 +626,8 @@ export default function ComhubPage() {
           {threads.map(t => {
             const isSel = selected === t.id
             const c = t.comhub_contacts
-            const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.team_member_id ? 'cleaner' : 'unlinked'
+            // Team-member linkage wins over client — see context/route.ts comment.
+            const role: 'client' | 'cleaner' | 'unlinked' = c?.team_member_id ? 'cleaner' : c?.client_id ? 'client' : 'unlinked'
             const roleBadgeStyle = c?.tag
               ? CONTACT_TAG_BADGE_STYLE[c.tag]
               : role === 'client'
@@ -1562,7 +1563,11 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
     const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
     return c?.name || '—'
   }
-  const role: 'client' | 'cleaner' | 'applicant' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : applicant ? 'applicant' : 'unlinked'
+  // An active team member linkage wins over a client linkage — a phantom
+  // `clients` row can get auto-created for someone's phone before they're
+  // recognized as an existing team member (legacy data), and when both are
+  // linked it's almost always because of that, not a real dual role.
+  const role: 'client' | 'cleaner' | 'applicant' | 'unlinked' = cleaner ? 'cleaner' : client ? 'client' : applicant ? 'applicant' : 'unlinked'
 
   const roleBadgeStyle = role === 'client'
     ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
