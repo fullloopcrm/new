@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { resolveContactLinkage, isPlaceholderName } from '@/lib/comhub-contact-resolve'
 
 // GET /api/admin/comhub/threads
 //   ?kind=contact|channel|all (default contact)
@@ -81,6 +82,25 @@ export async function GET(req: NextRequest) {
     ...t,
     comhub_contacts: Array.isArray(t.comhub_contacts) ? (t.comhub_contacts[0] || null) : t.comhub_contacts,
   }))
+
+  // Auto-link + name-backfill any contact on this page that isn't fully
+  // resolved yet — so a brand-new applicant/team-member/client shows up
+  // correctly connected without an admin ever having to open their panel.
+  const unresolved = threads
+    .map(t => t.comhub_contacts)
+    .filter((c): c is ContactRow => !!c && (!c.client_id || !c.team_member_id || isPlaceholderName(c.name, c.phone)))
+  if (unresolved.length > 0) {
+    const resolved = await Promise.all(
+      unresolved.map(c => resolveContactLinkage(db, tenantId, { ...c, email: c.email })),
+    )
+    const byId = new Map(resolved.map(r => [r.id, r]))
+    threads = threads.map(t => {
+      if (!t.comhub_contacts) return t
+      const r = byId.get(t.comhub_contacts.id)
+      if (!r) return t
+      return { ...t, comhub_contacts: { ...t.comhub_contacts, name: r.name, client_id: r.client_id, team_member_id: r.team_member_id } }
+    })
+  }
 
   if (q) {
     const ql = q.toLowerCase()

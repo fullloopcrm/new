@@ -1582,14 +1582,19 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
   // admin corrects the classification, it's a standing correction that
   // applies to every future message from this contact, not a one-time fix.
   const roleLabel = role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'Team' : role === 'applicant' ? 'Applicant' : 'Client'
-  const displayLabel = contact.tag ? CONTACT_TAG_LABELS[contact.tag] : roleLabel
   const displayBadgeStyle = contact.tag ? CONTACT_TAG_BADGE_STYLE[contact.tag] : roleBadgeStyle
 
   return (
     <div>
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ ...displayBadgeStyle, ...pillFont }}>{displayLabel}</span>
+          <ContactTagSelect
+            contactId={contact.id}
+            initialTag={contact.tag}
+            onSaved={onTagChanged}
+            autoLabel={roleLabel}
+            badgeStyle={displayBadgeStyle}
+          />
           {role === 'client' && client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)', ...pillFont }}>DNS</span>
           )}
@@ -1602,7 +1607,6 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           {contact.email && <div className="truncate">{contact.email}</div>}
           {role === 'client' && client?.pin && <div>Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span></div>}
         </div>
-        <ContactTagSelect contactId={contact.id} initialTag={contact.tag} onSaved={onTagChanged} />
       </div>
 
       <ContactDetailsEditor
@@ -1914,10 +1918,15 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
 // contact is linked to a client/team member (that's the point: it's for
 // reclassifying the ones that AREN'T).
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactTagSelect({ contactId, initialTag, onSaved }: {
+// Renders as the badge itself — the pill IS the click target. Shows the
+// manual tag if one's set, otherwise the auto-derived role label; picking
+// any option from the dropdown sets (or clears, via "Auto") the manual tag.
+function ContactTagSelect({ contactId, initialTag, onSaved, autoLabel, badgeStyle }: {
   contactId: string
   initialTag: ContactTag | null
   onSaved?: () => void
+  autoLabel: string
+  badgeStyle: { background: string; color: string; border: string }
 }) {
   const [tag, setTag] = useState<ContactTag | null>(initialTag)
   const [saving, setSaving] = useState(false)
@@ -1946,11 +1955,11 @@ function ContactTagSelect({ contactId, initialTag, onSaved }: {
       value={tag || ''}
       disabled={saving}
       onChange={(e) => change((e.target.value || null) as ContactTag | null)}
-      className="mt-2 px-2 py-1 rounded text-xs border cursor-pointer w-full"
-      style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-bg)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
-      title="Manually tag this contact"
+      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm cursor-pointer disabled:opacity-50"
+      style={{ ...badgeStyle, fontFamily: 'var(--mono)', fontWeight: 600, appearance: 'none' }}
+      title="Click to change this contact's tag"
     >
-      <option value="">Tag contact…</option>
+      <option value="">Auto: {autoLabel}</option>
       {Object.entries(CONTACT_TAG_LABELS).map(([value, label]) => (
         <option key={value} value={value}>{label}</option>
       ))}
