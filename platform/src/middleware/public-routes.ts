@@ -24,6 +24,8 @@ export const isPublicRoute = createRouteMatcher([
   '/api/catalog(.*)',         // GET/POST/DELETE auth themselves the same way (session OR signed token) so
                               // /onboard/[token]'s Services & Pricing step can add real catalog items before
                               // login; PATCH still requires a real session internally (route.ts, unchanged).
+  '/api/onboarding/messages(.*)', // Backs the /onboard/[token] chat widget — same dual auth as /api/tenant-profile.
+  '/api/onboarding/coverage(.*)', // Backs the /onboard/[token] radius-based zone auto-populate — same dual auth.
   '/businesses',
   '/full-loop-crm-service-business-industries',
   '/industry(.*)',

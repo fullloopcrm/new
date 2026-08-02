@@ -24,9 +24,12 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { VoiceTextarea, VoiceMicButton } from './VoiceInput'
 import type { ServiceArea } from '@/lib/service-area'
-import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER } from '@/lib/tenant-profile'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, type FieldValidation, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX } from '@/lib/tenant-profile'
 import OnboardingCatalog from './OnboardingCatalog'
+import { OnboardingWelcome, useWelcomeGate } from './OnboardingWelcome'
 
 export type FieldValue = string | number | boolean | string[] | Record<string, unknown> | null | undefined
 
@@ -45,6 +48,7 @@ export interface ApiField {
   help: string | null
   platformManaged?: boolean
   onboardingHidden?: boolean
+  validation?: FieldValidation | null
   dependsOn?: { key: string; value: unknown } | null
 }
 
@@ -69,6 +73,14 @@ function FieldHelp({ text }: { text: string | null | undefined }) {
   return <p className="mb-1.5 text-xs text-slate-500">{text}</p>
 }
 
+// Only shows once the tenant has actually typed something that doesn't pass
+// the field's shape check — never on a blank field (that's isFilled's job at
+// the readiness/activate gate, not a red error mid-typing).
+function ValidationHint({ value, validation }: { value: FieldValue; validation: FieldValidation | null | undefined }) {
+  if (!validation || !value || passesValidation(value, validation)) return null
+  return <p className="mt-1 text-xs text-red-600">{validation.message}</p>
+}
+
 // Long-form fields (paragraphs, structured lists/pairs, editors with their
 // own internal rows) need the full row in the 2-column grid — cramming them
 // into a half-width cell is what made this feel like a cramped contact form.
@@ -88,6 +100,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [businessName, setBusinessName] = useState('')
+  const [tenantId, setTenantId] = useState('')
   // Which section INDICES have actually been landed on — not a contiguous
   // "0..step" range, because the tab nav lets the tenant jump straight to
   // section 9 from section 1. Only sections in this set are safe to
@@ -108,6 +121,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       .then((d) => {
         setFields(d.fields || [])
         setBusinessName((d.name as string) || '')
+        setTenantId((d.tenantId as string) || '')
         const values: FormState = {}
         for (const f of (d.fields || []) as ApiField[]) values[f.key] = f.value
         const draft = (d.draft || {}) as Record<string, unknown>
@@ -195,39 +209,44 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
     }
   }
 
+  const { showWelcome, dismiss, show: showWelcomeAgain } = useWelcomeGate(token || tenantId || '__pending__')
+
   if (loading) return <p className="p-8 text-slate-500">Loading your profile…</p>
   if (sections.length === 0) return <p className="p-8 text-slate-500">Nothing to fill in yet.</p>
+  if (showWelcome) return <OnboardingWelcome businessName={businessName} sections={sections} onStart={dismiss} />
 
   const sectionKey = sections[step]
   const meta = SECTION_META[sectionKey] || { title: sectionKey, blurb: '' }
   const sectionFields = fields.filter((f) =>
-    f.section === sectionKey && !f.readonly && !f.onboardingHidden &&
+    f.section === sectionKey && !f.readonly && !f.onboardingHidden && f.key !== 'serviceRadius' &&
     (!f.dependsOn || form[f.dependsOn.key] === f.dependsOn.value),
   )
   const pct = Math.round(((step + 1) / sections.length) * 100)
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10">
-      <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-slate-400">
+      <div className="mb-8 flex items-center gap-2 text-sm font-semibold text-slate-900">
         <span className="font-heading text-slate-900">Full Loop</span>
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">CRM</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-900">CRM</span>
       </div>
-      <div className="mb-6">
+      <div className="mb-10">
         <h1 className="font-heading text-2xl font-bold text-slate-900">
           {businessName ? `Complete ${businessName}'s profile` : 'Complete your business profile'}
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="mt-3 text-sm text-slate-900">
           Everything you enter here goes straight into your own Full Loop account — it&apos;s what runs your invoices, your texts and emails to clients, your booking site, and your AI agent. Save and finish anytime.
         </p>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
-          {saving ? 'Saving…' : 'Every answer saves automatically as you type — nothing to submit until you\'re ready.'}
-        </p>
-        {mode.mode === 'token' && (
-          <p className="mt-1 text-xs text-slate-400">
-            🔒 This link is private to your business only — your answers are never shared outside your account, and sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
+        <div className="mt-4 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs text-slate-900">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${saving ? 'bg-amber-400' : 'bg-green-500'}`} />
+            {saving ? 'Saving…' : 'Every answer saves automatically as you type — nothing to submit until you\'re ready.'}
           </p>
-        )}
+          {mode.mode === 'token' && (
+            <p className="text-xs text-slate-900">
+              🔒 This link is private to your business only — your answers are never shared outside your account, and sensitive details (API keys, banking info) are encrypted before they&apos;re stored.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -289,6 +308,11 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
                   value={form[f.key]}
                   onChange={(v) => set(f.key, v)}
                   homeState={form.state as string | undefined}
+                  homeCity={form.city as string | undefined}
+                  radiusMiles={form.serviceRadius as number | undefined}
+                  setField={set}
+                  token={token}
+                  industry={form.industry as string | undefined}
                 />
               )}
             </div>
@@ -298,9 +322,8 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
       <div className="mt-6 flex items-center justify-between">
         <button
-          onClick={() => step > 0 && goto(step - 1)}
-          disabled={step === 0}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+          onClick={() => (step > 0 ? goto(step - 1) : showWelcomeAgain())}
+          className="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
         >
           Back
         </button>
@@ -328,8 +351,31 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 }
 
 /* ---- generic field renderer, dispatches to a custom block by key when input === 'custom' ---- */
-export function FieldRenderer({ field, value, onChange, homeState }: { field: ApiField; value: FieldValue; onChange: (v: FieldValue) => void; homeState?: string }) {
+export function FieldRenderer({ field, value, onChange, homeState, homeCity, radiusMiles, setField, token, industry }: {
+  field: ApiField; value: FieldValue; onChange: (v: FieldValue) => void; homeState?: string; homeCity?: string; radiusMiles?: number; setField?: (key: string, v: FieldValue) => void; token?: string; industry?: string
+}) {
   if (field.input === 'custom') {
+    if (field.key === 'address') {
+      return (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
+          <FieldHelp text={field.help} />
+          <AddressAutocomplete
+            value={(value as string) || ''}
+            onChange={(v) => onChange(v)}
+            onSelect={(addr) => {
+              onChange(addr.address_line1)
+              setField?.('city', addr.city)
+              setField?.('state', addr.state)
+              setField?.('zip', addr.zip)
+            }}
+            placeholder="Start typing your business address…"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+          />
+          <p className="mt-1 text-xs text-slate-500">Verified via Radar — pick your address from the dropdown so city/state/ZIP and your service area fill in automatically.</p>
+        </div>
+      )
+    }
     if (field.key === 'serviceArea') {
       return (
         <div>
@@ -340,6 +386,10 @@ export function FieldRenderer({ field, value, onChange, homeState }: { field: Ap
             value={(value as ServiceArea | undefined) ?? { scope: 'local', states: [], zones: [] }}
             onChange={(v) => onChange(v as unknown as Record<string, unknown>)}
             homeState={homeState}
+            homeCity={homeCity}
+            radiusMiles={radiusMiles}
+            onRadiusChange={(v) => setField?.('serviceRadius', v)}
+            token={token}
           />
         </div>
       )
@@ -395,6 +445,23 @@ export function FieldRenderer({ field, value, onChange, homeState }: { field: Ap
         />
       )
     }
+    if (field.key === 'expenseCategories') {
+      return <ExpenseCategoryCheckboxes label={field.label} help={field.help} value={value} onChange={onChange} />
+    }
+    if (field.key === 'taxRate') {
+      return <TaxRateSelector label={field.label} help={field.help} value={value} onChange={onChange} homeState={homeState} />
+    }
+    if (field.key === 'differentiators') {
+      return (
+        <TapSelectChips
+          label={field.label} help={field.help} value={value} onChange={onChange}
+          presets={DIFFERENTIATOR_PRESETS} addPlaceholder="Something else? Add it…"
+        />
+      )
+    }
+    if (field.key === 'targetCustomer') {
+      return <TapAppendChips label={field.label} help={field.help} value={value} onChange={onChange} industry={industry} />
+    }
     return null
   }
 
@@ -407,12 +474,10 @@ export function FieldRenderer({ field, value, onChange, homeState }: { field: Ap
         <div>
           <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-slate-700">{field.label}</label>
           <FieldHelp text={field.help} />
-          <textarea
-            id={inputId}
+          <VoiceTextarea
             value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={onChange}
             rows={3}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
           />
         </div>
       )
@@ -522,6 +587,7 @@ export function FieldRenderer({ field, value, onChange, homeState }: { field: Ap
             onChange={(e) => onChange(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
           />
+          <ValidationHint value={value} validation={field.validation} />
         </div>
       )
   }
@@ -660,6 +726,129 @@ function HolidayDatesEditor({ value, onChange }: { value: FieldValue; onChange: 
   )
 }
 
+const DIFFERENTIATOR_PRESETS = ['Family-owned', 'Licensed & insured', 'Same-day service', 'Eco-friendly', 'Veteran-owned']
+
+/** Multi-select chips storing a real string[] (see PROFILE_FIELDS
+ *  'differentiators' — kind:'array'), plus a free-text+voice add for
+ *  anything not in the preset list. Tap a chip to toggle it on/off; custom
+ *  additions render as their own removable chip too. */
+function TapSelectChips({ label, help, value, onChange, presets, addPlaceholder }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void
+  presets: string[]; addPlaceholder: string
+}) {
+  const selected = (Array.isArray(value) ? value : []) as string[]
+  const [draft, setDraft] = useState('')
+  const toggle = (chip: string) =>
+    onChange(selected.includes(chip) ? selected.filter((c) => c !== chip) : [...selected, chip])
+  const addCustom = (text: string) => {
+    const v = text.trim()
+    if (!v || selected.includes(v)) return
+    onChange([...selected, v])
+    setDraft('')
+  }
+  const customChips = selected.filter((s) => !presets.includes(s))
+
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <FieldHelp text={help} />
+      <div className="flex flex-wrap gap-2">
+        {presets.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => toggle(chip)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              selected.includes(chip) ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            {chip}
+          </button>
+        ))}
+        {customChips.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => toggle(chip)}
+            className="rounded-full border border-teal-600 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700"
+          >
+            {chip} ×
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(draft) } }}
+          placeholder={addPlaceholder}
+          className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+        />
+        <VoiceMicButton onResult={addCustom} />
+        <button type="button" onClick={() => addCustom(draft)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Target-customer chip presets, industry-aware (falls back to 'general').
+// Deliberately covers the trades this platform's real tenants are in
+// (cleaning, landscaping, home trades) rather than guessing at all 53 —
+// extend as more industries onboard real tenants.
+const TARGET_CUSTOMER_PRESETS: Record<string, string[]> = {
+  cleaning: ['Busy families', 'Working professionals', 'Property managers', 'Airbnb hosts', 'Elderly/senior clients', 'New parents'],
+  window_cleaning: ['Homeowners', 'Property managers', 'Retail storefronts', 'Office buildings'],
+  carpet_cleaning: ['Homeowners', 'Landlords/property managers', 'Pet owners', 'Move-in/move-out tenants'],
+  landscaping: ['Homeowners', 'HOAs', 'Commercial properties', 'Property managers'],
+  lawn_care: ['Homeowners', 'HOAs', 'Small businesses'],
+  hvac: ['Homeowners', 'Property managers', 'Small businesses', 'New construction'],
+  plumbing: ['Homeowners', 'Property managers', 'Small businesses', 'Emergency callers'],
+  electrical: ['Homeowners', 'Property managers', 'Small businesses', 'New construction'],
+  handyman: ['Homeowners', 'Landlords', 'Small businesses', 'Elderly/senior clients'],
+  moving: ['Renters', 'Homeowners', 'Small businesses', 'Students'],
+  junk_removal: ['Homeowners', 'Landlords/property managers', 'Estate cleanouts', 'Contractors'],
+  pest: ['Homeowners', 'Property managers', 'Restaurants', 'Landlords'],
+  pool: ['Homeowners', 'HOAs', 'Vacation rentals'],
+  general: ['Homeowners', 'Property managers', 'Small businesses', 'Landlords'],
+}
+
+/** Tapping a chip appends its phrase into the free-text value (comma-joined)
+ *  instead of replacing it — target customer stays a sentence/paragraph the
+ *  AI persona reads directly (see persona-file.ts), not a structured array,
+ *  so chips are a fast-start, not the whole answer. Voice/typing still fully
+ *  edit the result below. */
+function TapAppendChips({ label, help, value, onChange, industry }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void; industry?: string
+}) {
+  const presets = TARGET_CUSTOMER_PRESETS[industry || 'general'] || TARGET_CUSTOMER_PRESETS.general
+  const text = (value as string) || ''
+  const append = (phrase: string) => {
+    if (text.toLowerCase().includes(phrase.toLowerCase())) return
+    onChange(text ? `${text}, ${phrase}` : phrase)
+  }
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <FieldHelp text={help} />
+      <div className="mb-2 flex flex-wrap gap-2">
+        {presets.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => append(chip)}
+            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-teal-400 hover:text-teal-600"
+          >
+            + {chip}
+          </button>
+        ))}
+      </div>
+      <VoiceTextarea value={text} onChange={onChange} rows={2} placeholder="Tap a starting point above, then refine — type or talk." />
+    </div>
+  )
+}
+
 const SOCIAL_PLATFORMS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'x'] as const
 
 function SocialLinksEditor({ value, onChange }: { value: FieldValue; onChange: (v: FieldValue) => void }) {
@@ -678,6 +867,83 @@ function SocialLinksEditor({ value, onChange }: { value: FieldValue; onChange: (
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+function ExpenseCategoryCheckboxes({ label, help, value, onChange }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void
+}) {
+  const selected = (Array.isArray(value) ? value : []) as string[]
+  const toggle = (cat: string) =>
+    onChange(selected.includes(cat) ? selected.filter((c) => c !== cat) : [...selected, cat])
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <FieldHelp text={help} />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {EXPENSE_CATEGORY_PRESETS.map((cat) => (
+          <label key={cat} className="flex items-center gap-1.5 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={selected.includes(cat)}
+              onChange={() => toggle(cat)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            {cat}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const CUSTOM_TAX_RATE = '__custom__'
+
+function TaxRateSelector({ label, help, value, onChange, homeState }: {
+  label: string; help?: string | null; value: FieldValue; onChange: (v: FieldValue) => void; homeState?: string
+}) {
+  const baseRate = homeState ? STATE_BASE_SALES_TAX[homeState] : undefined
+  const hasBase = baseRate !== undefined
+  const numericValue = typeof value === 'number' ? value : value ? Number(value) : null
+  const isCustom = !hasBase || (numericValue != null && numericValue !== baseRate)
+
+  if (!hasBase) {
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+        <FieldHelp text={help || 'Set your state above to get a suggested starting rate.'} />
+        <input
+          type="number"
+          value={numericValue ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+      <FieldHelp text={help} />
+      <select
+        value={isCustom ? CUSTOM_TAX_RATE : String(baseRate)}
+        onChange={(e) => onChange(e.target.value === CUSTOM_TAX_RATE ? (isCustom ? numericValue : null) : baseRate)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+      >
+        <option value={String(baseRate)}>{baseRate}% — {homeState} base rate</option>
+        <option value={CUSTOM_TAX_RATE}>Custom — I know my exact combined rate</option>
+      </select>
+      {isCustom && (
+        <input
+          type="number"
+          placeholder="Your combined rate (state + local)"
+          value={numericValue ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+        />
+      )}
     </div>
   )
 }

@@ -20,6 +20,8 @@
  * a 1:1 field shape. See src/app/api/admin/tenants/[id]/locations and /notes.
  */
 import { supabaseAdmin } from './supabase'
+import { INDUSTRY_OPTIONS } from './industry-presets'
+import { US_STATES } from './service-area'
 
 export type FunnelMode = 'booking' | 'pipeline' | 'lead_only'
 
@@ -110,8 +112,43 @@ export interface FieldDef {
    * or "fiscal year start" means. Omit when the label is self-explanatory.
    */
   help?: string
+  /**
+   * Real-shape check beyond "non-empty" — e.g. an EIN must look like an EIN,
+   * not just have one character in it. Declarative (not a function) so it can
+   * cross the API boundary to the client for inline feedback instead of only
+   * failing silently server-side at the readiness/activate gate. A field that
+   * fails validation does NOT count as `filled` for readiness purposes, same
+   * as if it were blank — see passesValidation/isFilled usage in
+   * getTenantProfile below.
+   */
+  validation?: FieldValidation
   /** Pull the raw value from the loaded context. */
   read: (ctx: ProfileContext) => unknown
+}
+
+export interface FieldValidation {
+  kind: 'regex' | 'minLength'
+  /** Required when kind === 'regex'. Source text of the RegExp (no flags). */
+  pattern?: string
+  /** Required when kind === 'minLength'. Digits-only length for phone-shaped fields when digitsOnly is set. */
+  minLength?: number
+  /** minLength only: strip everything but digits before measuring length (phone numbers with formatting punctuation). */
+  digitsOnly?: boolean
+  /** Shown under the field when the current value is non-empty but fails this check. */
+  message: string
+}
+
+/** Non-empty AND (no validation rule, or the rule passes). Mirrors isFilled's null-safety. */
+export function passesValidation(value: unknown, validation: FieldValidation | undefined): boolean {
+  if (!validation) return true
+  const s = typeof value === 'string' ? value.trim() : value == null ? '' : String(value)
+  if (!s) return true // emptiness is isFilled's job, not validation's
+  if (validation.kind === 'regex') return new RegExp(validation.pattern || '').test(s)
+  if (validation.kind === 'minLength') {
+    const measured = validation.digitsOnly ? s.replace(/\D/g, '') : s
+    return measured.length >= (validation.minLength ?? 0)
+  }
+  return true
 }
 
 /** Raw rows loaded once, shared by every field's read(). */
@@ -173,6 +210,36 @@ const DEPOSIT_OPTIONS = ['none', 'percent', 'flat'] as const
 const SCOPE_OPTIONS = ['local', 'regional', 'national'] as const
 const PAYOUT_METHOD_OPTIONS = ['stripe', 'check', 'other'] as const
 const ACQUISITION_CHANNEL_OPTIONS = ['referral', 'inbound_form', 'cold_outbound', 'partner', 'other'] as const
+const STATE_OPTIONS: FieldOption[] = US_STATES.map((s) => ({ label: s.name, value: s.code }))
+
+// Common small-business expense categories, checkbox-selected against this
+// fixed list instead of free-typed comma-separated text — see
+// EXPENSE_CATEGORY_PRESETS' ProfileWizard custom renderer. No "other" escape
+// hatch by design (Jeff's call, 2026-08-02): if this list is missing a real
+// category a tenant needs, that's a signal to add it here for everyone, not
+// a one-off free-text field that drifts.
+export const EXPENSE_CATEGORY_PRESETS: string[] = [
+  'Vehicle & Fuel', 'Supplies & Materials', 'Equipment', 'Insurance', 'Payroll',
+  'Marketing & Advertising', 'Software & Subscriptions', 'Rent & Utilities',
+  'Professional Services', 'Travel', 'Meals & Entertainment', 'Licenses & Permits',
+  'Repairs & Maintenance', 'Bank & Processing Fees', 'Other',
+]
+
+// Published state base sales tax rates (state-level only — most
+// counties/cities add their own on top, sometimes several points higher,
+// e.g. NYC's combined rate is well above New York's own 4% base). Offered as
+// a starting-point dropdown once the tenant's state is known, not a claim of
+// their exact combined rate — see the taxRate ProfileWizard custom renderer,
+// which always lets them override with their real number. States with no
+// sales tax (AK/DE/MT/NH/OR) are 0.
+export const STATE_BASE_SALES_TAX: Record<string, number> = {
+  AL: 4, AK: 0, AZ: 5.6, AR: 6.5, CA: 7.25, CO: 2.9, CT: 6.35, DE: 0, FL: 6,
+  GA: 4, HI: 4, ID: 6, IL: 6.25, IN: 7, IA: 6, KS: 6.5, KY: 6, LA: 4.45,
+  ME: 5.5, MD: 6, MA: 6.25, MI: 6, MN: 6.875, MS: 7, MO: 4.225, MT: 0,
+  NE: 5.5, NV: 6.85, NH: 0, NJ: 6.625, NM: 4.875, NY: 4, NC: 4.75, ND: 5,
+  OH: 5.75, OK: 4.5, OR: 0, PA: 6, RI: 7, SC: 6, SD: 4.2, TN: 7, TX: 6.25,
+  UT: 6.1, VT: 6, VA: 5.3, WA: 6.5, WV: 6, WI: 5, WY: 4, DC: 6,
+}
 
 /**
  * The field registry — the audited, comprehensive set of data a launched tenant
@@ -183,17 +250,18 @@ const ACQUISITION_CHANNEL_OPTIONS = ['referral', 'inbound_form', 'cold_outbound'
 export const PROFILE_FIELDS: FieldDef[] = [
   // ── Identity ──────────────────────────────────────────────────────
   { key: 'businessName', label: 'Business name', section: 'identity', store: 'tenant', col: 'name', tier: 'critical', read: (x) => t(x, 'name'), help: 'What customers call you — this is what shows on your website and in texts/emails they get.' },
-  { key: 'legalName', label: 'Legal entity name', section: 'identity', store: 'entity', col: 'legal_name', tier: 'recommended', read: (x) => e(x, 'legal_name'), help: 'The official name on your business registration/tax paperwork — often the same as your business name, but not always (e.g. "Smith Cleaning LLC" vs. "Sparkle Clean"). Leave blank if you\'re not sure; we can fix it later.' },
-  { key: 'entityType', label: 'Entity type', section: 'identity', store: 'entity', col: 'entity_type', input: 'select', options: ENTITY_TYPE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'entity_type'), help: 'How your business is legally structured. Check a past tax filing or ask your accountant if you\'re unsure — it\'s fine to skip for now.' },
-  { key: 'ein', label: 'EIN / Tax ID', section: 'identity', store: 'entity', col: 'ein', tier: 'recommended', read: (x) => e(x, 'ein'), help: 'Your business\'s federal tax ID (like a Social Security number, but for the business) — the 9-digit number on your IRS confirmation letter. Not the same as your Social Security number. Skip if you don\'t have one yet.' },
+  { key: 'industry', label: 'Industry / trade', section: 'identity', store: 'tenant', col: 'industry', input: 'select', options: INDUSTRY_OPTIONS, tier: 'critical', read: (x) => t(x, 'industry'), help: 'What kind of work you do — this decides your starting service list, pricing style, and the questions your AI agent asks customers. Wrong or missing means we guess with generic defaults; you can always add/edit services later either way.' },
+  { key: 'legalName', label: 'Legal entity name', section: 'identity', store: 'entity', col: 'legal_name', tier: 'critical', validation: { kind: 'minLength', minLength: 3, message: 'Enter the real name on your business paperwork, not a placeholder.' }, read: (x) => e(x, 'legal_name'), help: 'The official name on your business registration/tax paperwork — often the same as your business name, but not always (e.g. "Smith Cleaning LLC" vs. "Sparkle Clean"). We use this to set up your real Stripe and Telnyx accounts, so it needs to match your paperwork, not just be close.' },
+  { key: 'entityType', label: 'Entity type', section: 'identity', store: 'entity', col: 'entity_type', input: 'select', options: ENTITY_TYPE_OPTIONS, tier: 'critical', read: (x) => e(x, 'entity_type'), help: 'How your business is legally structured. Check a past tax filing or ask your accountant if you\'re unsure — this is required by Stripe to verify your account for real payments.' },
+  { key: 'ein', label: 'EIN / Tax ID', section: 'identity', store: 'entity', col: 'ein', tier: 'critical', validation: { kind: 'regex', pattern: '^\\d{2}-?\\d{7}$', message: 'Enter your real 9-digit EIN (XX-XXXXXXX) — this has to match what\'s on file with the IRS for Stripe and Telnyx to accept it.' }, read: (x) => e(x, 'ein'), help: 'Your business\'s federal tax ID (like a Social Security number, but for the business) — the 9-digit number on your IRS confirmation letter. Not the same as your Social Security number. Required to register your business texting number with Telnyx (federal SMS compliance) and to verify your Stripe account — without it, payments and texting can\'t go live.' },
   { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'select', options: MONTH_OPTIONS, tier: 'optional', read: (x) => e(x, 'fiscal_year_start'), help: 'The month your business "year" starts for accounting purposes. Most businesses use January — leave this blank unless you know yours is different.' },
 
   // ── Contact & location ────────────────────────────────────────────
-  { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', read: (x) => t(x, 'phone') },
+  { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', validation: { kind: 'minLength', minLength: 10, digitsOnly: true, message: 'Enter a real 10-digit phone number.' }, read: (x) => t(x, 'phone') },
   { key: 'email', label: 'Business email', section: 'contact', store: 'tenant', col: 'email', tier: 'critical', read: (x) => t(x, 'email') },
-  { key: 'address', label: 'Street address', section: 'contact', store: 'tenant', col: 'address', tier: 'critical', read: (x) => t(x, 'address') },
+  { key: 'address', label: 'Street address', section: 'contact', store: 'tenant', col: 'address', input: 'custom', tier: 'critical', read: (x) => t(x, 'address') },
   { key: 'city', label: 'City', section: 'contact', store: 'entity', col: 'city', tier: 'recommended', read: (x) => e(x, 'city') },
-  { key: 'state', label: 'State', section: 'contact', store: 'entity', col: 'state', tier: 'recommended', read: (x) => e(x, 'state') },
+  { key: 'state', label: 'State', section: 'contact', store: 'entity', col: 'state', input: 'select', options: STATE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'state') },
   { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', read: (x) => e(x, 'zip') },
   { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', read: (x) => t(x, 'website_url') },
   { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
@@ -213,7 +281,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
   // no duplicate service-area UI, no risk of clobbering states/zones by writing
   // just the scope.
   { key: 'serviceScope', label: 'Service scope', section: 'contact', store: 'selena', readonly: true, input: 'select', options: SCOPE_OPTIONS, tier: 'critical', read: (x) => (s(x, 'service_area') as Record<string, unknown> | undefined)?.scope },
-  { key: 'serviceArea', label: 'Service area', section: 'contact', store: 'selena', col: 'service_area', input: 'custom', tier: 'critical', read: (x) => s(x, 'service_area') },
+  { key: 'serviceArea', label: 'Service area', section: 'contact', store: 'selena', col: 'service_area', input: 'custom', tier: 'critical', help: 'This is for SEO — it decides where we target you to attract leads and job applicants from.', read: (x) => s(x, 'service_area') },
   { key: 'serviceRadius', label: 'Service radius (mi)', section: 'contact', store: 'tenant', col: 'service_radius_miles', kind: 'number', input: 'number', tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'service_radius_miles') },
   { key: 'serviceLat', label: 'Geocoded center', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => t(x, 'service_area_lat') },
   { key: 'timezone', label: 'Timezone', section: 'scheduling', store: 'tenant', col: 'timezone', tier: 'critical', read: (x) => t(x, 'timezone') },
@@ -229,7 +297,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', read: (x) => t(x, 'secondary_color') },
   { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
   { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'textarea', tier: 'critical', read: (x) => s(x, 'business_description') },
-  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', input: 'textarea', tier: 'optional', help: 'The real reason a customer picks you over the next search result — faster response time, a guarantee, years in business, whatever\'s actually true.', read: (x) => s(x, 'differentiators') },
+  { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', kind: 'array', input: 'custom', tier: 'optional', help: 'The real reasons a customer picks you over the next search result — tap what applies, add your own if it\'s not listed.', read: (x) => s(x, 'differentiators') },
 
   // ── Marketing (section key stays 'seo' -- see PROFILE_SECTION_META) ──
   { key: 'businessStory', label: 'Your story', section: 'seo', store: 'selena', col: 'business_story', input: 'textarea', tier: 'optional', read: (x) => s(x, 'business_story') },
@@ -361,11 +429,11 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'capacityNote', label: 'Current team-capacity heads-up (e.g. "fully booked through next week") — blank = agent relies on real availability tools only', section: 'ai', onboardingHidden: true, store: 'selena', col: 'capacity_note', input: 'textarea', tier: 'optional', read: (x) => s(x, 'capacity_note') },
 
   // ── Finance display ───────────────────────────────────────────────
-  { key: 'taxRate', label: 'Tax rate %', section: 'identity', store: 'selena', col: 'tax_rate', kind: 'number', input: 'number', tier: 'optional', read: (x) => s(x, 'tax_rate') },
-  { key: 'expenseCategories', label: 'Expense categories', section: 'identity', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'array', tier: 'optional', read: (x) => t(x, 'expense_categories') },
+  { key: 'taxRate', label: 'Tax rate %', section: 'identity', store: 'selena', col: 'tax_rate', kind: 'number', input: 'custom', tier: 'optional', help: 'Your state\'s base sales tax, picked automatically once you set your state above — pick "Custom" if your city/county adds its own on top and you know your real combined rate.', read: (x) => s(x, 'tax_rate') },
+  { key: 'expenseCategories', label: 'Expense categories', section: 'identity', store: 'tenant', col: 'expense_categories', kind: 'array', input: 'custom', tier: 'optional', help: 'Pick the ones that apply to your business — you can change these anytime in Settings.', read: (x) => t(x, 'expense_categories') },
 
   // ── Compliance ────────────────────────────────────────────────────
-  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', help: 'Your state or local trade license number (contractor, HVAC, electrical, etc. — whatever applies to your trade). We show this on your site and proposals to build trust with customers; some states require it to be displayed.', read: (x) => c(x, 'license_number') },
+  { key: 'license', label: 'Trade license #', section: 'compliance', store: 'compliance', col: 'license_number', tier: 'recommended', validation: { kind: 'minLength', minLength: 3, message: 'That\'s too short to be a real license number — enter the full number or leave it blank.' }, help: 'Your state or local trade license number (contractor, HVAC, electrical, etc. — whatever applies to your trade). We show this on your site and proposals to build trust with customers; some states require it to be displayed.', read: (x) => c(x, 'license_number') },
   { key: 'licenseState', label: 'License state', section: 'compliance', store: 'compliance', col: 'license_state', tier: 'optional', help: 'Which state issued the license above.', read: (x) => c(x, 'license_state') },
   { key: 'licenseExpiry', label: 'License expiry', section: 'compliance', store: 'compliance', col: 'license_expiry', tier: 'optional', help: 'When your license needs to be renewed — we can remind you before it lapses.', read: (x) => c(x, 'license_expiry') },
   { key: 'insuranceCarrier', label: 'Insurance carrier', section: 'compliance', store: 'compliance', col: 'insurance_carrier', tier: 'recommended', help: 'The company your business (general liability, not personal) insurance is through — e.g. State Farm, Progressive Commercial.', read: (x) => c(x, 'insurance_carrier') },
@@ -382,7 +450,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
 
   // ── Lead handling / SEO ───────────────────────────────────────────
   { key: 'autoRespondLeads', label: 'Auto-respond to leads', section: 'seo', store: 'selena', col: 'auto_respond_leads', kind: 'bool', input: 'toggle', tier: 'optional', read: (x) => s(x, 'auto_respond_leads') },
-  { key: 'attributionWindow', label: 'Attribution window (hrs)', section: 'seo', store: 'tenant', col: 'attribution_window_hours', kind: 'number', input: 'number', tier: 'optional', platformManaged: true, read: (x) => t(x, 'attribution_window_hours') },
+  { key: 'attributionWindow', label: 'Attribution window (hrs)', section: 'seo', store: 'tenant', col: 'attribution_window_hours', kind: 'number', input: 'select', options: [{ label: '24 hours', value: 24 }, { label: '48 hours', value: 48 }, { label: '72 hours', value: 72 }, { label: '1 week', value: 168 }], tier: 'optional', help: 'How long after a customer first visits your site we still count a booking as coming from that visit — matters for judging which marketing actually works.', read: (x) => t(x, 'attribution_window_hours') },
   { key: 'indexnow', label: 'IndexNow key', section: 'seo', store: 'tenant', col: 'indexnow_key', tier: 'optional', platformManaged: true, read: (x) => t(x, 'indexnow_key') },
 
   // ── Account (FL-internal — never shown on the public onboarding link) ──
@@ -583,7 +651,7 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile 
 
   const fields: LoadedField[] = PROFILE_FIELDS.map((f) => {
     const value = f.read(ctx)
-    return { ...f, value, filled: isFilled(value) }
+    return { ...f, value, filled: isFilled(value) && passesValidation(value, f.validation) }
   })
 
   return {

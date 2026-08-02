@@ -87,7 +87,12 @@ export interface Persona {
   // business_description/business_story.
   target_customer?: string
   competitors?: string[]
-  differentiators?: string
+  // Was a free-text sentence; converted to tap-select chips 2026-08-02 (see
+  // PROFILE_FIELDS 'differentiators' — now kind:'array'). Old string values
+  // already saved before the conversion still render fine below (arr() only
+  // matches actual arrays; a leftover string is silently skipped rather than
+  // crashing, same as any other blank/wrong-shape field).
+  differentiators?: string[]
   // custom
   custom_fields?: { category: string; label: string; value: string }[]
 }
@@ -231,7 +236,7 @@ export function renderPersonaExtras(p: Persona): string {
   if (nonEmpty(p.business_description)) section('WHAT THE BUSINESS DOES', p.business_description!.trim())
   if (nonEmpty(p.business_story)) section('THE STORY (use naturally, never recite)', p.business_story!.trim())
   if (nonEmpty(p.target_customer)) section('WHO YOU TALK TO (target customer)', p.target_customer!.trim())
-  if (nonEmpty(p.differentiators)) section('WHAT MAKES YOU DIFFERENT (in the owner\'s own words)', p.differentiators!.trim())
+  if (arr(p.differentiators)) section('WHAT MAKES YOU DIFFERENT', bullets(p.differentiators))
   if (arr(p.competitors)) section('COMPETITORS (know these — never badmouth; pivot to WHAT MAKES YOU DIFFERENT if asked to compare)', bullets(p.competitors))
   if (nonEmpty(p.team_intro)) section('THE TEAM', p.team_intro!.trim())
   if (arr(p.phrases_to_use)) section('PHRASES YOU USE (work these in naturally, don\'t force them)', bullets(p.phrases_to_use))

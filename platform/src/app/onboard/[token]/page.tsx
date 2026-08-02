@@ -12,6 +12,7 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { ProfileWizard } from '@/components/tenant-profile/ProfileWizard'
 import FeedbackWidget from '@/components/FeedbackWidget'
+import OnboardingChatWidget from '@/components/tenant-profile/OnboardingChatWidget'
 
 export default function PublicOnboardingPage() {
   const params = useParams<{ token: string }>()
@@ -21,7 +22,7 @@ export default function PublicOnboardingPage() {
   if (!token) return null
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="loop-scope min-h-screen" style={{ background: 'var(--color-loop-bg)' }}>
       {done ? (
         <div className="mx-auto max-w-2xl px-4 py-16 text-center">
           <h1 className="font-heading text-2xl font-bold text-slate-900">You&apos;re all set.</h1>
@@ -33,6 +34,7 @@ export default function PublicOnboardingPage() {
         <ProfileWizard mode={{ mode: 'token', token }} onComplete={() => setDone(true)} />
       )}
       <FeedbackWidget source="onboarding_link" token={token} />
+      <OnboardingChatWidget token={token} tenantName="" />
     </div>
   )
 }
