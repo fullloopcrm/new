@@ -474,7 +474,7 @@ export default function BusinessDetailPage() {
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   const tabs = [
-    { key: 'contact' as const, label: 'Profile' },
+    { key: 'contact' as const, label: 'Owner Contact' },
     { key: 'users' as const, label: 'Users' },
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },

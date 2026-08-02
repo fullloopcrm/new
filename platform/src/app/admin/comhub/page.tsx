@@ -1293,7 +1293,7 @@ function ComposeModal(props: {
                     <span className="font-medium">{r.name || '(no name)'}</span>
                     {r.dns && <span className="text-[9px] uppercase px-1 rounded-sm" style={{ fontFamily: 'var(--mono)', fontWeight: 600, background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)' }}>DNS</span>}
                   </div>
-                  <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
+                  <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{r.phone ? formatPhone(r.phone) : ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
                 </button>
               ))}
             </div>

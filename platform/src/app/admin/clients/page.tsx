@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { formatPhone } from '@/lib/format'
 
 interface Tenant {
   id: string
@@ -252,7 +253,7 @@ export default function AdminClientsPage() {
                           </div>
                           <div className="px-3 md:px-4 py-3.5 hidden md:block w-[180px]">
                             <p className="text-sm text-gray-700 truncate">{client.email}</p>
-                            <p className="text-xs text-gray-400">{client.phone}</p>
+                            <p className="text-xs text-gray-400">{client.phone ? formatPhone(client.phone) : ''}</p>
                           </div>
                           <div className="px-3 md:px-4 py-3.5 hidden lg:block w-[140px]">
                             <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
@@ -281,7 +282,7 @@ export default function AdminClientsPage() {
                                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Full Contact</p>
                                 <p className="text-sm text-slate-900">{client.name}</p>
                                 <p className="text-sm text-gray-600">{client.email || 'No email'}</p>
-                                <p className="text-sm text-gray-600">{client.phone || 'No phone'}</p>
+                                <p className="text-sm text-gray-600">{client.phone ? formatPhone(client.phone) : 'No phone'}</p>
                               </div>
                               <div>
                                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Address</p>
