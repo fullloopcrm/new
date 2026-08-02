@@ -39,6 +39,8 @@ interface TokenPayload {
   v: number
   /** expiry, epoch seconds */
   e: number
+  /** PIN verified — only present on the elevated token minted by /api/onboarding/pin */
+  p?: 1
 }
 
 function base64urlEncode(s: string): string {
@@ -54,16 +56,22 @@ function base64urlDecode(s: string): string | null {
   }
 }
 
-/** Mint a signed onboarding-link token for a tenant at its current link version. */
+/**
+ * Mint a signed onboarding-link token for a tenant at its current link
+ * version. Pass `pinVerified: true` to mint the elevated token
+ * /api/onboarding/pin issues after a correct PIN — see onboarding-pin.ts.
+ */
 export function signOnboardingToken(
   tenantId: string,
   linkVersion: number,
   ttlDays: number = DEFAULT_TTL_DAYS,
+  opts: { pinVerified?: boolean } = {},
 ): string {
   const payload: TokenPayload = {
     t: tenantId,
     v: linkVersion,
     e: Math.floor(Date.now() / 1000) + ttlDays * 86400,
+    ...(opts.pinVerified ? { p: 1 } : {}),
   }
   const body = base64urlEncode(JSON.stringify(payload))
   const sig = bytesToHex(hmacSha256(getSecret(), body))
@@ -73,6 +81,7 @@ export function signOnboardingToken(
 export interface VerifiedOnboardingToken {
   tenantId: string
   linkVersion: number
+  pinVerified: boolean
 }
 
 /**
@@ -105,5 +114,5 @@ export function verifyOnboardingToken(token: string | null | undefined): Verifie
   if (typeof payload.t !== 'string' || typeof payload.v !== 'number' || typeof payload.e !== 'number') return null
   if (Math.floor(Date.now() / 1000) > payload.e) return null
 
-  return { tenantId: payload.t, linkVersion: payload.v }
+  return { tenantId: payload.t, linkVersion: payload.v, pinVerified: payload.p === 1 }
 }

@@ -12,7 +12,13 @@ describe('onboarding-token', () => {
   it('round-trips a valid token', () => {
     const token = signOnboardingToken('tenant-A', 1)
     const verified = verifyOnboardingToken(token)
-    expect(verified).toEqual({ tenantId: 'tenant-A', linkVersion: 1 })
+    expect(verified).toEqual({ tenantId: 'tenant-A', linkVersion: 1, pinVerified: false })
+  })
+
+  it('round-trips a PIN-verified token', () => {
+    const token = signOnboardingToken('tenant-A', 1, undefined, { pinVerified: true })
+    const verified = verifyOnboardingToken(token)
+    expect(verified).toEqual({ tenantId: 'tenant-A', linkVersion: 1, pinVerified: true })
   })
 
   it('rejects a token signed under a different secret (tampered/forged)', () => {
