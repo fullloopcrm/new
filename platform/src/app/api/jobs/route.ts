@@ -4,9 +4,16 @@
  * total. Read-only, tenant-scoped.
  *
  * GET → { jobs: [...], totals: { contracted, paid, due, overdue } }
+ *       Gated on `bookings.view` (matches the sibling /api/jobs/[id] route
+ *       and the Production nav gate). Per-job money fields (contracted/
+ *       paid/due/overdue) and the tenant-wide totals are additionally gated
+ *       on `finance.view` and zeroed out for viewers without it -- same
+ *       split already applied to jobs/[id]/route.ts's GET, not a new pattern.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { tenantDb } from '@/lib/tenant-db'
 
 interface PaymentRow {
@@ -30,7 +37,10 @@ function rollup(payments: PaymentRow[], nowIso: string) {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
+    const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
     const db = tenantDb(tenantId)
     const nowIso = new Date().toISOString()
 
@@ -60,19 +70,21 @@ export async function GET() {
         ends_on: (j.ends_on as string) || null,
         pct_complete: pctComplete,
         session_count: sessions.length,
-        ...money,
+        ...(canViewFinance ? money : { contracted: 0, paid: 0, due: 0, overdue: 0 }),
       }
     })
 
-    const totals = rows.reduce(
-      (acc, r) => ({
-        contracted: acc.contracted + r.contracted,
-        paid: acc.paid + r.paid,
-        due: acc.due + r.due,
-        overdue: acc.overdue + r.overdue,
-      }),
-      { contracted: 0, paid: 0, due: 0, overdue: 0 },
-    )
+    const totals = canViewFinance
+      ? rows.reduce(
+          (acc, r) => ({
+            contracted: acc.contracted + r.contracted,
+            paid: acc.paid + r.paid,
+            due: acc.due + r.due,
+            overdue: acc.overdue + r.overdue,
+          }),
+          { contracted: 0, paid: 0, due: 0, overdue: 0 },
+        )
+      : { contracted: 0, paid: 0, due: 0, overdue: 0 }
 
     return NextResponse.json({ jobs: rows, totals })
   } catch (err) {
