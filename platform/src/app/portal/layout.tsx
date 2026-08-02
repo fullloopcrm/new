@@ -9,7 +9,7 @@ type Lang = 'en' | 'es'
 type PortalAuth = {
   token: string
   client: { id: string; name: string }
-  tenant: { id: string; name: string; primary_color: string; logo_url: string | null }
+  tenant: { id: string; name: string; agent_name: string | null; primary_color: string; logo_url: string | null }
 } | null
 
 const STORAGE_KEY = 'portal_auth'

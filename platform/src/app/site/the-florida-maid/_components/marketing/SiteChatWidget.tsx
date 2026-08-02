@@ -66,7 +66,7 @@ export default function SiteChatWidget({ embedded = false }: { embedded?: boolea
 
   return (
     <WebChatWidget
-      tenantName="The Florida Maid"
+      tenantName="Isabela"
       accentColor="#EA580C"
       brandColor="#1E2A4A"
       statusLine="Real human, live from Florida"

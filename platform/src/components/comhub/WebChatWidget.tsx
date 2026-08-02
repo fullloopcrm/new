@@ -530,6 +530,9 @@ export default function WebChatWidget({
             <svg aria-hidden="true" className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
+          ) : logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/full-loop-icon.svg" alt="" className="w-9 h-9" />
