@@ -100,10 +100,17 @@ describe('middleware — EMD microsite rewrites', () => {
     expect(res?.headers.get('x-middleware-rewrite')).toContain('/site/emd-microsites/miami-beach-maid/sitemap.xml')
   })
 
-  it('an EMD domain path OTHER than / or /sitemap.xml falls through to normal tenant-domain lookup, not the microsite rewrite', async () => {
+  it('an EMD domain path OTHER than / or /sitemap.xml returns 410 Gone, never falls through to normal tenant-domain lookup', async () => {
     const { default: middleware } = await import('./middleware')
     const res = await middleware(reqFor('miamibeachmaid.com', '/some-other-path'))
+    expect(res?.status).toBe(410)
     expect(res?.headers.get('x-middleware-rewrite') || '').not.toContain('/site/emd-microsites')
+  })
+
+  it('an EMD domain /robots.txt still falls through to the host-aware robots passthrough, not 410', async () => {
+    const { default: middleware } = await import('./middleware')
+    const res = await middleware(reqFor('miamibeachmaid.com', '/robots.txt'))
+    expect(res?.status).not.toBe(410)
   })
 })
 

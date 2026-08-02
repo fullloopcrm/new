@@ -53,9 +53,9 @@ export const EMD_MICROSITE_ROUTES: Record<string, string> = {
 
 /**
  * Rewrites a known EMD domain's "/" and "/sitemap.xml" to its dedicated
- * static page. Returns null for any other path on an EMD domain, or for a
- * host that isn't an EMD domain at all — the caller falls through to normal
- * tenant-domain routing in both cases.
+ * static page, and returns 410 Gone for every other path. Returns null only
+ * for "/robots.txt" (falls through to the host-aware passthrough below) or
+ * for a host that isn't an EMD domain at all.
  */
 export function getEmdMicrositeRewrite(cleanHost: string, req: NextRequest): NextResponse | null {
   const emdRoute = EMD_MICROSITE_ROUTES[cleanHost.replace(/^www\./, '')]
@@ -66,14 +66,30 @@ export function getEmdMicrositeRewrite(cleanHost: string, req: NextRequest): Nex
   // sitemap.ts generation) — without this it falls through to the
   // tenant_domains lookup below, which resolves to the-florida-maid and
   // serves ITS sitemap (thefloridamaid.com URLs) instead of this microsite's
-  // own. robots.txt does NOT need this: Next.js doesn't support nested
-  // robots.ts, but the root src/app/robots.ts is already host-aware (reads
-  // the Host header directly) and falls through correctly via
-  // rewriteToSite's own robots.txt passthrough.
+  // own.
   if (pathname === '/' || pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
     url.pathname = pathname === '/' ? emdRoute : `${emdRoute}${pathname}`
     return NextResponse.rewrite(url)
   }
-  return null
+
+  // robots.txt doesn't need an EMD-specific rewrite: Next.js doesn't support
+  // nested robots.ts, but the root src/app/robots.ts is already host-aware
+  // (reads the Host header directly) and falls through correctly via
+  // rewriteToSite's own robots.txt passthrough.
+  if (pathname === '/robots.txt') return null
+
+  // Every other path is a leaked tenant-site URL. These are one-page
+  // microsites — nothing but "/" is supposed to exist, so any other path
+  // that used to fall through to the-florida-maid's real routes (services,
+  // blog posts, /referral, etc.) got indexed by Google as if it belonged to
+  // this domain. 410, not a redirect — the whole point is these URLs stop
+  // existing, not that they point somewhere else.
+  return new NextResponse('Gone', {
+    status: 410,
+    headers: {
+      'Content-Type': 'text/plain',
+      'Cache-Control': 'public, max-age=86400',
+    },
+  })
 }
