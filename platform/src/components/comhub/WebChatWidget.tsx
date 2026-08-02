@@ -19,7 +19,14 @@ interface WebChatWidgetProps {
   tenantLogoUrl?: string
   greeting?: string
   initialMessages?: WebChatWidgetMessage[]
-  onSend?: (message: { body: string; imageDataUrl?: string }) => Promise<WebChatWidgetMessage[] | void>
+  onSend?: (message: { body: string; imageDataUrl?: string; visitorName?: string; visitorPhone?: string }) => Promise<WebChatWidgetMessage[] | void>
+  /** Anonymous public widgets only (not the authenticated portal chat, which
+   *  already knows who the visitor is). Blocks the composer behind a short
+   *  name + optional phone form so every conversation reaching ComHub is
+   *  tied to a real name instead of showing up as "Unknown". Captured once
+   *  per browser (localStorage) and re-sent with every message so the
+   *  backend can attach it to the comhub_contacts row. */
+  requireIdentity?: boolean
   /** Polled every 10s while the panel is open. Return only NEW non-customer
    *  messages (e.g. an admin reply from ComHub) — the widget already renders
    *  the visitor's own messages optimistically, so echoing them back here
@@ -50,6 +57,9 @@ const DEFAULT_SELF_INTRO = "We'd love to help you."
 const DEFAULT_COMPOSER_PLACEHOLDER = "Ask us anything..."
 const DEFAULT_STATUS_LINE = "Real human, live"
 const DEFAULT_QUICK_REPLIES = ['I have a question', 'I need help']
+// Origin-scoped (localStorage is already per-domain, and every tenant lives
+// on its own domain), so one fixed key is enough — no cross-tenant leakage.
+const VISITOR_IDENTITY_KEY = 'fl_webchat_visitor_identity'
 // Flat pastel fill for the agent/left bubble — a light tint standing in for
 // the reference screenshot's pink, adapted to the tenant's own warm palette.
 const AGENT_TINT = '#FBE3D2'
@@ -125,6 +135,7 @@ export default function WebChatWidget({
   statusLine = DEFAULT_STATUS_LINE,
   composerPlaceholder = DEFAULT_COMPOSER_PLACEHOLDER,
   quickReplies = DEFAULT_QUICK_REPLIES,
+  requireIdentity = false,
 }: WebChatWidgetProps) {
   const [open, setOpen] = useState(embedded)
   const [messages, setMessages] = useState<WebChatWidgetMessage[]>(initialMessages || [])
@@ -134,8 +145,47 @@ export default function WebChatWidget({
   const [unread, setUnread] = useState(0)
   const [introStep, setIntroStep] = useState(embedded ? 0 : 2)
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
+  const [visitorName, setVisitorName] = useState('')
+  const [visitorPhone, setVisitorPhone] = useState('')
+  const [identityKnown, setIdentityKnown] = useState(!requireIdentity)
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!requireIdentity || typeof window === 'undefined') return
+    try {
+      const stored = JSON.parse(localStorage.getItem(VISITOR_IDENTITY_KEY) || 'null') as { name?: string; phone?: string } | null
+      if (stored?.name) {
+        setVisitorName(stored.name)
+        setVisitorPhone(stored.phone || '')
+        setIdentityKnown(true)
+      }
+    } catch {
+      // Corrupt/blocked localStorage — fall back to asking again.
+    }
+  }, [requireIdentity])
+
+  // The visitor's very first message IS the "what's your name and phone
+  // number?" prompt's reply — parsed out of plain text rather than a
+  // separate form, e.g. "Jane Doe, (555) 123-4567" or "Jane 5551234567".
+  // Still sent through as a normal chat message (so it stays in the visible
+  // transcript), just also captured into visitorName/visitorPhone so it
+  // rides along on every subsequent send.
+  function captureIdentityFromText(text: string): { name: string; phone: string } {
+    const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
+    const phone = phoneMatch ? phoneMatch[0].trim() : ''
+    const name = text.replace(phoneMatch?.[0] || '', '').replace(/[,|·-]+/g, ' ').trim() || text.trim()
+    setVisitorName(name)
+    setVisitorPhone(phone)
+    setIdentityKnown(true)
+    try {
+      localStorage.setItem(VISITOR_IDENTITY_KEY, JSON.stringify({ name, phone }))
+    } catch {
+      // Best-effort persistence — the returned {name, phone} below still
+      // carries this message's identity through to onSend either way.
+    }
+    return { name, phone }
+  }
 
   // "Boop boop" — the two intro bubbles pop in one at a time on load, each
   // with a short beep, instead of both appearing instantly. Autoplay policies
@@ -209,8 +259,11 @@ export default function WebChatWidget({
     setPendingImage(null)
     setSending(true)
 
+    const isIdentityReply = requireIdentity && !identityKnown && !!body
+    const identity = isIdentityReply ? captureIdentityFromText(body) : { name: visitorName, phone: visitorPhone }
+
     try {
-      const reply = await onSend?.({ body, imageDataUrl })
+      const reply = await onSend?.({ body, imageDataUrl, visitorName: identity.name || undefined, visitorPhone: identity.phone || undefined })
       if (reply) setMessages(prev => [...prev, ...reply])
     } catch {
       setFailedIds(prev => new Set(prev).add(outgoing.id))
@@ -228,7 +281,12 @@ export default function WebChatWidget({
     })
     setSending(true)
     try {
-      const reply = await onSend?.({ body: msg.body, imageDataUrl: msg.imageUrl?.startsWith('data:') ? msg.imageUrl : undefined })
+      const reply = await onSend?.({
+        body: msg.body,
+        imageDataUrl: msg.imageUrl?.startsWith('data:') ? msg.imageUrl : undefined,
+        visitorName: visitorName || undefined,
+        visitorPhone: visitorPhone || undefined,
+      })
       if (reply) setMessages(prev => [...prev, ...reply])
     } catch {
       setFailedIds(prev => new Set(prev).add(msg.id))
@@ -366,7 +424,7 @@ export default function WebChatWidget({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-          placeholder="Type a message..."
+          placeholder={requireIdentity && !identityKnown ? "What's your name and phone number?" : 'Type a message...'}
           rows={1}
           className="flex-1 resize-none bg-black/[0.04] border border-black/[0.06] rounded-full px-4 py-2.5 text-[15px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-black/15 max-h-24"
         />
@@ -476,7 +534,7 @@ export default function WebChatWidget({
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder={composerPlaceholder}
+            placeholder={requireIdentity && !identityKnown ? "What's your name and phone number?" : composerPlaceholder}
             className="w-full bg-white shadow-md rounded-full pl-5 pr-12 py-3 text-[15px] text-slate-800 placeholder-slate-400 focus:outline-none focus:shadow-lg transition-shadow"
           />
           <span
