@@ -10,13 +10,15 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { escapeHtml } from '@/lib/escape-html'
 import { createPrimaryContact } from '@/lib/client-contacts'
 import { broadcastWaitlistBooking } from '@/lib/waitlist-broadcast'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 interface WaitlistEntry {
   id: string
@@ -53,9 +55,15 @@ interface SmsConvoRow {
 }
 
 export async function GET() {
+  // Same dormant-override-class gap as bookings.ts/clients.ts/projects.ts
+  // this session: only getTenantForRequest() was called, no permission
+  // check. Fixed to require bookings.view, matching the sibling
+  // operator-list routes.
   let tenantId: string
   try {
-    ({ tenantId } = await getTenantForRequest())
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    tenantId = tenant.tenantId
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     throw err
@@ -114,27 +122,22 @@ export async function GET() {
   return NextResponse.json(entries)
 }
 
-// Public lead capture. Rate-limited per IP so it can't be spammed.
-const rl = new Map<string, { count: number; resetAt: number }>()
-const RL_WINDOW_MS = 10 * 60 * 1000
-const RL_MAX = 5
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const e = rl.get(ip)
-  if (!e || now > e.resetAt) {
-    rl.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS })
-    return false
-  }
-  e.count++
-  return e.count > RL_MAX
-}
-
+// Public lead capture. Rate-limited per tenant+IP so it can't be spammed.
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ ok: false, error: 'Tenant context required' }, { status: 400 })
 
+  // Was an in-memory Map, which never actually bounds anything on Vercel's
+  // serverless runtime: it resets on every cold start, and concurrent
+  // invocations can each get their own instance with its own Map, so
+  // multiple requests within the same "window" can land on different
+  // instances and each see a fresh, empty counter. Real cost/abuse exposure:
+  // every accepted submission fires a real Telnyx SMS to admins (smsAdmins)
+  // and can create a real client + pending booking. Switched to the
+  // persistent DB-backed limiter already used elsewhere (referrers, feedback).
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(`${tenant.id}:${ip}`)) {
+  const rl = await rateLimitDb(`waitlist:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: 'Too many requests' }, { status: 429 })
   }
 

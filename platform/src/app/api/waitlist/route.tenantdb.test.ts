@@ -22,6 +22,10 @@ function chain(table: string) {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
     neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
+    // rateLimitDb's count query chains .gte('happened_at', ...) -- a no-op
+    // filter here is fine since rate_limit_events is never seeded in this
+    // fake DB, so the count is always 0 (always under the limit) regardless.
+    gte: () => c,
     order: () => c,
     limit: () => c,
     insert: (row: Row) => {
@@ -48,6 +52,11 @@ vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: vi.fn(() => Promise.resolve(
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({ tenantId: TENANT_A }),
   AuthError: class AuthError extends Error {},
+}))
+// GET now goes through requirePermission (bookings.view) instead of calling
+// getTenantForRequest directly -- see the route's own comment.
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: TENANT_A }, error: null }),
 }))
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: TENANT_A, phone: null }),

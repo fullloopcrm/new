@@ -35,6 +35,10 @@ function builder(table: string) {
       neqs[col] = val
       return chain
     },
+    // rateLimitDb's count query chains .gte('happened_at', ...) -- a no-op
+    // filter here is fine, the window isn't exercised by these tests, only
+    // whether rate_limit_events already has enough seeded rows to match eqs.
+    gte: () => chain,
     order: () => chain,
     limit: () => chain,
     insert: (row: Row) => {
@@ -52,10 +56,10 @@ function builder(table: string) {
       }
       return insertChain
     },
-    then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
+    then: (resolve: (v: { data: Row[]; error: null; count: number }) => unknown) => {
       const rows = (store[table] || []).filter((r) => matches(r, eqs))
       const filtered = rows.filter((r) => Object.entries(neqs).every(([k, v]) => r[k] !== v))
-      return resolve({ data: filtered, error: null })
+      return resolve({ data: filtered, error: null, count: filtered.length })
     },
   }
   return chain
@@ -81,6 +85,17 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+// GET now goes through requirePermission (bookings.view) instead of calling
+// getTenantForRequest directly -- see the route's own comment.
+type RequirePermissionResult =
+  | { tenant: { tenantId: string }; error: null }
+  | { tenant: null; error: Response }
+const requirePermissionMock = vi.fn<(permission: string) => Promise<RequirePermissionResult>>(
+  async () => ({ tenant: { tenantId: currentTenant }, error: null })
+)
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: (permission: string) => requirePermissionMock(permission),
+}))
 
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: currentTenant, phone: null }),
@@ -103,6 +118,7 @@ beforeEach(() => {
     ],
   }
   currentTenant = 'tenant-A'
+  requirePermissionMock.mockClear()
 })
 
 describe('waitlist GET — tenantDb isolation', () => {
@@ -133,5 +149,59 @@ describe('waitlist POST — tenantDb stamping', () => {
     const resB = await GET()
     const bodyB = await resB.json()
     expect(bodyB.map((r: Row) => r.id)).not.toContain(newRow.id)
+  })
+})
+
+describe('waitlist — permission gate regression (2026-08-01)', () => {
+  // GET previously called getTenantForRequest() directly with no permission
+  // check -- same dormant-override-class gap as bookings.ts/clients.ts/
+  // projects.ts fixed earlier this session. Proves GET now goes through
+  // requirePermission('bookings.view') and honors a denial.
+  it('GET is denied with 403 when the caller lacks bookings.view', async () => {
+    requirePermissionMock.mockResolvedValueOnce({
+      tenant: null,
+      error: new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }),
+    })
+    const res = await GET()
+    expect(res.status).toBe(403)
+  })
+
+  it('calls requirePermission with bookings.view, not some other permission', async () => {
+    await GET()
+    expect(requirePermissionMock).toHaveBeenCalledWith('bookings.view')
+  })
+})
+
+describe('waitlist POST — persistent rate limit regression (2026-08-01)', () => {
+  // The rate limiter used to be an in-memory Map, which never actually
+  // bounds anything on Vercel's serverless runtime (resets every cold
+  // start, and concurrent instances don't share state). Switched to the
+  // DB-backed rate_limit_events table. Proves the switch actually happened:
+  // once 5 events already exist for this tenant+IP bucket, the 6th request
+  // is rejected with 429 and never reaches the insert.
+  const req = () =>
+    new Request('http://x/api/waitlist', {
+      method: 'POST',
+      headers: { 'x-forwarded-for': '9.9.9.9' },
+      body: JSON.stringify({ name: 'Spammer', phone: '555-9999' }),
+    })
+
+  it('allows the request through when under the limit (0 prior events)', async () => {
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects with 429 once the bucket already has 5 events, and never inserts a waitlist row', async () => {
+    store.rate_limit_events = Array.from({ length: 5 }, (_, i) => ({
+      id: `evt-${i}`,
+      bucket_key: `waitlist:${currentTenant}:9.9.9.9`,
+      happened_at: new Date().toISOString(),
+    }))
+    const beforeCount = store.waitlist.length
+
+    const res = await POST(req())
+
+    expect(res.status).toBe(429)
+    expect(store.waitlist.length).toBe(beforeCount)
   })
 })
