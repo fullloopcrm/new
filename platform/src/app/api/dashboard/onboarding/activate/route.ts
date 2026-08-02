@@ -7,7 +7,8 @@
  * POST → { activated: true } | 400 with blockers
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness } from '@/lib/onboarding-tasks'
@@ -16,7 +17,18 @@ import { runLegalOverlookCheck } from '@/lib/legal-overlook'
 
 export async function POST() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Real bug found + fixed 2026-08-01: this route previously had ZERO
+    // permission check (only getTenantForRequest(), i.e. "is this ANY
+    // authenticated member of this tenant") despite flipping a tenant live --
+    // turns on real client-facing crons (reminders, review follow-ups),
+    // registers a real Vercel domain, and has real billing implications.
+    // Any 'staff'-role member could have triggered go-live on a ready tenant
+    // with no owner/admin review. Gated on settings.edit (owner/admin only
+    // per rbac.ts), matching the bar this file's own doc comment already
+    // implied ("an explicit, gated action") but never actually enforced.
+    const { tenant: authTenant, error: permError } = await requirePermission('settings.edit')
+    if (permError) return permError
+    const { tenantId } = authTenant
 
     const readiness = await checkActivationReadiness(tenantId)
     if (!readiness.ready) {
