@@ -72,6 +72,7 @@ export const isPublicRoute = createRouteMatcher([
   '/api/feedback',            // Feedback form submissions
   '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
   '/api/public-upload',       // Public tenant-aware media upload for marketing-site forms (size/type limited)
+  '/api/public/webchat(.*)',  // Public web-chatbot widget — anonymous visitor chat, tenant via signed header
   '/api/ingest(.*)',          // Cross-site application ingest (INGEST_SECRET-gated, tenant via slug)
   '/api/chat',                // Public web chat for tenant sites
   '/api/yinez(.*)',           // Public Yinez agent chat endpoint

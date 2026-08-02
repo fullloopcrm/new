@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { homepageContent } from '@/app/site/the-florida-maid/_lib/seo/content'
 import { homepageSchemas, faqSchema } from '@/app/site/the-florida-maid/_lib/seo/schema'
 import JsonLd from '@/app/site/the-florida-maid/_components/marketing/JsonLd'
+import SiteChatWidget from '@/app/site/the-florida-maid/_components/marketing/SiteChatWidget'
 import ServiceGrid from '@/app/site/the-florida-maid/_components/marketing/ServiceGrid'
 import TrustBadges from '@/app/site/the-florida-maid/_components/marketing/TrustBadges'
 import CTABlock from '@/app/site/the-florida-maid/_components/marketing/CTABlock'
@@ -120,10 +121,11 @@ export default function HomePage() {
     <>
       <JsonLd data={schemas} />
 
-      {/* Hero with pricing */}
-      <section className="bg-gradient-to-b from-[#CC6222] to-[#CC6222] pt-12 md:pt-16 pb-14 md:pb-20">
-        <div className="max-w-6xl mx-auto px-4">
-          {/* Social proof bar */}
+      {/* Hero with pricing + live chat */}
+      <section className="bg-gradient-to-b from-[#CC6222] to-[#CC6222] pt-8 md:pt-10 pb-8 md:pb-10">
+        <div className="max-w-[1600px] mx-auto px-6">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-8 items-stretch">
+          <div className="lg:w-[68%]">
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <a href="https://share.google/Iq9oblq3vJr07aP27" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
               <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
@@ -137,61 +139,90 @@ export default function HomePage() {
             <span className="text-white text-sm font-medium">Licensed &amp; Insured</span>
           </div>
 
-          <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl lg:text-8xl text-white tracking-wide leading-[0.95] mb-6">
+          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-6xl xl:text-8xl text-white tracking-wide leading-[0.95] mb-6">
             {content.h1}
           </h1>
-          <p className="text-white text-lg md:text-xl max-w-2xl mb-8 leading-relaxed">
+          <p className="text-white text-xl md:text-2xl mb-8 leading-relaxed">
             Professional house cleaning across Miami, Tampa, Orlando, Fort Lauderdale &amp; Jacksonville. Background-checked cleaners, transparent pricing, and no surprises.
           </p>
 
-          {/* Hero trust points */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2 mb-14">
-            <span className="text-[#34D399] text-sm font-medium">&#10003; No money upfront</span>
-            <span className="text-[#34D399] text-sm font-medium">&#10003; Payment upon completion</span>
-            <span className="text-[#34D399] text-sm font-medium">&#10003; No contracts</span>
-            <span className="text-[#34D399] text-sm font-medium">&#10003; Flat hourly pricing</span>
-          </div>
-
-          {/* Pricing tiers */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-            <div className="bg-white rounded-2xl p-8 shadow-lg">
-              <p className="text-xs font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$49<span className="text-2xl text-black/40">/hr</span></p>
-              <p className="text-black text-sm mt-3">You provide the cleaning supplies and equipment. We bring the expertise.</p>
-            </div>
-            <div className="bg-white rounded-2xl p-8 relative shadow-lg border-2 border-[#34D399]">
-              <div className="absolute -top-3 left-6 bg-[#34D399] text-white text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
-              <p className="text-xs font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
-              <div className="flex items-baseline gap-3">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$59<span className="text-2xl text-black/40">/hr</span></p>
-                <p className="text-black/30 line-through text-lg">$75</p>
-              </div>
-              <p className="text-black text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
-            </div>
-            <div className="bg-white rounded-2xl p-8 shadow-lg">
-              <p className="text-xs font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-black tracking-wide">$89<span className="text-2xl text-black/40">/hr</span></p>
-              <p className="text-black text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
+          <style>{`
+            @keyframes fmtrust { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+            .fmtrust-track { animation: fmtrust 18s linear infinite; }
+          `}</style>
+          <div className="overflow-hidden mb-6">
+            <div className="flex w-max gap-x-10 fmtrust-track">
+              {[0, 1].map(rep => (
+                <div key={rep} className="flex gap-x-10 shrink-0">
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; No money upfront</span>
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; Payment upon completion</span>
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; No contracts</span>
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; Flat hourly pricing</span>
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; VIP Communication</span>
+                  <span className="text-[#34D399] text-[1.4rem] font-medium whitespace-nowrap">&#10003; Dependable Service</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Recurring discount */}
-          <div className="mb-10 -mt-6 inline-flex items-center gap-2 bg-[#1E2A4A] text-[#A8F0DC] text-sm font-bold tracking-wide px-5 py-2 rounded-full">
-            <span className="text-base">&#9733;</span> Save 20% on weekly service &middot; 10% on bi-weekly &amp; monthly
-          </div>
+          <div className="h-px bg-white/20 mb-6" />
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide mb-2">Book Your Cleaning Today</h2>
+          <p className="text-white/70 mb-8">One page. Quick. We&apos;ll confirm by text within 15 minutes.</p>
 
-          {/* CTA: book, text, or call */}
-          <div className="flex flex-col sm:flex-row items-start gap-5">
-            <Link href="/book-now" target="_blank" rel="noopener" className="bg-white text-[#CC6222] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-100 transition-colors">
-              Self Booking $20 Off
-            </Link>
-            <a href="sms:9547103636" className="bg-[#34D399] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+          <div className="flex flex-col sm:flex-row items-start gap-4">
+            <div className="relative">
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#34D399] text-white text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full whitespace-nowrap">(Most Popular)</div>
+              <Link href="/book-now" target="_blank" rel="noopener" className="block bg-[#A8F0DC] text-[#1E2A4A] px-11 py-6 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                Self Booking $20 Off
+              </Link>
+            </div>
+            <a href="sms:9547103636" className="bg-[#33415C] text-white border border-white/20 px-11 py-6 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#3F4E6E] transition-colors">
               Text (954) 710-3636
             </a>
-            <a href="tel:9547103636" className="text-white font-medium text-lg py-4 hover:text-white/80 transition-colors underline underline-offset-4">
-              or Call Us
-            </a>
+            <Link href="/feedback" className="bg-[#DC2626] text-[#FACC15] border border-[#FACC15]/40 px-11 py-6 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#c31f1f] transition-colors">
+              Feedback | Suggestions?
+            </Link>
           </div>
+          </div>
+
+          <div className="hidden lg:block w-px bg-white/30 mx-4" />
+
+          <div className="lg:w-[32%] flex flex-col pt-8">
+            <SiteChatWidget embedded />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10 mb-4">
+          <div className="bg-white rounded-2xl p-10 shadow-lg">
+            <p className="text-lg font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
+            <p className="font-[family-name:var(--font-bebas)] text-7xl text-black tracking-wide">$49<span className="text-3xl text-black/40">/hr</span></p>
+            <p className="text-black text-sm mt-3">You provide the cleaning supplies and equipment. We bring the expertise.</p>
+            <p className="text-black text-sm font-bold mt-3">10% off weekly &middot; 5% off bi-weekly &amp; monthly</p>
+            <p className="text-black/50 text-sm mt-1">(Weekends: $59/hr for new clients)</p>
+          </div>
+          <div className="bg-white rounded-2xl p-10 relative shadow-lg border-2 border-[#34D399]">
+            <div className="absolute -top-3 left-6 bg-[#34D399] text-white text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
+            <p className="text-lg font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
+            <div className="flex items-baseline gap-3">
+              <p className="font-[family-name:var(--font-bebas)] text-7xl text-black tracking-wide">$59<span className="text-3xl text-black/40">/hr</span></p>
+              <p className="text-black/30 line-through text-xl">$75</p>
+            </div>
+            <p className="text-black text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
+            <p className="text-black text-sm font-bold mt-3">20% off weekly &middot; 10% off bi-weekly &amp; monthly</p>
+            <p className="text-black/50 text-sm mt-1">(Weekends: $69/hr for new clients)</p>
+          </div>
+          <div className="bg-white rounded-2xl p-10 shadow-lg">
+            <p className="text-lg font-semibold text-[#E8732A] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
+            <p className="font-[family-name:var(--font-bebas)] text-7xl text-black tracking-wide">$89<span className="text-3xl text-black/40">/hr</span></p>
+            <p className="text-black text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
+            <p className="text-black text-sm font-bold mt-3">No weekly / bi-weekly discount &mdash; one-time service</p>
+            <p className="text-black/50 text-sm mt-1">(Weekends: $99/hr for new clients)</p>
+          </div>
+        </div>
+        <p className="text-white text-sm max-w-3xl mb-10">
+          2-hour minimum on all bookings (first-time cleanings included). Bookings with 2 or more cleaners carry a
+          4-hour minimum and receive no discounts.
+        </p>
         </div>
       </section>
 
