@@ -318,7 +318,7 @@ export async function POST(req: NextRequest) {
 
     await notify({
       tenantId,
-      type: '30min_warning' as never,
+      type: '15min_warning',
       title: '30-Min Heads Up',
       message: smsMessage,
       bookingId,
