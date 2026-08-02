@@ -127,6 +127,11 @@ function scanNotifyCallSites() {
 // when you've deliberately decided a new ungated send path is correct —
 // don't just paste in whatever the scan produces to make the test pass.
 const PINNED_UNGATED = [
+  // Owner-facing operational alert, same admin-audience reasoning as the
+  // rest of this list. Superseded by Telegram once the tenant has a bot
+  // configured (see notify.ts's TELEGRAM_NOTIFY_TYPES routing) -- this
+  // email path is the pre-Telegram / no-Telegram fallback tier only.
+  '15min_warning|admin|email',
   'booking_cancelled|admin|email',
   'booking_reminder|team_member|sms',
   'booking_rescheduled|admin|email',
