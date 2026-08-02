@@ -121,6 +121,32 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } })
   }
 
+  // Referral portal carve-out: the global /referral tree (login + [code]
+  // dashboard, see src/app/referral/*) is fully tenant-generic -- it resolves
+  // branding/domain per-request via tenant headers, exactly like /team and
+  // /portal below. It's also the ONLY secure implementation: the several
+  // site/<tenant>/referral forks that predate it call APIs
+  // (/api/referral-commissions, /api/referrers?email=) that were
+  // independently hardened elsewhere to require a referrer session token, so
+  // those forks silently show $0/empty rather than actually working (found
+  // 2026-08-02 auditing a report that they looked visually broken). nycmaid
+  // keeps its own /site/nycmaid/referral fork -- rebuilt the same day onto
+  // the identical secure email->code->token flow, so it isn't broken, just
+  // intentionally still separate (same carve-out shape as its /sales fork
+  // below).
+  const BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL = new Set<string>(['nycmaid'])
+  if (
+    (pathname === '/referral' || pathname.startsWith('/referral/')) &&
+    !BESPOKE_TENANTS_WITH_OWN_REFERRAL_PORTAL.has(tenantSlug)
+  ) {
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig')
+    requestHeaders.set('x-tenant-id', tenantId)
+    requestHeaders.set('x-tenant-slug', tenantSlug)
+    requestHeaders.set('x-tenant-sig', tenantSig)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   // API routes + tenant-scoped app routes that live at the root are NOT
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.
