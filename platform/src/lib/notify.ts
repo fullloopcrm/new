@@ -326,25 +326,42 @@ export async function notify({
 
   if (!tenant) return { success: false, error: 'Tenant not found' }
 
-  // Telegram is orthogonal to the email/sms `channel` param below — it goes
-  // to the tenant's own ops chat regardless of recipientType, same as
-  // lib/nycmaid/notify.ts. Fire-and-forget: a Telegram failure must never
-  // block the DB notification record or the primary email/SMS send.
-  if (TELEGRAM_NOTIFY_TYPES.has(type)) {
-    sendTenantTelegram(tenantId, tenant, `${title}\n\n${message}`).catch((err) => {
-      console.error(`Notification telegram send error (${type}):`, err)
-    })
-  }
+  // Routing ladder (Jeff, 2026-08-02): every tenant starts on the platform's
+  // temporary "Full Loop CRM" fallback email (ADMIN_EMAIL below), steps up to
+  // the tenant's own business email the moment one is on file, and once a
+  // Telegram bot is configured, Telegram takes over entirely — exclusive, not
+  // additive, so a tenant with Telegram live gets no parallel email/SMS for
+  // these operational alert types. No manual toggle: purely a function of
+  // what contact info exists on the tenant row at send time.
+  const hasTenantTelegram = !!(tenant.telegram_bot_token && tenant.telegram_chat_id)
 
   // Internal monitoring signals, never a tenant-facing business notification.
-  // The dashboard row (above) and Telegram (above) are the full delivery —
-  // never fall through to the email/SMS channel logic below, regardless of
-  // what `channel` the caller passed (or defaulted to).
+  // Telegram if configured, otherwise nothing — never falls through to
+  // email/SMS regardless of what `channel` the caller passed or defaulted to.
   if (type === 'error' || type === 'selena_error') {
+    if (hasTenantTelegram) {
+      await sendTenantTelegram(tenantId, tenant, `${title}\n\n${message}`).catch((err) => {
+        console.error(`Notification telegram send error (${type}):`, err)
+      })
+    }
     if (notifId) {
       await supabaseAdmin.from('notifications').update({ status: 'sent' }).eq('id', notifId)
     }
     return { success: true }
+  }
+
+  if (TELEGRAM_NOTIFY_TYPES.has(type) && hasTenantTelegram) {
+    let telegramErr: unknown = null
+    await sendTenantTelegram(tenantId, tenant, `${title}\n\n${message}`).catch((err) => { telegramErr = err })
+    if (telegramErr) console.error(`Notification telegram send error (${type}):`, telegramErr)
+    if (notifId) {
+      await supabaseAdmin.from('notifications').update(
+        telegramErr
+          ? { status: 'failed', metadata: { ...(metadata || {}), _channel: 'telegram', _error: telegramErr instanceof Error ? telegramErr.message : String(telegramErr) } }
+          : { status: 'sent', channel: 'telegram' },
+      ).eq('id', notifId)
+    }
+    return telegramErr ? { success: false, error: String(telegramErr) } : { success: true }
   }
 
   // Get recipient contact info
@@ -366,7 +383,12 @@ export async function notify({
     // this, tenants with no tenant_members rows silently skip every admin
     // notification (found via nycmaid: zero tenant_members rows meant every
     // payment_received/new_client/new_booking alert was marked 'skipped').
-    email = data?.email || (tenant as { email?: string | null }).email || null
+    // Final fallback to the platform's own ADMIN_EMAIL — the "temporary Full
+    // Loop CRM email" every tenant starts on before they've set up their own
+    // (admin-contacts.ts's emailAdmins() already had this fallback; notify()
+    // itself didn't, so any notification routed straight through here instead
+    // of via emailAdmins() got nothing at all for a brand-new tenant).
+    email = data?.email || (tenant as { email?: string | null }).email || process.env.ADMIN_EMAIL || null
     phone = data?.phone || (tenant as { phone?: string | null }).phone || null
   }
 

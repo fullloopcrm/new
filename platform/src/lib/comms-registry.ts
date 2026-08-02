@@ -316,6 +316,20 @@ export const COMMS: CommDef[] = [
     firedBy: 'event: Stripe webhook',
   },
   {
+    key: 'owner_payment_request_sent',
+    label: '30-min payment request',
+    desc: 'Cleaner hit the 30-min heads-up button — balance due and delivery confirmation.',
+    audience: 'owner',
+    channels: ['email', 'sms', 'in_app'],
+    // All three already send unconditionally today (fail-open, same pattern
+    // as owner_payment_received above; not wired to a toggle yet). Email
+    // isn't new code — notify()'s admin/email defaults already deliver it
+    // whenever the tenant has an owner email + Resend key; in_app (Telegram)
+    // is the piece this session actually added (was silently broken).
+    defaults: { email: true, sms: true, in_app: true },
+    firedBy: 'event: /api/team-portal/30min-alert',
+  },
+  {
     key: 'owner_late_alert',
     label: 'Late team alert',
     desc: 'A team member is late to a job.',

@@ -165,8 +165,10 @@ export async function smsAdmins(
   // toll-free voice line with no messaging profile attached. Falls back to
   // telnyx_phone for every tenant that doesn't need the split.
   const telnyxPhone = t.sms_from_number || t.telnyx_phone || null
+  const tenantId = (tenant as TenantLike).id
   if (!telnyxKey || !telnyxPhone) {
     console.warn('[admin-contacts] smsAdmins: tenant missing Telnyx config, skipping')
+    await logAdminSmsFailure(tenantId, 'none', 'Tenant missing Telnyx config')
     return
   }
 
@@ -181,22 +183,60 @@ export async function smsAdmins(
         body: message,
         telnyxApiKey: telnyxKey,
         telnyxPhone,
-      }).catch(err => console.error('[admin-contacts] fallback ADMIN_FORWARD_PHONE send failed:', err))
+      }).catch(err => {
+        console.error('[admin-contacts] fallback ADMIN_FORWARD_PHONE send failed:', err)
+        return logAdminSmsFailure(tenantId, fallback, err)
+      })
+    } else {
+      await logAdminSmsFailure(tenantId, 'none', 'No admin phone on file and no ADMIN_FORWARD_PHONE fallback configured')
     }
     return
   }
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     withPhone.map(c => {
       const phone = (c.phone as string).replace(/\D/g, '')
+      const to = phone.startsWith('1') ? `+${phone}` : `+1${phone}`
       return sendSMS({
-        to: phone.startsWith('1') ? `+${phone}` : `+1${phone}`,
+        to,
         body: message,
         telnyxApiKey: telnyxKey,
         telnyxPhone,
+      }).catch(err => {
+        throw { to, err } // eslint-disable-line no-throw-literal -- carry `to` through allSettled's rejection reason
       })
     }),
   )
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      const reason = r.reason as { to?: string; err?: unknown } | unknown
+      const to = (reason as { to?: string })?.to || 'unknown'
+      const err = (reason as { err?: unknown })?.err ?? reason
+      await logAdminSmsFailure(tenantId, to, err)
+    }
+  }
+}
+
+/**
+ * Admin SMS sends previously had zero DB trace on failure — a tenant with a
+ * stale Telnyx key, a bounced number, or no admin phone on file at all would
+ * silently drop every owner alert (30-min payment heads-up, late-check-in,
+ * etc.) with nothing queryable, unlike the client SMS path which already
+ * logs to `notifications` (see lib/nycmaid/sms.ts logSMSFailure). Mirrors
+ * that pattern for the admin side. Best-effort — never throws.
+ */
+async function logAdminSmsFailure(tenantId: string, to: string, error: unknown): Promise<void> {
+  try {
+    const errMsg = typeof error === 'string' ? error : (error as { message?: string })?.message || JSON.stringify(error)
+    await supabaseAdmin.from('notifications').insert({
+      tenant_id: tenantId,
+      type: 'comms_fail',
+      title: 'Admin SMS send failed',
+      message: `admin sms to ${to} | error=${(errMsg || 'unknown error').slice(0, 400)}`,
+    })
+  } catch {
+    // never throw from the logger
+  }
 }
 
 /**

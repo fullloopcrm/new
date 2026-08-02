@@ -344,12 +344,17 @@ describe('notify — Telegram delivery', () => {
     expect(notifyOwnerOnTelegramMock).not.toHaveBeenCalled()
   })
 
-  it('a Telegram failure does not affect the returned notify() result', async () => {
+  // Telegram is exclusive once configured (Jeff, 2026-08-02: "once Telegram
+  // is added, notifications go directly to Telegram, no more email") -- it
+  // no longer falls back to email/SMS on failure, so a Telegram error now
+  // does surface as the notify() result instead of being swallowed.
+  it('a Telegram failure surfaces as the notify() result instead of silently falling back to email', async () => {
     seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-123456' })
     sendTelegramMock.mockRejectedValue(new Error('telegram down'))
     tableData['tenant_members'] = { email: 'owner@acme.com' }
     const r = await notify({ tenantId: TENANT_ID, type: 'new_booking', title: 'New Booking', message: 'hi' })
-    expect(r).toEqual({ success: true })
+    expect(r).toEqual({ success: false, error: 'Error: telegram down' })
+    expect(sendEmailMock).not.toHaveBeenCalled()
   })
 })
 
