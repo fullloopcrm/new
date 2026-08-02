@@ -82,7 +82,7 @@ export default function GlobalSiteChatWidget() {
 
   return (
     <WebChatWidget
-      tenantName={tenant.agent_name || tenant.name}
+      tenantName={tenant.name}
       accentColor={tenant.secondary_color || undefined}
       brandColor={tenant.primary_color || undefined}
       logoUrl={tenant.logo_url || undefined}

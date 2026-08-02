@@ -63,7 +63,7 @@ export default function PortalChatWidget({ embedded = false }: { embedded?: bool
 
   return (
     <WebChatWidget
-      tenantName={auth.tenant.agent_name || auth.tenant.name}
+      tenantName={auth.tenant.name}
       brandColor={auth.tenant.primary_color || undefined}
       logoUrl={embedded ? undefined : (auth.tenant.logo_url || undefined)}
       tenantLogoUrl={embedded ? (auth.tenant.logo_url || undefined) : undefined}
