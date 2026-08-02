@@ -3,11 +3,11 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
-const VALID_TAGS = ['potential_lead', 'spam', 'vendor', 'other'] as const
+const VALID_TAGS = ['client', 'team', 'lead', 'potential_lead', 'spam', 'vendor', 'other'] as const
 type ContactTag = typeof VALID_TAGS[number]
 
 // PATCH /api/admin/comhub/contacts/[id]/tag
-//   { tag: 'potential_lead'|'spam'|'vendor'|'other'|null }
+//   { tag: 'client'|'team'|'lead'|'potential_lead'|'spam'|'vendor'|'other'|null }
 // Manual classification, independent of client_id/team_member_id linkage —
 // unlike notes, this works on unlinked contacts (that's the whole point:
 // reclassifying automated senders the auto-linker mislabeled "lead").

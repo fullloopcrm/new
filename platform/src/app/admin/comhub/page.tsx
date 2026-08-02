@@ -18,7 +18,7 @@ const ActiveCallBanner = dynamic(() => import('@/components/comhub/ActiveCallBan
   loading: () => null,
 })
 
-type ContactTag = 'potential_lead' | 'spam' | 'vendor' | 'other'
+type ContactTag = 'client' | 'team' | 'lead' | 'potential_lead' | 'spam' | 'vendor' | 'other'
 
 type Contact = {
   id: string
@@ -32,7 +32,10 @@ type Contact = {
 }
 
 const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
-  potential_lead: 'Potential Lead',
+  client: 'Client',
+  team: 'Team',
+  lead: 'Lead',
+  potential_lead: 'Potential',
   spam: 'Spam',
   vendor: 'Vendor',
   other: 'Other',
@@ -44,6 +47,9 @@ const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
 // tag lives on the comhub_contacts row (one row per phone/email) rather than
 // per-message.
 const CONTACT_TAG_BADGE_STYLE: Record<ContactTag, { background: string; color: string; border: string }> = {
+  client: { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' },
+  team: { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' },
+  lead: { background: 'rgba(126,58,242,0.08)', color: '#6d28d9', border: '1px solid rgba(126,58,242,0.25)' },
   potential_lead: { background: 'rgba(126,58,242,0.08)', color: '#6d28d9', border: '1px solid rgba(126,58,242,0.25)' },
   spam: { background: 'rgba(220,38,38,0.08)', color: '#b91c1c', border: '1px solid rgba(220,38,38,0.25)' },
   vendor: { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' },
@@ -122,6 +128,7 @@ type ClientRow = {
   status: string | null
   active: boolean | null
   do_not_service: boolean | null
+  pin: string | null
   pet_name: string | null
   pet_type: string | null
   notes_private: string | null
@@ -132,19 +139,34 @@ type CleanerRow = {
   name: string | null
   email: string | null
   phone: string | null
+  address: string | null
+  pin: string | null
   active: boolean | null
   pay_rate: number | null
   avg_rating: number | null
   rating_count: number | null
 }
+type ApplicantRow = {
+  id: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  status: string | null
+  experience: string | null
+  created_at: string
+}
 type ContactContext = {
   contact: Contact
   client: ClientRow | null
   cleaner: CleanerRow | null
+  applicant: ApplicantRow | null
   recent_bookings: Booking[]
   total_bookings: number
   total_spent_cents: number
   outstanding_cents: number
+  cleaner_bookings: Booking[]
+  cleaner_total_earnings_cents: number
 }
 
 const fmtTime = (iso: string) => {
@@ -189,6 +211,8 @@ export default function ComhubPage() {
   const settingsPanelAvailable = pathname?.startsWith('/dashboard') ?? false
 
   const [threads, setThreads] = useState<Thread[]>([])
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set())
+  const [bulkWorking, setBulkWorking] = useState(false)
   const [channels, setChannels] = useState<Thread[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [thread, setThread] = useState<Thread | null>(null)
@@ -353,6 +377,62 @@ export default function ComhubPage() {
     }
   }
 
+  const toggleSelected = (contactId: string) => {
+    setSelectedContactIds(s => {
+      const next = new Set(s)
+      if (next.has(contactId)) next.delete(contactId)
+      else next.add(contactId)
+      return next
+    })
+  }
+
+  const bulkDelete = async () => {
+    if (selectedContactIds.size === 0 || bulkWorking) return
+    if (!window.confirm(`Delete ${selectedContactIds.size} contact${selectedContactIds.size > 1 ? 's' : ''} from ComHub? This removes their conversation from the inbox.`)) return
+    setBulkWorking(true)
+    try {
+      const contact_ids = Array.from(selectedContactIds)
+      const res = await fetch('/api/admin/comhub/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', contact_ids }),
+      })
+      if (res.ok) {
+        if (thread && thread.comhub_contacts && contact_ids.includes(thread.comhub_contacts.id)) {
+          setSelected(null)
+        }
+        setSelectedContactIds(new Set())
+        await fetchThreads()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert('Delete failed: ' + (data.error || res.status))
+      }
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const bulkTag = async (tag: ContactTag | null) => {
+    if (selectedContactIds.size === 0 || bulkWorking) return
+    setBulkWorking(true)
+    try {
+      const res = await fetch('/api/admin/comhub/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'tag', contact_ids: Array.from(selectedContactIds), tag }),
+      })
+      if (res.ok) {
+        setSelectedContactIds(new Set())
+        await fetchThreads()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert('Tag update failed: ' + (data.error || res.status))
+      }
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
   const totalUnread = useMemo(() => threads.reduce((a, t) => a + (t.unread_count || 0), 0), [threads])
   // Away/off-hours presets are just templates tagged hotkey:'away' — kept out
   // of the regular Templates picker so the two lists don't blend together.
@@ -503,7 +583,42 @@ export default function ComhubPage() {
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Messages — inbound from clients/cleaners/referrers via SMS, email, portal */}
-          <div className="px-5 pt-3 pb-1.5 text-[10px] uppercase tracking-wider text-[var(--color-loop-muted)] sticky top-0 bg-[var(--color-loop-bg)]" style={{ fontFamily: 'var(--mono)', fontWeight: 600, letterSpacing: '0.14em' }}>Messages</div>
+          <div className="px-5 pt-3 pb-1.5 flex items-center justify-between sticky top-0 bg-[var(--color-loop-bg)] z-10">
+            {selectedContactIds.size === 0 ? (
+              <div className="text-[10px] uppercase tracking-wider text-[var(--color-loop-muted)]" style={{ fontFamily: 'var(--mono)', fontWeight: 600, letterSpacing: '0.14em' }}>Messages</div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap w-full" style={{ fontFamily: 'var(--mono)' }}>
+                <span className="text-[11px]" style={{ color: 'var(--color-loop-muted)' }}>{selectedContactIds.size} selected</span>
+                <select
+                  disabled={bulkWorking}
+                  defaultValue=""
+                  onChange={(e) => { const v = e.target.value; if (v) bulkTag(v as ContactTag); e.target.value = '' }}
+                  className="px-1.5 py-0.5 rounded text-[11px] border cursor-pointer"
+                  style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-graphite)', borderColor: 'var(--color-loop-line-soft)' }}
+                >
+                  <option value="">Tag as…</option>
+                  {Object.entries(CONTACT_TAG_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={bulkDelete}
+                  disabled={bulkWorking}
+                  className="px-2 py-0.5 rounded text-[11px] disabled:opacity-50"
+                  style={{ background: 'rgba(220,38,38,0.08)', color: '#b91c1c', border: '1px solid rgba(220,38,38,0.25)' }}
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setSelectedContactIds(new Set())}
+                  className="text-[11px] hover:text-[var(--color-loop-ink)]"
+                  style={{ color: 'var(--color-loop-muted)' }}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
           {loadingList && <div className="p-5 text-sm text-[var(--color-loop-muted)]">Loading…</div>}
           {!loadingList && threads.length === 0 && (
             <div className="p-5 text-sm text-[var(--color-loop-muted)]">No threads.</div>
@@ -526,11 +641,24 @@ export default function ComhubPage() {
                 ? 'var(--color-loop-ink)'
                 : 'var(--color-loop-line-soft)'
             return (
-              <button
+              <div
                 key={t.id}
-                onClick={() => setSelected(t.id)}
-                className="w-full text-left pl-4 pr-5 py-3 border-b border-[var(--color-loop-line-soft)] hover:bg-[var(--color-loop-canvas)] transition flex gap-3"
+                className="w-full flex gap-2 items-stretch border-b border-[var(--color-loop-line-soft)] hover:bg-[var(--color-loop-canvas)] transition"
                 style={isSel ? { background: 'var(--color-loop-canvas)' } : undefined}
+              >
+                {c && (
+                  <label className="flex items-center pl-4" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedContactIds.has(c.id)}
+                      onChange={() => toggleSelected(c.id)}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                    />
+                  </label>
+                )}
+              <button
+                onClick={() => setSelected(t.id)}
+                className={`flex-1 text-left ${c ? 'pl-2' : 'pl-4'} pr-5 py-3 flex gap-3 min-w-0`}
               >
                 <span style={{ width: 3, alignSelf: 'stretch', background: accent, borderRadius: 2, flexShrink: 0 }} />
                 <div className="min-w-0 flex-1">
@@ -552,6 +680,7 @@ export default function ComhubPage() {
                   </div>
                 </div>
               </button>
+              </div>
             )
           })}
 
@@ -1415,7 +1544,7 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
 function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
-  const { contact, client, cleaner, recent_bookings, total_bookings, total_spent_cents, outstanding_cents } = context
+  const { contact, client, cleaner, applicant, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_bookings, cleaner_total_earnings_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDateTime = (iso: string) => {
     try {
@@ -1433,19 +1562,22 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
     const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
     return c?.name || '—'
   }
-  const role: 'client' | 'cleaner' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : 'unlinked'
+  const role: 'client' | 'cleaner' | 'applicant' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : applicant ? 'applicant' : 'unlinked'
 
   const roleBadgeStyle = role === 'client'
     ? { background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }
     : role === 'cleaner'
       ? { background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)' }
-      : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
+      : role === 'applicant'
+        ? { background: 'rgba(217,119,6,0.08)', color: '#b45309', border: '1px solid rgba(217,119,6,0.25)' }
+        : { background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)' }
   const pillFont = { fontFamily: 'var(--mono)', fontWeight: 600 as const }
   // A manual tag overrides the linkage-derived role badge — that's the whole
   // point of tagging (see 2026_08_01_comhub_contact_tags migration): once an
   // admin corrects the classification, it's a standing correction that
   // applies to every future message from this contact, not a one-time fix.
-  const displayLabel = contact.tag ? CONTACT_TAG_LABELS[contact.tag] : (role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'team' : role)
+  const roleLabel = role === 'unlinked' ? 'Potential Lead' : role === 'cleaner' ? 'Team' : role === 'applicant' ? 'Applicant' : 'Client'
+  const displayLabel = contact.tag ? CONTACT_TAG_LABELS[contact.tag] : roleLabel
   const displayBadgeStyle = contact.tag ? CONTACT_TAG_BADGE_STYLE[contact.tag] : roleBadgeStyle
 
   return (
@@ -1463,6 +1595,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
+          {client?.pin && <div>Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span></div>}
         </div>
         <ContactTagSelect contactId={contact.id} initialTag={contact.tag} onSaved={onTagChanged} />
       </div>
@@ -1472,6 +1605,38 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         initialName={contact.name || client?.name || cleaner?.name || ''}
         initialAddress={contact.address || client?.address || client?.address_line1 || ''}
       />
+
+      {applicant && (
+        <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Application status</span>
+            <span className="capitalize">{applicant.status || 'pending'}</span>
+          </div>
+          {applicant.address && (
+            <div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
+              <div className="text-[var(--color-loop-graphite)]">{applicant.address}</div>
+            </div>
+          )}
+          {applicant.experience && (
+            <div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Experience</div>
+              <div className="text-[var(--color-loop-graphite)]">{applicant.experience}</div>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Applied</span>
+            <span>{fmtDateTime(applicant.created_at)}</span>
+          </div>
+          <a
+            href={`/admin/team-applications?id=${applicant.id}`}
+            className="text-xs inline-block pt-1 hover:underline"
+            style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)' }}
+          >
+            View application →
+          </a>
+        </div>
+      )}
 
       {client && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
@@ -1510,9 +1675,25 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
 
       {cleaner && (
         <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
+          {cleaner.address && (
+            <div>
+              <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
+              <div className="text-[var(--color-loop-graphite)]">{cleaner.address}</div>
+            </div>
+          )}
+          {cleaner.pin && (
+            <div className="flex justify-between">
+              <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Portal PIN</span>
+              <span style={{ fontWeight: 600 }}>{cleaner.pin}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Hourly rate</span>
             <span>${cleaner.pay_rate ?? '—'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Total earnings</span>
+            <span style={{ fontFamily: 'var(--display)' }}>{fmtMoney(cleaner_total_earnings_cents)}</span>
           </div>
           {typeof cleaner.avg_rating === 'number' && cleaner.rating_count ? (
             <div className="flex justify-between">
@@ -1527,6 +1708,28 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           >
             View team member →
           </a>
+        </div>
+      )}
+
+      {cleaner && cleaner_bookings.length > 0 && (
+        <div className="p-4 space-y-2">
+          <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Recent bookings</div>
+          {cleaner_bookings.map(b => (
+            <a
+              key={b.id}
+              href={`/admin/bookings?id=${b.id}`}
+              className="block p-2 rounded text-sm transition-colors"
+              style={{ border: '1px solid var(--color-loop-line-soft)', background: 'var(--color-loop-canvas)' }}
+            >
+              <div className="flex justify-between items-baseline">
+                <span className="font-medium">{fmtDateTime(b.start_time)}</span>
+                <span className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>{b.status || '—'}</span>
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--color-loop-muted)' }}>
+                {b.service_type || 'Cleaning'} · {b.price != null ? `$${(b.price / 100).toFixed(2)}` : '?'}
+              </div>
+            </a>
+          ))}
         </div>
       )}
 
@@ -1577,7 +1780,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
 
       {role === 'unlinked' && (
         <div className="p-4 text-sm" style={{ color: 'var(--color-loop-muted)' }}>
-          Not yet linked to a client or team member. Once they book or get hired, this panel will populate.
+          Not yet linked to a client, team member, or application. Once they book, apply, or get hired, this panel will populate.
         </div>
       )}
     </div>
