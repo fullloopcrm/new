@@ -36,6 +36,8 @@ interface WebChatWidgetProps {
   agentIntro?: string
   /** Embedded-only: the "us" intro bubble (right, photo/orb avatar). */
   selfIntro?: string
+  /** Non-embedded header subtitle, next to the live-status dot. */
+  statusLine?: string
   /** Embedded-only: placeholder for the free-floating input. */
   composerPlaceholder?: string
   /** Embedded-only: tappable starter prompts shown until the visitor sends their first message. */
@@ -46,6 +48,7 @@ const DEFAULT_GREETING = "Hey — questions about pricing, availability, or your
 const DEFAULT_AGENT_INTRO = "Have a question? A real human's here, live."
 const DEFAULT_SELF_INTRO = "We'd love to help you."
 const DEFAULT_COMPOSER_PLACEHOLDER = "Ask us anything..."
+const DEFAULT_STATUS_LINE = "Real human, live"
 const DEFAULT_QUICK_REPLIES = ['I have a question', 'I need help']
 // Flat pastel fill for the agent/left bubble — a light tint standing in for
 // the reference screenshot's pink, adapted to the tenant's own warm palette.
@@ -119,6 +122,7 @@ export default function WebChatWidget({
   pulse = false,
   agentIntro = DEFAULT_AGENT_INTRO,
   selfIntro = DEFAULT_SELF_INTRO,
+  statusLine = DEFAULT_STATUS_LINE,
   composerPlaceholder = DEFAULT_COMPOSER_PLACEHOLDER,
   quickReplies = DEFAULT_QUICK_REPLIES,
 }: WebChatWidgetProps) {
@@ -258,7 +262,7 @@ export default function WebChatWidget({
           <p className="font-semibold text-[15px] text-slate-900 leading-tight truncate">{tenantName}</p>
           <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
             <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
-            Real human, live from Florida
+            {statusLine}
           </p>
         </div>
         {!embedded && (

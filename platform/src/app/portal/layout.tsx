@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import PortalChatWidget from './PortalChatWidget'
 
 type Lang = 'en' | 'es'
 type PortalAuth = {
@@ -27,7 +28,6 @@ export const usePortalAuth = () => useContext(PortalContext)
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<PortalAuth>(null)
   const [lang, setLangState] = useState<Lang>('en')
-  const [connectUnread, setConnectUnread] = useState(0)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -40,20 +40,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       if (storedLang === 'en' || storedLang === 'es') setLangState(storedLang)
     } catch { /* ignore */ }
   }, [])
-
-  // Poll connect unread count
-  useEffect(() => {
-    if (!auth) return
-    function fetchConnectUnread() {
-      fetch('/api/portal/connect/unread', { headers: { Authorization: `Bearer ${auth!.token}` } })
-        .then((r) => r.json())
-        .then((data) => setConnectUnread(data.unread || 0))
-        .catch(() => {})
-    }
-    fetchConnectUnread()
-    const interval = setInterval(fetchConnectUnread, 15000)
-    return () => clearInterval(interval)
-  }, [auth])
 
   const setAuth = useCallback((a: PortalAuth) => {
     setAuthState(a)
@@ -72,7 +58,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { href: '/portal', icon: '◻', label: t('Home', 'Inicio') },
     { href: '/portal/book', icon: '+', label: t('Book', 'Reservar') },
     { href: '/portal/feedback', icon: '★', label: t('Feedback', 'Opinión') },
-    { href: '/portal/connect', icon: '💬', label: t('Chat', 'Chat'), badge: connectUnread },
+    { href: '/portal/connect', icon: '💬', label: t('Chat', 'Chat') },
   ]
 
   return (
@@ -134,6 +120,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
           </nav>
         )}
+        {pathname !== '/portal/connect' && <PortalChatWidget />}
       </div>
     </PortalContext>
   )

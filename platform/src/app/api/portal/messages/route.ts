@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { protectClientAPI } from '@/lib/nycmaid/auth'
+import { verifyPortalToken } from '../auth/token'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
+import { notify } from '@/lib/notify'
 
-async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null }> {
+// Same Bearer-token session the rest of the current portal (e.g. /api/portal/connect)
+// uses. protectClientAPI()'s client_session cookie is never set by the current PIN
+// login flow (/api/portal/auth returns a signed token, not a cookie) — this route
+// previously used that dead check and could never actually authenticate a request.
+function authenticate(req: NextRequest): { clientId: string } | NextResponse {
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Not logged in' }, { status: 401 })
+  const auth = verifyPortalToken(token)
+  if (!auth) return NextResponse.json({ error: 'Session expired' }, { status: 401 })
+  return { clientId: auth.id }
+}
+
+async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null; clientName: string | null }> {
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('phone, email, name, tenant_id')
     .eq('id', clientId)
     .single()
-  if (!client) return { tenantId: null, contactId: null, threadId: null }
+  if (!client) return { tenantId: null, contactId: null, threadId: null, clientName: null }
   const tenantId = client.tenant_id
   const db = tenantDb(tenantId)
 
@@ -39,16 +52,16 @@ async function getClientThreadId(clientId: string): Promise<{ tenantId: string |
       if (contactId) await db.from('comhub_contacts').update({ client_id: clientId }).eq('id', contactId)
     }
   }
-  if (!contactId) return { tenantId, contactId: null, threadId: null }
+  if (!contactId) return { tenantId, contactId: null, threadId: null, clientName: client.name }
 
   const { data: tId } = await supabaseAdmin
     .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: 'web' })
-  return { tenantId, contactId, threadId: (tId as string) || null }
+  return { tenantId, contactId, threadId: (tId as string) || null, clientName: client.name }
 }
 
-export async function GET() {
-  const auth = await protectClientAPI()
-  if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
+export async function GET(req: NextRequest) {
+  const auth = authenticate(req)
+  if (auth instanceof NextResponse) return auth
   const { clientId } = auth
 
   const { tenantId, threadId } = await getClientThreadId(clientId)
@@ -68,14 +81,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await protectClientAPI()
-  if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
+  const auth = authenticate(req)
+  if (auth instanceof NextResponse) return auth
   const { clientId } = auth
 
   const body = await req.json().catch(() => null) as { body?: string } | null
   if (!body?.body?.trim()) return NextResponse.json({ error: 'body required' }, { status: 400 })
 
-  const { tenantId, contactId, threadId } = await getClientThreadId(clientId)
+  const { tenantId, contactId, threadId, clientName } = await getClientThreadId(clientId)
   if (!tenantId || !contactId || !threadId) return NextResponse.json({ error: 'no client thread' }, { status: 500 })
   const db = tenantDb(tenantId)
 
@@ -105,6 +118,13 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', threadId)
+
+  await notify({
+    tenantId,
+    type: 'sms_received',
+    title: `New Portal Message from ${clientName || 'a client'}`,
+    message: body.body.trim(),
+  }).catch(() => {})
 
   return NextResponse.json({ ok: true, message_id: msg.id })
 }

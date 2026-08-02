@@ -69,6 +69,7 @@ export default function SiteChatWidget({ embedded = false }: { embedded?: boolea
       tenantName="The Florida Maid"
       accentColor="#EA580C"
       brandColor="#1E2A4A"
+      statusLine="Real human, live from Florida"
       tenantLogoUrl={embedded ? '/sites/the-florida-maid/logo.png' : undefined}
       embedded={embedded}
       pulse={!embedded}

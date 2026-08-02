@@ -30,8 +30,8 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 let currentClientId: string
-vi.mock('@/lib/nycmaid/auth', () => ({
-  protectClientAPI: async () => ({ clientId: currentClientId }),
+vi.mock('../auth/token', () => ({
+  verifyPortalToken: () => ({ id: currentClientId, tid: 'irrelevant' }),
 }))
 
 import { supabaseAdmin } from '@/lib/supabase'
@@ -68,7 +68,8 @@ beforeEach(() => {
 describe('portal/messages GET — tenantDb isolation', () => {
   it("tenant A's client sees only tenant A's messages on a thread id shared (by literal value) with tenant B", async () => {
     // rpc calls aren't hit because comhub_contacts already resolves a contact.
-    const res = await GET()
+    const req = new NextRequest('http://x', { headers: { Authorization: 'Bearer testtoken' } })
+    const res = await GET(req)
     const body = await res.json()
     const ids = (body.messages as { id: string }[]).map((m) => m.id)
     expect(ids).toEqual(['msg-a'])
@@ -77,7 +78,11 @@ describe('portal/messages GET — tenantDb isolation', () => {
 
 describe('portal/messages POST — tenantDb isolation', () => {
   it("stamps a new message with tenant A's id, not any other tenant's, via the wrapper", async () => {
-    const req = new NextRequest('http://x', { method: 'POST', body: JSON.stringify({ body: 'New message from A' }) })
+    const req = new NextRequest('http://x', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer testtoken' },
+      body: JSON.stringify({ body: 'New message from A' }),
+    })
     const res = await POST(req)
     expect(res.status).toBe(200)
     const inserted = fake._all('comhub_messages').find((m) => m.body === 'New message from A')
