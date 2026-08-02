@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import PayoutSettings from './PayoutSettings'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+} from '@/components/auth/AuthShell'
+import { useAuthLang } from '@/components/auth/useAuthLang'
 
 interface Partner {
   id: string
@@ -53,6 +60,7 @@ interface PortalData {
 const TOKEN_KEY = 'sales_partner_token'
 
 export default function SalesPartnerPortalPage() {
+  const { lang, setLang, t } = useAuthLang()
   const [token, setToken] = useState<string | null>(null)
   const [data, setData] = useState<PortalData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -60,6 +68,14 @@ export default function SalesPartnerPortalPage() {
   const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
   const [copied, setCopied] = useState('')
+  const [businessName, setBusinessName] = useState('Sales Partner Portal')
+  const [step, setStep] = useState<'pin' | 'forgot' | 'forgot-sent'>('pin')
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [requestingPin, setRequestingPin] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/public/tenant-name').then((r) => r.json()).then((d) => d.name && setBusinessName(d.name)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null
@@ -111,7 +127,7 @@ export default function SalesPartnerPortalPage() {
       })
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || 'Login failed')
+        setError(json.error || t('Login failed', 'Error al iniciar sesión'))
         setLoading(false)
         return
       }
@@ -119,8 +135,32 @@ export default function SalesPartnerPortalPage() {
       setToken(json.token)
       await loadPortal(json.token)
     } catch {
-      setError('Login failed. Please try again.')
+      setError(t('Login failed. Please try again.', 'Error al iniciar sesión. Inténtalo de nuevo.'))
       setLoading(false)
+    }
+  }
+
+  async function requestPin(e: React.FormEvent) {
+    e.preventDefault()
+    if (!forgotEmail.trim() || requestingPin) return
+    setRequestingPin(true)
+    setError('')
+    try {
+      const res = await fetch('/api/sales-partners/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_pin', email: forgotEmail }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error || t('Could not send a PIN', 'No se pudo enviar el PIN'))
+        return
+      }
+      setStep('forgot-sent')
+    } catch {
+      setError(t('Connection error', 'Error de conexión'))
+    } finally {
+      setRequestingPin(false)
     }
   }
 
@@ -138,28 +178,68 @@ export default function SalesPartnerPortalPage() {
 
   const fmt = (cents: number) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })
 
+  if ((!token || !data) && step === 'forgot-sent') {
+    return (
+      <AuthShell businessName={businessName} subtitle={t('Sales Partner Portal', 'Portal de Socio de Ventas')} lang={lang} onToggleLang={setLang}>
+        <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
+          {t('A PIN was emailed to you. Check your inbox, then sign in.', 'Te enviamos un PIN por correo. Revisa tu bandeja de entrada y luego inicia sesión.')}
+        </p>
+        <button
+          type="button"
+          onClick={() => { setStep('pin'); setForgotEmail(''); setError('') }}
+          className={`mt-8 ${authButtonClass}`}
+        >
+          {t('Back to sign in →', 'Volver a iniciar sesión →')}
+        </button>
+      </AuthShell>
+    )
+  }
+
   if (!token || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1 text-center">Sales Partner Login</h1>
-          <p className="text-sm text-gray-500 mb-6 text-center">Enter the email and PIN from your invite.</p>
-          <form onSubmit={handleLogin} className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-            {error && <p className="text-sm text-red-600">{error}</p>}
+      <AuthShell businessName={businessName} subtitle={t('Sales Partner Portal', 'Portal de Socio de Ventas')} lang={lang} onToggleLang={setLang}>
+        {step === 'pin' ? (
+          <form className="mt-10" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="you@example.com" />
+              <label className={authLabelClass}>{t('Email', 'Correo')}</label>
+              <input type="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={authInputClass} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">PIN</label>
-              <input type="password" inputMode="numeric" maxLength={6} required value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} className="w-full px-3 py-2 border rounded-lg tracking-widest" placeholder="000000" />
+            <div className="mt-6">
+              <label className={authLabelClass}>{t('PIN', 'PIN')}</label>
+              <input type="password" inputMode="numeric" maxLength={6} required value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} placeholder={t('6-digit PIN', 'PIN de 6 dígitos')} className={authInputClass} />
             </div>
-            <button type="submit" disabled={loading} className="w-full py-2 bg-gray-900 text-white rounded-lg font-medium disabled:opacity-50">
-              {loading ? 'Logging in…' : 'Log In'}
+            {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+            <button type="submit" disabled={loading} className={`mt-8 ${authButtonClass}`}>
+              {loading ? t('Signing in…', 'Entrando…') : t('Sign in →', 'Entrar →')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('forgot'); setError('') }}
+              className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+            >
+              {t("Don't have a PIN?", '¿No tienes un PIN?')}
             </button>
           </form>
-        </div>
-      </div>
+        ) : (
+          <form className="mt-10" onSubmit={requestPin}>
+            <div>
+              <label className={authLabelClass}>{t('Email on file', 'Correo registrado')}</label>
+              <input type="email" autoFocus value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required placeholder="you@example.com" className={authInputClass} />
+            </div>
+            {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+            <button type="submit" disabled={requestingPin || !forgotEmail.trim()} className={`mt-8 ${authButtonClass}`}>
+              {requestingPin ? t('Sending…', 'Enviando…') : t('Email me a PIN →', 'Enviarme un PIN →')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('pin'); setError('') }}
+              className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+            >
+              {t('← Back', '← Volver')}
+            </button>
+          </form>
+        )}
+      </AuthShell>
     )
   }
 

@@ -25,7 +25,7 @@ export default function PortalLoginForm({ businessName }: PortalLoginFormProps) 
 }
 
 function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
-  const { setAuth } = usePortalAuth()
+  const { setAuth, t, lang, setLang } = usePortalAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>('pin')
@@ -58,14 +58,14 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
       if (!res.ok) {
         // The server couldn't resolve a business from the host → ask for it.
         if (data.error === 'Business code required') setNeedBusiness(true)
-        setError(data.error || 'Login failed')
+        setError(data.error || t('Login failed', 'Error al iniciar sesión'))
         setPin('')
         return
       }
       setAuth(data)
       router.push('/portal')
     } catch {
-      setError('Connection error')
+      setError(t('Connection error', 'Error de conexión'))
     } finally {
       setLoading(false)
     }
@@ -97,12 +97,12 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
       const data = await res.json()
       if (!res.ok) {
         if (data.error === 'Business code required') setNeedBusiness(true)
-        setError(data.error || 'Could not send a PIN')
+        setError(data.error || t('Could not send a PIN', 'No se pudo enviar el PIN'))
         return
       }
       setStep('forgot-sent')
     } catch {
-      setError('Connection error')
+      setError(t('Connection error', 'Error de conexión'))
     } finally {
       setLoading(false)
     }
@@ -110,9 +110,9 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
 
   if (step === 'forgot-sent') {
     return (
-      <AuthShell businessName={businessName} subtitle="Client Portal">
+      <AuthShell businessName={businessName} subtitle={t('Client Portal', 'Portal de Cliente')} lang={lang} onToggleLang={setLang}>
         <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
-          A PIN was emailed to you. Check your inbox, then sign in.
+          {t('A PIN was emailed to you. Check your inbox, then sign in.', 'Te enviamos un PIN por correo. Revisa tu bandeja de entrada y luego inicia sesión.')}
         </p>
         <button
           type="button"
@@ -123,20 +123,25 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
           }}
           className={`mt-8 ${authButtonClass}`}
         >
-          Back to sign in →
+          {t('Back to sign in →', 'Volver a iniciar sesión →')}
         </button>
       </AuthShell>
     )
   }
 
   return (
-    <AuthShell businessName={businessName} subtitle="Client Portal">
+    <AuthShell
+      businessName={businessName}
+      subtitle={t('Client Portal', 'Portal de Cliente')}
+      lang={lang}
+      onToggleLang={setLang}
+    >
       {step === 'pin' ? (
         <form className="mt-10" onSubmit={login}>
           {needBusiness && (
             <div>
               <label htmlFor="portal-slug" className={authLabelClass}>
-                Business code
+                {t('Business code', 'Código de negocio')}
               </label>
               <input
                 id="portal-slug"
@@ -150,7 +155,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
 
           <div className={needBusiness ? 'mt-6' : ''}>
             <label htmlFor="portal-pin" className={authLabelClass}>
-              PIN
+              {t('PIN', 'PIN')}
             </label>
             <input
               id="portal-pin"
@@ -162,7 +167,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
               required
               maxLength={6}
-              placeholder="PIN"
+              placeholder={t('PIN', 'PIN')}
               className={authInputClass}
             />
           </div>
@@ -174,7 +179,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
             disabled={loading || pin.length < 4 || (needBusiness && !slug)}
             className={`mt-8 ${authButtonClass}`}
           >
-            {loading ? 'Signing in…' : 'Sign in →'}
+            {loading ? t('Signing in…', 'Entrando…') : t('Sign in →', 'Entrar →')}
           </button>
           <button
             type="button"
@@ -184,7 +189,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
             }}
             className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
           >
-            Don&apos;t have a PIN?
+            {t("Don't have a PIN?", '¿No tienes un PIN?')}
           </button>
         </form>
       ) : (
@@ -192,7 +197,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
           {needBusiness && (
             <div>
               <label htmlFor="forgot-slug" className={authLabelClass}>
-                Business code
+                {t('Business code', 'Código de negocio')}
               </label>
               <input
                 id="forgot-slug"
@@ -206,7 +211,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
 
           <div className={needBusiness ? 'mt-6' : ''}>
             <label htmlFor="forgot-contact" className={authLabelClass}>
-              Phone or email on file
+              {t('Phone or email on file', 'Teléfono o correo registrado')}
             </label>
             <input
               id="forgot-contact"
@@ -214,7 +219,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
               value={contact}
               onChange={(e) => setContact(e.target.value)}
               required
-              placeholder="Phone or email"
+              placeholder={t('Phone or email', 'Teléfono o correo')}
               className={authInputClass}
             />
           </div>
@@ -222,7 +227,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
           {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
 
           <button type="submit" disabled={loading || (needBusiness && !slug)} className={`mt-8 ${authButtonClass}`}>
-            {loading ? 'Sending…' : 'Email me a PIN →'}
+            {loading ? t('Sending…', 'Enviando…') : t('Email me a PIN →', 'Enviarme un PIN →')}
           </button>
           <button
             type="button"
@@ -232,7 +237,7 @@ function PortalLoginFormInner({ businessName }: PortalLoginFormProps) {
             }}
             className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
           >
-            ← Back
+            {t('← Back', '← Volver')}
           </button>
         </form>
       )}

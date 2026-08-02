@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { Lang } from './useAuthLang'
 
 /** Shared field/button styling so every auth surface looks identical. */
 export const authLabelClass =
@@ -25,6 +26,9 @@ interface AuthShellProps {
   subtitle?: string
   /** Footer help links (Forgot PIN, Feedback, Contact, etc.). */
   helpLinks?: AuthHelpLink[]
+  /** Current language. Omit both this and onToggleLang to hide the switcher entirely. */
+  lang?: Lang
+  onToggleLang?: (lang: Lang) => void
   children: ReactNode
 }
 
@@ -53,12 +57,25 @@ export default function AuthShell({
   businessName,
   subtitle = 'Admin Portal',
   helpLinks,
+  lang,
+  onToggleLang,
   children,
 }: AuthShellProps) {
   return (
     <div className="min-h-screen bg-[#f4f3f0] flex items-center justify-center p-4">
       <div className="w-full max-w-lg border border-neutral-300 bg-white p-10 sm:p-14">
-        <Wordmark />
+        <div className="flex items-start justify-between gap-4">
+          <Wordmark />
+          {lang && onToggleLang && (
+            <button
+              type="button"
+              onClick={() => onToggleLang(lang === 'en' ? 'es' : 'en')}
+              className="flex-shrink-0 rounded-none border border-neutral-300 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-neutral-500 transition-colors hover:border-neutral-900 hover:text-neutral-900"
+            >
+              {lang === 'en' ? 'Español' : 'English'}
+            </button>
+          )}
+        </div>
         <div className="mt-6 border-t border-neutral-200 pt-6">
           <h1 className="font-serif text-4xl font-medium text-neutral-900 leading-none">
             {businessName}

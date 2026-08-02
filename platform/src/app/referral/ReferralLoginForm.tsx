@@ -8,6 +8,7 @@ import AuthShell, {
   authButtonClass,
   authErrorClass,
 } from '@/components/auth/AuthShell'
+import { useAuthLang } from '@/components/auth/useAuthLang'
 
 interface ReferralLoginFormProps {
   businessName: string
@@ -17,6 +18,7 @@ interface ReferralLoginFormProps {
 // token. The earnings dashboard (with client names) is gated behind this so the
 // referral code alone can no longer reveal a partner's earnings.
 export default function ReferralLoginForm({ businessName }: ReferralLoginFormProps) {
+  const { lang, setLang, t } = useAuthLang()
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -38,10 +40,10 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
         setStep('code')
       } else {
         const d = await res.json().catch(() => ({}))
-        setError(d.error || 'Something went wrong. Please try again.')
+        setError(d.error || t('Something went wrong. Please try again.', 'Algo salió mal. Inténtalo de nuevo.'))
       }
     } catch {
-      setError('Failed to connect. Please try again.')
+      setError(t('Failed to connect. Please try again.', 'Error de conexión. Inténtalo de nuevo.'))
     }
     setLoading(false)
   }
@@ -61,10 +63,10 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
         localStorage.setItem('referrer_auth', JSON.stringify({ token: d.token, code: d.referral_code }))
         router.push(`/referral/${d.referral_code}`)
       } else {
-        setError(d.error || 'Invalid or expired code.')
+        setError(d.error || t('Invalid or expired code.', 'Código inválido o expirado.'))
       }
     } catch {
-      setError('Failed to connect. Please try again.')
+      setError(t('Failed to connect. Please try again.', 'Error de conexión. Inténtalo de nuevo.'))
     }
     setLoading(false)
   }
@@ -72,13 +74,15 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
   return (
     <AuthShell
       businessName={businessName}
-      subtitle="Referral Portal"
-      helpLinks={[{ label: 'Join the Program', href: '/referral/signup' }]}
+      subtitle={t('Referral Portal', 'Portal de Referidos')}
+      lang={lang}
+      onToggleLang={setLang}
+      helpLinks={[{ label: t('Join the Program', 'Unirme al Programa'), href: '/referral/signup' }]}
     >
       {step === 'email' ? (
         <div className="mt-10">
           <label htmlFor="referral-email" className={authLabelClass}>
-            Email
+            {t('Email', 'Correo')}
           </label>
           <input
             id="referral-email"
@@ -87,7 +91,7 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && requestCode()}
             className={authInputClass}
-            placeholder="Enter your email"
+            placeholder={t('Enter your email', 'Ingresa tu correo')}
             autoFocus
           />
 
@@ -99,18 +103,18 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
             disabled={loading || !email}
             className={`mt-8 ${authButtonClass}`}
           >
-            {loading ? 'Sending…' : 'Email me a login code →'}
+            {loading ? t('Sending…', 'Enviando…') : t('Email me a login code →', 'Enviarme un código →')}
           </button>
         </div>
       ) : (
         <div className="mt-10">
           <p className="font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
-            We sent a 6-digit code to <span className="text-neutral-800">{email}</span>.
+            {t('We sent a 6-digit code to', 'Enviamos un código de 6 dígitos a')} <span className="text-neutral-800">{email}</span>.
           </p>
 
           <div className="mt-6">
             <label htmlFor="referral-code" className={authLabelClass}>
-              Login Code
+              {t('Login Code', 'Código de Acceso')}
             </label>
             <input
               id="referral-code"
@@ -135,14 +139,14 @@ export default function ReferralLoginForm({ businessName }: ReferralLoginFormPro
             disabled={loading || code.length < 6}
             className={`mt-8 ${authButtonClass}`}
           >
-            {loading ? 'Verifying…' : 'View my earnings →'}
+            {loading ? t('Verifying…', 'Verificando…') : t('View my earnings →', 'Ver mis ganancias →')}
           </button>
           <button
             type="button"
             onClick={() => { setStep('email'); setCode(''); setError('') }}
             className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
           >
-            ← Use a different email
+            {t('← Use a different email', '← Usar otro correo')}
           </button>
         </div>
       )}

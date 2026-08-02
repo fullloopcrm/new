@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import PayoutSettings from './PayoutSettings'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+} from '@/components/auth/AuthShell'
+import { useAuthLang } from '@/components/auth/useAuthLang'
 
 interface Partner {
   id: string
@@ -69,6 +76,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function SalesPartnerPortalPage() {
+  const { lang, setLang, t } = useAuthLang()
   const [token, setToken] = useState<string | null>(null)
   const [data, setData] = useState<PortalData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -76,6 +84,9 @@ export default function SalesPartnerPortalPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
+  const [step, setStep] = useState<'pin' | 'forgot' | 'forgot-sent'>('pin')
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [requestingPin, setRequestingPin] = useState(false)
 
   useEffect(() => {
     document.title = 'Sales Partner Portal | The NYC Maid'
@@ -129,7 +140,7 @@ export default function SalesPartnerPortalPage() {
       })
       const json = await res.json()
       if (!res.ok) {
-        setError(json.error || 'Login failed.')
+        setError(json.error || t('Login failed.', 'Error al iniciar sesión.'))
         setLoggingIn(false)
         return
       }
@@ -137,9 +148,33 @@ export default function SalesPartnerPortalPage() {
       setToken(json.token)
       await loadPortal(json.token)
     } catch {
-      setError('Login failed.')
+      setError(t('Login failed.', 'Error al iniciar sesión.'))
     }
     setLoggingIn(false)
+  }
+
+  const requestPin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail.trim() || requestingPin) return
+    setRequestingPin(true)
+    setError('')
+    try {
+      const res = await fetch('/api/sales-partners/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_pin', email: forgotEmail }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error || t('Could not send a PIN', 'No se pudo enviar el PIN'))
+        return
+      }
+      setStep('forgot-sent')
+    } catch {
+      setError(t('Connection error', 'Error de conexión'))
+    } finally {
+      setRequestingPin(false)
+    }
   }
 
   const logout = () => {
@@ -157,33 +192,74 @@ export default function SalesPartnerPortalPage() {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>
   }
 
+  if ((!token || !data) && step === 'forgot-sent') {
+    return (
+      <AuthShell businessName="The NYC Maid" subtitle={t('Sales Partner Portal', 'Portal de Socio de Ventas')} lang={lang} onToggleLang={setLang}>
+        <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
+          {t('A PIN was emailed to you. Check your inbox, then sign in.', 'Te enviamos un PIN por correo. Revisa tu bandeja de entrada y luego inicia sesión.')}
+        </p>
+        <button
+          type="button"
+          onClick={() => { setStep('pin'); setForgotEmail(''); setError('') }}
+          className={`mt-8 ${authButtonClass}`}
+        >
+          {t('Back to sign in →', 'Volver a iniciar sesión →')}
+        </button>
+      </AuthShell>
+    )
+  }
+
   if (!token || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-[#1E2A4A]">Sales Partner Portal</h1>
-            <p className="text-gray-500 mt-1">Log in with the email and PIN from your approval email</p>
-          </div>
-          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
-          <div className="space-y-4">
+      <AuthShell businessName="The NYC Maid" subtitle={t('Sales Partner Portal', 'Portal de Socio de Ventas')} lang={lang} onToggleLang={setLang}>
+        {step === 'pin' ? (
+          <form className="mt-10" onSubmit={(e) => { e.preventDefault(); login() }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]" placeholder="you@example.com" />
+              <label className={authLabelClass}>{t('Email', 'Correo')}</label>
+              <input type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={authInputClass} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">PIN</label>
-              <input type="password" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && login()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A] tracking-widest" placeholder="6-digit PIN" />
+            <div className="mt-6">
+              <label className={authLabelClass}>{t('PIN', 'PIN')}</label>
+              <input type="password" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} placeholder={t('6-digit PIN', 'PIN de 6 dígitos')} className={authInputClass} />
             </div>
-            <button onClick={login} disabled={loggingIn} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90 disabled:opacity-50">
-              {loggingIn ? 'Logging in...' : 'Log In'}
+            {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+            <button type="submit" disabled={loggingIn || !email || !pin} className={`mt-8 ${authButtonClass}`}>
+              {loggingIn ? t('Signing in…', 'Entrando…') : t('Sign in →', 'Entrar →')}
             </button>
-          </div>
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-500">Not approved yet? <a href="/apply/commission-sales-partner" className="text-[#1E2A4A] hover:underline">Apply here</a></p>
-          </div>
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={() => { setStep('forgot'); setError('') }}
+              className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+            >
+              {t("Don't have a PIN?", '¿No tienes un PIN?')}
+            </button>
+            <p className="mt-8 text-center font-mono text-xs uppercase tracking-wide text-neutral-500">
+              {t('Not approved yet?', '¿Aún no eres socio aprobado?')}{' '}
+              <a href="/apply/commission-sales-partner" className="text-neutral-900 underline underline-offset-2">
+                {t('Apply here', 'Aplica aquí')}
+              </a>
+            </p>
+          </form>
+        ) : (
+          <form className="mt-10" onSubmit={requestPin}>
+            <div>
+              <label className={authLabelClass}>{t('Email on file', 'Correo registrado')}</label>
+              <input type="email" autoFocus value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required placeholder="you@example.com" className={authInputClass} />
+            </div>
+            {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+            <button type="submit" disabled={requestingPin || !forgotEmail.trim()} className={`mt-8 ${authButtonClass}`}>
+              {requestingPin ? t('Sending…', 'Enviando…') : t('Email me a PIN →', 'Enviarme un PIN →')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep('pin'); setError('') }}
+              className="mt-4 w-full font-mono text-xs uppercase tracking-wide text-neutral-500"
+            >
+              {t('← Back', '← Volver')}
+            </button>
+          </form>
+        )}
+      </AuthShell>
     )
   }
 
