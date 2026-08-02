@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
@@ -68,8 +68,14 @@ export async function GET(request: Request) {
       return NextResponse.json(data)
     }
 
-    // Admin-session path.
-    const { tenantId } = await getTenantForRequest()
+    // Admin-session path. Previously only getTenantForRequest() -- same
+    // dormant-override-class gap found elsewhere this session, but here it
+    // exposes real financial data (commission_cents, gross_amount_cents,
+    // client names) with zero permission check. Fixed to require
+    // referrals.view, matching this route's own POST/PUT bar.
+    const { tenant, error: authError } = await requirePermission('referrals.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     let query = supabaseAdmin
       .from('referral_commissions')
       .select('*, referrers(name, email, referral_code), bookings(start_time, price)')

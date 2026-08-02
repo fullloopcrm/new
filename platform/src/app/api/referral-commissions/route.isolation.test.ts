@@ -52,7 +52,7 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
 
 // Real requirePermission + real rbac run against the mocked tenant-query above,
 // so a 'staff'/'manager' role is denied by the ACTUAL permission table, not a stub.
-import { POST, PUT } from './route'
+import { GET, POST, PUT } from './route'
 
 function seed() {
   return {
@@ -79,6 +79,30 @@ beforeEach(() => {
 function req(body: Record<string, unknown>) {
   return new Request('http://t', { method: 'POST', body: JSON.stringify(body) })
 }
+
+describe('referral-commissions GET (admin-session path) — permission isolation (2026-08-01)', () => {
+  // The admin-session branch (no referrer_id param) previously only called
+  // getTenantForRequest() with no permission check, unlike this file's
+  // already-fixed POST/PUT -- a real gap exposing financial data
+  // (commission_cents, gross_amount_cents, client names) to any authenticated
+  // role. Fixed to require referrals.view, matching POST/PUT's own bar.
+  it('owner can list commissions via the admin-session path', async () => {
+    const res = await GET(new Request('http://t/api/referral-commissions'))
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: 'staff' role (no referrals.view) is forbidden", async () => {
+    roleHolder.role = 'staff'
+    const res = await GET(new Request('http://t/api/referral-commissions'))
+    expect(res.status).toBe(403)
+  })
+
+  it("'manager' role (has referrals.view) is allowed", async () => {
+    roleHolder.role = 'manager'
+    const res = await GET(new Request('http://t/api/referral-commissions'))
+    expect(res.status).toBe(200)
+  })
+})
 
 describe('referral-commissions POST — permission isolation', () => {
   it('owner can create a commission', async () => {

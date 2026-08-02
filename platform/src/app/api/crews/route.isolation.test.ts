@@ -19,6 +19,7 @@ const OTHER_TENANT = 'tid-b'
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
     status: number
@@ -32,8 +33,8 @@ vi.mock('@/lib/tenant-query', () => {
     getTenantForRequest: vi.fn(async () => ({
       userId: 'u1',
       tenantId: CTX_TENANT,
-      tenant: { id: CTX_TENANT },
-      role: 'owner',
+      tenant: { id: CTX_TENANT, selena_config: null },
+      role: roleHolder.role,
     })),
   }
 })
@@ -60,6 +61,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
 })
 
 describe('crews GET — tenant isolation', () => {
@@ -140,5 +142,39 @@ describe('crews DELETE — tenant isolation', () => {
     const body = await res.json()
     expect(body.ok).toBe(true)
     expect(h.seed.crews.some((c: Row) => c.id === 'crew-a')).toBe(false)
+  })
+})
+
+describe('crews — permission gate regression (2026-08-01)', () => {
+  // All 4 verbs previously called bare getTenantForRequest() with no
+  // permission check. staff has team.view but NOT team.edit by default in
+  // src/lib/rbac.ts -- a real, live gap for the 3 mutating verbs.
+  it('GET still succeeds for staff (has team.view by default)', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(200)
+  })
+
+  it('POST is denied with 403 for staff and does not insert', async () => {
+    roleHolder.role = 'staff'
+    const req = new Request('http://x/api/crews', { method: 'POST', body: JSON.stringify({ name: 'Staff Crew' }) })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(h.capture.inserts.find((i) => i.table === 'crews' && i.rows.some((r) => r.name === 'Staff Crew'))).toBeFalsy()
+  })
+
+  it('PATCH is denied with 403 for staff and does not modify the crew', async () => {
+    roleHolder.role = 'staff'
+    const req = new Request('http://x/api/crews', { method: 'PATCH', body: JSON.stringify({ id: 'crew-a', name: 'Staff Hijack' }) })
+    const res = await PATCH(req)
+    expect(res.status).toBe(403)
+    expect(h.seed.crews.find((r: Row) => r.id === 'crew-a')!.name).toBe('Alpha')
+  })
+
+  it('DELETE is denied with 403 for staff and the crew survives', async () => {
+    roleHolder.role = 'staff'
+    const res = await DELETE(new Request('http://t/api/crews?id=crew-a', { method: 'DELETE' }))
+    expect(res.status).toBe(403)
+    expect(h.seed.crews.some((c: Row) => c.id === 'crew-a')).toBe(true)
   })
 })

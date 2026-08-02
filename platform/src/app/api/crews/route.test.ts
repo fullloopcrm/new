@@ -96,6 +96,11 @@ vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({ tenantId: h.tenantId }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
+// PATCH now goes through requirePermission (team.edit) instead of calling
+// getTenantForRequest directly -- see the route's own comment.
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: h.tenantId }, error: null }),
+}))
 
 import { PATCH } from './route'
 
