@@ -257,14 +257,14 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'fiscalYearStart', label: 'Fiscal year start (month)', section: 'identity', store: 'entity', col: 'fiscal_year_start', kind: 'number', input: 'select', options: MONTH_OPTIONS, tier: 'optional', read: (x) => e(x, 'fiscal_year_start'), help: 'The month your business "year" starts for accounting purposes. Most businesses use January — leave this blank unless you know yours is different.' },
 
   // ── Contact & location ────────────────────────────────────────────
-  { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', validation: { kind: 'minLength', minLength: 10, digitsOnly: true, message: 'Enter a real 10-digit phone number.' }, read: (x) => t(x, 'phone') },
-  { key: 'email', label: 'Business email', section: 'contact', store: 'tenant', col: 'email', tier: 'critical', read: (x) => t(x, 'email') },
-  { key: 'address', label: 'Street address', section: 'contact', store: 'tenant', col: 'address', input: 'custom', tier: 'critical', read: (x) => t(x, 'address') },
-  { key: 'city', label: 'City', section: 'contact', store: 'entity', col: 'city', tier: 'recommended', read: (x) => e(x, 'city') },
-  { key: 'state', label: 'State', section: 'contact', store: 'entity', col: 'state', input: 'select', options: STATE_OPTIONS, tier: 'recommended', read: (x) => e(x, 'state') },
-  { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', read: (x) => e(x, 'zip') },
-  { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', read: (x) => t(x, 'website_url') },
-  { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', read: (x) => t(x, 'owner_email') },
+  { key: 'phone', label: 'Business phone', section: 'contact', store: 'tenant', col: 'phone', tier: 'critical', help: 'The number customers call or text — shows on your site and booking confirmations.', validation: { kind: 'minLength', minLength: 10, digitsOnly: true, message: 'Enter a real 10-digit phone number.' }, read: (x) => t(x, 'phone') },
+  { key: 'email', label: 'Business email', section: 'contact', store: 'tenant', col: 'email', tier: 'critical', help: 'Your business inbox — shows on your site and on invoices/receipts.', read: (x) => t(x, 'email') },
+  { key: 'address', label: 'Street address', section: 'contact', store: 'tenant', col: 'address', input: 'custom', tier: 'critical', help: 'Your primary business address — verified via Radar, used to build your service area below and shown on invoices.', read: (x) => t(x, 'address') },
+  { key: 'city', label: 'City', section: 'contact', store: 'entity', col: 'city', tier: 'recommended', help: 'Auto-fills when you pick your address above — edit if it\'s not quite right.', read: (x) => e(x, 'city') },
+  { key: 'state', label: 'State', section: 'contact', store: 'entity', col: 'state', input: 'select', options: STATE_OPTIONS, tier: 'recommended', help: 'Auto-fills when you pick your address above.', read: (x) => e(x, 'state') },
+  { key: 'zip', label: 'ZIP', section: 'contact', store: 'entity', col: 'zip', tier: 'recommended', help: 'Auto-fills when you pick your address above.', read: (x) => e(x, 'zip') },
+  { key: 'websiteUrl', label: 'Website', section: 'contact', store: 'tenant', col: 'website_url', tier: 'recommended', help: 'Your existing website, if you have one — leave blank if you don\'t yet.', read: (x) => t(x, 'website_url') },
+  { key: 'ownerEmail', label: 'Owner / admin email', section: 'contact', store: 'tenant', col: 'owner_email', tier: 'recommended', help: 'The owner\'s own login/notification email — separate from the public business email above.', read: (x) => t(x, 'owner_email') },
   { key: 'leadNotificationEmail', label: 'Lead alert email', section: 'contact', store: 'tenant', col: 'lead_notification_email', tier: 'recommended', help: 'Where WE send you an alert the moment a new lead comes in from your website or booking form — usually the same as your business email, but can be different if you want leads routed to someone else.', read: (x) => t(x, 'lead_notification_email') },
 
   // Was 3 separate scalar fields (name/email/phone), capped at exactly one
@@ -286,7 +286,7 @@ export const PROFILE_FIELDS: FieldDef[] = [
   // just the scope.
   { key: 'serviceScope', label: 'Service scope', section: 'contact', store: 'selena', readonly: true, input: 'select', options: SCOPE_OPTIONS, tier: 'critical', read: (x) => (s(x, 'service_area') as Record<string, unknown> | undefined)?.scope },
   { key: 'serviceArea', label: 'Service area', section: 'contact', store: 'selena', col: 'service_area', input: 'custom', tier: 'critical', help: 'This is for SEO — it decides where we target you to attract leads and job applicants from.', read: (x) => s(x, 'service_area') },
-  { key: 'serviceRadius', label: 'Service radius (mi)', section: 'contact', store: 'tenant', col: 'service_radius_miles', kind: 'number', input: 'number', tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'service_radius_miles') },
+  { key: 'serviceRadius', label: 'Service radius (mi)', section: 'contact', store: 'tenant', col: 'service_radius_miles', kind: 'number', input: 'number', tier: 'critical', help: 'How far from your address you\'ll travel for a job — drives the auto-filled coverage area above.', funnels: ['booking', 'pipeline'], read: (x) => t(x, 'service_radius_miles') },
   { key: 'serviceLat', label: 'Geocoded center', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => t(x, 'service_area_lat') },
   { key: 'timezone', label: 'Timezone', section: 'scheduling', store: 'tenant', col: 'timezone', tier: 'critical', read: (x) => t(x, 'timezone') },
 
@@ -296,10 +296,10 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'hasSecondaryLocations', label: 'Additional locations', section: 'contact', store: 'tenant', readonly: true, tier: 'optional', read: (x) => x.secondaryLocationCount > 0 },
 
   // ── Brand & site ──────────────────────────────────────────────────
-  { key: 'logoUrl', label: 'Logo', section: 'brand', store: 'tenant', col: 'logo_url', tier: 'recommended', read: (x) => t(x, 'logo_url') },
-  { key: 'primaryColor', label: 'Primary color', section: 'brand', store: 'tenant', col: 'primary_color', input: 'color', tier: 'recommended', read: (x) => t(x, 'primary_color') },
-  { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', read: (x) => t(x, 'secondary_color') },
-  { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', read: (x) => t(x, 'tagline') },
+  { key: 'logoUrl', label: 'Logo', section: 'brand', store: 'tenant', col: 'logo_url', tier: 'recommended', help: 'A link to your logo image — upload it to Google Drive/Dropbox first, then paste a shareable link here.', read: (x) => t(x, 'logo_url') },
+  { key: 'primaryColor', label: 'Primary color', section: 'brand', store: 'tenant', col: 'primary_color', input: 'color', tier: 'recommended', help: 'Your main brand color — used across your site and client emails.', read: (x) => t(x, 'primary_color') },
+  { key: 'secondaryColor', label: 'Secondary color', section: 'brand', store: 'tenant', col: 'secondary_color', input: 'color', tier: 'optional', help: 'An accent color that pairs with your primary color.', read: (x) => t(x, 'secondary_color') },
+  { key: 'tagline', label: 'Tagline', section: 'brand', store: 'tenant', col: 'tagline', tier: 'recommended', help: 'A short line under your business name — e.g. "Trusted cleaning since 2015."', read: (x) => t(x, 'tagline') },
   { key: 'businessDescription', label: 'What the business does', section: 'brand', store: 'selena', col: 'business_description', input: 'custom', tier: 'critical', help: 'Tap what applies to start, then edit or add to it — type or talk.', read: (x) => s(x, 'business_description') },
   { key: 'differentiators', label: 'What makes you different', section: 'brand', store: 'selena', col: 'differentiators', kind: 'array', input: 'custom', tier: 'optional', help: 'The real reasons a customer picks you over the next search result — tap what applies, add your own if it\'s not listed.', read: (x) => s(x, 'differentiators') },
 
