@@ -15,7 +15,6 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { isCommEnabled } from '@/lib/comms-prefs'
@@ -24,7 +23,6 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
-import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
@@ -183,139 +181,33 @@ export async function POST(request: Request) {
       // ── Full Loop signup: prospect paid → create tenant ──
       if (prospectId && isFullLoopSignup) {
         // Compare-and-swap claim. Stripe retries webhooks; two deliveries can
-        // race and both see prospect.tenant_id = null before either writes.
-        // Flip status approved|reviewing → paid in a single UPDATE so only one
-        // delivery wins; losers return idempotent without inserting a tenant.
-        const { data: claim } = await supabaseAdmin
+        // race and both see this as unclaimed before either writes. Flip
+        // status approved|reviewing|new → paid in a single UPDATE so only one
+        // delivery wins.
+        //
+        // 2026-08-02: this used to also create + immediately ACTIVATE a live
+        // tenant right here, on Stripe payment alone — completely bypassing
+        // the $25k wire requirement (the wire was "out of band," meaning
+        // nothing actually checked for it). That's now fixed to match the
+        // sales-assisted lead flow: paying here only records the subscription;
+        // an admin must confirm the wire landed before a tenant is created at
+        // all (see admin/prospects/[id]/wire-received).
+        const { error } = await supabaseAdmin
           .from('prospects')
           .update({
             status: 'paid',
             paid_at: new Date().toISOString(),
             stripe_checkout_session_id: session.id,
+            stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
+            subscription_started_at: new Date().toISOString(),
           })
           .eq('id', prospectId)
           .in('status', ['approved', 'reviewing', 'new'])
-          .select('id')
-          .maybeSingle()
 
-        if (!claim) {
-          return NextResponse.json({ received: true, already_processed: true })
-        }
-
-        const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
-        if (prospect && !prospect.tenant_id) {
-          // Seat-based signup pricing, recomputed server-side from checkout
-          // metadata (never from $ stored on the prospect row) so a corrupted
-          // row can't mint a $0 tenant. Defaults to 1 admin ($2,500/mo) when a
-          // legacy Payment Link supplies no seat metadata.
-          const pricing = signupPricing({
-            admins: Number(session.metadata?.admins) || 1,
-            teamMembers: Number(session.metadata?.team_members) || 0,
-          })
-
-          const slug = prospect.business_name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
-            .slice(0, 48) + '-' + prospectId.slice(0, 6)
-          const { data: tenant } = await supabaseAdmin
-            .from('tenants')
-            .insert({
-              name: prospect.business_name,
-              slug,
-              industry: prospect.trade,
-              phone: prospect.owner_phone,
-              email: prospect.owner_email,
-              owner_name: prospect.owner_name,
-              owner_email: prospect.owner_email,
-              owner_phone: prospect.owner_phone,
-              status: 'active',
-              // 'plan' is a non-pricing segment label; billing is seat-based (monthly_rate).
-              plan: prospect.paid_tier || session.metadata?.tier || 'pro',
-              monthly_rate: Math.round(pricing.monthly_cents / 100),
-              setup_fee: Math.round(pricing.setup_cents / 100),
-              // Setup is paid by bank wire out of band — mark it paid via the admin
-              // "Mark setup fee as paid" action when the wire lands, not at card checkout.
-              setup_fee_paid_at: null,
-              // Store the subscription id so seat changes can re-sync per-seat quantities.
-              stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
-              // Persist the seat counts so the tenant board / rate stay seat-driven.
-              admin_seats: pricing.admins,
-              team_seats: pricing.teamMembers,
-              billing_status: 'active',
-              address: prospect.primary_city && prospect.primary_state
-                ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()
-                : null,
-            })
-            .select('id')
-            .single()
-          if (tenant) {
-            // Seed default entity + chart of accounts + Selena config
-            await supabaseAdmin.from('entities').insert({
-              tenant_id: tenant.id, name: prospect.business_name, is_default: true, active: true,
-            })
-            const { provisionTenant } = await import('@/lib/provision-tenant')
-            await provisionTenant({
-              tenantId: tenant.id,
-              industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
-            })
-            await supabaseAdmin.from('prospects').update({
-              tenant_id: tenant.id,
-            }).eq('id', prospectId)
-
-            // This tenant goes live immediately (paid checkout) — no
-            // separate admin "Activate" click ever happens for it. Stamp
-            // activated_at and run the same post-activation tasks
-            // activate-tenant.ts triggers (FL-team ping, health baseline,
-            // first-pass content draft) so it isn't silently skipped.
-            await supabaseAdmin.from('tenants').update({ activated_at: new Date().toISOString() }).eq('id', tenant.id)
-            const { runPostActivationTasks } = await import('@/lib/post-activation')
-            runPostActivationTasks(tenant.id).catch((e) => console.error('[stripe webhook] post-activation tasks failed:', e))
-
-            // Send tenant owner an invite so they can log in and run setup.
-            // Without this, a paid tenant has no way into their dashboard
-            // and would be stuck until a super-admin manually invited them.
-            try {
-              const { randomBytes } = await import('node:crypto')
-              const token = randomBytes(32).toString('hex')
-              const expires_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-              await supabaseAdmin.from('tenant_invites').insert({
-                tenant_id: tenant.id,
-                email: prospect.owner_email.toLowerCase(),
-                role: 'owner',
-                token,
-                expires_at,
-              })
-              const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
-              const joinUrl = `${appUrl}/join/${token}`
-              const { sendEmail } = await import('@/lib/email')
-              await sendEmail({
-                to: prospect.owner_email,
-                subject: `Welcome to Full Loop CRM — set up ${prospect.business_name}`,
-                html: `
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;">
-                    <div style="background:#1e40af;padding:28px;text-align:center;border-radius:12px 12px 0 0;">
-                      <h1 style="color:white;margin:0;font-size:22px;">Welcome to Full Loop CRM</h1>
-                    </div>
-                    <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-                      <p style="color:#111827;font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(prospect.owner_name || 'there')},</p>
-                      <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-                        Your ${escapeHtml(prospect.business_name)} account is set up and ready. Click below to sign in, finish onboarding, and connect your phone number, email, and payment integrations.
-                      </p>
-                      <div style="text-align:center;margin:24px 0;">
-                        <a href="${joinUrl}" style="display:inline-block;background:#1e40af;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Get Started</a>
-                      </div>
-                      <p style="color:#6b7280;font-size:13px;line-height:1.6;">This link expires in 14 days. If you weren't expecting this, you can safely ignore it.</p>
-                    </div>
-                  </div>
-                `,
-              })
-            } catch (inviteErr) {
-              console.error(`[stripe] tenant ${tenant.id} created but invite failed:`, inviteErr)
-              // Don't fail the whole webhook — tenant is created. Super-admin
-              // can manually resend via /api/admin/invites.
-            }
-          }
+        if (error) {
+          console.error('[stripe webhook] failed to record prospect subscription:', error)
+          // Return 500 so Stripe retries — better than silently losing the sub id.
+          return NextResponse.json({ error: error.message }, { status: 500 })
         }
         return NextResponse.json({ received: true, signup_paid: true })
       }
