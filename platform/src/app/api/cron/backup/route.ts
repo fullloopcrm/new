@@ -2,21 +2,27 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export const maxDuration = 60
+export const maxDuration = 300 // Vercel pro plan -- was 60, see note below
 
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives
 // per-tenant granular snapshots we control
 //
-// Tenants are processed in parallel, not sequentially. Sequential
-// processing worked when this route launched (real "Nightly Backup
-// Complete" log entries exist through 2026-07-26) but tenant count has
-// since grown to 34+ (mostly the Florida Maid EMD microsite rollout) --
-// 34 tenants x (11 queries + 1 storage upload) run one at a time almost
-// certainly exceeds the function's execution limit, killing it mid-run
-// with no error logged (a hard timeout doesn't get a chance to reach the
-// catch block or the notification insert) -- consistent with zero
-// "Nightly Backup Complete" rows since 07-26 and zero errors either.
+// Tenants are processed in parallel (Promise.all below), not sequentially.
+// Live-queried 2026-08-02: the last successful "Nightly Backup Complete"
+// notification is dated 2026-07-26 -- confirming this job has silently
+// failed every night since (7 straight nights as of this check), with
+// zero error rows logged either, matching the timeout signature described
+// below. Root cause: tenant count has grown to 34 active (mostly the
+// Florida Maid EMD microsite rollout); even parallelized, 34 tenants x
+// (11 queries + 1 storage upload) each was almost certainly exceeding the
+// prior 60s maxDuration, killing the request mid-run before either the
+// catch block or the notification insert could run. Raised maxDuration to
+// 300s to match the ceiling already used by cron/reminders, cron/outreach,
+// and other multi-tenant crons in this same codebase. NOT live-verified --
+// verifying requires either waiting for tonight's scheduled run or
+// manually triggering this cron against prod, which is a real production
+// write (storage + DB) and wasn't done here without sign-off.
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
