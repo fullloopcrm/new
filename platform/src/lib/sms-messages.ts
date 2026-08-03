@@ -41,6 +41,8 @@ export type ConversationMessageInput = {
    * non-SMS-webhook writers) just leave comhub's to/from address blank.
    */
   to_phone?: string | null
+  /** Public URLs of any photo/video attachments (MMS). Inbound only in practice. */
+  media_urls?: string[] | null
 }
 
 export type InsertConversationMessageOptions = {

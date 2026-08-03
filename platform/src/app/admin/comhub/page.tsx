@@ -190,6 +190,18 @@ const fmtExactTime = (iso: string) => {
 
 const contactDisplay = (c: Contact | null) => c ? (c.name || c.phone || c.email || 'Unknown') : 'Unknown'
 
+// media_urls holds MMS photos/videos (Telnyx SMS), webchat photo uploads,
+// and voicemail recordings (telnyx-voice) -- all through the same column,
+// so the renderer has to tell them apart by extension. Anything unrecognized
+// falls back to audio (the original behavior, correct for voicemail URLs
+// that don't carry a clean extension).
+function mediaKind(url: string): 'image' | 'video' | 'audio' {
+  const path = url.split('?')[0].toLowerCase()
+  if (/\.(jpe?g|png|gif|webp|heic|heif)$/.test(path)) return 'image'
+  if (/\.(mp4|mov|3gp|webm)$/.test(path)) return 'video'
+  return 'audio'
+}
+
 // Highlight @handle / @here / @channel / @all in message bodies.
 function renderWithMentions(text: string): React.ReactNode {
   const parts = text.split(/(@[a-zA-Z][a-zA-Z0-9_.-]{0,30})/g)
@@ -879,15 +891,44 @@ export default function ComhubPage() {
                         )}
                         {m.media_urls && m.media_urls.length > 0 && (
                           <div className="mt-2 space-y-1.5">
-                            {m.media_urls.map((url, i) => (
-                              <audio
-                                key={`${m.id}-media-${i}`}
-                                controls
-                                preload="metadata"
-                                src={url}
-                                className="w-full max-w-[280px] h-9"
-                              />
-                            ))}
+                            {m.media_urls.map((url, i) => {
+                              const kind = mediaKind(url)
+                              const key = `${m.id}-media-${i}`
+                              if (kind === 'image') {
+                                return (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    key={key}
+                                    src={url}
+                                    alt="Attachment"
+                                    className="max-w-[280px] max-h-[280px] rounded-lg border cursor-pointer object-cover"
+                                    style={{ borderColor: 'var(--color-loop-border)' }}
+                                    onClick={() => window.open(url, '_blank')}
+                                  />
+                                )
+                              }
+                              if (kind === 'video') {
+                                return (
+                                  <video
+                                    key={key}
+                                    controls
+                                    preload="metadata"
+                                    src={url}
+                                    className="max-w-[280px] max-h-[280px] rounded-lg border"
+                                    style={{ borderColor: 'var(--color-loop-border)' }}
+                                  />
+                                )
+                              }
+                              return (
+                                <audio
+                                  key={key}
+                                  controls
+                                  preload="metadata"
+                                  src={url}
+                                  className="w-full max-w-[280px] h-9"
+                                />
+                              )
+                            })}
                           </div>
                         )}
                       </div>

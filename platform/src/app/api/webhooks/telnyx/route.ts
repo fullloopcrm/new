@@ -37,6 +37,74 @@ const TENANT_PHONE_ALIASES: Record<string, string> = {
   '+12122029030': NYCMAID_TENANT_ID,
 }
 
+const MMS_ALLOWED_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
+  'video/mp4', 'video/quicktime', 'video/3gpp',
+])
+const MMS_MAX_BYTES = 25 * 1024 * 1024 // Telnyx's own MMS cap is ~5MB in, but carriers
+// re-encode outbound and some inbound relays pass larger files through; give real
+// photos/videos headroom rather than silently dropping a legitimate attachment.
+
+function extFromContentType(contentType: string): string {
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+    'image/heic': 'heic', 'image/heif': 'heif',
+    'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/3gpp': '3gp',
+  }
+  return map[contentType] || 'bin'
+}
+
+/**
+ * Downloads each Telnyx MMS attachment (their webhook only gives us a
+ * short-lived URL, not the file itself) and re-hosts it in the same
+ * `uploads` storage bucket + public-URL pattern webchat photo uploads
+ * already use, so ComHub's media renderer has one consistent source
+ * regardless of which channel a photo/video came in on. Per-attachment
+ * failures are skipped, never fail the whole webhook -- a message with a
+ * caption and a corrupt attachment should still land in ComHub.
+ */
+async function downloadAndStoreMms(
+  tenantId: string,
+  media: { url?: string; content_type?: string }[],
+  fromPhone: string,
+): Promise<string[]> {
+  const urls: string[] = []
+  const fromDigits = fromPhone.replace(/\D/g, '').slice(-10) || 'unknown'
+
+  for (const item of media) {
+    if (!item.url) continue
+    try {
+      const res = await fetch(item.url)
+      if (!res.ok) {
+        console.error(`[telnyx webhook] MMS media fetch failed: ${res.status} ${item.url}`)
+        continue
+      }
+      const contentType = (item.content_type || res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+      if (!MMS_ALLOWED_TYPES.has(contentType)) {
+        console.error(`[telnyx webhook] MMS media rejected, unsupported type: ${contentType}`)
+        continue
+      }
+      const buffer = Buffer.from(await res.arrayBuffer())
+      if (buffer.byteLength === 0 || buffer.byteLength > MMS_MAX_BYTES) {
+        console.error(`[telnyx webhook] MMS media rejected, size ${buffer.byteLength}`)
+        continue
+      }
+      const ext = extFromContentType(contentType)
+      const path = `${tenantId}/mms/${fromDigits}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabaseAdmin.storage.from('uploads').upload(path, buffer, { contentType, upsert: false })
+      if (error) {
+        console.error('[telnyx webhook] MMS media upload failed:', error.message)
+        continue
+      }
+      const { data: urlData } = supabaseAdmin.storage.from('uploads').getPublicUrl(path)
+      urls.push(urlData.publicUrl)
+    } catch (e) {
+      console.error('[telnyx webhook] MMS media processing error:', e)
+    }
+  }
+  return urls
+}
+
 // Handle inbound SMS + delivery status from Telnyx
 export async function POST(request: Request) {
   const rawBody = await request.text()
@@ -126,11 +194,21 @@ export async function POST(request: Request) {
     const payload = event.payload
     const from = payload?.from?.phone_number
     const to = payload?.to?.[0]?.phone_number
-    const text = payload?.text
+    const rawText = payload?.text
+    const media: { url?: string; content_type?: string }[] = Array.isArray(payload?.media) ? payload.media : []
 
-    if (!from || !to || !text) {
+    // A pure MMS (photo/video, no caption) sends text: "" -- falsy, so this
+    // guard used to drop every media-only message before it ever reached
+    // storage or ComHub. Require either text OR at least one attachment.
+    if (!from || !to || (!rawText && media.length === 0)) {
       return NextResponse.json({ received: true })
     }
+    // Every downstream branch below (STOP/START/rating parsing, Yinez,
+    // notifications, ComHub logging) assumes a string -- a media-only
+    // message otherwise has to special-case undefined/empty everywhere.
+    // Give it a plain placeholder caption instead so the thread reads
+    // sensibly and nothing downstream needs to know media-only is a thing.
+    const text: string = rawText || (media.length > 0 ? '[Photo/video attached]' : '')
 
     // Find tenant by their Telnyx phone number. Use limit(2), NOT .single():
     // .single() ERRORS when two tenants share a number (mis-seeded row) and the
@@ -171,6 +249,12 @@ export async function POST(request: Request) {
 
     const tenantId = tenant.id
     const normalizedText = text.trim().toUpperCase()
+
+    // Download each Telnyx-hosted attachment and re-host it in our own
+    // storage -- Telnyx's media URLs are not guaranteed to stay valid
+    // long-term, and every other channel (webchat) already stores media
+    // this way, so ComHub's renderer has one consistent URL source.
+    const mediaUrls = media.length > 0 ? await downloadAndStoreMms(tenantId, media, from) : []
 
     // FEEDBACK REPLY — checked before the owner-chat branch below. It's a
     // no-op unless this exact phone number has a genuinely pending feedback
@@ -767,7 +851,7 @@ export async function POST(request: Request) {
 
               // Log inbound message to conversation
               await insertConversationMessage(
-                { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
+                { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to, media_urls: mediaUrls.length > 0 ? mediaUrls : null },
                 { expectedTenantId: tenantId },
               )
 
@@ -805,7 +889,7 @@ export async function POST(request: Request) {
 
           // Ongoing conversation — always log inbound (feeds ComHub)
           await insertConversationMessage(
-            { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to },
+            { conversation_id: convo.id, direction: 'inbound', message: text, to_phone: to, media_urls: mediaUrls.length > 0 ? mediaUrls : null },
             { expectedTenantId: tenantId },
           )
 
