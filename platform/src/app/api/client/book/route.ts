@@ -144,21 +144,42 @@ export async function POST(request: Request) {
       const emailLower = (body.email as string).toLowerCase()
       const clientName = formatName(body.name as string)
 
+      let matchedClient: { id: string; name: string | null; phone: string | null } | null = null
+
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
-        .select('id')
+        .select('id, name, phone')
         .eq('tenant_id', tenant.id)
         .ilike('email', escapeLikeValue(emailLower))
         .maybeSingle()
-      if (byEmail) clientId = byEmail.id
+      if (byEmail) { clientId = byEmail.id; matchedClient = byEmail }
 
       if (!clientId && phone) {
         const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
-          .select('id')
+          .select('id, name, phone')
           .eq('phone', phone)
           .maybeSingle()
-        if (byPhone) clientId = byPhone.id
+        if (byPhone) { clientId = byPhone.id; matchedClient = byPhone }
+      }
+
+      // A client whose name is still exactly their own phone number is the
+      // SMS-inbound placeholder ("we don't have a name yet, just save the
+      // number so the thread has a record") -- see createLeadAndEnterPipeline
+      // in the telnyx webhook. The booking form is the first time this
+      // person hands us their real name; overwrite the placeholder outright.
+      // Never touches a genuine existing name -- only fires when name is
+      // literally the phone digits.
+      if (matchedClient && clientName) {
+        const storedDigits = (matchedClient.name || '').replace(/\D/g, '')
+        const phoneDigits = (matchedClient.phone || '').replace(/\D/g, '')
+        const isPlaceholderName = storedDigits.length >= 10 && storedDigits === phoneDigits
+        if (isPlaceholderName) {
+          await tenantDb(tenant.id)
+            .from('clients')
+            .update({ name: clientName })
+            .eq('id', matchedClient.id)
+        }
       }
 
       if (!clientId) {
