@@ -131,9 +131,14 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
       <div className="flex-1 space-y-8 max-w-4xl">
         {SECTION_ORDER.filter((s) => bySection[s]?.length).map((section) => {
           const all = bySection[section]
+          // dependsOn.value === false matches any falsy value, not just literal false -- a toggle no one
+          // has touched yet reads as undefined here, and a field gated on "the toggle is off" should still
+          // show by default. Mirrors ProfileWizard's matchesDependsOn exactly (same registry, same fields,
+          // must agree) -- without this, a tenant who's never touched e.g. einOptOut would have `ein` and
+          // `paymentMethods` silently vanish from this admin form despite being unset/default.
           const visible = all.filter((f) =>
             (f.tier !== 'optional' || showOptional) &&
-            (!f.dependsOn || values[f.dependsOn.key] === f.dependsOn.value),
+            (!f.dependsOn || (f.dependsOn.value === false ? !values[f.dependsOn.key] : values[f.dependsOn.key] === f.dependsOn.value)),
           )
           if (!visible.length) return null
           const sec = readiness?.sections.find((x) => x.section === section)
