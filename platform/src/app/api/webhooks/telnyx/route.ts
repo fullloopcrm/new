@@ -431,21 +431,22 @@ export async function POST(request: Request) {
             .update({ status: 'confirmed' })
             .eq('id', nextBooking.id)
 
-          // Add confirmation to client notes
+          // Add confirmation to client notes (internal-only — notes_private,
+          // never notes_public which the client sees in their portal).
           const noteText = `[Auto] Confirmed via SMS on ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}`
           const { data: existingClient } = await supabaseAdmin
             .from('clients')
-            .select('notes')
+            .select('notes_private')
             .eq('id', client.id)
             .single()
 
-          const updatedNotes = existingClient?.notes
-            ? `${existingClient.notes}\n${noteText}`
+          const updatedNotes = existingClient?.notes_private
+            ? `${existingClient.notes_private}\n${noteText}`
             : noteText
 
           await supabaseAdmin
             .from('clients')
-            .update({ notes: updatedNotes })
+            .update({ notes_private: updatedNotes })
             .eq('id', client.id)
         }
 
@@ -724,22 +725,23 @@ export async function POST(request: Request) {
         console.error('[telnyx webhook] inbound-sms telegram send failed:', err))
     }
 
-    // If from a client, add to their notes
+    // If from a client, add to their notes (internal-only — notes_private,
+    // never notes_public which the client sees in their portal).
     if (client) {
       const noteText = `[SMS ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant) })}] ${text.slice(0, 200)}`
       const { data: existingClient } = await supabaseAdmin
         .from('clients')
-        .select('notes')
+        .select('notes_private')
         .eq('id', client.id)
         .single()
 
-      const updatedNotes = existingClient?.notes
-        ? `${existingClient.notes}\n${noteText}`
+      const updatedNotes = existingClient?.notes_private
+        ? `${existingClient.notes_private}\n${noteText}`
         : noteText
 
       await supabaseAdmin
         .from('clients')
-        .update({ notes: updatedNotes })
+        .update({ notes_private: updatedNotes })
         .eq('id', client.id)
     }
 
