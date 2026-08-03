@@ -1179,7 +1179,7 @@ export default function ComhubPage() {
 // Compose new thread (SMS or email)
 // ─────────────────────────────────────────────────────────────────────────────
 type RecipientResult = {
-  role: 'client' | 'cleaner'
+  role: 'client' | 'cleaner' | 'applicant'
   id: string
   name: string | null
   phone: string | null

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const ql = `%${sanitizePostgrestValue(q)}%`
 
-  const [{ data: clients }, { data: members }] = await Promise.all([
+  const [{ data: clients }, { data: members }, { data: applicants }] = await Promise.all([
     db
       .from('clients')
       .select('id, name, phone, email, do_not_service')
@@ -30,10 +30,15 @@ export async function GET(req: NextRequest) {
       .select('id, name, phone, email')
       .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
       .limit(limit),
+    db
+      .from('team_applications')
+      .select('id, name, phone, email')
+      .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
+      .limit(limit),
   ])
 
   type Result = {
-    role: 'client' | 'cleaner'
+    role: 'client' | 'cleaner' | 'applicant'
     id: string
     name: string | null
     phone: string | null
@@ -50,6 +55,9 @@ export async function GET(req: NextRequest) {
   }
   for (const m of members || []) {
     results.push({ role: 'cleaner', id: m.id, name: m.name, phone: m.phone, email: m.email })
+  }
+  for (const a of applicants || []) {
+    results.push({ role: 'applicant', id: a.id, name: a.name, phone: a.phone, email: a.email })
   }
 
   return NextResponse.json({ results: results.slice(0, limit) })
