@@ -17,7 +17,7 @@ import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 // keep this change minimal, per the "reuse /api/uploads, don't rewrite it"
 // scope for this feature.
 const MAX_SIZE = 15 * 1024 * 1024 // 15MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime']
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()

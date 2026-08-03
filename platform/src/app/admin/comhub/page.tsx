@@ -1103,9 +1103,13 @@ export default function ComhubPage() {
               {thread.channel === 'sms' && pendingAttachments.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
                   {pendingAttachments.map((url, i) => (
-                    <div key={url} className="relative w-14 h-14 rounded-md overflow-hidden shrink-0" style={{ border: '1px solid var(--color-loop-line-soft)' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                    <div key={url} className="relative w-14 h-14 rounded-md overflow-hidden shrink-0 flex items-center justify-center" style={{ border: '1px solid var(--color-loop-line-soft)', background: 'var(--color-loop-canvas)' }}>
+                      {mediaKind(url) === 'video' ? (
+                        <video src={url} className="w-full h-full object-cover" muted />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                      )}
                       <button
                         onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))}
                         className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[10px] leading-none"
@@ -1124,14 +1128,14 @@ export default function ComhubPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,video/mp4,video/quicktime"
                       className="hidden"
                       onChange={handleAttachmentPick}
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingAttachment}
-                      title="Attach a photo"
+                      title="Attach a photo or video"
                       className="self-stretch px-3 rounded-md text-sm disabled:opacity-50"
                       style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)', background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
                     >
