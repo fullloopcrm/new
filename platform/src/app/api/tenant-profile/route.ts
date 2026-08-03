@@ -26,6 +26,7 @@ import { getTenantProfile, isTenantVisible, PROFILE_FIELD_BY_KEY } from '@/lib/t
 import { applyProfileWrite } from '@/lib/tenant-profile-write'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { alertOwner } from '@/lib/telegram'
+import { recordOnboardingSnapshot } from '@/lib/onboarding-snapshot'
 
 type Json = Record<string, unknown>
 
@@ -126,6 +127,16 @@ export async function POST(request: Request) {
       .eq('id', tenantId)
       .select('name')
       .single()
+
+    // Immutable backup of exactly what was submitted — independent of the
+    // live tenant columns applyProfileWrite just updated above, so a later
+    // edit/re-run can never lose what the client actually typed. Awaited
+    // (not fire-and-forget) so the row is guaranteed written before this
+    // request returns, but never blocks the tenant's success response — an
+    // error here logs, it does not fail the submit.
+    await recordOnboardingSnapshot({ tenantId, tenantName: (tenant?.name as string) || 'Business', data: filtered }).catch((e) =>
+      console.error('recordOnboardingSnapshot failed for', tenantId, e),
+    )
 
     alertOwner(
       'Onboarding completed',

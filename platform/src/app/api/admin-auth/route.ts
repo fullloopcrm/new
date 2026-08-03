@@ -12,10 +12,20 @@ import crypto from 'crypto'
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
 const SECRET = process.env.ADMIN_TOKEN_SECRET
 
+// Sessions persist until explicit logout (2026-08-03 decision) rather than
+// expiring every 24h. No IP/device binding: dynamic IPs (home/mobile) would
+// force re-logins on the same device, which defeats the point. The cookie
+// itself (httpOnly, never readable by JS, secure, sent only by the browser
+// that received it) is the actual device boundary; /api/admin-auth/logout
+// is the real revoke path. "Until logout" is implemented as a long, fixed
+// expiry rather than a literal forever — 10 years.
+const SESSION_MS = 10 * 365 * 24 * 3600 * 1000
+const SESSION_SECONDS = Math.floor(SESSION_MS / 1000)
+
 // ---- Super-admin token (global ADMIN_PIN) — unchanged. God-mode, any tenant. ----
 export function createAdminToken(): string {
   if (!SECRET) throw new Error('ADMIN_TOKEN_SECRET is not configured')
-  const payload = JSON.stringify({ role: 'super_admin', exp: Date.now() + 24 * 3600 * 1000 })
+  const payload = JSON.stringify({ role: 'super_admin', exp: Date.now() + SESSION_MS })
   const hmac = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
@@ -50,7 +60,7 @@ export function createTenantAdminToken(tenantId: string, memberId: string, role:
     tenantId,
     memberId,
     memberRole: role,
-    exp: Date.now() + 24 * 3600 * 1000,
+    exp: Date.now() + SESSION_MS,
   })
   const hmac = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
@@ -97,7 +107,7 @@ function setAdminCookie(res: NextResponse, token: string): void {
     // Activate fetch) and still blocks cross-site POSTs, so CSRF stays covered.
     sameSite: 'lax',
     path: '/',
-    maxAge: 24 * 60 * 60,
+    maxAge: SESSION_SECONDS,
   })
 }
 

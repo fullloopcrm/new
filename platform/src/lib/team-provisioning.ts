@@ -14,6 +14,12 @@ export type ApprovedApplication = {
   phone: string | null
   address: string | null
   photo_url?: string | null
+  unit?: string | null
+  preferred_language?: string | null
+  service_zones?: string[] | null
+  has_car?: boolean | null
+  labor_only?: boolean | null
+  max_travel_minutes?: number | null
 }
 
 /**
@@ -61,8 +67,15 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       name: app.name || 'Team Member',
       email: app.email || null,
       phone: cleanPhone || null,
-      address: app.address || null,
+      // team_members has no separate unit column -- fold it into the single
+      // address field the same way the admin dashboard displays it.
+      address: app.unit && app.address ? `${app.address}, ${app.unit}` : (app.address || null),
       avatar_url: app.photo_url || null,
+      preferred_language: app.preferred_language || null,
+      service_zones: app.service_zones?.length ? app.service_zones : null,
+      has_car: app.has_car ?? null,
+      labor_only: app.labor_only ?? null,
+      max_travel_minutes: app.max_travel_minutes ?? null,
     }
     // pay_rate only -- hourly_rate is the CLIENT-facing billing rate (set
     // per-booking, e.g. $69-99/hr), a different number entirely from what a

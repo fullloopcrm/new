@@ -4,13 +4,16 @@ import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
 
-// Broadcast a one-off SMS to new/un-hired applicants. Ported from nycmaid,
-// tenant-scoped for FullLoop (cleaner_applications + per-tenant Telnyx creds).
+// Broadcast a one-off SMS to new/un-hired applicants. Reads team_applications
+// (not cleaner_applications, which stopped receiving new rows 2026-07-16 —
+// see preview/route.ts), tenant-scoped, + per-tenant Telnyx creds.
 // Safety gates: TEST_MODE (only the test applicant), BROADCAST_CAP, phone dedup.
 // Every guard is re-applied server-side — never trust the client's id list.
 export const maxDuration = 60
 
-const EXCLUDED_STATUSES = ['accepted', 'rejected']
+// team_applications status enum is ('pending','approved','rejected') — see
+// preview/route.ts for why this isn't 'accepted'.
+const EXCLUDED_STATUSES = ['approved', 'rejected']
 
 type ApplicantRow = {
   id: string
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
   const db = tenantDb(tenantId)
 
   const { data: rows, error } = await db
-    .from('cleaner_applications')
+    .from('team_applications')
     .select('id, name, phone, status')
     .in('id', applicant_ids)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
