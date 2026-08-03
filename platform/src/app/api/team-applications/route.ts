@@ -60,7 +60,10 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, email, phone, address, experience, availability, referral_source, references, notes, photo_url } = body
+    const {
+      name, email, phone, address, unit, experience, availability, referral_source, references, notes, photo_url,
+      preferred_language, service_zones, has_car, labor_only, max_travel_minutes,
+    } = body
     let { tenant_slug } = body as { tenant_slug?: string }
 
     // Fall back to the middleware-injected tenant slug header so the ported
@@ -108,12 +111,18 @@ export async function POST(request: Request) {
         email: email || null,
         phone: cleanPhone,
         address: address || null,
+        unit: unit || null,
         experience: experience || null,
         availability: availability || null,
         referral_source: referral_source || null,
         references: references || null,
         notes: notes || null,
         photo_url: photo_url || null,
+        preferred_language: preferred_language || null,
+        service_zones: Array.isArray(service_zones) && service_zones.length ? service_zones : null,
+        has_car: typeof has_car === 'boolean' ? has_car : null,
+        labor_only: typeof labor_only === 'boolean' ? labor_only : null,
+        max_travel_minutes: max_travel_minutes ? Number(max_travel_minutes) : null,
         status: 'pending',
       })
       .select()
