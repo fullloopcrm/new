@@ -30,11 +30,15 @@ vi.mock('@/lib/tenant-query', () => {
   }
 })
 
-const requirePermissionMock = vi.fn(async () => ({
+type RequirePermissionResult =
+  | { tenant: { tenantId: string; tenant: { id: string }; role: string; userId: string }; error: null }
+  | { tenant: null; error: unknown }
+
+const requirePermissionMock = vi.fn<(permission: string) => Promise<RequirePermissionResult>>(async () => ({
   tenant: { tenantId: TENANT_ID, tenant: { id: TENANT_ID }, role: 'owner', userId: 'u1' },
   error: null,
 }))
-vi.mock('@/lib/require-permission', () => ({ requirePermission: (...args: unknown[]) => requirePermissionMock(...args) }))
+vi.mock('@/lib/require-permission', () => ({ requirePermission: (permission: string) => requirePermissionMock(permission) }))
 
 import { GET, PUT, VALID_SECTIONS } from './route'
 
