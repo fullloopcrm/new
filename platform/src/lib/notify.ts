@@ -85,6 +85,7 @@ export type NotificationType =
   | 'error'
   | 'referral_lead'
   | 'cleaner_application'
+  | 'auto_booking_assigned'
 
 // Operational event types worth pushing to the tenant's Telegram, ported from
 // lib/nycmaid/notify.ts (2026-07-22) — that nycmaid-specific notify() had
@@ -107,6 +108,7 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   'error',
   '15min_warning',
   'sms_received',
+  'auto_booking_assigned',
 ])
 
 // Per-tenant Telegram: post to the tenant's own bot when configured. A
