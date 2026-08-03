@@ -29,6 +29,7 @@ import { VoiceTextarea, VoiceMicButton } from './VoiceInput'
 import type { ServiceArea } from '@/lib/service-area'
 import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, type FieldValidation, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX, HOUR_OPTIONS, MIN_DAYS_OPTIONS, WEEKDAY_KEYS, WEEKDAY_LABELS } from '@/lib/tenant-profile'
 import OnboardingCatalog from './OnboardingCatalog'
+import OnboardingClients from './OnboardingClients'
 import { OnboardingWelcome, useWelcomeGate } from './OnboardingWelcome'
 import { generateTermsOfService, generatePrivacyPolicy } from '@/lib/legal-doc-templates'
 
@@ -312,9 +313,15 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
         <h2 className="font-heading text-lg font-semibold text-slate-900">{meta.title}</h2>
-        {meta.blurb && <p className="mb-5 text-sm text-slate-500">{meta.blurb}</p>}
+        {meta.blurb && (
+          <div className="mb-5 flex items-start gap-2 rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2.5">
+            <span aria-hidden="true" className="text-base leading-none">💡</span>
+            <p className="text-sm text-slate-600">{meta.blurb}</p>
+          </div>
+        )}
 
         {sectionKey === 'services' && <OnboardingCatalog token={token} industry={form.industry as string | undefined} />}
+        {sectionKey === 'clients' && <OnboardingClients token={token} />}
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
           {sectionFields.map((f) => (

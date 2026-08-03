@@ -26,7 +26,7 @@ import { US_STATES } from './service-area'
 export type FunnelMode = 'booking' | 'pipeline' | 'lead_only'
 
 export type ProfileSection =
-  | 'identity' | 'contact' | 'brand' | 'services' | 'scheduling'
+  | 'identity' | 'contact' | 'brand' | 'services' | 'clients' | 'scheduling'
   | 'payments' | 'comms' | 'reviews' | 'referrals' | 'proposals'
   | 'team' | 'compliance' | 'seo' | 'ai' | 'account'
 
@@ -373,6 +373,11 @@ export const PROFILE_FIELDS: FieldDef[] = [
   // ── Services & pricing ─── pricing lives in service_types (own editor); readonly here.
   { key: 'servicePricing', label: 'Per-service pricing', section: 'services', store: 'tenant', readonly: true, tier: 'critical', funnels: ['booking', 'pipeline'], read: (x) => x.services.some((sv) => sv.active && (sv.rate ?? 0) > 0) },
 
+  // ── Clients ─── real data lives in the clients table (own editor, OnboardingClients.tsx); readonly placeholder here purely to keep this
+  // section present in ProfileWizard's `sections` list (which filters PROFILE_SECTION_ORDER by "does any field declare this section").
+  // 'optional' -- a brand-new business may genuinely have zero past clients to import.
+  { key: 'clientImportStatus', label: 'Existing clients', section: 'clients', store: 'tenant', readonly: true, tier: 'optional', read: () => null },
+
   // ── Scheduling (booking/pipeline) ─────────────────────────────────
   // businessHoursStart is the anchor field for the whole hours block --
   // renders the same-daily-vs-per-day toggle and either the single
@@ -607,25 +612,26 @@ export const PROFILE_FIELD_BY_KEY: Record<string, FieldDef> = Object.fromEntries
  * this one array.
  */
 export const PROFILE_SECTION_META: Record<ProfileSection, { title: string; blurb: string }> = {
-  identity: { title: 'Business Identity', blurb: 'Legal details for invoices, taxes, and 1099/W-2 filing.' },
-  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers reach you.' },
-  brand: { title: 'Brand', blurb: 'How your business looks and sounds across your site and AI.' },
-  services: { title: 'Services & Pricing', blurb: 'What you charge — the rest is set per-service.' },
-  scheduling: { title: 'Scheduling', blurb: 'Hours, booking rules, and holidays.' },
-  payments: { title: 'Payments', blurb: 'How clients pay you.' },
-  comms: { title: 'Communications', blurb: 'How you send email, text, and AI replies.' },
-  reviews: { title: 'Reviews', blurb: 'Where review requests point.' },
-  referrals: { title: 'Referrals', blurb: 'Optional — pay people who send you new business. Full Loop\'s referral program is already built in, with a real tracking portal for each referrer, and it\'s one of the most effective growth levers we\'ve seen across tenants.' },
-  proposals: { title: 'Agreements & Legal', blurb: 'The terms, policies, and fine print that protect your business.' },
-  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members.' },
+  identity: { title: 'Business Identity', blurb: 'This is your legal and tax identity — entity type, EIN, and industry all feed real systems (invoices, 1099s, your starting service list), so use your actual paperwork, not a placeholder. Don\'t have your EIN handy yet? It\'s fine to come back to this later — nothing here blocks you from moving on.' },
+  contact: { title: 'Address & Contact', blurb: 'Where you operate and how customers and Full Loop reach you — your address also sets your default service area. Double-check the phone and email here since they\'re what show up on customer confirmations.' },
+  brand: { title: 'Brand', blurb: 'How your business looks and sounds — logo, colors, and a few real details that keep your site and AI agent sounding like you, not a generic template. The story questions are optional, but they\'re what keeps your AI\'s answers from sounding canned.' },
+  services: { title: 'Services & Pricing', blurb: 'What you charge — we already loaded common services and typical rates for the industry you picked in Business Identity, so you\'re rarely starting from a blank page. Uncheck anything that doesn\'t apply and adjust prices to match your market.' },
+  clients: { title: 'Existing Clients', blurb: 'Optional — bring in your current client list, plus any phone numbers of people who\'ve called or texted but never actually booked. A name isn\'t required: paste a bare phone number and we\'ll text them to collect their name once they respond, so you can start re-engaging cold leads from day one.' },
+  scheduling: { title: 'Scheduling', blurb: 'Your hours, buffers, and booking rules — this is what your AI agent checks before offering a time slot to a customer. Not sure about buffers or lead time yet? The defaults are sane starting points you can tighten once real bookings come in.' },
+  payments: { title: 'Payments', blurb: 'How clients pay you — pick your payment methods and, if you take cards, connect Stripe here so checkout and invoicing actually work. Skipping Stripe for now just means card payments won\'t process yet; you can connect it later.' },
+  comms: { title: 'Communications', blurb: 'How Full Loop sends email, text, and AI replies on your behalf — most of this (Resend, Telnyx, Anthropic keys) is provisioned for you, not something you need to go find yourself. Telegram is optional, only needed if you want instant alerts sent to your own phone.' },
+  reviews: { title: 'Reviews', blurb: 'Where your review requests point after a job\'s done — your Google Place ID and review link are what customers get sent to leave a rating. No Google Business Profile yet? Worth setting one up before your first review request goes out.' },
+  referrals: { title: 'Referrals', blurb: 'Optional — pay people who send you new business. Full Loop\'s referral program is already built in, with a real tracking portal for each referrer, and it\'s one of the most effective growth levers we\'ve seen across tenants — commission % and payout minimum are the only real decisions here.' },
+  proposals: { title: 'Agreements & Legal', blurb: 'The terms, deposit rules, and policies that protect you — these show up automatically on every quote and invoice you send. If you\'re not a lawyer (most people aren\'t), the defaults are a reasonable starting point, but review them for anything specific to your trade or state.' },
+  team: { title: 'Team Defaults', blurb: 'Defaults applied to new team members — pay rate, working days, and roles, so you\'re not re-entering the same thing every time you add someone. You can invite your team now or skip this and add people later — nothing here is required to launch.' },
   compliance: { title: 'Licensing & Insurance', blurb: 'We show these on your site and proposals — customers trust a business that\'s licensed and insured, and some states legally require you to display them. Nothing here is required to use Full Loop.' },
   seo: { title: 'Marketing', blurb: 'Who you\'re for, how you stand out, and where customers find you. (Your existing website, if you have one, is captured back in Address & Contact — used for redirect/migration planning, not asked twice here.)' },
-  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves.' },
+  ai: { title: 'AI Persona', blurb: 'How your AI agent sounds and behaves when it talks to customers — name, tone, and language are the essentials; everything else here just fine-tunes it further. You\'ll see your agent in action before you ever need things like preferred sign-offs, so don\'t overthink this on the first pass.' },
   account: { title: 'Account', blurb: 'Internal account details.' },
 }
 
 export const PROFILE_SECTION_ORDER: ProfileSection[] = [
-  'identity', 'contact', 'brand', 'services', 'scheduling',
+  'identity', 'contact', 'brand', 'services', 'clients', 'scheduling',
   'payments', 'comms', 'reviews', 'referrals', 'proposals',
   'team', 'compliance', 'seo', 'ai',
 ]
