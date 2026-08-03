@@ -8,6 +8,22 @@ import { etDayBoundaryUTC, etToday } from '@/lib/recurring'
 import { getTeamMemberRetentionStats } from '@/lib/team-retention'
 import { getTeamMemberRatingTrend } from '@/lib/team-rating-trend'
 import { reassignOrFlagFutureBookings } from '@/lib/team-deactivation-reassign'
+import { decryptSecret, encryptSecretSafe } from '@/lib/secret-crypto'
+import { generateUniqueTeamPin, notifyTeamMemberPin } from '@/lib/team-provisioning'
+import { tenantSiteUrl } from '@/lib/tenant-site'
+
+// decryptSecret() throws on a malformed/corrupted envelope (bad auth tag,
+// truncated ciphertext, wrong/rotated SECRET_ENCRYPTION_KEY). Guard so one
+// bad row doesn't 500 the whole profile page — same tolerance as
+// findRowByPin's scan fallback in lib/pin-lookup.ts.
+function safeDecryptPin(pin: string | null): string | null {
+  if (!pin) return pin
+  try {
+    return decryptSecret(pin)
+  } catch {
+    return null
+  }
+}
 
 export async function GET(
   _request: Request,
@@ -48,7 +64,7 @@ export async function GET(
     const lifetimeEarningsCents = (lifetimeBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
 
     return NextResponse.json({
-      member: data,
+      member: { ...data, pin: safeDecryptPin(data.pin) },
       stats: {
         jobs_completed: jobsCompleted || 0,
         no_show_count: noShowCount || 0,
@@ -86,6 +102,40 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
+
+    if (body.regenerate_pin) {
+      const { data: member } = await supabaseAdmin
+        .from('team_members')
+        .select('id, name, email, phone')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (!member) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      if (!member.email && !member.phone) {
+        return NextResponse.json({ error: 'Team member has no email or phone on file' }, { status: 400 })
+      }
+
+      const newPin = await generateUniqueTeamPin(tenantId, id)
+      const { error: updateError } = await supabaseAdmin
+        .from('team_members')
+        .update({ pin: encryptSecretSafe(newPin) })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+      const { emailed, texted } = await notifyTeamMemberPin({
+        tenantId,
+        memberId: id,
+        memberName: member.name,
+        pin: newPin,
+        portalUrl: `${tenantSiteUrl(tenant.tenant)}/team/login`,
+        wasReset: true,
+      })
+      await audit({ tenantId, action: 'team.updated', entityType: 'team_member', entityId: id, details: { field: 'pin_regenerated' } })
+
+      return NextResponse.json({ success: true, pin: newPin, emailed, texted })
+    }
+
     const fields = pick(body, [
       'name', 'email', 'phone', 'role', 'hourly_rate', 'pay_rate', 'working_days', 'status',
       'preferred_language', 'notes', 'avatar_url', 'address', 'schedule', 'home_by_time',

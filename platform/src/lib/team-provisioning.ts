@@ -6,6 +6,90 @@ import { tenantSiteUrl } from '@/lib/tenant-site'
 import { geocodeAddress } from '@/lib/geo'
 import { generateTeamPin } from '@/lib/team-pin'
 import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
+import { notify } from '@/lib/notify'
+
+const MAX_PIN_GENERATION_ATTEMPTS = 50
+
+/**
+ * A new PIN guaranteed not to match any other active team member's real PIN
+ * in this tenant. `idx_team_members_tenant_pin_unique` only constrains the
+ * raw `pin` column value -- once a PIN is stored via encryptSecretSafe(),
+ * that's ciphertext, and AES-256-GCM's random IV means the same real PIN
+ * encrypts to a different value every time. The DB constraint can't catch a
+ * real-value collision on an encrypted column, so uniqueness has to be
+ * checked here by decrypting every existing PIN and comparing.
+ */
+export async function generateUniqueTeamPin(tenantId: string, excludeId?: string): Promise<string> {
+  const { data: rows } = await supabaseAdmin
+    .from('team_members')
+    .select('id, pin')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .not('pin', 'is', null)
+
+  const used = new Set<string>()
+  for (const row of rows || []) {
+    if (excludeId && row.id === excludeId) continue
+    if (!row.pin) continue
+    try {
+      used.add(decryptSecret(row.pin))
+    } catch {
+      // Corrupted/unreadable envelope -- can't collide with a value we can't
+      // read, so skip it rather than failing generation over it.
+    }
+  }
+
+  for (let attempt = 0; attempt < MAX_PIN_GENERATION_ATTEMPTS; attempt++) {
+    const candidate = generateTeamPin()
+    if (!used.has(candidate)) return candidate
+  }
+  throw new Error(`Could not generate a unique PIN after ${MAX_PIN_GENERATION_ATTEMPTS} attempts`)
+}
+
+/**
+ * Delivers a PIN over every channel the member actually has on file -- email
+ * AND sms when both exist, not one with a fallback to the other. Each
+ * notify() call independently no-ops (success:false, no throw) when that
+ * channel's contact info or provider config is missing, so calling both
+ * unconditionally is safe.
+ */
+export async function notifyTeamMemberPin(params: {
+  tenantId: string
+  memberId: string
+  memberName: string
+  pin: string
+  portalUrl?: string
+  wasReset: boolean
+}): Promise<{ emailed: boolean; texted: boolean }> {
+  const { tenantId, memberId, memberName, pin, portalUrl, wasReset } = params
+  const title = wasReset ? `Your PIN was reset: ${pin}` : `Your portal PIN: ${pin}`
+  const message = `Your ${wasReset ? 'new ' : ''}portal PIN is ${pin}.${portalUrl ? ` Log in at ${portalUrl}.` : ''}`
+
+  const [emailResult, smsResult] = await Promise.all([
+    notify({
+      tenantId,
+      type: 'portal_pin_reset',
+      title,
+      message,
+      channel: 'email',
+      recipientType: 'team_member',
+      recipientId: memberId,
+      metadata: { recipientName: memberName, pin, portalUrl, wasReset },
+    }),
+    notify({
+      tenantId,
+      type: 'portal_pin_reset',
+      title,
+      message,
+      channel: 'sms',
+      recipientType: 'team_member',
+      recipientId: memberId,
+      metadata: { recipientName: memberName, pin, portalUrl, wasReset },
+    }),
+  ])
+
+  return { emailed: emailResult.success, texted: smsResult.success }
+}
 
 export type ApprovedApplication = {
   id: string
