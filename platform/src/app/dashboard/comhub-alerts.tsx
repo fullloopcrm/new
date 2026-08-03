@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useNotificationChime, useDesktopNotificationPermission } from '@/lib/use-notification-chime'
 
 const POLL_MS = 8000
 
@@ -19,67 +20,6 @@ interface Alert {
 }
 
 const channelLabel: Record<Alert['channel'], string> = { sms: 'Text', email: 'Email', web: 'Web chat' }
-
-// Two-tone chime synthesized via Web Audio — no asset to host, no autoplay
-// surprises. AudioContext is created lazily on first user gesture since
-// browsers block sound before any interaction on the page.
-function useChime() {
-  const ctxRef = useRef<AudioContext | null>(null)
-
-  useEffect(() => {
-    const unlock = () => {
-      if (!ctxRef.current) {
-        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-        ctxRef.current = new AC()
-      }
-      if (ctxRef.current.state === 'suspended') ctxRef.current.resume()
-    }
-    document.addEventListener('click', unlock, { once: true })
-    document.addEventListener('keydown', unlock, { once: true })
-    return () => {
-      document.removeEventListener('click', unlock)
-      document.removeEventListener('keydown', unlock)
-    }
-  }, [])
-
-  return useCallback(() => {
-    const ctx = ctxRef.current
-    if (!ctx) return
-    const now = ctx.currentTime
-    ;[[880, now, 0.09], [1320, now + 0.09, 0.11]].forEach(([freq, start, dur]) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.16, start + 0.012)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(start)
-      osc.stop(start + dur + 0.02)
-    })
-  }, [])
-}
-
-// Requests OS notification permission on first click/keypress, alongside the
-// audio unlock — same "needs a user gesture" constraint. Browsers refuse to
-// grant permission (and refuse to play sound) before any interaction.
-function useDesktopPermission() {
-  useEffect(() => {
-    const ask = () => {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission()
-      }
-    }
-    document.addEventListener('click', ask, { once: true })
-    document.addEventListener('keydown', ask, { once: true })
-    return () => {
-      document.removeEventListener('click', ask)
-      document.removeEventListener('keydown', ask)
-    }
-  }, [])
-}
 
 // A browser tab cannot force itself in front of other native apps/windows —
 // that's blocked by every modern browser as a security/annoyance guard.
@@ -208,8 +148,8 @@ export default function ComhubAlerts() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const sinceRef = useRef(new Date().toISOString())
   const seenRef = useRef(new Set<string>())
-  const playChime = useChime()
-  useDesktopPermission()
+  const playChime = useNotificationChime()
+  useDesktopNotificationPermission()
   const onComhubPage = (pathname || '').startsWith('/dashboard/comhub')
 
   useEffect(() => {

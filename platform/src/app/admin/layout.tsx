@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import AdminLogout from './AdminLogout'
+import TenantChatAlerts from './tenant-chat-alerts'
 
 // Editorial Loop styling for the platform admin. Mirrors /dashboard's
 // .loop-scope chrome but uses the admin's own nav structure (super-admin
@@ -150,6 +151,7 @@ export default async function AdminLayout({
           {children}
         </div>
       </main>
+      <TenantChatAlerts />
     </div>
   )
 }
