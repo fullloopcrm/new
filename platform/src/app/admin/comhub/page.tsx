@@ -238,6 +238,9 @@ export default function ComhubPage() {
   const [explainOpen, setExplainOpen] = useState<Record<string, boolean>>({})
   const [composer, setComposer] = useState('')
   const [subject, setSubject] = useState('')
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([])
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [channel, setChannel] = useState<'all' | 'sms' | 'web' | 'email' | 'voice' | 'admin'>('all')
   const [q, setQ] = useState('')
@@ -380,7 +383,7 @@ export default function ComhubPage() {
   }, [messages.length])
 
   const handleSend = async () => {
-    if (!thread || !composer.trim() || sending) return
+    if (!thread || (!composer.trim() && pendingAttachments.length === 0) || sending) return
     setSending(true)
     try {
       const res = await fetch('/api/admin/comhub/send', {
@@ -391,6 +394,7 @@ export default function ComhubPage() {
           channel: thread.channel,
           body: composer,
           subject: thread.channel === 'email' ? (subject || thread.subject || undefined) : undefined,
+          media_urls: thread.channel === 'sms' && pendingAttachments.length > 0 ? pendingAttachments : undefined,
         }),
       })
       const data = await res.json()
@@ -399,12 +403,34 @@ export default function ComhubPage() {
       } else {
         setComposer('')
         setSubject('')
+        setPendingAttachments([])
         await fetchThread(thread.id)
         await fetchThreads()
         await fetchChannels()
       }
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleAttachmentPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingAttachment(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'comhub-mms')
+      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        alert('Attachment upload failed: ' + (data.error || res.status))
+        return
+      }
+      setPendingAttachments(prev => [...prev, data.url])
+    } finally {
+      setUploadingAttachment(false)
     }
   }
 
@@ -1074,7 +1100,45 @@ export default function ComhubPage() {
                   </div>
                 )}
               </div>
+              {thread.channel === 'sms' && pendingAttachments.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {pendingAttachments.map((url, i) => (
+                    <div key={url} className="relative w-14 h-14 rounded-md overflow-hidden shrink-0" style={{ border: '1px solid var(--color-loop-line-soft)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[10px] leading-none"
+                        style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+                        aria-label="Remove attachment"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
+                {thread.channel === 'sms' && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAttachmentPick}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAttachment}
+                      title="Attach a photo"
+                      className="self-stretch px-3 rounded-md text-sm disabled:opacity-50"
+                      style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)', background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+                    >
+                      {uploadingAttachment ? '…' : '📎'}
+                    </button>
+                  </>
+                )}
                 <textarea
                   value={composer}
                   onChange={(e) => setComposer(e.target.value)}
@@ -1097,7 +1161,7 @@ export default function ComhubPage() {
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!composer.trim() || sending}
+                  disabled={(!composer.trim() && pendingAttachments.length === 0) || sending}
                   className="self-stretch px-4 rounded-md text-sm font-medium disabled:opacity-50"
                   style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
                 >
