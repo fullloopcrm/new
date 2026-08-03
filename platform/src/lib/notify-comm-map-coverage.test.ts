@@ -132,6 +132,10 @@ const PINNED_UNGATED = [
   // configured (see notify.ts's TELEGRAM_NOTIFY_TYPES routing) -- this
   // email path is the pre-Telegram / no-Telegram fallback tier only.
   '15min_warning|admin|email',
+  // Auto-booking's admin heads-up (Bookings page settings toggle, 2026-08-03)
+  // — same owner-facing operational alert reasoning as the rest of this
+  // list, same Telegram-first/email-fallback routing.
+  'auto_booking_assigned|admin|email',
   'booking_cancelled|admin|email',
   'booking_reminder|team_member|sms',
   'booking_rescheduled|admin|email',

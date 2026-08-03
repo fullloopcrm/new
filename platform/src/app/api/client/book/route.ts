@@ -3,7 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
-import { notify } from '@/lib/notify'
+import { notify, buildBookingConfirmationEmail } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -13,6 +13,8 @@ import {
 } from '@/lib/email-templates'
 import { bookingReceivedEmail } from '@/lib/messaging/client-email'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
+import { sendClientEmail } from '@/lib/client-contacts'
+import { teamSmsTemplatesFor } from '@/lib/messaging/team-sms-resolver'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
@@ -54,6 +56,82 @@ function templateData(tenant: { name: string; primary_color?: string | null; log
     primaryColor: tenant.primary_color || undefined,
     logoUrl: tenant.logo_url || undefined,
   }
+}
+
+type AutoAssignedBooking = {
+  id: string
+  start_time: string
+  end_time?: string | null
+  hourly_rate?: number | null
+  clients?: { id?: string | null; name?: string | null; phone?: string | null; address?: string | null; email?: string | null } | null
+  team_members?: { name?: string | null; phone?: string | null; pin?: string | null } | null
+}
+
+/**
+ * Auto-booking replays the same client-confirmation + team-member-assignment SMS
+ * a manual dashboard assignment triggers (see PUT /api/bookings/[id] and the
+ * Paul Oberbeck / nycmaid 8e1e4cf2 incident that block's own comments
+ * reference) — this route is public/unauthenticated and can't call that
+ * permission-gated endpoint directly. Then sends the admin heads-up: Telegram
+ * if the tenant has a bot configured, otherwise email (notify()'s
+ * TELEGRAM_NOTIFY_TYPES routing ladder).
+ */
+async function notifyAutoAssignment(
+  tenant: Awaited<ReturnType<typeof getTenantFromHeaders>>,
+  booking: AutoAssignedBooking,
+): Promise<void> {
+  if (!tenant) return
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+
+  if (booking.clients?.id) {
+    try {
+      const html = await buildBookingConfirmationEmail(tenant.id, booking.id, {
+        clientName: booking.clients.name || 'there',
+        serviceName: 'Appointment',
+        dateTime: `${date} at ${time}`,
+      })
+      await sendClientEmail(tenant, booking.clients.id, `Booking Confirmed — ${date}`, html)
+    } catch (err) {
+      console.error('[client/book] auto-assign client confirmation email error:', err)
+    }
+  }
+  if (booking.clients?.phone && hasSMS && (await isCommEnabled(tenant.id, 'booking_confirmed', 'sms'))) {
+    sendSMS({
+      to: booking.clients.phone,
+      body: clientSmsTemplates(tenant).bookingConfirmation({
+        start_time: booking.start_time,
+        hourly_rate: booking.hourly_rate,
+        team_members: booking.team_members,
+      }),
+      telnyxApiKey: tenant.telnyx_api_key,
+      telnyxPhone: tenant.telnyx_phone,
+    }).catch((err) => console.error('[client/book] auto-assign confirmation SMS error:', err))
+  }
+
+  if (booking.team_members?.phone && hasSMS && (await isCommEnabled(tenant.id, 'team_assignment', 'sms'))) {
+    const templates = await teamSmsTemplatesFor(tenant.id)
+    sendSMS({
+      to: booking.team_members.phone,
+      body: templates.jobAssignment({
+        start_time: booking.start_time,
+        hourly_rate: booking.hourly_rate,
+        clients: booking.clients,
+        team_members: booking.team_members,
+      }),
+      telnyxApiKey: tenant.telnyx_api_key,
+      telnyxPhone: tenant.telnyx_phone,
+    }).catch((err) => console.error('[client/book] auto-assign job SMS error:', err))
+  }
+
+  await notify({
+    tenantId: tenant.id,
+    type: 'auto_booking_assigned',
+    title: 'Booking Auto-Assigned',
+    message: `${booking.clients?.name || 'A client'}'s booking for ${date} at ${time} was automatically assigned to ${booking.team_members?.name || 'a team member'}. It's SCHEDULED — live on the calendar, not pending.`,
+    booking_id: booking.id,
+  }).catch((err) => console.error('[client/book] auto-assign admin notify error:', err))
 }
 
 export async function POST(request: Request) {
@@ -307,8 +385,8 @@ export async function POST(request: Request) {
 
     // Holiday gate — skipped for open_365 / 24-7 tenants (emergency trades book
     // on holidays). Mirrors checkAvailability, which already exempts open_365.
-    const { open_365 } = await getSettings(tenant.id)
-    if (!open_365) {
+    const settings = await getSettings(tenant.id)
+    if (!settings.open_365) {
       const { isHoliday } = await import('@/lib/holidays')
       const holidayName = isHoliday(startTime.split('T')[0])
       if (holidayName) {
@@ -512,7 +590,9 @@ export async function POST(request: Request) {
     // (property ?? client.address) instead of the client's default address.
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
-    // Smart team suggestion
+    // Smart team suggestion — and, when the tenant has auto-booking on, a
+    // real assignment: the top-scored available member is put straight on
+    // the job and the booking skips 'pending' entirely.
     try {
       const scores = await scoreTeamForBooking({
         tenantId: tenant.id,
@@ -524,13 +604,54 @@ export async function POST(request: Request) {
       })
       const best = scores.find(s => s.available && s.score > 0)
       if (best) {
-        await tenantDb(tenant.id)
-          .from('bookings')
-          .update({
-            suggested_team_member_id: best.id,
-            suggested_reason: best.reason,
-          })
-          .eq('id', data.id)
+        let autoAssigned = false
+        if (settings.auto_booking_enabled) {
+          // scoreTeamForBooking's availability is a snapshot — re-check for a
+          // conflicting booking right before committing so a second request
+          // that scored the same member in the same instant can't double-book
+          // them. Narrows the race rather than closing it outright (a fully
+          // atomic guard would need its own RPC, like create_admin_booking_
+          // atomic's conflict check for manual assignment); on a hit, this
+          // just falls back to the existing suggested-only behavior below.
+          const conflictEnd = data.end_time || new Date(new Date(startTime).getTime() + (Number(body.estimated_hours) || 2) * 3_600_000).toISOString()
+          const { count: conflictCount } = await supabaseAdmin
+            .from('bookings')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenant.id)
+            .eq('team_member_id', best.id)
+            .not('status', 'in', '(cancelled,no_show)')
+            .lt('start_time', conflictEnd)
+            .gt('end_time', startTime)
+
+          if (!conflictCount) {
+            const { data: assigned } = await tenantDb(tenant.id)
+              .from('bookings')
+              .update({
+                team_member_id: best.id,
+                status: 'scheduled',
+                suggested_team_member_id: best.id,
+                suggested_reason: best.reason,
+              })
+              .eq('id', data.id)
+              .select('id, start_time, end_time, hourly_rate, clients(id, name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+              .single()
+
+            if (assigned) {
+              autoAssigned = true
+              await notifyAutoAssignment(tenant, assigned as unknown as AutoAssignedBooking)
+            }
+          }
+        }
+
+        if (!autoAssigned) {
+          await tenantDb(tenant.id)
+            .from('bookings')
+            .update({
+              suggested_team_member_id: best.id,
+              suggested_reason: best.reason,
+            })
+            .eq('id', data.id)
+        }
       }
     } catch (e) {
       console.error('Smart suggestion error:', e)

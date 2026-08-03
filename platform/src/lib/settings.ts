@@ -53,6 +53,11 @@ export interface TenantSettings {
   default_booking_status: string
   require_team_member: boolean
   auto_confirm_bookings: boolean
+  // When true, a new self-service booking (client_portal/booking-page) that
+  // scores an available team member skips 'pending' entirely — the top-scored
+  // member is assigned and the booking goes straight to 'scheduled', same as
+  // if an admin had done it manually. Default OFF. Stored in selena_config jsonb.
+  auto_booking_enabled: boolean
   // When true, the recurring cron smart-assigns each generated occurrence
   // (preferred member kept if available, else best-scoring member, else
   // unassigned) instead of hard-locking the schedule's member. Default OFF.
@@ -249,6 +254,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     default_booking_status: (selenaConfig.default_booking_status as string) || 'scheduled',
     require_team_member: Boolean(selenaConfig.require_team_member),
     auto_confirm_bookings: Boolean(selenaConfig.auto_confirm_bookings),
+    auto_booking_enabled: Boolean(selenaConfig.auto_booking_enabled),
     smart_recurring_assign: Boolean(selenaConfig.smart_recurring_assign),
     recurring_writes_paused: Boolean(selenaConfig.recurring_writes_paused),
     commission_rate: Number(tenant?.commission_rate ?? 10),
