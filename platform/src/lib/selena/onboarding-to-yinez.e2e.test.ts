@@ -210,7 +210,15 @@ describe('onboarding -> Yinez context, real answers', () => {
     expect(prompt).toContain('Handy')
     expect(prompt).toContain('MaidPro NYC')
     expect(prompt).toContain('never badmouth') // competitors section framing
-    expect(prompt).toContain('Same cleaner every time, insured team') // differentiators
+    // differentiators is a tap-select array now (converted from free-text 2026-08-02, see
+    // persona-file.ts's Persona.differentiators comment) -- the fixture below still submits the
+    // old comma-joined string on purpose, to prove coerceFieldValue's array fallback (splits a
+    // plain string on commas) still carries old-style submissions through correctly. That produces
+    // 3 separate bulleted lines, not one joined phrase.
+    expect(prompt).toContain('WHAT MAKES YOU DIFFERENT')
+    expect(prompt).toContain('- Same cleaner every time')
+    expect(prompt).toContain('- insured team')
+    expect(prompt).toContain('- and a text-based booking flow instead of an app.')
   })
 })
 
