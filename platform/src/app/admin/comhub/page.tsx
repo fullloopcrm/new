@@ -1659,6 +1659,14 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           {((role === 'client' && client?.active === false) || (role === 'cleaner' && cleaner?.active === false)) && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
+          {role === 'cleaner' && cleaner?.active !== false && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)', ...pillFont }}>Active</span>
+          )}
+          {role === 'applicant' && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(217,119,6,0.08)', color: '#b45309', border: '1px solid rgba(217,119,6,0.25)', ...pillFont }}>
+              {applicant?.status || 'Pending'}
+            </span>
+          )}
         </div>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
