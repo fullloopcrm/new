@@ -65,6 +65,7 @@ type Application = {
   references: { name: string; phone: string }[] | null
   notes: string | null
   photo_url: string | null
+  video_url: string | null
   service_zones: string[] | null
   has_car: boolean | null
   status: 'pending' | 'approved' | 'rejected'
@@ -454,6 +455,13 @@ export default function TeamPage() {
                               refs: {app.references.map((r) => `${r.name} (${r.phone})`).join('; ')}
                             </div>
                           )}
+                          {app.video_url && (
+                            <div className="tm-app-meta">
+                              <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+                                ▶ Watch Video Selfie
+                              </a>
+                            </div>
+                          )}
                           {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
                           <div className="tm-app-date">
                             applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -491,7 +499,15 @@ export default function TeamPage() {
                           </div>
                           <div className="tm-app-body">
                             <div className="tm-app-name">{app.name}</div>
-                            <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div className="tm-app-meta">
+                              {app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {app.video_url && (
+                                <>
+                                  {' · '}
+                                  <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>▶ Video</a>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="tm-app-actions">
                             <span className={`tm-app-status ${app.status}`}>{app.status}</span>
