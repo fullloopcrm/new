@@ -52,7 +52,6 @@ export default function RemoteBookForm({ services, businessName }: { services: S
       `Plan: ${form.hours} hrs / ${cadenceLabel.toLowerCase()}`,
       `Timezone: ${form.timezone}`,
       form.scope.trim() ? `Scope: ${form.scope.trim()}` : '',
-      smsConsent ? `✅ SMS consent granted (TCPA) at ${new Date().toISOString()}` : '',
     ].filter(Boolean).join(' — ')
 
     setSubmitting(true)
@@ -69,7 +68,8 @@ export default function RemoteBookForm({ services, businessName }: { services: S
           estimated_hours: Number(form.hours) || 10,
           recurring_type: form.cadence || undefined,
           notes,
-          smsConsent,
+          sms_opt_in: smsConsent,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
           src: 'remote-book',
         }),
       })

@@ -35,6 +35,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 import { isValidLeadSource } from '@/lib/lead-sources'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
+import { getSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -45,26 +46,6 @@ function defaultServiceType(industry: string | null | undefined): string {
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
-}
-
-// Matches the checkbox copy on /book/new and the Telnyx 10DLC campaign's
-// registered messageFlow word-for-word — the campaign record itself is what
-// carriers check consent text against.
-const SMS_MARKETING_CONSENT_TEXT = 'By providing your phone number and clicking "Submit," you agree to receive SMS updates and marketing messages from The NYC Maid. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase.'
-
-/** Only ever grants consent, never revokes it — an unchecked box on a later
- * booking must not silently wipe out consent given earlier through another
- * channel (site checkbox, SMS text-in, verbal). */
-function smsOptInFields(optedIn: boolean, ip: string, userAgent: string) {
-  if (!optedIn) return {}
-  return {
-    sms_opt_in: true,
-    sms_consent: true,
-    sms_consent_at: new Date().toISOString(),
-    consent_text: SMS_MARKETING_CONSENT_TEXT,
-    consent_ip: ip,
-    consent_user_agent: userAgent.slice(0, 200),
-  }
 }
 
 function templateData(tenant: { name: string; primary_color?: string | null; logo_url?: string | null }) {
@@ -94,6 +75,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
     const smsOptedIn = body.sms_opt_in === true
     const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
+    const consentText = getSmsConsentText(tenant as { id: string; name: string })
     if (typeof body.notes === 'string') {
       body.notes = sanitizeInput(body.notes)
     }
@@ -203,7 +185,7 @@ export async function POST(request: Request) {
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),
             source: body.lead_source as string,
-            ...smsOptInFields(smsOptedIn, ip, userAgent),
+            ...smsOptInFields(smsOptedIn, ip, userAgent, consentText),
           })
           .select()
           .single()
@@ -248,7 +230,7 @@ export async function POST(request: Request) {
     if (smsOptedIn && clientId && !isNewClient) {
       await tenantDb(tenant.id)
         .from('clients')
-        .update(smsOptInFields(true, ip, userAgent))
+        .update(smsOptInFields(true, ip, userAgent, consentText))
         .eq('id', clientId)
         .eq('tenant_id', tenant.id)
     }

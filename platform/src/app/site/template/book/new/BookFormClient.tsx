@@ -8,6 +8,7 @@ import { formatPhone } from '@/lib/format'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import type { ServiceOption } from '../../_config/types'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import SmsConsent from '../../_components/SmsConsent'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -77,6 +78,7 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
   const [pin, setPin] = useState('')
   const [showRecap, setShowRecap] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [policyFlash, setPolicyFlash] = useState(false)
   const policyRef = useRef<HTMLDivElement>(null)
 
@@ -292,6 +294,7 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
 
     if (!form.name.trim()) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'name' }); setError('Please enter your name.'); return }
     if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'phone' }); setError('Please enter a valid phone number.'); return }
+    if (!smsOptIn) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'sms_opt_in' }); setError('Please agree to receive text messages about your appointment.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'email' }); setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
@@ -322,9 +325,8 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
           hourly_rate: hourlyRate,
           estimated_hours: estimatedHours,
           max_hours: form.max_hours,
-          // Confirming the booking agrees to the recap, which includes SMS
-          // consent — record it (TCPA) alongside any customer note.
-          notes: [form.notes.trim(), `✅ SMS consent granted (TCPA) at ${new Date().toISOString()}`].filter(Boolean).join('\n'),
+          notes: form.notes.trim(),
+          sms_opt_in: smsOptIn,
           lead_source: form.lead_source,
           ref_code: refCode || null,
           src: srcDomain || null,
@@ -501,6 +503,8 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
               />
             </div>
           </div>
+
+          <SmsConsent businessName={businessName} checked={smsOptIn} onChange={setSmsOptIn} />
 
           {/* Email */}
           <div>

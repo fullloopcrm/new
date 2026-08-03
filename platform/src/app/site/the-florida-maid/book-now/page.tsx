@@ -6,6 +6,7 @@ import AddressAutocomplete from '@/app/site/the-florida-maid/_components/Address
 import { validateEmail } from '@/app/site/the-florida-maid/_lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import { FLORIDA_MAID_SMS_CONSENT_TEXT } from '@/lib/sms-consent'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -61,6 +62,7 @@ function BookFormContent() {
   const [pin, setPin] = useState('')
   const [showRecap, setShowRecap] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [smsOptIn, setSmsOptIn] = useState(false)
 
   const sessionIdRef = useRef<string>('')
   const startedRef = useRef(false)
@@ -153,6 +155,7 @@ function BookFormContent() {
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
     if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
+    if (!smsOptIn) { setError('Please agree to receive text messages about your appointment.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
@@ -178,6 +181,7 @@ function BookFormContent() {
           referrer_name: form.referrer_name.trim() || null, referrer_phone: form.referrer_phone.trim() || null,
           cleaner_id: form.cleaner_id || null, extra_cleaner_ids: form.extra_cleaner_ids, team_size: form.team_size,
           client_confirmed: true, confirmed_at: new Date().toISOString(),
+          sms_opt_in: smsOptIn,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
         }),
       })
@@ -283,6 +287,19 @@ function BookFormContent() {
               </div>
             </div>
 
+            <label className="flex items-start gap-2 cursor-pointer -mt-1">
+              <input
+                type="checkbox"
+                required
+                checked={smsOptIn}
+                onChange={(e) => setSmsOptIn(e.target.checked)}
+                className="mt-0.5 min-w-[16px] min-h-[16px]"
+              />
+              <span className="text-[11px] text-gray-500 leading-relaxed">
+                {FLORIDA_MAID_SMS_CONSENT_TEXT}
+              </span>
+            </label>
+
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Email</label>
               <input type="email" required placeholder="you@example.com" value={form.email}
@@ -295,6 +312,7 @@ function BookFormContent() {
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Address</label>
               <AddressAutocomplete value={form.address} onChange={(v) => update('address', v)}
                 placeholder="Start typing your street..."
+                required
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
               <input type="text" placeholder="Apt / Unit (optional)" value={form.unit}
                 onChange={(e) => update('unit', e.target.value)}

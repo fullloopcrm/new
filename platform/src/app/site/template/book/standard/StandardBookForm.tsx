@@ -7,6 +7,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import type { SiteConfig } from '../../_config/types'
+import SmsConsent from '../../_components/SmsConsent'
 
 /**
  * Trade-agnostic standard booking form. Config-driven (services, theme,
@@ -73,6 +74,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
   const [showRecap, setShowRecap] = useState(false)
   const [done, setDone] = useState(false)
   const [pin, setPin] = useState('')
+  const [smsOptIn, setSmsOptIn] = useState(false)
 
   const sessionIdRef = useRef<string>('')
   const startedRef = useRef(false)
@@ -97,6 +99,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
     if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
+    if (!smsOptIn) { setError('Please agree to receive text messages to continue.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
@@ -124,6 +127,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
           notes: form.notes.trim(),
           self_book: true,
           self_book_discount_cents: SELF_BOOK_DISCOUNT_CENTS,
+          sms_opt_in: smsOptIn,
           ref_code: refCode || null,
           src: srcDomain || null,
           client_confirmed: true,
@@ -236,6 +240,8 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
                 <input type="tel" required placeholder="(212) 555-1234" value={form.phone} onChange={(e) => update('phone', formatPhone(e.target.value))} className={inputCls} style={inputStyle} />
               </div>
             </div>
+
+            <SmsConsent businessName={identity.name} checked={smsOptIn} onChange={setSmsOptIn} />
 
             {/* Email */}
             <div>

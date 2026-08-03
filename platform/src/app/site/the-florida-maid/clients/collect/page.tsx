@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import AddressAutocomplete from '@/app/site/the-florida-maid/_components/AddressAutocomplete'
 import { validateEmail } from '@/app/site/the-florida-maid/_lib/validate-email'
 import { useFormTracking } from '@/app/site/the-florida-maid/_lib/useFormTracking'
+import { FLORIDA_MAID_COLLECT_CONSENT_TEXT } from '@/lib/sms-consent'
 
 function CollectFormContent() {
   useEffect(() => { document.title = 'Complete Your Booking | The Florida Maid' }, [])
@@ -27,6 +28,7 @@ function CollectFormContent() {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
+  const [smsConsent, setSmsConsent] = useState(false)
 
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -39,6 +41,12 @@ function CollectFormContent() {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    if (!smsConsent) {
+      setError('Please agree to receive text messages to continue.')
+      setLoading(false)
+      return
+    }
 
     if (form.email) {
       const emailCheck = validateEmail(form.email)
@@ -72,7 +80,9 @@ function CollectFormContent() {
           pet_name: form.pet_name || null,
           pet_type: form.pet_type || null,
           src: srcDomain || null,
-          convo_id: convoId || null
+          convo_id: convoId || null,
+          sms_opt_in: smsConsent,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
         })
       })
 
@@ -237,8 +247,15 @@ function CollectFormContent() {
 
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
-              <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
-              <span>By checking this box, I consent to receive transactional text messages from <strong>The Florida Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.thefloridamaid.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.thefloridamaid.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
+              <input
+                type="checkbox"
+                name="sms_consent"
+                required
+                checked={smsConsent}
+                onChange={(e) => setSmsConsent(e.target.checked)}
+                className="mt-1 min-w-[18px] min-h-[18px]"
+              />
+              <span>{FLORIDA_MAID_COLLECT_CONSENT_TEXT} <a href="https://www.thefloridamaid.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.thefloridamaid.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
             </label>
           </div>
 
