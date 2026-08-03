@@ -290,7 +290,6 @@ function BookFormContent() {
             <label className="flex items-start gap-2 cursor-pointer -mt-1">
               <input
                 type="checkbox"
-                required
                 checked={smsOptIn}
                 onChange={(e) => setSmsOptIn(e.target.checked)}
                 className="mt-0.5 min-w-[16px] min-h-[16px]"
@@ -321,7 +320,7 @@ function BookFormContent() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
-              <select required value={form.lead_source} onChange={(e) => update('lead_source', e.target.value)}
+              <select value={form.lead_source} onChange={(e) => update('lead_source', e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]">
                 <option value="">Select one...</option>
                 {LEAD_SOURCE_OPTIONS.map((o) => (
