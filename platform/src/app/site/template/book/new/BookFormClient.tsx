@@ -294,7 +294,6 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
 
     if (!form.name.trim()) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'name' }); setError('Please enter your name.'); return }
     if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'phone' }); setError('Please enter a valid phone number.'); return }
-    if (!smsOptIn) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'sms_opt_in' }); setError('Please agree to receive text messages about your appointment.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'email' }); setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
@@ -542,7 +541,6 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
           <div>
             <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
             <select
-              required
               value={form.lead_source}
               onChange={(e) => update('lead_source', e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"

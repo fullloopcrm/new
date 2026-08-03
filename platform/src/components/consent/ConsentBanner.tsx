@@ -103,7 +103,7 @@ export default function ConsentBanner({ privacyHref }: ConsentBannerProps) {
       <div
         role="dialog"
         aria-label="Cookie consent"
-        className="fixed inset-x-0 bottom-0 z-[300] border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
       >
         <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-relaxed text-gray-600">
@@ -135,7 +135,7 @@ export default function ConsentBanner({ privacyHref }: ConsentBannerProps) {
     <div
       role="dialog"
       aria-label="Privacy and cookie notice"
-      className="fixed inset-x-0 bottom-0 z-[300] border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
     >
       <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-relaxed text-gray-600">

@@ -6,16 +6,18 @@
  * consent on record. Mirrors the pattern already used on the apply/referral
  * forms; extracted here so every customer form uses one source of truth.
  *
- * The checkbox is `name="sms_consent"` and `required` by default — affirmative
- * opt-in is what TCPA expects. Pass `required={false}` only if a form must post
- * without gating (the disclosure still shows; consent is then not recorded).
+ * The checkbox is `name="sms_consent"` and NOT required by default — the
+ * disclosure text says "Consent is not a condition of purchase" precisely
+ * because TCPA prohibits conditioning service on marketing opt-in. Pass
+ * `required={true}` only for a form that legitimately has no other way to
+ * proceed without a phone-consent record.
  *
  * businessName should be the legal entity name when available, falling back to
  * the display brand — consent must name the entity actually sending the texts.
  */
 export default function SmsConsent({
   businessName,
-  required = true,
+  required = false,
   checked,
   onChange,
 }: {
