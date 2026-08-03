@@ -187,6 +187,8 @@ export default function BusinessDetailPage() {
   const [onboardingUrl, setOnboardingUrl] = useState('')
   const [linkBusy, setLinkBusy] = useState(false)
   const [linkMsg, setLinkMsg] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfMsg, setPdfMsg] = useState('')
 
   // Delete confirmation
   const [showDelete, setShowDelete] = useState(false)
@@ -353,6 +355,21 @@ export default function BusinessDetailPage() {
       setLinkMsg('Copied.')
       setTimeout(() => setLinkMsg(''), 2000)
     })
+  }
+
+  async function openOnboardingPdf() {
+    setPdfBusy(true)
+    setPdfMsg('')
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/onboarding-pdf`, { credentials: 'include' })
+      const d = await res.json()
+      if (res.ok && d.url) window.open(d.url, '_blank', 'noopener,noreferrer')
+      else setPdfMsg(d.error || 'Failed to load')
+    } catch {
+      setPdfMsg('Failed to load')
+    } finally {
+      setPdfBusy(false)
+    }
   }
 
   async function save(extra?: Record<string, unknown>) {
@@ -525,6 +542,25 @@ export default function BusinessDetailPage() {
             </button>
           </div>
           {linkMsg && <p className="text-xs text-teal-700 mt-2">{linkMsg}</p>}
+        </div>
+      )}
+
+      {/* Onboarding Completed Form — the client's exact submitted answers,
+          rendered to PDF and locked at submit time (tenant_onboarding_submissions).
+          Independent of the live profile, which can change after this point. */}
+      {biz.onboarding_completed_at && (
+        <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-heading font-semibold text-sm text-slate-700">Onboarding Completed Form</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Exact copy of what the client submitted — a permanent backup, unaffected by later edits.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {pdfMsg && <span className="text-xs text-red-600">{pdfMsg}</span>}
+            <button onClick={openOnboardingPdf} disabled={pdfBusy}
+              className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              {pdfBusy ? 'Loading…' : 'View PDF ↗'}
+            </button>
+          </div>
         </div>
       )}
 
