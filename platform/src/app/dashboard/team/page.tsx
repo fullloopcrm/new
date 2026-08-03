@@ -135,6 +135,32 @@ export default function TeamPage() {
   }
 
   const [bulkApproving, setBulkApproving] = useState(false)
+  const [generatingPins, setGeneratingPins] = useState(false)
+
+  async function generateAllPins() {
+    if (!confirm('Generate a PIN for every active team member who is missing one, and email/text it to them?')) return
+    setGeneratingPins(true)
+    try {
+      const res = await fetch('/api/team/generate-missing-pins', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Failed: ${json.error || res.statusText}`)
+        return
+      }
+      const failed = Array.isArray(json.failures) ? json.failures.length : 0
+      alert(
+        json.generated === 0
+          ? (json.message || 'Everyone already has a PIN.')
+          : `Generated ${json.generated} PIN${json.generated === 1 ? '' : 's'}. Emailed ${json.emailed}, texted ${json.texted}.` +
+            (failed > 0 ? `\n${failed} member(s) could not be given a PIN — check server logs.` : '')
+      )
+      await loadMembers()
+    } catch (e) {
+      alert(`Failed: ${e instanceof Error ? e.message : 'network error'}`)
+    } finally {
+      setGeneratingPins(false)
+    }
+  }
 
   async function bulkApproveAll() {
     const pendingCount = applications.filter((a) => a.status === 'pending').length
@@ -559,7 +585,17 @@ export default function TeamPage() {
 
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
-            <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+            <div className="tm-section-actions">
+              <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+              <button
+                type="button"
+                className="tm-bulk-approve-btn"
+                onClick={generateAllPins}
+                disabled={generatingPins}
+              >
+                {generatingPins ? 'Generating…' : 'Generate All PINs'}
+              </button>
+            </div>
           </div>
 
           {loading && <div className="tm-empty">Loading…</div>}

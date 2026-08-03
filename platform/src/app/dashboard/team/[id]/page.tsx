@@ -164,6 +164,9 @@ export default function TeamMemberDetailPage() {
   const [stripeBusy, setStripeBusy] = useState(false)
   const [stripeMessage, setStripeMessage] = useState('')
 
+  // PIN regeneration state
+  const [regeneratingPin, setRegeneratingPin] = useState(false)
+
   // Schedule & Availability state -- loaded from the real scheduler columns
   // (working_days/schedule), NOT from notes. Same canonical model the smart
   // scheduler and the ind-build editor both use (day-availability.ts).
@@ -307,6 +310,28 @@ export default function TeamMemberDetailPage() {
     } catch (e) {
       setStripeMessage(e instanceof Error ? e.message : 'Payout setup failed')
       setStripeBusy(false)
+    }
+  }
+
+  async function regeneratePin() {
+    if (!member) return
+    if (!confirm(`Generate a new PIN for ${member.name}? Their current PIN will stop working, and the new one will be sent by email/text.`)) return
+    setRegeneratingPin(true)
+    try {
+      const res = await fetch(`/api/team/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regenerate_pin: true }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Could not regenerate PIN')
+      setMember((prev) => (prev ? { ...prev, pin: json.pin } : prev))
+      const sentVia = [json.emailed && 'email', json.texted && 'text'].filter(Boolean).join(' and ')
+      alert(sentVia ? `New PIN sent via ${sentVia}.` : 'PIN regenerated, but it could not be delivered — check their email/phone on file.')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not regenerate PIN')
+    } finally {
+      setRegeneratingPin(false)
     }
   }
 
@@ -664,7 +689,20 @@ export default function TeamMemberDetailPage() {
                   <div className="flex justify-between"><dt className="text-slate-400">Address</dt><dd>{member.address || '—'}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Role</dt><dd className="capitalize">{member.role}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize">{member.status}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-400">PIN</dt><dd className="font-mono">{member.pin}</dd></div>
+                  <div className="flex justify-between items-center">
+                    <dt className="text-slate-400">PIN</dt>
+                    <dd className="flex items-center gap-2">
+                      <span className="font-mono">{member.pin || '—'}</span>
+                      <button
+                        type="button"
+                        onClick={regeneratePin}
+                        disabled={regeneratingPin}
+                        className="text-xs text-teal-700 border border-teal-200 rounded px-2 py-1 hover:bg-teal-50 disabled:opacity-50"
+                      >
+                        {regeneratingPin ? 'Sending…' : 'Regenerate New PIN'}
+                      </button>
+                    </dd>
+                  </div>
                   <div className="flex justify-between"><dt className="text-slate-400">Pay Rate</dt><dd>{member.pay_rate ? `$${member.pay_rate}/hr` : '—'}</dd></div>
                   <div className="flex justify-between"><dt className="text-slate-400">Language</dt><dd className="uppercase">{member.preferred_language || 'en'}</dd></div>
                   {displayNotes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2 whitespace-pre-wrap">{displayNotes}</dd></div>}
