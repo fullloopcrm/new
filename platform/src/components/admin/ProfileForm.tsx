@@ -21,6 +21,12 @@ interface Field {
   tier: Tier; readonly: boolean; kind: string; input: Input; options: Opt[] | null; funnels: string[] | null
   help?: string | null; dependsOn?: { key: string; value: unknown } | null
 }
+
+// Same rule the tenant-facing wizard uses (ProfileWizard.tsx) — long-form
+// inputs need the full row, everything else is fine two-up.
+function isWideField(f: Field): boolean {
+  return f.input === 'textarea' || f.input === 'custom' || (f.input === 'array' && !f.options)
+}
 interface Readiness {
   funnel: string
   completeness: { filled: number; applicable: number; pct: number }
@@ -122,7 +128,7 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
   return (
     <div className="flex flex-col lg:flex-row gap-8">
       {/* Form */}
-      <div className="flex-1 space-y-8 max-w-2xl">
+      <div className="flex-1 space-y-8 max-w-4xl">
         {SECTION_ORDER.filter((s) => bySection[s]?.length).map((section) => {
           const all = bySection[section]
           const visible = all.filter((f) =>
@@ -137,15 +143,16 @@ export function ProfileForm({ tenantId }: { tenantId: string }) {
                 <h3 className="font-heading font-semibold text-slate-900">{SECTION_TITLES[section] || section}</h3>
                 {sec && <span className="text-xs text-slate-400">{sec.filled}/{sec.applicable}</span>}
               </div>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
                 {visible.map((f) => (
-                  <FieldRow
-                    key={f.key}
-                    field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
-                    value={values[f.key]}
-                    state={saveState[f.key] || 'idle'}
-                    onChange={onChange}
-                  />
+                  <div key={f.key} className={isWideField(f) ? 'md:col-span-2' : undefined}>
+                    <FieldRow
+                      field={{ ...f, label: `${PROFILE_FIELD_NUMBER[f.key] || ''} ${f.label}`.trim() }}
+                      value={values[f.key]}
+                      state={saveState[f.key] || 'idle'}
+                      onChange={onChange}
+                    />
+                  </div>
                 ))}
               </div>
             </section>
