@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, agent_name, primary_color, logo_url')
+      .select('id, name, agent_name, primary_color, logo_url, payment_link')
       .eq('slug', tenant_slug)
       .eq('status', 'active')
       .single()
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       token,
       client: { id: client.id, name: client.name },
-      tenant: { id: tenant.id, name: tenant.name, agent_name: tenant.agent_name, primary_color: tenant.primary_color, logo_url: tenant.logo_url },
+      tenant: { id: tenant.id, name: tenant.name, agent_name: tenant.agent_name, primary_color: tenant.primary_color, logo_url: tenant.logo_url, payment_link: tenant.payment_link },
     })
   }
 

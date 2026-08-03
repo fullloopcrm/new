@@ -9,7 +9,7 @@ type Lang = 'en' | 'es'
 type PortalAuth = {
   token: string
   client: { id: string; name: string }
-  tenant: { id: string; name: string; agent_name: string | null; primary_color: string; logo_url: string | null }
+  tenant: { id: string; name: string; agent_name: string | null; primary_color: string; logo_url: string | null; payment_link: string | null }
 } | null
 
 const STORAGE_KEY = 'portal_auth'
@@ -57,6 +57,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const navItems = [
     { href: '/portal', icon: '◻', label: t('Home', 'Inicio') },
     { href: '/portal/book', icon: '+', label: t('Book', 'Reservar') },
+    ...(auth?.tenant.payment_link
+      ? [{ href: auth.tenant.payment_link, icon: '$', label: t('Pay', 'Pagar'), external: true }]
+      : []),
     { href: '/portal/feedback', icon: '★', label: t('Feedback', 'Opinión') },
     { href: '/portal/connect', icon: '💬', label: t('Chat', 'Chat') },
   ]
@@ -97,14 +100,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <div className="max-w-lg mx-auto flex justify-around">
               {navItems.map((item) => {
                 const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex flex-col items-center text-xs py-1 ${
-                      isActive ? 'text-slate-800 font-semibold' : 'text-slate-400'
-                    }`}
-                  >
+                const isExternal = 'external' in item && item.external
+                const content = (
+                  <>
                     <span className="relative text-lg mb-0.5">
                       {item.icon}
                       {'badge' in item && (item as { badge?: number }).badge ? (
@@ -114,6 +112,30 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       ) : null}
                     </span>
                     {item.label}
+                  </>
+                )
+                if (isExternal) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center text-xs py-1 text-slate-400"
+                    >
+                      {content}
+                    </a>
+                  )
+                }
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex flex-col items-center text-xs py-1 ${
+                      isActive ? 'text-slate-800 font-semibold' : 'text-slate-400'
+                    }`}
+                  >
+                    {content}
                   </Link>
                 )
               })}
