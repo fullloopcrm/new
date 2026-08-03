@@ -17,6 +17,8 @@ import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient, getBookingAddress } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
 import { logSchedulingOverrideIfAny } from '@/lib/scheduling-override-log'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -431,7 +433,12 @@ export async function POST(request: Request) {
         .eq('id', tenantId)
         .single()
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      // NYC Maid clients are told a 2-hour arrival window, never an exact
+      // time (see time-window.ts — the same rule every SMS template already
+      // follows). Other tenants get the plain wall-clock time.
+      const time = isNycMaid(tenantId)
+        ? clientArrivalWindow(data.start_time)
+        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
       // Client confirmation email — shared Full Loop template (same content
@@ -446,8 +453,9 @@ export async function POST(request: Request) {
         const html = await buildBookingConfirmationEmail(tenantId, data.id, {
           clientName: data.clients?.name || 'there',
           serviceName: data.service_type || 'Appointment',
-          dateTime: `${date} at ${time}`,
+          dateTime: isNycMaid(tenantId) ? `${date}, ${time}` : `${date} at ${time}`,
           teamMemberName: memberName,
+          whatToExpect: isNycMaid(tenantId) ? ARRIVAL_WINDOW_NOTE : undefined,
         })
         await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
           .catch(err => console.error('client confirmation email error:', err))

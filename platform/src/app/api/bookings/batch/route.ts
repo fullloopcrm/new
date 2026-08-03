@@ -7,6 +7,8 @@ import { sendSMS } from '@/lib/sms'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 
 /**
  * POST /api/bookings/batch
@@ -163,6 +165,16 @@ export async function POST(request: Request) {
         month: 'short',
         day: 'numeric',
       })
+      // NYC Maid clients are told a 2-hour arrival window, never an exact
+      // time (see time-window.ts — the same rule every SMS template already
+      // follows). Other tenants get the plain wall-clock time.
+      const bookingTime = isNycMaid(tenantId)
+        ? clientArrivalWindow(first.start_time)
+        : new Date(first.start_time).toLocaleTimeString('en-US', {
+            timeZone: 'America/New_York',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
 
       // Resolve tenant SMS creds
       const { data: tRow } = await supabaseAdmin
@@ -212,8 +224,9 @@ export async function POST(request: Request) {
         const html = await buildBookingConfirmationEmail(tenantId, first.id as string, {
           clientName: client.name || 'there',
           serviceName: first.service_type,
-          dateTime: bookingDate,
+          dateTime: isNycMaid(tenantId) ? `${bookingDate}, ${bookingTime}` : `${bookingDate} at ${bookingTime}`,
           teamMemberName: cleaner?.name || 'Your pro',
+          whatToExpect: isNycMaid(tenantId) ? ARRIVAL_WINDOW_NOTE : undefined,
         })
         await sendClientEmail({ id: tenantId, ...tenantRow }, first.client_id as string, `Booking Confirmed — ${bookingDate}`, html)
           .catch(err => console.error('[batch] client email error:', err))
