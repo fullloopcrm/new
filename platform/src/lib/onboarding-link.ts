@@ -54,15 +54,23 @@ export async function createAndSendOnboardingLink(tenantId: string): Promise<{ u
   }
 
   const bodyHtml = `
-    <p style="margin:0 0 16px">Welcome to Full Loop — the AI-run CRM that handles your booking site, sales agent, invoicing, scheduling, and reviews, so a lot of what used to be manual work just... runs.</p>
-    <p style="margin:0 0 16px">First step is your business profile — the link below walks you through it. It autosaves as you go, so there's no rush and nothing to lose if you close the tab and come back later.</p>
+    <p style="margin:0 0 16px">We're glad to have you as part of Full Loop — we're excited about what it's going to do for your business.</p>
+    <p style="margin:0 0 8px;font-weight:600">A few ways it'll help:</p>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li style="margin-bottom:6px">Your booking site, sales agent, invoicing, scheduling, and reviews all run from one place — a lot of what used to be manual work just runs on its own.</li>
+      <li style="margin-bottom:6px">Leads get followed up with automatically, so fewer of them fall through the cracks.</li>
+      <li>Your whole operation — team, jobs, payments — lives in one system instead of five disconnected tools.</li>
+    </ul>
+    <p style="margin:0 0 16px">First step is your business profile — the link below walks you through it. It autosaves as you go, so there's no rush and nothing to lose if you close the tab and come back later. Most businesses take somewhere between 3 and 7 days to get all the way through it, a bit at a time — that's normal, not a deadline.</p>
+    <p style="margin:0 0 16px">Once it's fully submitted, we get to work building and setting up your account — that typically takes 15 to 30 days.</p>
     <p style="margin:0 0 8px;font-weight:600">A few things before you start:</p>
     <ul style="margin:0 0 16px;padding-left:20px">
       <li style="margin-bottom:6px">Keep your EIN and legal business address handy — a couple of fields need your real paperwork, not a placeholder.</li>
       <li style="margin-bottom:6px">Everything you fill in goes straight into your live account as you type — this isn't a draft you publish later.</li>
       <li>Questions along the way? Just reply to this email.</li>
     </ul>
-    ${pinRequired ? '<p style="margin:0">One more thing — when you open the link, you\'ll need a quick PIN: the last 4 digits of the phone number on file for your business.</p>' : ''}
+    ${pinRequired ? '<p style="margin:0 0 16px">One more thing — when you open the link, you\'ll need a quick PIN: the last 4 digits of the phone number on file for your business.</p>' : ''}
+    <p style="margin:0">We look forward to working with you!</p>
   `
 
   try {
