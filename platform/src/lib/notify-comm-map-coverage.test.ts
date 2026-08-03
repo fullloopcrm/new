@@ -158,6 +158,12 @@ const PINNED_UNGATED = [
   'review_received|admin|email',
   'running_late|admin|email',
   'seo_digest|admin|email',
+  // Authenticated client-portal message → admin (api/portal/messages,
+  // 2026-08-02 portal chat feature). Mislabeled 'sms_received' (it's a
+  // portal web message, not SMS) but same owner-facing "a client is trying
+  // to reach you" reasoning as the rest of this list — always-on regardless
+  // of comms-preference toggles for other notification types.
+  'sms_received|admin|email',
   'team_confirm_request|team_member|sms',
   'team_member_added|admin|email',
   'team_member_added|team_member|sms',
