@@ -11,6 +11,7 @@ import { sendEmail, tenantSender } from './email'
 import { signOnboardingToken } from './onboarding-token'
 import { expectedOnboardingPin } from './onboarding-pin'
 import { alertOwner } from './telegram'
+import { emailShell, type CommsBrand } from './messaging/shell'
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'
@@ -31,7 +32,7 @@ export function onboardingLinkUrl(tenantId: string, linkVersion: number): string
 export async function createAndSendOnboardingLink(tenantId: string): Promise<{ url: string; sent: boolean }> {
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, slug, email_from, owner_email, email, onboarding_link_version, phone, owner_phone')
+    .select('name, slug, email_from, owner_email, email, onboarding_link_version, phone, owner_phone, address, logo_url, primary_color')
     .eq('id', tenantId)
     .single()
 
@@ -43,20 +44,33 @@ export async function createAndSendOnboardingLink(tenantId: string): Promise<{ u
 
   const pinRequired = tenant ? !!expectedOnboardingPin(tenant) : false
 
+  const brand: CommsBrand = {
+    name: (tenant?.name as string) || 'Your Business',
+    phone: (tenant?.phone as string) || null,
+    email: (tenant?.email as string) || null,
+    address: (tenant?.address as string) || null,
+    logoUrl: (tenant?.logo_url as string) || null,
+    primaryColor: (tenant?.primary_color as string) || null,
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px">Finish setting up your business profile — it takes a few minutes and you can save and come back anytime.</p>
+    ${pinRequired ? '<p style="margin:0">When you open it, you\'ll need a PIN — the last 4 digits of the phone number on file for your business.</p>' : ''}
+  `
+
   try {
     await sendEmail({
       to,
       from: tenantSender(tenant),
       subject: 'Finish setting up your Full Loop account',
-      html: `
-        <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
-          <h2 style="color: #333;">Welcome to Full Loop${tenant?.name ? `, ${tenant.name}` : ''}!</h2>
-          <p style="color: #555;">Finish setting up your business profile — it takes a few minutes and you can save and come back anytime.</p>
-          <a href="${url}" style="display: inline-block; background: #0d9488; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 16px 0;">Complete your profile</a>
-          ${pinRequired ? '<p style="color: #555; font-size: 13px;">When you open it, you\'ll need a PIN — the last 4 digits of the phone number on file for your business.</p>' : ''}
-          <p style="color: #999; font-size: 12px;">This link is unique to your business — no password needed. If it wasn't you, ignore this email.</p>
-        </div>
-      `,
+      html: emailShell({
+        brand,
+        kicker: 'Welcome to Full Loop',
+        heading: tenant?.name ? `Let's get ${tenant.name} set up` : "Let's get your business set up",
+        bodyHtml,
+        cta: { label: 'Complete your profile', url },
+        preheader: 'Finish setting up your business profile — it takes a few minutes.',
+      }),
     })
     alertOwner(
       'Onboarding link sent',
