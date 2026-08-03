@@ -10,6 +10,7 @@ import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { signOnboardingToken } from './onboarding-token'
 import { expectedOnboardingPin } from './onboarding-pin'
+import { alertOwner } from './telegram'
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'
@@ -57,6 +58,10 @@ export async function createAndSendOnboardingLink(tenantId: string): Promise<{ u
         </div>
       `,
     })
+    alertOwner(
+      'Onboarding link sent',
+      `${(tenant?.name as string) || 'A tenant'} — sent to ${to}\n${appUrl()}/admin/businesses/${tenantId}`,
+    ).catch(() => {})
     return { url, sent: true }
   } catch (err) {
     console.error('createAndSendOnboardingLink: send failed', err)

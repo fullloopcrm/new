@@ -25,6 +25,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantProfile, isTenantVisible, PROFILE_FIELD_BY_KEY } from '@/lib/tenant-profile'
 import { applyProfileWrite } from '@/lib/tenant-profile-write'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
+import { alertOwner } from '@/lib/telegram'
 
 type Json = Record<string, unknown>
 
@@ -119,10 +120,17 @@ export async function POST(request: Request) {
     const { saved, ignored } = await applyProfileWrite(tenantId, filtered)
     if (!saved) return NextResponse.json({ error: 'No writable fields', ignored }, { status: 400 })
 
-    await supabaseAdmin
+    const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .update({ onboarding_draft: null, onboarding_completed_at: new Date().toISOString() })
       .eq('id', tenantId)
+      .select('name')
+      .single()
+
+    alertOwner(
+      'Onboarding completed',
+      `${(tenant?.name as string) || 'A tenant'} finished their profile.\n${process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'}/admin/businesses/${tenantId}`,
+    ).catch(() => {})
 
     return NextResponse.json({ submitted: true, ignored })
   } catch (err) {
