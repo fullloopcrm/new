@@ -121,7 +121,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
             </Link>
 
-            <nav className="hidden lg:flex items-center justify-center flex-1 gap-8 mx-8">
+            <nav className="hidden xl:flex items-center justify-center flex-1 gap-8 mx-8">
               <Link href="/" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Home</Link>
 
               {isVa && (
@@ -203,7 +203,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
             </nav>
 
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-2">
               <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors whitespace-nowrap">
                 Text {config.contact.phone}
               </a>
@@ -216,7 +216,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             </div>
 
             {/* Mobile hamburger */}
-            <div className="lg:hidden flex items-center gap-2">
+            <div className="xl:hidden flex items-center gap-2">
               <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Text
               </a>
