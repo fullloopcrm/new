@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Sora, DM_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { JsonLd, organizationSchema, websiteSchema } from "@/app/site/landscaping-in-nyc/_lib/schema";
@@ -8,7 +7,6 @@ import Footer from "@/app/site/landscaping-in-nyc/_components/Footer";
 import ConsentBanner from "@/components/consent/ConsentBanner";
 import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
 import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
-import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -120,25 +118,6 @@ export default function RootLayout({
         <Navbar />
         <main>{children}</main>
         <Footer />
-        <ConsentGate>
-          <Script
-            id="tawk-to"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6823effa7c5b09190cd447fe/1ir662r4n';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-            `,
-            }}
-          />
-        </ConsentGate>
         <ConsentBanner privacyHref="/privacy-policy" />
         <ClientErrorMonitor slug="landscaping-in-nyc" />
         <TenantAnalyticsScript slug="landscaping-in-nyc" />
