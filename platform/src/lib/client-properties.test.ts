@@ -6,7 +6,7 @@ vi.mock('./supabase', () => ({
   },
 }))
 
-import { updateProperty, normalizeAddress, resolveProperty } from './client-properties'
+import { updateProperty, normalizeAddress, resolveProperty, bookingCoords, applyPropertyToBookingClient } from './client-properties'
 import { supabaseAdmin } from './supabase'
 
 interface Row {
@@ -145,5 +145,46 @@ describe('resolveProperty', () => {
 
     expect(result?.id).toBe('prop-1')
     expect(insertSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('bookingCoords / applyPropertyToBookingClient — property/client coord drift', () => {
+  // Live bug (2026-08-03, Shelby Rodriguez): a client_properties row's
+  // lat/lng silently diverged from the SAME client's own coords (Brooklyn,
+  // NY text geocoded to Brooklyn, MD near Baltimore) and drove a cleaner to
+  // the wrong address. These lock in the >50mi drift-rejection fix.
+  const nycClient = { address: '156 8th Ave', latitude: 40.6715, longitude: -73.9745 }
+  const baltimoreProperty = { address: '156 8th ave brooklyn, 2F', latitude: 39.2268, longitude: -76.6158 }
+  const nearbyProperty = { address: '201 West 21st Street, 4E', latitude: 40.7429, longitude: -73.9966 }
+
+  it('rejects property coords far from the same client\'s own coords, falling back to the client', () => {
+    const coords = bookingCoords({ client_properties: baltimoreProperty, clients: nycClient })
+    expect(coords).toEqual({ lat: nycClient.latitude, lng: nycClient.longitude })
+  })
+
+  it('uses property coords when they plausibly belong to the same client', () => {
+    const coords = bookingCoords({ client_properties: nearbyProperty, clients: nycClient })
+    expect(coords).toEqual({ lat: nearbyProperty.latitude, lng: nearbyProperty.longitude })
+  })
+
+  it('trusts property coords when the client has no coords to compare against', () => {
+    const coords = bookingCoords({ client_properties: baltimoreProperty, clients: { address: 'unknown' } })
+    expect(coords).toEqual({ lat: baltimoreProperty.latitude, lng: baltimoreProperty.longitude })
+  })
+
+  it('applyPropertyToBookingClient keeps the property address but not its untrustworthy coords', () => {
+    const booking = { client_properties: baltimoreProperty, clients: { ...nycClient } }
+    applyPropertyToBookingClient(booking)
+    expect(booking.clients.address).toBe(baltimoreProperty.address)
+    expect(booking.clients.latitude).toBe(nycClient.latitude)
+    expect(booking.clients.longitude).toBe(nycClient.longitude)
+  })
+
+  it('applyPropertyToBookingClient adopts both address and coords when trustworthy', () => {
+    const booking = { client_properties: nearbyProperty, clients: { ...nycClient } }
+    applyPropertyToBookingClient(booking)
+    expect(booking.clients.address).toBe(nearbyProperty.address)
+    expect(booking.clients.latitude).toBe(nearbyProperty.latitude)
+    expect(booking.clients.longitude).toBe(nearbyProperty.longitude)
   })
 })
