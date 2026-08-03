@@ -46,7 +46,6 @@ export default function RemoteBookForm({ services, businessName }: { services: S
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { setError('Please add your name, email, and phone.'); return }
     if (!form.service_type) { setError('Please choose a service.'); return }
     if (!form.date) { setError('Please choose a start date.'); return }
-    if (!smsConsent) { setError('Please agree to be contacted so we can follow up.'); return }
     const cadenceLabel = CADENCE.find(c => c.value === form.cadence)?.label ?? 'One-time'
     const notes = [
       `Plan: ${form.hours} hrs / ${cadenceLabel.toLowerCase()}`,

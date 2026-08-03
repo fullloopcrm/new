@@ -155,7 +155,6 @@ function BookFormContent() {
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
     if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number, or leave it blank.'); return }
-    if (!smsOptIn) { setError('Please agree to receive text messages about your appointment.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
     setEmailErr('')
