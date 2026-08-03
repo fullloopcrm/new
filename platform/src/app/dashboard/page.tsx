@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest } from '@/lib/tenant-query'
+import { hasPermission, type RolePermissionOverrides } from '@/lib/rbac'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
@@ -251,6 +253,15 @@ export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
 
+  // Best-effort display gate for money figures — the real security boundary
+  // is requirePermission() on the finance API routes; this just keeps
+  // revenue numbers off a role's screen when they lack finance.view. Fails
+  // open (shows finance) on any resolution error, matching this page's
+  // prior always-shown behavior.
+  const viewerRole = await getTenantForRequest().then(t => t.role).catch(() => 'owner')
+  const roleOverrides = (tenant.selena_config as { role_permissions?: RolePermissionOverrides } | null)?.role_permissions ?? null
+  const canViewFinance = hasPermission(viewerRole, 'finance.view', roleOverrides)
+
   // "Today" per the TENANT's own configured timezone (Settings → Time Zone),
   // not the server process's zone (UTC on Vercel) — without this, every
   // day/week/month cutoff below rolls over 4-5 hours early, e.g. "Today's
@@ -393,10 +404,10 @@ export default async function DashboardPage() {
     },
   ]
   const volumeLadder = [
-    { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
-    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: formatMoney(sum(scheduledMonth)) },
-    { label: 'Jobs · YTD', val: projectedJobs, sub: formatMoney(projectedRevenue) },
-    { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
+    { label: 'Jobs · Week', val: scheduledWeek.length, sub: canViewFinance ? formatMoney(sum(scheduledWeek)) : '' },
+    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: canViewFinance ? formatMoney(sum(scheduledMonth)) : '' },
+    { label: 'Jobs · YTD', val: projectedJobs, sub: canViewFinance ? formatMoney(projectedRevenue) : '' },
+    { label: 'Remaining', val: remaining.length, sub: canViewFinance ? formatMoney(sum(remaining)) : '' },
   ]
 
   const leadsWeek = leads.filter(l => inDateRange(l.created_at, startOfWeek, endOfWeek)).length
@@ -433,11 +444,11 @@ export default async function DashboardPage() {
     }
   })
   const kpis = [
-    { label: 'AR Outstanding', val: formatMoney(arAging.total_cents), sub: `${arAging.rows.length} items · ${formatMoney(ar30)} 0-30 · ${formatMoney(ar60)} 31-60 · ${formatMoney(ar90)} 60+` },
+    canViewFinance && { label: 'AR Outstanding', val: formatMoney(arAging.total_cents), sub: `${arAging.rows.length} items · ${formatMoney(ar30)} 0-30 · ${formatMoney(ar60)} 31-60 · ${formatMoney(ar90)} 60+` },
     { label: `New Clients · ${monthShort}`, val: String(newThisMonth), sub: `Roster ${roster}` },
     { label: 'Recurring %', val: `${recurringPct}%`, sub: `${recurringJobs.length} of ${all2026.length} jobs` },
-    { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },
-  ]
+    canViewFinance && { label: 'Avg Job Value', val: formatMoney(avgJobValue), sub: `${collectedMonth.length} paid · ${monthShort}` },
+  ].filter(Boolean) as { label: string; val: string; sub: string }[]
 
   // Today/Tomorrow feed rows need phone + address (Call/Text/Directions
   // without opening the booking) — a targeted 2-day query instead of adding
@@ -469,7 +480,8 @@ export default async function DashboardPage() {
       {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
       <ScheduleIssues />
 
-      {/* REVENUE LADDER */}
+      {/* REVENUE LADDER — money figures, hidden without finance.view */}
+      {canViewFinance && (
       <SectionVisibility section="revenue" label="Revenue" initialHidden={hiddenSections.includes('revenue')}>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {revenueLadder.map((c, i, arr) => (
@@ -482,6 +494,7 @@ export default async function DashboardPage() {
         ))}
       </div>
       </SectionVisibility>
+      )}
 
       {/* SALES — leads + proposals */}
       <SectionVisibility section="sales" label="Sales" initialHidden={hiddenSections.includes('sales')}>
@@ -523,7 +536,9 @@ export default async function DashboardPage() {
           <div key={m.label} className="px-3 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
             <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.14em', color: m.isCurrent ? V.ink : V.muted, fontWeight: 600, marginBottom: 6 }}>{m.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '22px', fontWeight: 500, color: m.count === 0 ? V.muted2 : V.ink, lineHeight: 1, fontFeatureSettings: '"tnum","lnum"' }}>{m.count}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
+            {canViewFinance && (
+              <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
+            )}
           </div>
         ))}
       </div>
@@ -544,17 +559,19 @@ export default async function DashboardPage() {
 
       {/* TODAY + TOMORROW AT A GLANCE */}
       <SectionVisibility section="today_tomorrow" label="Today + Tomorrow" initialHidden={hiddenSections.includes('today_tomorrow')}>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        <div className="px-5 py-3" style={{ borderRight: `1px solid ${V.line}` }}>
+      <div className="grid" style={{ gridTemplateColumns: canViewFinance ? 'repeat(2, 1fr)' : '1fr', background: V.canvas, border: `1px solid ${V.line}` }}>
+        <div className="px-5 py-3" style={{ borderRight: canViewFinance ? `1px solid ${V.line}` : 'none' }}>
           <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>Total Jobs</div>
           <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{todayTomorrowJobs.length}</div>
           <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>{todayJobs.length} today · {tomorrowJobs.length} tomorrow</div>
         </div>
+        {canViewFinance && (
         <div className="px-5 py-3">
           <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>Expected Revenue</div>
           <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(expectedRevenue)}</div>
           <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>across {todayTomorrowJobs.length} job{todayTomorrowJobs.length === 1 ? '' : 's'}</div>
         </div>
+        )}
       </div>
       </SectionVisibility>
 
@@ -563,9 +580,11 @@ export default async function DashboardPage() {
         {[{ label: 'Today · Schedule', jobs: todayJobs, empty: 'No jobs today', showStatus: true },
           { label: 'Tomorrow · Schedule', jobs: tomorrowJobs, empty: 'No jobs tomorrow', showStatus: false }].map(col => (
           <div key={col.label}>
-            <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"', marginBottom: 8 }}>
-              {formatMoney(col.jobs.reduce((s, j) => s + (j.price || 0), 0))}
-            </div>
+            {canViewFinance && (
+              <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"', marginBottom: 8 }}>
+                {formatMoney(col.jobs.reduce((s, j) => s + (j.price || 0), 0))}
+              </div>
+            )}
             <Bar>{col.label}</Bar>
             <div style={{ background: V.canvas, border: `1px solid ${V.line}` }}>
               {col.jobs.length === 0 ? (

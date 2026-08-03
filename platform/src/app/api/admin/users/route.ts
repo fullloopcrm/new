@@ -12,11 +12,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
+import { ROLES } from '@/lib/rbac'
 
-const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
+const VALID_ROLES = ROLES.map(r => r.value)
 
 export async function GET() {
-  const { tenant, error: authError } = await requirePermission('settings.edit')
+  const { tenant, error: authError } = await requirePermission('team.view')
   if (authError) return authError
 
   const { data, error } = await tenantDb(tenant.tenantId)
@@ -46,7 +47,7 @@ export async function GET() {
 // Create a PIN-based member (no Clerk / no outside platform). Returns the
 // generated PIN ONCE so the operator can hand it over.
 export async function POST(request: NextRequest) {
-  const { tenant, error: authError } = await requirePermission('settings.edit')
+  const { tenant, error: authError } = await requirePermission('team.create')
   if (authError) return authError
 
   const { name, role, email, phone } = await request.json().catch(() => ({}))
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { tenant, error: authError } = await requirePermission('settings.edit')
+  const { tenant, error: authError } = await requirePermission('team.delete')
   if (authError) return authError
 
   const body = await request.json().catch(() => null)
@@ -128,17 +129,16 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const { tenant, error: authError } = await requirePermission('settings.edit')
+  const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
   const { id, role, name, phone } = await request.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const validRoles = ['owner', 'admin', 'manager', 'staff']
   const update: Record<string, unknown> = {}
   if (role) {
-    if (!validRoles.includes(role)) {
-      return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+    if (!VALID_ROLES.includes(role)) {
+      return NextResponse.json({ error: `Invalid role. Must be: ${VALID_ROLES.join(', ')}` }, { status: 400 })
     }
     // Granting 'owner' is owner-only — see POST for why this can't be left open.
     if (role === 'owner' && tenant.role !== 'owner') {

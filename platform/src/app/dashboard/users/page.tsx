@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { ROLES, type Role } from '@/lib/rbac'
 
 interface Member {
   id: string
@@ -20,15 +21,17 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-blue-100 text-blue-800',
   manager: 'bg-green-100 text-green-800',
   staff: 'bg-gray-100 text-gray-800',
+  virtual_assistant: 'bg-teal-100 text-teal-800',
 }
 
+// Assignable at invite time — owner is granted separately (see addMember/POST).
+const INVITE_ROLES = ROLES.filter(r => r.value !== 'owner')
+
 function roleDescriptions(agentName: string): Record<string, string> {
-  return {
-    owner: 'Full access including billing, settings, and member management',
-    admin: 'Full operational access; no billing/settings edits',
+  const overrides: Partial<Record<Role, string>> = {
     manager: `Bookings, clients, calendar, campaigns, ${agentName}`,
-    staff: 'Read-only access to dashboard + assigned bookings',
   }
+  return Object.fromEntries(ROLES.map(r => [r.value, overrides[r.value] || r.description]))
 }
 
 export default function UsersPage() {
@@ -44,13 +47,13 @@ export default function UsersPage() {
 
   // Add-member form
   const [newName, setNewName] = useState('')
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'staff'>('manager')
+  const [newRole, setNewRole] = useState<Exclude<Role, 'owner'>>('manager')
 
   // Preselect the tenant's default invite role once settings load.
   useEffect(() => {
     const defaultRole = (tenant?.selena_config as Record<string, unknown> | null)?.default_invite_role as string | undefined
-    if (defaultRole === 'admin' || defaultRole === 'manager' || defaultRole === 'staff') {
-      setNewRole(defaultRole)
+    if (defaultRole && INVITE_ROLES.some(r => r.value === defaultRole)) {
+      setNewRole(defaultRole as Exclude<Role, 'owner'>)
     }
   }, [tenant])
 
@@ -202,12 +205,12 @@ export default function UsersPage() {
           />
           <select
             value={newRole}
-            onChange={(e) => setNewRole(e.target.value as 'admin' | 'manager' | 'staff')}
+            onChange={(e) => setNewRole(e.target.value as Exclude<Role, 'owner'>)}
             className="px-3 py-2 border rounded"
           >
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-            <option value="staff">Staff</option>
+            {INVITE_ROLES.map(r => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
           </select>
           <button
             onClick={addMember}
@@ -250,10 +253,9 @@ export default function UsersPage() {
                 <td className="px-4 py-3">
                   {editingId === u.id ? (
                     <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })} className="px-2 py-1 border rounded">
-                      <option value="owner">Owner</option>
-                      <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
-                      <option value="staff">Staff</option>
+                      {ROLES.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
                     </select>
                   ) : (
                     <span className={`px-2 py-1 text-xs rounded ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-700'}`} title={ROLE_DESCRIPTIONS[u.role]}>

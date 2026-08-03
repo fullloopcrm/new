@@ -65,6 +65,56 @@ describe('RBAC', () => {
     })
   })
 
+  describe('virtual_assistant', () => {
+    it('can view/create/edit clients, bookings, and schedules', () => {
+      expect(hasPermission('virtual_assistant', 'clients.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'clients.create')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'clients.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'bookings.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'schedules.edit')).toBe(true)
+    })
+
+    it('can view/create/edit team (HR) but not delete', () => {
+      expect(hasPermission('virtual_assistant', 'team.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'team.create')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'team.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+    })
+
+    it('can view/create/send campaigns (marketing)', () => {
+      expect(hasPermission('virtual_assistant', 'campaigns.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'campaigns.send')).toBe(true)
+    })
+
+    it('cannot delete anything', () => {
+      expect(hasPermission('virtual_assistant', 'clients.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'bookings.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+    })
+
+    it('cannot access finance or settings at all', () => {
+      expect(hasPermission('virtual_assistant', 'finance.view')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'finance.payroll')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'finance.expenses')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'settings.view')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'settings.edit')).toBe(false)
+    })
+
+    it('can view/manage sales, referrals, and sales partners but not pay out', () => {
+      expect(hasPermission('virtual_assistant', 'sales.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'sales.edit')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'referrals.manage')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'referrals.payout')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'sales_partners.manage')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'sales_partners.payout')).toBe(false)
+    })
+
+    it('is customizable per-tenant like admin/manager/staff', () => {
+      const overrides: RolePermissionOverrides = { virtual_assistant: { 'finance.view': true } }
+      expect(hasPermission('virtual_assistant', 'finance.view', overrides)).toBe(true)
+    })
+  })
+
   describe('unknown role', () => {
     it('has no permissions', () => {
       expect(hasPermission('unknown', 'clients.view')).toBe(false)
