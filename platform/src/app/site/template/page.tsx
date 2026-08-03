@@ -15,6 +15,7 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
+import HeroChatEmbed from '@/app/site/template/_components/HeroChatEmbed'
 import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE, WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 
@@ -168,9 +169,11 @@ export default async function HomePage() {
     <>
       <JsonLd data={schemas} />
 
-      {/* Hero */}
+      {/* Hero — content + live chat embed, side by side on desktop */}
       <section className="bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] pt-12 md:pt-16 pb-14 md:pb-20">
         <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col lg:flex-row gap-10 lg:gap-8 items-center mb-10">
+            <div className="lg:w-[68%]">
           {/* Social proof bar */}
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
@@ -203,13 +206,21 @@ export default async function HomePage() {
           {/* CTA */}
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Your Cleaning</p>
           <p className="text-blue-200/70 text-sm mb-5 max-w-[75%]">One page. Quick. We&apos;ll confirm by text within 15 minutes.</p>
-          <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-3">
             <Link href="/book/new" className="inline-flex items-center gap-2 bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Self Booking $10 OFF
             </Link>
             <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
               Text 555.555.5555
             </a>
+          </div>
+            </div>
+
+            <div className="hidden lg:block w-px self-stretch bg-white/20 mx-2" />
+
+            <div className="lg:w-[32%] flex flex-col">
+              <HeroChatEmbed />
+            </div>
           </div>
 
           {/* Pricing tiers */}
