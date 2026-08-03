@@ -1,30 +1,37 @@
 import { describe, it, expect } from 'vitest'
-import { parseIdentityFromText } from './WebChatWidget'
+import { isPlausibleName, extractPhone } from './WebChatWidget'
 
-describe('parseIdentityFromText', () => {
-  it('parses a name + phone reply', () => {
-    expect(parseIdentityFromText('Jane Doe, (555) 123-4567')).toEqual({ name: 'Jane Doe', phone: '(555) 123-4567' })
-    expect(parseIdentityFromText('Jane 5551234567')).toEqual({ name: 'Jane', phone: '5551234567' })
+describe('isPlausibleName', () => {
+  it('accepts short, name-like replies', () => {
+    expect(isPlausibleName('Jane Doe')).toBe(true)
+    expect(isPlausibleName('Jane')).toBe(true)
   })
 
-  it('does not mistake a real question for a name (the reported bug)', () => {
-    expect(parseIdentityFromText(
+  it('rejects a real question typed in reply to the name prompt (the reported bug)', () => {
+    expect(isPlausibleName(
       'I found this on my bed last night, been living there for 2 months, is that a bed bug?',
-    )).toBeNull()
+    )).toBe(false)
   })
 
-  it('returns null when there is no phone number at all', () => {
-    expect(parseIdentityFromText('Just wondering what your rates are')).toBeNull()
-    expect(parseIdentityFromText('Jane Doe')).toBeNull()
+  it('rejects empty input', () => {
+    expect(isPlausibleName('')).toBe(false)
+    expect(isPlausibleName('   ')).toBe(false)
   })
 
-  it('returns null when the leftover text is too long or sentence-like, even with a phone', () => {
-    expect(parseIdentityFromText(
-      'Hey I have a leak under my sink can someone come out today, my number is 555-123-4567',
-    )).toBeNull()
+  it('rejects long or sentence-like replies even without a question mark', () => {
+    expect(isPlausibleName('Hey I have a leak under my sink can someone come out today')).toBe(false)
+  })
+})
+
+describe('extractPhone', () => {
+  it('extracts a phone number in common formats', () => {
+    expect(extractPhone('(555) 123-4567')).toBe('(555) 123-4567')
+    expect(extractPhone('5551234567')).toBe('5551234567')
+    expect(extractPhone('My number is 555-123-4567, thanks')).toBe('555-123-4567')
   })
 
-  it('returns null when the leftover text contains a question mark', () => {
-    expect(parseIdentityFromText('is 555-123-4567 the right number to text?')).toBeNull()
+  it('returns null when the reply has no phone number', () => {
+    expect(extractPhone('is that the right number to text?')).toBeNull()
+    expect(extractPhone('I found this on my bed last night, is that a bed bug?')).toBeNull()
   })
 })
