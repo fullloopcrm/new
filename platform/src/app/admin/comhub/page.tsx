@@ -362,16 +362,18 @@ export default function ComhubPage() {
       .catch(() => setTemplates([]))
   }, [thread?.channel])
 
+  const fetchContext = useCallback(async (contactId: string) => {
+    const res = await fetch(`/api/admin/comhub/contacts/${contactId}/context`)
+    setContext(res.ok ? await res.json() : null)
+  }, [])
+
   // Right-side context panel — re-fetches when the selected thread's contact changes.
   useEffect(() => {
     if (!thread?.contact_id) { setContext(null); return }
     let cancelled = false
-    fetch(`/api/admin/comhub/contacts/${thread.contact_id}/context`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setContext(d) })
-      .catch(() => { if (!cancelled) setContext(null) })
+    fetchContext(thread.contact_id).catch(() => { if (!cancelled) setContext(null) })
     return () => { cancelled = true }
-  }, [thread?.contact_id])
+  }, [thread?.contact_id, fetchContext])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -1128,7 +1130,7 @@ export default function ComhubPage() {
           <ChannelInfoPanel thread={thread} />
         )}
         {thread?.kind === 'contact' && context && (
-          <ContextPanelInline context={context} onTagChanged={fetchThreads} />
+          <ContextPanelInline context={context} onTagChanged={fetchThreads} onContactSaved={() => fetchContext(context.contact.id)} />
         )}
         {thread?.kind === 'contact' && !context && (
           <div className="p-6 text-sm" style={{ color: 'var(--color-loop-muted)' }}>Loading contact details…</div>
@@ -1602,7 +1604,7 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // Right-side panel: contact + linked client/cleaner + recent bookings
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
-function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
+function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context: ContactContext; onTagChanged?: () => void; onContactSaved?: () => void }) {
   const { contact, client, cleaner, applicant, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_bookings, cleaner_total_earnings_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDateTime = (iso: string) => {
@@ -1685,6 +1687,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         contactId={contact.id}
         initialName={contact.name || cleaner?.name || client?.name || ''}
         initialAddress={contact.address || cleaner?.address || client?.address || client?.address_line1 || ''}
+        onSaved={onContactSaved}
       />
 
       {applicant && (
@@ -1751,6 +1754,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           contactId={contact.id}
           initialPrivate={client.notes_private || ''}
           initialPublic={client.notes_public || ''}
+          onSaved={onContactSaved}
         />
       )}
 
@@ -1909,10 +1913,11 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
 // that haven't booked yet) — saves onto comhub_contacts, mirrored onto the
 // linked client record (if any) so the rest of the CRM stays in sync.
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
+function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved }: {
   contactId: string
   initialName: string
   initialAddress: string
+  onSaved?: () => void
 }) {
   const [name, setName] = useState(initialName)
   const [address, setAddress] = useState(initialAddress)
@@ -1939,6 +1944,7 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
         setError(data.error || `HTTP ${res.status}`)
       } else {
         setSavedAt(Date.now())
+        onSaved?.()
       }
     } finally {
       setSaving(false)
@@ -2046,10 +2052,11 @@ function ContactTagSelect({ contactId, initialTag, onSaved, autoLabel, badgeStyl
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline editor for the linked client's private + public notes
 // ─────────────────────────────────────────────────────────────────────────────
-function NotesEditor({ contactId, initialPrivate, initialPublic }: {
+function NotesEditor({ contactId, initialPrivate, initialPublic, onSaved }: {
   contactId: string
   initialPrivate: string
   initialPublic: string
+  onSaved?: () => void
 }) {
   const [priv, setPriv] = useState(initialPrivate)
   const [pub, setPub] = useState(initialPublic)
@@ -2077,6 +2084,7 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
         setError(data.error || `HTTP ${res.status}`)
       } else {
         setSavedAt(Date.now())
+        onSaved?.()
       }
     } finally {
       setSaving(false)

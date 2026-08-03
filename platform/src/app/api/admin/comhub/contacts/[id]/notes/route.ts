@@ -4,9 +4,10 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
 // PATCH /api/admin/comhub/contacts/[id]/notes
-//   { notes?: string|null }
-// Updates the LINKED client's notes column. (nycmaid had notes_private/public —
-// fullloop's clients table has a single `notes` column.)
+//   { notes_private?: string|null, notes_public?: string|null }
+// Updates the LINKED client's notes_private/notes_public columns (added by
+// migration 009_nycmaid_parity_columns.sql). This previously wrote to a
+// `clients.notes` column that doesn't exist, so every save 500'd.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -15,7 +16,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const { id } = await ctx.params
 
   const body = await req.json().catch(() => null) as {
-    notes?: string | null
     notes_private?: string | null
     notes_public?: string | null
   } | null
@@ -34,20 +34,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }, { status: 409 })
   }
 
-  // Resolve by which key is PRESENT in the body, not by value — an explicit
-  // `{ notes: null }` must clear the field, not fall through to the next key
-  // because `null` is nullish too.
-  const notesValue =
-    'notes' in body ? body.notes
-    : 'notes_private' in body ? body.notes_private
-    : 'notes_public' in body ? body.notes_public
-    : undefined
-  if (notesValue === undefined) return NextResponse.json({ ok: true, noop: true })
+  // Resolve by which keys are PRESENT in the body, not by value — an explicit
+  // `{ notes_private: null }` must clear the field, not be skipped because
+  // `null` is nullish too.
+  const patch: { notes_private?: string | null; notes_public?: string | null } = {}
+  if ('notes_private' in body) patch.notes_private = body.notes_private
+  if ('notes_public' in body) patch.notes_public = body.notes_public
+  if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true, noop: true })
 
   // update-by-client_id GAINS a tenant filter (client_id came from a tenant-scoped contact)
   const { error } = await db
     .from('clients')
-    .update({ notes: notesValue })
+    .update(patch)
     .eq('id', contact.client_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
