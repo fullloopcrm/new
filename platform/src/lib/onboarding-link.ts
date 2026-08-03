@@ -54,22 +54,29 @@ export async function createAndSendOnboardingLink(tenantId: string): Promise<{ u
   }
 
   const bodyHtml = `
-    <p style="margin:0 0 16px">Finish setting up your business profile — it takes a few minutes and you can save and come back anytime.</p>
-    ${pinRequired ? '<p style="margin:0">When you open it, you\'ll need a PIN — the last 4 digits of the phone number on file for your business.</p>' : ''}
+    <p style="margin:0 0 16px">Welcome to Full Loop — the AI-run CRM that handles your booking site, sales agent, invoicing, scheduling, and reviews, so a lot of what used to be manual work just... runs.</p>
+    <p style="margin:0 0 16px">First step is your business profile — the link below walks you through it. It autosaves as you go, so there's no rush and nothing to lose if you close the tab and come back later.</p>
+    <p style="margin:0 0 8px;font-weight:600">A few things before you start:</p>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li style="margin-bottom:6px">Keep your EIN and legal business address handy — a couple of fields need your real paperwork, not a placeholder.</li>
+      <li style="margin-bottom:6px">Everything you fill in goes straight into your live account as you type — this isn't a draft you publish later.</li>
+      <li>Questions along the way? Just reply to this email.</li>
+    </ul>
+    ${pinRequired ? '<p style="margin:0">One more thing — when you open the link, you\'ll need a quick PIN: the last 4 digits of the phone number on file for your business.</p>' : ''}
   `
 
   try {
     await sendEmail({
       to,
       from: tenantSender(tenant),
-      subject: 'Finish setting up your Full Loop account',
+      subject: 'Welcome to Full Loop — let\'s get your business set up',
       html: emailShell({
         brand,
         kicker: 'Welcome to Full Loop',
-        heading: tenant?.name ? `Let's get ${tenant.name} set up` : "Let's get your business set up",
+        heading: tenant?.name ? `Welcome, ${tenant.name}!` : 'Welcome to Full Loop!',
         bodyHtml,
         cta: { label: 'Complete your profile', url },
-        preheader: 'Finish setting up your business profile — it takes a few minutes.',
+        preheader: 'Your AI-run CRM is ready to set up — booking site, sales agent, invoicing, and more.',
       }),
     })
     alertOwner(
