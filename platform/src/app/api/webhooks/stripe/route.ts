@@ -39,27 +39,44 @@ function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-// Each tenant runs its own Stripe account acting as its own Connect platform
-// for its team members/sales partners/referrers — so a tenant's
-// account.updated deliveries arrive signed with THAT tenant's own Connect
-// webhook secret (tenants.stripe_connect_webhook_secret), never the shared
-// platform STRIPE_WEBHOOK_SECRET used for checkout/refund/etc. The delivery
-// URL is always this same platform-registered endpoint regardless of which
-// tenant's Stripe account sent it (Stripe fires Connect webhooks to the
-// destination's configured URL, not the tenant's own domain) — so the tenant
-// can't be resolved from the request, only from the event payload itself.
+// Each tenant runs its own independent Stripe account, so each one generates
+// its own webhook signing secret when its own Stripe dashboard is pointed at
+// this same shared platform endpoint (Stripe never routes by destination
+// domain — every tenant's deliveries land here regardless of source). A
+// single global STRIPE_WEBHOOK_SECRET can only ever verify ONE tenant's
+// account (or platform-level events with no tenant, like a prospect
+// signup) — every other tenant's real deliveries fail constructEvent()
+// against it and get rejected outright.
+//
 // The tenant_id read here (from the UNVERIFIED body, before any signature
-// check succeeds) is only ever used to pick which secret to attempt
-// verification with — it grants no trust; the event is discarded unless
-// constructEvent() below cryptographically verifies against that tenant's
-// real secret.
-function peekConnectAccountTenantId(rawBody: string): string | null {
+// check succeeds) is only ever used to pick which secret to ATTEMPT
+// verification with — it grants no trust by itself. The event is discarded
+// unless constructEvent() below cryptographically verifies against that
+// specific tenant's own real secret; an attacker can shove any tenant_id
+// into an unsigned body, but can't forge a signature they don't hold the
+// secret for.
+//
+// Two distinct per-tenant secrets, for two distinct delivery sources:
+//   - tenants.stripe_webhook_secret — the tenant's own Stripe account's
+//     regular webhook (checkout.session.completed, charge.refunded, etc.)
+//   - tenants.stripe_connect_webhook_secret — Connect account.updated
+//     deliveries, since each tenant also acts as its own Connect platform
+//     for its team members/sales partners/referrers (see below).
+function peekEventTenantId(rawBody: string): string | null {
   try {
-    const parsed = JSON.parse(rawBody) as { type?: string; data?: { object?: { metadata?: Record<string, string> | null } } }
-    if (parsed.type !== 'account.updated') return null
+    const parsed = JSON.parse(rawBody) as { data?: { object?: { metadata?: Record<string, string> | null } } }
     return parsed.data?.object?.metadata?.tenant_id || null
   } catch {
     return null
+  }
+}
+
+function isAccountUpdatedEvent(rawBody: string): boolean {
+  try {
+    const parsed = JSON.parse(rawBody) as { type?: string }
+    return parsed.type === 'account.updated'
+  } catch {
+    return false
   }
 }
 
@@ -78,34 +95,41 @@ export async function POST(request: Request) {
     stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, sig!, webhookSecret)
   } catch (err) {
-    // Not verifiable against the shared platform secret — try the
-    // per-tenant Connect webhook secret for an account.updated delivery
-    // before giving up. Any failure along this path (no tenant hint, no
-    // tenant found, no secret configured, signature still doesn't verify)
-    // falls through to the same 400 as before — never silently accepted.
-    const tenantId = peekConnectAccountTenantId(body)
+    // Not verifiable against the shared platform secret — try the tenant's
+    // own per-tenant secret before giving up. Any failure along this path
+    // (no tenant hint, no tenant found, no secret configured, signature
+    // still doesn't verify) falls through to the same 400 as before — never
+    // silently accepted.
+    const tenantId = peekEventTenantId(body)
     if (!tenantId) {
       console.error('Stripe webhook signature failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
+    // account.updated deliveries are signed with the tenant's own Connect
+    // webhook secret; every other event type (checkout, refund, etc.) is
+    // signed with the tenant's own regular account webhook secret. Different
+    // columns, different Stripe-side webhook endpoints.
+    const isConnect = isAccountUpdatedEvent(body)
     const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
-      .select('stripe_connect_webhook_secret')
+      .select('stripe_webhook_secret, stripe_connect_webhook_secret')
       .eq('id', tenantId)
       .maybeSingle()
-    const connectSecret = (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+    const tenantSecret = isConnect
+      ? (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+      : (tenantRow as { stripe_webhook_secret?: string | null } | null)?.stripe_webhook_secret
 
-    if (!connectSecret) {
+    if (!tenantSecret) {
       console.error('Stripe webhook signature failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
     try {
       stripe = getStripe()
-      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(connectSecret))
-    } catch (connectErr) {
-      console.error('Stripe Connect webhook signature failed:', connectErr)
+      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(tenantSecret))
+    } catch (tenantErr) {
+      console.error('Stripe per-tenant webhook signature failed:', tenantErr)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
   }
@@ -116,11 +140,15 @@ export async function POST(request: Request) {
       let bookingId = session.metadata?.booking_id
       let tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
-      // Set true only when bookingId resolves via the static/adjustable-amount
-      // Payment Link below (client_reference_id path) — the ONE checkout
-      // surface where the client types their own amount, so a tip can
-      // actually be real. See the tip-math comment further down.
-      let viaAdjustableAmountPayLink = false
+      // True when the client could type their own amount on this checkout —
+      // the ONE condition under which an overage is a real, intended tip
+      // rather than a bug. See the tip-math comment further down. Two ways
+      // in: the legacy shared static link (resolved below via
+      // client_reference_id, since that reused link can't carry per-booking
+      // metadata) or this booking's own per-booking adjustable-amount
+      // Payment Link (createPaymentLink({ adjustableAmount: true }) —
+      // stamps its own metadata, so it's known immediately here).
+      let viaAdjustableAmountPayLink = session.metadata?.adjustable_amount === 'true'
 
       // Static pay-link path (NYC Maid parity): the link appends
       // ?client_reference_id=<bookingId> with no metadata. If it matches a real

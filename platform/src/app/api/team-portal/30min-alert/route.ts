@@ -19,7 +19,8 @@ import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
-import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { sendClientSMS } from '@/lib/client-contacts'
+import { createPaymentLink } from '@/lib/stripe'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, describeDiscount } from '@/lib/discount'
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, telnyx_api_key, telnyx_phone, payment_link')
+      .select('id, name, telnyx_api_key, telnyx_phone, stripe_api_key')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
@@ -326,11 +327,35 @@ export async function POST(req: NextRequest) {
 
     // Client SMS — balance + Stripe pay link sent UP FRONT in the 30-min text.
     // The rating ask rides along; a 1-5 reply routes through the pre_payment_rating
-    // flow. Pay link is the tenant's own Stripe link + client_reference_id so the
-    // Stripe webhook ties the payment back to this booking.
-    const payLink = tenant.payment_link
-      ? `${tenant.payment_link}${tenant.payment_link.includes('?') ? '&' : '?'}client_reference_id=${bookingId}`
-      : ''
+    // flow. A fresh, single-booking Payment Link is created per alert (replaces
+    // the old shared/reused tenant-wide link) — the client still types in
+    // whatever they want to pay (same trusted flow that's worked in
+    // production), but this link can never be reused for a different booking
+    // or a different amount than what THIS booking's alert quoted.
+    let payLink = ''
+    if (tenant.stripe_api_key) {
+      try {
+        const link = await createPaymentLink({
+          amount: clientOwesCents,
+          serviceName: serviceLabel,
+          bookingId,
+          tenantId,
+          stripeApiKey: tenant.stripe_api_key,
+          adjustableAmount: true,
+        })
+        payLink = link.url
+        await tenantDb(tenantId).from('bookings').update({ payment_link: payLink }).eq('id', bookingId)
+      } catch (err) {
+        console.error('30min payment link creation failed:', err)
+        await logCommsFail({
+          tenantId,
+          title: '30min payment link creation failed',
+          dedupKey: `30min-paylink:${bookingId}`,
+          message: err instanceof Error ? err.message : String(err),
+          bookingId,
+        })
+      }
+    }
     const payLines = payLink
       ? [
           ``,
@@ -347,17 +372,13 @@ export async function POST(req: NextRequest) {
       ``,
       `And how'd we do? Reply 1-5 (5 = spotless)!`,
     ].join('\n')
-    const clientSmsType = 'pre_payment_rating'
 
     const confirmedVia: string[] = []
     let smsAttempts = 0
     if (clientId) {
       for (let i = 0; i < 2; i++) {
         smsAttempts++
-        const smsResult = await sendClientSMS(clientId, clientSmsText, {
-          smsType: clientSmsType,
-          bookingId,
-        }).catch(async err => {
+        const smsResult = await sendClientSMS(tenant, clientId, clientSmsText).catch(async err => {
           console.error(`Client 30min SMS attempt ${i + 1} failed:`, err)
           await logCommsFail({
             tenantId,

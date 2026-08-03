@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name')
+    .select('id, name, telnyx_api_key, telnyx_phone')
     .eq('status', 'active')
     .limit(1000)
 
@@ -71,10 +71,7 @@ export async function GET(request: Request) {
 
     for (const booking of dueList.slice(0, CAP)) {
       if (!booking.client_id) continue
-      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
-        smsType: 'rating_prompt',
-        bookingId: booking.id,
-      })
+      await sendClientSMS(tenant, booking.client_id, clientSms.ratingQ1())
       await supabaseAdmin
         .from('bookings')
         .update({ rating_prompt_sent_at: new Date().toISOString() })
