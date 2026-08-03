@@ -224,11 +224,19 @@ export async function POST(req: NextRequest) {
     .eq('id', threadId)
 
   if (isNewThread) {
+    // Date/time up front (not just relative "just now" framing) so an admin
+    // scanning Telegram/email later can tell exactly when the chat came in —
+    // prepended rather than appended so it survives the 140-char truncation
+    // below on a long first message.
+    const sentAtLabel = new Date().toLocaleString('en-US', {
+      timeZone: (tenant as { timezone?: string | null }).timezone || 'America/New_York',
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    })
     await notify({
       tenantId: tenant.id,
       type: 'new_lead',
       title: visitorName ? `New Web Chat — ${visitorName}` : 'New Web Chatbot Conversation',
-      message: text ? text.slice(0, 140) : 'Visitor started a chat and shared a photo',
+      message: `[${sentAtLabel}] ${text ? text.slice(0, 140) : 'Visitor started a chat and shared a photo'}`,
     }).catch(() => {})
   }
 

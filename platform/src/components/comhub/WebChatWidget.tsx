@@ -60,6 +60,28 @@ const DEFAULT_QUICK_REPLIES = ['I have a question', 'I need help']
 // Origin-scoped (localStorage is already per-domain, and every tenant lives
 // on its own domain), so one fixed key is enough — no cross-tenant leakage.
 const VISITOR_IDENTITY_KEY = 'fl_webchat_visitor_identity'
+// Shown as an actual message bubble (not just composer placeholder text,
+// which is easy to miss once the marketing greeting bubble above it invites
+// visitors to just type their question) — the first thing a visitor sees
+// when requireIdentity is on and we don't know who they are yet.
+const IDENTITY_PROMPT = "Hi, what's your name and phone number?"
+
+// Pure parsing, no side effects — pulled out of the component so it's
+// unit-testable without rendering. Only returns non-null when the text
+// plausibly IS a name+phone reply (has a phone number, and what's left
+// reads like a name rather than a sentence) — a visitor who ignores the
+// prompt and just asks their question should never have that question
+// mistaken for their name (see captureIdentityFromText below for why this
+// matters: it used to accept anything).
+export function parseIdentityFromText(text: string): { name: string; phone: string } | null {
+  const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
+  if (!phoneMatch) return null
+  const phone = phoneMatch[0].trim()
+  const name = text.replace(phoneMatch[0], '').replace(/[,|·-]+/g, ' ').trim()
+  const wordCount = name.split(/\s+/).filter(Boolean).length
+  if (!name || wordCount > 5 || name.length > 50 || /[?!]/.test(name)) return null
+  return { name, phone }
+}
 // Flat pastel fill for the agent/left bubble — a light tint standing in for
 // the reference screenshot's pink, adapted to the tenant's own warm palette.
 const AGENT_TINT = '#FBE3D2'
@@ -165,26 +187,27 @@ export default function WebChatWidget({
     }
   }, [requireIdentity])
 
-  // The visitor's very first message IS the "what's your name and phone
-  // number?" prompt's reply — parsed out of plain text rather than a
-  // separate form, e.g. "Jane Doe, (555) 123-4567" or "Jane 5551234567".
-  // Still sent through as a normal chat message (so it stays in the visible
-  // transcript), just also captured into visitorName/visitorPhone so it
-  // rides along on every subsequent send.
-  function captureIdentityFromText(text: string): { name: string; phone: string } {
-    const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
-    const phone = phoneMatch ? phoneMatch[0].trim() : ''
-    const name = text.replace(phoneMatch?.[0] || '', '').replace(/[,|·-]+/g, ' ').trim() || text.trim()
-    setVisitorName(name)
-    setVisitorPhone(phone)
+  // The visitor's very first message is SUPPOSED to be the "what's your name
+  // and phone number?" prompt's reply — parsed out of plain text rather than
+  // a separate form, e.g. "Jane Doe, (555) 123-4567" or "Jane 5551234567".
+  // But visitors don't always comply — some just type their actual question
+  // instead. parseIdentityFromText returning null (no phone found, or the
+  // leftover text doesn't read like a name) means identityKnown stays false
+  // and the prompt keeps showing — the message still gets sent through as a
+  // normal chat message either way so nothing the visitor typed is lost.
+  function captureIdentityFromText(text: string): { name: string; phone: string } | null {
+    const parsed = parseIdentityFromText(text)
+    if (!parsed) return null
+    setVisitorName(parsed.name)
+    setVisitorPhone(parsed.phone)
     setIdentityKnown(true)
     try {
-      localStorage.setItem(VISITOR_IDENTITY_KEY, JSON.stringify({ name, phone }))
+      localStorage.setItem(VISITOR_IDENTITY_KEY, JSON.stringify(parsed))
     } catch {
-      // Best-effort persistence — the returned {name, phone} below still
-      // carries this message's identity through to onSend either way.
+      // Best-effort persistence — the returned value below still carries
+      // this message's identity through to onSend either way.
     }
-    return { name, phone }
+    return parsed
   }
 
   // "Boop boop" — the two intro bubbles pop in one at a time on load, each
@@ -260,7 +283,8 @@ export default function WebChatWidget({
     setSending(true)
 
     const isIdentityReply = requireIdentity && !identityKnown && !!body
-    const identity = isIdentityReply ? captureIdentityFromText(body) : { name: visitorName, phone: visitorPhone }
+    const captured = isIdentityReply ? captureIdentityFromText(body) : null
+    const identity = captured || { name: visitorName, phone: visitorPhone }
 
     try {
       const reply = await onSend?.({ body, imageDataUrl, visitorName: identity.name || undefined, visitorPhone: identity.phone || undefined })
@@ -340,7 +364,7 @@ export default function WebChatWidget({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-3 bg-[#FFF8F3]">
         <div className="flex justify-start">
           <div className="max-w-[88%] bg-white border border-[#F3D9C4] shadow-sm text-slate-700 text-[15px] leading-relaxed rounded-[22px] px-4 py-3">
-            {greeting}
+            {requireIdentity && !identityKnown ? IDENTITY_PROMPT : greeting}
           </div>
         </div>
 
@@ -475,7 +499,7 @@ export default function WebChatWidget({
           {introStep >= 1 && (
             <div className="flex items-end fl-bubble-pop">
               <div className="max-w-[78%] text-base leading-relaxed px-6 py-4 rounded-[26px]" style={{ backgroundColor: AGENT_TINT, color: '#3F1D0B' }}>
-                {agentIntro}
+                {requireIdentity && !identityKnown ? IDENTITY_PROMPT : agentIntro}
               </div>
             </div>
           )}
