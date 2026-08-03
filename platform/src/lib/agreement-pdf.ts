@@ -218,7 +218,9 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
   const gray = rgb(0.32, 0.37, 0.44)
   const hair = rgb(0.85, 0.87, 0.9)
   const maxW = PAGE_W - MARGIN * 2
-  const state = o.governingState || '[State]'
+  // Full Loop CRM, LLC is Wyoming-registered — governing law defaults there
+  // unless a caller explicitly overrides it.
+  const state = o.governingState || 'Wyoming'
   const trade = o.trade || 'home service'
   const territory = o.territoryName || '[Territory]'
 
