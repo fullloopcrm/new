@@ -8,6 +8,7 @@ import { formatCustomerNumber } from '@/lib/format'
 import ClientAddresses from './client-addresses'
 import ClientContacts from './client-contacts'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { CallTextCopy } from '../_components/CallTextCopy'
 
 type EnrichedClient = {
   id: string
@@ -472,7 +473,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                     {nextActionSending ? 'Sending…' : 'Send via SMS'}
                   </button>
                   <button className="clients-next-btn ghost" onClick={() => setNextActionEditing((v) => !v)}>{nextActionEditing ? 'Done' : 'Edit'}</button>
-                  <button className="clients-next-btn ghost" onClick={() => { if (client.phone) window.location.href = `tel:${client.phone}` }}>Try call instead</button>
+                  <button className="clients-next-btn ghost" onClick={() => { if (client.phone) window.location.href = `/admin/comhub?dial=${encodeURIComponent(client.phone)}` }}>Try call instead</button>
                   <button className="clients-next-btn dismiss" onClick={() => setNextActionMessage('')}>Dismiss</button>
                   {nextActionMsg && <span style={{ fontSize: 12, color: nextActionMsg === 'SMS sent' ? '#059669' : '#dc2626' }}>{nextActionMsg}</span>}
                 </span>
@@ -671,8 +672,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                   {client.phone ? (
                     <span className="flex items-center gap-1.5">
                       {client.phone}
-                      <a href={`/admin/comhub?dial=${encodeURIComponent(client.phone)}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100">Call</a>
-                      <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
+                      <CallTextCopy phone={client.phone} size="xs" />
                     </span>
                   ) : '—'}
                 </div>

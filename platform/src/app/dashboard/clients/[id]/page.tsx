@@ -8,6 +8,7 @@ import { formatCustomerNumber } from '@/lib/format'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import GdprDeletionPanel from './GdprDeletionPanel'
 import ClientAddresses from '../client-addresses'
+import { CallTextCopy } from '../../_components/CallTextCopy'
 import ClientNotesTimeline from '@/components/ClientNotesTimeline'
 import DocumentsPanel from '@/components/DocumentsPanel'
 
@@ -221,12 +222,7 @@ export default function ClientDetailPage() {
                   <dt className="text-slate-400">Phone</dt>
                   <dd className="flex items-center gap-2">
                     <span>{client.phone || '\u2014'}</span>
-                    {client.phone && (
-                      <>
-                        <a href={`tel:${client.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                        <a href={`sms:${client.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
-                      </>
-                    )}
+                    {client.phone && <CallTextCopy phone={client.phone} />}
                   </dd>
                 </div>
                 <div className="flex justify-between items-start">
@@ -415,16 +411,7 @@ export default function ClientDetailPage() {
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              {client.phone && (
-                <>
-                  <a href={`tel:${client.phone}`} className="w-full block text-center text-sm bg-blue-50 text-blue-700 py-2 rounded-lg font-medium hover:bg-blue-100">
-                    Call Client
-                  </a>
-                  <a href={`sms:${client.phone}`} className="w-full block text-center text-sm bg-green-50 text-green-700 py-2 rounded-lg font-medium hover:bg-green-100">
-                    Text Client
-                  </a>
-                </>
-              )}
+              {client.phone && <CallTextCopy phone={client.phone} variant="block" />}
               <Link href={`/dashboard/bookings?client_id=${id}`} className="w-full block text-center text-sm bg-slate-50 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-100">
                 View All Bookings
               </Link>

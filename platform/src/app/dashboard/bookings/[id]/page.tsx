@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { CallTextCopy } from '../../_components/CallTextCopy'
 
 type Booking = {
   id: string
@@ -567,8 +568,7 @@ export default function BookingDetailPage() {
                 {booking.clients.phone && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-slate-400">{booking.clients.phone}</span>
-                    <a href={`tel:${booking.clients.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                    <a href={`sms:${booking.clients.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                    <CallTextCopy phone={booking.clients.phone} />
                   </div>
                 )}
                 {booking.clients.email && <p className="text-sm text-slate-400">{booking.clients.email}</p>}
@@ -600,8 +600,7 @@ export default function BookingDetailPage() {
                 {booking.team_members.phone && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-slate-400">{booking.team_members.phone}</span>
-                    <a href={`tel:${booking.team_members.phone}`} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                    <a href={`sms:${booking.team_members.phone}`} className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                    <CallTextCopy phone={booking.team_members.phone} />
                   </div>
                 )}
                 {booking.team_members.email && <p className="text-sm text-slate-400">{booking.team_members.email}</p>}

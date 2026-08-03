@@ -5,6 +5,7 @@ import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { NotesPanel } from '@/components/admin/NotesPanel'
 import { TenantUsers } from '@/components/admin/TenantUsers'
 import { LaunchPanel } from '@/components/admin/LaunchPanel'
+import { ProfileForm } from '@/components/admin/ProfileForm'
 import DocumentsPanel from '@/components/DocumentsPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -474,7 +475,7 @@ export default function BusinessDetailPage() {
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   const tabs = [
-    { key: 'contact' as const, label: 'Profile' },
+    { key: 'contact' as const, label: 'Owner Contact' },
     { key: 'users' as const, label: 'Users' },
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
@@ -547,15 +548,9 @@ export default function BusinessDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/businesses/${id}/profile`}
-            className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
-          >
-            Profile Form →
-          </Link>
           <button onClick={startImpersonation} disabled={impersonating}
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
-            {impersonating ? 'Entering...' : 'Enter Business Profile'}
+            {impersonating ? 'Logging in...' : 'Log In As Tenant'}
           </button>
           {(biz.domain || biz.domain_name) && (
             <>
@@ -1211,23 +1206,8 @@ export default function BusinessDetailPage() {
       {/* TAB: Contact & Access */}
       {tab === 'contact' && (
         <div className="max-w-lg space-y-6">
-          <div className="space-y-3">
-            <h3 className="font-heading font-semibold text-slate-900">Owner Contact</h3>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Name</label>
-              <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Email</label>
-              <input value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Phone</label>
-              <input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
+          <div>
+            <ProfileForm tenantId={id} />
           </div>
 
           <div className="pt-6 border-t border-slate-200 space-y-3">
@@ -1264,13 +1244,6 @@ export default function BusinessDetailPage() {
             <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
             <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
             <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
-          </div>
-
-          <div className="pt-4">
-            <button onClick={() => save()} disabled={saving}
-              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
-            </button>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import SidePanel from '@/components/SidePanel'
 import { formatRecurringLabel } from '@/lib/recurring'
 import { applyDiscount, applyCredit } from '@/lib/discount'
+import { CallTextCopy } from '../_components/CallTextCopy'
 import { worksScheduledDay } from '@/lib/day-availability'
 
 interface Client { id: string; name: string; phone: string; address: string }
@@ -695,7 +696,10 @@ export default function CalendarBoard() {
             <div className="space-y-1">
               <p className="font-semibold text-slate-900 text-lg">{panelBooking.clients?.name || 'Unknown Client'}</p>
               {panelBooking.clients?.phone && (
-                <a href={`tel:${panelBooking.clients.phone}`} className="text-sm text-teal-600 hover:underline block">{panelBooking.clients.phone}</a>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500">{panelBooking.clients.phone}</span>
+                  <CallTextCopy phone={panelBooking.clients.phone} />
+                </div>
               )}
               {panelBooking.clients?.address && (
                 <p className="text-sm text-slate-600">{panelBooking.clients.address}</p>
