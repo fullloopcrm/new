@@ -211,6 +211,7 @@ async function bookingConfirmedHtml(
     portalPin,
     isRecurring,
     prepTips,
+    whatToExpect: (metadata?.whatToExpect as string | undefined) || (templateData as { whatToExpect?: string }).whatToExpect,
   })
 }
 
@@ -223,7 +224,7 @@ async function bookingConfirmedHtml(
 export async function buildBookingConfirmationEmail(
   tenantId: string,
   bookingId: string | undefined,
-  fields: { clientName: string; serviceName: string; dateTime: string; teamMemberName?: string; address?: string; price?: string; portalUrl?: string },
+  fields: { clientName: string; serviceName: string; dateTime: string; teamMemberName?: string; address?: string; price?: string; portalUrl?: string; whatToExpect?: string },
 ): Promise<string> {
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
@@ -240,6 +241,7 @@ export async function buildBookingConfirmationEmail(
     address: fields.address,
     price: fields.price,
     portalUrl: fields.portalUrl,
+    whatToExpect: fields.whatToExpect,
   }, { domain: tenant?.domain, slug: tenant?.slug })
 }
 

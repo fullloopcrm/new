@@ -14,6 +14,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 
 export async function GET(
   _request: Request,
@@ -194,7 +195,12 @@ export async function PUT(
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      // NYC Maid clients are told a 2-hour arrival window, never an exact
+      // time (see time-window.ts — the same rule every SMS template already
+      // follows). Other tenants get the plain wall-clock time.
+      const time = isNycMaid(tenantId)
+        ? clientArrivalWindow(data.start_time)
+        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
       const statusChanged = fields.status && fields.status !== oldBooking?.status
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
@@ -222,7 +228,8 @@ export async function PUT(
           const html = await buildBookingConfirmationEmail(tenantId, id, {
             clientName: data.clients?.name || 'there',
             serviceName: data.service_type || 'Appointment',
-            dateTime: `${date} at ${time}`,
+            dateTime: isNycMaid(tenantId) ? `${date}, ${time}` : `${date} at ${time}`,
+            whatToExpect: isNycMaid(tenantId) ? ARRIVAL_WINDOW_NOTE : undefined,
           })
           await sendClientEmail({ id: tenantId, ...tenantData }, data.client_id, `Booking Confirmed — ${date}`, html)
             .catch(err => console.error('client confirmation email error:', err))
