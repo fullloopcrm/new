@@ -1205,45 +1205,45 @@ export default function BusinessDetailPage() {
 
       {/* TAB: Contact & Access */}
       {tab === 'contact' && (
-        <div className="max-w-lg space-y-6">
-          <div>
-            <ProfileForm tenantId={id} />
-          </div>
+        <div className="space-y-6">
+          <ProfileForm tenantId={id} />
 
-          <div className="pt-6 border-t border-slate-200 space-y-3">
-            <h3 className="font-heading font-semibold text-slate-900">Invite Owner</h3>
-            <div className="flex gap-2">
-              <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder={ownerEmail || 'owner@email.com'}
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder-slate-400" />
-              <button onClick={sendInvite} disabled={sendingInvite}
-                className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
-                {sendingInvite ? 'Sending...' : 'Send Invite'}
-              </button>
-            </div>
-            {inviteResult?.ok && <p className="text-sm text-green-600">Invite sent!</p>}
-            {inviteResult?.error && <p className="text-sm text-red-500">{inviteResult.error}</p>}
-            {invites.length > 0 && (
-              <div className="space-y-1 pt-2">
-                {invites.map((inv) => (
-                  <div key={inv.id} className="flex items-center gap-3 text-sm text-slate-500">
-                    <span>{inv.email}</span>
-                    <span className={`text-xs font-medium ${inv.accepted ? 'text-green-600' : new Date(inv.expires_at) < new Date() ? 'text-red-500' : 'text-yellow-600'}`}>
-                      {inv.accepted ? 'Accepted' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
-                    </span>
-                  </div>
-                ))}
+          <div className="max-w-lg space-y-6">
+            <div className="pt-6 border-t border-slate-200 space-y-3">
+              <h3 className="font-heading font-semibold text-slate-900">Invite Owner</h3>
+              <div className="flex gap-2">
+                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder={ownerEmail || 'owner@email.com'}
+                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder-slate-400" />
+                <button onClick={sendInvite} disabled={sendingInvite}
+                  className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
+                  {sendingInvite ? 'Sending...' : 'Send Invite'}
+                </button>
               </div>
-            )}
-          </div>
+              {inviteResult?.ok && <p className="text-sm text-green-600">Invite sent!</p>}
+              {inviteResult?.error && <p className="text-sm text-red-500">{inviteResult.error}</p>}
+              {invites.length > 0 && (
+                <div className="space-y-1 pt-2">
+                  {invites.map((inv) => (
+                    <div key={inv.id} className="flex items-center gap-3 text-sm text-slate-500">
+                      <span>{inv.email}</span>
+                      <span className={`text-xs font-medium ${inv.accepted ? 'text-green-600' : new Date(inv.expires_at) < new Date() ? 'text-red-500' : 'text-yellow-600'}`}>
+                        {inv.accepted ? 'Accepted' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <div className="pt-6 border-t border-slate-200">
-            <p className="text-xs text-slate-400 uppercase mb-1">Slug</p>
-            <p className="text-sm font-mono text-slate-600">{biz.slug}</p>
-            <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Created</p>
-            <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
-            <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
+            <div className="pt-6 border-t border-slate-200">
+              <p className="text-xs text-slate-400 uppercase mb-1">Slug</p>
+              <p className="text-sm font-mono text-slate-600">{biz.slug}</p>
+              <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Created</p>
+              <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
+              <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
+            </div>
           </div>
         </div>
       )}
