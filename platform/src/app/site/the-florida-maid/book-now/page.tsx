@@ -154,7 +154,7 @@ function BookFormContent() {
     e.preventDefault()
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
-    if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
+    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number, or leave it blank.'); return }
     if (!smsOptIn) { setError('Please agree to receive text messages about your appointment.'); return }
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
@@ -280,8 +280,8 @@ function BookFormContent() {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone</label>
-                <input type="tel" required placeholder="(954) 555-1234" value={form.phone}
+                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone <span className="normal-case font-normal text-gray-400">(optional)</span></label>
+                <input type="tel" placeholder="(954) 555-1234" value={form.phone}
                   onChange={(e) => update('phone', formatPhone(e.target.value))}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
               </div>
