@@ -88,6 +88,14 @@ const MISSED_CALL_SMS_BODY = (
   "you with? Reply here and we'll get you sorted."
 )
 
+// Every answered call ends up recorded — bridged to an admin, handed to the
+// AI agent, or sent to voicemail. Disclose that upfront, once, right after
+// answer, before any routing branch.
+const RECORDING_DISCLOSURE_PROMPT = (
+  process.env.RECORDING_DISCLOSURE_PROMPT ||
+  'This call may be recorded for quality assurance and training purposes.'
+)
+
 type TelnyxAction =
   | 'answer'
   | 'hangup'
@@ -640,6 +648,16 @@ export async function POST(req: NextRequest) {
     // silence while we dial admins. Required for PSTN target dialing;
     // harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
+
+    // Disclose recording once, up front — every path from here (AI agent,
+    // admin bridge, voicemail) ends up recording this call. Fire-and-forget,
+    // same pattern as the voicemail greeting below: it plays while the
+    // ring-list lookup/dial happens next, not blocking on completion.
+    await telnyxAction(callControlId, 'speak', {
+      payload: RECORDING_DISCLOSURE_PROMPT,
+      voice: 'female',
+      language: 'en-US',
+    }).catch(() => null)
 
     // ── Voice AI agent: route to Yinez over SIP if this tenant has it set up ──
     // Tenant-gated (both creds present AND selena_config.voice_agent_enabled
