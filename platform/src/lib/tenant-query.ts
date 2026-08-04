@@ -1,7 +1,7 @@
 import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
-import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
+import { verifyAdminToken, verifyTenantAdminToken, verifyTenantAdminTokenAnyTenant } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, signImpersonation, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import type { Tenant } from './tenant'
@@ -137,6 +137,39 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             if (tenant) {
               return { userId: ta.memberId, tenantId: tenant.id, tenant, role: member.role }
             }
+          }
+        }
+      }
+    }
+  }
+
+  // Mobile bearer token (Authorization: Bearer <token>). Additive to the
+  // cookie-based paths above — the native app has no browser cookie jar and
+  // no tenant custom domain, so it authenticates with a per-tenant admin
+  // token returned from /api/mobile/auth/login instead of a domain header.
+  // Same instant-revocation re-check as the cookie/domain path: the token's
+  // role claim is not trusted, tenant_members.role is re-read every request.
+  {
+    const h = await headers()
+    const authHeader = h.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+    if (bearer) {
+      const ta = verifyTenantAdminTokenAnyTenant(bearer)
+      if (ta) {
+        const { data: member } = await supabaseAdmin
+          .from('tenant_members')
+          .select('role')
+          .eq('id', ta.memberId)
+          .eq('tenant_id', ta.tenantId)
+          .single()
+        if (member) {
+          const { data: tenant } = await supabaseAdmin
+            .from('tenants')
+            .select('*')
+            .eq('id', ta.tenantId)
+            .single()
+          if (tenant) {
+            return { userId: ta.memberId, tenantId: tenant.id, tenant, role: member.role }
           }
         }
       }
