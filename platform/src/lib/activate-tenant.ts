@@ -80,7 +80,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
   const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, status, owner_email, owner_name, domain, domain_name, address, service_area_lat, service_area_lng, service_radius_miles')
+    .select('id, name, slug, industry, status, owner_email, owner_name, domain, domain_name, address, service_area_lat, service_area_lng, service_radius_miles, onboarding_link_sent_at')
     .eq('id', tenantId)
     .single()
 
@@ -342,17 +342,19 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
   // 5b. Onboarding-questionnaire link — auto-created and emailed here (not at
   // Create) because a just-created tenant has no real owner_email yet and
-  // isn't ready for the owner to see. Only sent while the tenant is NOT YET
-  // active — "let's get your business set up, first step is your profile" is
-  // wrong copy to re-send to a tenant that's already live (this was the real
-  // bug: re-running Activate used to re-send this to already-active tenants
-  // every time, e.g. the Template Preview tenant on 2026-08-03). Guards on
-  // the tenant's status as read at the START of this call, before anything
-  // below can flip it to active.
+  // isn't ready for the owner to see. Sent AT MOST ONCE per tenant, ever —
+  // guards on onboarding_link_sent_at (2026-08-04 fix), not just tenant
+  // status. The status-only guard (still kept, belt-and-suspenders) only
+  // caught re-sends to an ALREADY-ACTIVE tenant; a tenant stuck in 'setup'
+  // (incomplete profile, failed domain registration) got this "let's get
+  // your business set up, first step is your profile" email re-sent on
+  // EVERY Activate click — confirmed live on the Template Preview tenant
+  // (sent at creation 2026-08-03, re-sent on a test Activate 2026-08-04).
   const wasAlreadyActive = tenant.status === 'active'
+  const alreadySentOnboardingLink = wasAlreadyActive || !!tenant.onboarding_link_sent_at
   try {
-    if (wasAlreadyActive) {
-      steps.push({ key: 'onboarding_link', label: 'Onboarding link sent', status: 'done', detail: 'Skipped — tenant already active, not re-sending' })
+    if (alreadySentOnboardingLink) {
+      steps.push({ key: 'onboarding_link', label: 'Onboarding link sent', status: 'done', detail: 'Skipped — already sent once, not re-sending' })
     } else {
       const { sent } = await createAndSendOnboardingLink(tenantId)
       steps.push({

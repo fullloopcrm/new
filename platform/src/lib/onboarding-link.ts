@@ -91,6 +91,11 @@ export async function createAndSendOnboardingLink(tenantId: string): Promise<{ u
       'Onboarding link sent',
       `${(tenant?.name as string) || 'A tenant'} — sent to ${to}\n${appUrl()}/admin/businesses/${tenantId}`,
     ).catch(() => {})
+    // Stamped so activate-tenant.ts can guard on "already sent once" — this
+    // used to only guard on tenant.status === 'active', so a tenant stuck in
+    // 'setup' (incomplete profile, failed domain registration) got this
+    // "welcome, let's get started" email re-sent on every Activate click.
+    await supabaseAdmin.from('tenants').update({ onboarding_link_sent_at: new Date().toISOString() }).eq('id', tenantId)
     return { url, sent: true }
   } catch (err) {
     console.error('createAndSendOnboardingLink: send failed', err)
