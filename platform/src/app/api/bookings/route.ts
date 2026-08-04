@@ -142,6 +142,11 @@ export async function POST(request: Request) {
       end_time: { type: 'date' },
       notes: { type: 'string', max: 2000 },
       special_instructions: { type: 'string', max: 2000 },
+      price: { type: 'number' },
+      hourly_rate: { type: 'number' },
+      pay_rate: { type: 'number' },
+      discount_percent: { type: 'number' },
+      one_time_credit_cents: { type: 'number' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
@@ -330,6 +335,11 @@ export async function POST(request: Request) {
       p_day_end: dayEnd,
       p_max_jobs_per_day: capLimit,
       p_source: 'admin',
+      p_price: validated.price ?? null,
+      p_hourly_rate: validated.hourly_rate ?? null,
+      p_pay_rate: validated.pay_rate ?? null,
+      p_discount_percent: validated.discount_percent ?? null,
+      p_one_time_credit_cents: validated.one_time_credit_cents ?? null,
     })
     if (claimError) {
       return NextResponse.json({ error: claimError.message }, { status: 500 })
