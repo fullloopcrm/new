@@ -160,6 +160,33 @@ export default function CompanyTeamPage() {
     window.location.href = data.url
   }
 
+  async function payMember(id: string, name: string) {
+    const raw = window.prompt(`Pay ${name} — amount in dollars:`)
+    if (!raw) return
+    const cents = Math.round(parseFloat(raw) * 100)
+    if (!Number.isFinite(cents) || cents <= 0) {
+      window.alert('Enter a valid dollar amount')
+      return
+    }
+    if (!window.confirm(`Send $${(cents / 100).toFixed(2)} to ${name} right now? This is a real Stripe transfer.`)) return
+
+    const res = await fetch(`/api/admin/company/team/${id}/pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount_cents: cents }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      window.alert(data.error || `Payment failed (HTTP ${res.status})`)
+      return
+    }
+    if (data.warning) {
+      window.alert(data.warning)
+    } else {
+      window.alert(`Sent $${(cents / 100).toFixed(2)} to ${name}.`)
+    }
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -304,9 +331,16 @@ export default function CompanyTeamPage() {
                     <td className="px-5 py-3 text-sm text-right text-slate-900">{fmtPay(m)}</td>
                     <td className="px-5 py-3 text-center">
                       {m.stripe_account_id ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-green-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Connected
-                        </span>
+                        <div className="flex items-center justify-center gap-3">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-green-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Connected
+                          </span>
+                          {m.hr_status === 'active' && (
+                            <button type="button" onClick={() => payMember(m.id, m.name)} className="text-xs text-teal-600 hover:text-teal-700 font-medium">
+                              Pay
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <button type="button" onClick={() => connectPayouts(m.id)} className="text-xs text-teal-600 hover:text-teal-700 font-medium">
                           Connect

@@ -36,6 +36,15 @@ interface Tenant {
   name: string
 }
 
+interface BankTransaction {
+  id: string
+  txn_date: string
+  description: string
+  counterparty: string | null
+  amount_cents: number
+  status: 'pending' | 'matched' | 'ignored'
+}
+
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
 export default function CompanyFinancePage() {
@@ -56,6 +65,14 @@ export default function CompanyFinancePage() {
   const [description, setDescription] = useState('')
   const [tenantId, setTenantId] = useState('')
 
+  const [bankTxns, setBankTxns] = useState<BankTransaction[]>([])
+  const [bankLoading, setBankLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState<string | null>(null)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [categoryPickerId, setCategoryPickerId] = useState<string | null>(null)
+  const [pickerCategory, setPickerCategory] = useState<FinanceCategory>(REVENUE_CATEGORIES[0])
+
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/company/finance')
     const data = await res.json().catch(() => ({ transactions: [], summary: null }))
@@ -64,13 +81,60 @@ export default function CompanyFinancePage() {
     setLoading(false)
   }, [])
 
+  const loadBank = useCallback(async () => {
+    const res = await fetch('/api/admin/company/finance/bank-transactions?status=pending')
+    const data = await res.json().catch(() => ({ transactions: [] }))
+    setBankTxns(data.transactions || [])
+    setBankLoading(false)
+  }, [])
+
   useEffect(() => {
     load()
+    loadBank()
     fetch('/api/admin/tenants')
       .then((r) => (r.ok ? r.json() : { tenants: [] }))
       .then((d) => setTenants((d.tenants || []).map((t: { id: string; name: string }) => ({ id: t.id, name: t.name }))))
       .catch(() => setTenants([]))
-  }, [load])
+  }, [load, loadBank])
+
+  async function handleImport(file: File) {
+    setImporting(true)
+    setImportMsg(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/admin/company/finance/bank-import', { method: 'POST', body: form })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setImportMsg(data.error || `Import failed (HTTP ${res.status})`)
+        return
+      }
+      setImportMsg(`Imported ${data.imported} new transaction(s) (${data.parsed - data.imported} already seen, skipped).`)
+      await loadBank()
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function resolveBankTxn(id: string, body: Record<string, unknown>) {
+    setResolvingId(id)
+    try {
+      const res = await fetch(`/api/admin/company/finance/bank-transactions/${id}/match`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        window.alert(data.error || `Failed (HTTP ${res.status})`)
+        return
+      }
+      setCategoryPickerId(null)
+      await Promise.all([loadBank(), load()])
+    } finally {
+      setResolvingId(null)
+    }
+  }
 
   function switchType(next: FinanceType) {
     setType(next)
@@ -268,6 +332,112 @@ export default function CompanyFinancePage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <Panel
+        title="Bank reconciliation"
+        action={
+          <label className="text-xs font-medium text-teal-600 hover:text-teal-700 cursor-pointer">
+            {importing ? 'Importing…' : 'Upload statement (CSV/OFX)'}
+            <input
+              type="file"
+              accept=".csv,.ofx,.qfx"
+              className="hidden"
+              disabled={importing}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) handleImport(f)
+                e.target.value = ''
+              }}
+            />
+          </label>
+        }
+      >
+        <div className="p-5 pt-0">
+          <p className="text-xs text-slate-500 mb-3">
+            Import a bank statement, then match each real transaction to a ledger entry (or create one) so the books tie out to the actual bank.
+          </p>
+          {importMsg && <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-3">{importMsg}</p>}
+        </div>
+        {bankLoading ? (
+          <div className="p-5 pt-0 text-sm text-gray-400">Loading…</div>
+        ) : bankTxns.length === 0 ? (
+          <EmptyState>No unresolved bank transactions — upload a statement to reconcile against the ledger.</EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-gray-400 font-medium">Date</th>
+                  <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-gray-400 font-medium">Description</th>
+                  <th className="text-right px-5 py-3 text-xs uppercase tracking-wider text-gray-400 font-medium">Amount</th>
+                  <th className="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {bankTxns.map((b) => {
+                  const inferredType: FinanceType = b.amount_cents >= 0 ? 'revenue' : 'expense'
+                  const busy = resolvingId === b.id
+                  return (
+                    <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50 align-top">
+                      <td className="px-5 py-3 text-sm text-slate-700">{b.txn_date}</td>
+                      <td className="px-5 py-3 text-sm text-slate-900">
+                        {b.description}
+                        {b.counterparty && <span className="text-xs text-gray-400"> · {b.counterparty}</span>}
+                      </td>
+                      <td className={`px-5 py-3 text-sm text-right font-medium ${inferredType === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
+                        {inferredType === 'revenue' ? '+' : '-'}{formatCurrency(Math.abs(b.amount_cents) / 100)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {categoryPickerId === b.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <select
+                              value={pickerCategory}
+                              onChange={(e) => setPickerCategory(e.target.value as FinanceCategory)}
+                              className="border border-gray-300 rounded-lg px-2 py-1 text-xs"
+                            >
+                              {categoriesForType(inferredType).map((c) => (
+                                <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => resolveBankTxn(b.id, { action: 'create', category: pickerCategory })}
+                              className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                            >
+                              Confirm
+                            </button>
+                            <button type="button" onClick={() => setCategoryPickerId(null)} className="text-xs text-gray-400">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => { setCategoryPickerId(b.id); setPickerCategory(categoriesForType(inferredType)[0]) }}
+                              className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                            >
+                              Log as new entry
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => resolveBankTxn(b.id, { action: 'ignore' })}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                            >
+                              Ignore
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
