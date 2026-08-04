@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, discount_percent, one_time_credit_cents, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, discount_percent, one_time_credit_cents, team_size, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', formatCalendarNaive(todayCal))
         .lte('start_time', formatCalendarNaive(endCal, 23, 59, 59))
@@ -278,19 +278,32 @@ export async function GET(request: Request) {
           for (const b of dayBk) {
             const bn = (b as { notes?: string | null }).notes
             const hasPromo = typeof bn === 'string' && /\[Promo:|self-booking|discount|promo/i.test(bn)
-            const isRec = !!(b as { recurring_type?: string | null }).recurring_type
             const hasActual = (b as { actual_hours?: number | null }).actual_hours != null && Number((b as { actual_hours?: number | null }).actual_hours) > 0
-            if (b.hourly_rate && b.price && !hasPromo && !isRec && !hasActual) {
+            // Recurring bookings used to be excluded here (`!isRec`), which is
+            // exactly why cron/generate-recurring's every-occurrence-priced-at-$0
+            // bug (fixed this pass) went undetected — the one check that should
+            // have caught it was blind to the entire booking source that had it.
+            // price==0 was ALSO excluded by the truthy `b.price` gate below and
+            // the `Number(b.price) > 0` re-check at the end — both silently
+            // treated "no price at all" as "nothing to check" instead of the
+            // most obvious mismatch there is. Checking `!= null` instead of
+            // truthy catches a real $0 price without catching bookings that
+            // never had hourly_rate set at all (still gated by `b.hourly_rate`).
+            if (b.hourly_rate && b.price != null && !hasPromo && !hasActual) {
               const hrs = (toMin(b.end_time) - toMin(b.start_time)) / 60
               // Expected price still runs through this booking's own
               // discount_percent + one_time_credit_cents — otherwise a
               // one-off booking with an admin-set discount or comp
               // false-positives here every run (nycmaid a8efe43f parity).
+              // team_size multiplies price on multi-cleaner bookings
+              // (CreateBookingForm/EditBookingForm's calculatePrice) — omitting
+              // it here made every real team-of-N booking look like a mismatch.
               const bDiscount = (b as { discount_percent?: number | null }).discount_percent
               const bCredit = (b as { one_time_credit_cents?: number | null }).one_time_credit_cents
-              const expected = applyCredit(applyDiscount(hrs * Number(b.hourly_rate) * 100, bDiscount), bCredit)
-              if (Math.abs(Number(b.price) - expected) > 1000 && Number(b.price) > 0) {
-                issues.push({ type: 'price_mismatch', severity: 'info', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} on ${date} — price $${(Number(b.price) / 100).toFixed(0)} ≠ ${hrs}hrs × $${b.hourly_rate}/hr`, booking_ids: [b.id], tenant_id: tenantId, date })
+              const teamSize = Math.max(1, Number((b as { team_size?: number | null }).team_size) || 1)
+              const expected = applyCredit(applyDiscount(hrs * Number(b.hourly_rate) * teamSize * 100, bDiscount), bCredit)
+              if (Math.abs(Number(b.price) - expected) > 1000) {
+                issues.push({ type: 'price_mismatch', severity: 'info', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} on ${date} — price $${(Number(b.price) / 100).toFixed(0)} ≠ ${hrs}hrs × $${b.hourly_rate}/hr${teamSize > 1 ? ` × ${teamSize} cleaners` : ''}`, booking_ids: [b.id], tenant_id: tenantId, date })
               }
             }
           }

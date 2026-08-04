@@ -11,6 +11,7 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { sendSMS } from '@/lib/sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { isCommEnabled } from '@/lib/comms-prefs'
+import { applyDiscount } from '@/lib/discount'
 
 // Cache across the whole cron run — the same handful of cleaners get reused
 // across many schedules/occurrences within one invocation. Keyed by
@@ -365,6 +366,15 @@ export async function GET(request: Request) {
         })
       }
 
+      // bookings.price has no DB default worth trusting (0) — this cron never
+      // set it, so every recurring_auto booking priced at $0. Mirrors
+      // CreateBookingForm's calculatePrice(): hours × hourly_rate × 100,
+      // discounted. recurring_schedules carries no team_size/crew column, so
+      // there's no multi-cleaner multiplier to apply here (single-cleaner
+      // only, same as every existing recurring_auto row).
+      const basePriceCents = Math.round(durH * Number(schedule.hourly_rate || 0) * 100)
+      const price = applyDiscount(basePriceCents, schedule.discount_percent)
+
       bookings.push({
         tenant_id: schedule.tenant_id,
         client_id: schedule.client_id,
@@ -376,6 +386,7 @@ export async function GET(request: Request) {
         start_time: occ.toISOString(),
         end_time: endTime.toISOString(),
         status: 'scheduled',
+        price,
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
         discount_percent: schedule.discount_percent,
