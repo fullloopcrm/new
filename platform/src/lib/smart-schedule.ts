@@ -398,15 +398,19 @@ export async function scoreTeamForBooking(opts: {
       }
     }
 
-    let reason = ''
-    if (isPreferred) reason = "Client's preferred tech"
-    else if (zoneMatch && clusterBonus >= 20) reason = 'Zone match + near other jobs'
-    else if (zoneMatch) reason = 'Zone match'
-    else if (clusterBonus >= 20) reason = 'Near other jobs'
-    else if (distMiles && distMiles < 2) reason = 'Close to home'
-    else if (canMakeHome) reason = 'Available'
-    if (!canMakeHome) reason = `Won't make home by ${homeBy}`
-    if (jobZone && zoneRequiresCar(jobZone) && !hasCar) reason = 'No car — area requires driving'
+    // Detailed, human-readable breakdown of every factor that fed the score —
+    // not just the winning category — so an admin reviewing an auto-assignment
+    // later can see the actual calculation, not a one-word label.
+    const reasonParts: string[] = []
+    if (jobZone && zoneRequiresCar(jobZone) && !hasCar) reasonParts.push('No car — area requires driving')
+    if (!canMakeHome) reasonParts.push(`Won't make home by ${homeBy}`)
+    if (isPreferred) reasonParts.push("Client's preferred tech")
+    if (zoneMatch) reasonParts.push(`Zone match${jobZone ? ` (${jobZone})` : ''}`)
+    if (clusterBonus >= 20) reasonParts.push('Clustered with other jobs today')
+    else if (clusterBonus >= 10) reasonParts.push('Somewhat close to other jobs today')
+    if (distMiles != null) reasonParts.push(`${Math.round(distMiles * 10) / 10}mi from home`)
+    if (travelFromPrev != null) reasonParts.push(`~${Math.round(travelFromPrev)}min from previous job`)
+    const reason = reasonParts.length > 0 ? reasonParts.join(' · ') : 'Available — no strong scoring signal either way'
 
     scores.push({
       id: member.id,

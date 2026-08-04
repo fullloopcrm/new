@@ -61,7 +61,9 @@ export default function AutoScheduled() {
             )}
           </div>
           <div className="mt-1" style={{ color: V.ink }}>
-            {e.client_name || 'Client'}{e.client_address ? ` — ${e.client_address}` : ''}{e.team_member_name ? ` → assigned to ${e.team_member_name}` : ''}
+            {e.client_name
+              ? <>{e.client_name}{e.client_address ? ` — ${e.client_address}` : ''}{e.team_member_name ? ` → assigned to ${e.team_member_name}` : ''}</>
+              : e.message}
           </div>
           {(e.start_time || e.end_time) && (
             <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 2 }}>
