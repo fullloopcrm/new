@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { listComhubThreads } from '@/lib/comhub-threads'
 
-// GET /api/admin/comhub/threads
-//   ?kind=contact|channel|all (default contact)
-//   &status=open|snoozed|closed|all (default open)
-//   &channel=sms|email|voice|all (default all)
-//   &filter=all|unread|unresponded (default all)
-//   &q=<search>
-//   &limit=50&offset=0
-//
-// Query logic lives in lib/comhub-threads.ts, shared with the mobile-scoped
-// equivalent (/api/mobile/comhub/threads) — this route only differs in its
-// auth gate (platform super-admin here vs. tenant bearer/cookie there).
+// Mobile-scoped equivalent of /api/admin/comhub/threads — same reasoning as
+// /api/mobile/comhub/voice/token: the admin route gates on requireAdmin()
+// (platform super-admin only), unreachable with the tenant owner/admin
+// bearer token from /api/mobile/auth/login. Shares the actual query logic
+// (contact resolution, search, unresponded filter) via lib/comhub-threads.ts
+// rather than duplicating it.
 export async function GET(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  let tenantId: string
+  try {
+    const ctx = await getTenantForRequest()
+    tenantId = ctx.tenantId
+  } catch (e) {
+    const status = e instanceof AuthError ? e.status : 401
+    return NextResponse.json({ error: 'Unauthorized' }, { status })
+  }
 
   const { searchParams } = new URL(req.url)
   const { threads, error } = await listComhubThreads(tenantId, {
