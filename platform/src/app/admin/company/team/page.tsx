@@ -21,6 +21,7 @@ interface Member {
   pay_rate_cents: number | null
   pay_period: PayPeriod
   notes: string | null
+  stripe_account_id: string | null
 }
 
 const emptyForm = {
@@ -66,7 +67,8 @@ export default function CompanyTeamPage() {
     const active = members.filter((m) => m.hr_status === 'active').length
     const w2 = members.filter((m) => m.employment_type === 'employee_w2').length
     const contractors = members.filter((m) => m.employment_type === 'contractor_1099').length
-    return { total: members.length, active, w2, contractors }
+    const connected = members.filter((m) => m.stripe_account_id).length
+    return { total: members.length, active, w2, contractors, connected }
   }, [members])
 
   const filtered = useMemo(() => {
@@ -148,6 +150,16 @@ export default function CompanyTeamPage() {
     await load()
   }
 
+  async function connectPayouts(id: string) {
+    const res = await fetch(`/api/admin/company/team/${id}/stripe-onboard`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.url) {
+      window.alert(data.error || 'Could not start Stripe onboarding')
+      return
+    }
+    window.location.href = data.url
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -171,11 +183,12 @@ export default function CompanyTeamPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
         <Stat label="Headcount" value={stats.total} />
         <Stat label="Active" value={stats.active} accent="text-green-600" />
         <Stat label="1099" value={stats.contractors} />
         <Stat label="W-2" value={stats.w2} />
+        <Stat label="Payouts connected" value={`${stats.connected}/${stats.total}`} accent="text-teal-600" />
       </div>
 
       {showForm && (
@@ -261,14 +274,15 @@ export default function CompanyTeamPage() {
                 <Th>Type</Th>
                 <Th>Title</Th>
                 <Th className="text-right">Pay</Th>
+                <Th className="text-center">Payouts</Th>
                 <Th className="text-right">{''}</Th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">
                   {search ? 'No one matches your search' : 'No one added yet'}
                 </td></tr>
               ) : (
@@ -288,6 +302,17 @@ export default function CompanyTeamPage() {
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-600">{m.title || '—'}</td>
                     <td className="px-5 py-3 text-sm text-right text-slate-900">{fmtPay(m)}</td>
+                    <td className="px-5 py-3 text-center">
+                      {m.stripe_account_id ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-green-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Connected
+                        </span>
+                      ) : (
+                        <button type="button" onClick={() => connectPayouts(m.id)} className="text-xs text-teal-600 hover:text-teal-700 font-medium">
+                          Connect
+                        </button>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-right">
                       <button type="button" onClick={() => remove(m.id)} className="text-xs text-red-400 hover:text-red-600">Remove</button>
                     </td>
