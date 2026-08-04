@@ -14,6 +14,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 
 export async function GET(
   _request: Request,
@@ -163,9 +164,61 @@ export async function PUT(
     // Get old booking for change detection
     const { data: oldBooking } = (await db
       .from('bookings')
-      .select('status, team_member_id, start_time')
+      .select('status, team_member_id, start_time, check_in_time, hourly_rate, pay_rate, discount_percent, one_time_credit_cents, recurring_type, max_hours, team_size')
       .eq('id', id)
-      .single()) as { data: { status: string; team_member_id: string | null; start_time: string } | null }
+      .single()) as {
+      data: {
+        status: string
+        team_member_id: string | null
+        start_time: string
+        check_in_time: string | null
+        hourly_rate: number | null
+        pay_rate: number | null
+        discount_percent: number | null
+        one_time_credit_cents: number | null
+        recurring_type: string | null
+        max_hours: number | null
+        team_size: number | null
+      } | null
+    }
+
+    // BookingsAdmin.tsx computes checkout price/team_member_pay client-side
+    // (for an instant preview) and sends the result in this same PUT body --
+    // but a request isn't a UI, and this route used to write whatever price/
+    // team_member_pay/actual_hours arrived verbatim. Whenever check_out_time
+    // is being set, ignore those three client-submitted fields entirely and
+    // recompute them here from the booking's own trusted rate/discount/
+    // credit columns via the same canonical computeCheckoutPricing() the UI
+    // uses -- an honest client gets the identical result, a tampered request
+    // can no longer set an arbitrary price or cleaner payout.
+    if (fields.check_out_time && oldBooking?.check_in_time) {
+      const assignedMemberId = (fields.team_member_id as string | undefined) ?? oldBooking.team_member_id ?? null
+      let memberPayRate: number | null = null
+      if (assignedMemberId) {
+        const { data: member } = await supabaseAdmin
+          .from('team_members')
+          .select('pay_rate')
+          .eq('id', assignedMemberId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        memberPayRate = (member?.pay_rate as number | null) ?? null
+      }
+      const bookingPayRateOverride = (fields.pay_rate as number | null | undefined) ?? oldBooking.pay_rate ?? null
+      const pricing = computeCheckoutPricing({
+        checkInIso: oldBooking.check_in_time,
+        checkOutIso: fields.check_out_time as string,
+        hourlyRate: (fields.hourly_rate as number | null | undefined) ?? oldBooking.hourly_rate,
+        cleanerHourlyRate: bookingPayRateOverride ?? memberPayRate,
+        discountPercent: (fields.discount_percent as number | null | undefined) ?? oldBooking.discount_percent,
+        oneTimeCreditCents: (fields.one_time_credit_cents as number | null | undefined) ?? oldBooking.one_time_credit_cents,
+        recurringType: oldBooking.recurring_type,
+        maxHours: oldBooking.max_hours,
+        teamSize: (fields.team_size as number | null | undefined) ?? oldBooking.team_size,
+      })
+      fields.actual_hours = pricing.actualHours
+      fields.price = pricing.priceCents
+      fields.team_member_pay = pricing.cleanerPayCents
+    }
 
     const { data, error } = await db
       .from('bookings')
