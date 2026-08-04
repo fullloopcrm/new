@@ -26,6 +26,7 @@ import { hashAdminPin } from './admin-pin'
 import { createAndSendOnboardingLink } from './onboarding-link'
 import { sendOwnerLoginEmail } from './owner-welcome-email'
 import { runPostActivationTasks } from './post-activation'
+import { generateSiteBrandCopy } from './generate-site-brand-copy'
 import crypto from 'crypto'
 import { encryptSecretSafe } from './secret-crypto'
 
@@ -129,6 +130,27 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     steps.push({ key: 'settings', label: 'Global settings applied', status: 'failed', detail: msg(e) })
   }
   await crumb(tenantId, 'after_settings')
+
+  // 2a. Site brand copy — "go wild" personalization (see generate-site-brand-
+  // copy.ts). Runs right after services/settings so it has the tenant's real
+  // onboarding answers (business_description, differentiators, brand voice
+  // fields) to draft from. Best-effort, like services tailoring above: a
+  // tenant with no qualitative input yet, or an AI/validation failure, just
+  // no-ops and the site keeps its generic industry copy — never blocks
+  // activation.
+  try {
+    const brandCopy = await generateSiteBrandCopy(tenantId)
+    steps.push({
+      key: 'brand_copy',
+      label: 'Site copy personalized',
+      status: 'done',
+      detail: brandCopy.applied
+        ? 'Tagline, hero line, and About intro drafted from onboarding answers'
+        : `Skipped (${brandCopy.reason || 'not applied'})`,
+    })
+  } catch (e) {
+    steps.push({ key: 'brand_copy', label: 'Site copy personalized', status: 'failed', detail: msg(e) })
+  }
 
   // 2b. Service-area geo — geocode the business address to a center (once) and
   // report how many neighborhoods/areas fall inside the service radius. This is
@@ -320,17 +342,26 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
   // 5b. Onboarding-questionnaire link — auto-created and emailed here (not at
   // Create) because a just-created tenant has no real owner_email yet and
-  // isn't ready for the owner to see. Idempotent in effect: re-running
-  // Activate just re-sends the same (still-valid) link, it doesn't mint a
-  // new one unless the link was separately regenerated.
+  // isn't ready for the owner to see. Only sent while the tenant is NOT YET
+  // active — "let's get your business set up, first step is your profile" is
+  // wrong copy to re-send to a tenant that's already live (this was the real
+  // bug: re-running Activate used to re-send this to already-active tenants
+  // every time, e.g. the Template Preview tenant on 2026-08-03). Guards on
+  // the tenant's status as read at the START of this call, before anything
+  // below can flip it to active.
+  const wasAlreadyActive = tenant.status === 'active'
   try {
-    const { sent } = await createAndSendOnboardingLink(tenantId)
-    steps.push({
-      key: 'onboarding_link',
-      label: 'Onboarding link sent',
-      status: sent ? 'done' : 'action_needed',
-      detail: sent ? 'Emailed to the owner' : 'No owner/business email on file — copy the link from this page instead',
-    })
+    if (wasAlreadyActive) {
+      steps.push({ key: 'onboarding_link', label: 'Onboarding link sent', status: 'done', detail: 'Skipped — tenant already active, not re-sending' })
+    } else {
+      const { sent } = await createAndSendOnboardingLink(tenantId)
+      steps.push({
+        key: 'onboarding_link',
+        label: 'Onboarding link sent',
+        status: sent ? 'done' : 'action_needed',
+        detail: sent ? 'Emailed to the owner' : 'No owner/business email on file — copy the link from this page instead',
+      })
+    }
   } catch (e) {
     steps.push({ key: 'onboarding_link', label: 'Onboarding link sent', status: 'failed', detail: msg(e) })
   }

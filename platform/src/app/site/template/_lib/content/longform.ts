@@ -47,6 +47,8 @@ interface Vars {
   services: string[]
   isRemote: boolean
   profile: IndustryProfile
+  /** Per-tenant personalization layer — see SiteConfig.brandCopy. */
+  brandCopy: SiteConfig['brandCopy']
 }
 
 function vars(config: SiteConfig): Vars {
@@ -60,7 +62,15 @@ function vars(config: SiteConfig): Vars {
     services: config.services.map((s) => s.value).filter(Boolean),
     isRemote: profile.isRemote,
     profile,
+    brandCopy: config.brandCopy,
   }
+}
+
+/** Real differentiators as one plain sentence, never AI-paraphrased. */
+function differentiatorsSentence(v: Vars): string | null {
+  const items = v.brandCopy?.differentiators
+  if (!items || items.length === 0) return null
+  return `In ${v.brand}'s own words, here's what sets us apart: ${list(items, 6)}.`
 }
 
 /** Join a string list into readable prose ("a, b, and c"). */
@@ -86,6 +96,7 @@ export function aboutContent(config: SiteConfig): LongformPage {
     {
       heading: `Who ${v.brand} Is`,
       paragraphs: [
+        ...(v.brandCopy?.aboutIntro ? [v.brandCopy.aboutIntro] : []),
         `${v.brand} is a ${v.noun} company built around a simple idea: do excellent work, communicate like a human being, and make the whole experience easy from the first message to the final follow-up. We serve ${locality}, and we treat every job — the small ones and the big ones — as the reason we get to keep doing this.`,
         `Plenty of companies in ${v.label.toLowerCase()} are good at exactly one thing: getting you to book. After that, the experience falls apart — nobody answers the phone, the crew shows up late or not at all, and the price on the invoice looks nothing like the quote. We started ${v.brand} because we were tired of watching that happen to good people who just wanted a job done right.`,
         `So we built the opposite. Clear pricing you can see before you commit. Real people who answer when you reach out. A team that shows up when we say we will, does the work to a standard we're proud to put our name on, and stands behind it if anything's off. That's the entire promise, and every part of how we operate is designed to keep it.`,
@@ -128,6 +139,7 @@ export function aboutContent(config: SiteConfig): LongformPage {
     {
       heading: `What Makes Us Different`,
       paragraphs: [
+        ...(differentiatorsSentence(v) ? [differentiatorsSentence(v) as string] : []),
         `The honest answer is that we're different in ways that are boring to say and hard to do: we answer the phone, we show up, we charge what we quoted, and we fix it if it's wrong. None of that is clever. All of it is rare, because doing it consistently requires actually building the company around it instead of bolting it on as a slogan.`,
         `We price transparently. You'll know what a job costs before you agree to it, and the invoice will match. There's no surge pricing when you're in a hurry, no mystery fees, and no "the guy quoted low to win the job and the real number showed up later." The price we say is the price you pay.`,
         `We also stay reachable. You're not routed through a call center that knows nothing about your job — you deal with a company that has your details, remembers your history, and can actually answer your question. In a field where most companies go quiet the moment they've been paid, staying reachable is its own kind of edge.`,
@@ -1487,7 +1499,7 @@ export function homeContent(config: SiteConfig): LongformPage {
     title: `${v.brand} — ${v.label} in ${v.place} | Trusted, Transparent, Guaranteed`,
     metaDescription: `${v.brand}: professional ${v.noun} ${here}. Transparent pricing, vetted team, on-time service, satisfaction guaranteed. ${v.services.length > 0 ? svc + '. ' : ''}Text ${v.phone}.`,
     h1: `${v.place}'s Trusted ${v.label}`,
-    intro: `Professional ${v.noun} ${across} — transparent pricing, a vetted team, on-time every time, and work we stand behind. ${v.brand} does it right the first time.`,
+    intro: v.brandCopy?.heroLine || `Professional ${v.noun} ${across} — transparent pricing, a vetted team, on-time every time, and work we stand behind. ${v.brand} does it right the first time.`,
     sections,
     faq,
   }

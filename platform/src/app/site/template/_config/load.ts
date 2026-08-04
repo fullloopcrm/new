@@ -96,6 +96,18 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   const reviewStats = await loadReviewStats(str(tenant, 'id'))
   const hasReviews = reviewStats.count !== ''
 
+  // Personalization layer — generated at Activate (see generate-site-brand-copy.ts)
+  // from the tenant's own onboarding answers. heroLine/aboutIntro are AI-drafted
+  // and validated before being written here; differentiators is the tenant's raw
+  // input, passed through unparaphrased. Undefined fields mean "not generated
+  // yet" or "nothing to generate from" — callers fall back to generic copy.
+  const heroLine = selena && typeof selena['site_hero_line'] === 'string' ? selena['site_hero_line'] : undefined
+  const aboutIntro = selena && typeof selena['site_about_intro'] === 'string' ? selena['site_about_intro'] : undefined
+  const differentiators = Array.isArray(selena?.['differentiators'])
+    ? (selena!['differentiators'] as unknown[]).filter((d): d is string => typeof d === 'string' && d.trim() !== '')
+    : undefined
+  const hasBrandCopy = !!(heroLine || aboutIntro || (differentiators && differentiators.length > 0))
+
   return {
     identity: {
       name,
@@ -137,6 +149,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
       : 'booking',
     industry,
+    brandCopy: hasBrandCopy ? { heroLine, aboutIntro, differentiators } : undefined,
   }
 }
 
