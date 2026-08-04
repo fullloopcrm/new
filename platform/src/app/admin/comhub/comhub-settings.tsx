@@ -234,6 +234,193 @@ function TemplatesManager() {
   )
 }
 
+type RingStrategy = 'browser_only' | 'cell_only' | 'browser_then_cell' | 'simultaneous'
+type CallerIdMode = 'show_customer' | 'show_business'
+
+type VoiceSettingsData = {
+  ring_strategy: RingStrategy
+  caller_id_mode: CallerIdMode
+  auto_record: boolean
+  auto_transcribe: boolean
+  fallback_cell_phone: string | null
+  do_not_disturb_until: string | null
+}
+
+const DEFAULT_VOICE_SETTINGS: VoiceSettingsData = {
+  ring_strategy: 'browser_then_cell',
+  caller_id_mode: 'show_customer',
+  auto_record: true,
+  auto_transcribe: true,
+  fallback_cell_phone: null,
+  do_not_disturb_until: null,
+}
+
+// 'simultaneous' is a real value in the schema/API but not offered here --
+// the webhook doesn't do true concurrent dialing yet, it would silently fall
+// back to browser_then_cell. Don't offer a choice that doesn't do what it says.
+const RING_STRATEGY_LABEL: Record<Exclude<RingStrategy, 'simultaneous'>, string> = {
+  browser_only: 'Browser only — only ring the softphone when logged into ComHub',
+  cell_only: 'Cell only — always ring the fallback cell, skip the browser softphone',
+  browser_then_cell: 'Browser, then cell — try the softphone first, fall back to the cell',
+}
+
+function toLocalInputValue(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function fromLocalInputValue(local: string): string | null {
+  if (!local) return null
+  const d = new Date(local)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
+function VoiceSettings() {
+  const [settings, setSettings] = useState<VoiceSettingsData>(DEFAULT_VOICE_SETTINGS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/comhub/voice/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data?.settings) setSettings({ ...DEFAULT_VOICE_SETTINGS, ...data.settings })
+      })
+      .catch(() => { if (!cancelled) setError('Failed to load voice settings') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const save = useCallback(async (next: VoiceSettingsData) => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/comhub/voice/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || `HTTP ${res.status}`)
+      } else {
+        setSettings({ ...DEFAULT_VOICE_SETTINGS, ...data.settings })
+        setSavedAt(Date.now())
+      }
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  const update = (patch: Partial<VoiceSettingsData>) => {
+    const next = { ...settings, ...patch }
+    setSettings(next)
+    save(next)
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-3 border-t border-gray-800 pt-4">
+        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Voice</p>
+        <p className="text-xs text-white/60">Loading…</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 border-t border-gray-800 pt-4">
+      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Voice</p>
+      <p className="text-xs text-white/60">How inbound calls ring, and what happens to recordings.</p>
+
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Fallback cell phone</span>
+        <input
+          type="tel"
+          className={inputCls}
+          value={settings.fallback_cell_phone ?? ''}
+          onChange={(e) => setSettings(s => ({ ...s, fallback_cell_phone: e.target.value || null }))}
+          onBlur={() => save(settings)}
+          placeholder="+1 555 555 5555"
+        />
+        <span className="block text-xs text-white/60 mt-1">Rings this number when nobody's logged into ComHub.</span>
+      </label>
+
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Ring order</span>
+        <select
+          className={selectCls}
+          value={settings.ring_strategy}
+          onChange={(e) => update({ ring_strategy: e.target.value as RingStrategy })}
+        >
+          {(Object.keys(RING_STRATEGY_LABEL) as Exclude<RingStrategy, 'simultaneous'>[]).map(key => (
+            <option key={key} value={key}>{RING_STRATEGY_LABEL[key]}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Caller ID on outbound calls</span>
+        <select
+          className={selectCls}
+          value={settings.caller_id_mode}
+          onChange={(e) => update({ caller_id_mode: e.target.value as CallerIdMode })}
+        >
+          <option value="show_customer">Show the customer's number</option>
+          <option value="show_business">Show the business number</option>
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Do not disturb until</span>
+        <div className="flex gap-2">
+          <input
+            type="datetime-local"
+            className={inputCls + ' flex-1'}
+            value={toLocalInputValue(settings.do_not_disturb_until)}
+            onChange={(e) => update({ do_not_disturb_until: fromLocalInputValue(e.target.value) })}
+          />
+          {settings.do_not_disturb_until && (
+            <button
+              onClick={() => update({ do_not_disturb_until: null })}
+              className="shrink-0 text-xs text-white/70 hover:text-white px-3 py-2 rounded-lg border border-slate-700"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <span className="block text-xs text-white/60 mt-1">While set, calls skip straight to the next ring target.</span>
+      </label>
+
+      <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={settings.auto_record}
+          onChange={(e) => update({ auto_record: e.target.checked })}
+        />
+        Record calls
+      </label>
+      <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={settings.auto_transcribe}
+          onChange={(e) => update({ auto_transcribe: e.target.checked })}
+        />
+        Transcribe calls
+      </label>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      {saving && <p className="text-xs text-white/50">Saving…</p>}
+      {savedAt && !saving && !error && <p className="text-xs text-white/50">Saved</p>}
+    </div>
+  )
+}
+
 export default function ComhubSettings() {
   const settings = usePageSettings('comhub')
   const viewPrefs = useUserPrefs<ViewPrefs>('comhub', { default_filter: 'all', default_channel: 'all' })
@@ -246,6 +433,7 @@ export default function ComhubSettings() {
         'Default inbox filter and channel control which threads show when ComHub first opens.',
         'Work hours are informational for now — they don’t auto-send anything yet.',
         'Preset replies show up as "Templates" in the reply box on SMS/email threads; ones marked "Away message" show up under a separate "Away" picker instead.',
+        'Voice settings are per-admin — the fallback cell phone and ring order apply to whoever is logged in when they save them.',
       ]}
     >
       {() => (
@@ -285,6 +473,7 @@ export default function ComhubSettings() {
 
           <WorkHours />
           <TemplatesManager />
+          <VoiceSettings />
         </div>
       )}
     </PageSettingsPanel>
