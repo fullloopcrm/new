@@ -3,6 +3,7 @@ import Script from 'next/script'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { JsonLd, organizationSchema, websiteSchema } from '@/lib/schema'
+import VisitTracker from './VisitTracker'
 import '../globals.css'
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function MarketingLayout({
     <div className="loop-marketing min-h-screen">
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
+      <VisitTracker />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:text-slate-900 focus:rounded-lg focus:shadow-lg focus:text-sm focus:font-medium"

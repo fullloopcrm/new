@@ -31,6 +31,7 @@ const navMain: Section[] = [
     { letter: 'a', label: 'Finance', href: '/admin/company/finance' },
     { letter: 'b', label: 'Team', href: '/admin/company/team' },
     { letter: 'c', label: 'Campaigns', href: '/admin/company/campaigns' },
+    { letter: 'd', label: 'Analytics', href: '/admin/company/analytics' },
   ] },
 ]
 
