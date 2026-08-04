@@ -40,12 +40,18 @@ const genericMoreLinks = [
 
 export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Cleaning-specific nav (services dropdown, area strip, pricing) links to
-  // pages that are gated for non-cleaning tenants — hide them to avoid dead nav.
+  // pages that are gated to the real nycmaid tenant only (see
+  // _lib/gate.ts requireNycmaidTenant — those pages hardcode nycmaid's own
+  // real neighborhood/pricing content). isCleaning alone is NOT enough here:
+  // a different cleaning tenant would show this nav and then 404 on every
+  // link. Only the real nycmaid tenant gets this nav; every other cleaning
+  // tenant falls through to the generic, config-driven nav below.
   const profile = industryProfile(config.industry)
-  const isCleaning = profile.isCleaning
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+  const isCleaning = profile.isCleaning && isNycmaid
   const isVa = profile.isVirtualAssistant
   // Trade-agnostic tenants: full generic menu pointing at the config-driven
-  // long-form routes.
+  // long-form routes. Also covers non-nycmaid cleaning tenants (see above).
   const generic = !isCleaning && !isVa
   // Projects nav link (Phase 2C) — only for project/lead trades (remodeling,
   // roofing, painting, etc.), derived live from industryProfile() rather than

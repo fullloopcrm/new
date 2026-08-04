@@ -153,11 +153,15 @@ export default async function HomePage() {
     return <VirtualAssistantLanding config={siteConfig} />
   }
 
-  // Other non-cleaning tenants get the config-driven long-form homepage
-  // (GenericHome) instead of the cleaning-editorial homepage (which links to
-  // gated pages). Hero + real services grid + long-form body + FAQ, all from
-  // SiteConfig. No cleaning copy, no dead links, no cleaning structured data.
-  if (!profile.isCleaning) {
+  // The cleaning-editorial homepage below hardcodes nycmaid's OWN real
+  // content — real Manhattan/Brooklyn/Long Island neighborhood names, real
+  // $59/$69/$89 pricing, links into pages now gated to nycmaid only (see
+  // _lib/gate.ts requireNycmaidTenant) — because it was written for nycmaid
+  // specifically, not genericized. Every other tenant, cleaning or not, gets
+  // the config-driven long-form homepage (GenericHome): hero + real services
+  // grid + long-form body + FAQ, all from SiteConfig. No cleaning copy, no
+  // dead links, no other tenant's real business data.
+  if (!profile.isCleaning || !isNycmaid) {
     return <GenericHome config={siteConfig} />
   }
 

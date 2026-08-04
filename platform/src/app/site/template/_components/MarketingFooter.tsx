@@ -52,10 +52,13 @@ const serviceFooterLinks = [
 ]
 
 export default function MarketingFooter({ config }: { config: SiteConfig }) {
-  // The neighborhood/service link grid is cleaning-only and points at gated
-  // pages — non-cleaning tenants get a minimal footer instead.
+  // The neighborhood/service link grid hardcodes nycmaid's OWN real
+  // neighborhoods and points at pages now gated to nycmaid only (see
+  // _lib/gate.ts requireNycmaidTenant) — every other tenant, cleaning or
+  // not, gets the generic footer below.
   const profile = industryProfile(config.industry)
-  const isCleaning = profile.isCleaning
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+  const isCleaning = profile.isCleaning && isNycmaid
   const isVa = profile.isVirtualAssistant
   return (
     <footer className="bg-[var(--brand)] text-gray-400">
@@ -69,9 +72,9 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-300 text-sm font-medium">{config.rating.toFixed(1)} from {config.reviewCount} verified reviews</span>
           </Link>
-          {isCleaning && (<>
+          {config.googleReviewLink && (<>
           <span className="text-white/20 hidden sm:inline">|</span>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
+          <a href={config.googleReviewLink} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</a>
           </>)}
         </div>
         ) : <div className="mb-12" />}

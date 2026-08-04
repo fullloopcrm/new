@@ -27,11 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ReviewsPage() {
   const config = await getSiteConfig()
   const profile = industryProfile(config.industry)
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
 
-  // Cleaning tenants keep the existing editorial reviews page (NYC-Maid video
-  // testimonials, cleaning-slug links). Untouched to avoid regressing the live
-  // cleaning site.
-  if (profile.isCleaning) {
+  // Only the real nycmaid tenant keeps the existing editorial reviews page —
+  // it hardcodes nycmaid's own real video testimonials, NYC borough links,
+  // and Google review link. Every other tenant, cleaning or not, gets the
+  // config-driven reviews page below.
+  if (profile.isCleaning && isNycmaid) {
     return (
       <>
         <JsonLd data={[
@@ -61,9 +63,11 @@ export default async function ReviewsPage() {
           <ReviewsList />
           <div className="text-center mt-12 mb-8">
             <p className="text-gray-500 mb-4">Had a great experience? We&apos;d love to hear from you.</p>
-            <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-alt)] transition-colors">
+            {config.googleReviewLink && (
+            <a href={config.googleReviewLink} target="_blank" rel="noopener noreferrer" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-alt)] transition-colors">
               Write a Review
-            </Link>
+            </a>
+            )}
           </div>
         </div>
 

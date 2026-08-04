@@ -107,6 +107,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     ? (selena!['differentiators'] as unknown[]).filter((d): d is string => typeof d === 'string' && d.trim() !== '')
     : undefined
   const hasBrandCopy = !!(heroLine || aboutIntro || (differentiators && differentiators.length > 0))
+  const googleReviewLink = selena && typeof selena['google_review_link'] === 'string' ? selena['google_review_link'] : undefined
 
   return {
     identity: {
@@ -149,6 +150,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
       : 'booking',
     industry,
+    googleReviewLink,
     brandCopy: hasBrandCopy ? { heroLine, aboutIntro, differentiators } : undefined,
   }
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
+import { requireNycmaidTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
@@ -199,7 +199,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function EmergencyCleaningPage() {
-  await requireCleaningTenant()
+  await requireNycmaidTenant()
   const biz = buildBusiness(await getSiteConfig())
   const faqSchema = {
     '@context': 'https://schema.org',
