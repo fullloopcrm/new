@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import { formatPhone } from '@/lib/format'
 import ComhubSettings from './comhub-settings'
+import VoiceSettingsModal from '@/components/comhub/VoiceSettingsModal'
 
 // Browser softphone — Telnyx WebRTC. Lazy + SSR-disabled because the SDK
 // touches `window` on import.
@@ -241,6 +242,7 @@ export default function ComhubPage() {
   const [sending, setSending] = useState(false)
   const [showCompose, setShowCompose] = useState(false)
   const [showYinez, setShowYinez] = useState(false)
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
   const [showNewChannel, setShowNewChannel] = useState(false)
   const [composeChannel, setComposeChannel] = useState<'sms' | 'email' | 'call'>('sms')
   const [composeRecipient, setComposeRecipient] = useState('')
@@ -497,6 +499,14 @@ export default function ComhubPage() {
               title="Chat with Assistant"
             >
               ✦
+            </button>
+            <button
+              onClick={() => setShowVoiceSettings(true)}
+              className="hidden md:inline-flex items-center justify-center px-2.5 py-2 rounded-md text-sm transition-colors hover:bg-[var(--color-loop-line-soft)]"
+              style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line)' }}
+              title="Voice settings"
+            >
+              ⚙
             </button>
           </div>
           <input
@@ -1097,6 +1107,9 @@ export default function ComhubPage() {
             setSelected(threadId)
           }}
         />
+      )}
+      {showVoiceSettings && (
+        <VoiceSettingsModal onClose={() => setShowVoiceSettings(false)} />
       )}
       {showNewChannel && (
         <NewChannelModal

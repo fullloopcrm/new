@@ -190,7 +190,8 @@ type RingTarget = {
 
 // Per-tenant PSTN fallback numbers, sourced from each admin's own voice
 // settings (the same table the /admin/comhub/voice/settings UI writes to).
-// Ordered by admin_id for deterministic ring order.
+// Kept for notifyVoicemailToAdmin/maybeSendMissedCallSMS, which just need a
+// flat ordered list of numbers to text, not per-admin ring behavior.
 async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
   const { data } = await supabaseAdmin
     .from('comhub_admin_voice_settings')
@@ -204,11 +205,17 @@ async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
 }
 
 // Build the ordered list of admin endpoints to dial for this tenant's call.
-// Online softphones first (browser dialer), then this tenant's configured
-// cell numbers. If no softphones are online, this just returns the cell
-// list. TENANT-SCOPED: both presence and cell numbers are filtered to
-// tenantId — an unrelated tenant's online admin or configured cell must
-// never ring for this call.
+// Grouped PER ADMIN (not "all softphones, then all cells") so each admin's
+// own ring_strategy and do_not_disturb_until actually apply to their own
+// targets — previously these columns were written by the settings UI but
+// never read here. do_not_disturb_until skips that admin's targets entirely
+// (both softphone and cell) while active. ring_strategy 'simultaneous' is
+// not yet implemented as true concurrent dialing (the dial/bridge flow below
+// is sequential, one target at a time) — it falls back to the same
+// browser-then-cell sequence rather than silently dropping the admin, but
+// this is a known gap, not the real feature. TENANT-SCOPED: both presence
+// and voice-settings rows are filtered to tenantId — an unrelated tenant's
+// online admin or configured cell must never ring for this call.
 async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
   const cutoff = new Date(Date.now() - 60_000).toISOString()
   const { data: presence } = await supabaseAdmin
@@ -219,25 +226,59 @@ async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
     .eq('status', 'available')
     .order('last_seen_at', { ascending: false })
 
-  const sipTargets: RingTarget[] = []
+  const onlineByAdmin = new Map<string, { sip_address: string | null; sip_username: string | null }>()
   for (const row of presence ?? []) {
-    const addr =
-      row.sip_address ||
-      (row.sip_username ? `sip:${row.sip_username}@sip.telnyx.com` : null)
-    if (addr) {
-      sipTargets.push({ kind: 'sip', destination: addr, label: addr, amd: false })
+    if (!onlineByAdmin.has(row.admin_id)) {
+      onlineByAdmin.set(row.admin_id, { sip_address: row.sip_address ?? null, sip_username: row.sip_username ?? null })
     }
   }
 
-  const cellPhones = await getTenantAdminCellPhones(tenantId)
-  const phoneTargets: RingTarget[] = cellPhones.map(p => ({
-    kind: 'phone' as const,
-    destination: p,
-    label: p,
-    amd: true,
-  }))
+  const { data: prefs } = await supabaseAdmin
+    .from('comhub_admin_voice_settings')
+    .select('admin_id, ring_strategy, fallback_cell_phone, do_not_disturb_until')
+    .eq('tenant_id', tenantId)
+    .order('admin_id', { ascending: true })
 
-  return [...sipTargets, ...phoneTargets]
+  const now = Date.now()
+  const targets: RingTarget[] = []
+  const seenAdmins = new Set<string>()
+
+  for (const pref of prefs ?? []) {
+    seenAdmins.add(pref.admin_id)
+
+    // DND: skip this admin's softphone AND cell entirely while active.
+    if (pref.do_not_disturb_until && new Date(pref.do_not_disturb_until as string).getTime() > now) {
+      continue
+    }
+
+    const online = onlineByAdmin.get(pref.admin_id)
+    const sipAddr = online
+      ? online.sip_address || (online.sip_username ? `sip:${online.sip_username}@sip.telnyx.com` : null)
+      : null
+    const cell = ((pref.fallback_cell_phone as string | null) || '').trim() || null
+    const strategy = (pref.ring_strategy as string | null) || 'browser_then_cell'
+
+    if (strategy === 'browser_only') {
+      if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
+    } else if (strategy === 'cell_only') {
+      if (cell) targets.push({ kind: 'phone', destination: cell, label: cell, amd: true })
+    } else {
+      // browser_then_cell (default) and simultaneous (see function doc).
+      if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
+      if (cell) targets.push({ kind: 'phone', destination: cell, label: cell, amd: true })
+    }
+  }
+
+  // An admin online right now but with no comhub_admin_voice_settings row at
+  // all (never opened Voice settings) still rings via their live presence --
+  // preserves prior behavior for admins who haven't configured anything.
+  for (const [adminId, online] of onlineByAdmin) {
+    if (seenAdmins.has(adminId)) continue
+    const sipAddr = online.sip_address || (online.sip_username ? `sip:${online.sip_username}@sip.telnyx.com` : null)
+    if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
+  }
+
+  return targets
 }
 
 async function dialRingTarget(opts: {
