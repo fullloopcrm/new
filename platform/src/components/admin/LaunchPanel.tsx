@@ -313,9 +313,12 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
       )}
 
       {/* Completion — the distinct, explicit, client-facing launch action.
-          Only shown once the tenant is actually activated; hidden entirely
-          once completed (one-time by design, not a re-runnable step). */}
-      {activated && !completedAt && (
+          The button/confirm flow only shows pre-completion (activated, not yet
+          completed); the result panel stays visible once completeResult exists
+          regardless of completedAt, since onCompleted() refetches the tenant
+          and flips completedAt the instant this succeeds — without this split,
+          the once-only PIN would unmount before an operator could read it. */}
+      {((activated && !completedAt) || completeResult) && (
         <div className="border-t border-slate-200 pt-6">
           <h3 className="font-heading font-semibold text-slate-900 text-lg">Completed, Notify Tenant</h3>
           <p className="text-sm text-slate-500 mt-1 mb-4">
