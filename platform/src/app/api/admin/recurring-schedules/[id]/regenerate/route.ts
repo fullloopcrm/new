@@ -69,7 +69,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size, extra_team_member_ids, discount_percent')
+    // team_size/extra_team_member_ids do not exist on recurring_schedules
+    // (that table has no crew concept — see cron/generate-recurring) and were
+    // never used below even when selected; requesting them made this whole
+    // endpoint error on every call (Postgres 42703, unknown column).
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, discount_percent')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
