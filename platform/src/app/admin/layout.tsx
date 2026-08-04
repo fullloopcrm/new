@@ -27,6 +27,9 @@ const navMain: Section[] = [
   { num: '03', label: 'Tenant Chats', href: '/admin/tenant-chats', fold: 'tenant-chats', subs: [] },
   { num: '04', label: 'ComHub', href: '/admin/comhub', fold: 'comhub', subs: [] },
   { num: '05', label: 'SEO', href: '/admin/seo', fold: 'seo', subs: [] },
+  { num: '06', label: 'Company', href: '/admin/company/finance', fold: 'company', subs: [
+    { letter: 'a', label: 'Finance', href: '/admin/company/finance' },
+  ] },
 ]
 
 const navPlatform = [
