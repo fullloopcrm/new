@@ -29,6 +29,7 @@ const navMain: Section[] = [
   { num: '05', label: 'SEO', href: '/admin/seo', fold: 'seo', subs: [] },
   { num: '06', label: 'Company', href: '/admin/company/finance', fold: 'company', subs: [
     { letter: 'a', label: 'Finance', href: '/admin/company/finance' },
+    { letter: 'b', label: 'Team', href: '/admin/company/team' },
   ] },
 ]
 
