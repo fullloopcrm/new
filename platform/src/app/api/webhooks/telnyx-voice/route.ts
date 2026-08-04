@@ -498,6 +498,25 @@ async function maybeSendMissedCallSMS(opts: {
   }
 }
 
+// All admins with a configured fallback cell get texted -- previously only
+// the first (by admin_id) did, so a second/third admin never heard about a
+// voicemail unless they happened to be the one whose row sorted first.
+// Admins currently in Do Not Disturb are skipped, same as they are for
+// ringing -- DND is meant to mean "leave me alone," not just "don't ring me."
+async function getVoicemailNotifyPhones(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('comhub_admin_voice_settings')
+    .select('admin_id, fallback_cell_phone, do_not_disturb_until')
+    .eq('tenant_id', tenantId)
+    .order('admin_id', { ascending: true })
+
+  const now = Date.now()
+  return (data ?? [])
+    .filter(row => !(row.do_not_disturb_until && new Date(row.do_not_disturb_until as string).getTime() > now))
+    .map(row => (row.fallback_cell_phone || '').trim())
+    .filter(Boolean)
+}
+
 async function notifyVoicemailToAdmin(opts: {
   tenantId: string
   customerPhone: string
@@ -505,8 +524,8 @@ async function notifyVoicemailToAdmin(opts: {
   recordingUrl: string | null
   transcript: string | null
 }): Promise<void> {
-  const [notifyPhone] = await getTenantAdminCellPhones(opts.tenantId)
-  if (!notifyPhone) return
+  const notifyPhones = await getVoicemailNotifyPhones(opts.tenantId)
+  if (notifyPhones.length === 0) return
   const creds = await getTenantTelnyxCreds(opts.tenantId)
   if (!creds) return
   const lines = [
@@ -515,11 +534,16 @@ async function notifyVoicemailToAdmin(opts: {
     opts.recordingUrl ? `Audio: ${opts.recordingUrl}` : null,
     `Thread: https://www.thenycmaid.com/admin/comhub?thread=${opts.threadId}`,
   ].filter(Boolean) as string[]
-  try {
-    await sendSMS({ to: notifyPhone, body: lines.join('\n'), telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
-  } catch (err) {
-    console.error('[telnyx-voice] voicemail alert SMS failed', err)
-  }
+  const body = lines.join('\n')
+  await Promise.all(
+    notifyPhones.map(async (phone) => {
+      try {
+        await sendSMS({ to: phone, body, telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
+      } catch (err) {
+        console.error('[telnyx-voice] voicemail alert SMS failed', { phone, err })
+      }
+    }),
+  )
 }
 
 async function startVoicemail(opts: {
