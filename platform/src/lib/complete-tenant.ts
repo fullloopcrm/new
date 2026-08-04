@@ -14,6 +14,7 @@
 import { supabaseAdmin } from './supabase'
 import { hashAdminPin, generateAdminPin } from './admin-pin'
 import { sendTenantLaunchEmail } from './owner-welcome-email'
+import { generateTenantSite } from './generate-tenant-site'
 
 export interface CompletionResult {
   ok: boolean
@@ -21,6 +22,8 @@ export interface CompletionResult {
   emailSent: boolean
   ownerPin?: string | null
   error?: string
+  /** Phase 4 area/job page generation — best-effort, never blocks Completion. */
+  siteContent?: { areasProcessed: number; locationPagesWritten: number; jobPagesWritten: number; areaErrors: number }
 }
 
 export async function completeTenant(tenantId: string): Promise<CompletionResult> {
@@ -73,14 +76,32 @@ export async function completeTenant(tenantId: string): Promise<CompletionResult
     ownerPin,
   })
 
+  // Phase 4 — draft + store AI-personalized area/job page content. Best-
+  // effort: a generation failure here must never block Completion itself,
+  // same non-blocking contract as every other AI step in this pipeline
+  // (generateSiteBrandCopy, draftTailoredServices). Pages fall back to the
+  // free procedural content until this succeeds on a later run.
+  let siteContent: CompletionResult['siteContent']
+  try {
+    const site = await generateTenantSite(tenantId)
+    siteContent = {
+      areasProcessed: site.areasProcessed,
+      locationPagesWritten: site.locationPagesWritten,
+      jobPagesWritten: site.jobPagesWritten,
+      areaErrors: site.areaErrors.length,
+    }
+  } catch {
+    siteContent = undefined
+  }
+
   const { error: upErr } = await supabaseAdmin
     .from('tenants')
     .update({ completed_at: new Date().toISOString() })
     .eq('id', tenantId)
 
   if (upErr) {
-    return { ok: false, completed: false, emailSent: sent, ownerPin, error: upErr.message }
+    return { ok: false, completed: false, emailSent: sent, ownerPin, siteContent, error: upErr.message }
   }
 
-  return { ok: true, completed: true, emailSent: sent, ownerPin }
+  return { ok: true, completed: true, emailSent: sent, ownerPin, siteContent }
 }

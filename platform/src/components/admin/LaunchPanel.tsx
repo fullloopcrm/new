@@ -31,6 +31,18 @@ interface CompletionResult {
   emailSent: boolean
   ownerPin?: string | null
   error?: string
+  siteContent?: { areasProcessed: number; locationPagesWritten: number; jobPagesWritten: number; areaErrors: number }
+}
+
+interface ResyncResult {
+  ok: boolean
+  areasTotal: number
+  areasProcessed: number
+  areasSkippedOverCap: number
+  locationPagesWritten: number
+  jobPagesWritten: number
+  areaErrors: Array<{ area: string; reason: string }>
+  reason?: string
 }
 
 interface LaunchPanelProps {
@@ -57,6 +69,10 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
   const [completeResult, setCompleteResult] = useState<CompletionResult | null>(null)
   const [completeError, setCompleteError] = useState('')
   const [showConfirmComplete, setShowConfirmComplete] = useState(false)
+  const [resyncing, setResyncing] = useState(false)
+  const [resyncResult, setResyncResult] = useState<ResyncResult | null>(null)
+  const [resyncError, setResyncError] = useState('')
+  const [showConfirmResync, setShowConfirmResync] = useState(false)
 
   const carryingUrl = `https://${slug}.fullloopcrm.com`
 
@@ -151,6 +167,30 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
       setCompleteError(e instanceof Error ? `Request never completed: ${e.message}` : 'Request never completed')
     } finally {
       setCompleting(false)
+    }
+  }
+
+  async function resync() {
+    setResyncing(true)
+    setResyncError('')
+    setResyncResult(null)
+    try {
+      const res = await fetch(`/api/admin/businesses/${tenantId}/resync-site`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setResyncError((data as { error?: string })?.error || `Update failed (HTTP ${res.status})`)
+        return
+      }
+      setResyncResult(data as ResyncResult)
+      setShowConfirmResync(false)
+    } catch (e) {
+      setResyncError(e instanceof Error ? `Request never completed: ${e.message}` : 'Request never completed')
+    } finally {
+      setResyncing(false)
     }
   }
 
@@ -338,6 +378,12 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
               {completeResult.ownerPin && (
                 <p className="mt-2 text-2xl font-mono font-bold text-green-800">{completeResult.ownerPin}</p>
               )}
+              {completeResult.siteContent && (
+                <p className="mt-2 text-xs text-green-600">
+                  Site content: {completeResult.siteContent.locationPagesWritten} area page(s) + {completeResult.siteContent.jobPagesWritten} job page(s) personalized
+                  {completeResult.siteContent.areaErrors > 0 ? ` (${completeResult.siteContent.areaErrors} area(s) failed — those pages stay on generic content)` : ''}.
+                </p>
+              )}
             </div>
           ) : showConfirmComplete ? (
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
@@ -359,6 +405,64 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
             <button onClick={() => setShowConfirmComplete(true)}
               className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-lg text-sm font-cta font-bold transition-colors shadow-sm">
               Completed, Notify Tenant
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Update Website — Phase 5, on-demand resync after a profile change
+          post-launch. Available any time the tenant is activated (not gated
+          on completedAt — an operator may want to refresh area/job pages
+          before the first Completion click too). Full regenerate every time,
+          confirm-gated since it's a real prod write with real AI spend. */}
+      {activated && (
+        <div className="border-t border-slate-200 pt-6">
+          <h3 className="font-heading font-semibold text-slate-900 text-lg">Update Website</h3>
+          <p className="text-sm text-slate-500 mt-1 mb-4">
+            Re-drafts area and job page content from the tenant&apos;s current profile — run this after their
+            services, service area, or brand answers change. Full regenerate, not a diff; safe to re-run.
+          </p>
+
+          {resyncError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-wrap mb-4">
+              {resyncError}
+            </div>
+          )}
+
+          {resyncResult ? (
+            <div className={`rounded-lg px-4 py-3 text-sm ${resyncResult.areaErrors.length > 0 ? 'bg-amber-50 border border-amber-200 text-amber-700' : 'bg-green-50 border border-green-200 text-green-700'}`}>
+              {resyncResult.reason ? resyncResult.reason : (
+                <>
+                  {resyncResult.locationPagesWritten} area page(s) + {resyncResult.jobPagesWritten} job page(s) updated
+                  {resyncResult.areasSkippedOverCap > 0 ? ` (${resyncResult.areasSkippedOverCap} area(s) beyond the coverage cap not processed)` : ''}.
+                  {resyncResult.areaErrors.length > 0 && (
+                    <ul className="mt-2 list-disc list-inside">
+                      {resyncResult.areaErrors.map((e, i) => <li key={i}>{e.area}: {e.reason}</li>)}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          ) : showConfirmResync ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+              <p className="text-sm text-amber-800 mb-3">
+                This regenerates every area/job page's content and overwrites what&apos;s currently live. Confirm?
+              </p>
+              <div className="flex gap-3">
+                <button onClick={resync} disabled={resyncing}
+                  className="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
+                  {resyncing ? 'Updating…' : 'Yes, update the site'}
+                </button>
+                <button onClick={() => setShowConfirmResync(false)} disabled={resyncing}
+                  className="px-5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowConfirmResync(true)}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-lg text-sm font-cta font-bold transition-colors shadow-sm">
+              Update Website
             </button>
           )}
         </div>

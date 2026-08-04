@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { locationContent, type LocationInput } from '@/app/site/template/_lib/content/longform'
+import { getStoredOrFallbackContent } from '@/app/site/template/_lib/content/stored-content'
 import { LongformArticle } from '@/app/site/template/_components/LongformArticle'
 import { resolveCoverage, type CoveredArea } from '@/lib/geo/coverage'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
@@ -17,7 +18,7 @@ interface Props {
 export const dynamic = 'force-dynamic'
 export async function generateStaticParams() { return [] }
 
-async function resolveArea(locationSlug: string): Promise<CoveredArea | null> {
+async function resolveArea(locationSlug: string): Promise<{ area: CoveredArea; tenantId: string } | null> {
   const tenant = (await getTenantFromHeaders()) as Record<string, unknown> | null
   if (!tenant) return null
   const radius = typeof tenant.service_radius_miles === 'number' ? tenant.service_radius_miles : 25
@@ -27,15 +28,18 @@ async function resolveArea(locationSlug: string): Promise<CoveredArea | null> {
     address: tenant.address as string | null,
     radiusMiles: radius,
   })
-  return coverage.areas.find((a) => a.urlSlug === locationSlug) || null
+  const area = coverage.areas.find((a) => a.urlSlug === locationSlug)
+  return area ? { area, tenantId: tenant.id as string } : null
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location } = await params
-  const area = await resolveArea(location)
-  if (!area) return {}
+  const resolved = await resolveArea(location)
+  if (!resolved) return {}
+  const { area, tenantId } = resolved
   const config = await getSiteConfig()
-  const c = locationContent(config, area)
+  const fallback = locationContent(config, area)
+  const c = await getStoredOrFallbackContent(tenantId, 'location', area.urlSlug, fallback)
   const url = `${config.identity.url}/areas/${location}`
   return {
     title: { absolute: c.title },
@@ -48,12 +52,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LocationPage({ params }: Props) {
   const { location } = await params
-  const area = await resolveArea(location)
-  if (!area) notFound()
+  const resolved = await resolveArea(location)
+  if (!resolved) notFound()
+  const { area, tenantId } = resolved
 
   const config = await getSiteConfig()
   const areaInput: LocationInput = { name: area.name, state: area.state }
-  const content = locationContent(config, areaInput)
+  const fallback = locationContent(config, areaInput)
+  const content = await getStoredOrFallbackContent(tenantId, 'location', area.urlSlug, fallback)
 
   return (
     <LongformArticle

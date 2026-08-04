@@ -7,6 +7,11 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { completeTenant } from '@/lib/complete-tenant'
 
+// Completion now runs Phase 4 area/job content generation (up to MAX_AREAS
+// sequential AI calls) — same headroom reasoning as the activate route.
+export const runtime = 'nodejs'
+export const maxDuration = 90
+
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
   if (authError) return authError
