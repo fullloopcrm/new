@@ -1,25 +1,25 @@
 // ---------------------------------------------------------------------------
 // seomgr — reporting: FullLoop admin first, then each tenant.
 //
-// Three delivery surfaces, reusing existing platform infrastructure rather
-// than inventing new ones:
-//   1. Email + in-platform admin notification — via the existing notify()
-//      helper (same path daily_ops_recap already uses). One call per tenant,
-//      recipientType:'admin', channel:'email'.
-//   2. Tenant admin communications — a row in tenant_owner_messages
+// Delivery surfaces:
+//   1. Fleet-wide admin report — direct sendEmail() to ADMIN_EMAIL, no
+//      tenant involved (see sendSeoDigests' own comment for why).
+//   2. Per-tenant — via the existing notify() helper (same path
+//      daily_ops_recap already uses), recipientType:'admin', channel:'email'.
+//   3. Tenant admin communications — a row in tenant_owner_messages
 //      (sender_role:'jefe'), so it shows in that tenant's own
 //      /dashboard/messages inbox alongside every other admin<->owner thread.
-//   3. FL admin Telegram — NOT new: seo-health and seo-volatility already
+//   4. FL admin Telegram — NOT new: seo-health and seo-volatility already
 //      post to the Jefe/"Full Loop CRM" group via alertOwner(). This digest
 //      is the summary; those two are the real-time alerts. Not duplicated
 //      here to avoid spamming the same channel twice for the same data.
 //
 // FL-admin-first / tenant-second ordering: the fleet-wide digest (all
-// tenants combined) is generated and sent under the platform's own tenant
-// (full-loop-crm) BEFORE the per-tenant loop runs.
+// tenants combined) is generated and sent BEFORE the per-tenant loop runs.
 // ---------------------------------------------------------------------------
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { sendEmail } from '@/lib/email'
 
 const PERIOD_DAYS = 7
 
@@ -218,41 +218,30 @@ export type DigestRunResult = {
  * AND a tenant_owner_messages row (shows in that tenant's own message inbox).
  */
 export async function sendSeoDigests(): Promise<DigestRunResult> {
-  const { data: adminTenant } = await supabaseAdmin.from('tenants').select('id').eq('slug', 'full-loop-crm').maybeSingle()
   const result: DigestRunResult = { admin: { sent: false }, tenants: [] }
 
   const since = new Date(Date.now() - PERIOD_DAYS * 86_400_000).toISOString().slice(0, 10)
   const previousSince = new Date(Date.now() - 2 * PERIOD_DAYS * 86_400_000).toISOString().slice(0, 10)
 
-  if (adminTenant?.id) {
+  // Fleet-wide admin report — sent directly via the platform's own default
+  // Resend key, no tenant involved (same pattern as company/campaigns). This
+  // used to route through notify() attached to the 'full-loop-crm' tenant
+  // purely because notify() requires a real tenants row to read branding/API
+  // keys from; that tenant is being retired as a fake business, so this is
+  // now a direct send instead of a workaround dependency on it.
+  {
     const fleetStats = await statsFor(null)
     const body = formatDigest(fleetStats, 'fleet-wide')
-    const res = await notify({
-      tenantId: adminTenant.id,
-      type: 'seo_digest',
-      title: 'seomgr weekly fleet report',
-      message: body,
-      channel: 'email',
-      recipientType: 'admin',
-      metadata: {
-        label: 'fleet-wide',
-        propertiesMonitored: fleetStats.properties,
-        newIssues: Object.entries(fleetStats.newIssues).map(([type, count]) => ({ type, count })),
-        proposed: fleetStats.proposed,
-        applied: fleetStats.applied,
-        rejected: fleetStats.rejected,
-        rolledBack: fleetStats.rolledBack,
-        sitesDown: fleetStats.sitesDown,
-        // Fleet-wide keyword-by-keyword across every property would be
-        // thousands of rows in one email — out of scope for the admin
-        // executive rollup. Per-tenant reports below carry the full list.
-        keywords: [],
-        needsWork: 0,
-        winners: [],
-        losers: [],
-      },
-    })
-    result.admin = { sent: res.success, error: res.error }
+    try {
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL || 'fullloopcrm@gmail.com',
+        subject: 'seomgr weekly fleet report',
+        html: body.replace(/\n/g, '<br>'),
+      })
+      result.admin = { sent: true }
+    } catch (e) {
+      result.admin = { sent: false, error: e instanceof Error ? e.message : 'send failed' }
+    }
   }
 
   const { data: tenants } = await supabaseAdmin
