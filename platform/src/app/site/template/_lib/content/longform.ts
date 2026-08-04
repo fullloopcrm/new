@@ -2366,3 +2366,104 @@ export function blogPosts(config: SiteConfig): BlogPost[] {
     },
   ]
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCATION + LOCATION CAREERS — real per-tenant area pages, driven by
+// resolveCoverage() (src/lib/geo/coverage.ts) rather than any hardcoded
+// per-city dataset. Works for any US tenant: resolveCoverage() falls back to
+// a live Overpass/OSM lookup outside the static NY/NJ footprint, so a tenant
+// in Indianapolis or Miami gets real nearby-area pages the same way a NY/NJ
+// tenant gets real neighborhood pages. Same vars()-driven, industry-neutral,
+// no-AI-required approach as aboutContent/homeContent above — just with
+// `place` swapped for the resolved area, and no cleaning-specific data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LocationInput {
+  name: string
+  state: string
+}
+
+function varsForLocation(config: SiteConfig, area: LocationInput): Vars {
+  const v = vars(config)
+  return { ...v, place: `${area.name}, ${area.state}` }
+}
+
+export function locationContent(config: SiteConfig, area: LocationInput): LongformPage {
+  const v = varsForLocation(config, area)
+  const svc = v.services.length > 0 ? list(v.services) : v.noun
+
+  const sections: ContentSection[] = [
+    {
+      heading: `${v.label} in ${area.name}`,
+      paragraphs: [
+        ...(v.brandCopy?.aboutIntro ? [v.brandCopy.aboutIntro] : []),
+        `${v.brand} provides ${v.noun}${v.services.length > 0 ? ` — ${svc}` : ''} to ${v.place} and the surrounding area. The same standard applies here as everywhere we work: clear pricing before you commit, a vetted team, on-time service, and work we stand behind.`,
+        `We don't treat any service area as an afterthought. ${area.name} gets the same attention, the same quality, and the same honest pricing as every other place we serve — no travel surcharge, no second-tier service for being a few miles from our main coverage.`,
+      ],
+    },
+    {
+      heading: `Why ${area.name} Chooses ${v.brand}`,
+      paragraphs: [
+        ...(differentiatorsSentence(v) ? [differentiatorsSentence(v) as string] : []),
+        `We answer when you reach out, we show up when we say we will, and we charge exactly what we quoted. None of that is complicated — it's just consistently rare in this field, which is exactly why it matters.`,
+        `If you've had a bad experience with a ${v.noun} company before, we understand the skepticism. We don't ask you to take our word for it — reach out at ${v.phone}, tell us what you need, and judge us on the result.`,
+      ],
+    },
+    {
+      heading: `Getting Started in ${area.name}`,
+      paragraphs: [
+        `Text ${v.phone}, call, or book online and tell us what you need in ${area.name}. We'll ask a few specific questions so the quote is accurate, give you a clear price, and lock in a time that works for you.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `Does ${v.brand} serve ${area.name}?`, a: `Yes — ${area.name} is within our regular service area. Text ${v.phone} with your address to confirm details and get a quote.` },
+    { q: `How do I get a quote for ${area.name}?`, a: `Text ${v.phone}, call, or book online. We'll ask a few questions so the quote is accurate, then give you a clear price before you commit.` },
+    { q: `Is pricing different in ${area.name}?`, a: `No — ${area.name} gets the same rates as every other area we serve. No travel fees, no surge pricing.` },
+  ]
+
+  return {
+    title: `${v.brand} — ${v.label} in ${area.name}, ${area.state}`,
+    metaDescription: `${v.brand}: professional ${v.noun} in ${area.name}, ${area.state}. Transparent pricing, vetted team, on-time service. ${v.services.length > 0 ? svc + '. ' : ''}Text ${v.phone}.`,
+    h1: `${area.name}'s ${v.label}`,
+    intro: v.brandCopy?.heroLine || `Professional ${v.noun} in ${area.name}, ${area.state} — transparent pricing, a vetted team, and work we stand behind.`,
+    sections,
+    faq,
+  }
+}
+
+export function locationCareersContent(config: SiteConfig, area: LocationInput): LongformPage {
+  const v = varsForLocation(config, area)
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Now Recruiting in ${area.name}`,
+      paragraphs: [
+        `${v.brand} is hiring in ${area.name}. We're a ${v.noun} company that treats its team the way a company should — fair pay, real respect, and the support to do the job well — because the people doing the work are the entire business as far as our clients are concerned.`,
+        `If you're reliable, take pride in your work, and want to be treated like a professional, we'd like to hear from you.`,
+      ],
+    },
+    {
+      heading: `What We Look For`,
+      paragraphs: [
+        `Skill matters, but character matters more — reliability, honesty, and respect for a client's ${v.isRemote ? 'time and trust' : 'home and property'}. We hire for those traits and train the technical parts of ${v.noun} on the job.`,
+      ],
+    },
+    {
+      heading: `How to Apply`,
+      paragraphs: [
+        `Text ${v.phone} or apply online and tell us a bit about yourself. We're genuinely glad to hear from people who care about doing things right.`,
+      ],
+    },
+  ]
+
+  return {
+    title: `Careers at ${v.brand} — Now Recruiting in ${area.name}, ${area.state}`,
+    metaDescription: `${v.brand} is hiring in ${area.name}, ${area.state}. Fair pay, real respect, room to grow. Apply — text ${v.phone}.`,
+    h1: `Now Recruiting in ${area.name}`,
+    intro: `We're hiring in ${area.name}. Fair pay, real respect, and room to grow — here's what it's like to work at ${v.brand}.`,
+    sections,
+    faq: [],
+  }
+}

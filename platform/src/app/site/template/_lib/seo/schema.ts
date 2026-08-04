@@ -635,3 +635,33 @@ export function servicePageSchemas(b: Biz, service: Service) {
     ]),
   ]
 }
+
+/**
+ * JobPosting schema for per-area hiring pages (template/careers/[location]).
+ * Config-driven (Biz from buildBusiness), unlike we-pay-you-junk's tenant-
+ * specific version — carries the requesting tenant's own name/url/logo.
+ */
+export function jobPostingLd(b: Biz, opts: {
+  title: string
+  description: string
+  url: string
+  city: string
+  state?: string
+  datePosted?: string
+}) {
+  const datePosted = opts.datePosted || new Date().toISOString().slice(0, 10)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'JobPosting',
+    title: opts.title,
+    description: opts.description,
+    url: opts.url,
+    datePosted,
+    employmentType: 'CONTRACTOR',
+    hiringOrganization: { '@type': 'Organization', name: b.name, sameAs: b.url, ...(b.logo ? { logo: b.logo } : {}) },
+    jobLocation: {
+      '@type': 'Place',
+      address: { '@type': 'PostalAddress', addressLocality: opts.city, ...(opts.state ? { addressRegion: opts.state } : {}), addressCountry: 'US' },
+    },
+  }
+}
