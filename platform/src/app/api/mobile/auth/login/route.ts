@@ -6,7 +6,7 @@ import { createTenantAdminToken } from '@/app/api/admin-auth/route'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { sendLoginAlert } from '@/lib/login-alert'
 
-// Mobile login for the Floop CRM app. Additive alongside the existing
+// Mobile login for the Full Loop Mobile app. Additive alongside the existing
 // cookie-based /api/admin-auth (browser, domain-scoped) — this is the same
 // tenant_members PIN credential, but resolves the tenant by slug (typed in
 // the app) instead of a custom-domain header, and returns the signed token

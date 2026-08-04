@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as { session_id?: string } | null
   const sessionId = body?.session_id || ''
-  const tag = sessionId ? `floop-mobile-session:${sessionId}` : 'floop-mobile-session:unknown'
-  const credentialName = `Floop Mobile Session ${sessionId.slice(0, 8) || 'shared'}`
+  const tag = sessionId ? `full-loop-mobile-session:${sessionId}` : 'full-loop-mobile-session:unknown'
+  const credentialName = `Full Loop Mobile Session ${sessionId.slice(0, 8) || 'shared'}`
 
   let credentialId = ''
   let sipUsername = ''
