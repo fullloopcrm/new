@@ -42,7 +42,11 @@ export async function POST(request: Request) {
     new Set(bookingInputs.map((b) => b.client_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
   )
   const requestedMemberIds = Array.from(
-    new Set(bookingInputs.map((b) => b.team_member_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+    new Set(
+      bookingInputs
+        .flatMap((b) => [b.team_member_id, ...(Array.isArray(b.extra_team_member_ids) ? b.extra_team_member_ids : [])])
+        .filter((x): x is string => typeof x === 'string' && x.length > 0),
+    ),
   )
   if (requestedClientIds.length > 0) {
     const { data: validClients } = await supabaseAdmin
@@ -143,6 +147,7 @@ export async function POST(request: Request) {
       one_time_credit_reason: b.one_time_credit_reason || null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
       source: 'admin',
+      team_size: Math.max(1, Math.min(8, Number(b.team_size) || 1)),
     }
   })
 
@@ -152,6 +157,24 @@ export async function POST(request: Request) {
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // team_size above only sets the headcount column — the actual roster lives
+  // in booking_team_members (same shape PUT /api/bookings/[id]/team writes:
+  // lead + extras, position-ordered). Without this, a form that picked a
+  // team of N created a booking priced for N cleaners but staffed with zero.
+  const teamRows: { booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+  ;(data || []).forEach((created, i) => {
+    const input = bookingInputs[i]
+    const lead = (input?.team_member_id as string) || null
+    const extras = (Array.isArray(input?.extra_team_member_ids) ? input.extra_team_member_ids : [])
+      .filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== lead)
+    if (lead) teamRows.push({ booking_id: created.id, team_member_id: lead, is_lead: true, position: 1 })
+    extras.forEach((mid, idx) => teamRows.push({ booking_id: created.id, team_member_id: mid, is_lead: false, position: idx + 2 }))
+  })
+  if (teamRows.length > 0) {
+    const { error: teamErr } = await db.from('booking_team_members').insert(teamRows)
+    if (teamErr) console.error('[batch] booking_team_members insert error:', teamErr)
+  }
 
   const first = (data || [])[0]
   if (first && first.status !== 'pending') {
