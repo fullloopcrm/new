@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { signupPricing } from '@/lib/tier-prices'
+import { zipToTimezone } from '@/lib/timezone'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
@@ -73,9 +74,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       admin_seats: pricing.admins,
       team_seats: pricing.teamMembers,
       billing_status: 'active',
-      address: prospect.primary_city && prospect.primary_state
-        ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()
-        : null,
+      timezone: zipToTimezone(prospect.billing_zip),
+      address: prospect.billing_address
+        || (prospect.primary_city && prospect.primary_state
+          ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()
+          : null),
     })
     .select('id')
     .single()

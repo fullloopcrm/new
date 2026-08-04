@@ -26,6 +26,11 @@ interface InquiryBody {
   message?: unknown
   heardFrom?: unknown
   heardMore?: unknown
+  city?: unknown
+  billing_address?: unknown
+  billing_city?: unknown
+  billing_state?: unknown
+  billing_zip?: unknown
 }
 
 function escapeHtml(s: string): string {
@@ -77,6 +82,11 @@ export async function POST(req: NextRequest) {
   const role = typeof body.role === 'string' ? (body.role.trim() as Role) : ('' as Role)
   const budget = typeof body.budget === 'string' ? (body.budget.trim() as Budget) : ('' as Budget)
   const message = typeof body.message === 'string' ? body.message.trim().slice(0, 2000) : ''
+  const city = typeof body.city === 'string' ? body.city.trim().slice(0, 100) : ''
+  const billingAddress = typeof body.billing_address === 'string' ? body.billing_address.trim().slice(0, 200) : ''
+  const billingCity = typeof body.billing_city === 'string' ? body.billing_city.trim().slice(0, 100) : ''
+  const billingState = typeof body.billing_state === 'string' ? body.billing_state.trim().slice(0, 2) : ''
+  const billingZip = typeof body.billing_zip === 'string' ? body.billing_zip.trim().slice(0, 10) : ''
 
   // Validation — the public contact form only collects name/phone/email/message.
   // company/role/budget are optional (kept for the legacy acquisition flow).
@@ -141,8 +151,12 @@ export async function POST(req: NextRequest) {
       email,
       phone,
       service_category: validRole || 'Inquiry',
-      city: 'N/A',
-      state: 'NA',
+      city: city || 'N/A',
+      state: billingState || 'NA',
+      billing_address: billingAddress || null,
+      billing_city: billingCity || null,
+      billing_state: billingState || null,
+      billing_zip: billingZip || null,
       years_in_business: 'N/A',
       team_size: 'N/A',
       monthly_revenue: validBudget || 'N/A',

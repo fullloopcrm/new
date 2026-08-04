@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 
 interface AddressResult {
   formattedAddress: string
@@ -20,9 +20,10 @@ interface AddressAutocompleteProps {
   initialValue?: string
   placeholder?: string
   className?: string
+  style?: CSSProperties
 }
 
-export default function AddressAutocomplete({ value, onChange, onSelect, initialValue = '', placeholder, className }: AddressAutocompleteProps) {
+export default function AddressAutocomplete({ value, onChange, onSelect, initialValue = '', placeholder, className, style }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value || initialValue)
   const [results, setResults] = useState<AddressResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -98,6 +99,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, initial
         onFocus={() => results.length > 0 && setShowDropdown(true)}
         placeholder={placeholder || "Start typing address..."}
         className={className || "w-full px-4 py-3 border rounded-lg text-black"}
+        style={style}
       />
       {loading && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">...</span>}
       

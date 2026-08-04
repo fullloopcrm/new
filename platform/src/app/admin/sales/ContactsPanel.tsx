@@ -11,6 +11,10 @@ interface Contact {
   email: string
   phone: string
   service_category: string | null
+  billing_address: string | null
+  billing_city: string | null
+  billing_state: string | null
+  billing_zip: string | null
   city: string | null
   state: string | null
   status: LeadStage
@@ -100,7 +104,7 @@ export function ContactsPanel() {
   }
 
   function exportCsv() {
-    const headers = ['Business', 'Contact', 'Email', 'Phone', 'City', 'State', 'Category', 'Stage', 'Fit', 'Source', 'Created']
+    const headers = ['Business', 'Contact', 'Email', 'Phone', 'City', 'State', 'Billing Address', 'Billing City', 'Billing State', 'Billing Zip', 'Category', 'Stage', 'Fit', 'Source', 'Created']
     const esc = (v: unknown) => {
       let s = v == null ? '' : String(v)
       // Neutralize CSV formula injection (Excel/Sheets execute leading =,+,-,@).
@@ -109,7 +113,8 @@ export function ContactsPanel() {
     }
     const rows = contacts.map(c => [
       c.business_name, c.contact_name, c.email, c.phone,
-      c.city, c.state, c.service_category, STAGE_LABELS[c.status] || c.status,
+      c.city, c.state, c.billing_address, c.billing_city, c.billing_state, c.billing_zip,
+      c.service_category, STAGE_LABELS[c.status] || c.status,
       c.fit_bucket ? FIT_BUCKET_META[fitBucket(c.fit_bucket)].label : '',
       c.referral_source, new Date(c.created_at).toLocaleDateString(),
     ].map(esc).join(','))
@@ -190,6 +195,14 @@ export function ContactsPanel() {
                 <Detail label="Phone" value={selected.phone} />
                 <Detail label="Category" value={selected.service_category} />
                 <Detail label="Location" value={[selected.city, selected.state].filter(Boolean).join(', ')} />
+                <Detail
+                  label="Billing Address"
+                  value={[
+                    selected.billing_address,
+                    [selected.billing_city, selected.billing_state].filter(Boolean).join(', '),
+                    selected.billing_zip,
+                  ].filter(Boolean).join(' · ')}
+                />
                 <Detail label="Source" value={selected.referral_source} />
                 <Detail label="Added" value={new Date(selected.created_at).toLocaleDateString()} />
               </div>

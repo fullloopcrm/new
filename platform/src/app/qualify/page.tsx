@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { QUALIFY_OPTIONS } from '@/lib/lead-fit'
+import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 const O = QUALIFY_OPTIONS
 
@@ -25,8 +26,22 @@ export default function QualifyPage() {
 
   function up(k: string, v: string | boolean) { setF(prev => ({ ...prev, [k]: v })) }
 
+  function onAddressSelect(addr: { address_line1: string; city: string; state: string; zip: string }) {
+    setF(prev => ({
+      ...prev,
+      billing_address: addr.address_line1,
+      billing_city: addr.city || prev.billing_city,
+      billing_state: addr.state || prev.billing_state,
+      billing_zip: addr.zip || prev.billing_zip,
+    }))
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!f.billing_address.trim()) {
+      setErr('Please enter your street address.')
+      return
+    }
     setErr(''); setSubmitting(true)
     try {
       const res = await fetch('/api/prospects', {
@@ -76,7 +91,15 @@ export default function QualifyPage() {
           </Section>
 
           <Section title="Billing address">
-            <Field label="Street address *"><input required value={f.billing_address} onChange={e => up('billing_address', e.target.value)} className="input" placeholder="123 Main St, Suite 200" /></Field>
+            <Field label="Street address *">
+              <AddressAutocomplete
+                value={f.billing_address}
+                onChange={v => up('billing_address', v)}
+                onSelect={onAddressSelect}
+                placeholder="Start typing your address..."
+                className="input"
+              />
+            </Field>
             <Row>
               <Field label="City *"><input required value={f.billing_city} onChange={e => up('billing_city', e.target.value)} className="input" /></Field>
               <Field label="State *"><input required value={f.billing_state} onChange={e => up('billing_state', e.target.value)} className="input" maxLength={2} placeholder="NY" /></Field>

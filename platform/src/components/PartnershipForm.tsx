@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 // Source of truth: the territory-map `service_categories` table (53 trades).
 // Keep this list in sync with those category names so a partner's selected
@@ -94,6 +95,10 @@ type FormData = {
   email: string;
   phone: string;
   trade: string;
+  billing_address: string;
+  billing_city: string;
+  billing_state: string;
+  billing_zip: string;
   city: string;
   state: string;
   monthly_revenue: string;
@@ -107,6 +112,10 @@ const initialForm: FormData = {
   email: "",
   phone: "",
   trade: "",
+  billing_address: "",
+  billing_city: "",
+  billing_state: "",
+  billing_zip: "",
   city: "",
   state: "",
   monthly_revenue: "",
@@ -125,11 +134,33 @@ export default function PartnershipForm() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handleAddressSelect(addr: {
+    address_line1: string;
+    city: string;
+    state: string;
+    zip: string;
+  }) {
+    setForm((prev) => ({
+      ...prev,
+      billing_address: addr.address_line1,
+      billing_city: addr.city || prev.billing_city,
+      billing_state: addr.state || prev.billing_state,
+      billing_zip: addr.zip || prev.billing_zip,
+      // Also fills the territory City/State fields below — same real-world location.
+      city: addr.city || prev.city,
+      state: addr.state || prev.state,
+    }));
+  }
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!form.billing_address.trim()) {
+      setError("Please enter your business address.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -142,6 +173,10 @@ export default function PartnershipForm() {
           email: form.email,
           phone: form.phone,
           service_category: form.trade,
+          billing_address: form.billing_address,
+          billing_city: form.billing_city,
+          billing_state: form.billing_state,
+          billing_zip: form.billing_zip,
           city: form.city,
           state: form.state,
           years_in_business: "N/A",
@@ -324,6 +359,22 @@ export default function PartnershipForm() {
                   </select>
                   {chevronIcon}
                 </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label htmlFor="billing_address" className={labelClass}>
+                  Business Address <span className="text-red-500">*</span>
+                </label>
+                <AddressAutocomplete
+                  value={form.billing_address}
+                  onChange={(val) =>
+                    setForm((prev) => ({ ...prev, billing_address: val }))
+                  }
+                  onSelect={handleAddressSelect}
+                  placeholder="Start typing your address..."
+                  className={inputClass}
+                />
               </div>
 
               {/* City + State */}

@@ -3,6 +3,7 @@
 import { useState, FormEvent, ChangeEvent } from "react";
 import { C, display, mono, body } from "./editorial";
 import { industries } from "@/lib/marketing/combos";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 type Stage = "form" | "denied" | "review" | "submitted";
 
@@ -13,6 +14,10 @@ type FormState = {
   phone: string;
   trade: string;
   city: string;
+  billing_address: string;
+  billing_city: string;
+  billing_state: string;
+  billing_zip: string;
   isOwner: string;
   operating: string;
   teamSize: string;
@@ -26,6 +31,7 @@ type FormState = {
 
 const initial: FormState = {
   name: "", company: "", email: "", phone: "", trade: "", city: "",
+  billing_address: "", billing_city: "", billing_state: "", billing_zip: "",
   isOwner: "", operating: "", teamSize: "", revenue: "", priority: "", investment: "", goal: "",
   heardFrom: "", heardMore: "",
 };
@@ -83,8 +89,24 @@ export default function LeadForm() {
     setForm((p) => ({ ...p, [name]: value }));
   }
 
+  function handleAddressSelect(addr: { address_line1: string; city: string; state: string; zip: string }) {
+    setForm((p) => ({
+      ...p,
+      billing_address: addr.address_line1,
+      billing_city: addr.city || p.billing_city,
+      billing_state: addr.state || p.billing_state,
+      billing_zip: addr.zip || p.billing_zip,
+      city: addr.city || p.city,
+    }));
+  }
+
   function handleReview(e: FormEvent) {
     e.preventDefault();
+    if (!form.billing_address.trim()) {
+      setError("Please enter your business address.");
+      return;
+    }
+    setError("");
     setAttempts((a) => [...a, form]); // snapshot every pre-screen attempt
     const r = qualify(form);
     if (r.length) { setReasons(r); setStage("denied"); }
@@ -114,7 +136,13 @@ export default function LeadForm() {
       const res = await fetch("/api/inquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, company: form.company, phone: form.phone, email: form.email, message, heardFrom: form.heardFrom, heardMore: form.heardMore }),
+        body: JSON.stringify({
+          name: form.name, company: form.company, phone: form.phone, email: form.email, message,
+          heardFrom: form.heardFrom, heardMore: form.heardMore,
+          city: form.city,
+          billing_address: form.billing_address, billing_city: form.billing_city,
+          billing_state: form.billing_state, billing_zip: form.billing_zip,
+        }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -176,7 +204,7 @@ export default function LeadForm() {
   // ---- review (approved, confirm to submit) ----
   if (stage === "review") {
     const rows: [string, string][] = [
-      ["Trade", form.trade], ["City", form.city], ["Owner", form.isOwner],
+      ["Trade", form.trade], ["City", form.city], ["Address", form.billing_address], ["Owner", form.isOwner],
       ["Status", form.operating], ["Team", form.teamSize], ["Revenue", form.revenue],
       ["Priority", form.priority], ["Investment", form.investment],
     ];
@@ -226,6 +254,17 @@ export default function LeadForm() {
           </select>
         </div>
         <div><label htmlFor="lf-city" style={lStyle}>City / market</label><input id="lf-city" name="city" required maxLength={80} value={form.city} onChange={handleChange} className={input} style={iStyle} placeholder="Where you operate" /></div>
+      </div>
+      <div>
+        <label htmlFor="lf-address" style={lStyle}>Business address</label>
+        <AddressAutocomplete
+          value={form.billing_address}
+          onChange={(v) => setForm((p) => ({ ...p, billing_address: v }))}
+          onSelect={handleAddressSelect}
+          placeholder="Start typing your address..."
+          className={input}
+          style={iStyle}
+        />
       </div>
       <div>
         <label htmlFor="lf-owner" style={lStyle}>Are you the owner / decision-maker?</label>
@@ -307,6 +346,7 @@ export default function LeadForm() {
         </p>
       </div>
 
+      {error && <p style={{ fontFamily: mono, fontSize: "12px", color: C.warn }}>{error}</p>}
       <button type="submit" className="transition-transform hover:-translate-y-0.5" style={loud}>
         Review My Application →
       </button>
