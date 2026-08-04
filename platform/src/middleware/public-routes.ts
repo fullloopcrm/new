@@ -62,6 +62,7 @@ export const isPublicRoute = createRouteMatcher([
   '/api/team-portal(.*)',   // Team portal API routes
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
+  '/api/company/track(.*)', // Full Loop's own marketing-site visit tracking beacon
   '/api/referrals/track(.*)', // Referral click tracking
   '/api/health',              // Health check endpoint
   '/admin(.*)',               // Admin uses PIN auth, not Clerk
