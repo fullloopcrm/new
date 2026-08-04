@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
+import { requireNycmaidTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NeighborhoodServicePage({ params }: Props) {
-  await requireCleaningTenant()
+  await requireNycmaidTenant()
   const { slug, service: serviceSlug } = await params
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)

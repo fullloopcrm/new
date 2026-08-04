@@ -4,6 +4,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { notify } from '@/lib/notify'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
+import { trackError } from '@/lib/error-tracking'
 
 // Public, unauthenticated web-chatbot widget endpoint. Tenant is resolved from
 // the signed x-tenant-id header injected by middleware on the tenant host —
@@ -42,6 +43,37 @@ async function uploadChatImage(tenantId: string, threadId: string, dataUrl: stri
 
   const { data: urlData } = supabaseAdmin.storage.from('uploads').getPublicUrl(path)
   return urlData.publicUrl
+}
+
+// Same shape as /api/chat's new-visitor lead creation: match an existing
+// client by phone, or create a real client (+ portal_lead + deal, via
+// createLeadAndEnterPipeline) so a webchat visitor who gives their name and
+// phone gets the same real client record every other intake channel gives
+// them — not just a comhub_contacts row nobody but ComHub ever sees.
+async function resolveClientIdForPhone(tenantId: string, phone: string, name: string | null): Promise<string | null> {
+  const digits = phone.replace(/\D/g, '').slice(-10)
+  if (digits.length < 7) return null
+
+  const { data: existing } = await supabaseAdmin
+    .from('clients')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .ilike('phone', `%${digits}%`)
+    .limit(1)
+    .single()
+  if (existing) return existing.id
+
+  try {
+    const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
+    const result = await createLeadAndEnterPipeline(tenantId, {
+      phone, name, source: 'web-chat', notes: `Started web chat with phone ${phone}`,
+    })
+    return result.clientId
+  } catch (leadErr) {
+    console.error('[public/webchat] lead creation failed:', leadErr)
+    await trackError(leadErr, { source: 'api/public/webchat:lead-creation', severity: 'high', tenantId }).catch(() => {})
+    return null
+  }
 }
 
 async function loadThread(tenantId: string, threadId: string) {
@@ -92,11 +124,14 @@ export async function POST(req: NextRequest) {
     body?: string
     imageDataUrl?: string
     visitorName?: string
+    visitorPhone?: string
   } | null
   const text = body?.body?.trim() || ''
   if (!text && !body?.imageDataUrl) {
     return NextResponse.json({ error: 'Message or image required' }, { status: 400 })
   }
+  const visitorName = body?.visitorName?.trim().slice(0, 120) || null
+  const visitorPhone = body?.visitorPhone?.trim().slice(0, 30) || null
 
   let threadId = body?.threadId || null
   let contactId: string | null = null
@@ -106,10 +141,35 @@ export async function POST(req: NextRequest) {
     const thread = await loadThread(tenant.id, threadId)
     if (!thread) return NextResponse.json({ error: 'Unknown chat session' }, { status: 404 })
     contactId = thread.contact_id
+    // Backfill only — a visitor who started chatting before giving their name
+    // (or on an older thread predating identity capture) still gets it
+    // attached the moment they do give it, without clobbering anything
+    // already on file (fetch-then-patch-nulls-only, since a plain .update()
+    // can't express "only if currently null" per-column). A newly-given
+    // phone also resolves/creates the real client record, same as a
+    // brand-new thread does below.
+    if (contactId && (visitorName || visitorPhone)) {
+      const { data: existing } = await supabaseAdmin
+        .from('comhub_contacts')
+        .select('name, phone, client_id')
+        .eq('id', contactId)
+        .single()
+      const patch: Record<string, string> = {}
+      if (visitorName && !existing?.name) patch.name = visitorName
+      if (visitorPhone && !existing?.phone) patch.phone = visitorPhone
+      if (visitorPhone && !existing?.client_id) {
+        const clientId = await resolveClientIdForPhone(tenant.id, visitorPhone, visitorName)
+        if (clientId) patch.client_id = clientId
+      }
+      if (Object.keys(patch).length > 0) {
+        await supabaseAdmin.from('comhub_contacts').update(patch).eq('id', contactId)
+      }
+    }
   } else {
+    const clientId = visitorPhone ? await resolveClientIdForPhone(tenant.id, visitorPhone, visitorName) : null
     const { data: contact, error: contactErr } = await supabaseAdmin
       .from('comhub_contacts')
-      .insert({ tenant_id: tenant.id, name: body?.visitorName?.trim().slice(0, 120) || null })
+      .insert({ tenant_id: tenant.id, name: visitorName, phone: visitorPhone, client_id: clientId })
       .select('id')
       .single()
     if (contactErr || !contact) {
@@ -164,11 +224,19 @@ export async function POST(req: NextRequest) {
     .eq('id', threadId)
 
   if (isNewThread) {
+    // Date/time up front (not just relative "just now" framing) so an admin
+    // scanning Telegram/email later can tell exactly when the chat came in —
+    // prepended rather than appended so it survives the 140-char truncation
+    // below on a long first message.
+    const sentAtLabel = new Date().toLocaleString('en-US', {
+      timeZone: (tenant as { timezone?: string | null }).timezone || 'America/New_York',
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+    })
     await notify({
       tenantId: tenant.id,
       type: 'new_lead',
-      title: 'New Web Chatbot Conversation',
-      message: text ? text.slice(0, 140) : 'Visitor started a chat and shared a photo',
+      title: visitorName ? `New Web Chat — ${visitorName}` : 'New Web Chatbot Conversation',
+      message: `[${sentAtLabel}] ${text ? text.slice(0, 140) : 'Visitor started a chat and shared a photo'}`,
     }).catch(() => {})
   }
 

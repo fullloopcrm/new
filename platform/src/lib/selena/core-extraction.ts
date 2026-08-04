@@ -318,8 +318,10 @@ export async function extractAndSave(
       }
       if (extracted.email) clientUpdate.email = extracted.email
       if (extracted.notes && extracted.notes !== 'none') {
-        const { data: c } = await supabaseAdmin.from('clients').select('notes').eq('id', convo.client_id).eq('tenant_id', tid).single()
-        clientUpdate.notes = c?.notes ? `${c.notes}\n${extracted.notes}` : extracted.notes
+        // notes_private, not notes_public — an AI-extracted note is internal
+        // context, never meant to show up in the client's own portal.
+        const { data: c } = await supabaseAdmin.from('clients').select('notes_private').eq('id', convo.client_id).eq('tenant_id', tid).single()
+        clientUpdate.notes_private = c?.notes_private ? `${c.notes_private}\n${extracted.notes}` : extracted.notes
       }
       if (Object.keys(clientUpdate).length > 0) {
         await supabaseAdmin.from('clients').update(clientUpdate).eq('id', convo.client_id).eq('tenant_id', tid)

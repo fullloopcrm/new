@@ -1,12 +1,14 @@
 /**
- * Full Loop signup pricing — seat-based, derived from the single source of truth
- * (billing-pricing.ts): $2,500/admin/mo + $250/field-portal team member/mo, plus a
- * $25,000 one-time setup fee.
+ * Full Loop signup pricing, derived from the single source of truth
+ * (billing-pricing.ts): a flat $2,500/mo, unlimited admins/team members, plus
+ * a $25,000 one-time setup fee (paid by bank wire, not through Stripe).
+ * admins/teamMembers here are headcount tracking only — they no longer change
+ * the price — but are still clamped so the recorded counts stay sane.
  *
  * Both the admin approve endpoint and the Stripe webhook derive pricing from here —
  * never from values stored on the prospect row — so a crafted or corrupted prospect
- * row can't seed a tenant with a $0 monthly rate. A signup is always at least 1 admin
- * ($1,000/mo).
+ * row can't seed a tenant with a $0 monthly rate. A signup is always the flat
+ * $2,500/mo, regardless of headcount.
  */
 import { PRICING, computeMonthly } from './billing-pricing'
 
@@ -19,8 +21,8 @@ export type SignupPricing = {
 }
 
 /**
- * Seat-based signup pricing in cents (Stripe works in cents). Clamps to a minimum
- * of 1 admin so a self-serve checkout can never resolve to $0/mo.
+ * Flat signup pricing in cents (Stripe works in cents). admins/teamMembers are
+ * clamped for sane headcount tracking but no longer affect monthly_cents.
  */
 export function signupPricing(seats?: { admins?: number; teamMembers?: number }): SignupPricing {
   const admins = Math.max(1, Math.floor(seats?.admins ?? 1))

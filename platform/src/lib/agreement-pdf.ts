@@ -1,9 +1,11 @@
 /**
  * Renders the Full Loop CRM Master Services Agreement to a professional PDF
- * (pdf-lib — no HTML→PDF renderer here). Parties block + fees table + full
- * contract terms + signature block. Returns bytes plus the field positions
- * (as % of page, matching the e-sign module's *_pct fields) for the client +
- * Full Loop signature/date lines.
+ * (pdf-lib — no HTML→PDF renderer here). One combined document: legal terms
+ * + full scope of work + price, in that order, one signature block. There is
+ * no separate "Scope of Work" or "Investment Sheet" document (2026-08-02
+ * decision) — the client hits one button and agrees to everything at once.
+ * Returns bytes plus the field positions (as % of page, matching the e-sign
+ * module's *_pct fields) for the client + Full Loop signature/date lines.
  *
  * NOTE: plain-English contract, not legal advice — have counsel review.
  */
@@ -28,6 +30,8 @@ export interface AgreementPdfOpts {
   territoryName?: string | null
   effectiveDate: string
   governingState?: string | null
+  /** e.g. "Landscaping", "Cleaning" — falls back to a generic phrase when unset. */
+  trade?: string | null
 }
 
 export interface FieldSpot { page: number; xPct: number; yPct: number; wPct: number; hPct: number }
@@ -46,7 +50,11 @@ const MARGIN = 56
 const LINE = 13.5
 const fmt = (n: number) => `$${n.toLocaleString()}`
 
-const INCLUDED = [
+// ---- Scope-of-work content (2026-08-02) -----------------------------------
+// Generalized across trades — [Trade]/[Territory]/[Business Name] come from
+// AgreementPdfOpts at render time, everything else is fixed copy.
+
+const WHAT_INCLUDED = [
   'A custom marketing website, fully built and launched',
   'Local SEO — on-page, technical, and ongoing optimization',
   'Online booking, scheduling, and job dispatch',
@@ -56,6 +64,134 @@ const INCLUDED = [
   'Reviews and reputation management',
   'Exclusive territory — one business per market on the platform',
   'A reporting and operations dashboard',
+]
+
+const WEBSITE_PAGE_TYPES: [string, string, string][] = [
+  ['Core & menu pages', '~15-25 (fixed set)', 'Home, about, pricing, service overview, how it works, FAQ, reviews, contact, free quote, guides'],
+  ['Service pages', 'One per service offered', 'One dedicated page per service/product line in your catalog'],
+  ['Geo / neighborhood pages', 'One per community in your territory', 'One optimized page for every city/neighborhood you serve'],
+  ['Service x Geo pages', 'Services x communities', 'Every service in every community you serve — the core lead engine'],
+  ['Partnership + Geo pages', 'One per community (if applicable)', 'Contractor & broker/referral programs mapped to every community'],
+  ['Blog / authority content', 'Ongoing', 'Long-tail capture & topical authority, added continuously post-launch'],
+]
+
+const SEO_FOUNDATION = [
+  'Structured data / schema on every page (LocalBusiness, Service, FAQ, Breadcrumb, Article)',
+  'Google Search Console setup, verification & ongoing monitoring',
+  'Auto-generated XML sitemaps + robots + IndexNow instant indexing',
+  'Programmatic meta titles, descriptions & OpenGraph per page',
+  'Internal linking — nearby communities & related services',
+  'Core Web Vitals & mobile performance optimization',
+  'Free-quote / booking flow with lead capture',
+  'AI chat assistant embedded site-wide',
+  'Every lead & partnership inquiry routed into the CRM',
+]
+
+const CRM_FEATURES: { group: string; items: string[] }[] = [
+  { group: 'Customers & Leads', items: [
+    'Lead capture, verification, blocking & manual override', 'Prospect tracking',
+    'Customer profiles — contacts, service addresses, full activity & history',
+    'Source attribution tracking',
+    'Existing website inventory — your current websites tracked and managed within the CRM backend',
+  ] },
+  { group: 'Jobs, Scheduling & Dispatch', items: [
+    'Order / job management', 'Calendar & smart scheduling', 'Job mapping — visual map of all active and scheduled jobs',
+    'Crew & driver availability', 'Recurring schedules', 'Route optimization (auto-build & publish)',
+    'Driver/crew dispatch & live map', 'Travel-time calculation',
+  ] },
+  { group: 'Crew / Team Management & Portal', items: [
+    'Team profiles, onboarding & priority ranking', 'Team portal: assigned jobs & availability',
+    'Employee location mapping — live map of crew locations and coverage zones',
+    'GPS check-in / check-out', 'Running-late alerts & notifications', 'Ratings, job guidelines & photo/video upload',
+  ] },
+  { group: 'Customer Portal', items: [
+    'Passwordless login — PIN-based access, generated automatically and sent to the client',
+    'View & manage orders', 'Saved addresses / properties', 'Recurring service & rescheduling',
+    'Preferred crew & online payment',
+  ] },
+  { group: 'Payments & Payouts', items: [
+    'Stripe card payments & secure portal', 'Stripe Connect crew/driver payouts', 'Tips, invoices & billing',
+    'Automated payment reminders & follow-ups',
+  ] },
+  { group: 'Communications Hub', items: [
+    'Omnichannel inbox: SMS, email & voice', 'Built-in softphone — dial, presence, call logging',
+    'Threads, templates, contacts & notes', 'Recipient search & channel routing',
+  ] },
+  { group: 'AI Agent', items: [
+    'Conversational booking & customer support', 'Persistent memory & multi-turn handling',
+    'Trainable guidelines & tone', 'Built-in translation',
+  ] },
+  { group: 'Sales', items: [
+    'Personalized sales process — lead-to-sale workflow configured specifically for your business',
+    'Deal pipeline & stages, at-risk flagging', 'Quotes with e-signature', 'Invoices & documents',
+    'Sales forecast & follow-ups',
+  ] },
+  { group: 'Marketing, Reviews & Referrals', items: [
+    'Campaigns (generate, preview, send) & broadcast', 'Referral program: referrers, commissions & analytics',
+    'Review collection, submission portal & video reviews', 'Google reviews sync',
+    'Social, announcements & website management',
+  ] },
+  { group: 'Analytics, Admin & Automation', items: [
+    'Analytics + live activity feed & customer analytics', 'System monitoring, status & error tracking',
+    'Users, roles, permissions & settings', 'Web push & notification center',
+    '24+ automated jobs: reminders, confirmations, payment follow-ups, daily summaries, post-job follow-ups, rating prompts, recurring generation, retention, outreach, health & comms monitoring, backups',
+  ] },
+]
+
+const INTEGRATIONS_LINE = 'SMS + voice - Email - Payments - Google (OAuth + Reviews) - inbound email monitoring - AI - web push - IndexNow'
+
+const LEAD_TO_REVIEW: [string, string, string][] = [
+  ['1', 'Lead capture', 'Web form, call, SMS, or AI chat — every lead created & source-attributed'],
+  ['2', 'Verify & qualify', 'Validate, de-duplicate, block spam, confirm service area'],
+  ['3', 'Instant response', 'AI agent / team engages by SMS & email within minutes, answers questions'],
+  ['4', 'Quote / estimate', 'Pricing built & quote sent with e-signature'],
+  ['5', 'Book & schedule', 'Job booked, slot assigned, confirmation sent'],
+  ['6', 'Dispatch', 'Crew/driver assigned, routed, automated reminders'],
+  ['7', 'Service delivery', 'GPS check-in/out, job completed, photos captured'],
+  ['8', 'Payment & payout', 'Invoice, payment collected, crew payout, tips'],
+  ['9', 'Follow-up', 'Automated post-job thank-you & satisfaction check'],
+  ['10', 'Review request', 'Rating prompt -> Google review, synced back into the CRM'],
+  ['11', 'Retain & refer', 'Recurring rebooking, retention outreach, referral capture'],
+]
+
+const ROADMAP = [
+  'Finance & Bookkeeping — full accounting suite (chart of accounts, reconciliation, receipts, reports) — Beta feature, in active development',
+  'HR module — hiring, onboarding, time tracking, PTO, payroll/1099 — Beta feature, in active development',
+  'Mobile version — a light, mobile-ready version is available now; the full mobile version is in active development',
+  'Expanded reporting & forecasting',
+  'Additional custom features — available upon approval, scoped and added as requested',
+  'Additional features that further benefit the business as the platform grows',
+]
+
+const COST_COMPARISON: [string, string][] = [
+  ['Custom multi-thousand-page SEO website', '$25,000+'],
+  ['Full custom CRM / operations platform (bookings, dispatch, payments & payouts, customer + crew portals, AI agent, comms hub, sales)', '$100,000+'],
+  ['Comparable total to build from scratch', '$125,000+'],
+]
+
+const TECH_STACK: [string, string][] = [
+  ['Framework', 'Next.js + React + TypeScript'],
+  ['Database & auth', 'Supabase (PostgreSQL) with row-level security'],
+  ['Payments', 'Stripe + Stripe Connect (payouts)'],
+  ['Voice & SMS', 'Telnyx'],
+  ['Email', 'Resend'],
+  ['AI', 'Anthropic Claude'],
+  ['Hosting & CDN', 'Vercel (global edge network)'],
+]
+
+const CLIENT_PROVIDES = [
+  'Google Business Profile (GMB) access',
+  'Access to all current / existing websites — for tracking install & lead consolidation, and inventory in the CRM backend',
+  'Brand assets (logo, colors, photos)',
+  'Full catalog details — every item/service offered, including pricing, service options, initial service location, territory, and priority area to service first',
+  'Trade-specific business details (sizes, fees, permit notes, etc. as applicable)',
+  'Domain & DNS access for launch',
+]
+
+// Weekly call removed (2026-08-02) — not a contractual commitment.
+const EARLY_TENANT_EXPECTATIONS = [
+  'Open backend access — full access to the CRM backend, not a locked-down or view-only version.',
+  'One shared messaging channel — a single place to send all notes, bug reports, suggestions, and feature requests.',
 ]
 
 function wrap(text: string, font: PDFFont, size: number, maxW: number): string[] {
@@ -82,8 +218,11 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
   const gray = rgb(0.32, 0.37, 0.44)
   const hair = rgb(0.85, 0.87, 0.9)
   const maxW = PAGE_W - MARGIN * 2
-  const half = Math.round(PRICING.setupFee / 2)
-  const state = o.governingState || '[State]'
+  // Full Loop CRM, LLC is Wyoming-registered — governing law defaults there
+  // unless a caller explicitly overrides it.
+  const state = o.governingState || 'Wyoming'
+  const trade = o.trade || 'home service'
+  const territory = o.territoryName || '[Territory]'
 
   let page: PDFPage = pdf.addPage([PAGE_W, PAGE_H])
   let y = PAGE_H - MARGIN
@@ -107,10 +246,57 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
     gap(2)
     paras.forEach((p, i) => { if (i) gap(4); write(p, 9.5, font, gray) })
   }
+  const sectionHeader = (title: string) => {
+    ensure(LINE * 6); gap(10)
+    write(title.toUpperCase(), 12.5, bold, teal)
+    gap(2); rule(rgb(0.75, 0.78, 0.82)); gap(4)
+  }
+  const subHeader = (title: string) => {
+    ensure(LINE * 2); gap(6)
+    write(title, 10, bold, ink)
+    gap(2)
+  }
+  const bullets = (items: string[], size = 9.5) => {
+    for (const item of items) {
+      ensure(LINE)
+      const lines = wrap(item, font, size, maxW - 14)
+      page.drawText('•', { x: MARGIN, y, size, font, color: teal })
+      lines.forEach((ln, i) => {
+        if (i > 0) ensure(LINE)
+        page.drawText(ln, { x: MARGIN + 12, y, size, font, color: gray })
+        y -= LINE * 0.92
+      })
+    }
+    gap(2)
+  }
+  /** Generic multi-column table: header row (optional, bold) + wrapped body rows. */
+  const table = (headers: string[] | null, rows: string[][], widths: number[]) => {
+    const colX: number[] = []
+    let acc = MARGIN
+    for (const wPortion of widths) { colX.push(acc); acc += maxW * wPortion }
+    const colW = widths.map(w => maxW * w - 10)
+
+    const drawRow = (cells: string[], f: PDFFont, size: number, color = gray) => {
+      const wrapped = cells.map((c, i) => wrap(c, f, size, colW[i]))
+      const lineCount = Math.max(...wrapped.map(w => w.length))
+      ensure(lineCount * LINE * 0.85 + 6)
+      const rowTop = y
+      wrapped.forEach((lines, i) => {
+        let yy = rowTop
+        for (const ln of lines) { page.drawText(ln, { x: colX[i], y: yy, size, font: f, color }); yy -= LINE * 0.85 }
+      })
+      y = rowTop - lineCount * LINE * 0.85 - 6
+      rule()
+    }
+
+    if (headers) { drawRow(headers, bold, 8.5, ink); }
+    for (const r of rows) drawRow(r, font, 9)
+    gap(2)
+  }
 
   // ---- Header ----
   page.drawText('FULL LOOP CRM', { x: MARGIN, y, size: 10, font: bold, color: teal }); y -= 20
-  write('Master Services Agreement', 20, bold); gap(3)
+  write('Master Services Agreement & Scope of Work', 19, bold); gap(3)
   write(`Effective ${o.effectiveDate}`, 9.5, font, gray)
   gap(6); rule(rgb(0.75, 0.78, 0.82)); gap(4)
 
@@ -134,12 +320,84 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
   y = Math.min(le, re) - 6
   rule(); gap(2)
 
-  write(`This Master Services Agreement (the "Agreement") is entered into as of ${o.effectiveDate} between ${FULL_LOOP_CONTACT.name} ("Full Loop," "we," or "us") and ${o.businessName} ("Client," "you"). By signing below, the parties agree to the following terms.`, 9.5, font, gray)
+  write(`This Master Services Agreement and Scope of Work (the "Agreement") is entered into as of ${o.effectiveDate} between ${FULL_LOOP_CONTACT.name} ("Full Loop," "we," or "us") and ${o.businessName} ("Client," "you"). By signing below, the parties agree to the following terms in full — the legal terms, the scope of work, and the price.`, 9.5, font, gray)
 
-  // ---- Clauses ----
+  // ==========================================================================
+  // PART ONE — THE OFFER (scope of work)
+  // ==========================================================================
+  sectionHeader('The Offer')
+  write(`A custom, SEO-engineered website that puts ${o.businessName} in front of customers and partners throughout ${territory} — paired with a complete operations CRM, included at no additional fee for the life of the account, and ongoing management to keep the engine growing.`, 9.5, font, gray)
+  gap(4)
+  write('This is not a template brochure site. It is a programmatic local-SEO engine generating thousands of optimized pages, backed by the same full-featured platform that runs live, real operating businesses today.', 9.5, font, gray)
+  gap(4)
+  write('Proof the engine works: Full Loop runs this exact system on its own properties. thenycmaid.com has passed 418,000 search impressions on a steep upward curve, and sister properties are climbing the same way. You are buying a proven system, not an experiment.', 9.5, font, gray)
+
+  subHeader('What the website includes')
+  bullets(WHAT_INCLUDED)
+  gap(4)
+  write('Page counts scale to your actual territory and service list. The table below shows the methodology, not fixed numbers — an exact count is provided once your service area and service list are confirmed during onboarding.', 9, font, gray)
+  gap(6)
+  table(['Page type', 'How it’s counted', 'Purpose'], WEBSITE_PAGE_TYPES, [0.24, 0.28, 0.48])
+  gap(2)
+  write('Total indexable pages typically run from a few thousand to 12,000+ depending on territory size and number of services — deployed in production waves over the first 60-90 days post-launch as Google indexes the site.', 9, font, gray)
+
+  subHeader('SEO & technical foundation')
+  bullets(SEO_FOUNDATION)
+
+  // ---- CRM feature groups ----
+  ensure(LINE * 3); gap(8)
+  write(`The CRM — full feature parity, included at no additional fee for the life of the account`, 11, bold); gap(2)
+  write(`${o.businessName} receives every feature of the live platform — the complete operations suite, not a stripped-down version.`, 9.5, font, gray)
+  gap(4)
+  for (const g of CRM_FEATURES) {
+    subHeader(g.group)
+    bullets(g.items, 9)
+  }
+  subHeader('Integrations')
+  write(INTEGRATIONS_LINE, 9, font, gray)
+
+  // ---- Lead-to-review process ----
+  sectionHeader('The Lead-to-Review Process')
+  write('Every inquiry is captured, worked, and closed through one connected pipeline — the same proven loop regardless of trade:', 9.5, font, gray)
+  gap(6)
+  table(['#', 'Stage', 'What happens'], LEAD_TO_REVIEW, [0.06, 0.22, 0.72])
+
+  // ---- Tracking, trade customizations, roadmap ----
+  sectionHeader('Tracking & Attribution')
+  write(`We install conversion & call tracking on the new site and on all of ${o.businessName}'s current websites, so every lead, call, and form — wherever it originates — is attributed and flows into one CRM. Full visibility into which sources, pages, and campaigns produce real jobs.`, 9.5, font, gray)
+
+  sectionHeader('Trade-Specific Customizations')
+  write(`The platform was built for ${trade.toLowerCase()} businesses broadly. Justified customizations for your specific trade model are scoped and included as part of onboarding — for example: rental-period tracking, size/inventory management, weight- or usage-based pricing, permit or compliance handling, or dispatch workflows specific to your service type. These are confirmed during the onboarding questionnaire, not assumed in advance.`, 9.5, font, gray)
+
+  sectionHeader('Roadmap — Planned, Included as Released')
+  bullets(ROADMAP)
+
+  sectionHeader('What This Would Cost to Build Independently')
+  write('Commissioned from a typical agency or development shop, a system at this depth runs well into six figures:', 9.5, font, gray)
+  gap(6)
+  table(['Component', 'Market build cost'], COST_COMPARISON, [0.72, 0.28])
+
+  sectionHeader('Technology Stack')
+  write('Production-grade, modern, and fully owned:', 9.5, font, gray)
+  gap(6)
+  table(['Layer', 'Technology'], TECH_STACK, [0.32, 0.68])
+
+  sectionHeader('What the Client Provides')
+  bullets(CLIENT_PROVIDES)
+
+  sectionHeader('What to Expect as an Early Platform Tenant')
+  write('Full Loop is an actively developed, evolving platform. There will be issues, rough edges, and things that get fixed as real usage surfaces them — that’s expected, not a sign something is wrong. To make that process work well for both sides:', 9.5, font, gray)
+  gap(4)
+  bullets(EARLY_TENANT_EXPECTATIONS)
+
+  // ==========================================================================
+  // PART TWO — LEGAL TERMS
+  // ==========================================================================
+  ensure(LINE * 3); gap(14)
+  write('LEGAL TERMS', 13, bold, teal); gap(2); rule(rgb(0.75, 0.78, 0.82)); gap(6)
+
   clause(1, 'Services',
-    `Full Loop will provide the Client an all-inclusive platform and done-for-you setup${o.territoryName ? ` for the ${o.territoryName} territory` : ''} (the "Services"), which includes: ${INCLUDED.map(s => s).join('; ')}.`,
-    'The Services include Selena, Full Loop\'s AI assistant, which handles SMS and email communication with the Client\'s leads (capturing, replying, quoting, booking, and following up) and provides owner/admin updates and approvals through a Telegram chat. Selena operates using the Client\'s own third-party AI account as described in Section 6.')
+    `Full Loop will provide the Services described in "The Offer" and "The Lead-to-Review Process" above${o.territoryName ? ` for the ${o.territoryName} territory` : ''}, including Selena, Full Loop's AI assistant, which handles SMS and email communication with the Client's leads (capturing, replying, quoting, booking, and following up) and provides owner/admin updates and approvals through a Telegram chat. Selena operates using the Client's own third-party AI account as described in Section 5.`)
 
   clause(2, 'Beta Features',
     'The HR, Finance, and Bookkeeping modules are in active development ("Beta Features"). Beta Features are included at no additional cost when available, are provided strictly "as is," may change or be withdrawn, and are not guaranteed deliverables or part of the committed build scope. Full Loop makes no warranty regarding Beta Features.')
@@ -154,17 +412,15 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
     page.drawText(amount, { x: PAGE_W - MARGIN - 8 - w, y, size: 9.5, font: strong ? bold : font, color: ink })
     y -= LINE
   }
-  feeRow('One-time setup fee', fmt(PRICING.setupFee))
-  feeRow(`Admin seats — ${o.admins} x ${fmt(PRICING.adminMonthly)}/mo`, fmt(o.admins * PRICING.adminMonthly) + '/mo')
-  feeRow(`Portal team members — ${o.teamMembers} x ${fmt(PRICING.teamMemberMonthly)}/mo`, fmt(o.teamMembers * PRICING.teamMemberMonthly) + '/mo')
+  feeRow('One-time setup fee (100% upfront, bank wire)', fmt(PRICING.setupFee))
   gap(2); rule()
-  feeRow('Monthly total', fmt(o.monthly) + '/mo', true)
+  feeRow('Monthly total (flat, unlimited admins & team members)', fmt(o.monthly) + '/mo', true)
   feeRow('First-year total (setup + 12 months)', fmt(PRICING.setupFee + o.monthly * 12), true)
   gap(3)
-  write('Seat counts may be adjusted by written agreement; monthly fees adjust accordingly on the next billing cycle. All amounts are in U.S. dollars.', 9.5, font, gray)
+  write('All amounts are in U.S. dollars.', 9.5, font, gray)
 
   clause(4, 'Payment Terms',
-    `The setup fee is paid in two installments: fifty percent (${fmt(half)}) is due in advance by wire transfer before work begins, and the remaining fifty percent (${fmt(half)}) is due upon ninety percent (90%) completion, defined as the build being complete and pending only edits requested by the Client. Monthly fees begin at launch and are billed each month in advance.`,
+    `The setup fee (${fmt(PRICING.setupFee)}) is due in full, in advance, by wire transfer before work begins. The first month's subscription charge begins at signing (an initial $1 charge to verify the payment method, then the full monthly rate from the second charge forward); monthly fees continue each month in advance.`,
     'All fees paid are non-refundable. Fees not paid when due are past due; Full Loop may suspend the Services after reasonable notice until amounts owed are paid in full. Client is responsible for any taxes other than taxes on Full Loop\'s net income.')
 
   clause(5, 'Third-Party Services',
@@ -174,7 +430,7 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
     'Onboarding will take up to thirty (30) days from the date Full Loop receives the Client\'s fully completed onboarding questionnaire. Timelines are estimates and depend on the Client providing accurate information, materials, and approvals promptly. Delays caused by the Client extend Full Loop\'s timelines accordingly.')
 
   clause(7, 'Client Responsibilities',
-    'The Client will: provide accurate and complete information and materials; respond and approve in a timely manner; maintain the third-party accounts in Section 6; and use the Services lawfully. The Client is solely responsible for the content of its communications and for compliance with all applicable laws governing them, including telemarketing, SMS, and email laws (e.g., TCPA and CAN-SPAM) and obtaining any required consents from its own customers.')
+    'The Client will: provide the items listed in "What the Client Provides" above; respond and approve in a timely manner; maintain the third-party accounts in Section 5; and use the Services lawfully. The Client is solely responsible for the content of its communications and for compliance with all applicable laws governing them, including telemarketing, SMS, and email laws (e.g., TCPA and CAN-SPAM) and obtaining any required consents from its own customers.')
 
   clause(8, 'Term and Termination',
     'This Agreement begins on the Effective Date and continues month-to-month. There is no long-term contract — either party may cancel at any time; monthly Services and access end at the close of the then-current paid period. Fees already paid (including the setup fee) are non-refundable.',
@@ -205,11 +461,14 @@ export async function buildAgreementPdf(o: AgreementPdfOpts): Promise<AgreementP
     `This Agreement is governed by the laws of the State of ${state}, without regard to conflict-of-laws rules. The parties will attempt to resolve disputes in good faith; any unresolved dispute will be brought exclusively in the state or federal courts located in ${state}.`)
 
   clause(17, 'General',
-    'This Agreement, together with any written order or proposal it references, is the entire agreement between the parties and supersedes prior discussions. Amendments must be in writing and signed by both parties. If any provision is unenforceable, the rest remains in effect. Neither party may assign this Agreement without the other\'s consent, except to a successor in a merger or sale of substantially all assets. Notices may be given by email to the addresses above. Sections that by their nature should survive termination will survive. This Agreement may be signed electronically and in counterparts, each of which is an original.')
+    'This Agreement is the entire agreement between the parties for the Services described above and supersedes prior discussions, including any prior scope-of-work or investment-sheet drafts. Amendments must be in writing and signed by both parties. If any provision is unenforceable, the rest remains in effect. Neither party may assign this Agreement without the other\'s consent, except to a successor in a merger or sale of substantially all assets. Notices may be given by email to the addresses above. Sections that by their nature should survive termination will survive. This Agreement may be signed electronically and in counterparts, each of which is an original.')
+
+  sectionHeader('Next Steps')
+  write('1. Review this agreement in full.  2. Approve and sign below.  3. Kickoff — brand assets, service list & pricing, coverage map, GMB & current-site access, business-model details.  4. Build & launch per the timeline in Section 6.', 9.5, font, gray)
 
   // ---- Signature block ----
   ensure(160); gap(16)
-  write('By signing below, the Client agrees to this Agreement, and Full Loop countersigns to accept.', 9.5, font, gray)
+  write('By signing below, the Client agrees to this entire Agreement — legal terms, scope of work, and price — and Full Loop countersigns to accept.', 9.5, font, gray)
   gap(26)
   const pageIndex = pdf.getPageCount()
   const col2X = PAGE_W / 2 + 8

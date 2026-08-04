@@ -7,6 +7,7 @@ import { stageMeta } from '@/lib/pipeline'
 import { formatJobNumber } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import BookingNotes from '@/components/BookingNotes'
+import { CallTextCopy } from '../../_components/CallTextCopy'
 
 type Assignee = { id: string; name: string }
 type Job = {
@@ -1147,8 +1148,7 @@ export default function JobDetailPage() {
               {client.phone && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-slate-500">{client.phone}</span>
-                  <a href={`tel:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                  <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                  <CallTextCopy phone={client.phone} size="xs" />
                 </div>
               )}
               {client.email && <p className="text-sm text-slate-500 break-all">{client.email}</p>}

@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions } from './_RecurringOptions'
+import { CallTextCopy } from '../_components/CallTextCopy'
 import { generateInitialBatchDates, getRecurringDisplayName, buildSeriesUpdateData, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import BookingsSettings from './bookings-settings'
@@ -1096,7 +1097,9 @@ function BookingsPage() {
     // affect profit or margin.
     const profitCents = revenueCents - laborTotalCents
     const profitMarginPct = revenueCents > 0 ? (profitCents / revenueCents) * 100 : 0
-    const avgTicketCents = todaysJobs.length > 0 ? revenueCents / todaysJobs.length : 0
+    const avgTicketCents = todaysJobs.length > 0
+      ? Math.round(todaysJobs.reduce((sum, b) => sum + (b.price || 0), 0) / todaysJobs.length)
+      : 0
     return { revenueCents, tipsCents, laborTotalCents, laborOwedCents, profitCents, profitMarginPct, avgTicketCents }
   })()
 
@@ -1369,7 +1372,7 @@ function BookingsPage() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           Book Now
                         </button>
-                        <a href={`sms:+1${entry.phone.replace(/\D/g, '')}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all">
+                        <a href={`/admin/comhub?text=${encodeURIComponent('+1' + entry.phone.replace(/\D/g, ''))}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                           Text
                         </a>
@@ -1934,8 +1937,7 @@ function BookingsPage() {
                 {editingBooking.clients?.phone && (
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm font-medium text-[var(--sched-ink)]">{formatPhone(editingBooking.clients.phone)}</span>
-                    <a href={`/admin/comhub?dial=${encodeURIComponent(editingBooking.clients.phone)}`} className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">Call</a>
-                    <a href={`sms:${editingBooking.clients.phone}`} className="px-2.5 py-1 bg-gray-50 text-gray-600 border border-gray-200 rounded-full text-xs font-medium">Text</a>
+                    <CallTextCopy phone={editingBooking.clients.phone} />
                   </div>
                 )}
               </div>

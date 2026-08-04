@@ -14,7 +14,10 @@ import { tenantSiteUrl } from '@/lib/tenant-site'
 // admin/message-applicants/send -- that route is hard-gated by TEST_MODE
 // (constants.ts) for its own mass-campaign use case; this is a targeted,
 // per-booking send and re-applies its own (untest-gated) eligibility here.
-const EXCLUDED_APPLICANT_STATUSES = ['accepted', 'rejected']
+// Reads team_applications, not cleaner_applications -- the latter stopped
+// receiving new rows 2026-07-16 (see message-applicants/preview/route.ts).
+// team_applications status enum is ('pending','approved','rejected').
+const EXCLUDED_APPLICANT_STATUSES = ['approved', 'rejected']
 
 type MemberRow = { id: string; name: string; phone: string | null; active: boolean | null; status: string | null }
 type ApplicantRow = { id: string; name: string | null; phone: string | null; status: string | null }
@@ -40,7 +43,7 @@ export async function GET() {
 
   const [{ data: members }, { data: applicants }, { data: tenantData }] = await Promise.all([
     db.from('team_members').select('id, name, phone, active, status') as unknown as Promise<{ data: MemberRow[] | null }>,
-    db.from('cleaner_applications').select('id, name, phone, status') as unknown as Promise<{ data: ApplicantRow[] | null }>,
+    db.from('team_applications').select('id, name, phone, status') as unknown as Promise<{ data: ApplicantRow[] | null }>,
     supabaseAdmin.from('tenants').select('domain, slug').eq('id', tenantId).single(),
   ])
 
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
   let applicantResult = { sent: 0, eligible: 0, applicants: [] as string[] }
   if (applicant_ids && applicant_ids.length > 0) {
     const { data: applicants } = (await db
-      .from('cleaner_applications')
+      .from('team_applications')
       .select('id, name, phone, status')
       .in('id', applicant_ids)) as { data: ApplicantRow[] | null }
 

@@ -47,7 +47,6 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
     setError('')
     if (!form.name.trim()) { setError('Please enter your name.'); return }
     if (form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
-    if (!smsConsent) { setError('Please agree to be contacted so we can follow up.'); return }
     if (form.email.trim()) {
       const emailCheck = validateEmail(form.email)
       if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }

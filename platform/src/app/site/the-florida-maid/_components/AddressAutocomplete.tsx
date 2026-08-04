@@ -20,9 +20,10 @@ interface AddressAutocompleteProps {
   initialValue?: string
   placeholder?: string
   className?: string
+  required?: boolean
 }
 
-export default function AddressAutocomplete({ value, onChange, onSelect, initialValue = '', placeholder, className }: AddressAutocompleteProps) {
+export default function AddressAutocomplete({ value, onChange, onSelect, initialValue = '', placeholder, className, required }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value || initialValue)
   const [results, setResults] = useState<AddressResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -93,6 +94,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, initial
     <div ref={wrapperRef} className="relative">
       <input
         type="text"
+        required={required}
         value={query}
         onChange={(e) => handleInputChange(e.target.value)}
         onFocus={() => results.length > 0 && setShowDropdown(true)}

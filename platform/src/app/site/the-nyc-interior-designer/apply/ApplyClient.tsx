@@ -14,7 +14,7 @@ const supabase = createClient(
 // Upload a file directly to Supabase storage via a pre-signed URL (bypasses
 // Vercel's 4.5MB function body limit — required for the 50MB portfolio).
 // Returns the public URL, or throws with a user-facing message.
-export async function uploadFile(file: File, type: "resume" | "portfolio"): Promise<string> {
+export async function uploadFile(file: File, type: "resume" | "portfolio" | "video"): Promise<string> {
   const signedRes = await fetch("/api/apply/signed-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -66,10 +66,30 @@ export default function ApplyClient() {
   });
   const [resume, setResume] = useState<File | null>(null);
   const [portfolio, setPortfolio] = useState<File | null>(null);
+  const [video, setVideo] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const resumeRef = useRef<HTMLInputElement>(null);
   const portfolioRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"].includes(file.type)) {
+      setErrorMsg("Please select a video file (MP4, MOV, or WebM).");
+      setStatus("error");
+      return;
+    }
+    if (file.size > 150 * 1024 * 1024) {
+      setErrorMsg("Video must be under 150MB.");
+      setStatus("error");
+      return;
+    }
+    setVideo(file);
+    setErrorMsg("");
+    setStatus("idle");
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -82,6 +102,12 @@ export default function ApplyClient() {
 
     if (!form.name || !form.email || !form.phone || !form.position) {
       setErrorMsg("Please fill in all required fields.");
+      setStatus("error");
+      return;
+    }
+
+    if (!video) {
+      setErrorMsg("Please upload a video selfie (up to 1 minute).");
       setStatus("error");
       return;
     }
@@ -101,6 +127,7 @@ export default function ApplyClient() {
     try {
       let resumeUrl: string | null = null;
       let portfolioFileUrl: string | null = null;
+      const videoUrl = await uploadFile(video, "video");
 
       if (resume) resumeUrl = await uploadFile(resume, "resume");
       if (portfolio) portfolioFileUrl = await uploadFile(portfolio, "portfolio");
@@ -119,6 +146,7 @@ export default function ApplyClient() {
           message: form.message,
           resumeUrl,
           portfolioFileUrl,
+          videoUrl,
         }),
       });
 
@@ -324,6 +352,37 @@ export default function ApplyClient() {
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none resize-none"
                 placeholder="What is your design experience? What kind of projects excite you? What are you looking for in your next role?"
               />
+            </div>
+
+            {/* Video Selfie */}
+            <div className="rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 p-6">
+              <label className="block text-sm font-bold text-blue-800 mb-2">
+                Video Selfie <span className="text-red-500">*</span>{" "}
+                <span className="font-normal text-blue-700">(up to 1 minute)</span>
+              </label>
+              <p className="text-xs text-blue-700 mb-4">
+                Record a short video introducing yourself — who you are, your design background,
+                and why you want to join our team. <strong>Max 150MB.</strong>
+              </p>
+              <input
+                ref={videoRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/x-m4v"
+                onChange={handleVideoSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => videoRef.current?.click()}
+                className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-gray-700 transition-colors"
+              >
+                {video ? `Selected: ${video.name}` : "Upload Video"}
+              </button>
+              {video && (
+                <p className="mt-2 text-xs text-blue-700">
+                  {(video.size / (1024 * 1024)).toFixed(1)} MB selected
+                </p>
+              )}
             </div>
 
             {/* Portfolio Upload */}

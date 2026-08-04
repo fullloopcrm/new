@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
+import { requireNycmaidTenant } from '@/app/site/template/_lib/gate'
 import Link from 'next/link'
 import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 }
 
 export default async function AreasIndexPage() {
-  await requireCleaningTenant()
+  await requireNycmaidTenant()
   const siteConfig = await getSiteConfig()
   const biz = buildBusiness(siteConfig)
   const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')

@@ -1,12 +1,16 @@
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest } from '@/lib/tenant-query'
+import { hasPermission, type RolePermissionOverrides } from '@/lib/rbac'
 import { supabaseAdmin } from '@/lib/supabase'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
+import SectionVisibility from './_components/SectionVisibility'
 import JobsMap, { type MapJob } from './_components/JobsMap'
+import { CallTextCopy } from './_components/CallTextCopy'
 import { crewNames, type CrewRow } from '@/lib/crew'
 import { formatPhone } from '@/lib/format'
 
@@ -48,10 +52,8 @@ function ContactChips({ phone, address }: { phone?: string | null; address?: str
     <div className="flex flex-col items-end gap-1 flex-shrink-0 mx-1" style={{ fontFamily: V.mono }}>
       {phone && (
         <div className="flex items-center gap-1">
-          <a href={`/admin/comhub?dial=${encodeURIComponent(phone)}`} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 font-medium hover:bg-green-100 whitespace-nowrap">
-            {formatPhone(phone)}
-          </a>
-          <a href={`sms:${phone}`} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-200 font-medium hover:bg-gray-100">Text</a>
+          <span className="text-[10px] text-gray-500 whitespace-nowrap">{formatPhone(phone)}</span>
+          <CallTextCopy phone={phone} size="xs" />
         </div>
       )}
       {address && (
@@ -239,9 +241,26 @@ async function fetchMapRows(tenantId: string, startISO: string, endISO: string):
 }
 const fetchMapRowsCached = unstable_cache(fetchMapRows, ['dashboard-map-rows'], { revalidate: CACHE_TTL_SECONDS })
 
+// Per-tenant row on/off state (see /api/dashboard/section-visibility) — read
+// fresh, not unstable_cache'd, so a toggle takes effect on the very next load.
+async function fetchHiddenSections(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin.from('tenants').select('setup_progress').eq('id', tenantId).single()
+  const sp = (data?.setup_progress || {}) as Record<string, unknown>
+  return Array.isArray(sp.dashboard_hidden_sections) ? (sp.dashboard_hidden_sections as string[]) : []
+}
+
 export default async function DashboardPage() {
   const tenant = await getCurrentTenant()
   if (!tenant) return null
+
+  // Best-effort display gate for money figures — the real security boundary
+  // is requirePermission() on the finance API routes; this just keeps
+  // revenue numbers off a role's screen when they lack finance.view. Fails
+  // open (shows finance) on any resolution error, matching this page's
+  // prior always-shown behavior.
+  const viewerRole = await getTenantForRequest().then(t => t.role).catch(() => 'owner')
+  const roleOverrides = (tenant.selena_config as { role_permissions?: RolePermissionOverrides } | null)?.role_permissions ?? null
+  const canViewFinance = hasPermission(viewerRole, 'finance.view', roleOverrides)
 
   // "Today" per the TENANT's own configured timezone (Settings → Time Zone),
   // not the server process's zone (UTC on Vercel) — without this, every
@@ -305,7 +324,7 @@ export default async function DashboardPage() {
   const mapRangeStart = new Date(Math.min(startOfWeekNaive.getTime(), startOfMonthNaive.getTime()))
   const mapRangeEnd = new Date(Math.max(endOfWeekNaive.getTime(), endOfMonthNaive.getTime()))
 
-  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl, arAging] = await Promise.all([
+  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl, arAging, hiddenSections] = await Promise.all([
     fetchYearBookingsCached(tenant.id, startOfYearNaive.toISOString(), endOfYearNaive.toISOString()),
     fetchRosterCountCached(tenant.id),
     fetchNewClientsCountCached(tenant.id, startOfMonth.toISOString()),
@@ -320,6 +339,7 @@ export default async function DashboardPage() {
     // replacing a raw "completed + payment_status=pending" booking sum that
     // double-counted refunded bookings as owed and ignored unpaid invoices.
     getArAging(tenant.id),
+    fetchHiddenSections(tenant.id),
   ])
 
   const mapJobs = mapRows.map((r) => ({
@@ -384,10 +404,10 @@ export default async function DashboardPage() {
     },
   ]
   const volumeLadder = [
-    { label: 'Jobs · Week', val: scheduledWeek.length, sub: formatMoney(sum(scheduledWeek)) },
-    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: formatMoney(sum(scheduledMonth)) },
-    { label: 'Jobs · YTD', val: projectedJobs, sub: formatMoney(projectedRevenue) },
-    { label: 'Remaining', val: remaining.length, sub: formatMoney(sum(remaining)) },
+    { label: 'Jobs · Week', val: scheduledWeek.length, sub: canViewFinance ? formatMoney(sum(scheduledWeek)) : '' },
+    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: canViewFinance ? formatMoney(sum(scheduledMonth)) : '' },
+    { label: 'Jobs · YTD', val: projectedJobs, sub: canViewFinance ? formatMoney(projectedRevenue) : '' },
+    { label: 'Remaining', val: remaining.length, sub: canViewFinance ? formatMoney(sum(remaining)) : '' },
   ]
 
   const leadsWeek = leads.filter(l => inDateRange(l.created_at, startOfWeek, endOfWeek)).length
@@ -450,7 +470,7 @@ export default async function DashboardPage() {
   const expectedRevenue = todayTomorrowJobs.reduce((s, j) => s + (j.price || 0), 0)
 
   const Bar = ({ children }: { children: React.ReactNode }) => (
-    <div className="inline-block mb-3" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
+    <div className="inline-block mb-2" style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.ink, fontWeight: 600, paddingBottom: '6px', borderBottom: `1px solid ${V.ink}`, minWidth: '100px' }}>
       {children}
     </div>
   )
@@ -460,91 +480,103 @@ export default async function DashboardPage() {
       {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
       <ScheduleIssues />
 
-      {/* REVENUE LADDER */}
-      <Bar>Revenue</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      {/* REVENUE LADDER — money figures, hidden without finance.view */}
+      {canViewFinance && (
+      <SectionVisibility section="revenue" label="Revenue" initialHidden={hiddenSections.includes('revenue')}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {revenueLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: c.emphasize ? '#FBFBF6' : V.canvas }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+          <div key={c.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: c.emphasize ? '#FBFBF6' : V.canvas }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{c.label}</div>
             <div style={{ fontFamily: V.display, fontSize: c.emphasize ? '32px' : '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(c.val)}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.jobs} jobs</div>
+            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>{c.jobs} jobs</div>
             {c.note && <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.warn, marginTop: 3 }}>{c.note}</div>}
           </div>
         ))}
       </div>
+      </SectionVisibility>
+      )}
 
       {/* SALES — leads + proposals */}
-      <Bar>Sales</Bar>
-      <div className="grid mb-4" style={{ gridTemplateColumns: 'repeat(3, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      <SectionVisibility section="sales" label="Sales" initialHidden={hiddenSections.includes('sales')}>
+      <div className="grid mb-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {leadsLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+          <div key={c.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{c.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '26px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
           </div>
         ))}
       </div>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(6, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(6, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {proposalsLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+          <div key={c.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{c.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '24px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
           </div>
         ))}
       </div>
+      </SectionVisibility>
 
       {/* JOBS LADDER */}
-      <Bar>Jobs</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      <SectionVisibility section="jobs" label="Jobs" initialHidden={hiddenSections.includes('jobs')}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {volumeLadder.map((c, i, arr) => (
-          <div key={c.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{c.label}</div>
+          <div key={c.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{c.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{c.val}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{c.sub}</div>
+            <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>{c.sub}</div>
           </div>
         ))}
       </div>
+      </SectionVisibility>
 
       {/* JOBS BY MONTH */}
-      <Bar>{`Jobs · ${yearStr} by Month`}</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(12, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      <SectionVisibility section="jobs_by_month" label={`Jobs · ${yearStr} by Month`} initialHidden={hiddenSections.includes('jobs_by_month')}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(12, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {monthsByYear.map((m, i, arr) => (
-          <div key={m.label} className="px-3 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
+          <div key={m.label} className="px-3 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
             <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.14em', color: m.isCurrent ? V.ink : V.muted, fontWeight: 600, marginBottom: 6 }}>{m.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '22px', fontWeight: 500, color: m.count === 0 ? V.muted2 : V.ink, lineHeight: 1, fontFeatureSettings: '"tnum","lnum"' }}>{m.count}</div>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
+            {canViewFinance && (
+              <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
+            )}
           </div>
         ))}
       </div>
+      </SectionVisibility>
 
-      {/* KPIs */}
-      <Bar>KPIs</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      {/* KPIs — money-heavy (AR, avg job value), hidden without finance.view */}
+      {canViewFinance && (
+      <SectionVisibility section="kpis" label="KPIs" initialHidden={hiddenSections.includes('kpis')}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {kpis.map((k, i, arr) => (
-          <div key={k.label} className="px-5 py-4" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>{k.label}</div>
+          <div key={k.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
+            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{k.label}</div>
             <div style={{ fontFamily: V.display, fontSize: '24px', fontWeight: 500, color: V.ink }}>{k.val}</div>
             <div style={{ fontFamily: V.mono, fontSize: '10px', color: V.muted, marginTop: 4 }}>{k.sub}</div>
           </div>
         ))}
       </div>
+      </SectionVisibility>
+      )}
 
       {/* TODAY + TOMORROW AT A GLANCE */}
-      <Bar>Today + Tomorrow</Bar>
-      <div className="grid mb-8" style={{ gridTemplateColumns: 'repeat(2, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        <div className="px-5 py-4" style={{ borderRight: `1px solid ${V.line}` }}>
-          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>Total Jobs</div>
+      <SectionVisibility section="today_tomorrow" label="Today + Tomorrow" initialHidden={hiddenSections.includes('today_tomorrow')}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+        <div className="px-5 py-3" style={{ borderRight: `1px solid ${V.line}` }}>
+          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>Total Jobs</div>
           <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{todayTomorrowJobs.length}</div>
-          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>{todayJobs.length} today · {tomorrowJobs.length} tomorrow</div>
+          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>{todayJobs.length} today · {tomorrowJobs.length} tomorrow</div>
         </div>
-        <div className="px-5 py-4">
-          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 8 }}>Expected Revenue</div>
+        <div className="px-5 py-3">
+          <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>Expected Revenue</div>
           <div style={{ fontFamily: V.display, fontSize: '28px', fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1, color: V.ink, fontFeatureSettings: '"tnum","lnum"' }}>{formatMoney(expectedRevenue)}</div>
-          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 6 }}>across {todayTomorrowJobs.length} job{todayTomorrowJobs.length === 1 ? '' : 's'}</div>
+          <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 4 }}>across {todayTomorrowJobs.length} job{todayTomorrowJobs.length === 1 ? '' : 's'}</div>
         </div>
       </div>
+      </SectionVisibility>
 
       {/* TODAY / TOMORROW */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {[{ label: 'Today · Schedule', jobs: todayJobs, empty: 'No jobs today', showStatus: true },
           { label: 'Tomorrow · Schedule', jobs: tomorrowJobs, empty: 'No jobs tomorrow', showStatus: false }].map(col => (
           <div key={col.label}>

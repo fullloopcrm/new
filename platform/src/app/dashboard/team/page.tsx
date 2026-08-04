@@ -65,6 +65,7 @@ type Application = {
   references: { name: string; phone: string }[] | null
   notes: string | null
   photo_url: string | null
+  video_url: string | null
   service_zones: string[] | null
   has_car: boolean | null
   status: 'pending' | 'approved' | 'rejected'
@@ -134,6 +135,32 @@ export default function TeamPage() {
   }
 
   const [bulkApproving, setBulkApproving] = useState(false)
+  const [generatingPins, setGeneratingPins] = useState(false)
+
+  async function generateAllPins() {
+    if (!confirm('Generate a PIN for every active team member who is missing one, and email/text it to them?')) return
+    setGeneratingPins(true)
+    try {
+      const res = await fetch('/api/team/generate-missing-pins', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Failed: ${json.error || res.statusText}`)
+        return
+      }
+      const failed = Array.isArray(json.failures) ? json.failures.length : 0
+      alert(
+        json.generated === 0
+          ? (json.message || 'Everyone already has a PIN.')
+          : `Generated ${json.generated} PIN${json.generated === 1 ? '' : 's'}. Emailed ${json.emailed}, texted ${json.texted}.` +
+            (failed > 0 ? `\n${failed} member(s) could not be given a PIN — check server logs.` : '')
+      )
+      await loadMembers()
+    } catch (e) {
+      alert(`Failed: ${e instanceof Error ? e.message : 'network error'}`)
+    } finally {
+      setGeneratingPins(false)
+    }
+  }
 
   async function bulkApproveAll() {
     const pendingCount = applications.filter((a) => a.status === 'pending').length
@@ -454,6 +481,13 @@ export default function TeamPage() {
                               refs: {app.references.map((r) => `${r.name} (${r.phone})`).join('; ')}
                             </div>
                           )}
+                          {app.video_url && (
+                            <div className="tm-app-meta">
+                              <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+                                ▶ Watch Video Selfie
+                              </a>
+                            </div>
+                          )}
                           {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
                           <div className="tm-app-date">
                             applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -491,7 +525,15 @@ export default function TeamPage() {
                           </div>
                           <div className="tm-app-body">
                             <div className="tm-app-name">{app.name}</div>
-                            <div className="tm-app-meta">{app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div className="tm-app-meta">
+                              {app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {app.video_url && (
+                                <>
+                                  {' · '}
+                                  <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>▶ Video</a>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="tm-app-actions">
                             <span className={`tm-app-status ${app.status}`}>{app.status}</span>
@@ -543,7 +585,17 @@ export default function TeamPage() {
 
           <div className="tm-section-head">
             <h2 className="tm-section-title">Team<em>.</em></h2>
-            <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+            <div className="tm-section-actions">
+              <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+              <button
+                type="button"
+                className="tm-bulk-approve-btn"
+                onClick={generateAllPins}
+                disabled={generatingPins}
+              >
+                {generatingPins ? 'Generating…' : 'Generate All PINs'}
+              </button>
+            </div>
           </div>
 
           {loading && <div className="tm-empty">Loading…</div>}

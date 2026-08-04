@@ -8,6 +8,7 @@ import { formatPhone } from '@/lib/format'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import type { ServiceOption } from '../../_config/types'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import SmsConsent from '../../_components/SmsConsent'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -77,6 +78,7 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
   const [pin, setPin] = useState('')
   const [showRecap, setShowRecap] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [policyFlash, setPolicyFlash] = useState(false)
   const policyRef = useRef<HTMLDivElement>(null)
 
@@ -322,9 +324,8 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
           hourly_rate: hourlyRate,
           estimated_hours: estimatedHours,
           max_hours: form.max_hours,
-          // Confirming the booking agrees to the recap, which includes SMS
-          // consent — record it (TCPA) alongside any customer note.
-          notes: [form.notes.trim(), `✅ SMS consent granted (TCPA) at ${new Date().toISOString()}`].filter(Boolean).join('\n'),
+          notes: form.notes.trim(),
+          sms_opt_in: smsOptIn,
           lead_source: form.lead_source,
           ref_code: refCode || null,
           src: srcDomain || null,
@@ -502,6 +503,8 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
             </div>
           </div>
 
+          <SmsConsent businessName={businessName} checked={smsOptIn} onChange={setSmsOptIn} />
+
           {/* Email */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Email</label>
@@ -538,7 +541,6 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
           <div>
             <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
             <select
-              required
               value={form.lead_source}
               onChange={(e) => update('lead_source', e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[var(--brand)]"

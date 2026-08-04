@@ -10,12 +10,11 @@
 import { supabaseAdmin } from './supabase'
 import { provisionTenant, mapIndustry } from './provision-tenant'
 import { seedOnboardingTasks } from './onboarding-tasks'
-import { computeMonthly } from './billing-pricing'
+import { computeMonthly, PRICING } from './billing-pricing'
 import { zipToTimezone } from './timezone'
 import { hashAdminPin } from './admin-pin'
 import { createAndSendOnboardingLink } from './onboarding-link'
 import { sendOwnerLoginEmail } from './owner-welcome-email'
-import { runPostActivationTasks } from './post-activation'
 import crypto from 'crypto'
 
 function slugify(name: string): string {
@@ -44,8 +43,16 @@ export interface CreateFromLeadOptions {
    * Stripe subscription id from the paid proposal checkout. When set, the tenant
    * is born billing-active with the subscription linked, so seat changes on the
    * board re-sync per-seat quantities. Omitted for manual/comp conversions.
+   * Defaults to the lead's own `stripe_subscription_id` (recorded by the
+   * stripe-platform webhook at proposal-sign) when not passed explicitly.
    */
   stripeSubscriptionId?: string | null
+  /**
+   * Timestamp the $25k setup fee wire was confirmed received. This is the
+   * normal trigger for tenant creation now — the wire, not the Stripe
+   * checkout — so it's almost always set for a real paid conversion.
+   */
+  setupFeePaidAt?: string | null
 }
 
 export interface CreateFromLeadResult {
@@ -67,6 +74,9 @@ export async function createTenantFromLead(
     .eq('id', leadId)
     .single()
   if (leadErr || !lead) return { ok: false, error: 'Lead not found' }
+
+  const stripeSubscriptionId =
+    opts.stripeSubscriptionId !== undefined ? opts.stripeSubscriptionId : lead.stripe_subscription_id ?? null
 
   // Idempotent — already converted.
   if (lead.converted_tenant_id) {
@@ -147,7 +157,7 @@ export async function createTenantFromLead(
         claimed_at: new Date().toISOString(),
         price_cents: priceCents,
         billing_interval: 'monthly',
-        stripe_subscription_id: opts.stripeSubscriptionId ?? null,
+        stripe_subscription_id: stripeSubscriptionId,
       })
       .select('id')
       .single()
@@ -196,11 +206,13 @@ export async function createTenantFromLead(
       timezone: zipToTimezone(lead.billing_zip),
       // Paid proposal (subscription linked) → billing-active so seat edits sync to
       // Stripe. Manual/comp conversions stay in setup until billing is wired.
-      billing_status: opts.stripeSubscriptionId ? 'active' : 'setup',
+      billing_status: stripeSubscriptionId ? 'active' : 'setup',
       monthly_rate: monthly,
       admin_seats: admins,
       team_seats: teamMembers,
-      ...(opts.stripeSubscriptionId && { stripe_subscription_id: opts.stripeSubscriptionId }),
+      setup_fee: PRICING.setupFee,
+      setup_fee_paid_at: opts.setupFeePaidAt ?? null,
+      ...(stripeSubscriptionId && { stripe_subscription_id: stripeSubscriptionId }),
       ...(lead.category_id && { primary_category_id: lead.category_id }),
       ...(lead.territory_id && { home_territory_id: lead.territory_id }),
       owner_name: lead.contact_name || null,
@@ -298,14 +310,11 @@ export async function createTenantFromLead(
     ownerPin = null
   }
 
-  // A paid conversion (stripeSubscriptionId set) goes live immediately —
-  // no separate admin "Activate" click ever happens for this path. Stamp
-  // activated_at and run the same post-activation tasks Activate itself
-  // triggers, so this real, immediately-live tenant isn't silently skipped.
-  if (opts.stripeSubscriptionId) {
-    await supabaseAdmin.from('tenants').update({ activated_at: new Date().toISOString() }).eq('id', tenant.id)
-    runPostActivationTasks(tenant.id).catch((e) => console.error('[create-tenant-from-lead] post-activation tasks failed:', e))
-  }
+  // NOTE: this tenant is a shell, not live. A subscription existing here just
+  // means billing started at proposal-sign — it does NOT mean go-live. Go-live
+  // happens later, gated on the onboarding questionnaire (see
+  // checkActivationReadiness / activateTenant), which createAndSendOnboardingLink
+  // above already kicked off.
 
   return { ok: true, tenant, ownerPin }
 }

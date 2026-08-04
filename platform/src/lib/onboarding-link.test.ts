@@ -19,6 +19,14 @@ vi.mock('./supabase', () => ({
   },
 }))
 
+const alertOwnerMock = vi.fn()
+vi.mock('./telegram', () => ({
+  alertOwner: (...args: unknown[]) => {
+    alertOwnerMock(...args)
+    return Promise.resolve(null)
+  },
+}))
+
 import { createAndSendOnboardingLink, onboardingLinkUrl } from './onboarding-link'
 
 describe('onboarding-link', () => {
@@ -26,6 +34,7 @@ describe('onboarding-link', () => {
     process.env.ONBOARDING_TOKEN_SECRET = 'test-secret'
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.test.example'
     sendEmailMock.mockClear()
+    alertOwnerMock.mockClear()
   })
   afterEach(() => {
     delete process.env.ONBOARDING_TOKEN_SECRET
@@ -37,7 +46,7 @@ describe('onboarding-link', () => {
     expect(url.startsWith('https://app.test.example/onboard/')).toBe(true)
   })
 
-  it('emails owner_email when present, with the working link embedded', async () => {
+  it('emails owner_email when present, with the working link embedded, and alerts the owner on Telegram', async () => {
     h.tenant = { name: 'Acme', slug: 'acme', owner_email: 'owner@acme.example', email: 'hello@acme.example', onboarding_link_version: 1 }
     const { sent, url } = await createAndSendOnboardingLink('tenant-A')
     expect(sent).toBe(true)
@@ -45,6 +54,16 @@ describe('onboarding-link', () => {
     const call = sendEmailMock.mock.calls[0][0]
     expect(call.to).toBe('owner@acme.example')
     expect(call.html).toContain(url)
+    expect(alertOwnerMock).toHaveBeenCalledTimes(1)
+    expect(alertOwnerMock.mock.calls[0][0]).toBe('Onboarding link sent')
+    expect(alertOwnerMock.mock.calls[0][1]).toContain('Acme')
+    expect(alertOwnerMock.mock.calls[0][1]).toContain('owner@acme.example')
+  })
+
+  it('does NOT alert the owner when there is no recipient to send to', async () => {
+    h.tenant = { name: 'Acme', slug: 'acme', owner_email: null, email: null, onboarding_link_version: 1 }
+    await createAndSendOnboardingLink('tenant-A')
+    expect(alertOwnerMock).not.toHaveBeenCalled()
   })
 
   it('falls back to the business email when owner_email is not set', async () => {

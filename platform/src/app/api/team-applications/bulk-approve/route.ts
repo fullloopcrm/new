@@ -23,7 +23,7 @@ export async function POST() {
     // Grab all pending applications for this tenant.
     const { data: pending, error: fetchErr } = await supabaseAdmin
       .from('team_applications')
-      .select('id, name, email, phone, address, photo_url')
+      .select('id, name, email, phone, address, unit, photo_url, preferred_language, service_zones, has_car, labor_only, max_travel_minutes')
       .eq('tenant_id', tenant.tenantId)
       .eq('status', 'pending')
 

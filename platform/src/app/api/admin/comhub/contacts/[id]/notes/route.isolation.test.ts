@@ -29,8 +29,8 @@ function seed() {
       { id: 'ct-b', tenant_id: B, client_id: 'cli-b' },
     ],
     clients: [
-      { id: 'cli-a', tenant_id: A, notes: 'old A' },
-      { id: 'cli-b', tenant_id: B, notes: 'old B' },
+      { id: 'cli-a', tenant_id: A, notes_private: 'old A private', notes_public: 'old A public' },
+      { id: 'cli-b', tenant_id: B, notes_private: 'old B private', notes_public: 'old B public' },
     ],
   }
 }
@@ -48,42 +48,45 @@ function patch(id: string, body: unknown) {
 
 describe('admin/comhub/contacts/[id]/notes PATCH — tenant isolation', () => {
   it("positive control: updates the caller-tenant's linked client notes only", async () => {
-    const res = await patch('ct-a', { notes: 'new A note' })
+    const res = await patch('ct-a', { notes_private: 'new A private', notes_public: 'new A public' })
     expect(res.status).toBe(200)
     expect((await res.json()).ok).toBe(true)
-    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('new A note')
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_private).toBe('new A private')
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_public).toBe('new A public')
     // Tenant B's client is untouched.
-    expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes).toBe('old B')
+    expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes_private).toBe('old B private')
+    expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes_public).toBe('old B public')
   })
 
   it("wrong-tenant probe: a foreign contact 404s — no foreign client note is written", async () => {
-    const res = await patch('ct-b', { notes: 'HACKED' })
+    const res = await patch('ct-b', { notes_private: 'HACKED' })
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('contact not found')
-    expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes).toBe('old B')
+    expect(h.seed.clients.find((c) => c.id === 'cli-b')!.notes_private).toBe('old B private')
   })
 })
 
 describe('admin/comhub/contacts/[id]/notes PATCH — explicit-null clear regression', () => {
-  // `body.notes ?? body.notes_private ?? body.notes_public` treated an
-  // explicit `{ notes: null }` as nullish and fell through to the next key,
-  // silently no-op'ing instead of clearing the field. Fix resolves by which
-  // key is PRESENT in the body, not by its value.
-  it('clears notes when notes is explicitly null', async () => {
-    const res = await patch('ct-a', { notes: null })
+  // Resolves by which key is PRESENT in the body, not by its value — an
+  // explicit `{ notes_private: null }` must clear the field, not be skipped
+  // because `null` is nullish too.
+  it('clears notes_private when it is explicitly null, leaving notes_public untouched', async () => {
+    const res = await patch('ct-a', { notes_private: null })
     expect(res.status).toBe(200)
     expect((await res.json()).ok).toBe(true)
-    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBeNull()
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_private).toBeNull()
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_public).toBe('old A public')
   })
 
   it('is a noop when no recognized key is present', async () => {
     const res = await patch('ct-a', {})
     expect((await res.json())).toEqual({ ok: true, noop: true })
-    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('old A')
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_private).toBe('old A private')
   })
 
-  it('falls back to notes_private when notes key is absent', async () => {
-    await patch('ct-a', { notes_private: 'legacy' })
-    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes).toBe('legacy')
+  it('sets both notes_private and notes_public in one request', async () => {
+    await patch('ct-a', { notes_private: 'p', notes_public: 'q' })
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_private).toBe('p')
+    expect(h.seed.clients.find((c) => c.id === 'cli-a')!.notes_public).toBe('q')
   })
 })

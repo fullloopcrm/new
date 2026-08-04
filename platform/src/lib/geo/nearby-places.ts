@@ -66,6 +66,13 @@ const OVERPASS_ENDPOINTS = [
 const METERS_PER_MILE = 1609.344
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const REQUEST_TIMEOUT_MS = 20_000
+// Drop a place ONLY when OSM tags a real, known population below this floor —
+// the "zoomed out, not all the way in" cutoff (a few hundred people is a
+// hamlet in practice, whatever `place` tag it carries). A place with NO
+// population tag is kept, never dropped — OSM's population tagging is
+// inconsistent, and a real, sizable town lacking the tag is far more likely
+// than a tagged one being wrong, so silence is not treated as "small."
+const MIN_KNOWN_POPULATION = 500
 
 export interface NearbyPlace {
   slug: string
@@ -232,7 +239,10 @@ export async function nearbyPlacesViaOverpass(
       if (!data) continue
       const places = data.elements
         .map((node) => toNearbyPlace(node, centerLat, centerLng))
-        .filter((p): p is NearbyPlace => p !== null && p.distanceMiles <= radiusMiles)
+        .filter((p): p is NearbyPlace =>
+          p !== null &&
+          p.distanceMiles <= radiusMiles &&
+          (p.population === null || p.population >= MIN_KNOWN_POPULATION))
         .sort((a, b) => a.distanceMiles - b.distanceMiles)
 
       cache.set(key, { expires: Date.now() + CACHE_TTL_MS, data: places })

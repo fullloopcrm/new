@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { buildAgreementPdf } from '@/lib/agreement-pdf'
-import { computeMonthly } from '@/lib/billing-pricing'
+import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, sha256Hex } from '@/lib/documents'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: lead } = await supabaseAdmin
     .from('partner_requests')
-    .select('id, business_name, contact_name, email, phone, proposal_admins, proposal_team_members, proposal_monthly, territory_id')
+    .select('id, business_name, contact_name, email, phone, proposal_admins, proposal_team_members, proposal_monthly, territory_id, trade')
     .eq('id', id)
     .single()
   if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
@@ -53,6 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     clientEmail: lead.email,
     clientPhone: lead.phone,
     admins, teamMembers, monthly, territoryName, effectiveDate,
+    trade: lead.trade,
   })
 
   // Preview: return the PDF bytes directly (no document created, no email).
@@ -127,20 +128,61 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : new URL(request.url).origin)
   const signUrl = `${baseUrl}/sign/${clientToken}`
   try {
+    const firstName = escapeHtml(lead.contact_name?.split(' ')[0] || 'there')
+    const bizName = escapeHtml(lead.business_name || 'your business')
+    const fmt = (n: number) => `$${n.toLocaleString()}`
+    const firstYear = PRICING.setupFee + monthly * 12
+
+    const row = (label: string, val: string, strong = false) =>
+      `<tr><td style="padding:9px 0;color:#475569;border-top:1px solid #eef2f6;">${label}</td><td style="padding:9px 0;text-align:right;font-weight:${strong ? 700 : 600};color:#0f172a;border-top:1px solid #eef2f6;">${val}</td></tr>`
+
+    const WHAT_YOU_GET = [
+      { t: 'A real website, built and launched for you', b: 'Not a template you configure — a finished, branded site live in your market.' },
+      { t: 'Selena, your AI front desk', b: 'Answers leads by text and web chat 24/7, quotes jobs, books them, and follows up — so nothing goes cold.' },
+      { t: 'Booking, invoicing, and payouts on autopilot', b: 'Card/ACH checkout, automatic crew payouts, a ledger that reconciles itself.' },
+      { t: 'Your market, locked to you', b: 'Full Loop is one business per market — no competitor on the platform can take your territory while you hold it.' },
+    ]
+    const whatYouGetHtml = WHAT_YOU_GET.map(i => `
+      <tr>
+        <td style="padding:10px 0;vertical-align:top;width:24px;color:#0d9488;font-weight:700;">✓</td>
+        <td style="padding:10px 0;">
+          <div style="font-weight:600;color:#0f172a;font-size:14px;">${i.t}</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.5;margin-top:2px;">${i.b}</div>
+        </td>
+      </tr>`).join('')
+
     await sendEmail({
       to: lead.email,
-      subject: `Your Full Loop service agreement — ${lead.business_name || ''}`.trim(),
+      subject: `Welcome to Full Loop, ${lead.contact_name?.split(' ')[0] || 'there'} — ${lead.business_name || 'your'} agreement is ready`.trim(),
       html: `
-        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#0f172a;">
-          <div style="font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:16px;">Full Loop CRM</div>
-          <h1 style="font-size:21px;margin:0 0 12px;">Welcome aboard, ${escapeHtml(lead.contact_name?.split(' ')[0] || 'there')} — this is the fun part</h1>
-          <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 14px;">We're genuinely excited to have you${lead.business_name ? ` and <strong>${escapeHtml(lead.business_name)}</strong>` : ''} on the way in. Your service agreement is ready whenever you are.</p>
-          <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 20px;">Give it a read and sign right from your phone or laptop — it takes a minute. Once you sign, we countersign, and a fully-signed copy lands in your inbox. Then the real work starts: we get your setup rolling.</p>
-          <div style="margin:0 0 22px;">
-            <a href="${safeUrl(signUrl)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:14px 30px;border-radius:8px;font-weight:600;font-size:15px;">Review &amp; sign →</a>
+        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:28px 24px;color:#0f172a;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:18px;">Full Loop CRM</div>
+
+          <h1 style="font-size:23px;line-height:1.3;margin:0 0 10px;">Hey ${firstName} from ${bizName} — welcome aboard!</h1>
+          <p style="color:#475569;margin:0 0 20px;font-size:15px;line-height:1.6;">We're genuinely excited to have you as a Full Loop CRM partner. This is where ${bizName} stops running on missed calls and manual admin, and starts running itself. Here's what's about to happen for you:</p>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:22px;">${whatYouGetHtml}</table>
+
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin:0 0 6px;">Your pricing</div>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:8px;">
+            ${row('One-time setup (100% upfront, bank wire)', fmt(PRICING.setupFee))}
+            ${row('Monthly (flat, unlimited admins &amp; team)', `${fmt(monthly)}/mo`)}
+            ${row('First charge today (card verification)', '$1')}
+            ${row('First-year total', fmt(firstYear), true)}
+          </table>
+          <p style="color:#64748b;font-size:13px;margin:0 0 22px;">The setup fee is paid by bank wire, kept separate from your card — details come right after you sign. Your monthly starts at $1 today to confirm your card works, then runs at the full rate from month two.</p>
+
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin:0 0 8px;">What you're about to sign</div>
+          <p style="color:#475569;font-size:13.5px;line-height:1.7;margin:0 0 22px;">The short version, so nothing in the agreement surprises you: it's <strong>month-to-month, cancel anytime</strong> — no long-term lock-in. <strong>You own your business data and customer relationships</strong>, always. A few third-party tools (AI, texting, email, payments) run on accounts billed directly to you, at cost, no markup. And setup takes up to 30 days once you've filled out your onboarding questionnaire. The full agreement covers all of this in plain terms below.</p>
+
+          <div style="margin:6px 0 10px;">
+            <a href="${safeUrl(signUrl)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:15px 30px;border-radius:8px;font-weight:600;font-size:15px;">Review &amp; sign →</a>
           </div>
-          <p style="color:#475569;font-size:14px;line-height:1.65;margin:0 0 20px;">Any questions before you sign? Just hit reply — a real person answers, and we're happy to walk through anything.</p>
-          <div style="border-top:1px solid #e2e8f0;padding-top:16px;color:#94a3b8;font-size:12px;line-height:1.6;">
+          <p style="color:#94a3b8;font-size:12px;margin:0 0 22px;">Takes about a minute, right from your phone. Once you sign, we countersign, and a fully-signed copy lands in your inbox — then we get to work.</p>
+
+          <hr style="border:none;border-top:1px solid #eef2f6;margin:0 0 16px;" />
+          <p style="color:#64748b;font-size:13px;margin:0 0 4px;">Any questions before you sign? Just hit reply — a real person answers.</p>
+          <div style="color:#94a3b8;font-size:12px;line-height:1.6;margin-top:10px;">
             <strong style="color:#64748b;">Full Loop CRM</strong> — automation that runs home-service businesses.<br/>
             <a href="mailto:hello@fullloopcrm.com" style="color:#0d9488;text-decoration:none;">hello@fullloopcrm.com</a> &nbsp;·&nbsp; (212) 202-9220 &nbsp;·&nbsp; <a href="https://fullloopcrm.com" style="color:#0d9488;text-decoration:none;">fullloopcrm.com</a>
           </div>

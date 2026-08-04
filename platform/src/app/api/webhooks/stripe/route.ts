@@ -15,7 +15,6 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { isCommEnabled } from '@/lib/comms-prefs'
@@ -24,7 +23,6 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
-import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
@@ -41,27 +39,44 @@ function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-// Each tenant runs its own Stripe account acting as its own Connect platform
-// for its team members/sales partners/referrers — so a tenant's
-// account.updated deliveries arrive signed with THAT tenant's own Connect
-// webhook secret (tenants.stripe_connect_webhook_secret), never the shared
-// platform STRIPE_WEBHOOK_SECRET used for checkout/refund/etc. The delivery
-// URL is always this same platform-registered endpoint regardless of which
-// tenant's Stripe account sent it (Stripe fires Connect webhooks to the
-// destination's configured URL, not the tenant's own domain) — so the tenant
-// can't be resolved from the request, only from the event payload itself.
+// Each tenant runs its own independent Stripe account, so each one generates
+// its own webhook signing secret when its own Stripe dashboard is pointed at
+// this same shared platform endpoint (Stripe never routes by destination
+// domain — every tenant's deliveries land here regardless of source). A
+// single global STRIPE_WEBHOOK_SECRET can only ever verify ONE tenant's
+// account (or platform-level events with no tenant, like a prospect
+// signup) — every other tenant's real deliveries fail constructEvent()
+// against it and get rejected outright.
+//
 // The tenant_id read here (from the UNVERIFIED body, before any signature
-// check succeeds) is only ever used to pick which secret to attempt
-// verification with — it grants no trust; the event is discarded unless
-// constructEvent() below cryptographically verifies against that tenant's
-// real secret.
-function peekConnectAccountTenantId(rawBody: string): string | null {
+// check succeeds) is only ever used to pick which secret to ATTEMPT
+// verification with — it grants no trust by itself. The event is discarded
+// unless constructEvent() below cryptographically verifies against that
+// specific tenant's own real secret; an attacker can shove any tenant_id
+// into an unsigned body, but can't forge a signature they don't hold the
+// secret for.
+//
+// Two distinct per-tenant secrets, for two distinct delivery sources:
+//   - tenants.stripe_webhook_secret — the tenant's own Stripe account's
+//     regular webhook (checkout.session.completed, charge.refunded, etc.)
+//   - tenants.stripe_connect_webhook_secret — Connect account.updated
+//     deliveries, since each tenant also acts as its own Connect platform
+//     for its team members/sales partners/referrers (see below).
+function peekEventTenantId(rawBody: string): string | null {
   try {
-    const parsed = JSON.parse(rawBody) as { type?: string; data?: { object?: { metadata?: Record<string, string> | null } } }
-    if (parsed.type !== 'account.updated') return null
+    const parsed = JSON.parse(rawBody) as { data?: { object?: { metadata?: Record<string, string> | null } } }
     return parsed.data?.object?.metadata?.tenant_id || null
   } catch {
     return null
+  }
+}
+
+function isAccountUpdatedEvent(rawBody: string): boolean {
+  try {
+    const parsed = JSON.parse(rawBody) as { type?: string }
+    return parsed.type === 'account.updated'
+  } catch {
+    return false
   }
 }
 
@@ -80,34 +95,41 @@ export async function POST(request: Request) {
     stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, sig!, webhookSecret)
   } catch (err) {
-    // Not verifiable against the shared platform secret — try the
-    // per-tenant Connect webhook secret for an account.updated delivery
-    // before giving up. Any failure along this path (no tenant hint, no
-    // tenant found, no secret configured, signature still doesn't verify)
-    // falls through to the same 400 as before — never silently accepted.
-    const tenantId = peekConnectAccountTenantId(body)
+    // Not verifiable against the shared platform secret — try the tenant's
+    // own per-tenant secret before giving up. Any failure along this path
+    // (no tenant hint, no tenant found, no secret configured, signature
+    // still doesn't verify) falls through to the same 400 as before — never
+    // silently accepted.
+    const tenantId = peekEventTenantId(body)
     if (!tenantId) {
       console.error('Stripe webhook signature failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
+    // account.updated deliveries are signed with the tenant's own Connect
+    // webhook secret; every other event type (checkout, refund, etc.) is
+    // signed with the tenant's own regular account webhook secret. Different
+    // columns, different Stripe-side webhook endpoints.
+    const isConnect = isAccountUpdatedEvent(body)
     const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
-      .select('stripe_connect_webhook_secret')
+      .select('stripe_webhook_secret, stripe_connect_webhook_secret')
       .eq('id', tenantId)
       .maybeSingle()
-    const connectSecret = (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+    const tenantSecret = isConnect
+      ? (tenantRow as { stripe_connect_webhook_secret?: string | null } | null)?.stripe_connect_webhook_secret
+      : (tenantRow as { stripe_webhook_secret?: string | null } | null)?.stripe_webhook_secret
 
-    if (!connectSecret) {
+    if (!tenantSecret) {
       console.error('Stripe webhook signature failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
     try {
       stripe = getStripe()
-      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(connectSecret))
-    } catch (connectErr) {
-      console.error('Stripe Connect webhook signature failed:', connectErr)
+      event = stripe.webhooks.constructEvent(body, sig!, decryptSecret(tenantSecret))
+    } catch (tenantErr) {
+      console.error('Stripe per-tenant webhook signature failed:', tenantErr)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
   }
@@ -118,11 +140,15 @@ export async function POST(request: Request) {
       let bookingId = session.metadata?.booking_id
       let tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
-      // Set true only when bookingId resolves via the static/adjustable-amount
-      // Payment Link below (client_reference_id path) — the ONE checkout
-      // surface where the client types their own amount, so a tip can
-      // actually be real. See the tip-math comment further down.
-      let viaAdjustableAmountPayLink = false
+      // True when the client could type their own amount on this checkout —
+      // the ONE condition under which an overage is a real, intended tip
+      // rather than a bug. See the tip-math comment further down. Two ways
+      // in: the legacy shared static link (resolved below via
+      // client_reference_id, since that reused link can't carry per-booking
+      // metadata) or this booking's own per-booking adjustable-amount
+      // Payment Link (createPaymentLink({ adjustableAmount: true }) —
+      // stamps its own metadata, so it's known immediately here).
+      let viaAdjustableAmountPayLink = session.metadata?.adjustable_amount === 'true'
 
       // Static pay-link path (NYC Maid parity): the link appends
       // ?client_reference_id=<bookingId> with no metadata. If it matches a real
@@ -183,139 +209,33 @@ export async function POST(request: Request) {
       // ── Full Loop signup: prospect paid → create tenant ──
       if (prospectId && isFullLoopSignup) {
         // Compare-and-swap claim. Stripe retries webhooks; two deliveries can
-        // race and both see prospect.tenant_id = null before either writes.
-        // Flip status approved|reviewing → paid in a single UPDATE so only one
-        // delivery wins; losers return idempotent without inserting a tenant.
-        const { data: claim } = await supabaseAdmin
+        // race and both see this as unclaimed before either writes. Flip
+        // status approved|reviewing|new → paid in a single UPDATE so only one
+        // delivery wins.
+        //
+        // 2026-08-02: this used to also create + immediately ACTIVATE a live
+        // tenant right here, on Stripe payment alone — completely bypassing
+        // the $25k wire requirement (the wire was "out of band," meaning
+        // nothing actually checked for it). That's now fixed to match the
+        // sales-assisted lead flow: paying here only records the subscription;
+        // an admin must confirm the wire landed before a tenant is created at
+        // all (see admin/prospects/[id]/wire-received).
+        const { error } = await supabaseAdmin
           .from('prospects')
           .update({
             status: 'paid',
             paid_at: new Date().toISOString(),
             stripe_checkout_session_id: session.id,
+            stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
+            subscription_started_at: new Date().toISOString(),
           })
           .eq('id', prospectId)
           .in('status', ['approved', 'reviewing', 'new'])
-          .select('id')
-          .maybeSingle()
 
-        if (!claim) {
-          return NextResponse.json({ received: true, already_processed: true })
-        }
-
-        const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
-        if (prospect && !prospect.tenant_id) {
-          // Seat-based signup pricing, recomputed server-side from checkout
-          // metadata (never from $ stored on the prospect row) so a corrupted
-          // row can't mint a $0 tenant. Defaults to 1 admin ($2,500/mo) when a
-          // legacy Payment Link supplies no seat metadata.
-          const pricing = signupPricing({
-            admins: Number(session.metadata?.admins) || 1,
-            teamMembers: Number(session.metadata?.team_members) || 0,
-          })
-
-          const slug = prospect.business_name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
-            .slice(0, 48) + '-' + prospectId.slice(0, 6)
-          const { data: tenant } = await supabaseAdmin
-            .from('tenants')
-            .insert({
-              name: prospect.business_name,
-              slug,
-              industry: prospect.trade,
-              phone: prospect.owner_phone,
-              email: prospect.owner_email,
-              owner_name: prospect.owner_name,
-              owner_email: prospect.owner_email,
-              owner_phone: prospect.owner_phone,
-              status: 'active',
-              // 'plan' is a non-pricing segment label; billing is seat-based (monthly_rate).
-              plan: prospect.paid_tier || session.metadata?.tier || 'pro',
-              monthly_rate: Math.round(pricing.monthly_cents / 100),
-              setup_fee: Math.round(pricing.setup_cents / 100),
-              // Setup is paid by bank wire out of band — mark it paid via the admin
-              // "Mark setup fee as paid" action when the wire lands, not at card checkout.
-              setup_fee_paid_at: null,
-              // Store the subscription id so seat changes can re-sync per-seat quantities.
-              stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
-              // Persist the seat counts so the tenant board / rate stay seat-driven.
-              admin_seats: pricing.admins,
-              team_seats: pricing.teamMembers,
-              billing_status: 'active',
-              address: prospect.primary_city && prospect.primary_state
-                ? `${prospect.primary_city}, ${prospect.primary_state} ${prospect.primary_zip || ''}`.trim()
-                : null,
-            })
-            .select('id')
-            .single()
-          if (tenant) {
-            // Seed default entity + chart of accounts + Selena config
-            await supabaseAdmin.from('entities').insert({
-              tenant_id: tenant.id, name: prospect.business_name, is_default: true, active: true,
-            })
-            const { provisionTenant } = await import('@/lib/provision-tenant')
-            await provisionTenant({
-              tenantId: tenant.id,
-              industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
-            })
-            await supabaseAdmin.from('prospects').update({
-              tenant_id: tenant.id,
-            }).eq('id', prospectId)
-
-            // This tenant goes live immediately (paid checkout) — no
-            // separate admin "Activate" click ever happens for it. Stamp
-            // activated_at and run the same post-activation tasks
-            // activate-tenant.ts triggers (FL-team ping, health baseline,
-            // first-pass content draft) so it isn't silently skipped.
-            await supabaseAdmin.from('tenants').update({ activated_at: new Date().toISOString() }).eq('id', tenant.id)
-            const { runPostActivationTasks } = await import('@/lib/post-activation')
-            runPostActivationTasks(tenant.id).catch((e) => console.error('[stripe webhook] post-activation tasks failed:', e))
-
-            // Send tenant owner an invite so they can log in and run setup.
-            // Without this, a paid tenant has no way into their dashboard
-            // and would be stuck until a super-admin manually invited them.
-            try {
-              const { randomBytes } = await import('node:crypto')
-              const token = randomBytes(32).toString('hex')
-              const expires_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-              await supabaseAdmin.from('tenant_invites').insert({
-                tenant_id: tenant.id,
-                email: prospect.owner_email.toLowerCase(),
-                role: 'owner',
-                token,
-                expires_at,
-              })
-              const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
-              const joinUrl = `${appUrl}/join/${token}`
-              const { sendEmail } = await import('@/lib/email')
-              await sendEmail({
-                to: prospect.owner_email,
-                subject: `Welcome to Full Loop CRM — set up ${prospect.business_name}`,
-                html: `
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;">
-                    <div style="background:#1e40af;padding:28px;text-align:center;border-radius:12px 12px 0 0;">
-                      <h1 style="color:white;margin:0;font-size:22px;">Welcome to Full Loop CRM</h1>
-                    </div>
-                    <div style="background:#f9fafb;padding:28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-                      <p style="color:#111827;font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(prospect.owner_name || 'there')},</p>
-                      <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-                        Your ${escapeHtml(prospect.business_name)} account is set up and ready. Click below to sign in, finish onboarding, and connect your phone number, email, and payment integrations.
-                      </p>
-                      <div style="text-align:center;margin:24px 0;">
-                        <a href="${joinUrl}" style="display:inline-block;background:#1e40af;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Get Started</a>
-                      </div>
-                      <p style="color:#6b7280;font-size:13px;line-height:1.6;">This link expires in 14 days. If you weren't expecting this, you can safely ignore it.</p>
-                    </div>
-                  </div>
-                `,
-              })
-            } catch (inviteErr) {
-              console.error(`[stripe] tenant ${tenant.id} created but invite failed:`, inviteErr)
-              // Don't fail the whole webhook — tenant is created. Super-admin
-              // can manually resend via /api/admin/invites.
-            }
-          }
+        if (error) {
+          console.error('[stripe webhook] failed to record prospect subscription:', error)
+          // Return 500 so Stripe retries — better than silently losing the sub id.
+          return NextResponse.json({ error: error.message }, { status: 500 })
         }
         return NextResponse.json({ received: true, signup_paid: true })
       }

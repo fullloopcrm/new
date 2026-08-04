@@ -847,7 +847,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
     const cleanPhone = phone.replace(/\D/g, '').slice(-10)
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, address, notes, active, created_at')
+      .select('id, name, email, phone, address, notes_private, active, created_at')
       .eq('tenant_id', tenantId).ilike('phone', `%${cleanPhone}%`).limit(1).single()
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
@@ -868,7 +868,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
 
     return JSON.stringify({
       name: client.name, address: client.address, email: client.email,
-      notes: client.notes, active: client.active, upcoming,
+      notes: client.notes_private, active: client.active, upcoming,
       last_rate: recentBookings?.[0]?.price ? Math.round((recentBookings[0].price / 100) / 2) : null,
       previous_messages: (prevMessages || []).reverse().map(m => ({ from: m.direction === 'inbound' ? 'client' : 'selena', message: m.message })),
     })

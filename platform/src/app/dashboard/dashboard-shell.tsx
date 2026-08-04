@@ -98,10 +98,10 @@ const foldMap: Record<string, string[]> = {
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
   { label: 'Onboarding', href: '/dashboard/onboarding', perm: 'settings.edit' },
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
-  { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
+  { label: 'Users', href: '/dashboard/users', perm: 'team.edit' },
   { label: 'AI (Voice | SMS | Web)', href: '/dashboard/selena', perm: 'settings.view' },
-  { label: 'Legal', href: '/dashboard/legal' },
-  { label: 'Platform Docs', href: '/dashboard/docs' },
+  { label: 'Legal', href: '/dashboard/legal', perm: 'settings.view' },
+  { label: 'Platform Docs', href: '/dashboard/docs', perm: 'settings.view' },
 ]
 
 function activeFold(pathname: string): string | null {

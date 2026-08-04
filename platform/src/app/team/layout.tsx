@@ -128,10 +128,10 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
         {auth && (
           <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
             <div className="max-w-lg mx-auto flex items-center justify-between">
-              <div className="min-w-0 flex-1">
+              <Link href="/team/profile" className="min-w-0 flex-1">
                 <p className="font-bold text-sm text-slate-800 truncate">{auth.tenant.name}</p>
-                <p className="text-xs text-slate-400 truncate">{auth.member.name}</p>
-              </div>
+                <p className="text-xs text-slate-400 truncate">{auth.member.name} · {t('Edit Profile', 'Editar Perfil')}</p>
+              </Link>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setLang(lang === 'en' ? 'es' : 'en')}

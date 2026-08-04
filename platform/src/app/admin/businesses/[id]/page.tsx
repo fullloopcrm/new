@@ -5,6 +5,7 @@ import { PRICING, computeMonthly } from '@/lib/billing-pricing'
 import { NotesPanel } from '@/components/admin/NotesPanel'
 import { TenantUsers } from '@/components/admin/TenantUsers'
 import { LaunchPanel } from '@/components/admin/LaunchPanel'
+import { ProfileForm } from '@/components/admin/ProfileForm'
 import DocumentsPanel from '@/components/DocumentsPanel'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -186,6 +187,8 @@ export default function BusinessDetailPage() {
   const [onboardingUrl, setOnboardingUrl] = useState('')
   const [linkBusy, setLinkBusy] = useState(false)
   const [linkMsg, setLinkMsg] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfMsg, setPdfMsg] = useState('')
 
   // Delete confirmation
   const [showDelete, setShowDelete] = useState(false)
@@ -354,6 +357,21 @@ export default function BusinessDetailPage() {
     })
   }
 
+  async function openOnboardingPdf() {
+    setPdfBusy(true)
+    setPdfMsg('')
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/onboarding-pdf`, { credentials: 'include' })
+      const d = await res.json()
+      if (res.ok && d.url) window.open(d.url, '_blank', 'noopener,noreferrer')
+      else setPdfMsg(d.error || 'Failed to load')
+    } catch {
+      setPdfMsg('Failed to load')
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+
   async function save(extra?: Record<string, unknown>) {
     setSaving(true)
     await fetch(`/api/admin/businesses/${id}`, {
@@ -474,7 +492,7 @@ export default function BusinessDetailPage() {
   const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
 
   const tabs = [
-    { key: 'contact' as const, label: 'Profile' },
+    { key: 'contact' as const, label: 'Owner Contact' },
     { key: 'users' as const, label: 'Users' },
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
@@ -527,6 +545,25 @@ export default function BusinessDetailPage() {
         </div>
       )}
 
+      {/* Onboarding Completed Form — the client's exact submitted answers,
+          rendered to PDF and locked at submit time (tenant_onboarding_submissions).
+          Independent of the live profile, which can change after this point. */}
+      {biz.onboarding_completed_at && (
+        <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-heading font-semibold text-sm text-slate-700">Onboarding Completed Form</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Exact copy of what the client submitted — a permanent backup, unaffected by later edits.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {pdfMsg && <span className="text-xs text-red-600">{pdfMsg}</span>}
+            <button onClick={openOnboardingPdf} disabled={pdfBusy}
+              className="px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              {pdfBusy ? 'Loading…' : 'View PDF ↗'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -547,15 +584,9 @@ export default function BusinessDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/businesses/${id}/profile`}
-            className="bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-700 px-4 py-3 rounded-lg text-sm font-semibold transition-colors"
-          >
-            Profile Form →
-          </Link>
           <button onClick={startImpersonation} disabled={impersonating}
             className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-lg text-base font-cta font-bold disabled:opacity-50 transition-colors shadow-sm">
-            {impersonating ? 'Entering...' : 'Enter Business Profile'}
+            {impersonating ? 'Logging in...' : 'Log In As Tenant'}
           </button>
           {(biz.domain || biz.domain_name) && (
             <>
@@ -1102,19 +1133,19 @@ export default function BusinessDetailPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-slate-400 uppercase">Admins (${PRICING.adminMonthly.toLocaleString()}/mo)</label>
+              <label className="text-xs text-slate-400 uppercase">Admins (headcount, unlimited)</label>
               <input type="number" min={0} value={adminSeats}
-                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setAdminSeats(v); setMonthlyRate(computeMonthly(v, teamSeats)) }}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setAdminSeats(v) }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs text-slate-400 uppercase">Portal team (${PRICING.teamMemberMonthly}/mo)</label>
+              <label className="text-xs text-slate-400 uppercase">Portal team (headcount, unlimited)</label>
               <input type="number" min={0} value={teamSeats}
-                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setTeamSeats(v); setMonthlyRate(computeMonthly(adminSeats, v)) }}
+                onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setTeamSeats(v) }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
           </div>
-          <p className="text-xs text-slate-400 -mt-2">Seats auto-compute the monthly rate. Stripe proration applies once billing keys are wired.</p>
+          <p className="text-xs text-slate-400 -mt-2">Flat $2,500/mo, unlimited admins &amp; team — these are headcounts only, they no longer change the rate.</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-slate-400 uppercase">Monthly Rate ($)</label>
@@ -1210,67 +1241,45 @@ export default function BusinessDetailPage() {
 
       {/* TAB: Contact & Access */}
       {tab === 'contact' && (
-        <div className="max-w-lg space-y-6">
-          <div className="space-y-3">
-            <h3 className="font-heading font-semibold text-slate-900">Owner Contact</h3>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Name</label>
-              <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Email</label>
-              <input value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
-            <div>
-              <label className="text-xs text-slate-400 uppercase">Phone</label>
-              <input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1" />
-            </div>
-          </div>
+        <div className="space-y-6">
+          <ProfileForm tenantId={id} />
 
-          <div className="pt-6 border-t border-slate-200 space-y-3">
-            <h3 className="font-heading font-semibold text-slate-900">Invite Owner</h3>
-            <div className="flex gap-2">
-              <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder={ownerEmail || 'owner@email.com'}
-                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder-slate-400" />
-              <button onClick={sendInvite} disabled={sendingInvite}
-                className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
-                {sendingInvite ? 'Sending...' : 'Send Invite'}
-              </button>
-            </div>
-            {inviteResult?.ok && <p className="text-sm text-green-600">Invite sent!</p>}
-            {inviteResult?.error && <p className="text-sm text-red-500">{inviteResult.error}</p>}
-            {invites.length > 0 && (
-              <div className="space-y-1 pt-2">
-                {invites.map((inv) => (
-                  <div key={inv.id} className="flex items-center gap-3 text-sm text-slate-500">
-                    <span>{inv.email}</span>
-                    <span className={`text-xs font-medium ${inv.accepted ? 'text-green-600' : new Date(inv.expires_at) < new Date() ? 'text-red-500' : 'text-yellow-600'}`}>
-                      {inv.accepted ? 'Accepted' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
-                    </span>
-                  </div>
-                ))}
+          <div className="max-w-lg space-y-6">
+            <div className="pt-6 border-t border-slate-200 space-y-3">
+              <h3 className="font-heading font-semibold text-slate-900">Invite Owner</h3>
+              <div className="flex gap-2">
+                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder={ownerEmail || 'owner@email.com'}
+                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm placeholder-slate-400" />
+                <button onClick={sendInvite} disabled={sendingInvite}
+                  className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
+                  {sendingInvite ? 'Sending...' : 'Send Invite'}
+                </button>
               </div>
-            )}
-          </div>
+              {inviteResult?.ok && <p className="text-sm text-green-600">Invite sent!</p>}
+              {inviteResult?.error && <p className="text-sm text-red-500">{inviteResult.error}</p>}
+              {invites.length > 0 && (
+                <div className="space-y-1 pt-2">
+                  {invites.map((inv) => (
+                    <div key={inv.id} className="flex items-center gap-3 text-sm text-slate-500">
+                      <span>{inv.email}</span>
+                      <span className={`text-xs font-medium ${inv.accepted ? 'text-green-600' : new Date(inv.expires_at) < new Date() ? 'text-red-500' : 'text-yellow-600'}`}>
+                        {inv.accepted ? 'Accepted' : new Date(inv.expires_at) < new Date() ? 'Expired' : 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <div className="pt-6 border-t border-slate-200">
-            <p className="text-xs text-slate-400 uppercase mb-1">Slug</p>
-            <p className="text-sm font-mono text-slate-600">{biz.slug}</p>
-            <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Created</p>
-            <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
-            <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
-          </div>
-
-          <div className="pt-4">
-            <button onClick={() => save()} disabled={saving}
-              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2.5 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
-            </button>
+            <div className="pt-6 border-t border-slate-200">
+              <p className="text-xs text-slate-400 uppercase mb-1">Slug</p>
+              <p className="text-sm font-mono text-slate-600">{biz.slug}</p>
+              <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Created</p>
+              <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
+              <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
+            </div>
           </div>
         </div>
       )}

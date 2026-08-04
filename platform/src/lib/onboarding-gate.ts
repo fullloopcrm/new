@@ -41,7 +41,7 @@ export async function runOnboardingGate(tenantId: string): Promise<GateResult> {
   const [{ data: tenant }, settings, { count: teamCount }] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, domain_name, website_url, google_place_id')
+      .select('name, slug, domain, domain_name, website_url, google_place_id, stripe_api_key, zelle_email, apple_cash_phone')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
@@ -91,12 +91,29 @@ export async function runOnboardingGate(tenantId: string): Promise<GateResult> {
   }
   stages.push({ stage: 'schedule', ok: scheduleOk, detail: scheduleDetail })
 
-  // 4. PAYMENT — a collection method is configured (Stripe or a payment link).
-  const hasPayment = settings.payment_methods.length > 0
+  // 4. PAYMENT — at least one claimed method has a REAL credential behind it,
+  // not just a label in the array. This used to be `payment_methods.length >
+  // 0`, which passes for a tenant that lists 'stripe' with no stripe_api_key
+  // at all (found live on Florida Maid 2026-08-03) — the label proves
+  // nothing was configured, only that something was once selected in the UI.
+  // 'cash'/'check' need no credential (informal collection); everything else
+  // maps to a specific tenant column that must actually be set.
+  const workingMethods = settings.payment_methods.filter((m) => {
+    if (m === 'cash' || m === 'check') return true
+    if (m === 'stripe' || m === 'credit_card') return !!tenant?.stripe_api_key
+    if (m === 'zelle') return !!tenant?.zelle_email
+    if (m === 'apple_pay' || m === 'apple_cash') return !!tenant?.apple_cash_phone
+    return false // venmo etc. have no tenant-level credential to check yet — not counted as "working"
+  })
+  const hasPayment = workingMethods.length > 0
   stages.push({
     stage: 'payment',
     ok: hasPayment,
-    detail: hasPayment ? `Methods: ${settings.payment_methods.join(', ')}` : 'No payment method configured',
+    detail: hasPayment
+      ? `Working: ${workingMethods.join(', ')}`
+      : settings.payment_methods.length > 0
+        ? `Listed but not configured: ${settings.payment_methods.join(', ')}`
+        : 'No payment method configured',
   })
 
   // 5. REVIEW — a destination for review requests exists.

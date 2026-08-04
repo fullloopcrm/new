@@ -12,6 +12,7 @@ import { createPrimaryContact } from '@/lib/client-contacts'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
 import { normalizePhone } from '@/lib/phone'
 import { randomInt } from 'crypto'
+import { getCollectConsentText, smsOptInFields } from '@/lib/sms-consent'
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
       name, email, phone, address, notes,
       referrer_name, referrer_phone, src, convo_id, pet_name, pet_type,
     } = body as Record<string, string | undefined>
+    const smsOptedIn = body.sms_opt_in === true
+    const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
+    const consentText = getCollectConsentText(tenant as { id: string; name: string })
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -106,6 +110,7 @@ export async function POST(request: Request) {
           status: 'active',
           ...(pet_name ? { pet_name } : {}),
           ...(pet_type ? { pet_type } : {}),
+          ...smsOptInFields(smsOptedIn, ip, userAgent, consentText),
         })
         .eq('id', existingClient.id)
         .select()
@@ -125,6 +130,7 @@ export async function POST(request: Request) {
           pet_name: pet_name || null,
           pet_type: pet_type || null,
           pin: String(100000 + randomInt(0, 900000)),
+          ...smsOptInFields(smsOptedIn, ip, userAgent, consentText),
         })
         .select()
         .single()

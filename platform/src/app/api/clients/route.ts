@@ -11,6 +11,7 @@ import { createPrimaryContact } from '@/lib/client-contacts'
 import { formatName } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { isValidLeadSource } from '@/lib/lead-sources'
+import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,13 +72,26 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>
+
+  // Session + RBAC wins when present (unchanged dashboard behavior). With no
+  // session, a valid onboarding token is accepted instead -- same as /api/
+  // catalog -- so a brand-new tenant can import their client list from the
+  // onboarding wizard before they've ever logged in.
   const { tenant, error: authError } = await requirePermission('clients.create')
-  if (authError) return authError
+  let tenantId: string
+  if (tenant) {
+    tenantId = tenant.tenantId
+  } else if (typeof body.token === 'string') {
+    const resolvedId = await resolveOnboardingTenantId(body.token)
+    if (!resolvedId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    tenantId = resolvedId
+  } else {
+    return authError
+  }
 
   try {
-    const { tenantId } = tenant
     const db = tenantDb(tenantId)
-    const body = await request.json()
     const settings = await getSettings(tenantId)
 
     const validated = validate(body, {

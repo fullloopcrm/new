@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
+import { requireNycmaidTenant } from '@/app/site/template/_lib/gate'
 import { breadcrumbSchema, localBusinessSchema, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -36,7 +36,7 @@ const referralFAQs = [
 ]
 
 export default async function ReferralPage() {
-  await requireCleaningTenant()
+  await requireNycmaidTenant()
   const config = await getSiteConfig()
   const businessName = config.identity.name
   const origin = config.identity.url

@@ -31,8 +31,23 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: () => ({
       select: () => ({ eq: () => ({ single: async () => ({ data: h.tenant, error: null }) }) }),
-      update: () => ({ eq: async () => ({ error: null }) }),
+      // POST's completion update chains .select().single() after .update().eq()
+      // (one atomic Supabase query in production) to grab the tenant name for
+      // the Telegram alert without a second round-trip -- eq() here needs to
+      // support both PUT/GET's "just await it" usage and POST's chained one.
+      update: () => ({ eq: () => ({
+        then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
+        select: () => ({ single: async () => ({ data: h.tenant, error: null }) }),
+      }) }),
     }),
+  },
+}))
+
+const alertOwnerMock = vi.fn()
+vi.mock('@/lib/telegram', () => ({
+  alertOwner: (...args: unknown[]) => {
+    alertOwnerMock(...args)
+    return Promise.resolve(null)
   },
 }))
 
@@ -54,7 +69,8 @@ beforeEach(() => {
   resolveOnboardingTenantIdMock.mockReset()
   getTenantProfileMock.mockReset()
   applyProfileWriteMock.mockReset()
-  h.tenant = { onboarding_draft: null }
+  alertOwnerMock.mockReset()
+  h.tenant = { onboarding_draft: null, name: 'Acme Cleaning' }
 })
 
 describe('GET /api/tenant-profile', () => {
@@ -90,6 +106,22 @@ describe('POST /api/tenant-profile', () => {
     const written = applyProfileWriteMock.mock.calls[0][1]
     expect(written).toEqual({ businessName: 'New Name' })
     expect(written.accountOwner).toBeUndefined()
+  })
+
+  it('succeeds and alerts the owner on Telegram with the tenant name once a submission completes', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+
+    const res = await POST(new Request('http://x/api/tenant-profile', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'whatever', data: { businessName: 'Acme Cleaning' } }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).submitted).toBe(true)
+    expect(alertOwnerMock).toHaveBeenCalledTimes(1)
+    expect(alertOwnerMock.mock.calls[0][0]).toBe('Onboarding completed')
+    expect(alertOwnerMock.mock.calls[0][1]).toContain('Acme Cleaning')
   })
 
   it('401s a write attempt with no valid session/token', async () => {

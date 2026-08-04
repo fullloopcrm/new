@@ -6,6 +6,7 @@ import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { encryptTenantSecrets } from '@/lib/secret-crypto'
+import { autoVerifyIntegrations } from '@/lib/integration-auto-verify'
 
 export async function GET() {
   try {
@@ -83,7 +84,25 @@ export async function PUT(request: Request) {
 
     await audit({ tenantId, action: 'settings.updated', entityType: 'settings', entityId: tenantId, details: { fields: Object.keys(body), sensitiveChanged: changedSensitive } })
 
-    return NextResponse.json({ tenant: data })
+    // Live-verify any vendor key that changed this save instead of leaving
+    // "is this actually working" as a separate manual Activate step. Runs
+    // after the save succeeds — a verification failure never blocks the
+    // save itself, it only shows up as a warning and leaves the onboarding
+    // task un-completed until a working key is saved.
+    let integrationWarnings: string[] = []
+    if (body.stripe_api_key !== undefined || body.telnyx_api_key !== undefined || body.telnyx_phone !== undefined) {
+      const result = await autoVerifyIntegrations(
+        tenantId,
+        { stripe_api_key: body.stripe_api_key, telnyx_api_key: body.telnyx_api_key, telnyx_phone: body.telnyx_phone },
+        { telnyx_api_key: data.telnyx_api_key, telnyx_phone: data.telnyx_phone },
+      ).catch((err) => {
+        console.error('[settings PUT] autoVerifyIntegrations failed:', err)
+        return { warnings: [] }
+      })
+      integrationWarnings = result.warnings
+    }
+
+    return NextResponse.json({ tenant: data, integrationWarnings })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

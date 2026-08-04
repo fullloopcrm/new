@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
-import { registerCarryingDomain } from '@/lib/vercel-domains'
 import { PRICING } from '@/lib/billing-pricing'
 import { createAndSendOnboardingLink } from '@/lib/onboarding-link'
 
@@ -99,26 +98,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Send the pre-activation onboarding questionnaire link now, not at
-  // Activate — the tenant needs to fill in their real profile BEFORE
-  // Activate builds their site from it. Best-effort/non-blocking, same
-  // pattern as api/tenants/route.ts: a send failure (e.g. no owner_email
-  // yet) never blocks tenant creation — the link is always re-copyable/
-  // resendable from the detail page once an email is on file.
+  // Creation triggers exactly ONE piece of automation: the onboarding
+  // questionnaire link. Everything else — website/domain build, service
+  // seeding, Selena config, owner login, SEO registration — is deliberately
+  // deferred until the operator hits Activate (activateTenant), once the
+  // client has actually submitted their real business info via that link.
+  // Best-effort/non-blocking: a send failure (e.g. no owner_email yet) never
+  // blocks tenant creation — the link is always re-copyable/resendable from
+  // the detail page once an email is on file.
   createAndSendOnboardingLink(tenant.id).catch((err) =>
     console.error('createAndSendOnboardingLink failed for', tenant.id, err),
   )
 
-  // Register the tenant's live website (<slug>.fullloopcrm.com) as a Vercel
-  // project domain so the site exists the moment the business is created — not
-  // only later via Activate. Best-effort: never throws, no-ops if Vercel env is
-  // unset. The result is surfaced so the form can show the live URL / any issue.
-  const carrying = await registerCarryingDomain(slug)
-
-  // Services, selena_config, guidelines, etc. are seeded by
-  // POST /api/admin/businesses/[id]/provision (called by the onboarding form
-  // when Auto-seed is checked). Keeps seeding logic in one place.
-  return NextResponse.json({ business: tenant, carrying })
+  return NextResponse.json({ business: tenant })
 }
 
 function zipToTimezone(zip: string): string {

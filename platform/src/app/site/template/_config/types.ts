@@ -100,4 +100,28 @@ export interface SiteConfig {
    * site stops reading as a cleaning site. Falls back to 'general'.
    */
   industry: string
+  /**
+   * The tenant's OWN Google review link (seeded at Activate from
+   * google_place_id, or a Google-search fallback — see activate-tenant.ts's
+   * "Review destination" step). Undefined only for a tenant that hasn't been
+   * activated yet. Never fall back to another tenant's real review link.
+   */
+  googleReviewLink?: string
+  /**
+   * Per-tenant personalization layer generated from the business's own
+   * onboarding answers (business description, differentiators, brand voice
+   * fields) — see lib/generate-site-brand-copy.ts. Absent for a tenant that
+   * hasn't run generation yet or had nothing to generate from; every content
+   * generator falls back to its industry-generic copy when this is undefined.
+   */
+  brandCopy?: SiteBrandCopy
+}
+
+export interface SiteBrandCopy {
+  /** AI-personalized hero subheading. Replaces the generic homepage intro when set. */
+  heroLine?: string
+  /** AI-personalized opening paragraph for the About page, prepended to the generic narrative. */
+  aboutIntro?: string
+  /** The tenant's OWN stated differentiators (raw onboarding input, never AI-paraphrased — a factual-claims section can't risk hallucination). */
+  differentiators?: string[]
 }

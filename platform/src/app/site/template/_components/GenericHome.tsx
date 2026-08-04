@@ -3,6 +3,7 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { homeContent } from '@/app/site/template/_lib/content/longform'
+import HeroChatEmbed from '@/app/site/template/_components/HeroChatEmbed'
 
 /**
  * Config-driven long-form homepage for non-cleaning tenants — the replacement
@@ -53,30 +54,40 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
       <JsonLd data={orgLd} />
       <JsonLd data={faqLd} />
 
-      {/* Hero */}
+      {/* Hero — content + live chat embed, side by side on desktop */}
       <section className="bg-[var(--brand)] text-white">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-28">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 text-sm text-white/70">
-            {hasRealReviews && (<>
-              <span className="text-[var(--accent)] font-semibold">★ {config.rating.toFixed(1)}</span>
-              <span>{reviewCount} reviews</span>
-              <span className="hidden sm:inline text-white/20">|</span>
-            </>)}
-            <span>Licensed &amp; insured</span>
-            <span className="hidden sm:inline text-white/20">|</span>
-            <span>Serving {config.geo.placename}</span>
-          </div>
-          <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl tracking-wide leading-[0.95] mb-5 max-w-4xl">
-            {c.h1}
-          </h1>
-          <p className="text-white/75 text-lg md:text-xl max-w-2xl mb-8">{c.intro}</p>
-          <div className="flex flex-wrap gap-3">
-            <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-              {cta.label}
-            </Link>
-            <a href={smsHref} className="inline-flex items-center bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
-              Text {config.contact.phone}
-            </a>
+          <div className="flex flex-col lg:flex-row gap-10 lg:gap-8 items-center">
+            <div className="lg:w-[65%]">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 text-sm text-white/70">
+                {hasRealReviews && (<>
+                  <span className="text-[var(--accent)] font-semibold">★ {config.rating.toFixed(1)}</span>
+                  <span>{reviewCount} reviews</span>
+                  <span className="hidden sm:inline text-white/20">|</span>
+                </>)}
+                <span>Licensed &amp; insured</span>
+                <span className="hidden sm:inline text-white/20">|</span>
+                <span>Serving {config.geo.placename}</span>
+              </div>
+              <h1 className="font-[family-name:var(--font-bebas)] text-5xl md:text-7xl tracking-wide leading-[0.95] mb-5 max-w-4xl">
+                {c.h1}
+              </h1>
+              <p className="text-white/75 text-lg md:text-xl max-w-2xl mb-8">{c.intro}</p>
+              <div className="flex flex-wrap gap-3">
+                <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                  {cta.label}
+                </Link>
+                <a href={smsHref} className="inline-flex items-center bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
+                  Text {config.contact.phone}
+                </a>
+              </div>
+            </div>
+
+            <div className="hidden lg:block w-px self-stretch bg-white/20 mx-2" />
+
+            <div className="lg:w-[35%] flex flex-col">
+              <HeroChatEmbed />
+            </div>
           </div>
         </div>
       </section>

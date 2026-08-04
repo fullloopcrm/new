@@ -5,6 +5,7 @@ import { notify } from '@/lib/notify'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { getTenantTimezone, getLocalHour, toTenantNaiveString } from '@/lib/tenant-time'
+import { createPaymentLink } from '@/lib/stripe'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -14,7 +15,10 @@ import { getTenantTimezone, getLocalHour, toTenantNaiveString } from '@/lib/tena
 // flips payment_status to 'paid' the moment the client pays — this
 // self-terminates with no manual check-off.
 //
-// SCOPE: only tenants with BOTH a Telnyx key AND a payment_link set are chased.
+// SCOPE: only tenants with BOTH a Telnyx key AND a Stripe key are chased.
+// Payment links are per-booking now (reuses the one 30-min-alert already
+// created on the booking, or creates one fresh here) — no more tenant-wide
+// static link.
 //
 // vercel.json fires hourly; each tenant is only processed when it's actually
 // one of its own local send-slot hours (was previously a single ET-hardcoded
@@ -42,13 +46,13 @@ export async function GET(request: Request) {
   const force = url.searchParams.get('force') === '1'
   const dryRun = url.searchParams.get('dry') === '1'
 
-  // Only tenants that can send (Telnyx) AND have a pay link to send.
+  // Only tenants that can send (Telnyx) AND can generate a pay link (Stripe).
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, payment_link, owner_phone, phone, timezone')
+    .select('id, name, telnyx_api_key, telnyx_phone, stripe_api_key, owner_phone, phone, timezone')
     .eq('status', 'active')
     .not('telnyx_api_key', 'is', null)
-    .not('payment_link', 'is', null)
+    .not('stripe_api_key', 'is', null)
 
   const idempotencyCutoff = new Date(now.getTime() - SLOT_IDEMPOTENCY_MS).toISOString()
 
@@ -56,7 +60,7 @@ export async function GET(request: Request) {
   let skippedWrongHour = 0
 
   for (const tenant of tenants || []) {
-    if (!tenant.telnyx_phone || !tenant.payment_link) continue
+    if (!tenant.telnyx_phone || !tenant.stripe_api_key) continue
     const timezone = getTenantTimezone(tenant)
     const localHour = getLocalHour(timezone, now)
     if (!force && !dryRun && !SEND_SLOTS_LOCAL.has(localHour)) { skippedWrongHour++; continue }
@@ -68,7 +72,7 @@ export async function GET(request: Request) {
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, price, end_time, clients(name, phone)')
+      .select('id, client_id, price, end_time, payment_link, service_type, clients(name, phone)')
       .eq('tenant_id', tenant.id)
       .eq('status', 'completed')
       .gt('price', 0)
@@ -97,8 +101,30 @@ export async function GET(request: Request) {
       const amount = (booking.price / 100).toFixed(2)
       if (dryRun) { wouldText++; continue }
 
+      // Reuse the same per-booking link the 30-min alert already created
+      // (so a client who already has that link in their texts sees the same
+      // one) — only create fresh here if this booking somehow reached
+      // "unpaid" without ever going through that flow.
+      let payLink = booking.payment_link as string | null
+      if (!payLink) {
+        try {
+          const link = await createPaymentLink({
+            amount: booking.price,
+            serviceName: booking.service_type || 'Service',
+            bookingId: booking.id,
+            tenantId: tenant.id,
+            stripeApiKey: tenant.stripe_api_key,
+            adjustableAmount: true,
+          })
+          payLink = link.url
+          await supabaseAdmin.from('bookings').update({ payment_link: payLink }).eq('id', booking.id)
+        } catch (err) {
+          console.error(`[payment-followup-daily] link creation failed (tenant ${tenant.id}, booking ${booking.id}):`, err)
+          continue
+        }
+      }
+
       const firstName = client.name?.split(' ')[0] || 'there'
-      const payLink = `${tenant.payment_link}?client_reference_id=${booking.id}`
       const text = [
         `Hi ${firstName} — just a reminder your balance of $${amount} for your recent service is still open 😊`,
         ``,

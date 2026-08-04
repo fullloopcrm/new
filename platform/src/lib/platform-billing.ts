@@ -2,131 +2,101 @@
  * Full Loop PLATFORM billing — FullLoop charging its tenants (its own Stripe
  * account), distinct from per-tenant Connect payments in lib/stripe.ts.
  *
- * Prices are find-or-created by lookup_key so there's no manual dashboard step.
- * Checkout runs in subscription mode: recurring seats + the one-time $25k setup
- * on the first invoice, with ACH enabled (pick ACH to avoid the card fee on 25k).
+ * Flat, unlimited-usage pricing (decided 2026-08-02):
+ *   - $25,000 setup fee — 100% upfront, paid by bank WIRE, never touches
+ *     Stripe. Tracked on partner_requests/tenants.setup_fee_paid_at only.
+ *   - $2,500/month recurring — Stripe subscription, started the moment the
+ *     proposal is signed. First invoice is $1 (a real, refundable charge
+ *     that verifies the card/bank actually works) via a one-time coupon;
+ *     every invoice after is the full $2,500.
+ *
+ * Prices/coupon are find-or-created by lookup_key/id so there's no manual
+ * Stripe dashboard step.
  */
-import type Stripe from 'stripe'
 import { getStripe } from './stripe'
 import { PRICING } from './billing-pricing'
+import { signWireToken } from './wire-instructions'
 
-// Stripe Price objects are immutable: their unit_amount can't be edited after
-// creation. When the seat price changes we must mint NEW prices, so the lookup
-// keys are versioned by amount. Bumping the amount => bump the suffix here so
-// ensurePlatformPrices() creates a fresh price at the new amount instead of
-// reusing the old (cheaper) one. Existing subscriptions keep their old price
-// until explicitly migrated (see syncSubscriptionSeats / a repricing job).
-const ADMIN_LOOKUP = 'fl_admin_seat_monthly_2500'
-const MEMBER_LOOKUP = 'fl_team_seat_monthly_250'
-const SETUP_LOOKUP = 'fl_setup_fee_onetime' // unchanged — still $25,000
+// Stripe Price objects are immutable. If the flat fee ever changes, bump this
+// suffix so ensurePlatformMonthlyPrice() mints a fresh price instead of
+// reusing the old (wrong) amount. Existing subscriptions keep their old price
+// until explicitly migrated.
+const MONTHLY_LOOKUP = 'fl_flat_monthly_2500'
+const FIRST_MONTH_COUPON_ID = 'fl_first_month_1_dollar_2500'
 
-interface SeatPrices {
-  adminPriceId: string
-  memberPriceId: string
-  setupPriceId: string
-}
-
-export async function ensurePlatformPrices(): Promise<SeatPrices> {
+export async function ensurePlatformMonthlyPrice(): Promise<string> {
   const stripe = getStripe()
-  const found = await stripe.prices.list({
-    lookup_keys: [ADMIN_LOOKUP, MEMBER_LOOKUP, SETUP_LOOKUP],
-    active: true,
-    limit: 10,
+  const found = await stripe.prices.list({ lookup_keys: [MONTHLY_LOOKUP], active: true, limit: 1 })
+  if (found.data[0]) return found.data[0].id
+
+  const prod = await stripe.products.create({ name: 'Full Loop CRM — monthly (flat, unlimited)' })
+  const price = await stripe.prices.create({
+    product: prod.id, currency: 'usd', unit_amount: PRICING.monthlyFee * 100,
+    recurring: { interval: 'month' }, lookup_key: MONTHLY_LOOKUP,
   })
-  const byKey = (k: string) => found.data.find(p => p.lookup_key === k)
-
-  let admin = byKey(ADMIN_LOOKUP)
-  let member = byKey(MEMBER_LOOKUP)
-  let setup = byKey(SETUP_LOOKUP)
-
-  if (!admin) {
-    const prod = await stripe.products.create({ name: 'Full Loop — Admin seat' })
-    admin = await stripe.prices.create({
-      product: prod.id, currency: 'usd', unit_amount: PRICING.adminMonthly * 100,
-      recurring: { interval: 'month' }, lookup_key: ADMIN_LOOKUP,
-    })
-  }
-  if (!member) {
-    const prod = await stripe.products.create({ name: 'Full Loop — Portal team seat' })
-    member = await stripe.prices.create({
-      product: prod.id, currency: 'usd', unit_amount: PRICING.teamMemberMonthly * 100,
-      recurring: { interval: 'month' }, lookup_key: MEMBER_LOOKUP,
-    })
-  }
-  if (!setup) {
-    const prod = await stripe.products.create({ name: 'Full Loop — Setup fee (one-time)' })
-    setup = await stripe.prices.create({
-      product: prod.id, currency: 'usd', unit_amount: PRICING.setupFee * 100,
-      lookup_key: SETUP_LOOKUP,
-    })
-  }
-
-  return { adminPriceId: admin.id, memberPriceId: member.id, setupPriceId: setup.id }
+  return price.id
 }
 
 /**
- * Sync a live subscription's per-seat quantities to the tenant's current seat
- * counts. Stripe prorates the difference automatically. Admin seats are clamped
- * to a minimum of 1; team seats of 0 remove the team line item. No-op-safe:
- * callers should only invoke this when the tenant actually has a subscription.
+ * $1 first-invoice coupon: amount_off brings the first $2,500 invoice down to
+ * $1, `duration: 'once'` so every invoice after is the full price. A real,
+ * non-zero first charge (vs. a $0 trial) so a dead card/account fails fast.
  */
-export async function syncSubscriptionSeats(
-  subscriptionId: string,
-  admins: number,
-  teamMembers: number,
-): Promise<void> {
+export async function ensureFirstMonthCoupon(): Promise<string> {
   const stripe = getStripe()
-  const { adminPriceId, memberPriceId } = await ensurePlatformPrices()
-  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] })
-  const items = sub.items.data
-  const adminItem = items.find(i => i.price.id === adminPriceId)
-  const memberItem = items.find(i => i.price.id === memberPriceId)
-
-  const updateItems: Stripe.SubscriptionUpdateParams.Item[] = []
-
-  const adminQty = Math.max(1, Math.floor(admins || 0))
-  updateItems.push(adminItem ? { id: adminItem.id, quantity: adminQty } : { price: adminPriceId, quantity: adminQty })
-
-  const teamQty = Math.max(0, Math.floor(teamMembers || 0))
-  if (teamQty > 0) {
-    updateItems.push(memberItem ? { id: memberItem.id, quantity: teamQty } : { price: memberPriceId, quantity: teamQty })
-  } else if (memberItem) {
-    updateItems.push({ id: memberItem.id, deleted: true })
+  try {
+    const existing = await stripe.coupons.retrieve(FIRST_MONTH_COUPON_ID)
+    if (existing && !existing.deleted) return existing.id
+  } catch {
+    // Not found — fall through and create it.
   }
-
-  await stripe.subscriptions.update(subscriptionId, {
-    items: updateItems,
-    proration_behavior: 'create_prorations',
+  const coupon = await stripe.coupons.create({
+    id: FIRST_MONTH_COUPON_ID,
+    amount_off: PRICING.monthlyFee * 100 - 100, // brings $2,500 -> $1
+    currency: 'usd',
+    duration: 'once',
+    name: 'First month — $1 verification charge',
   })
+  return coupon.id
 }
 
+/**
+ * Checkout for the RECURRING $2,500/mo only — the $25k setup fee never goes
+ * through Stripe (it's a bank wire, tracked separately). Subscription starts
+ * immediately on signing: $1 today, $2,500/mo from month two.
+ */
 export async function createProposalCheckout(opts: {
   leadId: string
   email?: string | null
-  admins: number
-  teamMembers: number
   origin: string
 }): Promise<{ url: string | null; id: string }> {
   const stripe = getStripe()
-  const { adminPriceId, memberPriceId, setupPriceId } = await ensurePlatformPrices()
-
-  const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-    { price: adminPriceId, quantity: Math.max(1, opts.admins) },
-    // One-time $25k setup on the first invoice.
-    { price: setupPriceId, quantity: 1 },
-  ]
-  if (opts.teamMembers > 0) line_items.push({ price: memberPriceId, quantity: opts.teamMembers })
+  const [priceId, couponId] = await Promise.all([ensurePlatformMonthlyPrice(), ensureFirstMonthCoupon()])
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    payment_method_types: ['us_bank_account', 'card'],
-    line_items,
+    payment_method_types: ['card', 'us_bank_account'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    discounts: [{ coupon: couponId }],
     ...(opts.email && { customer_email: opts.email }),
     metadata: { lead_id: opts.leadId, kind: 'platform_proposal' },
     subscription_data: { metadata: { lead_id: opts.leadId } },
-    success_url: `${opts.origin}/proposal/thank-you`,
+    success_url: `${opts.origin}/proposal/thank-you?lead=${opts.leadId}&t=${signWireToken(opts.leadId)}`,
     cancel_url: `${opts.origin}/proposal/cancelled`,
   })
 
   return { url: session.url, id: session.id }
+}
+
+/**
+ * Pricing is flat now — no per-seat Stripe items to keep in sync. Kept as a
+ * no-op (params accepted-and-ignored) so the existing best-effort caller
+ * (businesses/[id] seat editor) doesn't need to change.
+ */
+export async function syncSubscriptionSeats(
+  _subscriptionId?: string,
+  _admins?: number,
+  _teamMembers?: number,
+): Promise<void> {
+  return
 }

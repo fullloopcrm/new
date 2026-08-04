@@ -3,20 +3,23 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP, type EligibleApplicant } from '../constants'
 
-// Preview who an applicant broadcast would reach. Ported from nycmaid,
-// tenant-scoped for FullLoop (cleaner_applications filtered by tenant_id).
+// Preview who an applicant broadcast would reach. Originally read
+// cleaner_applications (ported from nycmaid), but that table stopped
+// receiving new rows on 2026-07-16 when /api/cleaner-applications became a
+// forwarding alias to /api/team-applications — every applicant since then
+// was invisible to this tool. Reads team_applications now, tenant-scoped.
 // Safety gates (TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP) and the
 // EligibleApplicant type live in ./constants — see feedback_no_mass_sms.
 
-// FL cleaner_applications status enum is ('pending','reviewed','accepted','rejected').
-// "New / un-hired" = not yet accepted (hired) and not rejected.
-const EXCLUDED_STATUSES = ['accepted', 'rejected']
+// team_applications status enum is ('pending','approved','rejected').
+// "New / un-hired" = not yet approved (hired) and not rejected.
+const EXCLUDED_STATUSES = ['approved', 'rejected']
 
-// NOTE: nycmaid also enforces a 7-day recency floor via cleaner_applications
-// .last_contacted_at — that column does NOT exist on FL's table yet, so the
-// recency floor is omitted here. TEST_MODE + the per-send cap + phone dedup are
-// the active safety gates. Add last_contacted_at + the floor before flipping
-// TEST_MODE off for real broadcasts (see feedback_no_mass_sms).
+// NOTE: nycmaid also enforces a 7-day recency floor via .last_contacted_at
+// — that column does NOT exist on FL's table, so the recency floor is
+// omitted here. TEST_MODE + the per-send cap + phone dedup are the active
+// safety gates. Add last_contacted_at + the floor before flipping TEST_MODE
+// off for real broadcasts (see feedback_no_mass_sms).
 
 type ApplicantRow = {
   id: string
@@ -36,7 +39,7 @@ export async function POST() {
   }
 
   const { data: applicants, error } = await tenantDb(tenantId)
-    .from('cleaner_applications')
+    .from('team_applications')
     .select('id, name, phone, status, created_at')
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -11,7 +11,7 @@ export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, sessionId, phone, tenantId: bodyTenantId } = await req.json()
+    const { message, sessionId, phone, name, tenantId: bodyTenantId } = await req.json()
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
           try {
             const { createLeadAndEnterPipeline } = await import('@/lib/lead-intake')
             const result = await createLeadAndEnterPipeline(tenantId, {
-              phone, source: 'web-chat', notes: `Started web chat with phone ${phone}`,
+              phone, name, source: 'web-chat', notes: `Started web chat with phone ${phone}`,
             })
             insertData.client_id = result.clientId
-            insertData.booking_checklist = { ...EMPTY_CHECKLIST, channel: 'web', phone }
+            insertData.booking_checklist = { ...EMPTY_CHECKLIST, channel: 'web', phone, name: name || null }
             isNewLead = true
           } catch (leadErr) {
             // lss-04 live-audit gap (2026-07-31): every OTHER caller of
@@ -100,9 +100,11 @@ export async function POST(req: NextRequest) {
       await notify({
         tenantId,
         type: 'new_lead',
-        title: isNewLead ? 'New Lead — Web Chat' : phone ? 'Returning Client — Web Chat' : 'New Web Chat Lead',
+        title: isNewLead
+          ? `New Lead — Web Chat${name ? ` — ${name}` : ''}`
+          : phone ? 'Returning Client — Web Chat' : 'New Web Chat Lead',
         message: isNewLead
-          ? `New lead (${phone}) started web chat — added to Sales`
+          ? `New lead${name ? ` (${name})` : ''} (${phone}) started web chat — added to Sales`
           : phone ? `Returning client (${phone}) started web chat` : 'New visitor started chat on website',
       }).catch(() => {})
     }

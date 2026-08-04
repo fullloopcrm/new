@@ -3,10 +3,15 @@ import { NextRequest } from 'next/server'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
- * Regression: `body.notes ?? body.notes_private ?? body.notes_public` treated
- * an explicit `{ notes: null }` as nullish and fell through to the next key,
- * silently no-op'ing instead of clearing the client's notes field. Fix
- * resolves by which key is PRESENT in the body, not by its value.
+ * Regression (2026-08-03): this route used to write a single `clients.notes`
+ * column that was never added by migration 009 (only notes_private/
+ * notes_public exist) — every save 500'd. Worse, the body-key-precedence
+ * fallback (`'notes' in body ? ... : 'notes_private' in body ? ...`) meant
+ * that even a fixed single-column write would have silently dropped
+ * notes_public, since the ComHub UI always sends both keys together and
+ * 'notes_private' always won the precedence check first. Coverage here is
+ * on the real contract: both columns are set independently, by whichever
+ * keys are actually present in the body.
  */
 
 vi.mock('@/lib/require-admin', () => ({
@@ -48,26 +53,43 @@ describe('PATCH contacts/[id]/notes', () => {
         { id: 'contact-1', tenant_id: 'tenant-1', client_id: 'client-1' },
       ],
       clients: [
-        { id: 'client-1', tenant_id: 'tenant-1', notes: 'original' },
+        { id: 'client-1', tenant_id: 'tenant-1', notes_private: 'original-private', notes_public: 'original-public' },
       ],
     }
   })
 
-  it('clears notes when notes is explicitly null', async () => {
-    const res = await PATCH(makeRequest({ notes: null }), {
+  it('clears notes_private when it is explicitly null, leaving notes_public untouched', async () => {
+    const res = await PATCH(makeRequest({ notes_private: null }), {
       params: Promise.resolve({ id: 'contact-1' }),
     })
     const json = await res.json()
 
     expect(json).toEqual({ ok: true })
-    expect(currentClient().notes).toBeNull()
+    expect(currentClient().notes_private).toBeNull()
+    expect(currentClient().notes_public).toBe('original-public')
   })
 
-  it('sets notes to the provided string', async () => {
-    await PATCH(makeRequest({ notes: 'hello' }), {
+  it('sets notes_private to the provided string', async () => {
+    await PATCH(makeRequest({ notes_private: 'hello' }), {
       params: Promise.resolve({ id: 'contact-1' }),
     })
-    expect(currentClient().notes).toBe('hello')
+    expect(currentClient().notes_private).toBe('hello')
+  })
+
+  it('sets notes_public to the provided string', async () => {
+    await PATCH(makeRequest({ notes_public: 'visible to client' }), {
+      params: Promise.resolve({ id: 'contact-1' }),
+    })
+    expect(currentClient().notes_public).toBe('visible to client')
+    expect(currentClient().notes_private).toBe('original-private')
+  })
+
+  it('sets both columns in one request — the shape the ComHub UI actually sends', async () => {
+    await PATCH(makeRequest({ notes_private: 'private update', notes_public: 'public update' }), {
+      params: Promise.resolve({ id: 'contact-1' }),
+    })
+    expect(currentClient().notes_private).toBe('private update')
+    expect(currentClient().notes_public).toBe('public update')
   })
 
   it('is a noop when no recognized key is present', async () => {
@@ -76,13 +98,7 @@ describe('PATCH contacts/[id]/notes', () => {
     })
     const json = await res.json()
     expect(json).toEqual({ ok: true, noop: true })
-    expect(currentClient().notes).toBe('original')
-  })
-
-  it('falls back to notes_private when notes key is absent', async () => {
-    await PATCH(makeRequest({ notes_private: 'legacy' }), {
-      params: Promise.resolve({ id: 'contact-1' }),
-    })
-    expect(currentClient().notes).toBe('legacy')
+    expect(currentClient().notes_private).toBe('original-private')
+    expect(currentClient().notes_public).toBe('original-public')
   })
 })

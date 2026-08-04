@@ -38,6 +38,7 @@ interface ApplyBody {
   resumeUrl?: string | null
   portfolioFileUrl?: string | null
   videoUrl?: string | null
+  photo_url?: string | null
 }
 
 function buildNotes(body: ApplyBody): string {
@@ -89,6 +90,8 @@ export async function POST(request: Request) {
         phone: cleanPhone,
         experience: body.experience || null,
         availability: body.availability || null,
+        photo_url: body.photo_url || null,
+        video_url: body.videoUrl || null,
         notes: buildNotes(body),
         status: 'pending',
       })

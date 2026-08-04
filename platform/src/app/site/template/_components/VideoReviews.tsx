@@ -2,6 +2,12 @@
 
 import Link from 'next/link'
 
+// Hardcodes nycmaid's own real video files and copy ("NYC Cleaning
+// Clients", nycmaid service-slug links) — safe ONLY because both current
+// call sites (template/page.tsx, template/reviews/page.tsx) gate on the real
+// nycmaid tenant before rendering this. Do not add a new call site without
+// the same isNycmaid gate, or another tenant's visitors will see nycmaid's
+// real customer videos.
 const VIDEOS = [
   { src: '/videos/review-1.mp4' },
   { src: '/videos/review-2.mp4' },

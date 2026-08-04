@@ -40,12 +40,18 @@ const genericMoreLinks = [
 
 export default function MarketingNav({ config }: { config: SiteConfig }) {
   // Cleaning-specific nav (services dropdown, area strip, pricing) links to
-  // pages that are gated for non-cleaning tenants — hide them to avoid dead nav.
+  // pages that are gated to the real nycmaid tenant only (see
+  // _lib/gate.ts requireNycmaidTenant — those pages hardcode nycmaid's own
+  // real neighborhood/pricing content). isCleaning alone is NOT enough here:
+  // a different cleaning tenant would show this nav and then 404 on every
+  // link. Only the real nycmaid tenant gets this nav; every other cleaning
+  // tenant falls through to the generic, config-driven nav below.
   const profile = industryProfile(config.industry)
-  const isCleaning = profile.isCleaning
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+  const isCleaning = profile.isCleaning && isNycmaid
   const isVa = profile.isVirtualAssistant
   // Trade-agnostic tenants: full generic menu pointing at the config-driven
-  // long-form routes.
+  // long-form routes. Also covers non-nycmaid cleaning tenants (see above).
   const generic = !isCleaning && !isVa
   // Projects nav link (Phase 2C) — only for project/lead trades (remodeling,
   // roofing, painting, etc.), derived live from industryProfile() rather than
@@ -121,7 +127,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
             </Link>
 
-            <nav className="hidden lg:flex items-center justify-center flex-1 gap-8 mx-8">
+            <nav className="hidden xl:flex items-center justify-center flex-1 gap-8 mx-8">
               <Link href="/" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Home</Link>
 
               {isVa && (
@@ -203,7 +209,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               )}
             </nav>
 
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-2">
               <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors whitespace-nowrap">
                 Text {config.contact.phone}
               </a>
@@ -216,7 +222,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             </div>
 
             {/* Mobile hamburger */}
-            <div className="lg:hidden flex items-center gap-2">
+            <div className="xl:hidden flex items-center gap-2">
               <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Text
               </a>

@@ -4,45 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PRICING } from '@/lib/billing-pricing'
+import { INDUSTRY_OPTIONS as industries } from '@/lib/industry-presets'
 
-const industries = [
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'hvac', label: 'HVAC' },
-  { value: 'landscaping', label: 'Landscaping' },
-  { value: 'painting', label: 'Painting' },
-  { value: 'roofing', label: 'Roofing' },
-  { value: 'pest_control', label: 'Pest Control' },
-  { value: 'handyman', label: 'Handyman' },
-  { value: 'moving', label: 'Moving' },
-  { value: 'carpet_cleaning', label: 'Carpet Cleaning' },
-  { value: 'window_cleaning', label: 'Window Cleaning' },
-  { value: 'pressure_washing', label: 'Pressure Washing' },
-  { value: 'pool_service', label: 'Pool Service' },
-  { value: 'garage_door', label: 'Garage Door' },
-  { value: 'locksmith', label: 'Locksmith' },
-  { value: 'appliance_repair', label: 'Appliance Repair' },
-  { value: 'flooring', label: 'Flooring' },
-  { value: 'fencing', label: 'Fencing' },
-  { value: 'tree_service', label: 'Tree Service' },
-  { value: 'snow_removal', label: 'Snow Removal' },
-  { value: 'junk_removal', label: 'Junk Removal' },
-  { value: 'auto_detailing', label: 'Auto Detailing' },
-  { value: 'dog_walking', label: 'Dog Walking / Pet Care' },
-  { value: 'tutoring', label: 'Tutoring' },
-  { value: 'photography', label: 'Photography' },
-  { value: 'catering', label: 'Catering' },
-  { value: 'personal_training', label: 'Personal Training' },
-  { value: 'massage', label: 'Massage Therapy' },
-  { value: 'salon', label: 'Salon / Barbershop' },
-  { value: 'daycare', label: 'Daycare / Childcare' },
-  { value: 'home_inspection', label: 'Home Inspection' },
-  { value: 'solar', label: 'Solar Installation' },
-  { value: 'security', label: 'Security Systems' },
-  { value: 'general_contractor', label: 'General Contractor' },
-  { value: 'other', label: 'Other' },
-]
+// Previously a hand-typed list that had drifted from the real IndustryKey
+// union — several values here (pool_service, pest_control, dog_walking,
+// tutoring, photography, catering, personal_training, massage, salon,
+// daycare, security, general_contractor, other) matched nothing in
+// SERVICE_PRESETS, so picking one silently fell back to the 'general' preset
+// with no indication anything was wrong. Now imports the same canonical list
+// the tenant-profile 'industry' field uses — see industry-presets.ts.
 
 export default function NewBusinessPage() {
   const router = useRouter()
@@ -68,12 +38,13 @@ export default function NewBusinessPage() {
   const [tagline, setTagline] = useState('')
   const [primaryColor, setPrimaryColor] = useState('#0d9488')
 
-  // Service areas + hours + services override (for provisionTenant)
-  const [serviceAreas, setServiceAreas] = useState('')
+  // Hours + payment methods — real tenant columns set at creation time.
+  // Service seeding, Selena config, and everything else business-specific is
+  // deferred to Activate, once the client has submitted real data via the
+  // onboarding link — see activateTenant().
   const [businessHoursStart, setBusinessHoursStart] = useState('08:00')
   const [businessHoursEnd, setBusinessHoursEnd] = useState('18:00')
   const [businessDays, setBusinessDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])
-  const [servicesOverrideText, setServicesOverrideText] = useState('')
   const [paymentMethodsList, setPaymentMethodsList] = useState<string[]>(['zelle', 'credit_card', 'cash'])
 
   // Billing
@@ -81,9 +52,7 @@ export default function NewBusinessPage() {
   const [monthlyRate, setMonthlyRate] = useState<number>(PRICING.adminMonthly)
   const [setupFee, setSetupFee] = useState<number>(PRICING.setupFee)
 
-  // Provision
-  const [autoProvision, setAutoProvision] = useState(true)
-  const [provisionStatus, setProvisionStatus] = useState('')
+  const [createStatus, setCreateStatus] = useState('')
 
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const PAYMENT_METHODS = ['zelle', 'apple_pay', 'venmo', 'credit_card', 'cash', 'check']
@@ -95,19 +64,6 @@ export default function NewBusinessPage() {
     setPaymentMethodsList(prev => (prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]))
   }
 
-  function parseServicesOverride(): Array<{ name: string; description: string; default_duration_hours: number; default_hourly_rate: number; sort_order: number }> {
-    const lines = servicesOverrideText.split('\n').map(l => l.trim()).filter(Boolean)
-    return lines.map((line, i) => {
-      // Format: "Name | $rate | duration hr | description"
-      const parts = line.split('|').map(p => p.trim())
-      const name = parts[0] || `Service ${i + 1}`
-      const rate = parseInt((parts[1] || '').replace(/[^\d]/g, ''), 10) || 75
-      const duration = parseFloat((parts[2] || '').replace(/[^\d.]/g, '')) || 2
-      const description = parts[3] || ''
-      return { name, description, default_duration_hours: duration, default_hourly_rate: rate, sort_order: i + 1 }
-    })
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) {
@@ -117,17 +73,13 @@ export default function NewBusinessPage() {
 
     setSaving(true)
     setError('')
-    setProvisionStatus('Creating tenant...')
+    setCreateStatus('Creating tenant...')
 
     // Everything runs inside try/finally so the button can NEVER get stuck gray
     // on "Creating…". Any failure — network, non-JSON response (e.g. an auth
     // redirect), unexpected shape — surfaces on screen instead of silently
     // hanging, and `saving` is always reset in finally.
     try {
-      const serviceAreasList = serviceAreas
-        .split(/[\n,]/)
-        .map(a => a.trim())
-        .filter(Boolean)
       const businessHoursStr = `${businessDays.join('/')} ${businessHoursStart}–${businessHoursEnd}`
 
       let res: Response
@@ -189,37 +141,9 @@ export default function NewBusinessPage() {
         return
       }
 
-      if (autoProvision) {
-        setProvisionStatus('Seeding services, Selena config, guidelines...')
-        const customServices = parseServicesOverride()
-        const overrides: Record<string, unknown> = {}
-        if (customServices.length > 0) overrides.services = customServices
-        if (serviceAreasList.length > 0) {
-          overrides.selena_config = { service_areas: serviceAreasList }
-        }
-        try {
-          const provRes = await fetch(`/api/admin/businesses/${tenantId}/provision`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              industry,
-              ...(Object.keys(overrides).length > 0 && { overrides }),
-            }),
-          })
-          const provData = await provRes.json().catch(() => ({}))
-          if (provRes.ok) {
-            setProvisionStatus(`Seeded ${provData.seeded?.services ?? 0} services + defaults`)
-          } else {
-            setProvisionStatus(`Provisioning warning: ${provData.error || 'partial failure'}`)
-          }
-        } catch (err) {
-          // Tenant is already created — provisioning is idempotent and re-runnable
-          // from the detail page, so don't block navigation on it.
-          setProvisionStatus(`Provisioning failed (re-run from detail page): ${err instanceof Error ? err.message : 'unknown'}`)
-        }
-      }
-
+      // Creation stops here. Services, Selena config, domains, owner login,
+      // and everything else are seeded by Activate (activateTenant) once the
+      // client has submitted real data via the onboarding link — not here.
       router.push(`/admin/businesses/${tenantId}?created=1`)
     } finally {
       setSaving(false)
@@ -366,32 +290,10 @@ export default function NewBusinessPage() {
           </div>
         </div>
 
-        {/* Service Areas + Hours + Payment Methods */}
+        {/* Hours + Payment Methods */}
         <div className="border-b border-slate-200 pb-6">
           <h2 className="text-slate-700 font-heading font-semibold text-sm uppercase tracking-wider mb-4">Service Details</h2>
           <div className="space-y-4">
-            <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Service Areas (one per line or comma-separated)</label>
-              <textarea
-                value={serviceAreas}
-                onChange={(e) => setServiceAreas(e.target.value)}
-                rows={4}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder={'Manhattan\nBrooklyn\nQueens\nHoboken'}
-              />
-              <p className="text-xs text-slate-400 mt-1">Drives SEO page generation: one page per service × area combo.</p>
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Custom Services (optional — overrides industry defaults)</label>
-              <textarea
-                value={servicesOverrideText}
-                onChange={(e) => setServicesOverrideText(e.target.value)}
-                rows={4}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
-                placeholder={'Standard Clean | $59 | 2 hr | Weekly recurring clean\nDeep Clean | $75 | 4 hr | Once-a-year deep\nMove-Out | $75 | 5 hr | Empty home turnover'}
-              />
-              <p className="text-xs text-slate-400 mt-1">Format per line: <code>Name | $rate | duration hr | description</code>. Leave blank to use industry preset.</p>
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1 block">Business Hours Start</label>
@@ -515,28 +417,15 @@ export default function NewBusinessPage() {
           </div>
         </div>
 
-        {/* Auto-provision toggle */}
-        <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoProvision}
-              onChange={(e) => setAutoProvision(e.target.checked)}
-              className="mt-1"
-            />
-            <div>
-              <p className="text-sm font-semibold text-slate-700">Auto-seed defaults</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Seed {industry} service types, Selena config (AI name, pricing, tone), business hours,
-                payment methods, and default team guidelines. Idempotent — can be re-run anytime from the detail page.
-              </p>
-            </div>
-          </label>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-xs text-slate-500">
+          Creating a business only generates the onboarding link. The website, services,
+          and everything else are built when you hit Activate on the detail page — after
+          the client has submitted their info.
         </div>
 
-        {provisionStatus && (
+        {createStatus && (
           <div className="bg-teal-50 border border-teal-200 rounded-lg px-4 py-3 text-sm text-teal-700">
-            {provisionStatus}
+            {createStatus}
           </div>
         )}
 
@@ -545,7 +434,7 @@ export default function NewBusinessPage() {
           disabled={saving || !name.trim()}
           className="w-full bg-teal-600 hover:bg-teal-500 text-white py-3 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors"
         >
-          {saving ? (provisionStatus || 'Creating...') : 'Create Business + Provision'}
+          {saving ? (createStatus || 'Creating...') : 'Create Business'}
         </button>
       </form>
     </div>

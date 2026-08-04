@@ -8,6 +8,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
 import { translateToEnEs } from '@/lib/connect-translate'
+import { alertOwner } from '@/lib/telegram'
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,7 +75,11 @@ export async function POST(request: NextRequest) {
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Surface the reply to the platform admin as an unread notification.
+    // Surface the reply to the platform admin as an unread notification
+    // (in-app record) and a Telegram ping (the only external channel Jeff
+    // wants for this — no email, it'd be too noisy across every tenant).
+    // TenantChatAlerts (admin/tenant-chat-alerts.tsx) also picks this up via
+    // polling for the sound + toast while an admin is actively in /admin.
     await db.from('notifications').insert({
       type: 'owner_message',
       title: `Owner reply — ${tenant?.name ?? 'tenant'}`,
@@ -82,6 +87,7 @@ export async function POST(request: NextRequest) {
       channel: 'system',
       recipient_type: 'admin',
     })
+    await alertOwner(`Loop Connect — ${tenant?.name ?? 'tenant'}`, body.slice(0, 300)).catch(() => {})
 
     return NextResponse.json({ ok: true, message: inserted })
   } catch (e) {

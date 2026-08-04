@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 
 // Bumped from 5MB -> 15MB (2026-07-29) to cover real client/tenant documents
 // (signed proposals, insurance certs, multi-page scans) added via the new
@@ -16,18 +17,30 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 // keep this change minimal, per the "reuse /api/uploads, don't rewrite it"
 // scope for this feature.
 const MAX_SIZE = 15 * 1024 * 1024 // 15MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+// image/heic + image/heif added 2026-08-03 — the default photo format on
+// iPhone, and this route is now also the ComHub MMS-attach path, where an
+// admin is very likely attaching straight from their own camera roll.
+// Matches the inbound MMS_ALLOWED_TYPES set in webhooks/telnyx/route.ts.
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf', 'video/mp4', 'video/quicktime']
 
 export async function POST(request: NextRequest) {
-  let tenant
+  const formData = await request.formData()
+
+  // Dual auth, same as /api/tenant-profile: a real dashboard session wins;
+  // otherwise fall back to the signed /onboard/[token] link so a
+  // not-yet-activated tenant can upload compliance docs (insurance cert,
+  // license scan, W-9) during onboarding, before they've ever logged in.
+  let tenantId: string
   try {
-    tenant = await getTenantForRequest()
+    const session = await getTenantForRequest()
+    tenantId = session.tenantId
   } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!(err instanceof AuthError)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const resolved = await resolveOnboardingTenantId(formData.get('token') as string | null)
+    if (!resolved) return NextResponse.json({ error: err.message }, { status: err.status })
+    tenantId = resolved
   }
 
-  const formData = await request.formData()
   const file = formData.get('file') as File | null
   const rawFolder = (formData.get('folder') as string) || 'general'
   // Caller-supplied path segments — never splice them into the storage key
@@ -44,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
   const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
-  const path = `${tenant.tenantId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const path = `${tenantId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
 

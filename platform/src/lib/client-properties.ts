@@ -3,9 +3,10 @@
 // One client can have many properties (addresses). FullLoop adaptation: every
 // client_properties / property_changes row carries tenant_id (resolved from the
 // client). Geocoding fire-and-forget is dropped here — coords resolve on demand
-// in the scheduler — so this file has no @/lib/geo dependency.
+// in the scheduler — so property inserts never set lat/lng themselves.
 
 import { supabaseAdmin } from './supabase'
+import { haversineDistance } from './geo'
 
 export interface PropertyRef {
   id: string
@@ -30,25 +31,48 @@ function one<T>(v: Rel<T>): T | null {
   return (v ?? null) as T | null
 }
 
+// Live incident 2026-08-03 (Shelby Rodriguez + 9 other confirmed clients): a
+// client_properties row's lat/lng can silently diverge from that SAME
+// client's own (trusted) clients.latitude/longitude — a same-named-
+// different-city geocoder mismatch (e.g. "...Brooklyn" matching Brooklyn, MD
+// instead of Brooklyn, NY) sails right past geo.ts's continental-US
+// bounding-box check, since both are valid US coordinates. One tenant's
+// clients live in one metro area, so a property >50mi from that same
+// client's own coords is almost certainly a bad geocode, not a real second
+// address that far away — don't trust it for physical routing/distance math.
+const PROPERTY_CLIENT_DRIFT_MILES = 50
+
+function propertyCoordsTrustworthy(cp: AddrShape | null, cl: AddrShape | null): boolean {
+  if (cp?.latitude == null || cp?.longitude == null) return false
+  if (cl?.latitude == null || cl?.longitude == null) return true // nothing to compare against
+  const drift = haversineDistance(Number(cp.latitude), Number(cp.longitude), Number(cl.latitude), Number(cl.longitude))
+  return drift <= PROPERTY_CLIENT_DRIFT_MILES
+}
+
 export function bookingAddress(b: BookingAddrJoin | null | undefined): string | null {
   return one(b?.client_properties)?.address ?? one(b?.clients)?.address ?? null
 }
 
 // Overwrite a joined booking's clients.{address,latitude,longitude} with its
-// property's values when set. Mutates in place.
+// property's values when set. Mutates in place. Address text is a deliberate
+// choice and always wins; coords are skipped when they don't plausibly
+// belong to this client (propertyCoordsTrustworthy above) — falls back to
+// the client's own already-selected latitude/longitude instead.
 export function applyPropertyToBookingClient(b: BookingAddrJoin | null | undefined): void {
   const cp = one(b?.client_properties)
   const cl = one(b?.clients) as (AddrShape | null)
   if (!cp || !cl) return
   if (cp.address != null) cl.address = cp.address
-  if (cp.latitude != null) cl.latitude = cp.latitude
-  if (cp.longitude != null) cl.longitude = cp.longitude
+  if (propertyCoordsTrustworthy(cp, cl)) {
+    if (cp.latitude != null) cl.latitude = cp.latitude
+    if (cp.longitude != null) cl.longitude = cp.longitude
+  }
 }
 
 export function bookingCoords(b: BookingAddrJoin | null | undefined): { lat: number; lng: number } | null {
   const cp = one(b?.client_properties)
-  if (cp?.latitude != null && cp?.longitude != null) return { lat: Number(cp.latitude), lng: Number(cp.longitude) }
   const c = one(b?.clients)
+  if (propertyCoordsTrustworthy(cp, c)) return { lat: Number(cp!.latitude), lng: Number(cp!.longitude) }
   if (c?.latitude != null && c?.longitude != null) return { lat: Number(c.latitude), lng: Number(c.longitude) }
   return null
 }
@@ -72,22 +96,35 @@ export async function getBookingAddress(opts: {
   }
 
   if (clientId) {
-    const { data: props } = await supabaseAdmin
-      .from('client_properties')
-      .select('id, address, latitude, longitude, is_primary, created_at')
-      .eq('client_id', clientId)
-      .eq('active', true)
-      .order('is_primary', { ascending: false })
-      .order('created_at', { ascending: true })
-      .limit(1)
+    // Fetched together (not just when no property matches) because the
+    // auto-selected primary property's coords need a trust check against
+    // the client's own coords — see propertyCoordsTrustworthy.
+    const [{ data: props }, { data: c }] = await Promise.all([
+      supabaseAdmin
+        .from('client_properties')
+        .select('id, address, latitude, longitude, is_primary, created_at')
+        .eq('client_id', clientId)
+        .eq('active', true)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(1),
+      supabaseAdmin
+        .from('clients')
+        .select('address, latitude, longitude')
+        .eq('id', clientId)
+        .single(),
+    ])
     const p = props?.[0]
-    if (p) return { propertyId: p.id, address: p.address, latitude: p.latitude, longitude: p.longitude }
+    if (p) {
+      const trustCoords = propertyCoordsTrustworthy(p, c ?? null)
+      return {
+        propertyId: p.id,
+        address: p.address,
+        latitude: trustCoords ? p.latitude : c?.latitude ?? null,
+        longitude: trustCoords ? p.longitude : c?.longitude ?? null,
+      }
+    }
 
-    const { data: c } = await supabaseAdmin
-      .from('clients')
-      .select('address, latitude, longitude')
-      .eq('id', clientId)
-      .single()
     if (c?.address) return { propertyId: null, address: c.address, latitude: c.latitude ?? null, longitude: c.longitude ?? null }
   }
 

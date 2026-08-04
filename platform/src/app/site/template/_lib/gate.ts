@@ -20,3 +20,24 @@ export async function requireCleaningTenant(): Promise<void> {
     notFound()
   }
 }
+
+/**
+ * Stricter than requireCleaningTenant(): these specific pages ([slug],
+ * [slug]/[service], services/[slug], service-areas, the NYC emergency-
+ * cleaning page, the cleaner-referral page) don't just assume cleaning — they
+ * hardcode NYCmaid's OWN real content (real Manhattan/Brooklyn/Long Island
+ * neighborhood names, $59/$69/$89 pricing, a "Watch What Our NYC Cleaning
+ * Clients Say" section). Gating on industry alone let ANY other cleaning
+ * tenant reach these paths and see nycmaid's real business content — a real
+ * cross-tenant content leak, not a hypothetical one (see the 2026-08-03
+ * Template Preview incident). Until these pages are rebuilt on real per-
+ * tenant data (Phase 3's [location] route + resolveCoverage()), only the
+ * real nycmaid tenant may see them; every other cleaning tenant 404s.
+ */
+export async function requireNycmaidTenant(): Promise<void> {
+  await requireCleaningTenant()
+  const config = await getSiteConfig()
+  if (!config.identity.url.includes('thenycmaid.com')) {
+    notFound()
+  }
+}

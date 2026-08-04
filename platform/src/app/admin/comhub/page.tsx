@@ -190,6 +190,18 @@ const fmtExactTime = (iso: string) => {
 
 const contactDisplay = (c: Contact | null) => c ? (c.name || c.phone || c.email || 'Unknown') : 'Unknown'
 
+// media_urls holds MMS photos/videos (Telnyx SMS), webchat photo uploads,
+// and voicemail recordings (telnyx-voice) -- all through the same column,
+// so the renderer has to tell them apart by extension. Anything unrecognized
+// falls back to audio (the original behavior, correct for voicemail URLs
+// that don't carry a clean extension).
+function mediaKind(url: string): 'image' | 'video' | 'audio' {
+  const path = url.split('?')[0].toLowerCase()
+  if (/\.(jpe?g|png|gif|webp|heic|heif)$/.test(path)) return 'image'
+  if (/\.(mp4|mov|3gp|webm)$/.test(path)) return 'video'
+  return 'audio'
+}
+
 // Highlight @handle / @here / @channel / @all in message bodies.
 function renderWithMentions(text: string): React.ReactNode {
   const parts = text.split(/(@[a-zA-Z][a-zA-Z0-9_.-]{0,30})/g)
@@ -226,6 +238,9 @@ export default function ComhubPage() {
   const [explainOpen, setExplainOpen] = useState<Record<string, boolean>>({})
   const [composer, setComposer] = useState('')
   const [subject, setSubject] = useState('')
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([])
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [channel, setChannel] = useState<'all' | 'sms' | 'web' | 'email' | 'voice' | 'admin'>('all')
   const [q, setQ] = useState('')
@@ -312,6 +327,23 @@ export default function ComhubPage() {
     url.searchParams.delete('dial')
     window.history.replaceState({}, '', url.toString())
   }, [])
+
+  // Pickup ?text=+1... from the URL -- opens the compose modal pre-filled
+  // for that phone number, same pattern as ?dial above but for SMS. Lets
+  // every "Text" button dashboard-wide route through ComHub instead of the
+  // device's own sms: app, matching what "Call" already does via ?dial.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const text = params.get('text')
+    if (!text) return
+    setComposeChannel('sms')
+    setComposeRecipient(text)
+    setShowCompose(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('text')
+    window.history.replaceState({}, '', url.toString())
+  }, [])
   useEffect(() => {
     const t = setInterval(() => { fetchThreads(); fetchChannels() }, 5000)
     return () => clearInterval(t)
@@ -333,23 +365,25 @@ export default function ComhubPage() {
       .catch(() => setTemplates([]))
   }, [thread?.channel])
 
+  const fetchContext = useCallback(async (contactId: string) => {
+    const res = await fetch(`/api/admin/comhub/contacts/${contactId}/context`)
+    setContext(res.ok ? await res.json() : null)
+  }, [])
+
   // Right-side context panel — re-fetches when the selected thread's contact changes.
   useEffect(() => {
     if (!thread?.contact_id) { setContext(null); return }
     let cancelled = false
-    fetch(`/api/admin/comhub/contacts/${thread.contact_id}/context`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setContext(d) })
-      .catch(() => { if (!cancelled) setContext(null) })
+    fetchContext(thread.contact_id).catch(() => { if (!cancelled) setContext(null) })
     return () => { cancelled = true }
-  }, [thread?.contact_id])
+  }, [thread?.contact_id, fetchContext])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
   const handleSend = async () => {
-    if (!thread || !composer.trim() || sending) return
+    if (!thread || (!composer.trim() && pendingAttachments.length === 0) || sending) return
     setSending(true)
     try {
       const res = await fetch('/api/admin/comhub/send', {
@@ -360,6 +394,7 @@ export default function ComhubPage() {
           channel: thread.channel,
           body: composer,
           subject: thread.channel === 'email' ? (subject || thread.subject || undefined) : undefined,
+          media_urls: thread.channel === 'sms' && pendingAttachments.length > 0 ? pendingAttachments : undefined,
         }),
       })
       const data = await res.json()
@@ -368,12 +403,34 @@ export default function ComhubPage() {
       } else {
         setComposer('')
         setSubject('')
+        setPendingAttachments([])
         await fetchThread(thread.id)
         await fetchThreads()
         await fetchChannels()
       }
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleAttachmentPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingAttachment(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'comhub-mms')
+      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        alert('Attachment upload failed: ' + (data.error || res.status))
+        return
+      }
+      setPendingAttachments(prev => [...prev, data.url])
+    } finally {
+      setUploadingAttachment(false)
     }
   }
 
@@ -862,15 +919,44 @@ export default function ComhubPage() {
                         )}
                         {m.media_urls && m.media_urls.length > 0 && (
                           <div className="mt-2 space-y-1.5">
-                            {m.media_urls.map((url, i) => (
-                              <audio
-                                key={`${m.id}-media-${i}`}
-                                controls
-                                preload="metadata"
-                                src={url}
-                                className="w-full max-w-[280px] h-9"
-                              />
-                            ))}
+                            {m.media_urls.map((url, i) => {
+                              const kind = mediaKind(url)
+                              const key = `${m.id}-media-${i}`
+                              if (kind === 'image') {
+                                return (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    key={key}
+                                    src={url}
+                                    alt="Attachment"
+                                    className="max-w-[280px] max-h-[280px] rounded-lg border cursor-pointer object-cover"
+                                    style={{ borderColor: 'var(--color-loop-border)' }}
+                                    onClick={() => window.open(url, '_blank')}
+                                  />
+                                )
+                              }
+                              if (kind === 'video') {
+                                return (
+                                  <video
+                                    key={key}
+                                    controls
+                                    preload="metadata"
+                                    src={url}
+                                    className="max-w-[280px] max-h-[280px] rounded-lg border"
+                                    style={{ borderColor: 'var(--color-loop-border)' }}
+                                  />
+                                )
+                              }
+                              return (
+                                <audio
+                                  key={key}
+                                  controls
+                                  preload="metadata"
+                                  src={url}
+                                  className="w-full max-w-[280px] h-9"
+                                />
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -1014,7 +1100,49 @@ export default function ComhubPage() {
                   </div>
                 )}
               </div>
+              {thread.channel === 'sms' && pendingAttachments.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {pendingAttachments.map((url, i) => (
+                    <div key={url} className="relative w-14 h-14 rounded-md overflow-hidden shrink-0 flex items-center justify-center" style={{ border: '1px solid var(--color-loop-line-soft)', background: 'var(--color-loop-canvas)' }}>
+                      {mediaKind(url) === 'video' ? (
+                        <video src={url} className="w-full h-full object-cover" muted />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={url} alt="Attachment" className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center text-[10px] leading-none"
+                        style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+                        aria-label="Remove attachment"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
+                {thread.channel === 'sms' && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/mp4,video/quicktime"
+                      className="hidden"
+                      onChange={handleAttachmentPick}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAttachment}
+                      title="Attach a photo or video"
+                      className="self-stretch px-3 rounded-md text-sm disabled:opacity-50"
+                      style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-ink)', background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+                    >
+                      {uploadingAttachment ? '…' : '📎'}
+                    </button>
+                  </>
+                )}
                 <textarea
                   value={composer}
                   onChange={(e) => setComposer(e.target.value)}
@@ -1037,7 +1165,7 @@ export default function ComhubPage() {
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!composer.trim() || sending}
+                  disabled={(!composer.trim() && pendingAttachments.length === 0) || sending}
                   className="self-stretch px-4 rounded-md text-sm font-medium disabled:opacity-50"
                   style={{ fontFamily: 'var(--mono)', background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
                 >
@@ -1070,7 +1198,7 @@ export default function ComhubPage() {
           <ChannelInfoPanel thread={thread} />
         )}
         {thread?.kind === 'contact' && context && (
-          <ContextPanelInline context={context} onTagChanged={fetchThreads} />
+          <ContextPanelInline context={context} onTagChanged={fetchThreads} onContactSaved={() => fetchContext(context.contact.id)} />
         )}
         {thread?.kind === 'contact' && !context && (
           <div className="p-6 text-sm" style={{ color: 'var(--color-loop-muted)' }}>Loading contact details…</div>
@@ -1121,7 +1249,7 @@ export default function ComhubPage() {
 // Compose new thread (SMS or email)
 // ─────────────────────────────────────────────────────────────────────────────
 type RecipientResult = {
-  role: 'client' | 'cleaner'
+  role: 'client' | 'cleaner' | 'applicant'
   id: string
   name: string | null
   phone: string | null
@@ -1293,7 +1421,7 @@ function ComposeModal(props: {
                     <span className="font-medium">{r.name || '(no name)'}</span>
                     {r.dns && <span className="text-[9px] uppercase px-1 rounded-sm" style={{ fontFamily: 'var(--mono)', fontWeight: 600, background: 'rgba(139,69,19,0.10)', color: 'var(--color-loop-warn)', border: '1px solid rgba(139,69,19,0.25)' }}>DNS</span>}
                   </div>
-                  <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{r.phone || ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
+                  <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{r.phone ? formatPhone(r.phone) : ''} {r.phone && r.email ? '·' : ''} {r.email || ''}</div>
                 </button>
               ))}
             </div>
@@ -1544,7 +1672,7 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // Right-side panel: contact + linked client/cleaner + recent bookings
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline version — renders contents only (parent <aside> wraps).
-function ContextPanelInline({ context, onTagChanged }: { context: ContactContext; onTagChanged?: () => void }) {
+function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context: ContactContext; onTagChanged?: () => void; onContactSaved?: () => void }) {
   const { contact, client, cleaner, applicant, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_bookings, cleaner_total_earnings_cents } = context
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDateTime = (iso: string) => {
@@ -1601,6 +1729,14 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           {((role === 'client' && client?.active === false) || (role === 'cleaner' && cleaner?.active === false)) && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'var(--color-loop-canvas)', color: 'var(--color-loop-muted)', border: '1px solid var(--color-loop-line-soft)', ...pillFont }}>Inactive</span>
           )}
+          {role === 'cleaner' && cleaner?.active !== false && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(4,120,87,0.08)', color: 'var(--color-loop-good)', border: '1px solid rgba(4,120,87,0.25)', ...pillFont }}>Active</span>
+          )}
+          {role === 'applicant' && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-sm" style={{ background: 'rgba(217,119,6,0.08)', color: '#b45309', border: '1px solid rgba(217,119,6,0.25)', ...pillFont }}>
+              {applicant?.status || 'Pending'}
+            </span>
+          )}
         </div>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
@@ -1619,6 +1755,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
         contactId={contact.id}
         initialName={contact.name || cleaner?.name || client?.name || ''}
         initialAddress={contact.address || cleaner?.address || client?.address || client?.address_line1 || ''}
+        onSaved={onContactSaved}
       />
 
       {applicant && (
@@ -1685,6 +1822,7 @@ function ContextPanelInline({ context, onTagChanged }: { context: ContactContext
           contactId={contact.id}
           initialPrivate={client.notes_private || ''}
           initialPublic={client.notes_public || ''}
+          onSaved={onContactSaved}
         />
       )}
 
@@ -1843,10 +1981,11 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
 // that haven't booked yet) — saves onto comhub_contacts, mirrored onto the
 // linked client record (if any) so the rest of the CRM stays in sync.
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
+function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved }: {
   contactId: string
   initialName: string
   initialAddress: string
+  onSaved?: () => void
 }) {
   const [name, setName] = useState(initialName)
   const [address, setAddress] = useState(initialAddress)
@@ -1873,6 +2012,7 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress }: {
         setError(data.error || `HTTP ${res.status}`)
       } else {
         setSavedAt(Date.now())
+        onSaved?.()
       }
     } finally {
       setSaving(false)
@@ -1980,10 +2120,11 @@ function ContactTagSelect({ contactId, initialTag, onSaved, autoLabel, badgeStyl
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline editor for the linked client's private + public notes
 // ─────────────────────────────────────────────────────────────────────────────
-function NotesEditor({ contactId, initialPrivate, initialPublic }: {
+function NotesEditor({ contactId, initialPrivate, initialPublic, onSaved }: {
   contactId: string
   initialPrivate: string
   initialPublic: string
+  onSaved?: () => void
 }) {
   const [priv, setPriv] = useState(initialPrivate)
   const [pub, setPub] = useState(initialPublic)
@@ -2011,6 +2152,7 @@ function NotesEditor({ contactId, initialPrivate, initialPublic }: {
         setError(data.error || `HTTP ${res.status}`)
       } else {
         setSavedAt(Date.now())
+        onSaved?.()
       }
     } finally {
       setSaving(false)

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import AdminLogout from './AdminLogout'
+import TenantChatAlerts from './tenant-chat-alerts'
 
 // Editorial Loop styling for the platform admin. Mirrors /dashboard's
 // .loop-scope chrome but uses the admin's own nav structure (super-admin
@@ -68,9 +69,28 @@ export default async function AdminLayout({
             <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A8A8A4' }}>CRM</span>
           </Link>
         </div>
-        <div className="px-[22px] pb-4" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        <div className="px-[22px] pb-3" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#555', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           v1.0 - Admin
         </div>
+
+        {/* Always-live link to the current shared site template — a
+            permanent "template-preview" tenant (industry: cleaning, no real
+            business behind it) kept activated purely so there's always a
+            real, up-to-date URL to check template changes against, without
+            tying it to any actual tenant's data. */}
+        <a
+          href="https://template-preview.fullloopcrm.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-[22px] mb-4 flex items-center justify-between gap-2 rounded-md px-2.5 py-2 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+          style={{ border: '1px solid #2E2E2E', fontFamily: 'var(--mono)', fontSize: '10.5px', color: '#A8A8A4', letterSpacing: '0.03em' }}
+        >
+          <span className="flex items-center gap-2">
+            <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#4ADE80', boxShadow: '0 0 8px rgba(74,222,128,0.4)' }} />
+            Live Template Preview
+          </span>
+          <span style={{ color: '#5A5A5A' }}>↗</span>
+        </a>
 
         <div className="flex-1 overflow-y-auto pb-20">
           {/* Main */}
@@ -150,6 +170,7 @@ export default async function AdminLayout({
           {children}
         </div>
       </main>
+      <TenantChatAlerts />
     </div>
   )
 }

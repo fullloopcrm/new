@@ -358,6 +358,39 @@ describe('notify — Telegram delivery', () => {
   })
 })
 
+// auto_booking_assigned (Bookings page "Auto booking" toggle, 2026-08-03) is
+// the admin heads-up when a self-service booking got assigned + scheduled
+// with no human in the loop. It has to actually reach someone every time:
+// Telegram when the tenant has a bot, email when it doesn't. Both branches
+// asserted directly (not just inferred from TELEGRAM_NOTIFY_TYPES membership)
+// since a silent gap here means an auto-assigned job nobody finds out about.
+describe('notify — auto_booking_assigned reaches the admin either way', () => {
+  it('Telegram configured: sends to the tenant bot, never touches email', async () => {
+    seedTenant({ telegram_bot_token: 'encrypted-token', telegram_chat_id: '-999' })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'auto_booking_assigned',
+      title: 'Booking Auto-Assigned', message: 'Jane\'s booking was auto-assigned to Sam. SCHEDULED, not pending.',
+    })
+    expect(r).toEqual({ success: true })
+    await vi.waitFor(() => expect(sendTelegramMock).toHaveBeenCalledTimes(1))
+    expect(sendTelegramMock).toHaveBeenCalledWith('-999', expect.stringContaining('auto-assigned'), 'decrypted:encrypted-token')
+    expect(sendEmailMock).not.toHaveBeenCalled()
+  })
+
+  it('no Telegram configured: falls through to the admin email, not silently dropped', async () => {
+    seedTenant({ telegram_bot_token: null, telegram_chat_id: null })
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'auto_booking_assigned',
+      title: 'Booking Auto-Assigned', message: 'Jane\'s booking was auto-assigned to Sam. SCHEDULED, not pending.',
+    })
+    expect(r).toEqual({ success: true })
+    expect(sendTelegramMock).not.toHaveBeenCalled()
+    expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner@acme.com', subject: 'Booking Auto-Assigned' }))
+  })
+})
+
 // error/selena_error are internal monitoring signals, not business
 // notifications — they must never reach a tenant's inbox even though
 // `channel` defaults to 'email' and these types aren't gated by

@@ -2,7 +2,13 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import AuthShell, {
+  authLabelClass,
+  authInputClass,
+  authButtonClass,
+  authErrorClass,
+} from '@/components/auth/AuthShell'
+import { useAuthLang } from '@/components/auth/useAuthLang'
 
 interface Referrer { id: string; name: string; email: string; ref_code: string; total_earned: number; total_paid: number }
 interface Commission { id: string; client_name: string; gross_amount: number; commission_amount: number; status: string; paid_via: string; paid_at: string; created_at: string }
@@ -10,6 +16,7 @@ interface LinkStats { clicks: number; uniqueVisitors: number; bookClicks: number
 interface Activity { action: string; device: string; page: string; time: string }
 
 function ReferrerPortalContent() {
+  const { lang, setLang, t } = useAuthLang()
   const searchParams = useSearchParams()
   const [referrer, setReferrer] = useState<Referrer | null>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
@@ -38,8 +45,8 @@ function ReferrerPortalContent() {
         const commRes = await fetch('/api/referral-commissions?referrer_id=' + data.id)
         const commData = await commRes.json()
         setCommissions(Array.isArray(commData) ? commData : [])
-      } else setError('Invalid referral code')
-    } catch { setError('Failed to load') }
+      } else setError(t('Invalid referral code', 'Código de referido inválido'))
+    } catch { setError(t('Failed to load', 'Error al cargar')) }
     setLoading(false)
   }
 
@@ -62,8 +69,8 @@ function ReferrerPortalContent() {
         const commRes = await fetch('/api/referral-commissions?referrer_id=' + data.id)
         const commData = await commRes.json()
         setCommissions(Array.isArray(commData) ? commData : [])
-      } else setError('Email not found.')
-    } catch { setError('Failed to load') }
+      } else setError(t('Email not found.', 'Correo no encontrado.'))
+    } catch { setError(t('Failed to load', 'Error al cargar')) }
     setLoading(false)
   }
 
@@ -95,25 +102,29 @@ function ReferrerPortalContent() {
 
   if (!referrer && !loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-[#1E2A4A]">Referrer Portal</h1>
-            <p className="text-gray-500 mt-1">View your referral earnings</p>
-          </div>
-          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]" placeholder="Enter your email" />
-            </div>
-            <button onClick={fetchByEmail} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90">View My Earnings</button>
-          </div>
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[#1E2A4A] hover:underline">Join the program</Link></p>
-          </div>
+      <AuthShell
+        businessName="The NYC Maid"
+        subtitle={t('Referral Portal', 'Portal de Referidos')}
+        lang={lang}
+        onToggleLang={setLang}
+        helpLinks={[{ label: t('Join the Program', 'Unirme al Programa'), href: '/referral/signup' }]}
+      >
+        <div className="mt-10">
+          <label className={authLabelClass}>{t('Email Address', 'Correo Electrónico')}</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()}
+            className={authInputClass}
+            placeholder={t('Enter your email', 'Ingresa tu correo')}
+          />
+          {error && <p className={`mt-3 ${authErrorClass}`}>{error}</p>}
+          <button onClick={fetchByEmail} className={`mt-8 ${authButtonClass}`}>
+            {t('View my earnings →', 'Ver mis ganancias →')}
+          </button>
         </div>
-      </div>
+      </AuthShell>
     )
   }
 

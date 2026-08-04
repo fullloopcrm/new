@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     body?: string
     subject?: string
     author_id?: string | null
+    media_urls?: string[]
   } | null
 
   if (!body || !body.channel || !body.body) {
@@ -235,9 +236,11 @@ export async function POST(req: NextRequest) {
     if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
       return NextResponse.json({ error: 'SMS is not configured for this business.' }, { status: 400 })
     }
+    const mediaUrls = Array.isArray(body.media_urls) ? body.media_urls.filter((u): u is string => typeof u === 'string' && u.length > 0) : []
+
     let smsExternalId: string | null = null
     try {
-      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone, mediaUrls })
       smsExternalId = (result as { data?: { id?: string } } | null)?.data?.id ?? null
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : 'sms send failed' }, { status: 502 })
@@ -255,6 +258,7 @@ export async function POST(req: NextRequest) {
         body: body.body,
         to_address: phone,
         external_id: smsExternalId,
+        media_urls: mediaUrls.length > 0 ? mediaUrls : null,
         sent_at: new Date().toISOString(),
       })
       .select()

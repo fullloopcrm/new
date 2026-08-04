@@ -3,7 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
-import { notify } from '@/lib/notify'
+import { notify, buildBookingConfirmationEmail } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -13,6 +13,8 @@ import {
 } from '@/lib/email-templates'
 import { bookingReceivedEmail } from '@/lib/messaging/client-email'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
+import { sendClientEmail } from '@/lib/client-contacts'
+import { teamSmsTemplatesFor } from '@/lib/messaging/team-sms-resolver'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
@@ -35,6 +37,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 import { isValidLeadSource } from '@/lib/lead-sources'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
+import { getSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -47,32 +50,88 @@ function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
 }
 
-// Matches the checkbox copy on /book/new and the Telnyx 10DLC campaign's
-// registered messageFlow word-for-word — the campaign record itself is what
-// carriers check consent text against.
-const SMS_MARKETING_CONSENT_TEXT = 'By providing your phone number and clicking "Submit," you agree to receive SMS updates and marketing messages from The NYC Maid. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase.'
-
-/** Only ever grants consent, never revokes it — an unchecked box on a later
- * booking must not silently wipe out consent given earlier through another
- * channel (site checkbox, SMS text-in, verbal). */
-function smsOptInFields(optedIn: boolean, ip: string, userAgent: string) {
-  if (!optedIn) return {}
-  return {
-    sms_opt_in: true,
-    sms_consent: true,
-    sms_consent_at: new Date().toISOString(),
-    consent_text: SMS_MARKETING_CONSENT_TEXT,
-    consent_ip: ip,
-    consent_user_agent: userAgent.slice(0, 200),
-  }
-}
-
 function templateData(tenant: { name: string; primary_color?: string | null; logo_url?: string | null }) {
   return {
     tenantName: tenant.name,
     primaryColor: tenant.primary_color || undefined,
     logoUrl: tenant.logo_url || undefined,
   }
+}
+
+type AutoAssignedBooking = {
+  id: string
+  start_time: string
+  end_time?: string | null
+  hourly_rate?: number | null
+  clients?: { id?: string | null; name?: string | null; phone?: string | null; address?: string | null; email?: string | null } | null
+  team_members?: { name?: string | null; phone?: string | null; pin?: string | null } | null
+}
+
+/**
+ * Auto-booking replays the same client-confirmation + team-member-assignment SMS
+ * a manual dashboard assignment triggers (see PUT /api/bookings/[id] and the
+ * Paul Oberbeck / nycmaid 8e1e4cf2 incident that block's own comments
+ * reference) — this route is public/unauthenticated and can't call that
+ * permission-gated endpoint directly. Then sends the admin heads-up: Telegram
+ * if the tenant has a bot configured, otherwise email (notify()'s
+ * TELEGRAM_NOTIFY_TYPES routing ladder).
+ */
+async function notifyAutoAssignment(
+  tenant: Awaited<ReturnType<typeof getTenantFromHeaders>>,
+  booking: AutoAssignedBooking,
+): Promise<void> {
+  if (!tenant) return
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+
+  if (booking.clients?.id) {
+    try {
+      const html = await buildBookingConfirmationEmail(tenant.id, booking.id, {
+        clientName: booking.clients.name || 'there',
+        serviceName: 'Appointment',
+        dateTime: `${date} at ${time}`,
+      })
+      await sendClientEmail(tenant, booking.clients.id, `Booking Confirmed — ${date}`, html)
+    } catch (err) {
+      console.error('[client/book] auto-assign client confirmation email error:', err)
+    }
+  }
+  if (booking.clients?.phone && hasSMS && (await isCommEnabled(tenant.id, 'booking_confirmed', 'sms'))) {
+    sendSMS({
+      to: booking.clients.phone,
+      body: clientSmsTemplates(tenant).bookingConfirmation({
+        start_time: booking.start_time,
+        hourly_rate: booking.hourly_rate,
+        team_members: booking.team_members,
+      }),
+      telnyxApiKey: tenant.telnyx_api_key,
+      telnyxPhone: tenant.telnyx_phone,
+    }).catch((err) => console.error('[client/book] auto-assign confirmation SMS error:', err))
+  }
+
+  if (booking.team_members?.phone && hasSMS && (await isCommEnabled(tenant.id, 'team_assignment', 'sms'))) {
+    const templates = await teamSmsTemplatesFor(tenant.id)
+    sendSMS({
+      to: booking.team_members.phone,
+      body: templates.jobAssignment({
+        start_time: booking.start_time,
+        hourly_rate: booking.hourly_rate,
+        clients: booking.clients,
+        team_members: booking.team_members,
+      }),
+      telnyxApiKey: tenant.telnyx_api_key,
+      telnyxPhone: tenant.telnyx_phone,
+    }).catch((err) => console.error('[client/book] auto-assign job SMS error:', err))
+  }
+
+  await notify({
+    tenantId: tenant.id,
+    type: 'auto_booking_assigned',
+    title: 'Booking Auto-Assigned',
+    message: `${booking.clients?.name || 'A client'}'s booking for ${date} at ${time} was automatically assigned to ${booking.team_members?.name || 'a team member'}. It's SCHEDULED — live on the calendar, not pending.`,
+    booking_id: booking.id,
+  }).catch((err) => console.error('[client/book] auto-assign admin notify error:', err))
 }
 
 export async function POST(request: Request) {
@@ -94,6 +153,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
     const smsOptedIn = body.sms_opt_in === true
     const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
+    const consentText = getSmsConsentText(tenant as { id: string; name: string })
     if (typeof body.notes === 'string') {
       body.notes = sanitizeInput(body.notes)
     }
@@ -144,21 +204,42 @@ export async function POST(request: Request) {
       const emailLower = (body.email as string).toLowerCase()
       const clientName = formatName(body.name as string)
 
+      let matchedClient: { id: string; name: string | null; phone: string | null } | null = null
+
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
-        .select('id')
+        .select('id, name, phone')
         .eq('tenant_id', tenant.id)
         .ilike('email', escapeLikeValue(emailLower))
         .maybeSingle()
-      if (byEmail) clientId = byEmail.id
+      if (byEmail) { clientId = byEmail.id; matchedClient = byEmail }
 
       if (!clientId && phone) {
         const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
-          .select('id')
+          .select('id, name, phone')
           .eq('phone', phone)
           .maybeSingle()
-        if (byPhone) clientId = byPhone.id
+        if (byPhone) { clientId = byPhone.id; matchedClient = byPhone }
+      }
+
+      // A client whose name is still exactly their own phone number is the
+      // SMS-inbound placeholder ("we don't have a name yet, just save the
+      // number so the thread has a record") -- see createLeadAndEnterPipeline
+      // in the telnyx webhook. The booking form is the first time this
+      // person hands us their real name; overwrite the placeholder outright.
+      // Never touches a genuine existing name -- only fires when name is
+      // literally the phone digits.
+      if (matchedClient && clientName) {
+        const storedDigits = (matchedClient.name || '').replace(/\D/g, '')
+        const phoneDigits = (matchedClient.phone || '').replace(/\D/g, '')
+        const isPlaceholderName = storedDigits.length >= 10 && storedDigits === phoneDigits
+        if (isPlaceholderName) {
+          await tenantDb(tenant.id)
+            .from('clients')
+            .update({ name: clientName })
+            .eq('id', matchedClient.id)
+        }
       }
 
       if (!clientId) {
@@ -182,7 +263,7 @@ export async function POST(request: Request) {
             notes: (body.notes as string) || '',
             pin: String(100000 + randomInt(0, 900000)),
             source: body.lead_source as string,
-            ...smsOptInFields(smsOptedIn, ip, userAgent),
+            ...smsOptInFields(smsOptedIn, ip, userAgent, consentText),
           })
           .select()
           .single()
@@ -227,7 +308,7 @@ export async function POST(request: Request) {
     if (smsOptedIn && clientId && !isNewClient) {
       await tenantDb(tenant.id)
         .from('clients')
-        .update(smsOptInFields(true, ip, userAgent))
+        .update(smsOptInFields(true, ip, userAgent, consentText))
         .eq('id', clientId)
         .eq('tenant_id', tenant.id)
     }
@@ -304,8 +385,8 @@ export async function POST(request: Request) {
 
     // Holiday gate — skipped for open_365 / 24-7 tenants (emergency trades book
     // on holidays). Mirrors checkAvailability, which already exempts open_365.
-    const { open_365 } = await getSettings(tenant.id)
-    if (!open_365) {
+    const settings = await getSettings(tenant.id)
+    if (!settings.open_365) {
       const { isHoliday } = await import('@/lib/holidays')
       const holidayName = isHoliday(startTime.split('T')[0])
       if (holidayName) {
@@ -509,7 +590,9 @@ export async function POST(request: Request) {
     // (property ?? client.address) instead of the client's default address.
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
-    // Smart team suggestion
+    // Smart team suggestion — and, when the tenant has auto-booking on, a
+    // real assignment: the top-scored available member is put straight on
+    // the job and the booking skips 'pending' entirely.
     try {
       const scores = await scoreTeamForBooking({
         tenantId: tenant.id,
@@ -521,13 +604,54 @@ export async function POST(request: Request) {
       })
       const best = scores.find(s => s.available && s.score > 0)
       if (best) {
-        await tenantDb(tenant.id)
-          .from('bookings')
-          .update({
-            suggested_team_member_id: best.id,
-            suggested_reason: best.reason,
-          })
-          .eq('id', data.id)
+        let autoAssigned = false
+        if (settings.auto_booking_enabled) {
+          // scoreTeamForBooking's availability is a snapshot — re-check for a
+          // conflicting booking right before committing so a second request
+          // that scored the same member in the same instant can't double-book
+          // them. Narrows the race rather than closing it outright (a fully
+          // atomic guard would need its own RPC, like create_admin_booking_
+          // atomic's conflict check for manual assignment); on a hit, this
+          // just falls back to the existing suggested-only behavior below.
+          const conflictEnd = data.end_time || new Date(new Date(startTime).getTime() + (Number(body.estimated_hours) || 2) * 3_600_000).toISOString()
+          const { count: conflictCount } = await supabaseAdmin
+            .from('bookings')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenant.id)
+            .eq('team_member_id', best.id)
+            .not('status', 'in', '(cancelled,no_show)')
+            .lt('start_time', conflictEnd)
+            .gt('end_time', startTime)
+
+          if (!conflictCount) {
+            const { data: assigned } = await tenantDb(tenant.id)
+              .from('bookings')
+              .update({
+                team_member_id: best.id,
+                status: 'scheduled',
+                suggested_team_member_id: best.id,
+                suggested_reason: best.reason,
+              })
+              .eq('id', data.id)
+              .select('id, start_time, end_time, hourly_rate, clients(id, name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+              .single()
+
+            if (assigned) {
+              autoAssigned = true
+              await notifyAutoAssignment(tenant, assigned as unknown as AutoAssignedBooking)
+            }
+          }
+        }
+
+        if (!autoAssigned) {
+          await tenantDb(tenant.id)
+            .from('bookings')
+            .update({
+              suggested_team_member_id: best.id,
+              suggested_reason: best.reason,
+            })
+            .eq('id', data.id)
+        }
       }
     } catch (e) {
       console.error('Smart suggestion error:', e)

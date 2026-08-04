@@ -37,12 +37,12 @@ export default function SiteChatWidget({ embedded = false }: { embedded?: boolea
   // so the hero's embedded widget and the sitewide floating widget — two
   // independent mounts of this component — stay on the same thread if a
   // visitor starts a conversation in one and later sends from the other.
-  const handleSend = useCallback(async ({ body, imageDataUrl }: { body: string; imageDataUrl?: string }) => {
+  const handleSend = useCallback(async ({ body, imageDataUrl, visitorName, visitorPhone }: { body: string; imageDataUrl?: string; visitorName?: string; visitorPhone?: string }) => {
     const current = typeof window !== 'undefined' ? localStorage.getItem(THREAD_STORAGE_KEY) : threadId
     const res = await fetch('/api/public/webchat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threadId: current, body, imageDataUrl }),
+      body: JSON.stringify({ threadId: current, body, imageDataUrl, visitorName, visitorPhone }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to send')
@@ -73,6 +73,7 @@ export default function SiteChatWidget({ embedded = false }: { embedded?: boolea
       tenantLogoUrl={embedded ? '/sites/the-florida-maid/logo.png' : undefined}
       embedded={embedded}
       pulse={!embedded}
+      requireIdentity
       initialMessages={initialMessages}
       onSend={handleSend}
       pollForReplies={pollForReplies}
