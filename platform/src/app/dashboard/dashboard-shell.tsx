@@ -340,7 +340,7 @@ function DashboardShellInner({
                 <div key={n.id} className="px-5 py-2.5 flex items-start gap-2.5" style={{ fontSize: '12.5px', color: '#FFFFFF', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ marginTop: 5, background: n.tone === 'warn' ? '#E8A04A' : n.tone === 'good' ? '#4ADE80' : '#6A6A66' }} />
                   <span className="flex-1">{n.text}</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#666', flexShrink: 0 }}>{n.time}</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', color: '#E8C15A', flexShrink: 0 }}>{n.time}</span>
                 </div>
               ))}
             </div>

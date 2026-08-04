@@ -8,6 +8,7 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
+import AutoScheduled from './_components/AutoScheduled'
 import SectionVisibility from './_components/SectionVisibility'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 import { CallTextCopy } from './_components/CallTextCopy'
@@ -477,6 +478,9 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {/* AUTO SCHEDULED — recap of every auto-booking assignment + why it was made */}
+      <AutoScheduled />
+
       {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
       <ScheduleIssues />
 
