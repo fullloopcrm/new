@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { RECIPIENT_FILTERS, RECIPIENT_FILTER_LABEL, type RecipientFilter } from '@/lib/company-campaigns'
+import { RECIPIENT_FILTERS, RECIPIENT_FILTER_LABEL, CHANNELS, CHANNEL_LABEL, type RecipientFilter, type Channel } from '@/lib/company-campaigns'
 
 interface Campaign {
   id: string
   name: string
   subject: string
   body: string
+  sms_body: string | null
+  channel: Channel
   status: 'draft' | 'sent'
   recipient_filter: RecipientFilter
   recipient_count: number | null
@@ -15,7 +17,11 @@ interface Campaign {
   created_at: string
 }
 
-const emptyForm = { name: '', subject: '', body: '', recipient_filter: 'all_tenants' as RecipientFilter }
+const emptyForm = {
+  name: '', subject: '', body: '', sms_body: '',
+  recipient_filter: 'all_tenants' as RecipientFilter,
+  channel: 'email' as Channel,
+}
 
 export default function CompanyCampaignsPage() {
   useEffect(() => { document.title = 'Company Campaigns | FullLoop Admin' }, [])
@@ -38,8 +44,17 @@ export default function CompanyCampaignsPage() {
 
   useEffect(() => { load() }, [load])
 
+  function isFormValid(): boolean {
+    if (!form.name.trim()) return false
+    const needsEmail = form.channel === 'email' || form.channel === 'both'
+    const needsSms = form.channel === 'sms' || form.channel === 'both'
+    if (needsEmail && (!form.subject.trim() || !form.body.trim())) return false
+    if (needsSms && !form.sms_body.trim()) return false
+    return true
+  }
+
   async function createCampaign() {
-    if (!form.name.trim() || !form.subject.trim() || !form.body.trim() || saving) return
+    if (!isFormValid() || saving) return
     setSaving(true)
     setError(null)
     try {
@@ -110,29 +125,51 @@ export default function CompanyCampaignsPage() {
             <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Internal name</span>
             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. August product update" />
           </label>
-          <label className="block">
-            <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Recipients</span>
-            <select
-              value={form.recipient_filter}
-              onChange={(e) => setForm((f) => ({ ...f, recipient_filter: e.target.value as RecipientFilter }))}
-              className={inputCls}
-            >
-              {RECIPIENT_FILTERS.map((f) => <option key={f} value={f}>{RECIPIENT_FILTER_LABEL[f]}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Subject</span>
-            <input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className={inputCls} />
-          </label>
-          <label className="block">
-            <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Body (HTML, {'{name}'} = tenant name)</span>
-            <textarea value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} rows={6} className={inputCls} />
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Recipients</span>
+              <select
+                value={form.recipient_filter}
+                onChange={(e) => setForm((f) => ({ ...f, recipient_filter: e.target.value as RecipientFilter }))}
+                className={inputCls}
+              >
+                {RECIPIENT_FILTERS.map((f) => <option key={f} value={f}>{RECIPIENT_FILTER_LABEL[f]}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Channel</span>
+              <select
+                value={form.channel}
+                onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value as Channel }))}
+                className={inputCls}
+              >
+                {CHANNELS.map((c) => <option key={c} value={c}>{CHANNEL_LABEL[c]}</option>)}
+              </select>
+            </label>
+          </div>
+          {(form.channel === 'email' || form.channel === 'both') && (
+            <>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Subject</span>
+                <input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Email body (HTML, {'{name}'} = tenant name)</span>
+                <textarea value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} rows={6} className={inputCls} />
+              </label>
+            </>
+          )}
+          {(form.channel === 'sms' || form.channel === 'both') && (
+            <label className="block">
+              <span className="block text-xs uppercase tracking-wide text-gray-500 mb-1">SMS body (plain text, {'{name}'} = tenant name)</span>
+              <textarea value={form.sms_body} onChange={(e) => setForm((f) => ({ ...f, sms_body: e.target.value }))} rows={3} className={inputCls} />
+            </label>
+          )}
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button
             type="button"
             onClick={createCampaign}
-            disabled={!form.name.trim() || !form.subject.trim() || !form.body.trim() || saving}
+            disabled={!isFormValid() || saving}
             className="px-4 py-2 bg-teal-600 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg"
           >
             {saving ? 'Saving…' : 'Save draft'}
@@ -161,7 +198,7 @@ export default function CompanyCampaignsPage() {
                   <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-5 py-3">
                       <p className="text-sm font-medium text-slate-900">{c.name}</p>
-                      <p className="text-xs text-gray-400">{c.subject}</p>
+                      <p className="text-xs text-gray-400">{CHANNEL_LABEL[c.channel]}{c.subject ? ` · ${c.subject}` : ''}</p>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-600">{RECIPIENT_FILTER_LABEL[c.recipient_filter]}</td>
                     <td className="px-5 py-3">
