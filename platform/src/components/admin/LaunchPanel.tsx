@@ -317,7 +317,7 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
           once completed (one-time by design, not a re-runnable step). */}
       {activated && !completedAt && (
         <div className="border-t border-slate-200 pt-6">
-          <h3 className="font-heading font-semibold text-slate-900 text-lg">Mark Complete &amp; Launch</h3>
+          <h3 className="font-heading font-semibold text-slate-900 text-lg">Completed, Notify Tenant</h3>
           <p className="text-sm text-slate-500 mt-1 mb-4">
             The one client-facing step: issues a fresh owner PIN and sends exactly one welcome email
             with the login and launch message. Distinct from Activate — this never re-fires on repeat clicks.
@@ -355,7 +355,7 @@ export function LaunchPanel({ tenantId, slug, activated, completedAt, onComplete
           ) : (
             <button onClick={() => setShowConfirmComplete(true)}
               className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-lg text-sm font-cta font-bold transition-colors shadow-sm">
-              Mark Complete &amp; Launch
+              Completed, Notify Tenant
             </button>
           )}
         </div>
