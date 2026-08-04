@@ -39,6 +39,11 @@ export async function POST(request: Request) {
   }
 
   const pin = body.pin
+  // Email is required for the mobile app's unified login (every role now
+  // logs in with email+PIN); the web team-portal's own PIN-only entry point
+  // is untouched — it never sends `email`, so that path still resolves by
+  // PIN alone below. Mobile always sends both.
+  const email: string = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   // Prefer an explicit slug, but fall back to the middleware-injected tenant
   // header (set on every tenant domain/subdomain). This lets a cleaner log in
   // on their own site without typing a "business code".
@@ -88,6 +93,33 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()) as { data: Member | null }
     member = data
+  } else if (email) {
+    // Mobile path: email narrows to (at most) one candidate row, so this
+    // skips the whole-tenant PIN_SCAN_CAP scan — but still has to go through
+    // findRowByPin's decrypt-fallback, since pin may be AES-encrypted at
+    // rest and won't match a direct `.eq('pin', pin)`.
+    member = await findRowByPin(
+      pin,
+      async () => {
+        const { data } = (await tenantDb(tenant.id)
+          .from('team_members')
+          .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+          .ilike('email', email)
+          .eq('pin', pin)
+          .eq('status', 'active')
+          .maybeSingle()) as { data: Member | null }
+        return data
+      },
+      async () => {
+        const { data } = (await tenantDb(tenant.id)
+          .from('team_members')
+          .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+          .ilike('email', email)
+          .eq('status', 'active')
+          .maybeSingle()) as { data: Member | null }
+        return data ? [data] : []
+      },
+    )
   } else {
     member = await findRowByPin(
       pin,

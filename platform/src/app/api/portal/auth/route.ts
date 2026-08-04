@@ -57,6 +57,10 @@ export async function POST(request: Request) {
 
   if (action === 'login') {
     const pin = String(body.pin || '')
+    // Same email addition as /api/team-portal/auth: the web client portal's
+    // own PIN-only entry never sends `email`, so it still resolves by PIN
+    // alone below. Mobile always sends both.
+    const email: string = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (!pin) {
       return NextResponse.json({ error: 'PIN required' }, { status: 400 })
     }
@@ -92,6 +96,30 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle()) as { data: { id: string; name: string } | null }
       client = data
+    } else if (email) {
+      // Mobile path: email narrows to (at most) one candidate row, avoiding
+      // the whole-tenant PIN_SCAN_CAP scan — still routed through
+      // findRowByPin for the encrypted-pin decrypt-and-compare fallback.
+      client = await findRowByPin(
+        pin,
+        async () => {
+          const { data } = (await tenantDb(tenant.id)
+            .from('clients')
+            .select('id, name, pin')
+            .ilike('email', email)
+            .eq('pin', pin)
+            .maybeSingle()) as { data: { id: string; name: string; pin: string | null } | null }
+          return data
+        },
+        async () => {
+          const { data } = (await tenantDb(tenant.id)
+            .from('clients')
+            .select('id, name, pin')
+            .ilike('email', email)
+            .maybeSingle()) as { data: { id: string; name: string; pin: string | null } | null }
+          return data ? [data] : []
+        },
+      )
     } else {
       client = await findRowByPin(
         pin,
