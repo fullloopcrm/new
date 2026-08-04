@@ -24,7 +24,6 @@ import { registerSeoProperty } from './seo/onboarding'
 import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
 import { createAndSendOnboardingLink } from './onboarding-link'
-import { sendOwnerLoginEmail } from './owner-welcome-email'
 import { runPostActivationTasks } from './post-activation'
 import { generateSiteBrandCopy } from './generate-site-brand-copy'
 import crypto from 'crypto'
@@ -298,7 +297,11 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   // 5. Owner login — idempotent: create an owner member with a PIN if none
   // exists. Name-only tenants have no owner_email, so fall back to the default
   // contact; the login is what makes the tenant reachable, and one click should
-  // produce it rather than parking the tenant on "set an email first".
+  // produce it rather than parking the tenant on "set an email first". Activation
+  // is an internal/operator checkpoint (Phase 0, 2026-08-03) — it no longer
+  // emails the PIN to the client; that now happens exactly once, at Completion
+  // (complete-tenant.ts), consolidated with the launch welcome message. The PIN
+  // is still returned once in ActivationResult.ownerPin for an operator to relay.
   try {
     const { data: existingOwner } = await supabaseAdmin
       .from('tenant_members')
@@ -324,14 +327,11 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
         ownerPin = null
         steps.push({ key: 'owner_login', label: 'Owner login', status: 'failed', detail: memErr.message })
       } else {
-        const { sent } = await sendOwnerLoginEmail({ tenantName: tenant.name || 'Business', slug: tenant.slug, ownerEmail, ownerPin })
         steps.push({
           key: 'owner_login',
           label: 'Owner login',
           status: 'done',
-          detail: sent
-            ? `Owner created (${ownerEmail}) — PIN emailed`
-            : `Owner created (${ownerEmail}) — email failed, PIN issued once below`,
+          detail: `Owner created (${ownerEmail}) — PIN issued once below, not emailed yet (sent at Completion)`,
         })
       }
     }

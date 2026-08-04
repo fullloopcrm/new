@@ -44,3 +44,46 @@ export async function sendOwnerLoginEmail(params: {
     return { sent: false }
   }
 }
+
+/**
+ * The one and only client-facing "you're live" email — sent exactly once, at
+ * Completion (complete-tenant.ts), never at Activation. Consolidates the PIN
+ * login (previously its own separate send from sendOwnerLoginEmail above) with
+ * the launch welcome message, so a tenant's owner gets a single email instead
+ * of two, and re-running Activate never re-triggers it.
+ */
+export async function sendTenantLaunchEmail(params: {
+  tenantName: string
+  slug: string
+  ownerEmail: string | null | undefined
+  ownerPin: string
+}): Promise<{ sent: boolean }> {
+  const { tenantName, slug, ownerEmail, ownerPin } = params
+  if (!ownerEmail) return { sent: false }
+
+  const loginUrl = `https://${slug}.fullloopcrm.com/fullloop`
+  const safeTenantName = escapeHtml(tenantName)
+  const safeLoginUrl = safeUrl(loginUrl)
+  const safePin = escapeHtml(ownerPin)
+
+  try {
+    await sendEmail({
+      to: ownerEmail,
+      from: tenantSender({ name: tenantName, slug }),
+      subject: `${tenantName} is live — welcome to Full Loop`,
+      html: `
+        <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
+          <h2 style="color: #333;">Welcome to your new website, ${safeTenantName}</h2>
+          <p style="color: #555;">Onboarding's done, and your build is complete — your new front, your new backend, everything. Here's your login, no password to remember, just your PIN.</p>
+          <a href="${safeLoginUrl}" style="display: inline-block; background: #0d9488; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 12px 0;">${escapeHtml(loginUrl)}</a>
+          <p style="color: #333; font-size: 20px; font-weight: 700; letter-spacing: 2px; margin: 16px 0;">${safePin}</p>
+          <p style="color: #999; font-size: 12px;">Keep this PIN private. You can change it after you sign in.</p>
+        </div>
+      `,
+    })
+    return { sent: true }
+  } catch (err) {
+    console.error('sendTenantLaunchEmail failed', err)
+    return { sent: false }
+  }
+}

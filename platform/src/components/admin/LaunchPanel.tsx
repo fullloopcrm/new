@@ -25,15 +25,26 @@ const GROUP_LABEL: Record<ReadinessCheck['group'], string> = {
   compliance: 'Compliance',
 }
 
+interface CompletionResult {
+  ok: boolean
+  completed: boolean
+  emailSent: boolean
+  ownerPin?: string | null
+  error?: string
+}
+
 interface LaunchPanelProps {
   tenantId: string
   slug: string
+  activated: boolean
+  completedAt: string | null
+  onCompleted: () => void
 }
 
 // A loud activation client. Every outcome is shown — HTTP status, raw error,
 // per-step result. It never fails silently, so "it didn't work" always comes
 // with the exact reason on screen instead of a blank button.
-export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
+export function LaunchPanel({ tenantId, slug, activated, completedAt, onCompleted }: LaunchPanelProps) {
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<ActivationResult | null>(null)
   const [error, setError] = useState('')
@@ -42,6 +53,10 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
   const [readiness, setReadiness] = useState<SiteReadinessResult | null>(null)
   const [auditing, setAuditing] = useState(false)
   const [readinessError, setReadinessError] = useState('')
+  const [completing, setCompleting] = useState(false)
+  const [completeResult, setCompleteResult] = useState<CompletionResult | null>(null)
+  const [completeError, setCompleteError] = useState('')
+  const [showConfirmComplete, setShowConfirmComplete] = useState(false)
 
   const carryingUrl = `https://${slug}.fullloopcrm.com`
 
@@ -111,6 +126,31 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
       setError(e instanceof Error ? `Request never completed: ${e.message}` : 'Request never completed')
     } finally {
       setRunning(false)
+    }
+  }
+
+  async function complete() {
+    setCompleting(true)
+    setCompleteError('')
+    setCompleteResult(null)
+    try {
+      const res = await fetch(`/api/admin/businesses/${tenantId}/complete`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setCompleteError((data as { error?: string })?.error || `Completion failed (HTTP ${res.status})`)
+        return
+      }
+      setCompleteResult(data as CompletionResult)
+      setShowConfirmComplete(false)
+      onCompleted()
+    } catch (e) {
+      setCompleteError(e instanceof Error ? `Request never completed: ${e.message}` : 'Request never completed')
+    } finally {
+      setCompleting(false)
     }
   }
 
@@ -270,6 +310,55 @@ export function LaunchPanel({ tenantId, slug }: LaunchPanelProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* Completion — the distinct, explicit, client-facing launch action.
+          Only shown once the tenant is actually activated; hidden entirely
+          once completed (one-time by design, not a re-runnable step). */}
+      {activated && !completedAt && (
+        <div className="border-t border-slate-200 pt-6">
+          <h3 className="font-heading font-semibold text-slate-900 text-lg">Mark Complete &amp; Launch</h3>
+          <p className="text-sm text-slate-500 mt-1 mb-4">
+            The one client-facing step: issues a fresh owner PIN and sends exactly one welcome email
+            with the login and launch message. Distinct from Activate — this never re-fires on repeat clicks.
+          </p>
+
+          {completeError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 whitespace-pre-wrap mb-4">
+              {completeError}
+            </div>
+          )}
+
+          {completeResult?.completed ? (
+            <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+              Tenant marked complete. {completeResult.emailSent ? 'Launch email sent.' : 'Launch email did not send — relay the PIN below manually.'}
+              {completeResult.ownerPin && (
+                <p className="mt-2 text-2xl font-mono font-bold text-green-800">{completeResult.ownerPin}</p>
+              )}
+            </div>
+          ) : showConfirmComplete ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+              <p className="text-sm text-amber-800 mb-3">
+                This sends a real email to the tenant owner and resets their login PIN. Confirm?
+              </p>
+              <div className="flex gap-3">
+                <button onClick={complete} disabled={completing}
+                  className="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-lg text-sm font-cta font-semibold disabled:opacity-50 transition-colors">
+                  {completing ? 'Sending…' : 'Yes, send launch email'}
+                </button>
+                <button onClick={() => setShowConfirmComplete(false)} disabled={completing}
+                  className="px-5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowConfirmComplete(true)}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-lg text-sm font-cta font-bold transition-colors shadow-sm">
+              Mark Complete &amp; Launch
+            </button>
+          )}
+        </div>
       )}
 
       {/* Site-Readiness — the global new-tenant build standard, report-only. */}

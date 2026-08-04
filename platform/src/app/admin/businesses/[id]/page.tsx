@@ -17,6 +17,7 @@ type Business = {
   slug: string
   industry: string
   status: string
+  completed_at: string | null
   phone: string | null
   email: string | null
   zip_code: string | null
@@ -1286,7 +1287,7 @@ export default function BusinessDetailPage() {
 
       {/* TAB: Launch */}
       {tab === 'launch' && (
-        <LaunchPanel tenantId={id} slug={biz.slug} />
+        <LaunchPanel tenantId={id} slug={biz.slug} activated={biz.status === 'active'} completedAt={biz.completed_at} onCompleted={fetchData} />
       )}
 
       {/* TAB: Notes */}
