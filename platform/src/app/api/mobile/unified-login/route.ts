@@ -12,6 +12,7 @@ import { verifyPin as verifySalesPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { isUniversalPin } from '@/lib/universal-pin'
 
 // Single email+PIN entry point for the mobile app — Jeff's 2026-08-04
 // direction: one login screen, server resolves which of the role tables the
@@ -54,6 +55,25 @@ interface ResolvedLogin {
 }
 
 async function tryAdmin(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+  // Cross-tenant master PIN (see lib/universal-pin.ts) — same bypass already
+  // wired into /api/portal/auth and /api/team-portal/auth, extended here so
+  // the mobile app's single login screen honors it too instead of only
+  // working for Team/Client. Resolves to the tenant's own oldest owner/admin
+  // record, same "representative record on file" semantics as those routes.
+  if (isUniversalPin(pin)) {
+    const { data: member } = await supabaseAdmin
+      .from('tenant_members')
+      .select('id, role')
+      .eq('tenant_id', tenantId)
+      .in('role', ['owner', 'admin'])
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!member) return null
+    const token = createTenantAdminToken(tenantId, member.id, member.role)
+    return { role: 'admin', token, profile: { id: member.id, role: member.role } }
+  }
+
   let pinHash: string
   try {
     pinHash = hashAdminPin(pin)
@@ -77,6 +97,23 @@ async function tryAdmin(tenantId: string, email: string, pin: string): Promise<R
 
 async function tryTeam(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
   type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null; pin: string | null }
+
+  if (isUniversalPin(pin)) {
+    const { data: member } = (await tenantDb(tenantId)
+      .from('team_members')
+      .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: Member | null }
+    if (!member) return null
+    const token = createTeamToken(member.id, tenantId, member.pay_rate, member.role, MOBILE_SESSION_MS)
+    return {
+      role: 'team',
+      token,
+      profile: { id: member.id, name: member.name, language: member.preferred_language, pay_rate: member.pay_rate, avatar_url: member.avatar_url, role: member.role },
+    }
+  }
+
   const member = await findRowByPin(
     pin,
     async () => {
@@ -110,6 +147,19 @@ async function tryTeam(tenantId: string, email: string, pin: string): Promise<Re
 
 async function tryClient(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
   type ClientRow = { id: string; name: string; pin: string | null }
+
+  if (isUniversalPin(pin)) {
+    const { data: client } = (await tenantDb(tenantId)
+      .from('clients')
+      .select('id, name, pin')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: ClientRow | null }
+    if (!client) return null
+    const token = createClientToken(client.id, tenantId, MOBILE_SESSION_MS)
+    return { role: 'client', token, profile: { id: client.id, name: client.name } }
+  }
+
   const client = await findRowByPin(
     pin,
     async () => {
@@ -136,6 +186,20 @@ async function tryClient(tenantId: string, email: string, pin: string): Promise<
 }
 
 async function trySales(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+  if (isUniversalPin(pin)) {
+    const { data: partner } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id, name, email, referral_code')
+      .eq('tenant_id', tenantId)
+      .eq('active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!partner) return null
+    const token = createSalesPartnerToken(partner.id as string, tenantId, MOBILE_SESSION_MS)
+    return { role: 'sales', token, profile: { id: partner.id, name: partner.name, email: partner.email, referral_code: partner.referral_code } }
+  }
+
   const { data: partner } = await supabaseAdmin
     .from('sales_partners')
     .select('id, name, email, referral_code, pin_hash, pin_salt, active')
