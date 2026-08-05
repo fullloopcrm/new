@@ -68,7 +68,7 @@ export async function PUT(
       if (!client?.pin) return NextResponse.json({ error: 'Client has no PIN' }, { status: 400 })
       const plainPin = decryptSecret(client.pin)
 
-      const portalUrl = tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined
+      const portalUrl = tenant.tenant.website_url ? `${tenant.tenant.website_url}/book/new` : undefined
       const pinMessage = `Your ${tenant.tenant.name} portal PIN is: ${plainPin}.${portalUrl ? ` Log in at ${portalUrl} with your email and this PIN.` : ''}`
       // Same standard branded template as the reset flow just below — this
       // used to send a raw unstyled <p> tag with the tenant name hardcoded.
@@ -104,7 +104,7 @@ export async function PUT(
         channel: 'email',
         recipientType: 'client',
         recipientId: id,
-        metadata: { recipientName: client.name, pin: newPin, portalUrl: tenant.tenant.website_url ? `${tenant.tenant.website_url}/book` : undefined },
+        metadata: { recipientName: client.name, pin: newPin, portalUrl: tenant.tenant.website_url ? `${tenant.tenant.website_url}/book/new` : undefined },
       })
       await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { field: 'pin_reset' } })
 

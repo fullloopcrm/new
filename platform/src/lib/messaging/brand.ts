@@ -8,6 +8,8 @@
 //
 // Non-cleaning tenants don't use this — they keep the neutral shared templates.
 
+import { bookingPathForTenant } from '@/lib/booking-path'
+
 export type TenantBrand = {
   /** Display name used as the SMS/email sender prefix, e.g. "The NYC Maid". */
   name: string
@@ -54,7 +56,7 @@ export function tenantBrand(tenant: TenantRow): TenantBrand {
     name: tenant.name || 'Your service',
     phone: formatPhone(tenant.phone),
     site: host,
-    bookUrl: host ? `${host}/book` : 'the booking link we sent you',
+    bookUrl: host ? `${host}${bookingPathForTenant(tenant.slug)}` : 'the booking link we sent you',
     reviewUrl: tenant.google_place_id
       ? `https://search.google.com/local/writereview?placeid=${tenant.google_place_id}`
       : null,

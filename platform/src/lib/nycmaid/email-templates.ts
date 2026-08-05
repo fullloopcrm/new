@@ -148,7 +148,7 @@ export function clientBookingReceivedEmail(booking: any) {
     ${plainPin ? `
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0 0 4px 0; color: #333; font-size: 14px; font-weight: 600;">Your Client Portal</p>
-      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
+      <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book/new" style="color: #000;">thenycmaid.com/book/new</a></p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
       <p style="margin: 4px 0; color: #333; font-size: 13px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(plainPin)}</span></p>
     </div>
@@ -343,16 +343,16 @@ export function clientConfirmationEmail(booking: any) {
       View your bookings, update notes, and manage your account anytime:
     </p>
     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0;">
-      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book" style="color: #000;">thenycmaid.com/book</a></p>
+      <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Login:</strong> <a href="https://www.thenycmaid.com/book/new" style="color: #000;">thenycmaid.com/book/new</a></p>
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>Email:</strong> ${escapeHtml(booking.clients.email)}</p>
       <p style="margin: 4px 0; color: #333; font-size: 14px;"><strong>PIN:</strong> <span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; letter-spacing: 2px;">${escapeHtml(plainPin)}</span></p>
     </div>
     ` : ''}
 
-    ${primaryButton('View Your Portal', 'https://www.thenycmaid.com/book')}
+    ${primaryButton('View Your Portal', 'https://www.thenycmaid.com/book/new')}
 
     <p style="color: #666; font-size: 14px; margin: 16px 0 0 0;">
-      You can update your notes and view upcoming bookings anytime at <a href="https://www.thenycmaid.com/book" style="color: #000; font-weight: 500;">thenycmaid.com/book</a>
+      You can update your notes and view upcoming bookings anytime at <a href="https://www.thenycmaid.com/book/new" style="color: #000; font-weight: 500;">thenycmaid.com/book/new</a>
     </p>
 
     <p style="color: #666; font-size: 14px; margin: 16px 0 0 0;">
@@ -380,7 +380,7 @@ export function clientReminderEmail(booking: any, daysOut: string) {
       ${infoRow('Cleaner', escapeHtml(cleanerName))}
     `)}
 
-    ${primaryButton('View Details', 'https://www.thenycmaid.com/book')}
+    ${primaryButton('View Details', 'https://www.thenycmaid.com/book/new')}
 
     ${noteBox(`<strong>Reminder:</strong> ${isRecurring
       ? 'Recurring services require <strong>7 days notice</strong> to reschedule. Cancellations are not permitted unless discontinuing the service entirely with 7 days notice.'
@@ -408,7 +408,7 @@ export function clientCancellationEmail(booking: any) {
       ${infoRow('Service', escapeHtml(booking.service_type))}
     `)}
 
-    ${primaryButton('Book Again', 'https://www.thenycmaid.com/book')}
+    ${primaryButton('Book Again', 'https://www.thenycmaid.com/book/new')}
 
     <p style="color: #666; font-size: 14px; margin: 24px 0 0 0;">
       Questions? <a href="sms:6464900130" style="color: #000;">(646) 490-0130</a>
@@ -459,7 +459,7 @@ export function clientThankYouEmail(clientName: string) {
 
     <p style="color: #333; font-size: 15px; margin: 0 0 16px 0; font-weight: 600;">Ready to book again?</p>
 
-    ${primaryButton('Visit Your Portal', 'https://www.thenycmaid.com/book')}
+    ${primaryButton('Visit Your Portal', 'https://www.thenycmaid.com/book/new')}
 
     <p style="color: #666; font-size: 14px; margin: 24px 0 0 0;">
       Questions? <a href="sms:6464900130" style="color: #000;">(646) 490-0130</a>
@@ -1052,7 +1052,7 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
       ${infoRow('Service', escapeHtml(booking.service_type))}
     `)}
 
-    ${primaryButton('View in Portal', 'https://www.thenycmaid.com/book')}
+    ${primaryButton('View in Portal', 'https://www.thenycmaid.com/book/new')}
 
     <p style="color: #666; font-size: 14px; margin: 24px 0 0 0;">
       Questions? <a href="sms:6464900130" style="color: #000;">(646) 490-0130</a>
@@ -1127,7 +1127,7 @@ export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: s
 
 export function pinResetEmail(person: { name: string; pin: string; portal: 'client' | 'team' }) {
   const firstName = person.name.split(' ')[0]
-  const portalUrl = person.portal === 'client' ? 'https://www.thenycmaid.com/book' : 'https://www.thenycmaid.com/team'
+  const portalUrl = person.portal === 'client' ? 'https://www.thenycmaid.com/book/new' : 'https://www.thenycmaid.com/team'
   const portalLabel = person.portal === 'client' ? 'Open Client Portal' : 'Open Team Portal'
 
   const content = `

@@ -112,9 +112,9 @@ export default function ContactPage() {
                 <span className="text-[#1E2A4A] text-2xl">&#128197;</span>
               </div>
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Existing Client?</h2>
-              <p className="text-[#1E2A4A] text-lg font-bold">thenycmaid.com/book</p>
+              <p className="text-[#1E2A4A] text-lg font-bold">thenycmaid.com/book/new</p>
               <p className="text-gray-500 text-sm mt-3">Log in to view your bookings, reschedule, or manage your account.</p>
-              <Link href="/book" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <Link href="/book/new" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 Client Login
               </Link>
             </div>

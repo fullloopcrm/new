@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { bookingPathForTenant } from '@/lib/booking-path'
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
     const businessName = tenant.name || 'our company'
     const industry = tenant.industry || 'service'
     const brand = tenant.primary_color || '#2563eb'
-    const bookUrl = tenant.domain ? `https://${tenant.domain}/book` : '/book'
+    const bookUrl = tenant.domain ? `https://${tenant.domain}${bookingPathForTenant(tenant.slug)}` : bookingPathForTenant(tenant.slug)
     const phone = tenant.phone || ''
 
     const client = anthropicFromStoredKey(tenant.anthropic_api_key)
