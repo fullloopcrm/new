@@ -6,6 +6,7 @@ import FAQSection from '@/app/site/the-florida-maid/_components/marketing/FAQSec
 import { SERVICES } from '@/app/site/the-florida-maid/_lib/seo/services'
 import { emdMicrositeSchemas } from '@/app/site/the-florida-maid/_lib/emd/schema'
 import { getNearbyMicrosites } from '@/app/site/the-florida-maid/_lib/emd/registry'
+import { EMD_CITY_PHOTOS, EMD_GENERIC_CLEANING_PHOTO } from '@/app/site/the-florida-maid/_lib/emd/photos'
 import type { EmdMicrositeConfig } from '@/app/site/the-florida-maid/_lib/emd/types'
 
 const PARENT_TAG = 'A Florida Maid Services Company'
@@ -37,6 +38,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
   const taggedPricingExplainer = config.pricingExplainer.map(p => tagBrand(p, config.brandName))
   const taggedTestimonials = config.testimonials.map(t => ({ ...t, text: tagBrand(t.text, config.brandName) }))
   const nearby = getNearbyMicrosites(config, 5)
+  const cityPhoto = EMD_CITY_PHOTOS[config.domain]
 
   return (
     <>
@@ -111,6 +113,24 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
           </div>
         </div>
       </section>
+
+      {/* City photo banner. cityPhoto.realLocation false means no confidently-verified
+          Pexels match for this exact city — a neutral clean-home photo is used instead
+          rather than risk showing the wrong place. */}
+      <div className="relative h-64 md:h-80 w-full overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={cityPhoto.src} alt={cityPhoto.alt} className="w-full h-full object-cover" />
+        {cityPhoto.photographer && (
+          <a
+            href={cityPhoto.photographerUrl || 'https://www.pexels.com'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-2 right-3 text-[10px] text-white/70 bg-black/30 rounded px-2 py-0.5 hover:text-white"
+          >
+            Photo: {cityPhoto.photographer} / Pexels
+          </a>
+        )}
+      </div>
 
       {/* Welcome / intro */}
       <section className="py-20 bg-white">
@@ -225,6 +245,13 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
             From background-checked cleaners to transparent hourly pricing, here&apos;s what sets {config.brandName} apart for house cleaning in {config.city}.
           </p>
+          <div className="rounded-2xl overflow-hidden mb-12 h-56 md:h-72 relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={EMD_GENERIC_CLEANING_PHOTO.src} alt={EMD_GENERIC_CLEANING_PHOTO.alt} className="w-full h-full object-cover" />
+            <span className="absolute bottom-2 right-3 text-[10px] text-white/70 bg-black/30 rounded px-2 py-0.5">
+              Photo: {EMD_GENERIC_CLEANING_PHOTO.photographer} / Pexels
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
               { title: 'Local Focus, Statewide Backing', body: `${config.brandName} (${PARENT_TAG}) is built specifically around ${config.city}, but backed by a Florida cleaning company that has served over 25,000 homes statewide since 2018.` },
