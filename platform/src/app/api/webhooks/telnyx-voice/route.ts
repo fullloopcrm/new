@@ -72,7 +72,9 @@ async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenan
   return { ok: true, tenantId: matches[0].id }
 }
 
-const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '25')
+// ~2-3 real phone rings before falling through to voicemail — 25s of dead
+// air (caller hears nothing while we dial) was too long to sit through.
+const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '15')
 const VOICEMAIL_MAX_LENGTH_SECS = Number(process.env.VOICEMAIL_MAX_LENGTH_SECS || '120')
 const MISSED_CALL_SMS_COOLDOWN_MIN = Number(process.env.MISSED_CALL_SMS_COOLDOWN_MIN || '60')
 
