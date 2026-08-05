@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     }
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')
-      .select('id, customer_call_id, thread_id, contact_id, customer_phone, status')
+      .select('id, customer_call_id, thread_id, contact_id, customer_phone, status, admin_phone')
       .eq('id', body.active_call_id)
       .eq('tenant_id', tenantId)
       .single()
@@ -81,6 +81,19 @@ export async function POST(req: NextRequest) {
     }
     if (active.status === 'ended') {
       return NextResponse.json({ error: 'Call already ended' }, { status: 409 })
+    }
+    // A phone (not a live softphone) is already ringing for this call —
+    // caught live: clicking Answer here placed a SECOND, redundant dial to
+    // the same number instead of doing anything useful. A ringing PSTN cell
+    // can only be answered by physically picking it up; no API call can
+    // answer it for the recipient. Nothing left for this button to do.
+    if (active.admin_phone && !active.admin_phone.startsWith('sip:')) {
+      return NextResponse.json({
+        ok: true,
+        action: 'answer',
+        via: 'already-ringing-phone',
+        detail: `Already ringing ${active.admin_phone} — pick up that call, this button can't answer it for you.`,
+      })
     }
 
     const adminId = await getActiveAdminMemberId(tenantId)

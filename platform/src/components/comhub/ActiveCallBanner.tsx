@@ -208,7 +208,15 @@ function CallRow({
       </div>
 
       <div className="flex items-center gap-1.5">
-        {!live && (
+        {!live && call.admin_phone && !call.admin_phone.startsWith('sip:') ? (
+          // A cell number is already ringing for this call — no button can
+          // answer that; only physically picking up the phone can. Showing
+          // an active "Answer" here was misleading (confirmed live: it just
+          // placed a second, redundant dial to the same number).
+          <span className="h-7 px-3 rounded-md bg-white/[0.06] border border-white/[0.08] text-white/70 text-[11px] font-medium tracking-wide flex items-center">
+            Ringing phone…
+          </span>
+        ) : !live ? (
           <button
             type="button"
             onClick={() => onAction(call, 'answer')}
@@ -217,7 +225,7 @@ function CallRow({
           >
             Answer
           </button>
-        )}
+        ) : null}
         {live && (
           <>
             <ActionBtn
