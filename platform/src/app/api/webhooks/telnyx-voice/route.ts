@@ -334,6 +334,18 @@ async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
   return targets
 }
 
+// Distinguishes "dial succeeded, no separate leg to track" (SIP transfer —
+// the customer leg itself moves) from "dial failed outright" (bad API key,
+// missing connection id, Telnyx rejected the request, network error) — both
+// used to collapse to the same `null` return, which made it impossible for
+// a caller to tell "success, nothing to track" from "this needs a fallback".
+// A failure here means Telnyx never created an admin leg at all, so no
+// admin-leg webhook event will EVER arrive for it — the reactive
+// call.hangup/dial.failed/dial.no_answer handler below can only catch a
+// leg that started ringing and then stopped. Callers must advance to the
+// next ring target (or voicemail) synchronously on `ok: false`.
+type DialResult = { ok: true; callControlId: string | null } | { ok: false }
+
 async function dialRingTarget(opts: {
   target: RingTarget
   customerCallId: string
@@ -341,8 +353,8 @@ async function dialRingTarget(opts: {
   contactId: string
   customerPhone: string
   ringIndex: number
-}): Promise<string | null> {
-  if (!TELNYX_API_KEY) return null
+}): Promise<DialResult> {
+  if (!TELNYX_API_KEY) return { ok: false }
   try {
     // For SIP-URI targets (browser softphone), `dial` from a Call Control
     // App fails to route across connections. The reliable path is to
@@ -378,17 +390,21 @@ async function dialRingTarget(opts: {
       if (!res.ok) {
         const detail = await res.text().catch(() => '')
         console.error('[telnyx-voice] transfer→sip failed', { target: opts.target, detail })
-        return null
+        return { ok: false }
       }
       // transfer returns the same customer call_control_id (the leg is
-      // moved, not duplicated). Return null to signal "no separate admin
-      // leg to track" — the same customer leg is now ringing the softphone.
-      return null
+      // moved, not duplicated). callControlId: null signals "no separate
+      // admin leg to track" — the same customer leg is now ringing the
+      // softphone.
+      return { ok: true, callControlId: null }
     }
 
     // Phone (PSTN cell) target: traditional outbound dial via Call Control
     // App. Creates a separate admin leg we can bridge later.
-    if (!TELNYX_VOICE_CONNECTION_ID) return null
+    if (!TELNYX_VOICE_CONNECTION_ID) {
+      console.error('[telnyx-voice] TELNYX_VOICE_CONNECTION_ID not configured — cannot dial phone ring targets')
+      return { ok: false }
+    }
     const res = await fetch('https://api.telnyx.com/v2/calls', {
       method: 'POST',
       headers: {
@@ -417,14 +433,68 @@ async function dialRingTarget(opts: {
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
       console.error('[telnyx-voice] dialRingTarget failed', { target: opts.target, detail })
-      return null
+      return { ok: false }
     }
     const data = await res.json()
-    return data?.data?.call_control_id || null
+    return { ok: true, callControlId: data?.data?.call_control_id || null }
   } catch (err) {
     console.error('[telnyx-voice] dialRingTarget threw', err)
-    return null
+    return { ok: false }
   }
+}
+
+// Single entry point for "dial this ring target, and if that doesn't pan
+// out, keep going" — used both for the very first ring target on a fresh
+// inbound call and reactively when an admin leg hangs up/fails/times out.
+// Recursion is bounded by ringTargets.length (small, fixed per tenant), so
+// it can't run away. Crucially: a dial that fails outright (ok: false) is
+// handled HERE, synchronously, instead of only via the reactive
+// call.hangup/dial.failed/dial.no_answer webhook branch below — that
+// branch fires for a leg Telnyx actually created and then gave up on; a
+// leg that was never created (missing connection id, bad API response,
+// thrown error) never gets a webhook event at all, so waiting on one left
+// the call stuck in silence indefinitely.
+async function advanceRingOrVoicemail(opts: {
+  tenantId: string
+  customerCallId: string
+  threadId: string
+  contactId: string
+  customerPhone: string
+  nextIndex: number
+}): Promise<void> {
+  const ringTargets = await buildRingTargets(opts.tenantId)
+  if (opts.nextIndex >= ringTargets.length) {
+    await startVoicemail({
+      tenantId: opts.tenantId,
+      customerCallId: opts.customerCallId,
+      threadId: opts.threadId,
+      contactId: opts.contactId,
+    })
+    return
+  }
+
+  const target = ringTargets[opts.nextIndex]
+  const result = await dialRingTarget({
+    target,
+    customerCallId: opts.customerCallId,
+    threadId: opts.threadId,
+    contactId: opts.contactId,
+    customerPhone: opts.customerPhone,
+    ringIndex: opts.nextIndex,
+  })
+
+  if (!result.ok) {
+    await advanceRingOrVoicemail({ ...opts, nextIndex: opts.nextIndex + 1 })
+    return
+  }
+  if (result.callControlId) {
+    await supabaseAdmin
+      .from('comhub_active_calls')
+      .update({ admin_call_id: result.callControlId, admin_phone: target.label })
+      .eq('customer_call_id', opts.customerCallId)
+  }
+  // else: SIP transfer succeeded — the customer leg itself is now ringing
+  // the softphone, nothing further to track here.
 }
 
 async function startRecordingAndTranscription(callControlId: string): Promise<void> {
@@ -838,33 +908,14 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const ringTargets = await buildRingTargets(tenantId)
-    if (ringTargets.length === 0) {
-      await startVoicemail({
-        tenantId,
-        customerCallId: callControlId,
-        threadId,
-        contactId,
-      })
-    } else {
-      const adminCallId = await dialRingTarget({
-        target: ringTargets[0],
-        customerCallId: callControlId,
-        threadId,
-        contactId,
-        customerPhone: p.from,
-        ringIndex: 0,
-      })
-      if (adminCallId) {
-        await supabaseAdmin
-          .from('comhub_active_calls')
-          .update({
-            admin_call_id: adminCallId,
-            admin_phone: ringTargets[0].label,
-          })
-          .eq('customer_call_id', callControlId)
-      }
-    }
+    await advanceRingOrVoicemail({
+      tenantId,
+      customerCallId: callControlId,
+      threadId,
+      contactId,
+      customerPhone: p.from,
+      nextIndex: 0,
+    })
 
     return NextResponse.json({ ok: true })
   }
@@ -919,34 +970,14 @@ export async function POST(req: NextRequest) {
       // If we already bridged, hangup of admin leg is just end of conversation.
       if (active.status === 'bridged') return NextResponse.json({ ok: true })
 
-      const ringTargets = await buildRingTargets(active.tenant_id)
-      if (nextIndex < ringTargets.length) {
-        const nextCallId = await dialRingTarget({
-          target: ringTargets[nextIndex],
-          customerCallId,
-          threadId: active.thread_id,
-          contactId: active.contact_id,
-          customerPhone: active.customer_phone,
-          ringIndex: nextIndex,
-        })
-        if (nextCallId) {
-          await supabaseAdmin
-            .from('comhub_active_calls')
-            .update({
-              admin_call_id: nextCallId,
-              admin_phone: ringTargets[nextIndex].label,
-            })
-            .eq('id', active.id)
-        }
-      } else {
-        // Ring list exhausted → voicemail.
-        await startVoicemail({
-          tenantId: active.tenant_id,
-          customerCallId,
-          threadId: active.thread_id,
-          contactId: active.contact_id,
-        })
-      }
+      await advanceRingOrVoicemail({
+        tenantId: active.tenant_id,
+        customerCallId,
+        threadId: active.thread_id,
+        contactId: active.contact_id,
+        customerPhone: active.customer_phone,
+        nextIndex,
+      })
       return NextResponse.json({ ok: true })
     }
   }
