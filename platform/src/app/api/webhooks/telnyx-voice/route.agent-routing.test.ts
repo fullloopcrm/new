@@ -25,18 +25,35 @@ const mock = vi.hoisted(() => {
     voiceSettingsRows: [] as Array<{ tenant_id: string; admin_id: string; fallback_cell_phone: string }>,
     fetchCalls: [] as Array<{ url: string; to: string | null; body: Record<string, unknown> | null }>,
     transferShouldFail: false,
+    // The ComHub-first grace window (before ringing a cell-only target)
+    // resumes via call.gather.ended, which looks up comhub_active_calls by
+    // customer_call_id and only proceeds if status is still 'ringing'.
+    activeCalls: [] as Array<Record<string, unknown>>,
   }
 
   function makeChain(table: string) {
     let idFilter: string | null = null
     let tenantFilter: string | null = null
+    let customerCallIdFilter: string | null = null
+    let pendingPatch: Record<string, unknown> | null = null
     const chain: Record<string, unknown> = {
       select: () => chain,
-      insert: () => chain,
-      update: () => chain,
+      insert: (row: Record<string, unknown>) => {
+        if (table === 'comhub_active_calls') state.activeCalls.push({ ...row })
+        return chain
+      },
+      update: (patch: Record<string, unknown>) => {
+        pendingPatch = patch
+        return chain
+      },
       eq: (col: string, val: string) => {
         if (col === 'id') idFilter = val
         if (col === 'tenant_id') tenantFilter = val
+        if (col === 'customer_call_id') customerCallIdFilter = val
+        if (table === 'comhub_active_calls' && pendingPatch && col === 'customer_call_id') {
+          const row = state.activeCalls.find(r => r.customer_call_id === val)
+          if (row) Object.assign(row, pendingPatch)
+        }
         return chain
       },
       or: () => chain,
@@ -47,6 +64,10 @@ const mock = vi.hoisted(() => {
       single: async () => {
         if (table === 'tenants' && idFilter) {
           return { data: state.tenantCreds[idFilter] ?? null, error: null }
+        }
+        if (table === 'comhub_active_calls' && customerCallIdFilter) {
+          const row = state.activeCalls.find(r => r.customer_call_id === customerCallIdFilter)
+          return { data: row ?? null, error: null }
         }
         return { data: null, error: null }
       },
@@ -92,12 +113,25 @@ function inboundCall(to: string): string {
   })
 }
 
+// Resumes the ComHub-first grace window inserted before a cell-only dial
+// (see advanceRingOrVoicemail in route.ts) — the grace prompt's own
+// call.gather.ended completion is what actually triggers the phone dial.
+function gatherEnded(callControlId: string): string {
+  return JSON.stringify({
+    data: {
+      event_type: 'call.gather.ended',
+      payload: { call_control_id: callControlId },
+    },
+  })
+}
+
 beforeEach(() => {
   mock.state.tenantRows = []
   mock.state.tenantCreds = {}
   mock.state.voiceSettingsRows = []
   mock.state.fetchCalls = []
   mock.state.transferShouldFail = false
+  mock.state.activeCalls = []
   process.env.TELNYX_VOICE_WEBHOOK_VERIFY = 'off'
   vi.stubGlobal(
     'fetch',
@@ -147,6 +181,9 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
 
     const transferCall = mock.state.fetchCalls.find((c) => c.url.includes('/actions/transfer'))
     expect(transferCall).toBeUndefined()
+    // Cell is the only ring target — the ComHub-first grace window fires
+    // instead of an immediate dial; resume it before checking the dial.
+    await POST(makeRequest(gatherEnded('cc-1')) as never)
     const dialCall = mock.state.fetchCalls.find((c) => c.url === 'https://api.telnyx.com/v2/calls')
     expect(dialCall).toBeDefined()
     expect(dialCall!.to).toBe('+15551110000')
@@ -161,6 +198,7 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
     const json = await res.json()
     expect(json.routed).not.toBe('agent')
 
+    await POST(makeRequest(gatherEnded('cc-1')) as never)
     const dialCall = mock.state.fetchCalls.find((c) => c.url === 'https://api.telnyx.com/v2/calls')
     expect(dialCall).toBeDefined()
     expect(dialCall!.to).toBe('+15551110000')
@@ -176,6 +214,7 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
     const json = await res.json()
     expect(json.routed).not.toBe('agent')
 
+    await POST(makeRequest(gatherEnded('cc-1')) as never)
     const dialCall = mock.state.fetchCalls.find((c) => c.url === 'https://api.telnyx.com/v2/calls')
     expect(dialCall).toBeDefined()
     expect(dialCall!.to).toBe('+15551110000')

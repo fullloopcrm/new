@@ -85,6 +85,21 @@ const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '15'
 const VOICEMAIL_MAX_LENGTH_SECS = Number(process.env.VOICEMAIL_MAX_LENGTH_SECS || '120')
 const MISSED_CALL_SMS_COOLDOWN_MIN = Number(process.env.MISSED_CALL_SMS_COOLDOWN_MIN || '60')
 
+// When the FIRST ring target is a cell number (no admin has Loop Phone open
+// at all), the call used to jump straight to that phone the instant it came
+// in — same moment the ComHub call bar popped up, not after it, since there
+// was no softphone target ahead of it to ring through ComHub first. This
+// grace window inserts a real "ComHub gets first crack at it" pause before
+// that phone dial: the call sits ringing/visible/audible in ComHub (the new
+// on-demand Answer button works with no softphone registered) for this many
+// seconds before it escalates to the cell. Not needed when a softphone IS
+// online — that target already rings for ADMIN_LEG_TIMEOUT_SECS through
+// ComHub before falling to cell.
+const COMHUB_FIRST_GRACE_SECS = Number(process.env.COMHUB_FIRST_GRACE_SECS || '12')
+const COMHUB_FIRST_GRACE_PROMPT = (
+  process.env.COMHUB_FIRST_GRACE_PROMPT || 'One moment please, connecting your call.'
+)
+
 // Per-tenant personalization for the voicemail greeting + missed-call SMS.
 // `tenants.voicemail_prompt`/`missed_call_sms` already exist and are
 // editable via the admin business-settings API — this was the missing link:
@@ -468,6 +483,7 @@ async function advanceRingOrVoicemail(opts: {
   contactId: string
   customerPhone: string
   nextIndex: number
+  graceUsed?: boolean
 }): Promise<void> {
   const ringTargets = await buildRingTargets(opts.tenantId)
   if (opts.nextIndex >= ringTargets.length) {
@@ -481,6 +497,23 @@ async function advanceRingOrVoicemail(opts: {
   }
 
   const target = ringTargets[opts.nextIndex]
+
+  // First ring target is a cell number with no softphone ahead of it —
+  // give ComHub's on-demand Answer button a real window before dialing it.
+  // Resumes via the call.gather.ended handler below, which re-enters here
+  // with graceUsed:true (only if nobody has answered via ComHub meanwhile).
+  if (target.kind === 'phone' && opts.nextIndex === 0 && !opts.graceUsed) {
+    await telnyxAction(opts.customerCallId, 'gather_using_speak', {
+      payload: COMHUB_FIRST_GRACE_PROMPT,
+      voice: TTS_VOICE,
+      language: 'en-US',
+      minimum_digits: 0,
+      maximum_digits: 0,
+      timeout_millis: COMHUB_FIRST_GRACE_SECS * 1000,
+    }).catch(() => null)
+    return
+  }
+
   const result = await dialRingTarget({
     target,
     customerCallId: opts.customerCallId,
@@ -964,6 +997,34 @@ export async function POST(req: NextRequest) {
         direction: 'system',
         author: 'system',
         body: `✅ Admin ${active.admin_phone} picked up`,
+      })
+    }
+    return NextResponse.json({ ok: true })
+  }
+
+  // ─── ComHub-first grace window ended ────────────────────────────────────
+  // Fires when the initial gather_using_speak inserted before a cell-only
+  // dial times out (see advanceRingOrVoicemail). If the call is still
+  // 'ringing', nobody answered via ComHub's Answer button during the grace
+  // window — proceed to actually dial the cell. If status has already moved
+  // on (bridged via the Answer button, or ended), do nothing: this is not
+  // the voicemail-prompt's own gather, since by the time THAT one's
+  // completion event arrives status is already 'voicemail', not 'ringing'.
+  if (event === 'call.gather.ended' && callControlId && !leg) {
+    const { data: active } = await supabaseAdmin
+      .from('comhub_active_calls')
+      .select('tenant_id, thread_id, contact_id, customer_phone, status')
+      .eq('customer_call_id', callControlId)
+      .single()
+    if (active && active.status === 'ringing') {
+      await advanceRingOrVoicemail({
+        tenantId: active.tenant_id,
+        customerCallId: callControlId,
+        threadId: active.thread_id,
+        contactId: active.contact_id,
+        customerPhone: active.customer_phone,
+        nextIndex: 0,
+        graceUsed: true,
       })
     }
     return NextResponse.json({ ok: true })

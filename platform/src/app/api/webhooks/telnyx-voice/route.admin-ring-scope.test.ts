@@ -33,16 +33,35 @@ const mock = vi.hoisted(() => {
     presenceRows: [] as Array<{ tenant_id: string; admin_id: string; sip_username: string; sip_address: string; status: string; last_seen_at: string }>,
     voiceSettingsRows: [] as Array<{ tenant_id: string; admin_id: string; fallback_cell_phone: string }>,
     fetchCalls: [] as Array<{ url: string; to: string | null }>,
+    // The ComHub-first grace window (before ringing a cell-only target)
+    // resumes via call.gather.ended, which looks up comhub_active_calls by
+    // customer_call_id and only proceeds if status is still 'ringing' — so
+    // these tests need that table's insert/update/select actually modeled,
+    // not just ignored like the other tables here.
+    activeCalls: [] as Array<Record<string, unknown>>,
   }
 
   function makeChain(table: string) {
     let tenantFilter: string | null = null
+    let customerCallIdFilter: string | null = null
+    let pendingPatch: Record<string, unknown> | null = null
     const chain: Record<string, unknown> = {
       select: () => chain,
-      insert: () => chain,
-      update: () => chain,
+      insert: (row: Record<string, unknown>) => {
+        if (table === 'comhub_active_calls') state.activeCalls.push({ ...row })
+        return chain
+      },
+      update: (patch: Record<string, unknown>) => {
+        pendingPatch = patch
+        return chain
+      },
       eq: (col: string, val: string) => {
         if (col === 'tenant_id') tenantFilter = val
+        if (col === 'customer_call_id') customerCallIdFilter = val
+        if (table === 'comhub_active_calls' && pendingPatch && col === 'customer_call_id') {
+          const row = state.activeCalls.find(r => r.customer_call_id === val)
+          if (row) Object.assign(row, pendingPatch)
+        }
         return chain
       },
       or: () => chain,
@@ -50,7 +69,13 @@ const mock = vi.hoisted(() => {
       order: () => chain,
       limit: async () =>
         table === 'tenants' ? { data: state.tenantRows, error: null } : { data: [], error: null },
-      single: async () => ({ data: null, error: null }),
+      single: async () => {
+        if (table === 'comhub_active_calls' && customerCallIdFilter) {
+          const row = state.activeCalls.find(r => r.customer_call_id === customerCallIdFilter)
+          return { data: row ?? null, error: null }
+        }
+        return { data: null, error: null }
+      },
       then: (resolve: (v: { data: unknown; error: null }) => void) => {
         if (table === 'comhub_admin_presence') {
           resolve({ data: state.presenceRows.filter(r => r.tenant_id === tenantFilter), error: null })
@@ -100,11 +125,24 @@ function inboundCall(to: string): string {
   })
 }
 
+// Resumes the ComHub-first grace window inserted before a cell-only dial
+// (see advanceRingOrVoicemail in route.ts) — the grace prompt's own
+// call.gather.ended completion is what actually triggers the phone dial.
+function gatherEnded(callControlId: string): string {
+  return JSON.stringify({
+    data: {
+      event_type: 'call.gather.ended',
+      payload: { call_control_id: callControlId },
+    },
+  })
+}
+
 beforeEach(() => {
   mock.state.tenantRows = []
   mock.state.presenceRows = []
   mock.state.voiceSettingsRows = []
   mock.state.fetchCalls = []
+  mock.state.activeCalls = []
   process.env.TELNYX_VOICE_WEBHOOK_VERIFY = 'off'
   vi.stubGlobal(
     'fetch',
@@ -153,6 +191,15 @@ describe('telnyx-voice — ADMIN_RING is tenant-scoped', () => {
 
     const res = await POST(makeRequest(inboundCall(DID_A)) as never)
     expect(res.status).toBe(200)
+
+    // Cell is the only ring target (no online softphone) — the ComHub-first
+    // grace window fires instead of an immediate dial. Resume it, same as
+    // Telnyx would on the real gather's timeout.
+    const graceAction = mock.state.fetchCalls.find(c => c.url.includes('/actions/gather_using_speak'))
+    expect(graceAction).toBeDefined()
+    expect(mock.state.fetchCalls.find(c => c.url === 'https://api.telnyx.com/v2/calls')).toBeUndefined()
+
+    await POST(makeRequest(gatherEnded('cc-1')) as never)
 
     const dialCall = mock.state.fetchCalls.find(c => c.url === 'https://api.telnyx.com/v2/calls')
     expect(dialCall).toBeDefined()
