@@ -99,6 +99,10 @@ export async function POST(req: NextRequest) {
     expires_in_seconds: 60 * 60,
     admin_id: adminId,
     used_voice_connection_id: cfg.voiceConnectionId || null,
+    // Tenant's own outbound caller ID. The client used to hard-code NYC
+    // Maid's 3 numbers as the "From" picker for every tenant — any other
+    // tenant's softphone showed NYC Maid's number as the outbound caller ID.
+    tenant_phone: cfg.fromNumber || null,
   })
 }
 

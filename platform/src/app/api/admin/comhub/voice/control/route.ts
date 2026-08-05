@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
-type Action = 'hold' | 'unhold' | 'mute' | 'unmute' | 'hangup' | 'transfer_blind' | 'transfer_warm' | 'speak' | 'dtmf'
-const ACTIONS: Action[] = ['hold', 'unhold', 'mute', 'unmute', 'hangup', 'transfer_blind', 'transfer_warm', 'speak', 'dtmf']
+type Action = 'answer' | 'hold' | 'unhold' | 'mute' | 'unmute' | 'hangup' | 'transfer_blind' | 'transfer_warm' | 'speak' | 'dtmf'
+const ACTIONS: Action[] = ['answer', 'hold', 'unhold', 'mute', 'unmute', 'hangup', 'transfer_blind', 'transfer_warm', 'speak', 'dtmf']
 
 async function telnyxAction(
   apiKey: string,
@@ -53,6 +54,141 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'valid action required' }, { status: 400 })
   }
   const action = body.action as Action
+
+  // "answer" grabs a ringing/voicemail call on demand for WHICHEVER admin
+  // clicked the button in the ComHub call bar — independent of the
+  // automatic ring-target sequence, and independent of whether that admin's
+  // softphone happened to win the ring order. This is what the call bar
+  // never had: buildRingTargets/advanceRingOrVoicemail (telnyx-voice
+  // webhook) only ever dial admins in a fixed, pre-computed order; there was
+  // no way for a specific admin to say "give it to me" mid-ring. Needs its
+  // own field set (thread_id/contact_id/customer_phone), so it's handled
+  // before the generic customer_call_id resolution below, which only fetches
+  // what hold/mute/hangup/etc need.
+  if (action === 'answer') {
+    if (!body.active_call_id) {
+      return NextResponse.json({ error: 'active_call_id required' }, { status: 400 })
+    }
+    const { data: active } = await supabaseAdmin
+      .from('comhub_active_calls')
+      .select('id, customer_call_id, thread_id, contact_id, customer_phone, status')
+      .eq('id', body.active_call_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!active) return NextResponse.json({ error: 'Active call not found' }, { status: 404 })
+    if (active.status === 'bridged') {
+      return NextResponse.json({ error: 'Call already answered' }, { status: 409 })
+    }
+    if (active.status === 'ended') {
+      return NextResponse.json({ error: 'Call already ended' }, { status: 409 })
+    }
+
+    const adminId = await getActiveAdminMemberId(tenantId)
+    if (!adminId) return NextResponse.json({ error: 'no tenant member found' }, { status: 412 })
+
+    const [{ data: presence }, { data: settings }] = await Promise.all([
+      supabaseAdmin
+        .from('comhub_admin_presence')
+        .select('sip_username, sip_address, last_seen_at')
+        .eq('tenant_id', tenantId)
+        .eq('admin_id', adminId)
+        .single(),
+      supabaseAdmin
+        .from('comhub_admin_voice_settings')
+        .select('fallback_cell_phone')
+        .eq('tenant_id', tenantId)
+        .eq('admin_id', adminId)
+        .single(),
+    ])
+
+    const isOnline =
+      !!presence?.last_seen_at && new Date(presence.last_seen_at as string).getTime() > Date.now() - 60_000
+    const sipAddr = isOnline
+      ? (presence?.sip_address as string | null) ||
+        (presence?.sip_username ? `sip:${presence.sip_username}@sip.telnyx.com` : null)
+      : null
+    const cellPhone = (settings?.fallback_cell_phone as string | null) || null
+
+    if (!sipAddr && !cellPhone) {
+      return NextResponse.json(
+        {
+          error: 'no answer target',
+          detail: 'Open Loop Phone to register, or set a fallback cell number in Voice settings, before answering from here.',
+        },
+        { status: 412 },
+      )
+    }
+
+    if (active.status === 'voicemail') {
+      // Best-effort: stop the in-progress voicemail recording before pulling
+      // the call away from it. Not fatal if this fails — the transfer below
+      // still moves the call either way.
+      await telnyxAction(cfg.apiKey, active.customer_call_id, 'record_stop', {}).catch(() => null)
+    }
+
+    if (sipAddr) {
+      const res = await fetch(
+        `https://api.telnyx.com/v2/calls/${active.customer_call_id}/actions/transfer`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: sipAddr,
+            from: active.customer_phone,
+            from_display_name: 'Comhub',
+          }),
+        },
+      )
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '')
+        return NextResponse.json({ error: 'answer transfer failed', detail: detail.slice(0, 400) }, { status: 502 })
+      }
+      // The webhook's call.answered handler flips status to 'bridged' once
+      // this admin actually picks up, using admin_phone as the signal that a
+      // transfer is in flight (see telnyx-voice/route.ts).
+      await supabaseAdmin.from('comhub_active_calls').update({ admin_phone: sipAddr }).eq('id', active.id)
+      return NextResponse.json({ ok: true, action: 'answer', via: 'softphone' })
+    }
+
+    if (!cfg.voiceConnectionId) {
+      return NextResponse.json({ error: 'voice connection required (tenant or platform)' }, { status: 503 })
+    }
+    const dialRes = await fetch('https://api.telnyx.com/v2/calls', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        connection_id: cfg.voiceConnectionId,
+        to: cellPhone,
+        from: active.customer_phone,
+        from_display_name: 'Comhub',
+        answering_machine_detection: 'detect_beep',
+        // Reuses the exact custom-header shape the automatic ring-target
+        // dial already produces, so the existing admin-leg webhook branch
+        // (leg === 'admin') bridges this in on answer with no new webhook
+        // logic needed. Ring-index 999 guarantees a no-answer/failure here
+        // falls straight to voicemail instead of re-ringing other targets.
+        custom_headers: [
+          { name: 'X-Comhub-Leg', value: 'admin' },
+          { name: 'X-Comhub-Customer-Call', value: active.customer_call_id },
+          { name: 'X-Comhub-Thread', value: active.thread_id },
+          { name: 'X-Comhub-Contact', value: active.contact_id },
+          { name: 'X-Comhub-Customer-Phone', value: active.customer_phone },
+          { name: 'X-Comhub-Ring-Index', value: '999' },
+          { name: 'X-Comhub-Target-Kind', value: 'phone' },
+        ],
+      }),
+    })
+    if (!dialRes.ok) {
+      const detail = await dialRes.text().catch(() => '')
+      return NextResponse.json({ error: 'answer dial failed', detail: detail.slice(0, 400) }, { status: 502 })
+    }
+    const dialData = await dialRes.json()
+    await supabaseAdmin
+      .from('comhub_active_calls')
+      .update({ admin_phone: cellPhone, admin_call_id: dialData?.data?.call_control_id || null })
+      .eq('id', active.id)
+    return NextResponse.json({ ok: true, action: 'answer', via: 'cell' })
+  }
 
   // customer_call_id is a caller-supplied Telnyx call_control_id. Tenants
   // without their own Telnyx account share the platform's TELNYX_API_KEY

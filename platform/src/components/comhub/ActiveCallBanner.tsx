@@ -172,6 +172,16 @@ function CallRow({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {!live && (
+          <button
+            type="button"
+            onClick={() => onAction(call, 'answer')}
+            disabled={isWorking}
+            className="h-7 px-3 rounded-md bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white text-[11px] font-medium tracking-wide transition-colors shadow-[0_2px_10px_rgba(16,185,129,0.3)]"
+          >
+            Answer
+          </button>
+        )}
         {live && (
           <>
             <ActionBtn

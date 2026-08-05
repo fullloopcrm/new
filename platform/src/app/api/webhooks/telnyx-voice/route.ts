@@ -494,14 +494,19 @@ async function advanceRingOrVoicemail(opts: {
     await advanceRingOrVoicemail({ ...opts, nextIndex: opts.nextIndex + 1 })
     return
   }
-  if (result.callControlId) {
-    await supabaseAdmin
-      .from('comhub_active_calls')
-      .update({ admin_call_id: result.callControlId, admin_phone: target.label })
-      .eq('customer_call_id', opts.customerCallId)
-  }
-  // else: SIP transfer succeeded — the customer leg itself is now ringing
-  // the softphone, nothing further to track here.
+  // admin_phone is set for BOTH kinds now — the SIP-transfer case used to
+  // skip this, which meant the customer-leg call.answered handler below had
+  // no way to tell "this pickup is the ring target answering" apart from
+  // "this is our own initial auto-answer of the customer leg." Bridged
+  // status was never reached for softphone pickups as a result (see the
+  // call.answered && !leg handler).
+  await supabaseAdmin
+    .from('comhub_active_calls')
+    .update({
+      admin_phone: target.label,
+      ...(result.callControlId ? { admin_call_id: result.callControlId } : {}),
+    })
+    .eq('customer_call_id', opts.customerCallId)
 }
 
 async function startRecordingAndTranscription(callControlId: string): Promise<void> {
@@ -928,9 +933,39 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Customer leg answered ───────────────────────────────────────────────
-  // Fires when WE answer the customer leg above. Recording starts when an
-  // admin leg actually bridges in (handled in the admin-leg branch).
+  // Fires twice for a call that gets picked up via SIP transfer to a
+  // softphone: once when WE auto-answer the customer leg at call.initiated
+  // (admin_phone is still null on the active_calls row at that point — the
+  // no-op case below), and again when the transfer target actually picks up
+  // (admin_phone is set by then, from advanceRingOrVoicemail's SIP branch).
+  // A PSTN ring target's pickup is NOT reported here — that has its own
+  // separate call_control_id and is bridged in the admin-leg branch above.
+  // This branch only matters for the SIP/browser case, where transfer moves
+  // the SAME call_control_id instead of creating a second leg — previously
+  // this whole branch was a no-op, so a softphone pickup never flipped
+  // status to 'bridged': the ComHub call bar kept showing "Ringing…" and
+  // Hold/Mute/Transfer never appeared even once someone actually answered.
   if (event === 'call.answered' && !leg && callControlId) {
+    const { data: active } = await supabaseAdmin
+      .from('comhub_active_calls')
+      .select('id, tenant_id, thread_id, contact_id, admin_phone, status')
+      .eq('customer_call_id', callControlId)
+      .single()
+    if (active && active.status === 'ringing' && active.admin_phone) {
+      await startRecordingAndTranscription(callControlId)
+      await supabaseAdmin
+        .from('comhub_active_calls')
+        .update({ status: 'bridged', answered_at: new Date().toISOString() })
+        .eq('id', active.id)
+      await logVoiceMessage({
+        tenantId: active.tenant_id,
+        threadId: active.thread_id,
+        contactId: active.contact_id,
+        direction: 'system',
+        author: 'system',
+        body: `✅ Admin ${active.admin_phone} picked up`,
+      })
+    }
     return NextResponse.json({ ok: true })
   }
 

@@ -42,17 +42,14 @@ interface SoftphoneProps {
 const HEARTBEAT_INTERVAL_MS = 30_000
 const PRESENCE_PATH = '/api/admin/comhub/voice/presence'
 
-// Caller-ID options for outbound calls. Telnyx requires outbound calls to
-// use a number owned by the account; without one the call is silently
-// rejected and the SDK fires an empty error event. Each entry corresponds
-// to a number attached to the Comhub credential connection in Telnyx.
-type CallerIdOption = { value: string; label: string }
-const CALLER_ID_OPTIONS: CallerIdOption[] = [
-  { value: '+12122028400', label: '(212) 202-8400' },
-  { value: '+17188149850', label: '(718) 814-9850' },
-  { value: '+18883164019', label: '(888) 316-4019' },
-]
-const DEFAULT_CALLER_ID = CALLER_ID_OPTIONS[0].value
+// Outbound caller ID. Telnyx requires outbound calls to use a number owned
+// by the account; without one the call is silently rejected and the SDK
+// fires an empty error event. This used to be a hardcoded 3-number picker —
+// all 3 belonging to NYC Maid — so every OTHER tenant's softphone showed NYC
+// Maid's number as the outbound caller ID. Now sourced from the token
+// endpoint's `tenant_phone` (this tenant's own configured Telnyx number),
+// resolved server-side per-tenant in comhub-voice-config.ts.
+const FALLBACK_CALLER_ID = '+18883164019'
 
 function normalizePhone(input: string): string {
   const digits = input.replace(/[^\d+]/g, '')
@@ -106,20 +103,13 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
   const [held, setHeld] = useState(false)
   const [durationSecs, setDurationSecs] = useState(0)
   const [collapsed, setCollapsed] = useState(true)
-  const [callerId, setCallerId] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_CALLER_ID
-    const saved = window.localStorage.getItem('comhub:caller-id')
-    return saved && CALLER_ID_OPTIONS.some(o => o.value === saved) ? saved : DEFAULT_CALLER_ID
-  })
+  const [callerId, setCallerId] = useState<string>(FALLBACK_CALLER_ID)
 
-  const callerIdRef = useRef<string>(DEFAULT_CALLER_ID)
+  const callerIdRef = useRef<string>(FALLBACK_CALLER_ID)
   const activeCallRef = useRef<TelnyxCall | null>(null)
   const callerNumberRef = useRef<string>('')
   useEffect(() => {
     callerIdRef.current = callerId
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('comhub:caller-id', callerId)
-    }
   }, [callerId])
   useEffect(() => {
     activeCallRef.current = activeCall
@@ -463,14 +453,19 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
           const detail = await res.json().catch(() => ({}))
           throw new Error(detail.detail || detail.error || `token endpoint ${res.status}`)
         }
-        const { login_token, sip_username, credential_id } = (await res.json()) as {
+        const { login_token, sip_username, credential_id, tenant_phone } = (await res.json()) as {
           login_token: string
           sip_username: string
           credential_id: string
+          tenant_phone?: string | null
         }
         if (!login_token) throw new Error('no login_token in token response')
         credentialIdRef.current = credential_id
         sipUsernameRef.current = sip_username
+        if (tenant_phone) {
+          callerIdRef.current = tenant_phone
+          setCallerId(tenant_phone)
+        }
 
         const sdk = (await import('@telnyx/webrtc')) as unknown as {
           TelnyxRTC: new (opts: Record<string, unknown>) => TelnyxRTCInstance
@@ -887,7 +882,6 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
             onCall={placeCall}
             ready={status === 'ready'}
             callerId={callerId}
-            setCallerId={setCallerId}
           />
         )}
       </div>
@@ -904,7 +898,6 @@ function DialerScreen({
   onCall,
   ready,
   callerId,
-  setCallerId,
 }: {
   destination: string
   setDestination: (v: string) => void
@@ -912,29 +905,16 @@ function DialerScreen({
   onCall: () => void
   ready: boolean
   callerId: string
-  setCallerId: (v: string) => void
 }) {
   return (
     <div>
-      {/* Caller-ID picker — which Telnyx number outbound shows on customer phones. */}
+      {/* This tenant's own outbound caller ID — server-resolved, not a
+          hardcoded shared list (see token/route.ts's tenant_phone). */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] uppercase tracking-[0.18em] text-[#7A7A78]">From</span>
-        <div className="flex gap-1">
-          {CALLER_ID_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setCallerId(opt.value)}
-              className={`px-2 py-0.5 rounded-md text-[10px] font-mono tracking-wide transition-colors ${
-                callerId === opt.value
-                  ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'
-                  : 'bg-[#F4F4F1] text-[#7A7A78] border border-[#E4E2DC] hover:bg-[#EFEFEC]'
-              }`}
-            >
-              {opt.label.split(') ')[0].replace('(', '')}
-            </button>
-          ))}
-        </div>
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono tracking-wide bg-[#F4F4F1] text-[#3A3A3A] border border-[#E4E2DC]">
+          {formatPretty(callerId) || callerId}
+        </span>
       </div>
 
       <RecipientSearch destination={destination} setDestination={setDestination} />
