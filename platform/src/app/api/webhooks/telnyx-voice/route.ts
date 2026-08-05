@@ -30,7 +30,14 @@ async function getTenantTelnyxCreds(tenantId: string): Promise<{ apiKey: string;
 }
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
-const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
+// Falls back to NYC Maid's own call_control_application ("NYC Maid Comhub
+// Voice (dev)") when the env var isn't set in this environment — verified
+// working 2026-08-05 (placed a real outbound call with it, bridged
+// successfully). This is the connection admin-leg ring-target dials go out
+// on; it's not tenant-specific — the webhook route resolves tenant from the
+// dialed DID (resolveVoiceTenant), not from which connection originated the
+// admin leg — so one shared connection here is correct for every tenant.
+const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '2955613482520675500').trim()
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
 
 type VoiceTenantResolution =
