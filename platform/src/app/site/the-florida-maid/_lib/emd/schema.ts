@@ -1,5 +1,6 @@
 import { faqSchema, breadcrumbSchema, webPageSchema } from '../seo/schema'
 import { SERVICES } from '../seo/services'
+import { EMD_CITY_PHOTOS } from './photos'
 import type { EmdMicrositeConfig } from './types'
 
 const PARENT_BUSINESS = {
@@ -34,7 +35,11 @@ function emdLocalBusinessSchema(config: EmdMicrositeConfig) {
     email: PARENT_BUSINESS.email,
     description: config.metaDescription,
     logo: PARENT_BUSINESS.logo,
-    image: PARENT_BUSINESS.logo,
+    // Only assert a real, location-verified photo as the business's `image` —
+    // the 17 cities running the generic clean-home fallback (no confident
+    // Pexels match) keep the logo here instead, since that photo doesn't
+    // actually depict this city.
+    image: EMD_CITY_PHOTOS[config.domain]?.realLocation ? EMD_CITY_PHOTOS[config.domain].src : PARENT_BUSINESS.logo,
     priceRange: '$$',
     currenciesAccepted: 'USD',
     paymentAccepted: 'Cash, Credit Card, Debit Card, Zelle, Venmo, Apple Pay',

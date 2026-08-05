@@ -119,7 +119,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
           rather than risk showing the wrong place. */}
       <div className="relative h-64 md:h-80 w-full overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cityPhoto.src} alt={cityPhoto.alt} className="w-full h-full object-cover" />
+        <img src={cityPhoto.src} alt={cityPhoto.alt} width={1200} height={627} loading="eager" fetchPriority="high" className="w-full h-full object-cover" />
         {cityPhoto.photographer && (
           <a
             href={cityPhoto.photographerUrl || 'https://www.pexels.com'}
@@ -247,7 +247,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
           </p>
           <div className="rounded-2xl overflow-hidden mb-12 h-56 md:h-72 relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={EMD_GENERIC_CLEANING_PHOTO.src} alt={EMD_GENERIC_CLEANING_PHOTO.alt} className="w-full h-full object-cover" />
+            <img src={EMD_GENERIC_CLEANING_PHOTO.src} alt={EMD_GENERIC_CLEANING_PHOTO.alt} width={1200} height={627} loading="lazy" className="w-full h-full object-cover" />
             <span className="absolute bottom-2 right-3 text-[10px] text-white/70 bg-black/30 rounded px-2 py-0.5">
               Photo: {EMD_GENERIC_CLEANING_PHOTO.photographer} / Pexels
             </span>
