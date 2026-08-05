@@ -7,6 +7,7 @@
 //
 // This is Jefe's data layer. Every signal is platform-wide, with per-tenant
 // attribution so Jefe can say "the-florida-maid has 3 comms failures — reach out."
+import { unstable_cache } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Notification types that represent a PROBLEM worth surfacing to the operator.
@@ -102,6 +103,64 @@ export interface PlatformHealth {
   // Tenants with active problems, worst first — this is what Jefe acts on.
   tenants_with_issues: TenantIssues[]
   recent_issues: RecentIssue[]
+  // 9. Financial — Full Loop's own revenue (seat-based monthly_rate per tenant),
+  // not any tenant's revenue. at_risk = billing_status='past_due' tenants' MRR +
+  // dollar value of stuck-unpaid completed bookings (platform's own exposure,
+  // not the tenant's cash flow).
+  financial: {
+    mrr_cents: number
+    arr_cents: number
+    setup_collected_cents: number
+    past_due_count: number
+    at_risk_cents: number
+  }
+  // 10. Sales pipeline — partner_requests (LEAD_STAGES: new/contacted/qualified/
+  // proposed/sold/lost). This is the real, currently-used pipeline that feeds
+  // /admin/sales's Leads tab — NOT the legacy inquiries/prospects tables in
+  // `sales` above, which nothing in the active Sales UI reads from anymore.
+  sales_pipeline: {
+    total: number
+    new_7d: number
+    by_stage: Record<string, number>
+    sold_total: number
+    conversion_pct: number // sold / (total - still-open 'new'), 0 when no decided leads yet
+  }
+  // 11. Tenant status breakdown — distinct from `provisioning` (can they
+  // operate) and `lifecycle` (are they active) — this is account status.
+  tenant_status: {
+    active: number
+    setup: number
+    suspended: number
+    pending: number
+    cancelled: number
+    other: number
+  }
+  // 13. Communications — real volume across every channel, 7d window. Single
+  // source: comhub_messages, the unified cross-channel inbox log (channel
+  // column: sms/web/voice/email/admin). NOT comhub_softphone_calls (dead —
+  // zero rows all-time; that only ever covered an admin's own browser-based
+  // outbound dial, not real customer calls).
+  communications: {
+    calls_7d: number
+    sms_7d: number
+    email_7d: number
+    webchats_7d: number
+    total_7d: number
+  }
+  // 12. SEO — negative (alerts) and positive (real ranking data from
+  // seo_metrics, ingested daily from Search Console via cron/seo-ingest).
+  seo: {
+    alerts_24h: number
+    alerts_7d: number
+    tenants_affected: number
+    // Real Search Console data, not a stub — see /admin/seo for the same source.
+    first_page_count: number // distinct query/page rankings at position <= 10, latest ingest date
+    improved_count: number // rankings that moved up vs. ~7 days prior
+    declined_count: number
+    improvement_pct: number // improved / (improved + declined), 0 when no moves tracked yet
+    rankings_as_of: string | null // the ingest date this snapshot is measured against
+    tenants_tracked: number // properties in seo_properties with a linked tenant
+  }
   // 7. Integration health — latest sweep (cron/integration-health-sweep) of
   // each tenant's Telnyx/Resend/Stripe (+ tenant Anthropic override) keys.
   // A dead key here is a tenant that's PROVISIONED but silently broken —
@@ -170,7 +229,122 @@ interface TenantRow {
   stripe_api_key: string | null
   created_at: string | null
   last_active_at: string | null
+  billing_status: string | null
+  monthly_rate: number | null
+  setup_fee: number | null
+  setup_fee_paid_at: string | null
 }
+
+const TENANT_STATUSES = ['active', 'setup', 'suspended', 'pending', 'cancelled'] as const
+
+type RankingSnapshot = {
+  first_page_count: number
+  improved_count: number
+  declined_count: number
+  improvement_pct: number
+  rankings_as_of: string | null
+  tenants_tracked: number
+}
+
+type SeoMetricRow = { property: string; page: string; query: string; position: number; date: string }
+
+function baseSeoMetricsQuery() {
+  return supabaseAdmin.from('seo_metrics').select('property, page, query, position, date')
+}
+
+// supabase-js silently caps an unbounded .select() at 1000 rows (PostgREST's
+// default page size) — NOT an error, just a truncated result, which is how
+// first_page_count ended up computed from ~10% of the real latest-date data.
+// Paginate with .range() until a page comes back short.
+async function fetchAllSeoMetrics(filter: (q: ReturnType<typeof baseSeoMetricsQuery>) => ReturnType<typeof baseSeoMetricsQuery>): Promise<SeoMetricRow[]> {
+  const PAGE = 1000
+  const out: SeoMetricRow[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await filter(baseSeoMetricsQuery()).range(from, from + PAGE - 1)
+    if (error || !data || data.length === 0) break
+    out.push(...(data as SeoMetricRow[]))
+    if (data.length < PAGE) break
+  }
+  return out
+}
+
+// Real Search Console rankings (seo_metrics, ~600k+ rows across all ingested
+// properties — see src/lib/seo/ingest.ts). Deliberately does NOT scan the
+// whole table: pulls only the latest ingested date's slice plus a window
+// covering the comparison date ~7 days earlier, joins them in memory by
+// property+page+query. That's the same shape /admin/seo already reads from,
+// just aggregated platform-wide instead of per-tenant. Both slices are fully
+// paginated (see fetchAllSeoMetrics) — do not swap back to a bare .select()
+// or .limit(), either silently truncates and undercounts.
+async function computeSeoRankingsUncached(): Promise<RankingSnapshot> {
+  const empty: RankingSnapshot = { first_page_count: 0, improved_count: 0, declined_count: 0, improvement_pct: 0, rankings_as_of: null, tenants_tracked: 0 }
+
+  const { data: latestRow } = await supabaseAdmin.from('seo_metrics').select('date').order('date', { ascending: false }).limit(1)
+  const latestDate = latestRow?.[0]?.date as string | undefined
+  if (!latestDate) return empty
+
+  const priorTarget = new Date(new Date(latestDate + 'T00:00:00Z').getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
+  // Window, not a single date: ingestion doesn't run every day for every
+  // property, so the nearest available date to "7 days back" varies per
+  // property. A 10-day lookback window (fully paginated, not row-capped)
+  // lets every property find its own nearest prior date fairly, instead of
+  // whichever properties happened to sort first in a capped fetch.
+  const priorWindowStart = new Date(new Date(priorTarget + 'T00:00:00Z').getTime() - 10 * 86_400_000).toISOString().slice(0, 10)
+
+  const [propsRes, latest, priorWindow] = await Promise.all([
+    supabaseAdmin.from('seo_properties').select('property, tenant_id').not('tenant_id', 'is', null),
+    fetchAllSeoMetrics((q) => q.eq('date', latestDate)),
+    fetchAllSeoMetrics((q) => q.gte('date', priorWindowStart).lte('date', priorTarget)),
+  ])
+
+  const trackedProperties = new Set((propsRes.data || []).map((p) => p.property as string))
+  const latestFiltered = latest.filter((r) => trackedProperties.has(r.property))
+  const priorFiltered = priorWindow.filter((r) => trackedProperties.has(r.property))
+
+  // Per-property nearest-to-priorTarget date, so a property that only
+  // ingested 9 days back isn't compared against one that ingested exactly on
+  // priorTarget using two different baselines silently.
+  const nearestDateByProperty = new Map<string, string>()
+  for (const r of priorFiltered) {
+    const cur = nearestDateByProperty.get(r.property)
+    if (!cur || r.date > cur) nearestDateByProperty.set(r.property, r.date)
+  }
+
+  const priorByKey = new Map<string, number>()
+  for (const r of priorFiltered) {
+    if (nearestDateByProperty.get(r.property) !== r.date) continue // only that property's chosen baseline date
+    const key = `${r.property}::${r.page}::${r.query}`
+    priorByKey.set(key, r.position)
+  }
+
+  let firstPage = 0
+  let improved = 0
+  let declined = 0
+  for (const r of latestFiltered) {
+    if (r.position <= 10) firstPage++
+    const key = `${r.property}::${r.page}::${r.query}`
+    const priorPos = priorByKey.get(key)
+    if (priorPos !== undefined) {
+      if (r.position < priorPos) improved++
+      else if (r.position > priorPos) declined++
+    }
+  }
+
+  const decidedMoves = improved + declined
+  return {
+    first_page_count: firstPage,
+    improved_count: improved,
+    declined_count: declined,
+    improvement_pct: decidedMoves > 0 ? Math.round((improved / decidedMoves) * 100) : 0,
+    rankings_as_of: latestDate,
+    tenants_tracked: new Set((propsRes.data || []).map((p) => p.tenant_id)).size,
+  }
+}
+
+// Full pagination across ~600k+ real rows takes ~20s — fine for a cron, not
+// for a page load. Rankings only actually change once a day (GSC ingest
+// lag), so a 1h cache eliminates the repeat cost with no real staleness.
+const computeSeoRankings = unstable_cache(computeSeoRankingsUncached, ['seo-rankings-snapshot'], { revalidate: 3600 })
 
 export async function getPlatformHealth(now: Date = new Date()): Promise<PlatformHealth> {
   const since7d = hoursAgo(now, 24 * 7)
@@ -180,6 +354,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   const stuckAfter = noTz(hoursAgo(now, 24 * 30)) // bounded to last 30d so "stuck" stays a recent signal
 
   const cronPromises = CRON_CHECKS.map((c) => lastCronOccurrence(c))
+  const rankingsPromise = computeSeoRankings()
 
   const [
     tenantsRes,
@@ -197,10 +372,16 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     integrationsRes,
     integrationsSweptAtRes,
     uptimeRes,
+    leadsRes,
+    seoRes,
+    callsRes,
+    smsRes,
+    emailRes,
+    webchatRes,
   ] = await Promise.all([
     supabaseAdmin
       .from('tenants')
-      .select('id, name, status, telnyx_api_key, resend_api_key, stripe_api_key, created_at, last_active_at')
+      .select('id, name, status, telnyx_api_key, resend_api_key, stripe_api_key, created_at, last_active_at, billing_status, monthly_rate, setup_fee, setup_fee_paid_at')
       .neq('status', 'deleted'),
     supabaseAdmin
       .from('notifications')
@@ -218,7 +399,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since7d),
     supabaseAdmin
       .from('bookings')
-      .select('tenant_id, payment_status')
+      .select('tenant_id, payment_status, price')
       .eq('status', 'completed')
       .lt('end_time', stuckBefore)
       .gt('end_time', stuckAfter)
@@ -235,6 +416,22 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     // Read-only: Fortress (cron/tenant-health) owns the actual checks + its
     // own direct alerting. Jefe just reads the latest results here.
     supabaseAdmin.from('tenant_health').select('slug, domain, status, checks, detail, checked_at'),
+    // Real sales pipeline (see /admin/sales's Leads tab + /api/admin/requests/
+    // convert) — partner_requests, not the legacy inquiries/prospects tables.
+    supabaseAdmin.from('partner_requests').select('status, created_at'),
+    // SEO ranking advisories (cron/seo-alerts) — logged into `notifications`
+    // with type='error', which is why they were drowning out real errors in
+    // `stability`/`tenants_with_issues`. Broken out into their own signal.
+    supabaseAdmin.from('notifications').select('tenant_id, created_at').eq('title', 'cron/seo-alerts').gte('created_at', since7d),
+    // Communications volume — comhub_messages is the real unified cross-
+    // channel inbox log (channel: sms/web/voice/email/admin), confirmed live
+    // (7d sample: sms 619, web 59, voice 76, email 162, admin 2). Count-only
+    // queries are safe from the pagination-truncation bug that hit SEO —
+    // {count:'exact', head:true} returns a real count, never a capped row set.
+    supabaseAdmin.from('comhub_messages').select('id', { count: 'exact', head: true }).eq('channel', 'voice').gte('created_at', since7d),
+    supabaseAdmin.from('comhub_messages').select('id', { count: 'exact', head: true }).eq('channel', 'sms').gte('created_at', since7d),
+    supabaseAdmin.from('comhub_messages').select('id', { count: 'exact', head: true }).eq('channel', 'email').gte('created_at', since7d),
+    supabaseAdmin.from('comhub_messages').select('id', { count: 'exact', head: true }).eq('channel', 'web').gte('created_at', since7d),
   ])
 
   const tenants = (tenantsRes.data || []) as TenantRow[]
@@ -322,7 +519,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   })
 
   // --- 5. stuck payments ---
-  const stuck = (stuckRes.data || []) as Array<{ tenant_id: string | null; payment_status: string | null }>
+  const stuck = (stuckRes.data || []) as Array<{ tenant_id: string | null; payment_status: string | null; price: number | null }>
   const stuckUnpaid = stuck.filter((b) => b.payment_status !== 'paid')
   const stuckByTenant = new Map<string, number>()
   for (const b of stuckUnpaid) {
@@ -373,6 +570,88 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   const uptimeCheckedAt = uptimeRows.reduce<string | null>((latest, r) => (!latest || r.checked_at > latest ? r.checked_at : latest), null)
   const uptime: PlatformHealth['uptime'] = { checked_at: uptimeCheckedAt, failing: uptimeFailing, expiring_certs: expiringCerts }
 
+  // --- 9. financial ---
+  // MRR sums every tenant's monthly_rate regardless of status (matches
+  // /api/admin/billing's definition) — /api/admin/sales computes a narrower
+  // "active only" MRR for a different purpose (account-status review); this
+  // is the platform revenue total, so it uses the billing definition.
+  const mrr_cents = tenants.reduce((s, t) => s + (t.monthly_rate || 0), 0)
+  const pastDueTenants = tenants.filter((t) => t.billing_status === 'past_due')
+  const pastDueMrr = pastDueTenants.reduce((s, t) => s + (t.monthly_rate || 0), 0)
+  const stuckUnpaidCents = stuckUnpaid.reduce((s, b) => s + (b.price || 0), 0)
+  const financial: PlatformHealth['financial'] = {
+    mrr_cents,
+    arr_cents: mrr_cents * 12,
+    // setup_fee_paid_at is only stamped once collected — count actual setup
+    // fees, not the setup_fee owed on tenants still mid-setup. NOTE: the
+    // $25k setup fee is collected by bank wire, not the Stripe checkout
+    // (that only covers the $2,500/mo subscription — see
+    // webhooks/stripe-platform/route.ts's own comment). This field is only
+    // ever stamped by an admin manually confirming a wire in
+    // api/admin/prospects/[id]/wire-received, so $0 here is expected/honest
+    // until that confirmation happens for real invoiced tenants — it is NOT
+    // evidence of a broken stamp.
+    setup_collected_cents: tenants
+      .filter((t) => t.setup_fee_paid_at)
+      .reduce((s, t) => s + (t.setup_fee || 0), 0),
+    past_due_count: pastDueTenants.length,
+    at_risk_cents: pastDueMrr + stuckUnpaidCents,
+  }
+
+  // --- 10. sales pipeline (partner_requests / LEAD_STAGES) ---
+  const leads = (leadsRes.data || []) as Array<{ status: string | null; created_at: string }>
+  const by_stage: Record<string, number> = {}
+  let soldTotal = 0
+  let lostTotal = 0
+  for (const l of leads) {
+    const stage = l.status || 'new'
+    by_stage[stage] = (by_stage[stage] || 0) + 1
+    if (stage === 'sold') soldTotal++
+    if (stage === 'lost') lostTotal++
+  }
+  const decided = soldTotal + lostTotal // leads that have left the open pipeline
+  const sales_pipeline: PlatformHealth['sales_pipeline'] = {
+    total: leads.length,
+    new_7d: leads.filter((l) => l.created_at >= since7d).length,
+    by_stage,
+    sold_total: soldTotal,
+    conversion_pct: decided > 0 ? Math.round((soldTotal / decided) * 100) : 0,
+  }
+
+  // --- 13. communications ---
+  const commsCallsCount = callsRes.count || 0
+  const commsSmsCount = smsRes.count || 0
+  const commsEmailCount = emailRes.count || 0
+  const commsWebchatCount = webchatRes.count || 0
+  const communications: PlatformHealth['communications'] = {
+    calls_7d: commsCallsCount,
+    sms_7d: commsSmsCount,
+    email_7d: commsEmailCount,
+    webchats_7d: commsWebchatCount,
+    total_7d: commsCallsCount + commsSmsCount + commsEmailCount + commsWebchatCount,
+  }
+
+  // --- 12. SEO ---
+  const seoRows = (seoRes.data || []) as Array<{ tenant_id: string | null; created_at: string }>
+  const rankings = await rankingsPromise
+  const seo: PlatformHealth['seo'] = {
+    alerts_24h: seoRows.filter((r) => r.created_at >= since24h).length,
+    alerts_7d: seoRows.length,
+    tenants_affected: new Set(seoRows.map((r) => r.tenant_id).filter(Boolean)).size,
+    ...rankings,
+  }
+
+  // --- 11. tenant status breakdown ---
+  const tenant_status: PlatformHealth['tenant_status'] = { active: 0, setup: 0, suspended: 0, pending: 0, cancelled: 0, other: 0 }
+  for (const t of tenants) {
+    const s = t.status || 'other'
+    if ((TENANT_STATUSES as readonly string[]).includes(s)) {
+      tenant_status[s as typeof TENANT_STATUSES[number]]++
+    } else {
+      tenant_status.other++
+    }
+  }
+
   return {
     generated_at: now.toISOString(),
     sales: {
@@ -409,5 +688,10 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       })),
     },
     uptime,
+    financial,
+    sales_pipeline,
+    tenant_status,
+    seo,
+    communications,
   }
 }
