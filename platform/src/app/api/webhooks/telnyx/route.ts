@@ -21,6 +21,7 @@ import { getTenantTimezone } from '@/lib/tenant-time'
 import { nowNaiveET } from '@/lib/recurring'
 import { sendTenantTelegram } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
+import { handleApprovalReply, handleExecutionReply } from '@/lib/finance/global-payouts-guardrails'
 
 export const maxDuration = 60
 
@@ -249,6 +250,23 @@ export async function POST(request: Request) {
 
     const tenantId = tenant.id
     const normalizedText = text.trim().toUpperCase()
+
+    // ============================================
+    // GLOBAL PAYOUTS HOLD APPROVAL — "YES <code>" then "GO <code>". Checked
+    // before owner-chat routing below so an admin approving a payout (often
+    // the same phone as owner_phone) doesn't get swallowed into
+    // tenant_owner_messages instead of actually approving/firing the hold.
+    // ============================================
+    const yesMatch = normalizedText.match(/^YES\s+([A-Z0-9]{4})$/)
+    const goMatch = normalizedText.match(/^GO\s+([A-Z0-9]{4})$/)
+    if (yesMatch) {
+      const handled = await handleApprovalReply(from, yesMatch[1])
+      if (handled) return NextResponse.json({ received: true, routed: 'payout_hold_approved' })
+    }
+    if (goMatch) {
+      const handled = await handleExecutionReply(from, goMatch[1])
+      if (handled) return NextResponse.json({ received: true, routed: 'payout_hold_executed' })
+    }
 
     // Download each Telnyx-hosted attachment and re-host it in our own
     // storage -- Telnyx's media URLs are not guaranteed to stay valid

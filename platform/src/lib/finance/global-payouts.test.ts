@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  */
 
 const insertMock = vi.fn()
+const updateMock = vi.fn()
 vi.mock('../supabase', () => ({
   supabaseAdmin: {
     from: () => ({
@@ -16,10 +17,25 @@ vi.mock('../supabase', () => ({
         insertMock(row)
         return { select: () => ({ single: async () => ({ data: { id: 'payout_1' }, error: null }) }) }
       },
-      update: () => ({ eq: () => ({ eq: async () => ({ data: null, error: null }) }) }),
+      update: (row: Record<string, unknown>) => { updateMock(row); return { eq: () => ({ eq: async () => ({ data: null, error: null }) }) } },
     }),
   },
 }))
+
+const { sendSMSMock, sendTenantTelegramMock } = vi.hoisted(() => ({
+  sendSMSMock: vi.fn(async (..._args: unknown[]) => ({ ok: true })),
+  sendTenantTelegramMock: vi.fn(async (..._args: unknown[]) => {}),
+}))
+vi.mock('../sms', () => ({ sendSMS: sendSMSMock }))
+vi.mock('../notify', () => ({ sendTenantTelegram: sendTenantTelegramMock }))
+
+// executeGroups routes cleanerAlreadyPaid through the real cleaner-payout.ts,
+// which needs a `single`/`maybeSingle` shape from supabaseAdmin — always say
+// "not paid yet" so these tests reach the payout path.
+vi.mock('./cleaner-payout', async () => {
+  const actual = await vi.importActual<typeof import('./cleaner-payout')>('./cleaner-payout')
+  return { ...actual, cleanerAlreadyPaid: vi.fn(async () => false), releaseCleanerPayout: vi.fn(async () => {}) }
+})
 
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
@@ -33,6 +49,9 @@ beforeEach(() => {
   payoutsCreate.mockClear()
   balanceRetrieve.mockClear()
   insertMock.mockClear()
+  updateMock.mockClear()
+  sendSMSMock.mockClear()
+  sendTenantTelegramMock.mockClear()
 })
 
 describe('claimGlobalPayout', () => {
@@ -120,5 +139,77 @@ describe('createOutboundPayment', () => {
       description: 'test payout',
       idempotencyKey: 'gp-payout:b1',
     })).rejects.toThrow(/insufficient_funds/)
+  })
+})
+
+describe('createRecipientOnboardingLink', () => {
+  it('uses the account_onboarding link type for a brand-new recipient', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://accounts.stripe.com/r/new', expires_at: '2026-08-05T00:00:00Z' }) })
+    const { createRecipientOnboardingLink } = await import('./global-payouts')
+    const result = await createRecipientOnboardingLink('sk_test_x', { accountId: 'acct_new', returnUrl: 'https://x/return', refreshUrl: 'https://x/refresh' })
+
+    expect(result.url).toBe('https://accounts.stripe.com/r/new')
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body).use_case.type).toBe('account_onboarding')
+  })
+
+  it('falls back to account_update when Stripe rejects onboarding for an already-onboarded recipient — the exact case hit live 08-04', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, json: async () => ({ error: { message: 'You cannot create an "ONBOARDING" account link for acct_x as this account has already been onboarded.' } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://accounts.stripe.com/r/update', expires_at: '2026-08-05T00:00:00Z' }) })
+    const { createRecipientOnboardingLink } = await import('./global-payouts')
+    const result = await createRecipientOnboardingLink('sk_test_x', { accountId: 'acct_x', returnUrl: 'https://x/return', refreshUrl: 'https://x/refresh' })
+
+    expect(result.url).toBe('https://accounts.stripe.com/r/update')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body)
+    expect(secondCallBody.use_case.type).toBe('account_update')
+  })
+
+  it('re-throws any OTHER error without silently falling back', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({ error: { message: 'some unrelated failure' } }) })
+    const { createRecipientOnboardingLink } = await import('./global-payouts')
+    await expect(createRecipientOnboardingLink('sk_test_x', { accountId: 'acct_x', returnUrl: 'https://x/return', refreshUrl: 'https://x/refresh' }))
+      .rejects.toThrow(/unrelated failure/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('executeGroups', () => {
+  const group = {
+    teamMemberId: 'tm1', name: 'Cleaner One', recipientId: 'acct_recipient_1', phone: '+15551234',
+    smsConsent: true, preferredLanguage: 'en' as const,
+    items: [{ bookingId: 'b1', role: 'lead' as const, teamMemberId: 'tm1', amountCents: 5000, tipCents: 500, clientName: 'Alice' }],
+    totalCents: 5500,
+  }
+  const notifyConfig = { telnyxApiKey: 'telnyx_x', telnyxPhone: '+1999', smsFromNumber: null, telegramBotToken: 'tg_x', telegramChatId: 'chat_1' }
+
+  it('notifies BOTH the cleaner (SMS) and the admin (Telegram) after a successful payout — separate channels, separate audiences', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'op_1', status: 'processing' }) })
+    const { executeGroups } = await import('./global-payouts')
+
+    const result = await executeGroups('tenant_1', mockStripe, 'sk_test_x', 'fa_1', [group], notifyConfig)
+
+    expect(result.paid).toHaveLength(1)
+    expect(sendSMSMock).toHaveBeenCalledTimes(1)
+    expect(sendSMSMock.mock.calls[0][0]).toMatchObject({ to: '+15551234' })
+    expect(sendTenantTelegramMock).toHaveBeenCalledTimes(1)
+    const [tenantIdArg, tenantCfgArg, textArg] = sendTenantTelegramMock.mock.calls[0]
+    expect(tenantIdArg).toBe('tenant_1')
+    expect(tenantCfgArg).toEqual({ telegram_bot_token: 'tg_x', telegram_chat_id: 'chat_1' })
+    expect(textArg).toContain('Cleaner One')
+    expect(textArg).toContain('$55.00')
+  })
+
+  it('sends neither notification when the actual transfer fails — proves nobody gets told "paid" before money moved', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({ error: { code: 'insufficient_funds', message: 'no funds' } }) })
+    const { executeGroups } = await import('./global-payouts')
+
+    const result = await executeGroups('tenant_1', mockStripe, 'sk_test_x', 'fa_1', [group], notifyConfig)
+
+    expect(result.paid).toHaveLength(0)
+    expect(result.skipped).toHaveLength(1)
+    expect(sendSMSMock).not.toHaveBeenCalled()
+    expect(sendTenantTelegramMock).not.toHaveBeenCalled()
   })
 })

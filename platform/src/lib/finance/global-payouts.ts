@@ -7,7 +7,11 @@
  */
 import Stripe from 'stripe'
 import { supabaseAdmin } from '../supabase'
+import { sendSMS } from '../sms'
+import { sendTenantTelegram } from '../notify'
+import { cleanerAlreadyPaid, releaseCleanerPayout } from './cleaner-payout'
 import type { PayoutClaim } from './cleaner-payout'
+import type { TeamMemberPayoutGroup } from './global-payouts-eligibility'
 
 const GLOBAL_PAYOUTS_API_VERSION = '2026-07-29.preview'
 
@@ -134,6 +138,76 @@ export async function ensureFinancialAccountFunded(
   return { toppedUpCents: topUpCents, stripeTopUpId: payout.id }
 }
 
+/**
+ * Creates a new Global Payouts recipient (v2 core account) for a team
+ * member who doesn't have one yet. Requests both bank and card payout
+ * capabilities — matches what real NYCM recipients actually ended up with
+ * this session (some added a bank account, Jeff added a card).
+ */
+export async function createRecipientAccount(
+  apiKey: string,
+  opts: { email: string | null; displayName: string; teamMemberId: string; tenantId: string },
+): Promise<{ id: string }> {
+  const result = await v2Post(
+    apiKey,
+    '/v2/core/accounts',
+    {
+      contact_email: opts.email || undefined,
+      display_name: opts.displayName,
+      identity: { country: 'us', entity_type: 'individual' },
+      configuration: {
+        recipient: {
+          capabilities: {
+            bank_accounts: { local: { requested: true } },
+            cards: { requested: true },
+          },
+        },
+      },
+      metadata: { team_member_id: opts.teamMemberId, tenant_id: opts.tenantId },
+    },
+    `gp-recipient:${opts.tenantId}:${opts.teamMemberId}`,
+  )
+  return { id: result.id as string }
+}
+
+/**
+ * Generates a Stripe-hosted onboarding link for a recipient. A recipient
+ * that has ALREADY submitted info at least once rejects the "onboarding"
+ * link type outright ("account has already been onboarded" — confirmed
+ * live against a real NYCM recipient, 08-04); this tries onboarding first
+ * and falls back to the "update" link type on that specific error, so
+ * callers don't have to track onboarding state themselves. Every link
+ * expires in 10 minutes and works once — generate on demand, don't cache.
+ */
+export async function createRecipientOnboardingLink(
+  apiKey: string,
+  opts: { accountId: string; returnUrl: string; refreshUrl: string },
+): Promise<{ url: string; expiresAt: string }> {
+  const attempt = async (type: 'account_onboarding' | 'account_update') => v2Post(
+    apiKey,
+    '/v2/core/account_links',
+    {
+      account: opts.accountId,
+      use_case: {
+        type,
+        [type]: { configurations: ['recipient'], return_url: opts.returnUrl, refresh_url: opts.refreshUrl },
+      },
+    },
+    `gp-link:${opts.accountId}:${Date.now()}`,
+  )
+
+  try {
+    const result = await attempt('account_onboarding')
+    return { url: result.url as string, expiresAt: result.expires_at as string }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('already been onboarded')) {
+      const result = await attempt('account_update')
+      return { url: result.url as string, expiresAt: result.expires_at as string }
+    }
+    throw err
+  }
+}
+
 export async function createOutboundPayment(
   apiKey: string,
   opts: { financialAccountId: string; recipientId: string; amountCents: number; description: string; idempotencyKey: string },
@@ -150,4 +224,128 @@ export async function createOutboundPayment(
     opts.idempotencyKey,
   )
   return { id: result.id as string, status: result.status as string }
+}
+
+export interface ExecuteResult {
+  paid: { bookingId: string; teamMemberName: string; amountCents: number }[]
+  skipped: { bookingId: string; teamMemberName: string; reason: string }[]
+}
+
+/**
+ * Pays every item across a set of already-guardrail-cleared team-member
+ * groups (one booking at a time, same claim-before-transfer guard as
+ * everything else here), then sends one grouped SMS per person listing the
+ * clients/jobs paid + total tip — not an itemized per-job breakdown, per
+ * Jeff's "don't give them something to nitpick" call.
+ *
+ * Shared by both the main run (for groups under threshold) and the
+ * held-group execution path (after an admin's SMS "GO" — see
+ * global-payouts-guardrails.ts), so a held payout pays out exactly the same
+ * way a normal one does once approved.
+ */
+export interface TenantNotifyConfig {
+  telnyxApiKey: string | null
+  telnyxPhone: string | null
+  smsFromNumber: string | null
+  telegramBotToken: string | null
+  telegramChatId: string | null
+}
+
+export async function executeGroups(
+  tenantId: string,
+  stripe: Stripe,
+  apiKey: string,
+  financialAccountId: string,
+  groups: TeamMemberPayoutGroup[],
+  tenantSms: TenantNotifyConfig,
+): Promise<ExecuteResult> {
+  const paid: ExecuteResult['paid'] = []
+  const skipped: ExecuteResult['skipped'] = []
+
+  for (const group of groups) {
+    let groupTipCents = 0
+    let groupTotalCents = 0
+    const clientNames: string[] = []
+
+    for (const item of group.items) {
+      if (await cleanerAlreadyPaid(tenantId, item.bookingId)) continue
+
+      const claim = await claimGlobalPayout({
+        tenantId,
+        bookingId: item.bookingId,
+        teamMemberId: group.teamMemberId,
+        amountCents: item.amountCents,
+        tipCents: item.tipCents,
+      })
+      if (!claim.claimed || !claim.payoutId) {
+        skipped.push({ bookingId: item.bookingId, teamMemberName: group.name, reason: 'already claimed by another run' })
+        continue
+      }
+
+      try {
+        const outbound = await createOutboundPayment(apiKey, {
+          financialAccountId,
+          recipientId: group.recipientId,
+          amountCents: item.amountCents + item.tipCents,
+          description: `Cleaner pay — booking ${item.bookingId}`,
+          idempotencyKey: `gp-payout:${item.bookingId}:${group.teamMemberId}`,
+        })
+        await finalizeGlobalPayout({
+          tenantId,
+          payoutId: claim.payoutId,
+          amountCents: item.amountCents,
+          tipCents: item.tipCents,
+          stripeOutboundPaymentId: outbound.id,
+        })
+        // Extras never had bookings.team_member_id pointing at them, so only
+        // flip team_member_paid when this item is the lead — an extra's
+        // completion is tracked purely via the team_member_payouts row.
+        if (item.role === 'lead') {
+          await supabaseAdmin
+            .from('bookings')
+            .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
+            .eq('id', item.bookingId)
+            .eq('tenant_id', tenantId)
+        }
+        paid.push({ bookingId: item.bookingId, teamMemberName: group.name, amountCents: item.amountCents + item.tipCents })
+        groupTipCents += item.tipCents
+        groupTotalCents += item.amountCents + item.tipCents
+        clientNames.push(item.clientName)
+      } catch (err) {
+        await releaseCleanerPayout(tenantId, claim.payoutId).catch(() => {})
+        skipped.push({ bookingId: item.bookingId, teamMemberName: group.name, reason: err instanceof Error ? err.message : 'unknown error' })
+      }
+    }
+
+    if (clientNames.length > 0 && group.phone && group.smsConsent !== false && tenantSms.telnyxApiKey && tenantSms.telnyxPhone) {
+      const isEs = group.preferredLanguage === 'es'
+      const jobsList = clientNames.join(isEs ? ' y ' : ' and ')
+      const total = (groupTotalCents / 100).toFixed(2)
+      const tipLine = groupTipCents > 0 ? (isEs ? ` (incluye $${(groupTipCents / 100).toFixed(2)} de propina)` : ` (includes $${(groupTipCents / 100).toFixed(2)} tip)`) : ''
+      const body = isEs
+        ? `Pago enviado: $${total}${tipLine} por ${jobsList}. Debería llegar pronto.`
+        : `Payment sent: $${total}${tipLine} for ${jobsList}. Should arrive shortly.`
+      sendSMS({
+        to: group.phone,
+        body,
+        telnyxApiKey: tenantSms.telnyxApiKey,
+        telnyxPhone: tenantSms.smsFromNumber || tenantSms.telnyxPhone,
+      }).catch(err => console.error('[global-payouts] payout SMS failed:', err))
+    }
+
+    // Admin-side confirmation, separate from the cleaner's own SMS above —
+    // global (every tenant, gated only by that tenant having Telegram
+    // configured), per payment/run, not itemized per booking.
+    if (clientNames.length > 0) {
+      const total = (groupTotalCents / 100).toFixed(2)
+      const tipLine = groupTipCents > 0 ? ` (includes $${(groupTipCents / 100).toFixed(2)} tip)` : ''
+      sendTenantTelegram(
+        tenantId,
+        { telegram_bot_token: tenantSms.telegramBotToken, telegram_chat_id: tenantSms.telegramChatId },
+        `✅ Paid ${group.name} $${total}${tipLine} for ${clientNames.join(', ')} (Global Payouts).`,
+      ).catch(err => console.error('[global-payouts] payout Telegram notify failed:', err))
+    }
+  }
+
+  return { paid, skipped }
 }
