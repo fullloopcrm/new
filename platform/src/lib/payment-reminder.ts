@@ -65,7 +65,7 @@ export async function runPaymentReminderCadence(
 
   const { data: pending } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, price, fifteen_min_alert_time, clients(name, phone)')
+    .select('id, client_id, price, fifteen_min_alert_time, payment_reminder_sent_at, clients(name, phone)')
     .eq('tenant_id', tenant.id)
     .not('fifteen_min_alert_time', 'is', null)
     .not('payment_status', 'in', '("paid","partial")')
@@ -76,6 +76,8 @@ export async function runPaymentReminderCadence(
   let escalated = 0
   const now = Date.now()
   const finalStageMin = STAGES_MIN[STAGES_MIN.length - 1]
+  const THROTTLE_MS = 5 * 60 * 1000
+  const throttleCutoff = new Date(now - THROTTLE_MS).toISOString()
 
   for (const booking of pending || []) {
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
@@ -92,6 +94,36 @@ export async function runPaymentReminderCadence(
 
     if (stagesSent < STAGES_MIN.length) {
       if (!clientNudgeOn || elapsedMin < STAGES_MIN[stagesSent]) continue
+
+      // Atomic claim before sending — two overlapping cron invocations (a manual
+      // trigger racing the real schedule, a platform retry, etc.) must not both
+      // pass the stage check above and double-text the client. Two sequential
+      // attempts instead of a single .or() filter, matching the proven pattern
+      // in team-portal/30min-alert/route.ts (a chained .or() silently matches
+      // zero rows on this Supabase/PostgREST version).
+      let claimed = (
+        await supabaseAdmin
+          .from('bookings')
+          .update({ payment_reminder_sent_at: new Date(now).toISOString() })
+          .eq('id', booking.id)
+          .eq('tenant_id', tenant.id)
+          .is('payment_reminder_sent_at', null)
+          .select('id')
+          .maybeSingle()
+      ).data
+      if (!claimed) {
+        claimed = (
+          await supabaseAdmin
+            .from('bookings')
+            .update({ payment_reminder_sent_at: new Date(now).toISOString() })
+            .eq('id', booking.id)
+            .eq('tenant_id', tenant.id)
+            .lt('payment_reminder_sent_at', throttleCutoff)
+            .select('id')
+            .maybeSingle()
+        ).data
+      }
+      if (!claimed) continue
 
       const amount = booking.price ? (Number(booking.price) / 100).toFixed(2) : '0.00'
       const firstName = client.name?.split(' ')[0] || 'there'
