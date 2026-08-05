@@ -67,7 +67,7 @@ export function getEmdMicrositeRewrite(cleanHost: string, req: NextRequest): Nex
   // tenant_domains lookup below, which resolves to the-florida-maid and
   // serves ITS sitemap (thefloridamaid.com URLs) instead of this microsite's
   // own.
-  if (pathname === '/' || pathname === '/sitemap.xml') {
+  if (pathname === '/' || pathname === '/sitemap.xml' || pathname === '/llms.txt') {
     const url = req.nextUrl.clone()
     url.pathname = pathname === '/' ? emdRoute : `${emdRoute}${pathname}`
     return NextResponse.rewrite(url)

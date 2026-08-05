@@ -92,3 +92,23 @@ export function getEmdConfigForHost(host: string): EmdMicrositeConfig | undefine
   const clean = host.split(':')[0].toLowerCase().replace(/^www\./, '')
   return BY_DOMAIN.get(clean)
 }
+
+// Flat-earth approximation (equirectangular) — plenty accurate for ranking
+// nearby Florida cities by distance; not used for anything requiring real
+// geodesic precision.
+function approxDistance(a: EmdMicrositeConfig['geo'], b: EmdMicrositeConfig['geo']): number {
+  const lat1 = parseFloat(a.lat), lng1 = parseFloat(a.lng)
+  const lat2 = parseFloat(b.lat), lng2 = parseFloat(b.lng)
+  const avgLatRad = ((lat1 + lat2) / 2) * (Math.PI / 180)
+  const dLat = lat2 - lat1
+  const dLng = (lng2 - lng1) * Math.cos(avgLatRad)
+  return Math.sqrt(dLat * dLat + dLng * dLng)
+}
+
+/** The `count` other EMD microsites geographically closest to `config` — for on-page "Nearby Locations" internal linking. */
+export function getNearbyMicrosites(config: EmdMicrositeConfig, count = 5): EmdMicrositeConfig[] {
+  return CONFIGS
+    .filter(c => c.domain !== config.domain)
+    .sort((a, b) => approxDistance(config.geo, a.geo) - approxDistance(config.geo, b.geo))
+    .slice(0, count)
+}

@@ -5,6 +5,7 @@ import TrustBadges from '@/app/site/the-florida-maid/_components/marketing/Trust
 import FAQSection from '@/app/site/the-florida-maid/_components/marketing/FAQSection'
 import { SERVICES } from '@/app/site/the-florida-maid/_lib/seo/services'
 import { emdMicrositeSchemas } from '@/app/site/the-florida-maid/_lib/emd/schema'
+import { getNearbyMicrosites } from '@/app/site/the-florida-maid/_lib/emd/registry'
 import type { EmdMicrositeConfig } from '@/app/site/the-florida-maid/_lib/emd/types'
 
 const PARENT_TAG = 'A Florida Maid Services Company'
@@ -35,6 +36,7 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
   }))
   const taggedPricingExplainer = config.pricingExplainer.map(p => tagBrand(p, config.brandName))
   const taggedTestimonials = config.testimonials.map(t => ({ ...t, text: tagBrand(t.text, config.brandName) }))
+  const nearby = getNearbyMicrosites(config, 5)
 
   return (
     <>
@@ -354,6 +356,29 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
         </div>
         <FAQSection faqs={taggedFaqs} title={`${config.brandName} — Frequently Asked Questions`} columns={2} />
       </div>
+
+      {/* Nearby Locations — internal links to the geographically closest sister EMD microsites */}
+      {nearby.length > 0 && (
+        <section className="py-16 bg-[#FFF8F3] border-t border-[#F3D9C4]">
+          <div className="max-w-4xl mx-auto px-4">
+            <p className="text-xs font-bold tracking-[0.25em] uppercase text-[#CC6222] text-center mb-3">Nearby Service Areas</p>
+            <h2 className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#1E2A4A] tracking-wide text-center mb-8">
+              Also Serving Florida Communities Near {config.city}
+            </h2>
+            <div className="flex flex-wrap justify-center gap-3">
+              {nearby.map(n => (
+                <a
+                  key={n.domain}
+                  href={`https://www.${n.domain}`}
+                  className="bg-white border border-[#F3D9C4] rounded-full px-5 py-2.5 text-sm font-semibold text-[#1E2A4A] hover:border-[#CC6222] hover:text-[#CC6222] transition-colors"
+                >
+                  {n.city} Maid and Cleaning Service
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Final CTA — all links point back to the main Florida Maid site */}
       <section className="bg-[#A8F0DC] py-20">
