@@ -105,6 +105,13 @@ export default function PrivacyPolicyPage() {
             <li><strong>Legal requirements:</strong> When required by law, subpoena, or court order</li>
             <li><strong>Business transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
           </ul>
+          <p>
+            We will not share or sell your mobile information with third parties or affiliates
+            for promotional or marketing purposes. Text messaging originator opt-in data and
+            consent will not be shared with any third parties, excluding aggregators and
+            providers of the text message services strictly for the purpose of delivering
+            messages.
+          </p>
 
           <h2>5. Data Security</h2>
           <p>

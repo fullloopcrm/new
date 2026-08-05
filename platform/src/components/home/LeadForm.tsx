@@ -11,6 +11,8 @@ type FormState = {
   company: string;
   email: string;
   phone: string;
+  smsTransactionalConsent: boolean;
+  smsMarketingConsent: boolean;
   trade: string;
   city: string;
   isOwner: string;
@@ -25,7 +27,9 @@ type FormState = {
 };
 
 const initial: FormState = {
-  name: "", company: "", email: "", phone: "", trade: "", city: "",
+  name: "", company: "", email: "", phone: "",
+  smsTransactionalConsent: false, smsMarketingConsent: false,
+  trade: "", city: "",
   isOwner: "", operating: "", teamSize: "", revenue: "", priority: "", investment: "", goal: "",
   heardFrom: "", heardMore: "",
 };
@@ -83,6 +87,11 @@ export default function LeadForm() {
     setForm((p) => ({ ...p, [name]: value }));
   }
 
+  function handleConsentChange(e: ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setForm((p) => ({ ...p, [name]: checked }));
+  }
+
   function handleReview(e: FormEvent) {
     e.preventDefault();
     setAttempts((a) => [...a, form]); // snapshot every pre-screen attempt
@@ -114,7 +123,12 @@ export default function LeadForm() {
       const res = await fetch("/api/inquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, company: form.company, phone: form.phone, email: form.email, message, heardFrom: form.heardFrom, heardMore: form.heardMore }),
+        body: JSON.stringify({
+          name: form.name, company: form.company, phone: form.phone, email: form.email, message,
+          heardFrom: form.heardFrom, heardMore: form.heardMore,
+          smsTransactionalConsent: form.smsTransactionalConsent,
+          smsMarketingConsent: form.smsMarketingConsent,
+        }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -134,6 +148,8 @@ export default function LeadForm() {
   const iStyle: React.CSSProperties = { fontFamily: body, color: C.ink, background: C.canvas, border: `1px solid ${C.line}`, borderRadius: "2px" };
   const lStyle: React.CSSProperties = { fontFamily: mono, fontSize: "10px", letterSpacing: "0.16em", textTransform: "uppercase", color: C.muted, marginBottom: "6px", display: "block" };
   const loud: React.CSSProperties = { fontFamily: mono, fontSize: "16px", letterSpacing: "0.1em", textTransform: "uppercase", color: C.cream, background: C.good, padding: "18px 28px", borderRadius: "2px", fontWeight: 700, boxShadow: "0 2px 0 rgba(0,0,0,0.18)", width: "100%" };
+  const consentLink: React.CSSProperties = { color: C.good, textDecoration: "underline", textUnderlineOffset: "2px" };
+  const consentText: React.CSSProperties = { fontFamily: body, fontSize: "12px", color: C.graphite, lineHeight: 1.5 };
 
   // ---- submitted ----
   if (stage === "submitted") {
@@ -214,8 +230,47 @@ export default function LeadForm() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div><label htmlFor="lf-email" style={lStyle}>Email</label><input id="lf-email" name="email" type="email" required maxLength={200} value={form.email} onChange={handleChange} className={input} style={iStyle} placeholder="jane@example.com" /></div>
-        <div><label htmlFor="lf-phone" style={lStyle}>Phone</label><input id="lf-phone" name="phone" type="tel" required maxLength={40} value={form.phone} onChange={handleChange} className={input} style={iStyle} placeholder="(555) 123-4567" /></div>
+        <div><label htmlFor="lf-phone" style={lStyle}>Phone <span style={{ textTransform: "none", color: C.muted2 }}>(optional)</span></label><input id="lf-phone" name="phone" type="tel" maxLength={40} value={form.phone} onChange={handleChange} className={input} style={iStyle} placeholder="(555) 123-4567" /></div>
       </div>
+
+      <div className="space-y-4">
+        <label htmlFor="lf-sms-transactional" className="flex items-start gap-3 cursor-pointer">
+          <input
+            id="lf-sms-transactional"
+            type="checkbox"
+            name="smsTransactionalConsent"
+            checked={form.smsTransactionalConsent}
+            onChange={handleConsentChange}
+            className="mt-0.5 shrink-0"
+          />
+          <span style={consentText}>
+            By checking this box and submitting this form, you consent to receive transactional
+            text messages for platform updates and account notifications from Full Loop CRM.
+            Reply STOP to opt out. Reply HELP for help. Standard message and data rates may apply.
+            Message frequency may vary. View our{" "}
+            <a href="https://www.homeservicesbusinesscrm.com/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
+            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
+          </span>
+        </label>
+        <label htmlFor="lf-sms-marketing" className="flex items-start gap-3 cursor-pointer">
+          <input
+            id="lf-sms-marketing"
+            type="checkbox"
+            name="smsMarketingConsent"
+            checked={form.smsMarketingConsent}
+            onChange={handleConsentChange}
+            className="mt-0.5 shrink-0"
+          />
+          <span style={consentText}>
+            By checking this box and submitting this form, you consent to receive text messages
+            for marketing from Full Loop CRM. Reply STOP to opt out. Reply HELP for help. Message
+            and data rates may apply. Message frequency may vary. View our{" "}
+            <a href="https://www.homeservicesbusinesscrm.com/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
+            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
+          </span>
+        </label>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="lf-trade" style={lStyle}>Your trade</label>

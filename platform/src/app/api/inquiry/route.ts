@@ -26,6 +26,8 @@ interface InquiryBody {
   message?: unknown
   heardFrom?: unknown
   heardMore?: unknown
+  smsTransactionalConsent?: unknown
+  smsMarketingConsent?: unknown
 }
 
 function escapeHtml(s: string): string {
@@ -77,10 +79,15 @@ export async function POST(req: NextRequest) {
   const role = typeof body.role === 'string' ? (body.role.trim() as Role) : ('' as Role)
   const budget = typeof body.budget === 'string' ? (body.budget.trim() as Budget) : ('' as Budget)
   const message = typeof body.message === 'string' ? body.message.trim().slice(0, 2000) : ''
+  const smsTransactionalConsent = body.smsTransactionalConsent === true
+  const smsMarketingConsent = body.smsMarketingConsent === true
+  const smsTransactionalConsentAt = smsTransactionalConsent ? new Date().toISOString() : null
+  const smsMarketingConsentAt = smsMarketingConsent ? new Date().toISOString() : null
 
-  // Validation — the public contact form only collects name/phone/email/message.
-  // company/role/budget are optional (kept for the legacy acquisition flow).
-  if (!name || !email || !phone || !message) {
+  // Validation — the public contact form collects name/email/message; phone
+  // and SMS consent are optional. company/role/budget are optional too
+  // (kept for the legacy acquisition flow).
+  if (!name || !email || !message) {
     return NextResponse.json({ error: 'missing_required_fields' }, { status: 400 })
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -103,7 +110,7 @@ export async function POST(req: NextRequest) {
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Name</td><td>${escapeHtml(name)}</td></tr>
       ${company ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Company</td><td>${escapeHtml(company)}</td></tr>` : ''}
       <tr><td style="padding: 4px 12px 4px 0; color: #666;">Email</td><td><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
-      <tr><td style="padding: 4px 12px 4px 0; color: #666;">Phone</td><td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td></tr>
+      ${phone ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Phone</td><td><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></td></tr>` : ''}
       ${validRole ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Role</td><td>${escapeHtml(validRole)}</td></tr>` : ''}
       ${validBudget ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Budget / deal size</td><td>${escapeHtml(validBudget)}</td></tr>` : ''}
     </table>
@@ -124,6 +131,8 @@ export async function POST(req: NextRequest) {
       message,
       is_fat_offer: isFatOffer,
       source: 'marketing-contact',
+      sms_transactional_consent_at: smsTransactionalConsentAt,
+      sms_marketing_consent_at: smsMarketingConsentAt,
     })
     if (insertErr) console.error('inquiry persist failed:', insertErr.message)
   } catch (err) {
@@ -150,6 +159,8 @@ export async function POST(req: NextRequest) {
       heard_from: typeof body.heardFrom === 'string' && body.heardFrom.trim() ? body.heardFrom.trim() : null,
       pitch: message,
       status: 'new',
+      sms_transactional_consent_at: smsTransactionalConsentAt,
+      sms_marketing_consent_at: smsMarketingConsentAt,
     })
     if (prErr) console.error('inquiry -> partner_requests persist failed:', prErr.message)
   } catch (err) {

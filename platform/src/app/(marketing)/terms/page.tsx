@@ -183,7 +183,22 @@ export default async function TermsPage() {
             New York.
           </p>
 
-          <h2>12. Contact</h2>
+          <h2>12. Text Messaging Terms</h2>
+          <p>
+            Full Loop CRM operates a text messaging program for business owners who opt in via
+            our website. Messages include sales follow-ups, marketing offers, platform updates,
+            and account notifications. Message frequency may vary. Message and data rates may
+            apply. Reply HELP for help or call (844) 566-7276. Reply STOP to opt out at any time.
+            For support, email hello@homeservicesbusinesscrm.com or call (844) 566-7276. Carriers
+            are not liable for delayed or undelivered messages. Our Privacy Policy is available
+            at{" "}
+            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy">
+              https://www.homeservicesbusinesscrm.com/privacy-policy
+            </a>
+            .
+          </p>
+
+          <h2>13. Contact</h2>
           <p>
             Questions about these Terms? Contact us at:
           </p>
@@ -198,7 +213,7 @@ export default async function TermsPage() {
       {addendum && tenant && (
         <section className="py-16 px-6 bg-slate-50 border-t border-slate-200">
           <div className="mx-auto max-w-3xl prose prose-slate prose-headings:font-heading">
-            <h2>13. Partnership Addendum &mdash; {tenant.name}</h2>
+            <h2>14. Partnership Addendum &mdash; {tenant.name}</h2>
             <p>
               The following terms were negotiated specifically for{" "}
               {tenant.name} and take precedence over the corresponding
