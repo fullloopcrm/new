@@ -503,12 +503,18 @@ async function advanceRingOrVoicemail(opts: {
   // Resumes via the call.gather.ended handler below, which re-enters here
   // with graceUsed:true (only if nobody has answered via ComHub meanwhile).
   if (target.kind === 'phone' && opts.nextIndex === 0 && !opts.graceUsed) {
+    // Telnyx rejects 0 for both digit fields (min 1) — verified live via a
+    // real test call, which is how this got caught: the request 400'd, was
+    // silently swallowed by the .catch below, and the grace step just never
+    // ran at all. minimum_digits:1/maximum_digits:1 still completes via
+    // timeout_millis with no digits pressed; it only means a SINGLE digit
+    // (if pressed) would also end it early, which is harmless here.
     await telnyxAction(opts.customerCallId, 'gather_using_speak', {
       payload: COMHUB_FIRST_GRACE_PROMPT,
       voice: TTS_VOICE,
       language: 'en-US',
-      minimum_digits: 0,
-      maximum_digits: 0,
+      minimum_digits: 1,
+      maximum_digits: 1,
       timeout_millis: COMHUB_FIRST_GRACE_SECS * 1000,
     }).catch(() => null)
     return
@@ -728,14 +734,23 @@ async function startVoicemail(opts: {
 }): Promise<void> {
   // Speak the prompt, then start the recording. The recording's saved URL
   // arrives later via call.recording.saved.
+  //
+  // Pre-existing bug found while verifying the grace window with a real
+  // test call: Telnyx rejects 0 for minimum_digits/maximum_digits (400,
+  // code 90022/90023, min value 1) — this request has been failing on
+  // every single voicemail, silently, since the .catch below swallows it.
+  // record_start ran regardless, so "Voicemail recording started" always
+  // logged correctly, masking that the spoken greeting itself never played
+  // — every voicemail caller has been recorded into real silence, no prompt
+  // telling them to leave a message.
   const personalization = await getTenantVoicePersonalization(opts.tenantId)
   const voicemailPrompt = personalization.voicemailPrompt || defaultVoicemailPrompt(personalization.name)
   await telnyxAction(opts.customerCallId, 'gather_using_speak', {
     payload: voicemailPrompt,
     voice: TTS_VOICE,
     language: 'en-US',
-    minimum_digits: 0,
-    maximum_digits: 0,
+    minimum_digits: 1,
+    maximum_digits: 1,
     timeout_millis: 1500,
   }).catch(() => null)
   await telnyxAction(opts.customerCallId, 'record_start', {
