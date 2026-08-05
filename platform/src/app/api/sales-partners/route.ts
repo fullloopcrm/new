@@ -19,10 +19,11 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
+import { bookingPathForTenant } from '@/lib/booking-path'
 import { generatePin, generateSalesPartnerReferralCode, hashPin } from '@/lib/sales-partner-auth'
 import { buildSalesPartnerAgreementPdf } from '@/lib/sales-partner-agreement-pdf'
 import { DOCUMENTS_BUCKET, documentOriginalPath, generateSignerToken, sha256Hex } from '@/lib/documents'
@@ -66,7 +67,26 @@ export async function GET(request: NextRequest) {
     .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: 'Failed to fetch sales partners' }, { status: 500 })
-  return NextResponse.json(data)
+
+  // Each partner's public booking-attribution link -- computed here (not
+  // hand-rolled by the dashboard client) so it always uses this tenant's real
+  // domain and real booking path instead of the admin dashboard's own origin.
+  const { data: domainRows } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('domain, is_primary')
+    .eq('tenant_id', tenant.tenantId)
+    .eq('active', true)
+  const primaryDomain = domainRows?.find((d) => d.is_primary)?.domain || tenant.tenant.domain || null
+  const base = primaryDomain
+    ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+    : tenantSiteUrl({ slug: tenant.tenant.slug })
+  const bookingPath = bookingPathForTenant(tenant.tenant.slug)
+  const withShareUrl = (data || []).map((p) => ({
+    ...p,
+    share_url: base ? `${base}${bookingPath}?ref=${p.referral_code}` : null,
+  }))
+
+  return NextResponse.json(withShareUrl)
 }
 
 export async function POST(request: Request) {

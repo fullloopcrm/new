@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
+import { bookingPathForTenant } from '@/lib/booking-path'
 
 export async function GET(request: Request) {
   const auth = getSalesPartnerAuth(request)
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   const base = primaryDomain
     ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
     : tenantSiteUrl({ slug: tenant.slug })
-  const shareUrl = base ? `${base}/book/new?ref=${partner.referral_code}` : null
+  const shareUrl = base ? `${base}${bookingPathForTenant(tenant.slug)}?ref=${partner.referral_code}` : null
   const referrerSignupUrl = base ? `${base}/referral/signup?ref=${partner.referral_code}` : null
 
   const { data: commissionRows } = await supabaseAdmin

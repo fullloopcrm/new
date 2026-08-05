@@ -1,13 +1,26 @@
 'use client'
 
-import {useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useFormTracking } from '@/app/site/the-florida-maid/_lib/useFormTracking'
 
 export default function ReferralSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReferralSignupPageContent />
+    </Suspense>
+  )
+}
+
+function ReferralSignupPageContent() {
   useEffect(() => { document.title = 'Become a Referrer | The Florida Maid' }, []);
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
+  // captured here so the new referrer is linked to the recruiting partner
+  // (referrers.recruited_by_sales_partner_id, see /api/referrers POST).
+  const recruitedBy = searchParams.get('ref')
   const { trackStart, trackSuccess } = useFormTracking('/referral/signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,7 +49,8 @@ export default function ReferralSignupPage() {
           ...form,
           zelle_email: form.zelle_email || form.email,
           website: honeypot,
-          _t: loadedAt
+          _t: loadedAt,
+          recruited_by_sales_partner_ref: recruitedBy || undefined,
         })
       })
 

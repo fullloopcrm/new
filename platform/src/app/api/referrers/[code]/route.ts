@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
+import { bookingPathForTenant } from '@/lib/booking-path'
 
 // Referrer earnings dashboard data. Gated: requires a referrer session token
 // (from /api/referrers/auth/verify) whose referrer owns this code. Reads the
@@ -53,7 +54,7 @@ export async function GET(
   const base = primaryDomain
     ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
     : tenantSiteUrl({ slug: tenant.slug })
-  const shareUrl = base ? `${base}/book/new?ref=${code}` : null
+  const shareUrl = base ? `${base}${bookingPathForTenant(tenant.slug)}?ref=${code}` : null
 
   // Commission history — keyed by referrer_id. Two amount columns exist on
   // this table from a past migration: legacy rows only ever got

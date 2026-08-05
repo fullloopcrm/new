@@ -1,9 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
-export default function ReferralSignupForm({ businessName = 'our', origin = '' }: { businessName?: string; origin?: string }) {
+interface ReferralSignupFormProps {
+  businessName?: string
+  origin?: string
+}
+
+export default function ReferralSignupForm(props: ReferralSignupFormProps) {
+  return (
+    <Suspense fallback={null}>
+      <ReferralSignupFormContent {...props} />
+    </Suspense>
+  )
+}
+
+function ReferralSignupFormContent({ businessName = 'our', origin = '' }: ReferralSignupFormProps) {
+  const searchParams = useSearchParams()
+  // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
+  // captured here so the new referrer is linked to the recruiting partner
+  // (referrers.recruited_by_sales_partner_id, see /api/referrers POST).
+  const recruitedBy = searchParams.get('ref')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -34,7 +53,8 @@ export default function ReferralSignupForm({ businessName = 'our', origin = '' }
           ...form,
           zelle_email: form.zelle_email || form.email,
           website: honeypot,
-          _t: loadedAt
+          _t: loadedAt,
+          recruited_by_sales_partner_ref: recruitedBy || undefined,
         })
       })
 
@@ -54,7 +74,7 @@ export default function ReferralSignupForm({ businessName = 'our', origin = '' }
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`${referralBase}/book?ref=${refCode}`)
+    navigator.clipboard.writeText(`${referralBase}/book/new?ref=${refCode}`)
     alert('Link copied!')
   }
 
@@ -76,7 +96,7 @@ export default function ReferralSignupForm({ businessName = 'our', origin = '' }
 
         <div className="bg-gray-50 rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Link</p>
-          <p className="text-sm font-mono text-gray-700 break-all mb-3">{referralBase}/book?ref={refCode}</p>
+          <p className="text-sm font-mono text-gray-700 break-all mb-3">{referralBase}/book/new?ref={refCode}</p>
           <button
             onClick={copyLink}
             className="bg-[var(--accent)] text-[var(--brand)] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors"

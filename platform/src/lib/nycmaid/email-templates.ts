@@ -636,7 +636,7 @@ export function cleanerCancellationEmail(booking: any) {
 
 export function referralWelcomeEmail(referrer: { name: string; ref_code: string; preferred_payout: string }) {
   const firstName = referrer.name.split(' ')[0]
-  const referralLink = `https://www.thenycmaid.com/book?ref=${escapeHtml(referrer.ref_code)}`
+  const referralLink = `https://www.thenycmaid.com/book/new?ref=${escapeHtml(referrer.ref_code)}`
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Welcome to the team, ${escapeHtml(firstName)}!</h1>
@@ -689,7 +689,7 @@ export function referralCommissionEmail(referrer: any, booking: any, commission:
     ${primaryButton('View Dashboard', `https://www.thenycmaid.com/referral-dashboard?code=${escapeHtml(referrer.ref_code)}`)}
 
     <p style="color: #666; font-size: 14px; text-align: left; margin: 24px 0 0 0;">
-      Keep sharing: <strong>thenycmaid.com/book?ref=${escapeHtml(referrer.ref_code)}</strong>
+      Keep sharing: <strong>thenycmaid.com/book/new?ref=${escapeHtml(referrer.ref_code)}</strong>
     </p>
   `
 

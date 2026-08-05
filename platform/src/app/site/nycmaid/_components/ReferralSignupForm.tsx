@@ -1,9 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 export default function ReferralSignupForm() {
+  return (
+    <Suspense fallback={null}>
+      <ReferralSignupFormContent />
+    </Suspense>
+  )
+}
+
+function ReferralSignupFormContent() {
+  const searchParams = useSearchParams()
+  // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
+  // captured here so the new referrer is linked to the recruiting partner
+  // (referrers.recruited_by_sales_partner_id, see /api/referrers POST).
+  const recruitedBy = searchParams.get('ref')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -28,7 +42,8 @@ export default function ReferralSignupForm() {
         body: JSON.stringify({
           ...form,
           website: honeypot,
-          _t: loadedAt
+          _t: loadedAt,
+          recruited_by_sales_partner_ref: recruitedBy || undefined,
         })
       })
 
@@ -48,7 +63,7 @@ export default function ReferralSignupForm() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`https://www.thenycmaid.com/book?ref=${refCode}`)
+    navigator.clipboard.writeText(`https://www.thenycmaid.com/book/new?ref=${refCode}`)
     alert('Link copied!')
   }
 
@@ -71,7 +86,7 @@ export default function ReferralSignupForm() {
 
         <div className="bg-gray-50 rounded-xl p-6 mb-6">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Your Referral Link / Tu Enlace de Referido</p>
-          <p className="text-sm font-mono text-gray-700 break-all mb-3">https://www.thenycmaid.com/book?ref={refCode}</p>
+          <p className="text-sm font-mono text-gray-700 break-all mb-3">https://www.thenycmaid.com/book/new?ref={refCode}</p>
           <button
             onClick={copyLink}
             className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors"

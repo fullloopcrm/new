@@ -23,6 +23,7 @@ type SalesPartner = {
   stripe_connect_account_id: string | null
   stripe_ready_at: string | null
   stripe_ineligible: boolean
+  share_url: string | null
 }
 
 type Commission = {
@@ -175,9 +176,9 @@ export default function SalesPartnersPage() {
     setAddResult(null)
   }
 
-  function copyLink(code: string) {
-    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/book?ref=${code}`
-    navigator.clipboard.writeText(link)
+  function copyLink(code: string, shareUrl: string | null) {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl)
     setCopied(code)
     setTimeout(() => setCopied(''), 2000)
   }
@@ -327,8 +328,9 @@ export default function SalesPartnersPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-medium text-slate-900">{p.referral_code}</span>
                       <button
-                        onClick={() => copyLink(p.referral_code)}
-                        className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${copied === p.referral_code ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-400 hover:text-slate-400'}`}
+                        onClick={() => copyLink(p.referral_code, p.share_url)}
+                        disabled={!p.share_url}
+                        className={`text-[10px] px-1.5 py-0.5 rounded transition-colors disabled:opacity-40 ${copied === p.referral_code ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-400 hover:text-slate-400'}`}
                       >
                         {copied === p.referral_code ? 'Copied' : 'Copy'}
                       </button>

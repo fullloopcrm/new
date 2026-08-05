@@ -1,10 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useFormTracking } from '@/lib/useFormTracking'
 
 export default function ReferralSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReferralSignupPageContent />
+    </Suspense>
+  )
+}
+
+function ReferralSignupPageContent() {
+  const searchParams = useSearchParams()
+  // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
+  // captured here so the new referrer is linked to the recruiting partner
+  // (referrers.recruited_by_sales_partner_id, see /api/referrers POST).
+  const recruitedBy = searchParams.get('ref')
   const { trackStart, trackSuccess } = useFormTracking('/referral/signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,6 +50,7 @@ export default function ReferralSignupPage() {
         apple_cash_phone: form.preferred_payout === 'apple_cash' ? (form.payout_dest || form.phone) : undefined,
         website: honeypot || undefined,
         _t: formLoadTime,
+        recruited_by_sales_partner_ref: recruitedBy || undefined,
       }),
     })
 
