@@ -124,6 +124,12 @@ const RECORDING_DISCLOSURE_PROMPT = (
   'This call may be recorded for quality assurance and training purposes.'
 )
 
+// AWS Polly Neural voice — the plain 'female'/'male' values are Telnyx's
+// basic, robotic-sounding TTS tier. Neural voices need no extra
+// voice_settings (unlike Azure), just the '-Neural' suffix on the voice id.
+// https://developers.telnyx.com/api-reference/call-commands/speak-text
+const TTS_VOICE = 'AWS.Polly.Joanna-Neural'
+
 type TelnyxAction =
   | 'answer'
   | 'hangup'
@@ -609,7 +615,7 @@ async function startVoicemail(opts: {
   const voicemailPrompt = personalization.voicemailPrompt || defaultVoicemailPrompt(personalization.name)
   await telnyxAction(opts.customerCallId, 'gather_using_speak', {
     payload: voicemailPrompt,
-    voice: 'female',
+    voice: TTS_VOICE,
     language: 'en-US',
     minimum_digits: 0,
     maximum_digits: 0,
@@ -775,7 +781,7 @@ export async function POST(req: NextRequest) {
     // ring-list lookup/dial happens next, not blocking on completion.
     await telnyxAction(callControlId, 'speak', {
       payload: RECORDING_DISCLOSURE_PROMPT,
-      voice: 'female',
+      voice: TTS_VOICE,
       language: 'en-US',
     }).catch(() => null)
 
