@@ -1065,8 +1065,29 @@ export async function POST(req: NextRequest) {
 
   // ─── Admin leg events ────────────────────────────────────────────────────
   if (leg === 'admin' && customerCallId) {
+    // call.answered fires whether a HUMAN or a MACHINE (voicemail) picks
+    // up — confirmed against Telnyx's own docs. Every phone-kind admin leg
+    // is dialed with answering_machine_detection:'detect_beep' specifically
+    // to catch this, but the code never actually waited for that result —
+    // it bridged (and started recording) on call.answered alone. Caught
+    // live: an admin's own carrier voicemail (they were on another call,
+    // never actually answered) got logged as "Admin picked up" and
+    // recorded. Bridging now happens on call.machine.detection.ended
+    // instead, gated on the real result.
     if (event === 'call.answered') {
-      // Bridge the admin leg into the customer leg.
+      return NextResponse.json({ ok: true })
+    }
+
+    if (event === 'call.machine.detection.ended') {
+      if (p.result !== 'human') {
+        // Voicemail/machine picked up, not a person. Hang up this leg —
+        // its own call.hangup event (same custom_headers) will fire next
+        // and drive the existing advance-to-next-target/voicemail logic
+        // below, exactly like a real no-answer.
+        await telnyxAction(callControlId, 'hangup', {})
+        return NextResponse.json({ ok: true })
+      }
+
       await telnyxAction(callControlId, 'bridge', {
         call_control_id: customerCallId,
       })
