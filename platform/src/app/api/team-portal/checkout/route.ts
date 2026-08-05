@@ -15,8 +15,11 @@ import { escapeHtml } from '@/lib/escape-html'
 import { notify } from '@/lib/nycmaid/notify'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { autoPostJobCompletion } from '@/lib/social'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -387,4 +390,4 @@ export async function POST(request: Request) {
     earnings: teamMemberPayCents != null ? Math.round(teamMemberPayCents) / 100 : 0,
     gps: { lat, lng },
   })
-}
+})
