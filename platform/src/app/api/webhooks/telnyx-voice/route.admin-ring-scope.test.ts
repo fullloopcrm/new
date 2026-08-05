@@ -182,7 +182,10 @@ describe('telnyx-voice — ADMIN_RING is tenant-scoped', () => {
     expect(leaked).toBeUndefined()
   })
 
-  it('never rings tenant-B\'s configured cell for tenant-A\'s inbound call — dials tenant-A\'s own cell instead', async () => {
+  // SKIPPED: cell forwarding is temporarily disabled in buildRingTargets
+  // (only sipAddr targets survive) per an explicit "stop calling my phone"
+  // request. Restore this test when cell forwarding is turned back on.
+  it.skip('never rings tenant-B\'s configured cell for tenant-A\'s inbound call — dials tenant-A\'s own cell instead', async () => {
     mock.state.tenantRows = [{ id: TENANT_A, name: 'Tenant A' }]
     mock.state.voiceSettingsRows = [
       { tenant_id: TENANT_A, admin_id: 'admin-a', fallback_cell_phone: '+15551110000' },

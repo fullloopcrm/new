@@ -334,15 +334,13 @@ async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
     const cell = ((pref.fallback_cell_phone as string | null) || '').trim() || null
     const strategy = (pref.ring_strategy as string | null) || 'browser_then_cell'
 
-    if (strategy === 'browser_only') {
-      if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
-    } else if (strategy === 'cell_only') {
-      if (cell) targets.push({ kind: 'phone', destination: cell, label: cell, amd: true })
-    } else {
-      // browser_then_cell (default) and simultaneous (see function doc).
-      if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
-      if (cell) targets.push({ kind: 'phone', destination: cell, label: cell, amd: true })
-    }
+    // Cell forwarding disabled for now, per explicit request — it was
+    // ringing a real phone every test, and the admin_phone/admin_call_id
+    // it produces was masking whether the actual in-browser Answer path
+    // (softphone presence) works at all. Only the softphone/SIP target
+    // survives below; strategy is ignored until this is turned back on.
+    void strategy
+    if (sipAddr) targets.push({ kind: 'sip', destination: sipAddr, label: sipAddr, amd: false })
   }
 
   // An admin online right now but with no comhub_admin_voice_settings row at

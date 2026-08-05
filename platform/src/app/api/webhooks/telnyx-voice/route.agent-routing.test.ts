@@ -171,7 +171,10 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
     expect(dialCall).toBeUndefined()
   })
 
-  it('never uses tenant B\'s creds for tenant A\'s call', async () => {
+  // SKIPPED (3x below): cell forwarding is temporarily disabled in
+  // buildRingTargets per an explicit "stop calling my phone" request —
+  // restore when it's turned back on.
+  it.skip('never uses tenant B\'s creds for tenant A\'s call', async () => {
     mock.state.tenantRows = [{ id: TENANT_A, name: 'Tenant A' }]
     mock.state.tenantCreds[TENANT_A] = { xai_sip_username: null, xai_sip_password: null }
     mock.state.tenantCreds[TENANT_B] = { xai_sip_username: 'other-tenant-user', xai_sip_password: 'other-tenant-pass' }
@@ -189,7 +192,7 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
     expect(dialCall!.to).toBe('+15551110000')
   })
 
-  it('falls through to normal ring when creds are absent', async () => {
+  it.skip('falls through to normal ring when creds are absent', async () => {
     mock.state.tenantRows = [{ id: TENANT_A, name: 'Tenant A' }]
     mock.state.tenantCreds[TENANT_A] = { xai_sip_username: null, xai_sip_password: null }
     mock.state.voiceSettingsRows = [{ tenant_id: TENANT_A, admin_id: 'admin-a', fallback_cell_phone: '+15551110000' }]
@@ -204,7 +207,7 @@ describe('telnyx-voice — voice-agent (xAI) hand-off gate', () => {
     expect(dialCall!.to).toBe('+15551110000')
   })
 
-  it('falls through to normal ring when the xAI transfer itself fails (down agent never means dead air)', async () => {
+  it.skip('falls through to normal ring when the xAI transfer itself fails (down agent never means dead air)', async () => {
     mock.state.tenantRows = [{ id: TENANT_A, name: 'Tenant A' }]
     mock.state.tenantCreds[TENANT_A] = { xai_sip_username: 'nycmaid-user', xai_sip_password: 'nycmaid-pass' }
     mock.state.voiceSettingsRows = [{ tenant_id: TENANT_A, admin_id: 'admin-a', fallback_cell_phone: '+15551110000' }]

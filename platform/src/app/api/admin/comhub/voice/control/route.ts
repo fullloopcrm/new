@@ -121,7 +121,12 @@ export async function POST(req: NextRequest) {
       ? (presence?.sip_address as string | null) ||
         (presence?.sip_username ? `sip:${presence.sip_username}@sip.telnyx.com` : null)
       : null
-    let cellPhone = (settings?.fallback_cell_phone as string | null) || null
+    // Cell forwarding disabled for now, per explicit request — Answer only
+    // ever tries a live softphone. void keeps the settings query itself
+    // (still useful to detect "no target at all" below) without acting on
+    // its value; re-enable by restoring the fallback_cell_phone read here.
+    void settings
+    const cellPhone: string | null = null
 
     // Neither found under THIS admin's own identity — real bug hit live:
     // "no answer target" fired for an admin clicking Answer whose own
@@ -153,7 +158,7 @@ export async function POST(req: NextRequest) {
       sipAddr =
         (anyPresence?.sip_address as string | null) ||
         (anyPresence?.sip_username ? `sip:${anyPresence.sip_username}@sip.telnyx.com` : null)
-      cellPhone = (anySettings?.fallback_cell_phone as string | null) || null
+      void anySettings // cell forwarding disabled for now — see above
     }
 
     if (!sipAddr && !cellPhone) {
