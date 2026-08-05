@@ -6,6 +6,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useNotificationChime, useDesktopNotificationPermission } from '@/lib/use-notification-chime'
 
 const POLL_MS = 8000
+// A one-shot alert is easy to miss — this re-chimes/re-notifies for any
+// alert card still on screen (not yet dismissed or opened), until it is.
+const REMINDER_MS = 20000
 
 interface Alert {
   message_id: string
@@ -150,11 +153,32 @@ function AlertCard({ alert, onDismiss }: { alert: Alert; onDismiss: (id: string)
 export default function ComhubAlerts() {
   const pathname = usePathname()
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const alertsRef = useRef<Alert[]>([])
+  useEffect(() => { alertsRef.current = alerts }, [alerts])
   const sinceRef = useRef(new Date().toISOString())
   const seenRef = useRef(new Set<string>())
   const playChime = useNotificationChime()
   useDesktopNotificationPermission()
   const onComhubPage = (pathname || '').startsWith('/dashboard/comhub')
+
+  // A one-shot chime is easy to miss. As long as a card is still on screen
+  // (not dismissed, not opened via "Open in ComHub" — both call dismiss()),
+  // keep re-chiming/re-notifying every REMINDER_MS instead of going silent
+  // after the first alert. Off the ComHub page only — the page below never
+  // populates `alerts` there (see the poll effect), so this naturally only
+  // reminds about messages you actually haven't seen. Each Notification call
+  // needs a fresh tag; the same tag every cycle just silently replaces the
+  // prior one on most OSes with no new alert sound.
+  useEffect(() => {
+    if (onComhubPage) return
+    const t = setInterval(() => {
+      const pending = alertsRef.current
+      if (pending.length === 0) return
+      playChime()
+      pending.forEach(a => notifyDesktop({ ...a, message_id: `${a.message_id}-${Date.now()}` }))
+    }, REMINDER_MS)
+    return () => clearInterval(t)
+  }, [onComhubPage, playChime])
 
   useEffect(() => {
     let cancelled = false

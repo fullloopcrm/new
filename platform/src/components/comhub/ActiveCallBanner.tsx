@@ -46,13 +46,16 @@ export default function ActiveCallBanner() {
   const [, setTick] = useState(0)
   const playChime = useNotificationChime()
   useDesktopNotificationPermission()
-  const seenRingingRef = useRef(new Set<string>())
 
   // Rings on this poll (every 2s), not the separate 8s-poll text/email alert
   // popup — a call needs to be answered within a couple of rings, an 8s
   // delay before the operator even hears about it isn't good enough the way
-  // it is for a text. Same chime/desktop-notification the text alerts use,
-  // fired the instant a NEW ringing call shows up in this feed.
+  // it is for a text. Recurring, not one-shot: a real phone keeps ringing
+  // until picked up, so this re-chimes and re-notifies on EVERY poll cycle
+  // for as long as any call is still 'ringing' — it stops the moment that
+  // call is answered or ends, not after a single alert. Each Notification
+  // call uses a fresh tag per cycle; the same tag every time would just
+  // silently replace the prior one on most OSes with no new alert sound.
   useEffect(() => {
     let cancelled = false
     async function fetchActive() {
@@ -62,17 +65,14 @@ export default function ActiveCallBanner() {
         const data = (await res.json()) as { active_calls?: ActiveCall[] }
         const active = data.active_calls ?? []
         if (cancelled) return
-        const newlyRinging = active.filter(
-          c => c.status === 'ringing' && !seenRingingRef.current.has(c.id),
-        )
-        active.forEach(c => seenRingingRef.current.add(c.id))
-        if (newlyRinging.length > 0) {
+        const stillRinging = active.filter(c => c.status === 'ringing')
+        if (stillRinging.length > 0) {
           playChime()
-          for (const c of newlyRinging) {
+          for (const c of stillRinging) {
             if (!('Notification' in window) || Notification.permission !== 'granted') continue
             const n = new Notification('Incoming call', {
               body: fmtPretty(c.customer_phone) || c.customer_phone,
-              tag: `comhub-call-${c.id}`,
+              tag: `comhub-call-${c.id}-${Date.now()}`,
               requireInteraction: true,
             })
             n.onclick = () => { window.focus(); n.close() }
