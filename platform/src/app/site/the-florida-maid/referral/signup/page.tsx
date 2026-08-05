@@ -59,7 +59,7 @@ function ReferralSignupPageContent() {
       if (res.ok) {
         trackSuccess()
         setSuccess(true)
-        setRefCode(data.ref_code)
+        setRefCode(data.referral?.referral_code || data.ref_code)
       } else {
         setError(data.error || 'Failed to sign up')
       }

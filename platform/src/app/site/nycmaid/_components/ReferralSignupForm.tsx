@@ -51,7 +51,7 @@ function ReferralSignupFormContent() {
 
       if (res.ok) {
         setSuccess(true)
-        setRefCode(data.ref_code)
+        setRefCode(data.referral?.referral_code || data.ref_code)
       } else {
         setError(data.error || 'Failed to sign up / No se pudo registrar')
       }
