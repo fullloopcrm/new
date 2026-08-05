@@ -76,18 +76,45 @@ const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '25'
 const VOICEMAIL_MAX_LENGTH_SECS = Number(process.env.VOICEMAIL_MAX_LENGTH_SECS || '120')
 const MISSED_CALL_SMS_COOLDOWN_MIN = Number(process.env.MISSED_CALL_SMS_COOLDOWN_MIN || '60')
 
-const VOICEMAIL_PROMPT = (
-  process.env.VOICEMAIL_PROMPT ||
-  "Hi, you've reached the New York City Maid. Please leave your name, " +
-  "phone number, and what you need help with after the beep. We'll text " +
-  "you right back. Press pound when you're done."
-)
+// Per-tenant personalization for the voicemail greeting + missed-call SMS.
+// `tenants.voicemail_prompt`/`missed_call_sms` already exist and are
+// editable via the admin business-settings API — this was the missing link:
+// the webhook itself never read them, so every tenant got the same
+// hardcoded NYC Maid–branded copy regardless of what was saved there.
+async function getTenantVoicePersonalization(tenantId: string): Promise<{
+  name: string
+  domain: string | null
+  missedCallSms: string | null
+  voicemailPrompt: string | null
+}> {
+  const { data } = await supabaseAdmin
+    .from('tenants')
+    .select('name, domain, missed_call_sms, voicemail_prompt')
+    .eq('id', tenantId)
+    .single()
+  return {
+    name: data?.name || 'us',
+    domain: data?.domain || null,
+    missedCallSms: data?.missed_call_sms || null,
+    voicemailPrompt: data?.voicemail_prompt || null,
+  }
+}
 
-const MISSED_CALL_SMS_BODY = (
-  process.env.MISSED_CALL_SMS_BODY ||
-  "Hey, NYC Maid here — sorry we missed your call. What can we help " +
-  "you with? Reply here and we'll get you sorted."
-)
+function defaultVoicemailPrompt(tenantName: string): string {
+  return (
+    `Hi, you've reached ${tenantName}. Please leave your name, phone ` +
+    "number, and what you need help with after the beep. We'll text " +
+    "you right back. Press pound when you're done."
+  )
+}
+
+function defaultMissedCallSmsBody(tenantName: string, domain: string | null): string {
+  const bookLine = domain ? ` Prefer to book online? https://${domain}/book` : ''
+  return (
+    `Hi, this is ${tenantName} — so sorry we missed your call! Reply ` +
+    `here and we'll get you sorted.${bookLine}`
+  )
+}
 
 // Every answered call ends up recorded — bridged to an admin, handed to the
 // AI agent, or sent to voicemail. Disclose that upfront, once, right after
@@ -488,10 +515,13 @@ async function maybeSendMissedCallSMS(opts: {
 
   const creds = await getTenantTelnyxCreds(opts.tenantId)
   if (!creds) return
+  const personalization = await getTenantVoicePersonalization(opts.tenantId)
+  const body = personalization.missedCallSms
+    || defaultMissedCallSmsBody(personalization.name, personalization.domain)
 
   let sendOk = false
   try {
-    await sendSMS({ to: opts.customerPhone, body: MISSED_CALL_SMS_BODY, telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
+    await sendSMS({ to: opts.customerPhone, body, telnyxApiKey: creds.apiKey, telnyxPhone: creds.phone })
     sendOk = true
   } catch (err) {
     console.error('[telnyx-voice] missed-call SMS failed', err)
@@ -575,8 +605,10 @@ async function startVoicemail(opts: {
 }): Promise<void> {
   // Speak the prompt, then start the recording. The recording's saved URL
   // arrives later via call.recording.saved.
+  const personalization = await getTenantVoicePersonalization(opts.tenantId)
+  const voicemailPrompt = personalization.voicemailPrompt || defaultVoicemailPrompt(personalization.name)
   await telnyxAction(opts.customerCallId, 'gather_using_speak', {
-    payload: VOICEMAIL_PROMPT,
+    payload: voicemailPrompt,
     voice: 'female',
     language: 'en-US',
     minimum_digits: 0,

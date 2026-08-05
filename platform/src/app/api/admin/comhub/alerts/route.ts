@@ -4,9 +4,9 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
 // GET /api/admin/comhub/alerts?since=<ISO>
-//   Polled by the top-drop live-alert popup. Returns inbound SMS/email/web
-//   ComHub messages that landed after `since`, newest first, capped small —
-//   this drives an interrupt-style UI, not an inbox.
+//   Polled by the top-drop live-alert popup. Returns inbound SMS/email/web/
+//   voice ComHub messages that landed after `since`, newest first, capped
+//   small — this drives an interrupt-style UI, not an inbox.
 export async function GET(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     .select('id, thread_id, contact_id, channel, body, subject, sent_at')
     .eq('tenant_id', tenantId)
     .eq('direction', 'in')
-    .in('channel', ['sms', 'email', 'web'])
+    .in('channel', ['sms', 'email', 'web', 'voice'])
     .gt('sent_at', since)
     .order('sent_at', { ascending: false })
     .limit(10)

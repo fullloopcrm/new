@@ -10,7 +10,7 @@ const POLL_MS = 8000
 interface Alert {
   message_id: string
   thread_id: string
-  channel: 'sms' | 'email' | 'web'
+  channel: 'sms' | 'email' | 'web' | 'voice'
   body: string
   subject: string | null
   sent_at: string
@@ -19,7 +19,7 @@ interface Alert {
   contact_email: string | null
 }
 
-const channelLabel: Record<Alert['channel'], string> = { sms: 'Text', email: 'Email', web: 'Web chat' }
+const channelLabel: Record<Alert['channel'], string> = { sms: 'Text', email: 'Email', web: 'Web chat', voice: 'Call' }
 
 // A browser tab cannot force itself in front of other native apps/windows —
 // that's blocked by every modern browser as a security/annoyance guard.
@@ -107,6 +107,10 @@ function AlertCard({ alert, onDismiss }: { alert: Alert; onDismiss: (id: string)
 
       {sent ? (
         <div className="px-4 pb-3" style={{ color: '#1B8A4A', fontSize: '12px', fontFamily: 'var(--mono)' }}>✓ Sent</div>
+      ) : alert.channel === 'voice' ? (
+        // Voice alerts have no reply-in-place channel (there's nothing to
+        // send a "voice" message over) — open the full thread to text back.
+        null
       ) : (
         <div className="px-3 pb-3 flex items-center gap-2">
           <input
