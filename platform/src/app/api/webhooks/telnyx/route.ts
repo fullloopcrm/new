@@ -966,6 +966,46 @@ export async function POST(request: Request) {
 
           return NextResponse.json({ received: true, action: 'chatbot' })
         }
+        // Chatbot off for this tenant: still mirror the inbound text into
+        // ComHub (sms_conversations → comhub_messages). Before this, a
+        // chatbot-disabled tenant's SMS never touched sms_conversations at
+        // all, so it landed in `notifications` (the bell icon) but never
+        // showed up as a message in ComHub — same "always log regardless of
+        // reply settings" principle above, just for the chatbot_enabled flag
+        // instead of sms_reply_enabled. No AI/auto-reply behavior here.
+        else {
+          const cleanPhone = from.replace(/\D/g, '').slice(-10)
+          const { data: existingConvo } = await supabaseAdmin
+            .from('sms_conversations')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('phone', cleanPhone)
+            .is('completed_at', null)
+            .eq('expired', false)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          let convoId = existingConvo?.id ?? null
+          if (!convoId) {
+            const { data: newConvo } = await supabaseAdmin.from('sms_conversations').insert({
+              tenant_id: tenantId,
+              phone: cleanPhone,
+              to_phone: to,
+              client_id: client?.id || newLeadClientId || null,
+              name: client?.name || null,
+              state: 'welcome',
+            }).select('id').single()
+            convoId = newConvo?.id ?? null
+          }
+
+          if (convoId) {
+            await insertConversationMessage(
+              { conversation_id: convoId, direction: 'inbound', message: text, to_phone: to, media_urls: mediaUrls.length > 0 ? mediaUrls : null },
+              { expectedTenantId: tenantId },
+            )
+          }
+        }
       } catch (err) {
         console.error('Chatbot error:', err)
         await trackError(err, { source: 'webhooks/telnyx/chatbot', tenantId, severity: 'high' }).catch(() => {})
