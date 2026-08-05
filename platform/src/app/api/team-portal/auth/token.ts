@@ -11,8 +11,14 @@ function getSecret(): string {
   return s
 }
 
-export function createToken(memberId: string, tenantId: string, payRate?: number | null, role?: string | null): string {
-  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, r: role || 'worker', scope: 'team', exp: Date.now() + 24 * 3600 * 1000 })
+const DEFAULT_TTL_MS = 24 * 3600 * 1000
+
+// ttlMs is optional and defaults to the web team-portal's existing 24h
+// session — the mobile unified-login resolver (api/mobile/unified-login)
+// passes a long-lived override (matches tenant_members' 10-year pattern)
+// without changing behavior for the web portal's own PIN-only login.
+export function createToken(memberId: string, tenantId: string, payRate?: number | null, role?: string | null, ttlMs: number = DEFAULT_TTL_MS): string {
+  const payload = JSON.stringify({ id: memberId, tid: tenantId, pr: payRate || 0, r: role || 'worker', scope: 'team', exp: Date.now() + ttlMs })
   const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }

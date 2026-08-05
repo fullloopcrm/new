@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { resolveTenantForRequest } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
-  const tenant = await getTenantFromHeaders()
+  // Mobile has no domain to resolve a tenant header from — it sends
+  // tenant_slug explicitly in the body instead (matches /api/mobile/*).
+  const tenant = await resolveTenantForRequest(body.tenant_slug)
   if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   const db = tenantDb(tenant.id)

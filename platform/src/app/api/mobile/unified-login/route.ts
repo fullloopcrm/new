@@ -26,6 +26,26 @@ import { logAuthFailure } from '@/lib/error-tracking'
 const ROLE_PRIORITY = ['admin', 'team', 'client', 'sales'] as const
 type Role = (typeof ROLE_PRIORITY)[number]
 
+// Mobile sessions are long-lived by design (Jeff, 2026-08-03: "they're
+// logging in one time and staying logged in"). Matches tenant_members'
+// existing 10-year admin-token pattern (admin-auth/route.ts SESSION_MS).
+// team/client/sales token creators default to their WEB portals' shorter
+// TTLs (24h / 24h / 30d) when called without this override — passed
+// explicitly here so only the mobile app gets the long session.
+const MOBILE_SESSION_MS = 10 * 365 * 24 * 3600 * 1000
+
+// Same layered brute-force throttle as portal/auth + team-portal/auth: the
+// upfront `rateLimitDb` call below caps one (slug, ip) pair at 5/15min, but
+// alone that resets every time an attacker tries a different tenant slug
+// from the same IP. These two extra buckets close that gap the same way the
+// sibling routes do — a per-tenant-only bucket catches a distributed sweep
+// of one tenant's PIN space from many IPs, a per-IP-only bucket catches one
+// IP fanning out across many tenant slugs. Either exhausted -> 429. Neither
+// is spent on success.
+const MAX_FAILED_PER_TENANT = 10
+const MAX_FAILED_PER_IP = 20
+const FAILED_WINDOW_MS = 15 * 60 * 1000
+
 interface ResolvedLogin {
   role: Role
   token: string
@@ -79,7 +99,7 @@ async function tryTeam(tenantId: string, email: string, pin: string): Promise<Re
     },
   )
   if (!member) return null
-  const token = createTeamToken(member.id, tenantId, member.pay_rate, member.role)
+  const token = createTeamToken(member.id, tenantId, member.pay_rate, member.role, MOBILE_SESSION_MS)
   return {
     role: 'team',
     token,
@@ -110,7 +130,7 @@ async function tryClient(tenantId: string, email: string, pin: string): Promise<
     },
   )
   if (!client) return null
-  const token = createClientToken(client.id, tenantId)
+  const token = createClientToken(client.id, tenantId, MOBILE_SESSION_MS)
   return { role: 'client', token, profile: { id: client.id, name: client.name } }
 }
 
@@ -123,7 +143,7 @@ async function trySales(tenantId: string, email: string, pin: string): Promise<R
     .eq('active', true)
     .maybeSingle()
   if (!partner || !verifySalesPin(pin, partner.pin_hash as string, partner.pin_salt as string)) return null
-  const token = createSalesPartnerToken(partner.id as string, tenantId)
+  const token = createSalesPartnerToken(partner.id as string, tenantId, MOBILE_SESSION_MS)
   return { role: 'sales', token, profile: { id: partner.id, name: partner.name, email: partner.email, referral_code: partner.referral_code } }
 }
 
@@ -169,6 +189,17 @@ export async function POST(request: Request) {
     }
   }
 
-  await logAuthFailure({ surface: 'mobile/unified-login', tenantId: tenant.id, ip, identifier: email, lockedOut: false, remaining: rl.remaining })
+  // Wrong email/PIN across all 4 role tables: spend from both fail-specific
+  // budgets. Either exhausted -> 429, matching portal/auth + team-portal/auth.
+  const [byTenant, byIp] = await Promise.all([
+    rateLimitDb(`mobile_unified_login_fail:slug:${slug}`, MAX_FAILED_PER_TENANT, FAILED_WINDOW_MS, { failClosed: true }),
+    rateLimitDb(`mobile_unified_login_fail:ip:${ip}`, MAX_FAILED_PER_IP, FAILED_WINDOW_MS, { failClosed: true }),
+  ])
+  if (!byTenant.allowed || !byIp.allowed) {
+    await logAuthFailure({ surface: 'mobile/unified-login', tenantId: tenant.id, ip, identifier: email, lockedOut: true })
+    return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+  }
+
+  await logAuthFailure({ surface: 'mobile/unified-login', tenantId: tenant.id, ip, identifier: email, lockedOut: false, remaining: Math.min(byTenant.remaining, byIp.remaining) })
   return NextResponse.json({ error: 'Invalid email or PIN' }, { status: 401 })
 }

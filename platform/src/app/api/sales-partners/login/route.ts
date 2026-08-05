@@ -8,7 +8,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { resolveTenantForRequest } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyPin, generatePin, hashPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
@@ -36,7 +36,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
-    const tenant = await getTenantFromHeaders()
+    // Mobile has no domain to resolve a tenant header from — it sends
+    // tenant_slug explicitly in the body instead (matches /api/mobile/*).
+    const tenant = await resolveTenantForRequest(body.tenant_slug)
     if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
     const { data: partner, error } = await supabaseAdmin
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
 }
 
 /** "Forgot my PIN" — mint a fresh PIN, email it. Same shape as team-portal/client-portal request_pin. */
-async function handleRequestPin(body: { email?: string }, request: Request) {
+async function handleRequestPin(body: { email?: string; tenant_slug?: string }, request: Request) {
   const email = String(body.email || '').trim()
   if (!email) {
     return NextResponse.json({ error: 'Email required' }, { status: 400 })
@@ -79,7 +81,7 @@ async function handleRequestPin(body: { email?: string }, request: Request) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
-  const tenant = await getTenantFromHeaders()
+  const tenant = await resolveTenantForRequest(body.tenant_slug)
   if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   const { data: partner } = await supabaseAdmin

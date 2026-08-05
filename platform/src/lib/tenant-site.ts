@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from './supabase'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { getTenantBySlug } from './tenant'
 
 /**
  * Gate nycmaid-specific hardcoded SEO pages. Pages that contain
@@ -38,6 +39,27 @@ export async function getTenantFromHeaders() {
     .eq('id', tenantId)
     .single()
   return data
+}
+
+/**
+ * Resolves tenant for routes callable from both a browser on the tenant's
+ * own domain (middleware sets x-tenant-id/x-tenant-sig, read by
+ * getTenantFromHeaders) and the mobile app, which has no domain to key off
+ * and instead sends an explicit `tenant_slug` in the request body — the same
+ * convention /api/mobile/auth/login and /api/mobile/unified-login already
+ * use. Pass the raw (possibly absent/non-string) body field straight
+ * through; this narrows and normalizes it.
+ *
+ * When `bodyTenantSlug` is a non-empty string, it is authoritative — this
+ * is the mobile path, which has no header to fall back to anyway. Falls
+ * back to getTenantFromHeaders() only when no slug was sent, so existing
+ * web callers (which never send tenant_slug) see identical behavior to
+ * before this helper existed.
+ */
+export async function resolveTenantForRequest(bodyTenantSlug?: unknown) {
+  const slug = typeof bodyTenantSlug === 'string' ? bodyTenantSlug.trim().toLowerCase() : ''
+  if (slug) return getTenantBySlug(slug)
+  return getTenantFromHeaders()
 }
 
 export async function getTenantServices(tenantId: string) {
