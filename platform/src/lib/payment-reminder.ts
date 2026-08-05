@@ -65,7 +65,7 @@ export async function runPaymentReminderCadence(
 
   const { data: pending } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, price, fifteen_min_alert_time, clients(name, phone)')
+    .select('id, client_id, price, fifteen_min_alert_time, payment_reminder_sent_at, clients(name, phone)')
     .eq('tenant_id', tenant.id)
     .not('fifteen_min_alert_time', 'is', null)
     .not('payment_status', 'in', '("paid","partial")')
@@ -76,6 +76,8 @@ export async function runPaymentReminderCadence(
   let escalated = 0
   const now = Date.now()
   const finalStageMin = STAGES_MIN[STAGES_MIN.length - 1]
+  const THROTTLE_MS = 5 * 60 * 1000
+  const throttleCutoff = new Date(now - THROTTLE_MS).toISOString()
 
   for (const booking of pending || []) {
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
@@ -93,6 +95,36 @@ export async function runPaymentReminderCadence(
     if (stagesSent < STAGES_MIN.length) {
       if (!clientNudgeOn || elapsedMin < STAGES_MIN[stagesSent]) continue
 
+      // Atomic claim before sending — two overlapping cron invocations (a manual
+      // trigger racing the real schedule, a platform retry, etc.) must not both
+      // pass the stage check above and double-text the client. Two sequential
+      // attempts instead of a single .or() filter, matching the proven pattern
+      // in team-portal/30min-alert/route.ts (a chained .or() silently matches
+      // zero rows on this Supabase/PostgREST version).
+      let claimed = (
+        await supabaseAdmin
+          .from('bookings')
+          .update({ payment_reminder_sent_at: new Date(now).toISOString() })
+          .eq('id', booking.id)
+          .eq('tenant_id', tenant.id)
+          .is('payment_reminder_sent_at', null)
+          .select('id')
+          .maybeSingle()
+      ).data
+      if (!claimed) {
+        claimed = (
+          await supabaseAdmin
+            .from('bookings')
+            .update({ payment_reminder_sent_at: new Date(now).toISOString() })
+            .eq('id', booking.id)
+            .eq('tenant_id', tenant.id)
+            .lt('payment_reminder_sent_at', throttleCutoff)
+            .select('id')
+            .maybeSingle()
+        ).data
+      }
+      if (!claimed) continue
+
       const amount = booking.price ? (Number(booking.price) / 100).toFixed(2) : '0.00'
       const firstName = client.name?.split(' ')[0] || 'there'
       const text = stageText(stagesSent, firstName, amount, buildPayLink(tenant, booking.id))
@@ -108,17 +140,36 @@ export async function runPaymentReminderCadence(
     if (elapsedMin < finalStageMin) continue
 
     // All 5 stages sent and still unpaid past the final stage — escalate once.
-    const { count: existingTask } = await supabaseAdmin
+    // Claim by inserting the admin_tasks row FIRST, then only notify if this
+    // insert turned out to be the sole row for this booking — shrinks the
+    // check-then-act race from "read, then maybe write" (wide gap) down to
+    // "write, then read own write" (one round trip), same failure class as
+    // the client-nudge race above but lower stakes (a duplicate admin alert,
+    // not a duplicate client text), so a full atomic-claim column isn't
+    // warranted here.
+    const amount = booking.price ? (Number(booking.price) / 100).toFixed(2) : '0.00'
+    const subject = `[${tenant.name}] Payment overdue 6+ hrs — ${client.name || 'client'}`
+    const body = `${client.name || 'Client'} (${client.phone}) still hasn't paid $${amount} for booking ${booking.id.slice(0, 8)}, 6+ hours after the job finished. All automated reminders have gone out — please follow up directly.`
+
+    const { error: insertError } = await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tenant.id,
+      type: ESCALATE_TASK_TYPE,
+      priority: 'high',
+      title: `${client.name || 'Client'} — $${amount} payment overdue 6+ hrs`,
+      description: body,
+      related_type: 'booking',
+      related_id: booking.id,
+      client_id: booking.client_id,
+    })
+    if (insertError) continue
+
+    const { count: taskCount } = await supabaseAdmin
       .from('admin_tasks')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenant.id)
       .eq('related_id', booking.id)
       .eq('type', ESCALATE_TASK_TYPE)
-    if (existingTask && existingTask > 0) continue
-
-    const amount = booking.price ? (Number(booking.price) / 100).toFixed(2) : '0.00'
-    const subject = `[${tenant.name}] Payment overdue 6+ hrs — ${client.name || 'client'}`
-    const body = `${client.name || 'Client'} (${client.phone}) still hasn't paid $${amount} for booking ${booking.id.slice(0, 8)}, 6+ hours after the job finished. All automated reminders have gone out — please follow up directly.`
+    if ((taskCount || 0) > 1) continue
 
     await Promise.allSettled([
       tenant.telegram_chat_id && tenant.telegram_bot_token
@@ -126,20 +177,6 @@ export async function runPaymentReminderCadence(
         : Promise.resolve(null),
       tenant.owner_email ? sendEmail(tenant.owner_email, subject, `<p>${body}</p>`) : Promise.resolve(),
     ])
-
-    await supabaseAdmin
-      .from('admin_tasks')
-      .insert({
-        tenant_id: tenant.id,
-        type: ESCALATE_TASK_TYPE,
-        priority: 'high',
-        title: `${client.name || 'Client'} — $${amount} payment overdue 6+ hrs`,
-        description: body,
-        related_type: 'booking',
-        related_id: booking.id,
-        client_id: booking.client_id,
-      })
-      .then(() => {}, () => {})
 
     escalated++
   }
