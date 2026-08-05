@@ -45,6 +45,9 @@ function seed() {
       { id: 'bk-a2', tenant_id: A, status: 'completed', team_member_id: 'tm-a', team_member_pay: 50, actual_hours: 1, team_member_paid: false, start_time: '2026-01-01' },
       { id: 'bk-b1', tenant_id: B, status: 'completed', team_member_id: 'tm-b', team_member_pay: 999, actual_hours: 9, team_member_paid: false, start_time: '2026-01-03' },
     ],
+    team_member_payouts: [
+      { id: 'p1', tenant_id: A, booking_id: 'bk-a1', tip_cents: 1500 },
+    ],
   }
 }
 
@@ -72,7 +75,9 @@ describe('finance/cleaner-income — tenant isolation', () => {
     expect(cleaner.team_member_id).toBe('tm-a')
     // 100 + 50 — the 999 from tenant B is filtered out, not summed in.
     expect(cleaner.totalPay).toBe(150)
-    expect(cleaner.paidTotal).toBe(100)
+    // bk-a1 (paid) carries a 1500-cent tip on team_member_payouts — the
+    // report must fold it into paidTotal, not just team_member_pay.
+    expect(cleaner.paidTotal).toBe(1600)
     expect(cleaner.unpaidTotal).toBe(50)
   })
 })

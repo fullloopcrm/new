@@ -31,25 +31,43 @@ export async function GET(request: NextRequest) {
     const { data: bookings, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    const cleanerMap: Record<string, { team_member_id: string; name: string; totalPay: number; totalHours: number; jobCount: number; paidTotal: number; unpaidTotal: number }> = {}
+    // Tip lives on team_member_payouts (tip_cents), not on bookings — pull it
+    // per booking so the report doesn't silently undercount cleaner earnings
+    // the way finance/summary and closeout-detail already had to fix (07-16).
+    const bookingIds = (bookings || []).map(b => b.id)
+    const tipByBooking: Record<string, number> = {}
+    if (bookingIds.length > 0) {
+      const { data: payoutRows } = await db
+        .from('team_member_payouts')
+        .select('booking_id, tip_cents')
+        .in('booking_id', bookingIds)
+      for (const row of payoutRows || []) {
+        if (row.booking_id) tipByBooking[row.booking_id] = (row.tip_cents as number) || 0
+      }
+    }
+
+    const cleanerMap: Record<string, { team_member_id: string; name: string; totalPay: number; totalTips: number; totalHours: number; jobCount: number; paidTotal: number; unpaidTotal: number }> = {}
     for (const b of bookings || []) {
       const cid = b.team_member_id
       if (!cid) continue
       const cleaner = b.team_members as unknown as { name: string } | null
       if (!cleanerMap[cid]) {
-        cleanerMap[cid] = { team_member_id: cid, name: cleaner?.name || 'Unknown', totalPay: 0, totalHours: 0, jobCount: 0, paidTotal: 0, unpaidTotal: 0 }
+        cleanerMap[cid] = { team_member_id: cid, name: cleaner?.name || 'Unknown', totalPay: 0, totalTips: 0, totalHours: 0, jobCount: 0, paidTotal: 0, unpaidTotal: 0 }
       }
+      const tipCents = tipByBooking[b.id] || 0
       cleanerMap[cid].totalPay += b.team_member_pay || 0
+      cleanerMap[cid].totalTips += tipCents
       cleanerMap[cid].totalHours += b.actual_hours || 0
       cleanerMap[cid].jobCount++
-      if (b.team_member_paid) cleanerMap[cid].paidTotal += b.team_member_pay || 0
-      else cleanerMap[cid].unpaidTotal += b.team_member_pay || 0
+      if (b.team_member_paid) cleanerMap[cid].paidTotal += (b.team_member_pay || 0) + tipCents
+      else cleanerMap[cid].unpaidTotal += (b.team_member_pay || 0) + tipCents
     }
 
     const cleanerSummaries = Object.values(cleanerMap).sort((a, b) => b.totalPay - a.totalPay)
     const formattedBookings = (bookings || []).map(b => {
       const client = b.clients as unknown as { name: string } | null
       const cleaner = b.team_members as unknown as { name: string } | null
+      const tipCents = tipByBooking[b.id] || 0
       return {
         id: b.id,
         date: b.start_time,
@@ -58,6 +76,7 @@ export async function GET(request: NextRequest) {
         team_member_id: b.team_member_id,
         hours: b.actual_hours || 0,
         team_member_pay: b.team_member_pay || 0,
+        tip_cents: tipCents,
         paid: !!b.team_member_paid,
       }
     })
