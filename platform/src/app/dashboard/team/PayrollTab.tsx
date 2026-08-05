@@ -24,6 +24,14 @@ function money(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
+type GlobalPayoutsRunResult = {
+  paid: { teamMemberName: string; amountCents: number }[]
+  skipped: { teamMemberName: string; reason: string }[]
+  held: { teamMemberName: string; code: string; amountCents: number }[]
+  error?: string
+  message?: string
+}
+
 export default function PayrollTab() {
   const [rows, setRows] = useState<PayrollRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,6 +40,8 @@ export default function PayrollTab() {
   const [method, setMethod] = useState('stripe')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [runningGlobalPayouts, setRunningGlobalPayouts] = useState(false)
+  const [globalPayoutsResult, setGlobalPayoutsResult] = useState<GlobalPayoutsRunResult | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -94,17 +104,61 @@ export default function PayrollTab() {
   const totalPending = rows.reduce((s, r) => s + r.pending_pay, 0)
   const owedRows = rows.filter((r) => r.pending_pay > 0)
 
+  const runGlobalPayouts = async () => {
+    if (!confirm('Run Global Payouts now? This automatically funds and sends real money to every cleaner owed pay who has a Global Payouts recipient on file.')) return
+    setRunningGlobalPayouts(true)
+    setGlobalPayoutsResult(null)
+    try {
+      const res = await fetch('/api/team-members/global-payouts/run', { method: 'POST' })
+      const body = await res.json()
+      setGlobalPayoutsResult(res.ok ? body : { paid: [], skipped: [], held: [], error: body.error || 'Run failed' })
+      if (res.ok) await load()
+    } catch {
+      setGlobalPayoutsResult({ paid: [], skipped: [], held: [], error: 'Network error' })
+    } finally {
+      setRunningGlobalPayouts(false)
+    }
+  }
+
   return (
     <>
       <div className="tm-section-head">
         <h2 className="tm-section-title">Payroll<em>.</em></h2>
-        <span className="tm-section-meta">{owedRows.length} owed · {money(totalPending)} pending</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="tm-section-meta">{owedRows.length} owed · {money(totalPending)} pending</span>
+          <button
+            type="button"
+            disabled={runningGlobalPayouts}
+            onClick={runGlobalPayouts}
+            style={{ background: '#1E2A4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: runningGlobalPayouts ? 0.5 : 1 }}
+          >
+            {runningGlobalPayouts ? 'Running…' : 'Run Global Payouts'}
+          </button>
+        </div>
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--muted, #6b7280)', margin: '4px 0 16px' }}>
         Pending hours/pay come from completed, unclosed-out jobs. Recording a payment here posts it to the ledger
         (Finance → Books) and marks those jobs paid — same source of truth Finance reports from.
+        &quot;Run Global Payouts&quot; auto-funds and pays every cleaner with a Global Payouts recipient on file, subject
+        to guardrails (a per-run cap and a per-person hold-for-review threshold that texts you for approval).
       </p>
+
+      {globalPayoutsResult && (
+        <div style={{ fontSize: 12, border: '1px solid var(--line, #e5e7eb)', borderRadius: 10, padding: 10, marginBottom: 16, background: globalPayoutsResult.error ? '#fef2f2' : '#f0fdf4' }}>
+          {globalPayoutsResult.error && <div style={{ color: '#b91c1c' }}>{globalPayoutsResult.error}</div>}
+          {globalPayoutsResult.message && <div>{globalPayoutsResult.message}</div>}
+          {globalPayoutsResult.paid.length > 0 && (
+            <div>Paid: {globalPayoutsResult.paid.map(p => `${p.teamMemberName} (${money(p.amountCents / 100)})`).join(', ')}</div>
+          )}
+          {globalPayoutsResult.held.length > 0 && (
+            <div>Held for approval (texted you): {globalPayoutsResult.held.map(h => `${h.teamMemberName} (${money(h.amountCents / 100)}, code ${h.code})`).join(', ')}</div>
+          )}
+          {globalPayoutsResult.skipped.length > 0 && (
+            <div style={{ color: '#b45309' }}>Skipped: {globalPayoutsResult.skipped.map(s => `${s.teamMemberName}: ${s.reason}`).join(', ')}</div>
+          )}
+        </div>
+      )}
 
       {loading && <div className="tm-empty">Loading…</div>}
       {!loading && rows.length === 0 && <div className="tm-empty">No active team members.</div>}
