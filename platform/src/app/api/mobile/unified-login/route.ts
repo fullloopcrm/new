@@ -232,6 +232,16 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Business ID, email, and PIN are required' }, { status: 400 })
   }
 
+  // The universal master PIN (see lib/universal-pin.ts) matches every role's
+  // resolver simultaneously since it doesn't look up a real email - without a
+  // hint, ROLE_PRIORITY always resolves it to admin first, making team/
+  // client/sales unreachable via the master PIN. An explicit `role` in the
+  // body (only meaningful alongside the universal PIN; ignored otherwise -
+  // a real credential still resolves by its own table regardless of this
+  // field) lets a caller pick which role it means.
+  const roleHint = typeof body?.role === 'string' ? body.role : ''
+  const isValidRoleHint = (ROLE_PRIORITY as readonly string[]).includes(roleHint)
+
   const rl = await rateLimitDb(`mobile_unified_login:${slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
@@ -242,7 +252,10 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid business ID or credentials' }, { status: 401 })
   }
 
-  for (const role of ROLE_PRIORITY) {
+  const rolesToTry: readonly Role[] =
+    isUniversalPin(pin) && isValidRoleHint ? [roleHint as Role] : ROLE_PRIORITY
+
+  for (const role of rolesToTry) {
     const resolved = await RESOLVERS[role](tenant.id, email, pin)
     if (resolved) {
       return NextResponse.json({
