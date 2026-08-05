@@ -8,13 +8,16 @@ import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const OTP_TTL_MS = 10 * 60 * 1000
+
+export const OPTIONS = corsPreflight
 
 // Step 1 of referrer login: email in → email a 6-digit code out.
 // Always responds { ok: true } regardless of whether the email matches a
 // referrer, so this endpoint can't be used to enumerate who's a partner.
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const email = (body.email || '').trim()
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
@@ -92,4 +95,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true })
-}
+})

@@ -5,6 +5,7 @@ import { hashAdminPin } from '@/lib/admin-pin'
 import { createTenantAdminToken } from '@/app/api/admin-auth/route'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { sendLoginAlert } from '@/lib/login-alert'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Mobile login for the Full Loop Mobile app. Additive alongside the existing
 // cookie-based /api/admin-auth (browser, domain-scoped) — this is the same
@@ -18,7 +19,9 @@ import { sendLoginAlert } from '@/lib/login-alert'
 // permission tier yet.
 const ALLOWED_ROLES = new Set(['owner', 'admin'])
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const ua = request.headers.get('user-agent') || 'unknown'
 
@@ -77,4 +80,4 @@ export async function POST(request: Request) {
     tenantName: tenant.name,
     role: member.role,
   })
-}
+})

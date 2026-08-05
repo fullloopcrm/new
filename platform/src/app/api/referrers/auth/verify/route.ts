@@ -6,9 +6,12 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { safeEqual } from '@/lib/secret-compare'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Step 2 of referrer login: email + 6-digit code in → session token out.
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const email = (body.email || '').trim()
   const code = (body.code || '').trim()
@@ -68,4 +71,4 @@ export async function POST(request: NextRequest) {
 
   const token = createReferrerToken(referrer.id, tenant.id)
   return NextResponse.json({ token, referral_code: referrer.referral_code })
-}
+})

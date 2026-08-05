@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // GET /api/mobile/comhub/threads/[id] — mobile-scoped equivalent of
 // /api/admin/comhub/threads/[id] (GET only; that route's PATCH isn't
@@ -8,7 +9,9 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 // mobile thread list). Small and self-contained enough that duplicating it
 // (rather than extracting a shared helper) is the reasonable call, unlike
 // the list route's contact-resolution/search logic.
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   let tenantId: string
   try {
     const authCtx = await getTenantForRequest()
@@ -44,4 +47,4 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
 
   return NextResponse.json({ thread, messages: messages || [] })
-}
+})

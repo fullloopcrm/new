@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { listComhubThreads } from '@/lib/comhub-threads'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Mobile-scoped equivalent of /api/admin/comhub/threads — same reasoning as
 // /api/mobile/comhub/voice/token: the admin route gates on requireAdmin()
@@ -8,7 +9,9 @@ import { listComhubThreads } from '@/lib/comhub-threads'
 // bearer token from /api/mobile/auth/login. Shares the actual query logic
 // (contact resolution, search, unresponded filter) via lib/comhub-threads.ts
 // rather than duplicating it.
-export async function GET(req: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(req: NextRequest) {
   let tenantId: string
   try {
     const ctx = await getTenantForRequest()
@@ -31,4 +34,4 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error }, { status: 500 })
 
   return NextResponse.json({ threads })
-}
+})

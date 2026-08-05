@@ -11,6 +11,7 @@ import { createToken as createClientToken } from '@/app/api/portal/auth/token'
 import { verifyPin as verifySalesPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Single email+PIN entry point for the mobile app — Jeff's 2026-08-04
 // direction: one login screen, server resolves which of the role tables the
@@ -154,7 +155,9 @@ const RESOLVERS: Record<Role, (tenantId: string, email: string, pin: string) => 
   sales: trySales,
 }
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 
   const body = await request.json().catch(() => null)
@@ -202,4 +205,4 @@ export async function POST(request: Request) {
 
   await logAuthFailure({ surface: 'mobile/unified-login', tenantId: tenant.id, ip, identifier: email, lockedOut: false, remaining: Math.min(byTenant.remaining, byIp.remaining) })
   return NextResponse.json({ error: 'Invalid email or PIN' }, { status: 401 })
-}
+})

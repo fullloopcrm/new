@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Mobile-scoped equivalent of /api/admin/comhub/voice/token. That route gates
 // on requireAdmin() (platform SUPER-ADMIN only — verifyAdminToken, never a
@@ -13,7 +14,9 @@ import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 // Same Telnyx credential-mint flow as the web softphone: per-session
 // telephony credential (or the tenant's shared one), then a short-lived
 // login token for that credential.
-export async function POST(req: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(req: NextRequest) {
   let tenantId: string
   try {
     const ctx = await getTenantForRequest()
@@ -101,10 +104,10 @@ export async function POST(req: NextRequest) {
     session_id: sessionId,
     expires_in_seconds: 60 * 60,
   })
-}
+})
 
 // DELETE /api/mobile/comhub/voice/token { credential_id }
-export async function DELETE(req: NextRequest) {
+export const DELETE = withMobileCors(async function DELETE(req: NextRequest) {
   let tenantId: string
   try {
     const ctx = await getTenantForRequest()
@@ -130,4 +133,4 @@ export async function DELETE(req: NextRequest) {
     // best-effort
   }
   return NextResponse.json({ ok: true, deleted: credentialId })
-}
+})
