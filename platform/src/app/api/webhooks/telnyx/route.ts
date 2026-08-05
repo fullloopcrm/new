@@ -715,15 +715,12 @@ export async function POST(request: Request) {
       },
       status: 'sent',
     })
-    // Telegram alert — dropped in the FL port. nycmaid-only for now (matches
-    // its pre-cutover behavior); other tenants would fall back to the shared
-    // platform owner chat here since most don't have their own bot configured
-    // yet, flooding it with every tenant's routine client texts — needs its
-    // own review before going global.
-    if (isNycMaid(tenantId)) {
-      sendTenantTelegram(tenantId, tenant, `${inboundSmsTitle}\n\n${inboundSmsMsg}`).catch((err) =>
-        console.error('[telnyx webhook] inbound-sms telegram send failed:', err))
-    }
+    // Telegram alert. sendTenantTelegram no-ops for any tenant without its
+    // own bot/chat configured (see lib/notify.ts) — only a null tenantId
+    // would fall back to the shared platform chat, which never happens here
+    // since tenantId is always resolved above. Safe to fire for every tenant.
+    sendTenantTelegram(tenantId, tenant, `${inboundSmsTitle}\n\n${inboundSmsMsg}`).catch((err) =>
+      console.error('[telnyx webhook] inbound-sms telegram send failed:', err))
 
     // If from a client, add to their notes (internal-only — notes_private,
     // never notes_public which the client sees in their portal).

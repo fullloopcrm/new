@@ -11,6 +11,7 @@ import { sendSMS } from '@/lib/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { sendTenantTelegram } from '@/lib/notify'
 
 // The DID-resolution above already rejects calls that don't map to exactly
 // one tenant — but the follow-up SMS (missed-call callback, voicemail alert)
@@ -202,6 +203,23 @@ async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
   return (data ?? [])
     .map(row => (row.fallback_cell_phone || '').trim())
     .filter(Boolean)
+}
+
+// Telegram alert for a voice event (incoming call, missed call, voicemail).
+// sendTenantTelegram no-ops for any tenant without its own bot/chat
+// configured, so this is safe to fire for every tenant unconditionally.
+async function notifyTenantCallTelegram(tenantId: string, text: string): Promise<void> {
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('telegram_bot_token, telegram_chat_id')
+    .eq('id', tenantId)
+    .single()
+  if (!tenant) return
+  try {
+    await sendTenantTelegram(tenantId, tenant, text)
+  } catch (err) {
+    console.error('[telnyx-voice] telegram alert failed', err)
+  }
 }
 
 // Build the ordered list of admin endpoints to dial for this tenant's call.
@@ -524,10 +542,6 @@ async function notifyVoicemailToAdmin(opts: {
   recordingUrl: string | null
   transcript: string | null
 }): Promise<void> {
-  const notifyPhones = await getVoicemailNotifyPhones(opts.tenantId)
-  if (notifyPhones.length === 0) return
-  const creds = await getTenantTelnyxCreds(opts.tenantId)
-  if (!creds) return
   const lines = [
     `📞 New voicemail from ${opts.customerPhone}`,
     opts.transcript ? `Transcript: ${opts.transcript.slice(0, 400)}` : null,
@@ -535,6 +549,13 @@ async function notifyVoicemailToAdmin(opts: {
     `Thread: https://www.thenycmaid.com/admin/comhub?thread=${opts.threadId}`,
   ].filter(Boolean) as string[]
   const body = lines.join('\n')
+
+  notifyTenantCallTelegram(opts.tenantId, body).catch(() => {})
+
+  const notifyPhones = await getVoicemailNotifyPhones(opts.tenantId)
+  if (notifyPhones.length === 0) return
+  const creds = await getTenantTelnyxCreds(opts.tenantId)
+  if (!creds) return
   await Promise.all(
     notifyPhones.map(async (phone) => {
       try {
@@ -698,6 +719,8 @@ export async function POST(req: NextRequest) {
     })
 
     await supabaseAdmin.from('comhub_threads').update({ unread_count: 1 }).eq('id', threadId)
+
+    notifyTenantCallTelegram(tenantId, `📞 Incoming call from ${p.from}`).catch(() => {})
 
     await supabaseAdmin.from('comhub_active_calls').insert({
       tenant_id: tenantId,
@@ -1016,8 +1039,13 @@ export async function POST(req: NextRequest) {
       })
 
       // If the customer hung up before any admin picked up AND no voicemail
-      // was recorded, send a missed-call SMS.
+      // was recorded, alert admin (Telegram) and send a missed-call SMS to
+      // the customer.
       if (active.status !== 'bridged' && active.status !== 'voicemail') {
+        notifyTenantCallTelegram(
+          active.tenant_id,
+          `📵 Missed call from ${active.customer_phone}`,
+        ).catch(() => {})
         await maybeSendMissedCallSMS({
           tenantId: active.tenant_id,
           customerPhone: active.customer_phone,
