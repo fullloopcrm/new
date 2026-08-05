@@ -109,6 +109,22 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self)' },
         ],
       },
+      // /widget is the only page meant to be iframed — the 7 SEO satellite
+      // microsites embed it for their floating chat launcher. The blanket
+      // X-Frame-Options: DENY above blocks that outright. CSP frame-ancestors
+      // takes precedence over X-Frame-Options when both are present (browsers
+      // ignore X-Frame-Options once frame-ancestors is set), so this narrow
+      // allowlist is enough — no need to touch the DENY rule for every other
+      // route.
+      {
+        source: '/widget',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://automatedcrmsoftware.com https://www.automatedcrmsoftware.com https://automatedhomeservicebusiness.com https://www.automatedhomeservicebusiness.com https://automatemyhomeservicebusiness.com https://www.automatemyhomeservicebusiness.com https://automationinbusiness.com https://www.automationinbusiness.com https://crmforhomeservicebusiness.com https://www.crmforhomeservicebusiness.com https://theautomatedcrm.com https://www.theautomatedcrm.com https://whatisacrmsystem.com https://www.whatisacrmsystem.com",
+          },
+        ],
+      },
     ]
   },
 };
