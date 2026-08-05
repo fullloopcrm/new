@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 
 const VALID_TAGS = ['client', 'team', 'lead', 'potential_lead', 'spam', 'vendor', 'other'] as const
 type ContactTag = typeof VALID_TAGS[number]

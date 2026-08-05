@@ -178,6 +178,18 @@ export default function WebChatWidget({
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Tells a hosting iframe (the SEO satellite microsites' embed script,
+  // pointed at /widget) to resize itself between a small launcher footprint
+  // and the full panel — a fixed-size iframe would otherwise leave a large
+  // invisible click-catching rectangle over the host page even while
+  // collapsed. No-op everywhere else: every real tenant site mounts this
+  // directly on the page (window.self === window.top), so this never fires
+  // there.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.self === window.top) return
+    window.parent.postMessage({ source: 'fl-webchat', open }, '*')
+  }, [open])
+
   useEffect(() => {
     if (!requireIdentity || typeof window === 'undefined') return
     try {

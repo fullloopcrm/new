@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 
 // GET /api/admin/comhub/search-recipients?q=<query>&limit=10
 // Tenant-scoped search across clients + team_members for the compose modal.

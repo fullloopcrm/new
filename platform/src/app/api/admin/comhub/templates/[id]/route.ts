@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 
 // DELETE /api/admin/comhub/templates/[id] — archives (soft delete)
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

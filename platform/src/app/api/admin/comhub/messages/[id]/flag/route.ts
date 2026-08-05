@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 
 // POST /api/admin/comhub/messages/[id]/flag   { reason?: string }
 //   Marks the message for prompt-improvement review.

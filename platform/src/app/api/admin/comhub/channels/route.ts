@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 
 // POST /api/admin/comhub/channels
 //   { slug, name?, description? }  — creates internal channel for the current tenant.

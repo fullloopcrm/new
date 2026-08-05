@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
-import { getCurrentTenantId } from '@/lib/tenant'
+import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 

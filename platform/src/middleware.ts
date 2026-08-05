@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
+import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { redirectLegacyMarketingUrl } from './middleware/legacy-redirects'
 import { getBrandConsolidationRedirect, getCanonicalWwwRedirect } from './middleware/canonical-redirects'
 import { isKilledRoute } from './middleware/killed-routes'
@@ -103,6 +104,29 @@ export default async function middleware(req: NextRequest) {
     }
     // If domain lookup fails, fall through to main site
     return NextResponse.next()
+  }
+
+  // --- Full Loop's own ComHub-connected chat surfaces on the main host ---
+  // homeservicesbusinesscrm.com is a MAIN_HOST (never gets a tenant via the
+  // custom-domain branch above), but its own site and the SEO satellite
+  // sites' widget iframe both need a real tenant so ComHub has somewhere to
+  // store threads. Narrow allowlist — only these 3 paths get a header;
+  // every other MAIN_HOST path (dashboard, sign-in, everything else) is
+  // completely untouched by this block. Resolves to the pre-existing
+  // "⚙️ System (SEO + Sales Agreements — not a real tenant)" tenant, already
+  // used the same way elsewhere (see FULL_LOOP_TENANT in
+  // api/admin/requests/[id]/agreement/route.ts and the full-loop-crm slug
+  // exclusion in lib/seo/digest.ts).
+  const HUB_CHAT_TENANT_ID = '117968d2-24a1-42b5-96bd-7022e4e838ee'
+  const HUB_CHAT_TENANT_SLUG = 'full-loop-crm'
+  const HUB_CHAT_PATHS = ['/widget', '/api/public/webchat', '/api/tenant/public']
+  if (HUB_CHAT_PATHS.some(p => req.nextUrl.pathname === p || req.nextUrl.pathname.startsWith(p + '/'))) {
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.delete('x-tenant-sig')
+    requestHeaders.set('x-tenant-id', HUB_CHAT_TENANT_ID)
+    requestHeaders.set('x-tenant-slug', HUB_CHAT_TENANT_SLUG)
+    requestHeaders.set('x-tenant-sig', signTenantHeader(HUB_CHAT_TENANT_ID))
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   // --- Main site / dashboard (existing behavior) ---
