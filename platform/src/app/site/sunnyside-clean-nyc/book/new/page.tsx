@@ -361,7 +361,7 @@ function BookFormContent() {
             <div className="bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6">
               <p className="text-xs text-[#1E2A4A]/60 tracking-widest uppercase mb-1">Your PIN</p>
               <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-widest">{pin}</p>
-              <p className="text-xs text-[#1E2A4A]/60 mt-2">Save this — log in at <Link href="/book/new" className="underline">cleaningservicesunnysideny.com/book/new</Link></p>
+              <p className="text-xs text-[#1E2A4A]/60 mt-2">Save this — log in at <Link href="/portal/login" className="underline">cleaningservicesunnysideny.com/portal/login</Link></p>
             </div>
           )}
           <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="block bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6 text-left hover:bg-[#A8F0DC]/40 transition-colors">
