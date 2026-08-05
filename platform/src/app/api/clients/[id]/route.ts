@@ -12,12 +12,15 @@ import { formatName, formatEmail } from '@/lib/format'
 import { normalizePhone } from '@/lib/phone'
 import { updateProperty } from '@/lib/client-properties'
 import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-export async function GET(
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,7 +50,7 @@ export async function GET(
     }
     throw e
   }
-}
+})
 
 export async function PUT(
   request: Request,
