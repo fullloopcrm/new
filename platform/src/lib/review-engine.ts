@@ -2,29 +2,38 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { smsReviewRequest } from '@/lib/sms-templates'
 import { getSettings } from '@/lib/settings'
 
-// Global rating + review-incentive engine — the core of NYC Maid's review
-// flow (src/lib/nycmaid/review-engine.ts), generalized for every tenant.
-// The 1-5 rating ASK is already global (team-portal/15min-alert sends "how'd
-// we do? reply 1-5" to every tenant's client); this is what was missing —
-// capturing the reply and, on a 4-5, offering a review-credit using THIS
-// tenant's own Google review link and business name. NYC Maid keeps its own
-// hand-tuned copy (video-review option, referral-program plug) via the
-// separate nycmaid engine; this generic version is the plain core: rating →
-// (if good) review ask + $10 credit, or (if not) a feedback ask.
+// Global rating + review-incentive engine — generalized version of NYC
+// Maid's own (src/lib/nycmaid/review-engine.ts). Restores the pre-2026-06
+// flow that actually generated reviews (see
+// fullloop_nycmaid_review_flow_regression_2026_08_05): the 30-min alert asks
+// ONLY for a 1-5 rating, nothing else. Billing rides on the REPLY to that
+// rating, not the other way around — the prior combined "here's your bill +
+// reply 1-5" text buried the rating question under a payment demand and
+// clients just replied "Paid".
 //
-// Same two entry states as the nycmaid engine, matched off the last outbound
-// sms_log to this phone for this tenant:
-//   1) A 1-5 reply to a rating ask (sms_type 'pre_payment_rating' | 'rating_prompt')
-//        → save rating; 4-5 → review link + $10 offer; 1-3 → feedback ask.
-//   2) "DONE <link>" / "REVIEWED" / a bare link after a review_request
-//        → log the review to client_reviews with a $10 pending credit.
+// State machine, matched off the last outbound sms_log to this phone for
+// this tenant:
+//   1) Reply to 'pre_payment_rating' (the bare "how'd we do? 1-5" ask)
+//        → save rating.
+//        4-5 → bill + "$<credit> off if you leave a review" combined in ONE
+//              text (sms_type 'rating_thanks_45'), price written to the
+//              booking now.
+//        1-3 → NO automated reply to the client — admin gets pinged to take
+//              over personally. Billing for 1-3 is a manual admin action.
+//   2) Reply to 'rating_thanks_45' (the bill + review offer)
+//        DONE / a link / a screenshot mention → apply -$<credit>, send the
+//              adjusted final bill + pay link, log client_reviews (pending).
+//        anything else → send the bill at full price, no discount.
+//      Idempotency: once the final bill (sms_type '30min_payment') has been
+//      sent for a booking, any further reply just gets a short ack — never
+//      re-bills, never re-discounts.
 //
 // Returns a Response when it handled the message (caller should return it), or
 // null to fall through to the generic handler.
 const REVIEW_CREDIT_DOLLARS = 10
+const REVIEW_CREDIT_CENTS = REVIEW_CREDIT_DOLLARS * 100
 
 export async function handleReviewRating(
   { tenantId, from, text }: { tenantId: string; from: string; text: string },
@@ -50,37 +59,62 @@ export async function handleReviewRating(
         : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
   }
 
-  // ── State 2: review submission ("DONE/REVIEWED/POSTED" or a link) ──
-  const reviewLink = rawText.match(/https?:\/\/\S+/)?.[0]
-  const isDoneReply = /^(done|reviewed|posted)\b/i.test(rawText)
-  if (reviewLink || isDoneReply) {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: reviewReq } = await supabaseAdmin
-      .from('sms_logs')
-      .select('booking_id')
+  // ── State 2: reply to the "bill + review offer" text ──
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  const { data: billPrompt } = await supabaseAdmin
+    .from('sms_logs')
+    .select('booking_id')
+    .eq('tenant_id', tenantId)
+    .ilike('recipient', `%${cleanPhone}%`)
+    .eq('sms_type', 'rating_thanks_45')
+    .gte('created_at', twoHoursAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (billPrompt?.booking_id) {
+    const { data: booking } = await supabaseAdmin
+      .from('bookings')
+      .select('id, client_id, team_member_id, price, payment_link, clients(name)')
+      .eq('id', billPrompt.booking_id)
       .eq('tenant_id', tenantId)
-      .ilike('recipient', `%${cleanPhone}%`)
-      .eq('sms_type', 'review_request')
-      .gte('created_at', weekAgo)
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle()
 
-    if (reviewReq?.booking_id) {
-      const { data: booking } = await supabaseAdmin
-        .from('bookings')
-        .select('id, client_id, team_member_id')
-        .eq('id', reviewReq.booking_id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
+    if (booking) {
+      const { data: alreadyBilled } = await supabaseAdmin
+        .from('sms_logs')
+        .select('id')
+        .eq('booking_id', booking.id)
+        .eq('sms_type', '30min_payment')
+        .limit(1)
+      if (alreadyBilled && alreadyBilled.length > 0) {
+        await sendSMS({
+          to: from,
+          body: `You're all set — we already sent your balance. Thank you!`,
+          telnyxApiKey: tenant.telnyx_api_key,
+          telnyxPhone: tenant.telnyx_phone,
+        }).catch(() => {})
+        return NextResponse.json({ ok: true, action: 'bill_already_sent' })
+      }
 
-      if (booking) {
-        const { data: existing } = await supabaseAdmin
+      const client = booking.clients as unknown as { name?: string } | null
+      const firstName = client?.name?.split(' ')[0] || ''
+      const currentPriceCents = (booking.price as number | null) || 0
+      const reviewLink = rawText.match(/https?:\/\/\S+/)?.[0]
+      const mentionsScreenshot = /screenshot/i.test(rawText)
+      const isDoneReply = /^(done|reviewed|posted)\b/i.test(rawText)
+      const leftReview = isDoneReply || !!reviewLink || mentionsScreenshot
+
+      let finalPriceCents = currentPriceCents
+      if (leftReview) {
+        finalPriceCents = Math.max(0, currentPriceCents - REVIEW_CREDIT_CENTS)
+        await supabaseAdmin.from('bookings').update({ price: finalPriceCents }).eq('id', booking.id).then(() => {}, () => {})
+        const { data: existingReview } = await supabaseAdmin
           .from('client_reviews')
           .select('id')
           .eq('booking_id', booking.id)
           .maybeSingle()
-        if (!existing) {
+        if (!existingReview) {
           await supabaseAdmin.from('client_reviews').insert({
             tenant_id: tenantId,
             client_id: booking.client_id,
@@ -92,29 +126,39 @@ export async function handleReviewRating(
             status: 'pending',
           })
         }
-        await sendSMS({
-          to: from,
-          body: `Amazing — thank you! We've logged your review; your $${REVIEW_CREDIT_DOLLARS} credit will be applied. We appreciate you!`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        }).catch(() => {})
-        await smsAdmins(
-          tenantId,
-          `✓ Review submitted — $${REVIEW_CREDIT_DOLLARS} credit pending. Booking ${booking.id.slice(0, 8)}.${reviewLink ? ` Link: ${reviewLink}` : ''}`,
-        ).catch(() => {})
-        return NextResponse.json({ ok: true, action: 'review_submitted' })
       }
+
+      const payLink = booking.payment_link as string | null
+      const payLines = payLink ? [``, `Pay here: ${payLink}`] : []
+      const billText = [
+        leftReview ? `Amazing, thank you! $${REVIEW_CREDIT_DOLLARS} off applied. Your balance: $${(finalPriceCents / 100).toFixed(2)}` : `Thanks! Your balance: $${(finalPriceCents / 100).toFixed(2)}`,
+        ...payLines,
+        ``,
+        `Reply "paid" once sent.`,
+      ].join('\n')
+
+      await sendSMS({ to: from, body: billText, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+      await supabaseAdmin.from('sms_logs').insert({
+        tenant_id: tenantId, booking_id: booking.id, sms_type: '30min_payment', recipient: cleanPhone, status: 'sent',
+      }).then(() => {}, () => {})
+      await smsAdmins(
+        tenantId,
+        leftReview
+          ? `✓ ${firstName || 'Client'}: $${REVIEW_CREDIT_DOLLARS} review discount applied → bill $${(finalPriceCents / 100).toFixed(2)} sent`
+          : `${firstName || 'Client'} declined/no review → bill $${(finalPriceCents / 100).toFixed(2)} sent at full price`,
+      ).catch(() => {})
+      return NextResponse.json({ ok: true, action: leftReview ? 'review_discount_applied' : 'billed_full_price' })
     }
   }
 
-  // ── State 1: 1-5 reply to a rating ask ──
+  // ── State 1: reply to the bare "how'd we do? 1-5" ask ──
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const { data: prompt } = await supabaseAdmin
     .from('sms_logs')
-    .select('booking_id, sms_type')
+    .select('booking_id')
     .eq('tenant_id', tenantId)
     .ilike('recipient', `%${cleanPhone}%`)
-    .in('sms_type', ['pre_payment_rating', 'rating_prompt', '15min_warning'])
+    .eq('sms_type', 'pre_payment_rating')
     .gte('created_at', dayAgo)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -123,7 +167,7 @@ export async function handleReviewRating(
 
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, team_member_id, team_members!bookings_team_member_id_fkey(name)')
+    .select('id, client_id, team_member_id, price, payment_link, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
     .eq('id', prompt.booking_id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -131,10 +175,16 @@ export async function handleReviewRating(
 
   const teamMemberName = (booking.team_members as unknown as { name?: string } | null)?.name || 'your team member'
   const teamMemberFirst = teamMemberName.split(' ')[0]
+  const client = booking.clients as unknown as { name?: string; phone?: string } | null
+  const clientName = client?.name || 'the client'
+  const clientPhone = client?.phone || from
 
-  // Strict: the message must BE the rating, not merely contain a digit.
-  const cleaned = rawText.replace(/[.!?,]+$/, '')
-  const m = cleaned.match(/^([1-5])(?:\s*\/\s*5)?(?:\s*(?:stars?|⭐+))?$/i)
+  // Leading-digit match: catches "5", "5!", "5/5", "5 stars", "5⭐️ amazing!",
+  // "5. She was great!" — anything real clients actually type, as long as the
+  // digit is the first thing in the reply (so "I had 2 cleaners" and "Paid"
+  // don't false-match).
+  const cleaned = rawText.replace(/^[\s"']+/, '')
+  const m = cleaned.match(/^([1-5])\b/)
   const num = m ? Number(m[1]) : null
 
   const { data: existing } = await supabaseAdmin
@@ -164,21 +214,26 @@ export async function handleReviewRating(
 
       if (num >= 4) {
         const url = await reviewUrl()
-        await sendSMS({
-          to: from,
-          body: smsReviewRequest(bizName, teamMemberFirst, url, `We'll take $${REVIEW_CREDIT_DOLLARS} off your next visit for a written review.`),
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        }).catch(() => {})
-        await smsAdmins(tenantId, `★ ${num}/5 ${teamMemberFirst} — review link sent`).catch(() => {})
+        const priceCents = (booking.price as number | null) || 0
+        const billText = [
+          `Thanks! Your balance: $${(priceCents / 100).toFixed(2)}`,
+          ``,
+          `Want $${REVIEW_CREDIT_DOLLARS} off? Leave ${bizName} a review and reply DONE (or send a screenshot) — we'll knock $${REVIEW_CREDIT_DOLLARS} off before you pay: ${url}`,
+          ``,
+          `Or reply "no thanks" and we'll send your pay link now.`,
+        ].join('\n')
+        await sendSMS({ to: from, body: billText, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+        await supabaseAdmin.from('sms_logs').insert({
+          tenant_id: tenantId, booking_id: booking.id, sms_type: 'rating_thanks_45', recipient: cleanPhone, status: 'sent',
+        }).then(() => {}, () => {})
+        await smsAdmins(tenantId, `★ ${num}/5 ${teamMemberFirst} — balance + review offer sent`).catch(() => {})
       } else {
-        await sendSMS({
-          to: from,
-          body: `Thanks for the rating. What could we have done better? Any feedback helps us improve.`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
-        }).catch(() => {})
-        await smsAdmins(tenantId, `★ ${num}/5 ${teamMemberFirst} — feedback requested`).catch(() => {})
+        // 1-3: no automated reply to the client — hand off to admin. Billing
+        // for these is a manual admin action from here.
+        await smsAdmins(
+          tenantId,
+          `★ ${num}/5 ${teamMemberFirst} — ${clientName} (${clientPhone}). Low rating. Booking ${booking.id}. Take over the conversation.`,
+        ).catch(() => {})
         if (num <= 2) {
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenantId,

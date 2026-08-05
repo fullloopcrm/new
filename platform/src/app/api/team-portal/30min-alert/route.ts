@@ -325,13 +325,10 @@ export async function POST(req: NextRequest) {
       bookingId,
     }).catch(() => {})
 
-    // Client SMS — balance + Stripe pay link sent UP FRONT in the 30-min text.
-    // The rating ask rides along; a 1-5 reply routes through the pre_payment_rating
-    // flow. A fresh, single-booking Payment Link is created per alert (replaces
-    // the old shared/reused tenant-wide link) — the client still types in
-    // whatever they want to pay (same trusted flow that's worked in
-    // production), but this link can never be reused for a different booking
-    // or a different amount than what THIS booking's alert quoted.
+    // Payment link — a fresh, single-booking Stripe Payment Link is created
+    // per alert (never reused across bookings/tenants). It's stored on the
+    // booking now so the review-engine reply flow can send it later without
+    // creating a second competing link.
     let payLink = ''
     if (tenant.stripe_api_key) {
       try {
@@ -363,15 +360,35 @@ export async function POST(req: NextRequest) {
           `Please pay through this link only — credit/debit card, Cash App, or Apple Pay. We appreciate you!`,
         ]
       : []
-    const clientSmsText = [
-      `Hi ${firstName}! ${cleanerName} is finishing up your clean now 😊`,
-      `Your total: $${clientOwes} (${estimatedTotalHours}hrs × $${clientRate}/hr${teamSizeForBilling > 1 ? ` × ${teamSizeForBilling} cleaners` : ''}${adjustmentNote})`,
-      ...payLines,
-      ``,
-      `Payment is due ~30 min before completion. Reply "paid" once sent.`,
-      ``,
-      `And how'd we do? Reply 1-5 (5 = spotless)!`,
-    ].join('\n')
+
+    // Client message: the rating ask ONLY. Bundling the bill into this same
+    // text (the prior design) buried the rating question under a payment
+    // demand — clients replied "Paid" to the payment part and the rating
+    // question went unanswered, so the downstream review-offer flow
+    // (src/lib/review-engine.ts / src/lib/nycmaid/review-engine.ts) almost
+    // never fired. Billing now rides on the REPLY to this rating ask.
+    //
+    // Exception: an admin manually re-triggering this (force=true) AFTER a
+    // rating already exists on the booking is asking to bill directly —
+    // e.g. after personally handling a 1-3 rating's "take over the
+    // conversation" admin ping, which never auto-bills the client.
+    const { data: existingRating } = await tenantDb(tenantId)
+      .from('ratings')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .maybeSingle()
+    const sendBillDirectly = isAdminCaller && !!force && !!existingRating
+
+    const clientSmsType = sendBillDirectly ? '30min_payment' : 'pre_payment_rating'
+    const clientSmsText = sendBillDirectly
+      ? [
+          `Hi ${firstName}! Here's your balance for today's clean.`,
+          `Total: $${clientOwes}`,
+          ...payLines,
+          ``,
+          `Reply "paid" once sent.`,
+        ].join('\n')
+      : `Hi ${firstName}, ${cleanerName} is finishing up your clean now 😊 How'd we do? Reply 1-5 (5 = spotless)! (Your balance + pay link will come right after you reply.)`
 
     const confirmedVia: string[] = []
     let smsAttempts = 0
@@ -392,6 +409,22 @@ export async function POST(req: NextRequest) {
         if (smsResult?.sent && smsResult.sent > 0) { confirmedVia.push('SMS'); break }
         if (i === 0) await new Promise(r => setTimeout(r, 60_000))
       }
+    }
+
+    // sendClientSMS (src/lib/client-contacts.ts) doesn't write to sms_logs —
+    // the review-engine's reply matching depends entirely on a logged
+    // sms_type row existing here. Without this, no reply to this text can
+    // ever be matched to a booking (see fullloop_nycmaid_review_flow_regression_2026_08_05:
+    // this is exactly what commit bf72df19b silently broke on 2026-08-03 by
+    // switching off the old smsType-logging sendClientSMS).
+    if (confirmedVia.includes('SMS') && clientPhone) {
+      await supabaseAdmin.from('sms_logs').insert({
+        tenant_id: tenantId,
+        booking_id: bookingId,
+        sms_type: clientSmsType,
+        recipient: clientPhone,
+        status: 'sent',
+      }).then(() => {}, () => {})
     }
 
     // Second admin ping with delivery confirmation
