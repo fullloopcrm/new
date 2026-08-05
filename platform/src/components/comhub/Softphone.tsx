@@ -814,7 +814,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
       <button
         type="button"
         onClick={() => setCollapsed(false)}
-        aria-label="Open softphone"
+        aria-label="Open Loop Phone"
         className="group relative h-14 w-14 rounded-full bg-[#FFFFFF]/90 backdrop-blur-xl border border-[#E4E2DC] shadow-[0_6px_20px_rgba(0,0,0,0.12)] hover:bg-[#EFEFEC] hover:scale-105 transition-all duration-200 flex items-center justify-center"
       >
         <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-emerald-400" stroke="currentColor" strokeWidth="2">
@@ -837,7 +837,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full ${statusDotClass}`} />
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[#7A7A78] font-medium">Softphone</span>
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[#7A7A78] font-medium">Loop Phone</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-[#3A3A3A] font-mono tabular-nums">{statusLabel}</span>
@@ -845,7 +845,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
             <button
               type="button"
               onClick={() => setCollapsed(true)}
-              aria-label="Minimize softphone"
+              aria-label="Minimize Loop Phone"
               className="text-[#7A7A78] hover:text-[#1C1C1C] transition-colors"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
