@@ -101,19 +101,53 @@ export async function POST(req: NextRequest) {
         .single(),
     ])
 
+    const cutoffIso = new Date(Date.now() - 60_000).toISOString()
     const isOnline =
       !!presence?.last_seen_at && new Date(presence.last_seen_at as string).getTime() > Date.now() - 60_000
-    const sipAddr = isOnline
+    let sipAddr = isOnline
       ? (presence?.sip_address as string | null) ||
         (presence?.sip_username ? `sip:${presence.sip_username}@sip.telnyx.com` : null)
       : null
-    const cellPhone = (settings?.fallback_cell_phone as string | null) || null
+    let cellPhone = (settings?.fallback_cell_phone as string | null) || null
+
+    // Neither found under THIS admin's own identity — real bug hit live:
+    // "no answer target" fired for an admin clicking Answer whose own
+    // comhub_admin_voice_settings row wasn't the one configured, even though
+    // this tenant clearly HAS a working ring target (the automatic ring
+    // flow was already using it). Any admin should be able to grab a
+    // ringing call, not only the one whose own row happens to have a
+    // fallback cell — fall back to any tenant-configured target.
+    if (!sipAddr && !cellPhone) {
+      const [{ data: anyPresence }, { data: anySettings }] = await Promise.all([
+        supabaseAdmin
+          .from('comhub_admin_presence')
+          .select('sip_username, sip_address')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'available')
+          .gte('last_seen_at', cutoffIso)
+          .order('last_seen_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('comhub_admin_voice_settings')
+          .select('fallback_cell_phone')
+          .eq('tenant_id', tenantId)
+          .not('fallback_cell_phone', 'is', null)
+          .order('admin_id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+      ])
+      sipAddr =
+        (anyPresence?.sip_address as string | null) ||
+        (anyPresence?.sip_username ? `sip:${anyPresence.sip_username}@sip.telnyx.com` : null)
+      cellPhone = (anySettings?.fallback_cell_phone as string | null) || null
+    }
 
     if (!sipAddr && !cellPhone) {
       return NextResponse.json(
         {
           error: 'no answer target',
-          detail: 'Open Loop Phone to register, or set a fallback cell number in Voice settings, before answering from here.',
+          detail: 'No admin has Loop Phone open or a fallback cell configured for this tenant — set one in Voice settings.',
         },
         { status: 412 },
       )

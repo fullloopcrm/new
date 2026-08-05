@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useNotificationChime, useDesktopNotificationPermission } from '@/lib/use-notification-chime'
+import { useRingtone, useDesktopNotificationPermission } from '@/lib/use-notification-chime'
 
 type ActiveCall = {
   id: string
@@ -44,18 +44,19 @@ export default function ActiveCallBanner() {
   const [working, setWorking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [, setTick] = useState(0)
-  const playChime = useNotificationChime()
+  const ringtone = useRingtone()
   useDesktopNotificationPermission()
+  const wasRingingRef = useRef(false)
 
   // Rings on this poll (every 2s), not the separate 8s-poll text/email alert
   // popup — a call needs to be answered within a couple of rings, an 8s
   // delay before the operator even hears about it isn't good enough the way
-  // it is for a text. Recurring, not one-shot: a real phone keeps ringing
-  // until picked up, so this re-chimes and re-notifies on EVERY poll cycle
-  // for as long as any call is still 'ringing' — it stops the moment that
-  // call is answered or ends, not after a single alert. Each Notification
-  // call uses a fresh tag per cycle; the same tag every time would just
-  // silently replace the prior one on most OSes with no new alert sound.
+  // it is for a text. A real phone RINGS continuously until picked up — a
+  // short chime firing every 2s (what this used to do) still reads as a
+  // notification chirp, not an actual incoming call, per live feedback.
+  // useRingtone loops on its own timer once started; this just starts/stops
+  // it based on whether any call is still 'ringing', instead of triggering
+  // one chime per poll tick.
   useEffect(() => {
     let cancelled = false
     async function fetchActive() {
@@ -67,17 +68,25 @@ export default function ActiveCallBanner() {
         if (cancelled) return
         const stillRinging = active.filter(c => c.status === 'ringing')
         if (stillRinging.length > 0) {
-          playChime()
-          for (const c of stillRinging) {
-            if (!('Notification' in window) || Notification.permission !== 'granted') continue
-            const n = new Notification('Incoming call', {
-              body: fmtPretty(c.customer_phone) || c.customer_phone,
-              tag: `comhub-call-${c.id}-${Date.now()}`,
-              requireInteraction: true,
-            })
-            n.onclick = () => { window.focus(); n.close() }
+          ringtone.start()
+          // Desktop OS notification: once per call as it starts ringing,
+          // not re-fired every poll — the continuous ringtone itself is the
+          // "still ringing" signal now, an OS popup every 2s would spam.
+          if (!wasRingingRef.current) {
+            for (const c of stillRinging) {
+              if (!('Notification' in window) || Notification.permission !== 'granted') continue
+              const n = new Notification('Incoming call', {
+                body: fmtPretty(c.customer_phone) || c.customer_phone,
+                tag: `comhub-call-${c.id}`,
+                requireInteraction: true,
+              })
+              n.onclick = () => { window.focus(); n.close() }
+            }
           }
+        } else {
+          ringtone.stop()
         }
+        wasRingingRef.current = stillRinging.length > 0
         setCalls(active)
       } catch {
         // best-effort polling
@@ -89,7 +98,7 @@ export default function ActiveCallBanner() {
       cancelled = true
       clearInterval(t)
     }
-  }, [playChime])
+  }, [ringtone])
 
   useEffect(() => {
     const t = setInterval(() => setTick(x => x + 1), 1000)

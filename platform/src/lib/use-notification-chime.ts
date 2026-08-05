@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 // Two-tone chime synthesized via Web Audio — no asset to host, no autoplay
 // surprises. AudioContext is created lazily on first user gesture since
@@ -46,6 +46,74 @@ export function useNotificationChime() {
       osc.stop(start + dur + 0.02)
     })
   }, [])
+}
+
+// A real, persistent phone ringtone — start()/stop() control a loop, unlike
+// useNotificationChime's single fire-and-forget chirp. Built specifically
+// because a two-tone chime doesn't read as "your phone is ringing, answer
+// it" the way an actual ring-ring/pause pattern does — feedback from a live
+// incoming call where the chime alone wasn't registering as urgent. Same
+// "ring ring" synth already used by the Loop Phone softphone widget for its
+// own inbound state, factored out here so the ComHub call bar (which has no
+// live call object to key off, just polled DB status) gets the identical
+// sound instead of inventing a second one.
+export function useRingtone() {
+  const ctxRef = useRef<AudioContext | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const getCtx = useCallback((): AudioContext | null => {
+    if (ctxRef.current) {
+      if (ctxRef.current.state === 'suspended') void ctxRef.current.resume().catch(() => null)
+      return ctxRef.current
+    }
+    try {
+      const AC =
+        window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AC) return null
+      ctxRef.current = new AC()
+      return ctxRef.current
+    } catch {
+      return null
+    }
+  }, [])
+
+  const playBurst = useCallback(() => {
+    const ctx = getCtx()
+    if (!ctx || ctx.state === 'closed') return
+    const now = ctx.currentTime
+    for (const offset of [0, 0.4]) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.frequency.value = 480
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0, now + offset)
+      gain.gain.linearRampToValueAtTime(0.22, now + offset + 0.05)
+      gain.gain.linearRampToValueAtTime(0, now + offset + 0.32)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(now + offset)
+      osc.stop(now + offset + 0.35)
+    }
+  }, [getCtx])
+
+  const start = useCallback(() => {
+    if (intervalRef.current) return // already ringing
+    playBurst()
+    intervalRef.current = setInterval(playBurst, 2000)
+  }, [playBurst])
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }, [])
+
+  useEffect(() => stop, [stop])
+
+  // Memoized so callers can safely put this object in a useEffect
+  // dependency array without it changing identity (and re-running the
+  // effect) on every render.
+  return useMemo(() => ({ start, stop }), [start, stop])
 }
 
 // Requests OS notification permission on first click/keypress, alongside the
