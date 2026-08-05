@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { supabaseAdmin } from '@/lib/supabase'
 import AdminLogout from './AdminLogout'
 import TenantChatAlerts from './tenant-chat-alerts'
 
@@ -60,6 +61,16 @@ export default async function AdminLayout({
   if (!token || !verifyAdminToken(token)) {
     redirect('/admin-login')
   }
+
+  // Tenants that finished the onboarding questionnaire but haven't been
+  // activated yet — clears itself the moment an admin activates the tenant,
+  // since that action IS "jumping on it." No separate dismiss/ack needed.
+  const { data: awaitingActivation } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name')
+    .eq('status', 'setup')
+    .not('onboarding_completed_at', 'is', null)
+    .order('onboarding_completed_at', { ascending: true })
 
   return (
     <div className="loop-scope min-h-screen flex" style={{ background: 'var(--color-loop-bg)' }}>
@@ -162,6 +173,20 @@ export default async function AdminLayout({
 
       {/* MAIN */}
       <main className="flex-1 min-w-0 overflow-y-auto md:ml-60" style={{ background: 'var(--color-loop-bg)' }}>
+        {(awaitingActivation || []).length > 0 && (
+          <div style={{ background: '#DC2626' }}>
+            {(awaitingActivation || []).map((t) => (
+              <Link
+                key={t.id}
+                href={`/admin/businesses/${t.id}`}
+                className="flex items-center justify-center gap-2 px-4 py-2 hover:bg-black/10"
+                style={{ color: '#fff', fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em' }}
+              >
+                Tenant onboarding form completed: {t.name}
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="px-12 pt-4 pb-24 max-w-[1500px]">
           {/* Topbar — admin label */}
           <div className="flex items-center justify-between mb-3">

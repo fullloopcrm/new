@@ -27,6 +27,7 @@ import { applyProfileWrite } from '@/lib/tenant-profile-write'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { alertOwner } from '@/lib/telegram'
 import { recordOnboardingSnapshot } from '@/lib/onboarding-snapshot'
+import { sendEmail } from '@/lib/email'
 
 type Json = Record<string, unknown>
 
@@ -138,10 +139,22 @@ export async function POST(request: Request) {
       console.error('recordOnboardingSnapshot failed for', tenantId, e),
     )
 
-    alertOwner(
-      'Onboarding completed',
-      `${(tenant?.name as string) || 'A tenant'} finished their profile.\n${process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'}/admin/businesses/${tenantId}`,
-    ).catch(() => {})
+    const tenantName = (tenant?.name as string) || 'A tenant'
+    const businessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'}/admin/businesses/${tenantId}`
+
+    alertOwner('Onboarding completed', `${tenantName} finished their profile.\n${businessUrl}`).catch(() => {})
+
+    sendEmail({
+      to: 'hi@fullloopcrm.com',
+      from: 'Full Loop CRM <notifications@fullloopcrm.com>',
+      subject: `Onboarding completed: ${tenantName}`,
+      html: `
+        <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
+          <p style="color: #555;"><strong>${tenantName}</strong> finished their onboarding questionnaire.</p>
+          <a href="${businessUrl}" style="display: inline-block; background: #0d9488; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 12px 0;">Review & activate</a>
+        </div>
+      `,
+    }).catch((err) => console.error('[tenant-profile] onboarding-completed email failed:', err))
 
     return NextResponse.json({ submitted: true, ignored })
   } catch (err) {
