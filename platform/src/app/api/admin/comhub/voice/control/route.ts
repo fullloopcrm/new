@@ -159,7 +159,13 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         connection_id: cfg.voiceConnectionId,
         to: cellPhone,
-        from: active.customer_phone,
+        // NOT active.customer_phone — a fresh PSTN origination (unlike the
+        // SIP transfer above) requires a caller ID Telnyx actually lets this
+        // account originate from. Using the real customer's number here
+        // gets a hard "Unverified origination number" rejection (D51) for
+        // any genuine external caller — confirmed live, this is what
+        // actually broke the real Answer-button test.
+        from: cfg.fromNumber,
         from_display_name: 'Comhub',
         answering_machine_detection: 'detect_beep',
         // Reuses the exact custom-header shape the automatic ring-target

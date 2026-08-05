@@ -12,6 +12,7 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { sendTenantTelegram } from '@/lib/notify'
+import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 // The DID-resolution above already rejects calls that don't map to exactly
 // one tenant — but the follow-up SMS (missed-call callback, voicemail alert)
@@ -375,6 +376,7 @@ async function dialRingTarget(opts: {
   contactId: string
   customerPhone: string
   ringIndex: number
+  fromNumber: string
 }): Promise<DialResult> {
   if (!TELNYX_API_KEY) return { ok: false }
   try {
@@ -436,7 +438,18 @@ async function dialRingTarget(opts: {
       body: JSON.stringify({
         connection_id: TELNYX_VOICE_CONNECTION_ID,
         to: opts.target.destination,
-        from: opts.customerPhone,
+        // Found via a real failed test call: this used to be the CALLER's
+        // own phone number, which Telnyx rejects outright for any real
+        // customer ("Unverified origination number", code D51) — spoofing
+        // an arbitrary external number as your outbound caller ID on a
+        // fresh PSTN origination is not allowed, only for a number the
+        // account actually owns/has verified. This silently killed the
+        // admin-ring-to-cell escalation for every genuine caller (it only
+        // ever worked in testing because the "customer" was itself a
+        // Telnyx-owned number). The SIP-transfer branch above is unaffected
+        // — that's not a new PSTN origination, so the real caller ID
+        // showing on the admin's softphone is fine there.
+        from: opts.fromNumber,
         from_display_name: 'NYC Maid',
         timeout_secs: ADMIN_LEG_TIMEOUT_SECS,
         time_limit_secs: 60 * 60,
@@ -520,6 +533,10 @@ async function advanceRingOrVoicemail(opts: {
     return
   }
 
+  // Resolved per-tenant so the PSTN dial's caller ID is a number Telnyx
+  // actually lets this account originate from — see dialRingTarget's own
+  // comment on why this can't be the customer's own phone number.
+  const cfg = await resolveTenantVoiceConfig(opts.tenantId)
   const result = await dialRingTarget({
     target,
     customerCallId: opts.customerCallId,
@@ -527,6 +544,7 @@ async function advanceRingOrVoicemail(opts: {
     contactId: opts.contactId,
     customerPhone: opts.customerPhone,
     ringIndex: opts.nextIndex,
+    fromNumber: cfg.fromNumber || TELNYX_FROM_NUMBER,
   })
 
   if (!result.ok) {
