@@ -60,8 +60,11 @@ export function BookingForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [service, setService] = useState("");
   const [address, setAddress] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; address?: string; service?: string; visitAt?: string }>({});
   const [addressMeta, setAddressMeta] = useState<AddressSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -239,9 +242,29 @@ export function BookingForm() {
     });
   }
 
+  function validateForm(): typeof fieldErrors {
+    const errors: typeof fieldErrors = {};
+    if (!name.trim()) errors.name = "Please enter your name.";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) errors.phone = "Please enter a valid phone number.";
+    if (!address.trim()) errors.address = "Please enter the property address.";
+    if (!service) errors.service = "Please select a service.";
+    if (!visitAt) errors.visitAt = "Please pick a visit date and time.";
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // Show every missing/invalid field at once so the client knows exactly
+    // what's blocking the request, instead of relying on the browser's
+    // native one-at-a-time validation bubble.
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Please fix the highlighted fields below.");
+      return;
+    }
 
     const stillUploading = files.some((f) => f.status === "uploading");
     if (stillUploading) {
@@ -255,14 +278,14 @@ export function BookingForm() {
 
     const payload = {
       type: "booking" as const,
-      name: String(fd.get("name") || ""),
-      phone: String(fd.get("phone") || ""),
+      name: name.trim(),
+      phone: phone.trim(),
       email: String(fd.get("email") || ""),
       address,
       city: addressMeta?.city,
       state: addressMeta?.state,
       zip: addressMeta?.postcode,
-      service: String(fd.get("service") || ""),
+      service,
       visitAt: visitAt ? new Date(visitAt).toISOString() : undefined,
       mediaUrls,
       details: String(fd.get("details") || ""),
@@ -307,7 +330,17 @@ export function BookingForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelClass}>Name</label>
-          <input type="text" name="name" required autoComplete="name" placeholder="Your name" className={inputClass} />
+          <input
+            type="text"
+            name="name"
+            required
+            autoComplete="name"
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: undefined })); }}
+            className={`${inputClass} ${fieldErrors.name ? "border-red-400 ring-1 ring-red-300" : ""}`}
+          />
+          {fieldErrors.name && <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>}
         </div>
 
         <div>
@@ -320,11 +353,11 @@ export function BookingForm() {
             inputMode="tel"
             placeholder="(555) 555-5555"
             value={phone}
-            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            onChange={(e) => { setPhone(formatPhone(e.target.value)); setFieldErrors((prev) => ({ ...prev, phone: undefined })); }}
             maxLength={14}
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.phone ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
-          <p className={tipClass}>We&apos;ll text to confirm your visit.</p>
+          {fieldErrors.phone ? <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p> : <p className={tipClass}>We&apos;ll text to confirm your visit.</p>}
         </div>
       </div>
 
@@ -342,12 +375,13 @@ export function BookingForm() {
             onChange={(e) => {
               setAddress(e.target.value);
               setAddressMeta(null);
+              setFieldErrors((prev) => ({ ...prev, address: undefined }));
             }}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             required
             autoComplete="street-address"
             placeholder="Start typing the address..."
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.address ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
           {searching && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">searching...</span>}
           {showSuggestions && suggestions.length > 0 && (
@@ -362,17 +396,24 @@ export function BookingForm() {
             </ul>
           )}
         </div>
-        <p className={tipClass}>Where the work would happen. Pick from the list so we route the right crew.</p>
+        {fieldErrors.address ? <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p> : <p className={tipClass}>Where the work would happen. Pick from the list so we route the right crew.</p>}
       </div>
 
       <div className="mt-4">
         <label className={labelClass}>Service Interested In</label>
-        <select name="service" required className={inputClass}>
+        <select
+          name="service"
+          required
+          value={service}
+          onChange={(e) => { setService(e.target.value); setFieldErrors((prev) => ({ ...prev, service: undefined })); }}
+          className={`${inputClass} ${fieldErrors.service ? "border-red-400 ring-1 ring-red-300" : ""}`}
+        >
           <option value="">Select a service...</option>
           {services.map((s) => (
             <option key={s.slug} value={s.name}>{s.name}</option>
           ))}
         </select>
+        {fieldErrors.service && <p className="mt-1 text-xs text-red-600">{fieldErrors.service}</p>}
       </div>
 
       <div className="mt-4">
@@ -381,12 +422,12 @@ export function BookingForm() {
           type="datetime-local"
           name="visitAt"
           value={visitAt}
-          onChange={(e) => setVisitAt(e.target.value)}
+          onChange={(e) => { setVisitAt(e.target.value); setFieldErrors((prev) => ({ ...prev, visitAt: undefined })); }}
           min={getMinVisit()}
           required
-          className={inputClass}
+          className={`${inputClass} ${fieldErrors.visitAt ? "border-red-400 ring-1 ring-red-300" : ""}`}
         />
-        <p className={tipClass}>Pick a window when someone can walk the property with our designer. We confirm within 1 business day.</p>
+        {fieldErrors.visitAt ? <p className="mt-1 text-xs text-red-600">{fieldErrors.visitAt}</p> : <p className={tipClass}>Pick a window when someone can walk the property with our designer. We confirm within 1 business day.</p>}
       </div>
 
       <div className="mt-4">
