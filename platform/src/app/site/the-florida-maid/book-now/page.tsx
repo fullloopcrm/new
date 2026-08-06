@@ -55,7 +55,7 @@ function BookFormContent() {
   })
   const [availableCleaners, setAvailableCleaners] = useState<{ id: string; name: string; is_preferred?: boolean; zone_match?: boolean; reason: string }[]>([])
   const [loadingCleaners, setLoadingCleaners] = useState(false)
-  const [emailErr, setEmailErr] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; email?: string; address?: string; lead_source?: string; date?: string }>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
@@ -150,17 +150,26 @@ function BookFormContent() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  function validateForm(): typeof fieldErrors {
+    const errors: typeof fieldErrors = {}
+    if (!form.name.trim()) errors.name = 'Please enter your name.'
+    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) errors.phone = 'Please enter a valid phone number, or leave it blank.'
+    const emailCheck = validateEmail(form.email)
+    if (!emailCheck.valid) errors.email = emailCheck.error || 'Please enter a valid email.'
+    if (!form.address.trim()) errors.address = 'Please enter your address.'
+    if (!form.lead_source) errors.lead_source = 'Please tell us how you found us.'
+    if (!form.date) errors.date = 'Please choose a date.'
+    return errors
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.name.trim()) { setError('Please enter your name.'); return }
-    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number, or leave it blank.'); return }
-    const emailCheck = validateEmail(form.email)
-    if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
-    setEmailErr('')
-    if (!form.address.trim()) { setError('Please enter your address.'); return }
-    if (!form.lead_source) { setError('Please tell us how you found us.'); return }
-    if (!form.date) { setError('Please choose a date.'); return }
+    // Show every missing/invalid field at once so the client knows exactly
+    // what's blocking approval, instead of one gate per resubmit.
+    const errors = validateForm()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) { setError('Please fix the highlighted fields below.'); return }
     setShowRecap(true)
   }
 
@@ -259,8 +268,9 @@ function BookFormContent() {
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Date</label>
                 <input type="date" required min={isSameDay ? new Date().toISOString().split('T')[0] : minDate}
-                  value={form.date} onChange={(e) => update('date', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                  value={form.date} onChange={(e) => { update('date', e.target.value); setFieldErrors(prev => ({ ...prev, date: undefined })) }}
+                  className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.date ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`} />
+                {fieldErrors.date && <p className="text-red-600 text-xs mt-1">{fieldErrors.date}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Time</label>
@@ -275,14 +285,16 @@ function BookFormContent() {
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Name</label>
                 <input type="text" required placeholder="First and last" value={form.name}
-                  onChange={(e) => update('name', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                  onChange={(e) => { update('name', e.target.value); setFieldErrors(prev => ({ ...prev, name: undefined })) }}
+                  className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`} />
+                {fieldErrors.name && <p className="text-red-600 text-xs mt-1">{fieldErrors.name}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone <span className="normal-case font-normal text-gray-400">(optional)</span></label>
                 <input type="tel" placeholder="(954) 555-1234" value={form.phone}
-                  onChange={(e) => update('phone', formatPhone(e.target.value))}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                  onChange={(e) => { update('phone', formatPhone(e.target.value)); setFieldErrors(prev => ({ ...prev, phone: undefined })) }}
+                  className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.phone ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`} />
+                {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
               </div>
             </div>
 
@@ -301,17 +313,18 @@ function BookFormContent() {
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Email</label>
               <input type="email" required placeholder="you@example.com" value={form.email}
-                onChange={(e) => { update('email', e.target.value); setEmailErr('') }}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
-              {emailErr && <p className="text-red-600 text-xs mt-1">{emailErr}</p>}
+                onChange={(e) => { update('email', e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })) }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.email ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`} />
+              {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => update('address', v)}
+              <AddressAutocomplete value={form.address} onChange={(v) => { update('address', v); setFieldErrors(prev => ({ ...prev, address: undefined })) }}
                 placeholder="Start typing your street..."
                 required
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.address ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`} />
+              {fieldErrors.address && <p className="text-red-600 text-xs mt-1">{fieldErrors.address}</p>}
               <input type="text" placeholder="Apt / Unit (optional)" value={form.unit}
                 onChange={(e) => update('unit', e.target.value)}
                 className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
@@ -319,13 +332,14 @@ function BookFormContent() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
-              <select value={form.lead_source} onChange={(e) => update('lead_source', e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]">
+              <select value={form.lead_source} onChange={(e) => { update('lead_source', e.target.value); setFieldErrors(prev => ({ ...prev, lead_source: undefined })) }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.lead_source ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}>
                 <option value="">Select one...</option>
                 {LEAD_SOURCE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
+              {fieldErrors.lead_source && <p className="text-red-600 text-xs mt-1">{fieldErrors.lead_source}</p>}
             </div>
 
             <details className="group rounded-lg border border-gray-200 bg-gray-50/40">
