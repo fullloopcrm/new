@@ -1,5 +1,25 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import crypto from 'crypto'
+
+// getReferrerAuth's instant-revoke status re-check (referrers.status ===
+// 'active') queries supabaseAdmin — mock it as a permanently-active referrer
+// so this file's tests exercise bearer-extraction/signature verification,
+// not the DB-backed revocation path (that's covered by the route-level
+// tests that seed a real deactivated/missing referrer).
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { status: 'active' }, error: null }),
+          }),
+        }),
+      }),
+    }),
+  },
+}))
+
 import {
   createReferrerToken,
   verifyReferrerToken,
@@ -98,18 +118,18 @@ describe('getReferrerAuth — bearer extraction', () => {
   const req = (auth?: string) =>
     new Request('https://x.test', auth ? { headers: { authorization: auth } } : undefined)
 
-  it('extracts and verifies a Bearer token', () => {
+  it('extracts and verifies a Bearer token', async () => {
     const token = createReferrerToken('ref-1', 'tenant-A')
-    expect(getReferrerAuth(req(`Bearer ${token}`))).toEqual({ rid: 'ref-1', tid: 'tenant-A' })
+    expect(await getReferrerAuth(req(`Bearer ${token}`))).toEqual({ rid: 'ref-1', tid: 'tenant-A' })
   })
 
-  it('returns null with no Authorization header', () => {
-    expect(getReferrerAuth(req())).toBeNull()
+  it('returns null with no Authorization header', async () => {
+    expect(await getReferrerAuth(req())).toBeNull()
   })
 
-  it('returns null for a valid-looking but unsigned token', () => {
+  it('returns null for a valid-looking but unsigned token', async () => {
     const token = Buffer.from(JSON.stringify({ rid: 'r', tid: 't', scope: 'ref', exp: Date.now() + 1000 })).toString('base64') + '.deadbeef'
-    expect(getReferrerAuth(req(`Bearer ${token}`))).toBeNull()
+    expect(await getReferrerAuth(req(`Bearer ${token}`))).toBeNull()
   })
 })
 

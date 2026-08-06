@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Loop Connect, field-team side: the channel list behind the switcher.
 // Every worker always has their own private 'team' thread with admin, plus
 // any admin-created group/broadcast 'custom' channels they were added to
 // (mass messaging — see connect_channel_members).
-export async function GET(request: Request) {
+export const GET = withMobileCors(async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -69,4 +72,4 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.json({ channels: [] })
   }
-}
+})

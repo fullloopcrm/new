@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -45,4 +48,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ review: data }, { status: 201 })
-}
+})

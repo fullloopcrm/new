@@ -33,6 +33,9 @@ vi.mock('@/lib/supabase', () => ({
             eq: () => ({
               eq: () => ({
                 single: async () => (referrerRow ? { data: referrerRow, error: null } : { data: null, error: { message: 'not found' } }),
+                // getReferrerAuth's instant-revoke status check uses
+                // .maybeSingle().
+                maybeSingle: async () => ({ data: referrerRow, error: null }),
               }),
             }),
           }),
@@ -78,6 +81,7 @@ beforeEach(() => {
     name: 'Reyna Referrer',
     stripe_connect_account_id: 'acct_1',
     stripe_ready_at: null,
+    status: 'active',
   }
   accountState = { charges_enabled: false, payouts_enabled: false, details_submitted: false }
 })

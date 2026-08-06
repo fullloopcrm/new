@@ -75,7 +75,7 @@ async function checkStatus(id: string, tenantId: string, notifyOnFirstReady: boo
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getReferrerAuth(request)
+  const auth = await getReferrerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   if (id !== auth.rid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -89,7 +89,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getReferrerAuth(request)
+  const auth = await getReferrerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   if (id !== auth.rid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

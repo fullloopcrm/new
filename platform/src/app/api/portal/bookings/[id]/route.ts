@@ -3,8 +3,11 @@ import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -29,9 +32,9 @@ export async function GET(
   }
 
   return NextResponse.json({ booking: data })
-}
+})
 
-export async function PUT(
+export const PUT = withMobileCors(async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -169,4 +172,4 @@ export async function PUT(
   }
 
   return NextResponse.json({ booking: data })
-}
+})

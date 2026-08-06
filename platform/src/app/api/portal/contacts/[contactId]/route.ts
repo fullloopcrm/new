@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const ALLOWED = ['name', 'role', 'is_primary', 'receives_sms', 'receives_email'] as const
 
-export async function PUT(request: Request, { params }: { params: Promise<{ contactId: string }> }) {
+export const OPTIONS = corsPreflight
+
+export const PUT = withMobileCors(async function PUT(request: Request, { params }: { params: Promise<{ contactId: string }> }) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -74,9 +77,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ cont
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ contact: data })
-}
+})
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ contactId: string }> }) {
+export const DELETE = withMobileCors(async function DELETE(request: Request, { params }: { params: Promise<{ contactId: string }> }) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -86,4 +89,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ c
   const { error } = await tenantDb(auth.tid).from('client_contacts').delete().eq('id', contactId).eq('client_id', auth.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
-}
+})

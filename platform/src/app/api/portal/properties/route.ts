@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
 import { listProperties, addProperty, updateProperty, setPrimaryProperty, deactivateProperty } from '@/lib/client-properties'
 import { verifyPortalToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Self-service addresses management for an authenticated client — thin
 // wrapper around the shared client-properties.ts lib already used by the
@@ -14,7 +15,9 @@ async function requireOwnClient(tenantId: string, clientId: string): Promise<boo
   return !!data
 }
 
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -23,9 +26,9 @@ export async function GET(request: Request) {
 
   const properties = await listProperties(auth.id)
   return NextResponse.json({ properties })
-}
+})
 
-export async function POST(request: Request) {
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -46,9 +49,9 @@ export async function POST(request: Request) {
   })
   if (!property) return NextResponse.json({ error: 'Failed to add address' }, { status: 500 })
   return NextResponse.json({ property })
-}
+})
 
-export async function PATCH(request: Request) {
+export const PATCH = withMobileCors(async function PATCH(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -73,4 +76,4 @@ export async function PATCH(request: Request) {
   const updated = await updateProperty(auth.id, propertyId, { address: body.address, unit: body.unit, label: body.label }, actor)
   if (!updated) return NextResponse.json({ error: 'Failed to update address' }, { status: 500 })
   return NextResponse.json({ property: updated })
-}
+})

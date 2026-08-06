@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantBySlug } from '@/lib/tenant'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { safeEqual } from '@/lib/secret-compare'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Step 2 of referrer login: email + 6-digit code in → session token out.
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const email = (body.email || '').trim()
   const code = (body.code || '').trim()
@@ -32,7 +36,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
-  const tenant = await getTenantFromHeaders()
+  // See /api/referrers/auth/request for why tenant_slug is accepted
+  // additively here — mobile has no Host-based tenant to resolve against.
+  const slug = typeof body.tenant_slug === 'string' ? body.tenant_slug.trim().toLowerCase() : ''
+  const tenant = slug ? await getTenantBySlug(slug) : await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   const db = tenantDb(tenant.id)
@@ -66,4 +73,4 @@ export async function POST(request: NextRequest) {
 
   const token = createReferrerToken(referrer.id, tenant.id)
   return NextResponse.json({ token, referral_code: referrer.referral_code })
-}
+})

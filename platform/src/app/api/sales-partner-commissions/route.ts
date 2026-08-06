@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
-    const portalAuth = getSalesPartnerAuth(request)
+    const portalAuth = await getSalesPartnerAuth(request)
 
     if (portalAuth) {
       const { data: partnerRow } = await supabaseAdmin

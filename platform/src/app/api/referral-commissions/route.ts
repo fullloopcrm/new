@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     // (/api/referrers/[code]) already gates on, and confirm it actually
     // owns this referrer_id.
     if (referrerId) {
-      const auth = getReferrerAuth(request)
+      const auth = await getReferrerAuth(request)
       if (!auth || auth.rid !== referrerId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }

@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { supabaseAdmin } from './supabase'
 
 // Referrer portal session tokens. Same HMAC scheme as the team portal
 // (src/app/api/team-portal/auth/route.ts) — a base64 payload plus a SHA-256
@@ -41,11 +42,32 @@ export function verifyReferrerToken(token: string): { rid: string; tid: string }
   }
 }
 
-// Pull and verify the referrer bearer token off a request.
-export function getReferrerAuth(request: Request): { rid: string; tid: string } | null {
+// Pull and verify the referrer bearer token off a request, AND instant-
+// revoke: a signed, unexpired token alone isn't proof the referrer is still
+// active -- the token carries no live state, so a removed/deactivated
+// referrer would otherwise keep working until the token's natural 30-day
+// expiry. Re-reads referrers.status on every call instead of trusting the
+// signed claim -- mirrors requirePortalPermission's per-request status
+// re-check (lib/team-portal-auth.ts) and the equivalent fix applied to
+// /api/cleaners/upload's team-portal bearer branch. Checked as
+// `=== 'active'` (allow-list), not a deny-list -- referrers.status is free
+// text with no CHECK constraint, so there's no exhaustive "bad value" list
+// to maintain.
+export async function getReferrerAuth(request: Request): Promise<{ rid: string; tid: string } | null> {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
-  return verifyReferrerToken(token)
+  const verified = verifyReferrerToken(token)
+  if (!verified) return null
+
+  const { data: referrer } = await supabaseAdmin
+    .from('referrers')
+    .select('status')
+    .eq('id', verified.rid)
+    .eq('tenant_id', verified.tid)
+    .maybeSingle()
+  if (!referrer || referrer.status !== 'active') return null
+
+  return verified
 }
 
 // Hash an OTP the same way for storage and comparison. SHA-256 with the signing

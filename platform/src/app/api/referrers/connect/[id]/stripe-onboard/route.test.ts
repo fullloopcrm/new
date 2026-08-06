@@ -38,6 +38,10 @@ vi.mock('@/lib/supabase', () => ({
             eq: () => ({
               eq: () => ({
                 single: async () => (referrerRow ? { data: referrerRow, error: null } : { data: null, error: { message: 'not found' } }),
+                // getReferrerAuth's instant-revoke status check uses
+                // .maybeSingle() (never-found is a valid, non-error result
+                // there, unlike this route's own .single() lookup below).
+                maybeSingle: async () => ({ data: referrerRow, error: null }),
               }),
             }),
           }),
@@ -85,6 +89,7 @@ beforeEach(() => {
     email: 'reyna@example.com',
     referral_code: 'REYN123',
     stripe_connect_account_id: null,
+    status: 'active',
   }
 })
 
@@ -134,11 +139,16 @@ describe('POST /api/referrers/[id]/stripe-onboard', () => {
     expect(opts).toMatchObject({ idempotencyKey: `connect-account-ref-${TENANT_ID}-${REFERRER_ID}` })
   })
 
-  it('404s when the referrer row is not found for this tenant', async () => {
+  // Was 404 (the route's own "Referrer not found" lookup) before
+  // getReferrerAuth's instant-revoke status check existed. Now the SAME
+  // missing row is caught one layer earlier — a token for a referrer that
+  // no longer exists can't pass the live-status re-check either — so this
+  // now 401s at the auth gate rather than reaching the route's own lookup.
+  it('401s when the referrer row is not found for this tenant', async () => {
     referrerRow = null
     const token = createReferrerToken(REFERRER_ID, TENANT_ID)
     const res = await POST(authedReq(token), { params: Promise.resolve({ id: REFERRER_ID }) })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(401)
   })
 })
 

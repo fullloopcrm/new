@@ -80,6 +80,22 @@ export const isPublicRoute = createRouteMatcher([
   '/api/dashboard',
   '/api/clients(.*)',
   '/api/schedules(.*)',
+  // Sales Partner + Referrer portal routes the mobile app calls directly
+  // with a bearer token (getSalesPartnerAuth / getReferrerAuth read
+  // Authorization themselves, no Clerk needed) — same MAIN_HOSTS gap as the
+  // /api/mobile(.*) entries above: 2026-08-05 testing only ever hit a
+  // Vercel preview URL, which skips this whole Clerk gate. Scoped narrowly,
+  // NOT a blanket '/api/sales-partners(.*)' or '/api/referrers(.*)' — those
+  // prefixes also carry admin/dashboard-management routes (e.g.
+  // /api/sales-partners (bare, admin create/list), /api/referrers/analytics)
+  // that must stay Clerk-gated.
+  '/api/sales-partners/me',            // Sales partner's own dashboard data (GET/PUT)
+  '/api/referrers/auth(.*)',           // Referrer OTP login (request + verify) — no other routes
+                                        // live under /api/referrers/auth/, safe to wildcard this segment
+  '/api/referrers/connect/[^/]+/stripe-onboard(.*)', // Referrer Stripe Connect onboarding (POST)
+  '/api/referrers/(?!analytics|auth|connect)[^/]+', // Referrer's own dashboard data by code (GET) —
+                                        // negative lookahead excludes the sibling static routes
+                                        // (analytics/auth/connect) which must stay Clerk-gated.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/company/track(.*)', // Full Loop's own marketing-site visit tracking beacon

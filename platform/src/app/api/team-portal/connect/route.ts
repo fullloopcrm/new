@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { translateToEnEs } from '@/lib/connect-translate'
 import { resolveTeamConnectChannel } from '@/lib/connect-team-channel'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Loop Connect, field-team side. Each team member gets their OWN private
 // channel with admin (type='team', scoped to team_member_id) -- this is a
@@ -15,7 +16,9 @@ import { resolveTeamConnectChannel } from '@/lib/connect-team-channel'
 // verified via connect_channel_members before any read/write. Channel
 // resolution is shared with upload/route.ts via connect-team-channel.ts.
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -48,9 +51,9 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json({ messages: [] })
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -101,4 +104,4 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
   }
-}
+})

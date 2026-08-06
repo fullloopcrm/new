@@ -5,8 +5,11 @@ import { formatET } from '@/lib/dates'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient, bookingCoords, bookingAddress } from '@/lib/client-properties'
 import { notify } from '@/lib/nycmaid/notify'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -120,4 +123,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ booking: data })
-}
+})

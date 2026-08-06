@@ -4,8 +4,11 @@ import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
 import { getTenantTimezone, getTenantNaiveDayBoundaries } from '@/lib/tenant-time'
 import { isTeamMemberTerminated } from '@/lib/hr'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.claim')
   if (permError) return permError
 
@@ -77,4 +80,4 @@ export async function POST(request: Request) {
   })
 
   return NextResponse.json({ booking: data.booking })
-}
+})

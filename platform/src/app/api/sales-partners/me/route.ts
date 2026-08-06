@@ -9,9 +9,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
 import { bookingPathForTenant } from '@/lib/booking-path'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: Request) {
-  const auth = getSalesPartnerAuth(request)
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
+  const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: partner, error: partnerError } = await supabaseAdmin
@@ -146,14 +149,14 @@ export async function GET(request: Request) {
       referrer_name: b.referrers?.name || null,
     })),
   })
-}
+})
 
-export async function PUT(request: Request) {
+export const PUT = withMobileCors(async function PUT(request: Request) {
   // Self-service profile update: payout method + contact fields only.
   // Deliberately excludes active/tier/commission_rate, which stay admin-only
   // (see PUT /api/sales-partners) -- mirrors the referrer profile endpoint's
   // same split.
-  const auth = getSalesPartnerAuth(request)
+  const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
@@ -177,4 +180,4 @@ export async function PUT(request: Request) {
   if (error) return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(data)
-}
+})

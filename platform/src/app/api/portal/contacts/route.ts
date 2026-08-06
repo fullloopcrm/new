@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { normalizePhone } from '@/lib/client-contacts'
 import { verifyPortalToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Self-service contacts management for an authenticated client. A newly-added
 // phone/email is inserted UNVERIFIED (receives_sms/receives_email forced
@@ -11,7 +14,7 @@ import { verifyPortalToken } from '../auth/token'
 // trusts the operator's word on consent; this one cannot, since a client
 // could otherwise add anyone else's phone number and opt it in unverified.
 
-export async function GET(request: Request) {
+export const GET = withMobileCors(async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -26,9 +29,9 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ contacts: data })
-}
+})
 
-export async function POST(request: Request) {
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -66,4 +69,4 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ contact: data }, { status: 201 })
-}
+})

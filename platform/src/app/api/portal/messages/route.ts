@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 import { notify } from '@/lib/notify'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Same Bearer-token session the rest of the current portal (e.g. /api/portal/connect)
 // uses. protectClientAPI()'s client_session cookie is never set by the current PIN
@@ -59,7 +60,9 @@ async function getClientThreadId(clientId: string): Promise<{ tenantId: string |
   return { tenantId, contactId, threadId: (tId as string) || null, clientName: client.name }
 }
 
-export async function GET(req: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(req: NextRequest) {
   const auth = authenticate(req)
   if (auth instanceof NextResponse) return auth
   const { clientId } = auth
@@ -78,9 +81,9 @@ export async function GET(req: NextRequest) {
 
   await db.from('comhub_threads').update({ unread_count: 0 }).eq('id', threadId)
   return NextResponse.json({ thread_id: threadId, messages: data || [] })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withMobileCors(async function POST(req: NextRequest) {
   const auth = authenticate(req)
   if (auth instanceof NextResponse) return auth
   const { clientId } = auth
@@ -127,4 +130,4 @@ export async function POST(req: NextRequest) {
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, message_id: msg.id })
-}
+})

@@ -3,8 +3,11 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
 import { buildPortalSlots } from '@/lib/portal-availability'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -48,4 +51,4 @@ export async function GET(request: NextRequest) {
   const slots = buildPortalSlots(date, duration, bookedRanges, capacity)
 
   return NextResponse.json({ slots })
-}
+})

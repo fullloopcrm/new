@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Field-team read side of Team Announcements. Newest first, full history --
 // this is what /team/rules (labeled "Announcements") renders.
-export async function GET(request: NextRequest) {
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -19,4 +22,4 @@ export async function GET(request: NextRequest) {
 
   if (error) return NextResponse.json({ announcements: [] })
   return NextResponse.json({ announcements: data || [] })
-}
+})

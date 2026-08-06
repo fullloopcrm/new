@@ -3,18 +3,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantBySlug } from '@/lib/tenant'
 import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const OTP_TTL_MS = 10 * 60 * 1000
+
+export const OPTIONS = corsPreflight
 
 // Step 1 of referrer login: email in → email a 6-digit code out.
 // Always responds { ok: true } regardless of whether the email matches a
 // referrer, so this endpoint can't be used to enumerate who's a partner.
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const email = (body.email || '').trim()
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
@@ -33,7 +37,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
-  const tenant = await getTenantFromHeaders()
+  // Mobile has no Host-based tenant (no custom domain, no subdomain), so it
+  // passes tenant_slug explicitly — same convention as
+  // /api/mobile/unified-login and /api/mobile/auth/login. Web callers (the
+  // referrer's own /referral/[code] page, on the tenant's real domain) keep
+  // resolving via the domain header; tenant_slug is additive, never
+  // required, so existing web behavior is unchanged.
+  const slug = typeof body.tenant_slug === 'string' ? body.tenant_slug.trim().toLowerCase() : ''
+  const tenant = slug ? await getTenantBySlug(slug) : await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
   // Load the tenant's branding + email sender in one shot.
@@ -90,4 +101,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true })
-}
+})

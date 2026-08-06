@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { supabaseAdmin } from './supabase'
 
 // Sales Partner portal session tokens. Same HMAC scheme as the referrer
 // portal (src/lib/referrer-portal-auth.ts) -- a base64 payload plus a
@@ -50,9 +51,28 @@ export function verifySalesPartnerToken(token: string): { pid: string; tid: stri
   }
 }
 
-// Pull and verify the sales partner bearer token off a request.
-export function getSalesPartnerAuth(request: Request): { pid: string; tid: string } | null {
+// Pull and verify the sales partner bearer token off a request, AND
+// instant-revoke: a signed, unexpired token alone isn't proof the partner is
+// still active -- the token carries no live state, so a deactivated partner
+// would otherwise keep working until the token's natural expiry (up to 10
+// years for a mobile-minted token, see MOBILE_SESSION_MS in
+// api/mobile/unified-login). Re-reads sales_partners.active on every call
+// instead of trusting the signed claim -- mirrors requirePortalPermission's
+// per-request status re-check (lib/team-portal-auth.ts) and the equivalent
+// fix applied to /api/cleaners/upload's team-portal bearer branch.
+export async function getSalesPartnerAuth(request: Request): Promise<{ pid: string; tid: string } | null> {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
-  return verifySalesPartnerToken(token)
+  const verified = verifySalesPartnerToken(token)
+  if (!verified) return null
+
+  const { data: partner } = await supabaseAdmin
+    .from('sales_partners')
+    .select('active')
+    .eq('id', verified.pid)
+    .eq('tenant_id', verified.tid)
+    .maybeSingle()
+  if (!partner || !partner.active) return null
+
+  return verified
 }
