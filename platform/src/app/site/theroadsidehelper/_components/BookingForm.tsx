@@ -80,12 +80,25 @@ function formatPhone(raw: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+interface FieldErrors {
+  name?: string;
+  phone?: string;
+  service?: string;
+  vehicle?: string;
+  address?: string;
+  scheduledAt?: string;
+}
+
 export function BookingForm({ variant = "default" }: { variant?: "default" | "hero" | "dark" }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [service, setService] = useState("");
+  const [vehicle, setVehicle] = useState("");
   const [address, setAddress] = useState("");
   const [addressMeta, setAddressMeta] = useState<AddressSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -275,9 +288,29 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     });
   }
 
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = "Please enter your name.";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) errors.phone = "Please enter a valid phone number.";
+    if (!service) errors.service = "Please select a service.";
+    if (!vehicle.trim()) errors.vehicle = "Please enter your vehicle's year, make, and model.";
+    if (!address.trim()) errors.address = "Please enter your location.";
+    if (urgency === "scheduled" && !scheduledAt) errors.scheduledAt = "Please pick a time.";
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // Show every missing/invalid field at once instead of relying on the
+    // browser's native one-at-a-time validation bubble.
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Please fix the highlighted fields below.");
+      return;
+    }
 
     const stillUploading = files.some((f) => f.status === "uploading");
     if (stillUploading) {
@@ -289,8 +322,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     const fd = new FormData(e.currentTarget);
     const mediaUrls = files.filter((f) => f.status === "done" && f.url).map((f) => f.url as string);
 
-    const serviceNeeded = String(fd.get("service") || "");
-    const vehicle = String(fd.get("vehicle") || "");
+    const serviceNeeded = service;
     const details = String(fd.get("details") || "");
 
     const combinedDetails = [
@@ -302,8 +334,8 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
 
     const payload = {
       // Mapped to the platform's tenant-aware /api/contact (service-quote shape)
-      name: String(fd.get("name") || ""),
-      phone: String(fd.get("phone") || ""),
+      name: name.trim(),
+      phone: phone.trim(),
       location: [address, addressMeta?.city, addressMeta?.state, addressMeta?.postcode]
         .filter(Boolean)
         .join(", "),
@@ -363,9 +395,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             required
             autoComplete="name"
             placeholder="Your name"
-            className={inputClass}
+            value={name}
+            onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: undefined })); }}
+            className={`${inputClass} ${fieldErrors.name ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
-          <p className={tipClass}>So the tech knows what to call you when they arrive.</p>
+          {fieldErrors.name ? <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p> : <p className={tipClass}>So the tech knows what to call you when they arrive.</p>}
         </div>
 
         <div>
@@ -378,23 +412,29 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             inputMode="tel"
             placeholder="(555) 555-5555"
             value={phone}
-            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            onChange={(e) => { setPhone(formatPhone(e.target.value)); setFieldErrors((prev) => ({ ...prev, phone: undefined })); }}
             maxLength={14}
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.phone ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
-          <p className={tipClass}>We&apos;ll call within 5 minutes. SMS-capable is best.</p>
+          {fieldErrors.phone ? <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p> : <p className={tipClass}>We&apos;ll call within 5 minutes. SMS-capable is best.</p>}
         </div>
       </div>
 
       <div className="mt-4">
         <label className={labelClass}>What do you need?</label>
-        <select name="service" required defaultValue="" className={inputClass}>
+        <select
+          name="service"
+          required
+          value={service}
+          onChange={(e) => { setService(e.target.value); setFieldErrors((prev) => ({ ...prev, service: undefined })); }}
+          className={`${inputClass} ${fieldErrors.service ? "border-red-400 ring-1 ring-red-300" : ""}`}
+        >
           <option value="" disabled>Select a service…</option>
           {SERVICE_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <p className={tipClass}>Best guess is fine — the tech will confirm on arrival.</p>
+        {fieldErrors.service ? <p className="mt-1 text-xs text-red-600">{fieldErrors.service}</p> : <p className={tipClass}>Best guess is fine — the tech will confirm on arrival.</p>}
       </div>
 
       <div className="mt-4">
@@ -404,9 +444,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
           name="vehicle"
           required
           placeholder="2019 Honda Civic"
-          className={inputClass}
+          value={vehicle}
+          onChange={(e) => { setVehicle(e.target.value); setFieldErrors((prev) => ({ ...prev, vehicle: undefined })); }}
+          className={`${inputClass} ${fieldErrors.vehicle ? "border-red-400 ring-1 ring-red-300" : ""}`}
         />
-        <p className={tipClass}>Helps the tech bring the right equipment — fuse, jump pack, tire size, etc.</p>
+        {fieldErrors.vehicle ? <p className="mt-1 text-xs text-red-600">{fieldErrors.vehicle}</p> : <p className={tipClass}>Helps the tech bring the right equipment — fuse, jump pack, tire size, etc.</p>}
       </div>
 
       <div className="mt-4" ref={addressBoxRef}>
@@ -418,12 +460,13 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             onChange={(e) => {
               setAddress(e.target.value);
               setAddressMeta(null);
+              setFieldErrors((prev) => ({ ...prev, address: undefined }));
             }}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             required
             autoComplete="street-address"
             placeholder="Start typing your address or cross-street..."
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.address ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
           {searching && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">searching...</span>
@@ -444,7 +487,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             </ul>
           )}
         </div>
-        <p className={tipClass}>Highway breakdowns: pick the nearest exit or cross-street. We&apos;ll call you to dial in the exact spot.</p>
+        {fieldErrors.address ? <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p> : <p className={tipClass}>Highway breakdowns: pick the nearest exit or cross-street. We&apos;ll call you to dial in the exact spot.</p>}
       </div>
 
       <div className="mt-4">
@@ -470,12 +513,12 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
               type="datetime-local"
               name="scheduledAt"
               value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
+              onChange={(e) => { setScheduledAt(e.target.value); setFieldErrors((prev) => ({ ...prev, scheduledAt: undefined })); }}
               min={getMinScheduledAt()}
               required
-              className={inputClass}
+              className={`${inputClass} ${fieldErrors.scheduledAt ? "border-red-400 ring-1 ring-red-300" : ""}`}
             />
-            <p className={tipClass}>Pick a time when you&apos;ll be with the vehicle.</p>
+            {fieldErrors.scheduledAt ? <p className="mt-1 text-xs text-red-600">{fieldErrors.scheduledAt}</p> : <p className={tipClass}>Pick a time when you&apos;ll be with the vehicle.</p>}
           </div>
         )}
       </div>
