@@ -10,6 +10,7 @@ import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
 import AutoScheduled from './_components/AutoScheduled'
 import SectionVisibility from './_components/SectionVisibility'
+import { JobsByMonthGrid } from './_components/JobsByMonthGrid'
 import JobsMap, { type MapJob } from './_components/JobsMap'
 import { CallTextCopy } from './_components/CallTextCopy'
 import { crewNames, type CrewRow } from '@/lib/crew'
@@ -442,6 +443,16 @@ export default async function DashboardPage() {
       count: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_JOBS + jobs.length : jobs.length,
       revenue: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_CENTS + sum(jobs) : sum(jobs),
       isCurrent: monthIdx === zonedNow.getMonth(), isFuture: monthIdx > zonedNow.getMonth(),
+      jobs: jobs
+        .slice()
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
+        .map(j => ({
+          id: j.id,
+          clientName: j.clients?.name || 'Unknown client',
+          date: j.start_time,
+          status: j.status,
+          price: j.price || 0,
+        })),
     }
   })
   const kpis = [
@@ -535,17 +546,7 @@ export default async function DashboardPage() {
 
       {/* JOBS BY MONTH */}
       <SectionVisibility section="jobs_by_month" label={`Jobs · ${yearStr} by Month`} initialHidden={hiddenSections.includes('jobs_by_month')}>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(12, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
-        {monthsByYear.map((m, i, arr) => (
-          <div key={m.label} className="px-3 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none', background: m.isCurrent ? '#FBFBF6' : (m.isFuture ? 'transparent' : V.canvas) }}>
-            <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.14em', color: m.isCurrent ? V.ink : V.muted, fontWeight: 600, marginBottom: 6 }}>{m.label}</div>
-            <div style={{ fontFamily: V.display, fontSize: '22px', fontWeight: 500, color: m.count === 0 ? V.muted2 : V.ink, lineHeight: 1, fontFeatureSettings: '"tnum","lnum"' }}>{m.count}</div>
-            {canViewFinance && (
-              <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
-            )}
-          </div>
-        ))}
-      </div>
+      <JobsByMonthGrid months={monthsByYear} canViewFinance={canViewFinance} V={V} />
       </SectionVisibility>
 
       {/* KPIs — money-heavy (AR, avg job value), hidden without finance.view */}

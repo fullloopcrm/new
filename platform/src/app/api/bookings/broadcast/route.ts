@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     if (member.phone && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
       const smsBody = smsUrgentBroadcast(tenantConfig.name, { start_time: booking.start_time, team_pay_rate: payRate })
       try {
-        await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenantConfig.telnyx_api_key, telnyxPhone: tenantConfig.telnyx_phone })
+        await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenantConfig.telnyx_api_key, telnyxPhone: tenantConfig.telnyx_phone, tenantId, bookingId: booking_id, smsType: 'broadcast' })
         smsSent = true
       } catch { /* skip */ }
     }

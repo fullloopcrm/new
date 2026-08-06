@@ -54,12 +54,18 @@ export async function sendSMS({
   telnyxApiKey,
   telnyxPhone,
   mediaUrls,
+  tenantId,
+  bookingId,
+  smsType,
 }: {
   to: string
   body: string
   telnyxApiKey: string
   telnyxPhone: string
   mediaUrls?: string[]
+  tenantId?: string
+  bookingId?: string
+  smsType?: string
 }) {
   // Per-tenant keys are stored encrypted at rest; decrypt at the send boundary.
   // decryptSecret() passes plaintext/legacy values through unchanged.
@@ -70,7 +76,30 @@ export async function sendSMS({
     const hasMedia = !!mediaUrls && mediaUrls.length > 0
     const res = await postMessage(apiKey, hasMedia ? { ...basePayload, media_urls: mediaUrls } : basePayload)
 
-    if (res.ok) return res.json()
+    if (res.ok) {
+      const result = await res.json()
+      // This was the un-logged send path: real texts went out via Telnyx
+      // with zero row written anywhere, making every send here invisible
+      // to `sms_logs` (found 2026-08-06 chasing a client/cleaner report of
+      // texts arriving with no DB trace). Logging is best-effort and never
+      // blocks the send — a logging failure must not look like an SMS failure.
+      if (tenantId) {
+        try {
+          const { supabaseAdmin } = await import('./supabase')
+          await supabaseAdmin.from('sms_logs').insert({
+            tenant_id: tenantId,
+            booking_id: bookingId || null,
+            sms_type: smsType || 'unspecified',
+            recipient: toE164,
+            telnyx_message_id: (result as { data?: { id?: string } })?.data?.id || null,
+            status: 'sent',
+          })
+        } catch (logErr) {
+          console.error('SMS log error:', logErr)
+        }
+      }
+      return result
+    }
 
     const err = await res.json().catch(() => ({}))
     const errBody = err as Record<string, unknown>

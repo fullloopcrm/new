@@ -100,6 +100,9 @@ export async function PATCH(
             body: (await clientSmsTemplatesFor(tenantId)).cancellation({ start_time: booking.start_time }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
+            tenantId,
+            bookingId: id,
+            smsType: 'cancellation',
           }).catch((err) => console.error('Cancellation SMS error:', err))
         }
       } catch (notifErr) {
