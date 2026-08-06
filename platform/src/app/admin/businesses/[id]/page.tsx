@@ -159,6 +159,8 @@ export default function BusinessDetailPage() {
   const [profileComplete, setProfileComplete] = useState(false)
   const [verifyChecks, setVerifyChecks] = useState<Record<string, { ok: boolean; detail: string }> | null>(null)
   const [verifying, setVerifying] = useState(false)
+  const [provisioningStripe, setProvisioningStripe] = useState(false)
+  const [provisionStripeResult, setProvisionStripeResult] = useState<{ ok: boolean; detail: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [tab, setTab] = useState<'contact' | 'users' | 'integrations' | 'billing' | 'onboarding' | 'launch' | 'notes'>('contact')
@@ -438,6 +440,23 @@ export default function BusinessDetailPage() {
       fetchData()
     } catch { /* leave prior results visible on failure */ }
     setVerifying(false)
+  }
+
+  // Registers a webhook endpoint on the tenant's own Stripe account and
+  // captures its signing secret — the one manual step left after pasting in
+  // a Stripe key (src/lib/stripe-provision.ts). Idempotent: safe to re-click.
+  async function provisionStripe() {
+    setProvisioningStripe(true)
+    setProvisionStripeResult(null)
+    try {
+      const res = await fetch(`/api/admin/businesses/${id}/provision-stripe-webhook`, { method: 'POST' })
+      const data = await res.json()
+      setProvisionStripeResult({ ok: data.ok, detail: data.detail || 'Unknown result' })
+      await runVerify()
+    } catch {
+      setProvisionStripeResult({ ok: false, detail: 'Request failed' })
+    }
+    setProvisioningStripe(false)
   }
 
   async function startImpersonation() {
@@ -731,6 +750,17 @@ export default function BusinessDetailPage() {
                 <Item done={cl.stripe.stripe_webhook_configured} label="Webhook configured" onClick={() => toggleCheck('stripe_webhook_configured')} />
                 <Item done={cl.stripe.stripe_connected_platform} label="Account ID saved" auto />
                 <Item done={cl.stripe.stripe_test_payment} label="Test payment processed" onClick={() => toggleCheck('stripe_test_payment')} />
+                <div className="mt-2 flex items-center gap-2">
+                  <button onClick={provisionStripe} disabled={provisioningStripe}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50">
+                    {provisioningStripe ? 'Provisioning…' : 'Provision webhook from Stripe key'}
+                  </button>
+                  {provisionStripeResult && (
+                    <span className={`text-xs ${provisionStripeResult.ok ? 'text-green-600' : 'text-red-600'}`}>
+                      {provisionStripeResult.detail}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* 6. GOOGLE */}

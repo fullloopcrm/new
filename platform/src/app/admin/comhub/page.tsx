@@ -190,6 +190,8 @@ const fmtExactTime = (iso: string) => {
 
 const contactDisplay = (c: Contact | null) => c ? (c.name || c.phone || c.email || 'Unknown') : 'Unknown'
 
+const draftKey = (threadId: string) => `comhub-draft-${threadId}`
+
 // media_urls holds MMS photos/videos (Telnyx SMS), webchat photo uploads,
 // and voicemail recordings (telnyx-voice) -- all through the same column,
 // so the renderer has to tell them apart by extension. Anything unrecognized
@@ -238,6 +240,18 @@ export default function ComhubPage() {
   const [explainOpen, setExplainOpen] = useState<Record<string, boolean>>({})
   const [composer, setComposer] = useState('')
   const [subject, setSubject] = useState('')
+  // Wraps setComposer so every edit is mirrored into localStorage, keyed per thread —
+  // the only thing that makes the draft survive a refresh or a thread switch.
+  const updateComposer = useCallback((next: string | ((prev: string) => string)) => {
+    setComposer(prev => {
+      const value = typeof next === 'function' ? (next as (p: string) => string)(prev) : next
+      if (selected && typeof window !== 'undefined') {
+        if (value) window.localStorage.setItem(draftKey(selected), value)
+        else window.localStorage.removeItem(draftKey(selected))
+      }
+      return value
+    })
+  }, [selected])
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([])
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -356,6 +370,13 @@ export default function ComhubPage() {
     return () => clearInterval(t)
   }, [selected, fetchThread])
 
+  // Restore this thread's in-progress draft (survives refresh and thread switches).
+  // Composer is otherwise plain useState — nothing else backs it, so a reload wipes it.
+  useEffect(() => {
+    if (!selected || typeof window === 'undefined') { setComposer(''); return }
+    setComposer(window.localStorage.getItem(draftKey(selected)) || '')
+  }, [selected])
+
   // Load reply templates filtered by current channel.
   useEffect(() => {
     const ch = thread?.channel === 'sms' || thread?.channel === 'email' ? thread.channel : 'all'
@@ -401,7 +422,7 @@ export default function ComhubPage() {
       if (!res.ok) {
         alert('Send failed: ' + (data.error || res.status))
       } else {
-        setComposer('')
+        updateComposer('')
         setSubject('')
         setPendingAttachments([])
         await fetchThread(thread.id)
@@ -1055,7 +1076,7 @@ export default function ComhubPage() {
                           <button
                             key={tpl.id}
                             onClick={() => {
-                              setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
+                              updateComposer(c => (c ? c + '\n\n' : '') + tpl.body)
                               setShowAway(false)
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
@@ -1069,8 +1090,8 @@ export default function ComhubPage() {
                     )}
                   </div>
                 )}
-                {/* Templates picker — only meaningful for SMS / email composers */}
-                {(thread.channel === 'sms' || thread.channel === 'email') && regularTemplates.length > 0 && (
+                {/* Templates picker — available on every channel's composer */}
+                {regularTemplates.length > 0 && (
                   <div className="relative shrink-0">
                     <button
                       onClick={() => setShowTemplates(s => !s)}
@@ -1085,7 +1106,7 @@ export default function ComhubPage() {
                           <button
                             key={tpl.id}
                             onClick={() => {
-                              setComposer(c => (c ? c + '\n\n' : '') + tpl.body)
+                              updateComposer(c => (c ? c + '\n\n' : '') + tpl.body)
                               setShowTemplates(false)
                             }}
                             className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
@@ -1145,7 +1166,7 @@ export default function ComhubPage() {
                 )}
                 <textarea
                   value={composer}
-                  onChange={(e) => setComposer(e.target.value)}
+                  onChange={(e) => updateComposer(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
