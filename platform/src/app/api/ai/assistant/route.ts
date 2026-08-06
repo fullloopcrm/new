@@ -22,8 +22,8 @@ import type { YinezResult } from '@/lib/selena/agent'
 // are still gated through SHARED_TOOL_PERMISSIONS for one RBAC source of
 // truth even though their handlers remain here.
 
-function buildSystemPrompt(tenantName: string, industry: string, timezone: string) {
-  return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
+function buildSystemPrompt(agentName: string, tenantName: string, industry: string, timezone: string) {
+  return `You are ${agentName}, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
 You have tools to query and modify the database. Use them to answer questions and take actions.
 
 Key rules:
@@ -405,7 +405,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
-    const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service', getTenantTimezone(tenant))
+    const systemPrompt = buildSystemPrompt(tenant.agent_name || 'Selena', tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service', getTenantTimezone(tenant))
 
     let currentMessages = [...messages]
     let maxIterations = 10
