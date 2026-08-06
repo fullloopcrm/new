@@ -223,6 +223,9 @@ export async function POST(request: Request) {
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first),
           telnyxApiKey,
           telnyxPhone,
+          tenantId,
+          bookingId: first.id,
+          smsType: 'booking_confirmation',
         }).catch(err => console.error('[batch] client SMS error:', err))
       }
 
@@ -233,6 +236,9 @@ export async function POST(request: Request) {
           body: teamSmsTemplates(tenantRow || {}).jobAssignment(first),
           telnyxApiKey,
           telnyxPhone,
+          tenantId,
+          bookingId: first.id,
+          smsType: 'job_assignment',
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 

@@ -478,6 +478,9 @@ export async function POST(request: Request) {
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
+          tenantId,
+          bookingId: data.id,
+          smsType: 'booking_confirmation',
         }).catch(err => console.error('Client confirmation SMS error:', err))
       }
 
@@ -488,6 +491,9 @@ export async function POST(request: Request) {
           body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
+          tenantId,
+          bookingId: data.id,
+          smsType: 'job_assignment',
         }).catch(err => console.error('Team assignment SMS error:', err))
       }
     } catch (notifErr) {

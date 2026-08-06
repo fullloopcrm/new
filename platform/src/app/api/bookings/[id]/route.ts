@@ -293,6 +293,9 @@ export async function PUT(
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
+            tenantId,
+            bookingId: id,
+            smsType: 'booking_confirmation',
           }).catch(err => console.error('Confirm SMS error:', err))
         }
       }
@@ -315,6 +318,9 @@ export async function PUT(
             body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
+            tenantId,
+            bookingId: id,
+            smsType: 'job_assignment',
           }).then(() => {
             supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
@@ -356,6 +362,9 @@ export async function PUT(
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
           telnyxApiKey: tenantData!.telnyx_api_key,
           telnyxPhone: tenantData!.telnyx_phone,
+          tenantId,
+          bookingId: id,
+          smsType: 'reschedule',
         }).catch(err => console.error('Reschedule SMS error:', err))
       }
     } catch (notifErr) {
@@ -547,6 +556,10 @@ export async function DELETE(
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
+            tenantId,
+            // No bookingId — the row is already deleted by this point (same
+            // FK reason as the notifications insert above).
+            smsType: 'cancellation',
           }).catch(err => console.error('Cancellation SMS error:', err))
         }
       } catch (notifErr) {
