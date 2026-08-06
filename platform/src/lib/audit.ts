@@ -16,6 +16,7 @@ type AuditAction =
   | 'team_portal.login' | 'team_portal.checkin' | 'team_portal.checkout'
   | 'portal.login' | 'portal.booking_created' | 'portal.booking_cancelled'
   | 'auth.universal_pin_login'
+  | 'admin.dashboard_login'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'
   | 'yinez.tool_call' | 'yinez.tool_blocked'
   | 'selena_legacy.tool_call'

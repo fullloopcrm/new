@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -8,9 +9,14 @@ import { getSettings } from '@/lib/settings'
 import { seedHrDefaults } from '@/lib/hr'
 import { getTenantRatingTrends } from '@/lib/team-rating-trend'
 
+const COMPENSATION_FIELDS = ['pay_rate', 'hourly_rate', 'employment_type'] as const
+
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('team.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
 
     const { data, error } = await tenantDb(tenantId)
       .from('team_members')
@@ -21,6 +27,8 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const canSeeCompensation = hasPermission(tenant.role, 'team.compensation', overridesFor(tenant))
+
     // Smart-scheduling upgrade spec, Part 4 item 3 — same rating-trend signal
     // as the individual profile page, here for every card in one query
     // (getTenantRatingTrends) instead of looping the single-member lookup,
@@ -28,11 +36,15 @@ export async function GET() {
     const trends = await getTenantRatingTrends(tenantId)
     const team = (data || []).map((m) => {
       const trend = trends.get(m.id as string)
-      return {
+      const row: Record<string, unknown> = {
         ...m,
         trend_rating_count: trend?.trend_rating_count ?? 0,
         trend_avg_rating: trend?.trend_avg_rating ?? null,
       }
+      if (!canSeeCompensation) {
+        for (const f of COMPENSATION_FIELDS) delete row[f]
+      }
+      return row
     })
 
     return NextResponse.json({ team })

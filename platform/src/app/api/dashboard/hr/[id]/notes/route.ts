@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/require-permission'
 const NOTE_KINDS = ['note', 'writeup', 'kudos', 'review']
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { tenant, error: permErr } = await requirePermission('team.edit')
+  const { tenant, error: permErr } = await requirePermission('team.compensation')
   if (permErr) return permErr
   try {
     const { tenantId } = tenant
