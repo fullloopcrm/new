@@ -17,7 +17,8 @@ import { sendClientEmail } from '@/lib/client-contacts'
 import { teamSmsTemplatesFor } from '@/lib/messaging/team-sms-resolver'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
-import { scoreTeamForBooking } from '@/lib/smart-schedule'
+import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
 import { trackError } from '@/lib/error-tracking'
@@ -79,6 +80,7 @@ type AutoAssignedBooking = {
 async function notifyAutoAssignment(
   tenant: Awaited<ReturnType<typeof getTenantFromHeaders>>,
   booking: AutoAssignedBooking,
+  team: { size: number; assignedCount: number },
 ): Promise<void> {
   if (!tenant) return
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -125,13 +127,82 @@ async function notifyAutoAssignment(
     }).catch((err) => console.error('[client/book] auto-assign job SMS error:', err))
   }
 
+  // team.assignedCount < team.size means this job needed more cleaners than
+  // were available/conflict-free at commit time (see pickBestTeam's `short`)
+  // — flagged explicitly here rather than folded into the same "assigned to
+  // X" phrasing every fully-staffed job gets, so a short-staffed multi-cleaner
+  // job doesn't read as routine success. Real incident: a 2-cleaner NYC Maid
+  // booking auto-assigned only the lead and sat understaffed for ~2.5 hours
+  // until a human noticed and manually added the second cleaner.
+  const isShortStaffed = team.assignedCount < team.size
+  const staffingNote = team.size > 1
+    ? isShortStaffed
+      ? ` ⚠️ SHORT-STAFFED: only ${team.assignedCount} of ${team.size} needed cleaners could be auto-assigned — needs a manual add.`
+      : ` Team of ${team.size} fully assigned.`
+    : ''
   await notify({
     tenantId: tenant.id,
     type: 'auto_booking_assigned',
-    title: 'Booking Auto-Assigned',
-    message: `${booking.clients?.name || 'A client'}'s booking for ${date} at ${time} was automatically assigned to ${booking.team_members?.name || 'a team member'}. It's SCHEDULED — live on the calendar, not pending.`,
+    title: isShortStaffed ? 'Booking Auto-Assigned — SHORT-STAFFED' : 'Booking Auto-Assigned',
+    message: `${booking.clients?.name || 'A client'}'s booking for ${date} at ${time} was automatically assigned to ${booking.team_members?.name || 'a team member'}.${staffingNote} It's SCHEDULED — live on the calendar, not pending.`,
     booking_id: booking.id,
   }).catch((err) => console.error('[client/book] auto-assign admin notify error:', err))
+}
+
+/**
+ * Notify each non-lead team member added to an auto-assigned multi-cleaner
+ * booking. Mirrors PUT /api/bookings/[id]/team's extras-notification path —
+ * the lead's confirmation/job SMS is handled by notifyAutoAssignment above,
+ * same division of labor as the manual team-assignment endpoint.
+ */
+async function notifyExtraTeamMembers(
+  tenant: Awaited<ReturnType<typeof getTenantFromHeaders>>,
+  tenantId: string,
+  bookingId: string,
+  clientName: string,
+  startTimeISO: string,
+  hourlyRate: number | null | undefined,
+  extraIds: string[],
+): Promise<void> {
+  if (!tenant || extraIds.length === 0) return
+  const bookingDate = new Date(startTimeISO).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const templates = await teamSmsTemplatesFor(tenantId)
+
+  for (const extraId of extraIds) {
+    try {
+      const { data: extraMember } = await supabaseAdmin
+        .from('team_members')
+        .select('name, pin')
+        .eq('id', extraId)
+        .single<{ name: string | null; pin: string | null }>()
+
+      const report = await notifyTeamMember({
+        tenantId,
+        teamMemberId: extraId,
+        type: 'job_assignment',
+        title: 'Added to Team Job',
+        message: `${clientName} on ${bookingDate} (auto-assigned team)`,
+        bookingId,
+        smsMessage: templates.jobAssignment({
+          start_time: startTimeISO,
+          hourly_rate: hourlyRate,
+          clients: { name: clientName },
+          team_members: extraMember ? { name: extraMember.name, pin: extraMember.pin } : null,
+        }),
+        skipEmail: true,
+      })
+
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: tenantId,
+        type: 'team_member_notified',
+        title: 'Team Member Notified',
+        message: `${report.teamMemberName}: ${formatDeliveryReport(report)}`,
+        booking_id: bookingId,
+      })
+    } catch (err) {
+      console.error('[client/book] auto-assign extra team member notify error:', err)
+    }
+  }
 }
 
 export async function POST(request: Request) {
@@ -591,8 +662,12 @@ export async function POST(request: Request) {
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
     // Smart team suggestion — and, when the tenant has auto-booking on, a
-    // real assignment: the top-scored available member is put straight on
-    // the job and the booking skips 'pending' entirely.
+    // real assignment: the top-scored available TEAM (lead + extras, up to
+    // bkTeamSize — see pickBestTeam) is put straight on the job and the
+    // booking skips 'pending' entirely. Previously this only ever picked a
+    // single `best` member regardless of bkTeamSize, so a multi-cleaner
+    // booking (team_size 2+) got exactly one cleaner auto-assigned while the
+    // booking itself showed SCHEDULED/confirmed as if fully staffed.
     try {
       const scores = await scoreTeamForBooking({
         tenantId: tenant.id,
@@ -602,28 +677,36 @@ export async function POST(request: Request) {
         clientAddress: (body.address as string) || '',
         clientId,
       })
-      const best = scores.find(s => s.available && s.score > 0)
+      const { lead: best, extras: candidateExtras } = pickBestTeam(scores, bkTeamSize)
       if (best) {
         let autoAssigned = false
         if (settings.auto_booking_enabled) {
-          // scoreTeamForBooking's availability is a snapshot — re-check for a
-          // conflicting booking right before committing so a second request
-          // that scored the same member in the same instant can't double-book
-          // them. Narrows the race rather than closing it outright (a fully
-          // atomic guard would need its own RPC, like create_admin_booking_
-          // atomic's conflict check for manual assignment); on a hit, this
-          // just falls back to the existing suggested-only behavior below.
+          // scoreTeamForBooking's availability is a snapshot — re-check every
+          // candidate (lead + extras) for a conflicting booking right before
+          // committing, same guard the single-lead path always had, so a
+          // second request that scored the same member in the same instant
+          // can't double-book them. A candidate that now conflicts is simply
+          // dropped (not swapped for the next-best score) — matches
+          // PUT /api/bookings/[id]/team, where team_size is a request, not a
+          // guarantee. On the lead conflicting, this falls back to the
+          // existing suggested-only behavior below, same as before.
           const conflictEnd = data.end_time || new Date(new Date(startTime).getTime() + (Number(body.estimated_hours) || 2) * 3_600_000).toISOString()
-          const { count: conflictCount } = await supabaseAdmin
-            .from('bookings')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', tenant.id)
-            .eq('team_member_id', best.id)
-            .not('status', 'in', '(cancelled,no_show)')
-            .lt('start_time', conflictEnd)
-            .gt('end_time', startTime)
+          const candidates = [best, ...candidateExtras]
+          const conflictCounts = await Promise.all(candidates.map((c) =>
+            supabaseAdmin
+              .from('bookings')
+              .select('id', { count: 'exact', head: true })
+              .eq('tenant_id', tenant.id)
+              .eq('team_member_id', c.id)
+              .not('status', 'in', '(cancelled,no_show)')
+              .lt('start_time', conflictEnd)
+              .gt('end_time', startTime)
+              .then((r) => r.count || 0)
+          ))
+          const leadFree = conflictCounts[0] === 0
+          const freeExtras = candidateExtras.filter((_, i) => conflictCounts[i + 1] === 0)
 
-          if (!conflictCount) {
+          if (leadFree) {
             const { data: assigned } = await tenantDb(tenant.id)
               .from('bookings')
               .update({
@@ -638,7 +721,21 @@ export async function POST(request: Request) {
 
             if (assigned) {
               autoAssigned = true
-              await notifyAutoAssignment(tenant, assigned as unknown as AutoAssignedBooking)
+              const teamRows = [
+                { tenant_id: tenant.id, booking_id: data.id, team_member_id: best.id, is_lead: true, position: 1 },
+                ...freeExtras.map((c, i) => ({ tenant_id: tenant.id, booking_id: data.id, team_member_id: c.id, is_lead: false, position: i + 2 })),
+              ]
+              await supabaseAdmin.from('booking_team_members').insert(teamRows)
+
+              const assignedBooking = assigned as unknown as AutoAssignedBooking
+              await notifyAutoAssignment(tenant, assignedBooking, { size: bkTeamSize, assignedCount: teamRows.length })
+              await notifyExtraTeamMembers(
+                tenant, tenant.id, data.id,
+                assignedBooking.clients?.name || 'Client',
+                assignedBooking.start_time,
+                assignedBooking.hourly_rate,
+                freeExtras.map((c) => c.id),
+              )
             }
           }
         }

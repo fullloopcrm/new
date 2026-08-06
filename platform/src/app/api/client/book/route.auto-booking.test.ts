@@ -32,6 +32,7 @@ const TENANT = {
 
 const CLIENT = { id: 'client-1', tenant_id: TENANT.id, do_not_service: false, name: 'Jane Client', phone: '+15550001111', email: 'jane@example.com', address: '1 Main St' }
 const MEMBER = { id: 'member-1', name: 'Sam Tech' }
+const MEMBER2 = { id: 'member-2', name: 'Robin Tech' }
 const START_TIME = '2026-09-01T10:00:00'
 const END_TIME = '2026-09-01T12:00:00'
 
@@ -41,6 +42,8 @@ const state = vi.hoisted(() => ({
   conflictCount: 0,
   updateCalls: [] as Array<Record<string, unknown>>,
   notifyCalls: [] as Array<Record<string, unknown>>,
+  teamInsertCalls: [] as Array<Record<string, unknown>>,
+  extraNotifyCalls: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => TENANT }))
@@ -48,7 +51,15 @@ vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: tru
 vi.mock('@/lib/settings', () => ({
   getSettings: async () => ({ open_365: true, auto_booking_enabled: state.autoBookingEnabled }),
 }))
-vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => state.score }))
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => state.score,
+  pickBestTeam: (scores: Array<{ id: string; available: boolean; score: number }>, teamSize: number) => {
+    const available = scores.filter((s) => s.available).sort((a, b) => b.score - a.score)
+    const want = Math.max(1, teamSize)
+    const team = available.slice(0, want)
+    return { lead: team[0] || null, extras: team.slice(1), short: Math.max(0, want - team.length) }
+  },
+}))
 vi.mock('@/lib/notify', () => ({
   notify: vi.fn(async (payload: Record<string, unknown>) => { state.notifyCalls.push(payload); return { success: true } }),
   buildBookingConfirmationEmail: vi.fn(async () => '<p>confirmed</p>'),
@@ -83,6 +94,13 @@ vi.mock('@/lib/client-properties', () => ({
 }))
 vi.mock('@/lib/error-tracking', () => ({ trackError: vi.fn(async () => {}) }))
 vi.mock('@/lib/comhub-contact-sync', () => ({ syncComhubContactName: vi.fn(async () => {}) }))
+vi.mock('@/lib/notify-team', () => ({
+  notifyTeamMember: vi.fn(async (opts: Record<string, unknown>) => {
+    state.extraNotifyCalls.push(opts)
+    return { teamMemberName: 'Extra', email: false, sms: true, inApp: true, quietHours: false }
+  }),
+  formatDeliveryReport: () => 'Team member notified: email ✗ sms ✓',
+}))
 
 function clientsBuilder() {
   const chain: Record<string, unknown> = {
@@ -125,6 +143,13 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => {
       if (table === 'clients') return clientsBuilder()
       if (table === 'bookings') return bookingsAdminBuilder()
+      if (table === 'booking_team_members') {
+        const chain: Record<string, unknown> = {
+          insert: (rows: Array<Record<string, unknown>>) => { state.teamInsertCalls.push(...rows); return chain },
+          then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }),
+        }
+        return chain
+      }
       const chain: Record<string, unknown> = {
         select: () => chain, insert: () => chain, update: () => chain, eq: () => chain,
         single: async () => ({ data: null, error: null }),
@@ -178,11 +203,11 @@ vi.mock('@/lib/tenant-db', () => ({
 
 import { POST } from './route'
 
-function bookReq() {
+function bookReq(extra: Record<string, unknown> = {}) {
   return POST(
     new Request('http://t/api/client/book', {
       method: 'POST',
-      body: JSON.stringify({ client_id: CLIENT.id, start_time: START_TIME, end_time: END_TIME }),
+      body: JSON.stringify({ client_id: CLIENT.id, start_time: START_TIME, end_time: END_TIME, ...extra }),
     }),
   )
 }
@@ -193,6 +218,8 @@ beforeEach(() => {
   state.conflictCount = 0
   state.updateCalls = []
   state.notifyCalls = []
+  state.teamInsertCalls = []
+  state.extraNotifyCalls = []
 })
 
 describe('client/book — auto-booking toggle OFF (default)', () => {
@@ -262,5 +289,60 @@ describe('client/book — auto-booking toggle ON', () => {
     await bookReq()
     expect(state.updateCalls.length).toBe(0)
     expect(state.notifyCalls.some((c) => c.type === 'auto_booking_assigned')).toBe(false)
+  })
+})
+
+// Multi-cleaner regression coverage — real incident, 2026-08-06: a NYC Maid
+// client booked a team_size:2 job, auto-booking assigned only the lead
+// (Cinthya), and the booking sat SCHEDULED (looking fully staffed) with only
+// one cleaner for ~2.5 hours until a human noticed and manually added the
+// second. Before this fix, this route only ever picked a single `best`
+// candidate and never looked at team_size at all.
+describe('client/book — auto-booking with team_size > 1 (multi-cleaner)', () => {
+  it('team_size 2, two available candidates: both are assigned, booking_team_members gets lead+extra, extra is notified', async () => {
+    state.autoBookingEnabled = true
+    state.score = [
+      { id: MEMBER.id, name: MEMBER.name, score: 90, available: true, reason: 'best fit' },
+      { id: MEMBER2.id, name: MEMBER2.name, score: 80, available: true, reason: 'next best' },
+    ]
+    state.conflictCount = 0
+
+    const res = await bookReq({ team_size: 2 })
+    expect(res.status).toBe(200)
+
+    const assignUpdate = state.updateCalls.find((c) => c.team_member_id === MEMBER.id)
+    expect(assignUpdate?.status).toBe('scheduled')
+
+    expect(state.teamInsertCalls).toEqual([
+      expect.objectContaining({ team_member_id: MEMBER.id, is_lead: true, position: 1 }),
+      expect.objectContaining({ team_member_id: MEMBER2.id, is_lead: false, position: 2 }),
+    ])
+
+    await vi.waitFor(() => expect(state.extraNotifyCalls.length).toBe(1))
+    expect(state.extraNotifyCalls[0]?.teamMemberId).toBe(MEMBER2.id)
+
+    await vi.waitFor(() => expect(state.notifyCalls.some((c) => c.type === 'auto_booking_assigned')).toBe(true))
+    const notifyCall = state.notifyCalls.find((c) => c.type === 'auto_booking_assigned')
+    expect(String(notifyCall?.message)).toMatch(/team of 2 fully assigned/i)
+    expect(String(notifyCall?.message)).not.toMatch(/short-staffed/i)
+  })
+
+  it('team_size 4 with only 2 available candidates: assigns the 2 available and flags the booking SHORT-STAFFED instead of claiming success', async () => {
+    state.autoBookingEnabled = true
+    state.score = [
+      { id: MEMBER.id, name: MEMBER.name, score: 90, available: true, reason: 'best fit' },
+      { id: MEMBER2.id, name: MEMBER2.name, score: 80, available: true, reason: 'next best' },
+    ]
+    state.conflictCount = 0
+
+    const res = await bookReq({ team_size: 4 })
+    expect(res.status).toBe(200)
+
+    expect(state.teamInsertCalls.length).toBe(2)
+
+    await vi.waitFor(() => expect(state.notifyCalls.some((c) => c.type === 'auto_booking_assigned')).toBe(true))
+    const notifyCall = state.notifyCalls.find((c) => c.type === 'auto_booking_assigned')
+    expect(notifyCall?.title).toMatch(/short-staffed/i)
+    expect(String(notifyCall?.message)).toMatch(/only 2 of 4 needed cleaners/i)
   })
 })
