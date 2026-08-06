@@ -68,7 +68,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
     time: '10:00 AM',
     notes: '',
   })
-  const [emailErr, setEmailErr] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; email?: string; address?: string; date?: string }>({})
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showRecap, setShowRecap] = useState(false)
@@ -94,16 +94,25 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function validateForm(): typeof fieldErrors {
+    const errors: typeof fieldErrors = {}
+    if (!form.name.trim()) errors.name = 'Please enter your name.'
+    if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) errors.phone = 'Please enter a valid phone number.'
+    const emailCheck = validateEmail(form.email)
+    if (!emailCheck.valid) errors.email = emailCheck.error || 'Please enter a valid email.'
+    if (!form.address.trim()) errors.address = 'Please enter your address.'
+    if (!form.date) errors.date = 'Please choose a date.'
+    return errors
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.name.trim()) { setError('Please enter your name.'); return }
-    if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
-    const emailCheck = validateEmail(form.email)
-    if (!emailCheck.valid) { setEmailErr(emailCheck.error || 'Invalid email'); setError('Please enter a valid email.'); return }
-    setEmailErr('')
-    if (!form.address.trim()) { setError('Please enter your address.'); return }
-    if (!form.date) { setError('Please choose a date.'); return }
+    // Show every missing/invalid field at once so the client knows exactly
+    // what's blocking their request, instead of one gate per resubmit.
+    const errors = validateForm()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) { setError('Please fix the highlighted fields below.'); return }
     setShowRecap(true)
   }
 
@@ -218,7 +227,8 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Date</label>
-                <input type="date" required min={minDate} value={form.date} onChange={(e) => update('date', e.target.value)} className={inputCls} style={inputStyle} />
+                <input type="date" required min={minDate} value={form.date} onChange={(e) => { update('date', e.target.value); setFieldErrors(prev => ({ ...prev, date: undefined })) }} className={`${inputCls} ${fieldErrors.date ? 'border-red-400 ring-1 ring-red-300' : ''}`} style={inputStyle} />
+                {fieldErrors.date && <p className="text-red-600 text-xs mt-1">{fieldErrors.date}</p>}
               </div>
               <div>
                 <label className={labelCls}>Preferred time</label>
@@ -232,11 +242,13 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Name</label>
-                <input type="text" required placeholder="First and last" value={form.name} onChange={(e) => update('name', e.target.value)} className={inputCls} style={inputStyle} />
+                <input type="text" required placeholder="First and last" value={form.name} onChange={(e) => { update('name', e.target.value); setFieldErrors(prev => ({ ...prev, name: undefined })) }} className={`${inputCls} ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : ''}`} style={inputStyle} />
+                {fieldErrors.name && <p className="text-red-600 text-xs mt-1">{fieldErrors.name}</p>}
               </div>
               <div>
                 <label className={labelCls}>Phone</label>
-                <input type="tel" required placeholder="(212) 555-1234" value={form.phone} onChange={(e) => update('phone', formatPhone(e.target.value))} className={inputCls} style={inputStyle} />
+                <input type="tel" required placeholder="(212) 555-1234" value={form.phone} onChange={(e) => { update('phone', formatPhone(e.target.value)); setFieldErrors(prev => ({ ...prev, phone: undefined })) }} className={`${inputCls} ${fieldErrors.phone ? 'border-red-400 ring-1 ring-red-300' : ''}`} style={inputStyle} />
+                {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
               </div>
             </div>
 
@@ -245,14 +257,15 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
             {/* Email */}
             <div>
               <label className={labelCls}>Email</label>
-              <input type="email" required placeholder="Enter your email" value={form.email} onChange={(e) => { update('email', e.target.value); setEmailErr('') }} className={inputCls} style={inputStyle} />
-              {emailErr && <p className="text-red-600 text-xs mt-1">{emailErr}</p>}
+              <input type="email" required placeholder="Enter your email" value={form.email} onChange={(e) => { update('email', e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })) }} className={`${inputCls} ${fieldErrors.email ? 'border-red-400 ring-1 ring-red-300' : ''}`} style={inputStyle} />
+              {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
             </div>
 
             {/* Address */}
             <div>
               <label className={labelCls}>Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => update('address', v)} placeholder="Start typing your street..." className={inputCls} />
+              <AddressAutocomplete value={form.address} onChange={(v) => { update('address', v); setFieldErrors(prev => ({ ...prev, address: undefined })) }} placeholder="Start typing your street..." className={`${inputCls} ${fieldErrors.address ? 'border-red-400 ring-1 ring-red-300' : ''}`} />
+              {fieldErrors.address && <p className="text-red-600 text-xs mt-1">{fieldErrors.address}</p>}
               <input type="text" placeholder="Apt / Unit (optional)" value={form.unit} onChange={(e) => update('unit', e.target.value)} className={`${inputCls} mt-2`} style={inputStyle} />
             </div>
 
