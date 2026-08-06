@@ -60,6 +60,26 @@ export const isPublicRoute = createRouteMatcher([
   '/sales(.*)',             // Sales partner portal (email+PIN auth, not Clerk)
   '/api/portal(.*)',        // Portal API routes
   '/api/team-portal(.*)',   // Team portal API routes
+  // Mobile app API routes use a bearer token (getTenantForRequest()'s mobile
+  // branch), not Clerk — without this, Clerk's own gate 307s every mobile
+  // request to /sign-in before the route's real auth ever runs. Found via
+  // /api/mobile/comhub/send specifically 2026-08-05 (testing only ever hit a
+  // Vercel preview URL, which isn't in MAIN_HOSTS and skips this gate
+  // silently — a real MAIN_HOSTS hit exposed it). Blanket-matched since every
+  // route under /api/mobile is app-facing today; if an admin/dashboard-only
+  // route is ever added under this prefix, give it its own Clerk-gated path
+  // instead of relying on this being narrow.
+  '/api/mobile(.*)',
+  // Same gap, hit live testing these three 2026-08-06: the mobile Admin tab
+  // calls these existing web-dashboard routes directly with its bearer
+  // token (they already authenticate via getTenantForRequest(), same as
+  // the /api/mobile/* routes above — no separate mobile copies needed) but
+  // Clerk's gate 307'd every one of them before that auth ever ran. Listed
+  // individually, not a blanket '/api(.*)', since most other /api routes
+  // here genuinely are Clerk-session-only.
+  '/api/dashboard',
+  '/api/clients(.*)',
+  '/api/schedules(.*)',
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/company/track(.*)', // Full Loop's own marketing-site visit tracking beacon

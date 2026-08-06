@@ -8,8 +8,11 @@ import { audit } from '@/lib/audit'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { getBookingAddress } from '@/lib/client-properties'
 import { getSettings } from '@/lib/settings'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET() {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET() {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.view')
     if (_authError) return _authError
@@ -32,7 +35,7 @@ export async function GET() {
     }
     throw e
   }
-}
+})
 
 export async function POST(request: Request) {
   try {

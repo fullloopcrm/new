@@ -95,6 +95,35 @@ export function verifyTenantAdminToken(
   }
 }
 
+/**
+ * Same verification as verifyTenantAdminToken, but for callers with no prior
+ * knowledge of which tenant the token belongs to (e.g. a mobile app bearer
+ * token, which has no domain-derived x-tenant-id to check against). Trusts
+ * the tenantId claim once the HMAC signature is confirmed — the signature is
+ * what makes the claim unforgeable, not an external comparison.
+ */
+export function verifyTenantAdminTokenAnyTenant(
+  token: string,
+): { tenantId: string; memberId: string; role: string } | null {
+  if (!SECRET) return null
+  try {
+    const [payloadB64, sig] = token.split('.')
+    if (!sig) return null
+    const payload = Buffer.from(payloadB64, 'base64').toString()
+    const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
+    const a = Buffer.from(sig)
+    const b = Buffer.from(expected)
+    if (a.length !== b.length) return null
+    if (!crypto.timingSafeEqual(a, b)) return null
+    const data = JSON.parse(payload)
+    if (data.role !== 'tenant_admin') return null
+    if (data.exp <= Date.now()) return null
+    return { tenantId: String(data.tenantId), memberId: String(data.memberId), role: String(data.memberRole || 'staff') }
+  } catch {
+    return null
+  }
+}
+
 function setAdminCookie(res: NextResponse, token: string): void {
   res.cookies.set('admin_token', token, {
     httpOnly: true,
