@@ -62,10 +62,37 @@ function getStripe(): Stripe {
 //   - tenants.stripe_connect_webhook_secret — Connect account.updated
 //     deliveries, since each tenant also acts as its own Connect platform
 //     for its team members/sales partners/referrers (see below).
-function peekEventTenantId(rawBody: string): string | null {
+async function peekEventTenantId(rawBody: string): Promise<string | null> {
   try {
-    const parsed = JSON.parse(rawBody) as { data?: { object?: { metadata?: Record<string, string> | null } } }
-    return parsed.data?.object?.metadata?.tenant_id || null
+    const parsed = JSON.parse(rawBody) as {
+      data?: { object?: { metadata?: Record<string, string> | null; client_reference_id?: string | null } }
+    }
+    const metaTenantId = parsed.data?.object?.metadata?.tenant_id
+    if (metaTenantId) return metaTenantId
+
+    // A tenant's static Payment Link (the NYC Maid-parity flow — one
+    // reusable "customer enters amount" link, no per-booking Checkout
+    // Session) carries no metadata at all: Stripe does NOT copy a Payment
+    // Link's own metadata onto the Checkout Session it produces — only
+    // client_reference_id survives onto session.client_reference_id
+    // (confirmed against Stripe's payment-link tracking docs). That's
+    // exactly the field the booking-payment path further down already uses
+    // to resolve booking + tenant post-verification. Reuse it here too, so
+    // a tenant running its own standalone Stripe account (not the one
+    // behind the shared platform secret) can even be considered for the
+    // fallback below. This grants no trust by itself — see the module
+    // comment above; the event is still discarded unless it verifies.
+    const clientRefId = parsed.data?.object?.client_reference_id
+    if (clientRefId) {
+      const { data: booking } = await supabaseAdmin
+        .from('bookings')
+        .select('tenant_id')
+        .eq('id', clientRefId)
+        .maybeSingle()
+      if (booking?.tenant_id) return booking.tenant_id as string
+    }
+
+    return null
   } catch {
     return null
   }
@@ -100,7 +127,7 @@ export async function POST(request: Request) {
     // (no tenant hint, no tenant found, no secret configured, signature
     // still doesn't verify) falls through to the same 400 as before — never
     // silently accepted.
-    const tenantId = peekEventTenantId(body)
+    const tenantId = await peekEventTenantId(body)
     if (!tenantId) {
       console.error('Stripe webhook signature failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
