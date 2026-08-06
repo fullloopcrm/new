@@ -47,6 +47,8 @@ export default function UsersPage() {
 
   // Add-member form
   const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState<Exclude<Role, 'owner'>>('manager')
 
   // Preselect the tenant's default invite role once settings load.
@@ -58,7 +60,7 @@ export default function UsersPage() {
   }, [tenant])
 
   // Issued-PIN reveal (shown once)
-  const [issued, setIssued] = useState<{ name: string; pin: string } | null>(null)
+  const [issued, setIssued] = useState<{ name: string; pin: string; notified?: { email: boolean; sms: boolean } } | null>(null)
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -121,12 +123,14 @@ export default function UsersPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ name: newName, role: newRole }),
+      body: JSON.stringify({ name: newName, phone: newPhone, email: newEmail, role: newRole }),
     })
     const j = await res.json().catch(() => ({}))
     if (res.ok) {
-      setIssued({ name: newName, pin: j.pin })
+      setIssued({ name: newName, pin: j.pin, notified: j.notified })
       setNewName('')
+      setNewPhone('')
+      setNewEmail('')
       loadUsers()
     } else {
       setError(j.error || 'Could not add member')
@@ -170,6 +174,11 @@ export default function UsersPage() {
                 Copy this now — it won&apos;t be shown again. They sign in at{' '}
                 <span className="font-mono">{loginUrl || '<your-domain>/fullloop'}</span>.
               </p>
+              {issued.notified && (issued.notified.email || issued.notified.sms) && (
+                <p className="text-sm text-teal-800 mt-1">
+                  Sent to them via {[issued.notified.email && 'email', issued.notified.sms && 'text'].filter(Boolean).join(' and ')}.
+                </p>
+              )}
             </div>
             <button onClick={() => setIssued(null)} className="text-sm text-teal-700 hover:underline">Done</button>
           </div>
@@ -195,13 +204,27 @@ export default function UsersPage() {
       {/* Add member */}
       <div className="mb-6 p-4 border rounded bg-white">
         <h2 className="font-medium mb-3">Add a member</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Full name"
-            className="flex-1 px-3 py-2 border rounded"
+            className="flex-1 min-w-[160px] px-3 py-2 border rounded"
+          />
+          <input
+            type="tel"
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            placeholder="Phone number"
+            className="flex-1 min-w-[160px] px-3 py-2 border rounded"
+          />
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="Email"
+            className="flex-1 min-w-[160px] px-3 py-2 border rounded"
           />
           <select
             value={newRole}
@@ -232,6 +255,7 @@ export default function UsersPage() {
             <tr>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Name</th>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Email</th>
+              <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Phone Number</th>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">Role</th>
               <th className="text-left px-4 py-2 text-xs uppercase text-gray-500">PIN</th>
               <th className="text-right px-4 py-2 text-xs uppercase text-gray-500">Actions</th>
@@ -249,6 +273,11 @@ export default function UsersPage() {
                   {editingId === u.id ? (
                     <input value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="px-2 py-1 border rounded" />
                   ) : (u.email || <span className="text-gray-400">—</span>)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {editingId === u.id ? (
+                    <input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="px-2 py-1 border rounded" />
+                  ) : (u.phone || <span className="text-gray-400">—</span>)}
                 </td>
                 <td className="px-4 py-3">
                   {editingId === u.id ? (
