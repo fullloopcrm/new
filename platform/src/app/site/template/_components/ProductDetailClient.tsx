@@ -114,7 +114,22 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center border border-gray-200 rounded-md">
               <button type="button" aria-label="Decrease quantity" onClick={() => setQty((q) => Math.max(1, q - 1))} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-[var(--brand)]">−</button>
-              <span className="w-8 text-center text-sm">{qty}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                aria-label="Quantity"
+                min={1}
+                max={20}
+                value={qty}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10)
+                  if (!Number.isNaN(next)) setQty(Math.min(20, Math.max(1, next)))
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === '') setQty(1)
+                }}
+                className="w-12 text-center text-sm border-0 focus:outline-none focus:ring-1 focus:ring-[var(--accent)] rounded [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
               <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => Math.min(20, q + 1))} className="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-[var(--brand)]">+</button>
             </div>
             <button
@@ -131,6 +146,25 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
           ) : (
             <p className="text-xs text-gray-400">Ships to your address, collected at checkout.</p>
           )}
+
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {['Visa', 'Mastercard', 'Amex', 'Discover', 'Apple Pay', 'Google Pay'].map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center h-7 px-2.5 rounded border border-gray-200 bg-white text-[10px] font-semibold tracking-wide text-gray-500"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            <p className="flex items-center gap-1.5 text-xs text-gray-400">
+              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Secure checkout powered by Stripe
+            </p>
+          </div>
         </div>
       </div>
 

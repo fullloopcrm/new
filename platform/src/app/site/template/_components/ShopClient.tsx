@@ -32,12 +32,18 @@ export default function ShopClient({ config, products }: { config: SiteConfig; p
       {products.length > 0 && <JsonLd data={productItemListSchema(business, products)} />}
       <JsonLd data={breadcrumbSchema([{ name: 'Home', url: business.url }, { name: 'Shop', url: `${business.url}/shop` }])} />
 
-      <div className="bg-[var(--brand)] text-white py-6 sm:py-8">
+      <div className="bg-[var(--brand)] text-white py-8 sm:py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <span className="inline-block text-[10px] font-semibold tracking-widest uppercase text-[var(--brand)] bg-[var(--accent)] rounded-full px-2.5 py-1 mb-3">
+            Official Store
+          </span>
           <p className="text-[var(--accent)] text-xs font-semibold tracking-widest uppercase mb-1">Shop</p>
-          <h1 className="font-[family-name:var(--font-bebas)] text-2xl sm:text-3xl tracking-wide">
+          <h1 className="font-[family-name:var(--font-bebas)] text-2xl sm:text-3xl tracking-wide mb-3">
             {config.identity.name}
           </h1>
+          <p className="text-white/70 text-sm max-w-xl leading-relaxed">
+            Welcome to the {config.identity.name} store — hand-picked gear from the team you already trust for {config.industry}. Browse below, add what you like, and check out securely in a couple of taps.
+          </p>
         </div>
       </div>
 
