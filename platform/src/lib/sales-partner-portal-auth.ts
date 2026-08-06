@@ -22,8 +22,12 @@ function getSecret(): string {
   return s
 }
 
-export function createSalesPartnerToken(salesPartnerId: string, tenantId: string): string {
-  const payload = JSON.stringify({ pid: salesPartnerId, tid: tenantId, scope: 'salespartner', exp: Date.now() + TOKEN_TTL_MS })
+// ttlMs is optional and defaults to the web sales-partner portal's existing
+// 30-day session — the mobile unified-login resolver (api/mobile/unified-login)
+// passes a long-lived override (matches tenant_members' 10-year pattern)
+// without changing behavior for the web portal's own email+PIN login.
+export function createSalesPartnerToken(salesPartnerId: string, tenantId: string, ttlMs: number = TOKEN_TTL_MS): string {
+  const payload = JSON.stringify({ pid: salesPartnerId, tid: tenantId, scope: 'salespartner', exp: Date.now() + ttlMs })
   const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
