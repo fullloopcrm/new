@@ -11,20 +11,43 @@ const inputCls =
  * the original `action="mailto:"` form, which only opened the visitor's email
  * client and never reached the backend.
  */
+interface FieldErrors {
+  name?: string
+  email?: string
+  message?: string
+}
+
 export default function LeadForm() {
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setStatus('sending')
     setError('')
     const fd = new FormData(e.currentTarget)
+    const name = String(fd.get('name') || '').trim()
+    const email = String(fd.get('email') || '').trim()
+    const message = String(fd.get('message') || '').trim()
+
+    // Show every missing/invalid field at once instead of relying on the
+    // browser's native one-at-a-time validation bubble.
+    const errors: FieldErrors = {}
+    if (!name) errors.name = 'Please enter your name.'
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Please enter a valid email.'
+    if (!message) errors.message = 'Please tell us about your needs.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setError('Please fix the highlighted fields below.')
+      return
+    }
+
+    setStatus('sending')
     const payload = {
-      name: String(fd.get('name') || '').trim(),
-      email: String(fd.get('email') || '').trim(),
+      name,
+      email,
       phone: String(fd.get('phone') || '').trim(),
-      message: String(fd.get('message') || '').trim(),
+      message,
       visitAt: fd.get('visitAt') ? new Date(String(fd.get('visitAt'))).toISOString() : undefined,
     }
     try {
@@ -57,11 +80,13 @@ export default function LeadForm() {
     <form className="mt-6 space-y-4" onSubmit={onSubmit}>
       <div>
         <label htmlFor="name" className="block text-sm font-semibold text-slate-700">Name</label>
-        <input type="text" id="name" name="name" required className={inputCls} placeholder="Your name" />
+        <input type="text" id="name" name="name" required onChange={() => setFieldErrors((prev) => ({ ...prev, name: undefined }))} className={`${inputCls} ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : ''}`} placeholder="Your name" />
+        {fieldErrors.name && <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>}
       </div>
       <div>
         <label htmlFor="email" className="block text-sm font-semibold text-slate-700">Email</label>
-        <input type="email" id="email" name="email" required className={inputCls} placeholder="your@email.com" />
+        <input type="email" id="email" name="email" required onChange={() => setFieldErrors((prev) => ({ ...prev, email: undefined }))} className={`${inputCls} ${fieldErrors.email ? 'border-red-400 ring-1 ring-red-300' : ''}`} placeholder="your@email.com" />
+        {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
       </div>
       <div>
         <label htmlFor="phone" className="block text-sm font-semibold text-slate-700">Phone (optional)</label>
@@ -69,7 +94,8 @@ export default function LeadForm() {
       </div>
       <div>
         <label htmlFor="message" className="block text-sm font-semibold text-slate-700">Message</label>
-        <textarea id="message" name="message" rows={4} required className={inputCls} placeholder="Tell us about your needs — location, any specific concerns..." />
+        <textarea id="message" name="message" rows={4} required onChange={() => setFieldErrors((prev) => ({ ...prev, message: undefined }))} className={`${inputCls} ${fieldErrors.message ? 'border-red-400 ring-1 ring-red-300' : ''}`} placeholder="Tell us about your needs — location, any specific concerns..." />
+        {fieldErrors.message && <p className="mt-1 text-xs text-red-600">{fieldErrors.message}</p>}
       </div>
       <div>
         <label htmlFor="visitAt" className="block text-sm font-semibold text-slate-700">Preferred session (date &amp; time)</label>
