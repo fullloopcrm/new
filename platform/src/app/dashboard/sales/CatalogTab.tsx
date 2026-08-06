@@ -31,6 +31,8 @@ type Item = {
   default_labor_rate_cents: number | null
   default_overhead_cents: number | null
   default_target_margin_bps: number | null
+  is_digital: boolean
+  digital_delivery_url: string | null
 }
 
 type MaterialRow = {
@@ -73,6 +75,7 @@ const empty = {
   per_unit: 'hour', unit_label: '', price: '', min_charge: '', cost: '',
   taxable: true, default_duration_hours: '',
   labor_rate: '', overhead: '', target_margin: '',
+  is_digital: false, digital_delivery_url: '',
 }
 
 type EditForm = {
@@ -92,6 +95,8 @@ type EditForm = {
   labor_rate: string
   overhead: string
   target_margin: string
+  is_digital: boolean
+  digital_delivery_url: string
 }
 
 function toEditForm(it: Item): EditForm {
@@ -112,13 +117,26 @@ function toEditForm(it: Item): EditForm {
     labor_rate: it.default_labor_rate_cents != null ? String(it.default_labor_rate_cents / 100) : '',
     overhead: it.default_overhead_cents != null ? String(it.default_overhead_cents / 100) : '',
     target_margin: it.default_target_margin_bps != null ? String(it.default_target_margin_bps / 100) : '',
+    is_digital: it.is_digital,
+    digital_delivery_url: it.digital_delivery_url || '',
   }
 }
 
-export default function CatalogTab() {
+type CatalogTabProps = {
+  // Scopes the tab to one item_type (e.g. the E-commerce page showing only
+  // 'product' rows from the same service_types list) instead of the full
+  // service/project/product/equipment catalog. New items default to it; when
+  // lockType is set the Type selector is hidden so it can't be changed away.
+  defaultType?: Item['item_type']
+  lockType?: boolean
+  title?: string
+  subtitle?: string
+}
+
+export default function CatalogTab({ defaultType, lockType, title, subtitle }: CatalogTabProps = {}) {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ ...empty })
+  const [form, setForm] = useState({ ...empty, item_type: defaultType ?? empty.item_type })
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -201,12 +219,13 @@ export default function CatalogTab() {
     loadMaterials(serviceTypeId)
   }
 
+  const scopedItems = defaultType ? items.filter((it) => it.item_type === defaultType) : items
   const filteredItems = query.trim()
-    ? items.filter((it) => {
+    ? scopedItems.filter((it) => {
         const q = query.trim().toLowerCase()
         return it.name.toLowerCase().includes(q) || (it.category || '').toLowerCase().includes(q)
       })
-    : items
+    : scopedItems
 
   async function uploadPhoto(file: File) {
     setErr('')
@@ -262,6 +281,8 @@ export default function CatalogTab() {
           default_labor_rate_cents: toCents(form.labor_rate),
           default_overhead_cents: toCents(form.overhead),
           default_target_margin_bps: form.target_margin.trim() ? Math.round(Number(form.target_margin) * 100) : undefined,
+          is_digital: form.item_type === 'product' ? form.is_digital : false,
+          digital_delivery_url: form.item_type === 'product' && form.is_digital ? (form.digital_delivery_url.trim() || undefined) : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
@@ -319,6 +340,8 @@ export default function CatalogTab() {
           default_labor_rate_cents: toCents(editForm.labor_rate),
           default_overhead_cents: toCents(editForm.overhead),
           default_target_margin_bps: editForm.target_margin.trim() ? Math.round(Number(editForm.target_margin) * 100) : undefined,
+          is_digital: editForm.item_type === 'product' ? editForm.is_digital : false,
+          digital_delivery_url: editForm.item_type === 'product' && editForm.is_digital ? (editForm.digital_delivery_url.trim() || undefined) : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setEditErr((d && d.error) || 'Could not save changes.'); return }
@@ -335,20 +358,22 @@ export default function CatalogTab() {
       {err && <div style={{ background: '#fdecea', color: '#c0392b', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{err}</div>}
 
       <div className="sl-section-head">
-        <h2 className="sl-section-title">Services Catalog<em>.</em></h2>
+        <h2 className="sl-section-title">{title ?? 'Services Catalog'}<em>.</em></h2>
         <span className="sl-section-meta">
-          {query.trim() ? `${filteredItems.length} of ${items.length} item${items.length === 1 ? '' : 's'}` : `${items.length} item${items.length === 1 ? '' : 's'}`}
+          {query.trim() ? `${filteredItems.length} of ${scopedItems.length} item${scopedItems.length === 1 ? '' : 's'}` : `${scopedItems.length} item${scopedItems.length === 1 ? '' : 's'}`}
         </span>
       </div>
       <p style={{ fontSize: 12, color: 'var(--sl-muted)', margin: '0 0 14px' }}>
-        Every item you sell — a <strong>service</strong>, <strong>project</strong>, or <strong>product</strong>. Proposals build their line items from this list.
+        {subtitle ?? <>Every item you sell — a <strong>service</strong>, <strong>project</strong>, or <strong>product</strong>. Proposals build their line items from this list.</>}
       </p>
 
       {/* ADD FORM */}
       <div style={{ background: 'var(--sl-canvas,#fff)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 12, padding: 14, marginBottom: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div><label style={lbl}>Type <HelpTip text="Labor = work you perform. Project = a larger, multi-visit job. Product = a physical thing you sell. Equipment = a rental/depreciable asset." /></label>
-            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
+          <div><label style={lbl}>Type {!lockType && <HelpTip text="Labor = work you perform. Project = a larger, multi-visit job. Product = a physical thing you sell. Equipment = a rental/depreciable asset." />}</label>
+            {lockType
+              ? <input style={inp} value={TYPE_LABELS[form.item_type] || form.item_type} disabled />
+              : <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>}
           </div>
           <div><label style={lbl}>Name <HelpTip text="What shows on the proposal line. Keep it clear and customer-facing." /></label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Deep Clean / Kitchen Remodel / HEPA Filter" /></div>
           <div><label style={lbl}>Category <HelpTip text="Optional grouping (e.g. Add-ons, Materials) to organize the catalog picker." /></label><input style={inp} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Add-ons" /></div>
@@ -376,6 +401,18 @@ export default function CatalogTab() {
             )}
           </div>
         </div>
+
+        {form.item_type === 'product' && (
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: form.is_digital ? 8 : 0 }}>
+              <input type="checkbox" checked={form.is_digital} onChange={(e) => setForm({ ...form, is_digital: e.target.checked })} /> Digital item
+              <HelpTip text="Digital items skip shipping-address collection at checkout and deliver via the link below instead of being shipped." />
+            </label>
+            {form.is_digital && (
+              <input style={inp} value={form.digital_delivery_url} onChange={(e) => setForm({ ...form, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end' }}>
           <div><label style={lbl}>Unit <HelpTip text="How this item is priced — per hour, flat per job, each, per sq ft, etc. Pick 'custom' to name your own unit." /></label>
@@ -417,8 +454,8 @@ export default function CatalogTab() {
       {/* LIST */}
       <div>
         {loading && <div className="sl-empty">Loading…</div>}
-        {!loading && items.length === 0 && <div className="sl-empty">No items yet — add your first above.</div>}
-        {!loading && items.length > 0 && filteredItems.length === 0 && <div className="sl-empty">No items match &quot;{query}&quot;.</div>}
+        {!loading && scopedItems.length === 0 && <div className="sl-empty">No items yet — add your first above.</div>}
+        {!loading && scopedItems.length > 0 && filteredItems.length === 0 && <div className="sl-empty">No items match &quot;{query}&quot;.</div>}
         {filteredItems.map((it) => {
           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
 
@@ -428,7 +465,9 @@ export default function CatalogTab() {
                 {editErr && <div style={{ background: '#fdecea', color: '#c0392b', padding: '6px 10px', borderRadius: 8, fontSize: 12, marginBottom: 10 }}>{editErr}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
                   <div><label style={lbl}>Type</label>
-                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>
+                    {lockType
+                      ? <input style={inp} value={TYPE_LABELS[editForm.item_type] || editForm.item_type} disabled />
+                      : <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}</select>}
                   </div>
                   <div><label style={lbl}>Name</label><input style={inp} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
                   <div><label style={lbl}>Category</label><input style={inp} value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /></div>
@@ -453,6 +492,16 @@ export default function CatalogTab() {
                     )}
                   </div>
                 </div>
+                {editForm.item_type === 'product' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: editForm.is_digital ? 8 : 0 }}>
+                      <input type="checkbox" checked={editForm.is_digital} onChange={(e) => setEditForm({ ...editForm, is_digital: e.target.checked })} /> Digital item
+                    </label>
+                    {editForm.is_digital && (
+                      <input style={inp} value={editForm.digital_delivery_url} onChange={(e) => setEditForm({ ...editForm, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
+                    )}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end' }}>
                   <div><label style={lbl}>Unit</label>
                     <select style={inp} value={editForm.per_unit} onChange={(e) => setEditForm({ ...editForm, per_unit: e.target.value })}>{UNITS.map((u) => <option key={u.v} value={u.v}>{u.l}</option>)}</select>
@@ -522,6 +571,9 @@ export default function CatalogTab() {
             >
               <span title="Drag to reorder" style={{ color: 'var(--sl-muted)', fontSize: 13, letterSpacing: '-1px', cursor: 'grab', userSelect: 'none' }}>⠿</span>
               <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{TYPE_LABELS[it.item_type] || it.item_type}</span>
+              {it.item_type === 'product' && it.is_digital && (
+                <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--sl-muted)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 4, padding: '2px 6px' }}>Digital</span>
+              )}
               {it.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', flexShrink: 0 }} />

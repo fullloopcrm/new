@@ -129,6 +129,30 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
+  // --- Dev-only tenant preview override (never runs outside development) ---
+  // localhost has no subdomain/custom-domain to route by, so a tenant site
+  // is otherwise unreachable without editing /etc/hosts. ?preview_tenant=<slug>
+  // rewrites to that tenant's site the same way a real subdomain would.
+  // A cookie (set on the first rewrite) carries the tenant across same-origin
+  // fetch() calls that don't repeat the query param — e.g. the Shop page's
+  // own client-side POST to /api/shop/checkout — so the whole page, not just
+  // the initial navigation, resolves to the previewed tenant.
+  if (process.env.NODE_ENV === 'development' && isMainHost(hostname)) {
+    const previewSlug = req.nextUrl.searchParams.get('preview_tenant') || req.cookies.get('dev_preview_tenant')?.value
+    if (previewSlug) {
+      try {
+        const tenant = await getTenantBySlug(previewSlug)
+        if (tenant && tenantServesSite(tenant.status)) {
+          const res = rewriteToSite(req, tenant.id, tenant.slug)
+          res.cookies.set('dev_preview_tenant', previewSlug, { path: '/' })
+          return res
+        }
+      } catch (e) {
+        console.error('preview_tenant lookup error:', e)
+      }
+    }
+  }
+
   // --- Main site / dashboard (existing behavior) ---
   if (!isPublicRoute(req)) {
     // Allow admin (PIN-auth) to bypass the sign-in redirect on dashboard +

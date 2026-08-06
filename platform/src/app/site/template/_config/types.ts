@@ -81,6 +81,8 @@ export interface SiteConfig {
   geo: SiteGeo
   theme: SiteTheme
   agent: SiteAgent
+  /** Whether the Shop page + cart nav are live — /dashboard/ecommerce Settings. */
+  storefrontEnabled: boolean
   /** Star rating shown in trust badges, e.g. 5.0 */
   rating: number
   /** Review count label, e.g. "50+" */

@@ -44,6 +44,7 @@ export const siteConfig: SiteConfig = {
     surface: '#F5FBF8',
   },
   agent: { name: 'Assistant' },
+  storefrontEnabled: true,
   rating: 5.0,
   reviewCount: '50+',
   // Neutral default service options. Per-tenant config overrides these with the

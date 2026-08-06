@@ -435,6 +435,35 @@ export function serviceItemListSchema(b: Biz) {
   }
 }
 
+export function productItemListSchema(
+  b: Biz,
+  products: { id: string; name: string; description: string | null; imageUrl: string | null; priceCents: number }[],
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Products Sold by ${b.name}`,
+    numberOfItems: products.length,
+    itemListElement: products.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Product',
+        name: p.name,
+        ...(p.description ? { description: p.description } : {}),
+        ...(p.imageUrl ? { image: p.imageUrl } : {}),
+        offers: {
+          '@type': 'Offer',
+          price: (p.priceCents / 100).toFixed(2),
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+          url: `${b.url}/shop`,
+        },
+      },
+    })),
+  }
+}
+
 export function areaItemListSchema(b: Biz) {
   return {
     '@context': 'https://schema.org',

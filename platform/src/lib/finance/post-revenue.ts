@@ -111,6 +111,46 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
 }
 
 /**
+ * Post a Shop order's revenue to the ledger — DR 1050 Undeposited Funds,
+ * CR 4010 Product Sales (the dedicated e-commerce account in DEFAULT_CHART,
+ * kept separate from 4000 Service Revenue so P&L reporting can tell product
+ * sales apart from service jobs). Idempotent by (source='shop_order',
+ * source_id=order.id), called from the Stripe webhook's handleShopOrder
+ * right after the order row itself is created.
+ */
+export async function postShopOrderRevenue(opts: { tenantId: string; orderId: string; subtotalCents: number }): Promise<PostRevenueResult> {
+  const { tenantId, orderId, subtotalCents } = opts
+  if (subtotalCents <= 0) return { posted: false, reason: 'zero_amount' }
+
+  if (await journalEntryExists(tenantId, 'shop_order', orderId)) {
+    return { posted: false, reason: 'already_posted' }
+  }
+
+  await ensureChartAccounts(tenantId)
+  const [undeposited, productRevenueAcct] = await Promise.all([
+    getAccountIdByCode(tenantId, '1050'),
+    getAccountIdByCode(tenantId, '4010'),
+  ])
+  if (!undeposited || !productRevenueAcct) return { posted: false, reason: 'accounts_missing' }
+
+  const lines: JournalLineInput[] = [
+    { coa_id: undeposited, debit_cents: subtotalCents, memo: 'Shop order received' },
+    { coa_id: productRevenueAcct, credit_cents: subtotalCents, memo: 'Product sales' },
+  ]
+
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: new Date().toISOString().slice(0, 10),
+    memo: `Shop order ${orderId.slice(0, 8)}`,
+    source: 'shop_order',
+    source_id: orderId,
+    lines,
+  })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
+  return { posted: true, entryId }
+}
+
+/**
  * Backfill the ledger from the REAL paid signal — bookings.payment_status —
  * because the `payments` table is sparse/stale (most paid bookings have no
  * completed payment row). Posts, per paid/partial booking, idempotently:

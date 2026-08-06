@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import CartWidget from '@/app/site/template/_components/CartWidget'
 
 const serviceLinks = [
   { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
@@ -24,6 +25,7 @@ const moreLinks = [
   { name: 'Careers — Operations Admin', href: '/careers/operations-coordinator' },
   { name: 'Locations', href: '/service-areas' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
+  { name: 'Shop', href: '/shop' },
 ]
 
 // Generic (non-cleaning, non-VA) tenants use the config-driven long-form routes
@@ -31,6 +33,7 @@ const moreLinks = [
 // /referral-program) instead of the NYC-Maid cleaning slugs. Cleaning tenants
 // keep their live SEO nav above; this is additive.
 const genericMoreLinks = [
+  { name: 'About', href: '/about' },
   { name: 'FAQ', href: '/faq' },
   { name: 'Blog', href: '/blog' },
   { name: 'Contact', href: '/contact' },
@@ -58,9 +61,8 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
   // a new stored SiteConfig field (same PROJECT_LEAD_INDUSTRIES source
   // defaultFunnelMode() already uses). The /projects route + table exist for
   // EVERY tenant regardless — this only controls whether the link is shown.
-  const genericLinks = profile.isProjectLed
-    ? [...genericMoreLinks, { name: 'Projects', href: '/projects' }]
-    : genericMoreLinks
+  const genericLinks = profile.isProjectLed ? [...genericMoreLinks, { name: 'Projects', href: '/projects' }] : genericMoreLinks
+  const cleaningMoreLinks = moreLinks.filter((l) => l.name !== 'Shop' || config.storefrontEnabled)
   // Book Now -> the self-book flow (book/new redirects internally to the
   // right form per industry: cleaning hourly form, remote plan intake for VA,
   // or the neutral standard form). Start a Project -> the generic lead-capture
@@ -130,12 +132,15 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             <nav className="hidden xl:flex items-center justify-center flex-1 gap-8 mx-8">
               <Link href="/" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Home</Link>
 
+              {config.storefrontEnabled && (
+              <Link href="/shop" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Store</Link>
+              )}
+
               {isVa && (
               <Link href="/virtual-assistant-services" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Services</Link>
               )}
 
               {generic && (<>
-              <Link href="/about" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">About</Link>
               <Link href="/services" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Services</Link>
               <Link href="/pricing" className="text-[var(--brand)] hover:text-[rgb(var(--brand-rgb)/0.7)] font-medium text-[15px] tracking-wide">Pricing</Link>
               </>)}
@@ -179,7 +184,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
                 </button>
                 <div className="absolute left-0 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-3 w-60">
-                    {moreLinks.map(link => (
+                    {cleaningMoreLinks.map(link => (
                       <Link key={link.href} href={link.href} className="block px-5 py-2.5 text-sm text-gray-600 hover:bg-[rgb(var(--accent-rgb)/0.2)] hover:text-[var(--brand)] transition-colors">
                         {link.name}
                       </Link>
@@ -219,6 +224,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href={bookHref} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap">
                 Book Now
               </Link>
+              {config.storefrontEnabled && <CartWidget />}
             </div>
 
             {/* Mobile hamburger */}
@@ -229,6 +235,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <Link href={bookHref} className="bg-[var(--accent)] text-[var(--brand)] px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Book Now
               </Link>
+              {config.storefrontEnabled && <CartWidget />}
               <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation menu" aria-expanded={mobileOpen} className="p-2 text-[var(--brand)]">
                 <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -267,12 +274,15 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             <div className="space-y-1">
               <Link href="/" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Home</Link>
 
+              {config.storefrontEnabled && (
+              <Link href="/shop" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Store</Link>
+              )}
+
               {isVa && (
               <Link href="/virtual-assistant-services" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Services</Link>
               )}
 
               {generic && (<>
-              <Link href="/about" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">About</Link>
               <Link href="/services" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Services</Link>
               <Link href="/pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
               </>)}
@@ -308,7 +318,7 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </button>
               {moreOpen && (
                 <div className="pl-4 pb-2 space-y-1">
-                  {moreLinks.map(link => (
+                  {cleaningMoreLinks.map(link => (
                     <Link key={link.href} href={link.href} onClick={closeMenu} className="block py-2 text-sm text-white/60 hover:text-[var(--accent)] transition-colors">
                       {link.name}
                     </Link>

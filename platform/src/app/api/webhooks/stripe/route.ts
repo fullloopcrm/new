@@ -23,7 +23,7 @@ import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
-import { postPaymentRevenue } from '@/lib/finance/post-revenue'
+import { postPaymentRevenue, postShopOrderRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
@@ -32,11 +32,213 @@ import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { trackError } from '@/lib/error-tracking'
+import { sendEmail, tenantSender } from '@/lib/email'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+}
+
+type ShopReceiptItem = { name: string; priceCents: number; qty: number; isDigital: boolean; digitalDeliveryUrl: string | null }
+
+function shopMoney(cents: number): string {
+  return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * Creates the shop_orders/shop_order_items record for a completed cart
+ * checkout and sends the tenant's OWN receipt — never Stripe's default
+ * (which is branded to whichever Stripe account processed the charge; for a
+ * tenant with no Connect account of their own, that's the platform account,
+ * so relying on it would put "Full Loop CRM" on a customer-facing receipt).
+ * Idempotent on the shop_orders.stripe_checkout_session_id unique index —
+ * safe against Stripe's at-least-once webhook redelivery.
+ */
+async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> {
+  const tenantId = session.metadata?.tenant_id
+  if (!tenantId) return
+
+  const { data: existing } = await supabaseAdmin
+    .from('shop_orders')
+    .select('id')
+    .eq('stripe_checkout_session_id', session.id)
+    .maybeSingle()
+  if (existing) return
+
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, slug, domain, primary_color, logo_url, phone, email, email_from, resend_api_key, telnyx_api_key, telnyx_phone')
+    .eq('id', tenantId)
+    .single()
+  if (!tenant) return
+
+  const stripe = getStripe()
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { expand: ['data.price.product'] })
+
+  const serviceTypeIds = lineItems.data
+    .map((li) => {
+      const product = li.price?.product
+      return typeof product === 'object' && product && !('deleted' in product && product.deleted)
+        ? (product as Stripe.Product).metadata?.service_type_id
+        : undefined
+    })
+    .filter((id): id is string => !!id)
+
+  const { data: catalogRows } = serviceTypeIds.length
+    ? await supabaseAdmin.from('service_types').select('id, is_digital, digital_delivery_url').in('id', serviceTypeIds)
+    : { data: [] as { id: string; is_digital: boolean; digital_delivery_url: string | null }[] }
+  const catalogById = new Map((catalogRows || []).map((r) => [r.id, r]))
+
+  const items: (ShopReceiptItem & { serviceTypeId: string | null })[] = lineItems.data.map((li) => {
+    const product = li.price?.product
+    const serviceTypeId =
+      typeof product === 'object' && product && !('deleted' in product && product.deleted)
+        ? (product as Stripe.Product).metadata?.service_type_id || null
+        : null
+    const catalog = serviceTypeId ? catalogById.get(serviceTypeId) : undefined
+    return {
+      serviceTypeId,
+      name: li.description || 'Item',
+      priceCents: li.price?.unit_amount || 0,
+      qty: li.quantity || 1,
+      isDigital: catalog?.is_digital || false,
+      digitalDeliveryUrl: catalog?.digital_delivery_url || null,
+    }
+  })
+
+  const anyPhysical = items.some((i) => !i.isDigital)
+  const anyDigital = items.some((i) => i.isDigital)
+  const fulfillmentType = anyPhysical && anyDigital ? 'mixed' : anyDigital ? 'digital' : 'physical'
+
+  const shippingDetails = (session as unknown as { shipping_details?: { name?: string | null; address?: Stripe.Address | null } | null }).shipping_details
+  const shipping = shippingDetails ? { name: shippingDetails.name || null, address: shippingDetails.address || null } : null
+
+  const { data: order, error: orderError } = await supabaseAdmin
+    .from('shop_orders')
+    .insert({
+      tenant_id: tenantId,
+      stripe_checkout_session_id: session.id,
+      customer_email: session.customer_details?.email || null,
+      customer_name: session.customer_details?.name || null,
+      shipping_address: shipping,
+      subtotal_cents: session.amount_total || 0,
+      status: 'paid',
+      fulfillment_type: fulfillmentType,
+    })
+    .select('id')
+    .single()
+
+  if (orderError || !order) {
+    // Unique-violation on a redelivered webhook race is expected and fine —
+    // the maybeSingle() check above just lost a race, not a real failure.
+    if (orderError?.code !== '23505') console.error('shop_orders insert failed:', orderError)
+    return
+  }
+
+  if (items.length > 0) {
+    await supabaseAdmin.from('shop_order_items').insert(
+      items.map((i) => ({
+        order_id: order.id,
+        service_type_id: i.serviceTypeId,
+        name: i.name,
+        price_cents: i.priceCents,
+        qty: i.qty,
+        is_digital: i.isDigital,
+        digital_delivery_url: i.digitalDeliveryUrl,
+      }))
+    )
+  }
+
+  try {
+    await postShopOrderRevenue({ tenantId, orderId: order.id, subtotalCents: session.amount_total || 0 })
+  } catch (err) {
+    console.error('postShopOrderRevenue failed:', err)
+  }
+
+  await sendShopReceipt({
+    tenant,
+    sessionId: session.id,
+    items,
+    subtotalCents: session.amount_total || 0,
+    customerEmail: session.customer_details?.email || null,
+    customerName: session.customer_details?.name || null,
+    customerPhone: session.customer_details?.phone || null,
+  })
+}
+
+async function sendShopReceipt({
+  tenant,
+  sessionId,
+  items,
+  subtotalCents,
+  customerEmail,
+  customerName,
+  customerPhone,
+}: {
+  tenant: { id: string; name: string; slug: string | null; domain: string | null; primary_color?: string | null; phone?: string | null; email?: string | null; email_from?: string | null; resend_api_key?: string | null; telnyx_api_key?: string | null; telnyx_phone?: string | null }
+  sessionId: string
+  items: ShopReceiptItem[]
+  subtotalCents: number
+  customerEmail: string | null
+  customerName: string | null
+  customerPhone: string | null
+}): Promise<void> {
+  const receiptUrl = `${tenantSiteUrl(tenant)}/orders/session/${sessionId}`
+  const brand = tenant.primary_color || '#1a2744'
+  const firstName = (customerName || '').split(' ')[0] || 'there'
+
+  if (customerEmail) {
+    const rows = items
+      .map(
+        (i) =>
+          `<tr><td style="padding:8px 0;color:#333;">${i.name} × ${i.qty}${i.isDigital ? ' <span style="color:#888;font-size:12px;">(digital)</span>' : ''}</td><td style="padding:8px 0;text-align:right;color:#333;">${shopMoney(i.priceCents * i.qty)}</td></tr>`
+      )
+      .join('')
+    const digitalLinks = items
+      .filter((i) => i.isDigital && i.digitalDeliveryUrl)
+      .map((i) => `<p style="margin:4px 0;"><a href="${i.digitalDeliveryUrl}" style="color:${brand};">Download: ${i.name}</a></p>`)
+      .join('')
+    const html = `
+      <div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;">
+        <h1 style="color:${brand};font-size:22px;margin:0 0 4px;">Thank you, ${firstName}!</h1>
+        <p style="color:#555;font-size:14px;margin:0 0 24px;">Your order from ${tenant.name} is confirmed.</p>
+        <table style="width:100%;border-collapse:collapse;border-top:1px solid #eee;border-bottom:1px solid #eee;">
+          ${rows}
+          <tr><td style="padding:12px 0 0;font-weight:bold;color:${brand};">Total</td><td style="padding:12px 0 0;text-align:right;font-weight:bold;color:${brand};">${shopMoney(subtotalCents)}</td></tr>
+        </table>
+        ${digitalLinks ? `<div style="margin-top:20px;">${digitalLinks}</div>` : ''}
+        <p style="color:#555;font-size:14px;margin-top:24px;">
+          <a href="${receiptUrl}" style="color:${brand};">View your order</a> any time, or reply to this email if anything needs to change — we're glad to help.
+        </p>
+        ${tenant.phone ? `<p style="color:#888;font-size:12px;margin-top:24px;">Questions? Call or text us at ${tenant.phone}.</p>` : ''}
+      </div>`
+    try {
+      await sendEmail({
+        to: customerEmail,
+        subject: `Your ${tenant.name} order is confirmed`,
+        html,
+        from: tenantSender(tenant),
+        resendApiKey: tenant.resend_api_key,
+      })
+    } catch (err) {
+      console.error('shop receipt email failed:', err)
+    }
+  }
+
+  if (customerPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    try {
+      await sendSMS({
+        to: customerPhone,
+        body: `${tenant.name}: Thanks for your order! View your receipt: ${receiptUrl}`,
+        telnyxApiKey: tenant.telnyx_api_key,
+        telnyxPhone: tenant.telnyx_phone,
+      })
+    } catch (err) {
+      console.error('shop receipt SMS failed:', err)
+    }
+  }
 }
 
 // Each tenant runs its own independent Stripe account, so each one generates
@@ -167,6 +369,23 @@ export async function POST(request: Request) {
       let bookingId = session.metadata?.booking_id
       let tenantId = session.metadata?.tenant_id
       const invoiceId = session.metadata?.invoice_id
+
+      // Shop (cart) checkout — /api/shop/checkout stamps source:'shop' and no
+      // booking_id/invoice_id/quote metadata. Exit before any of the
+      // booking/invoice/quote-deposit branches below, all of which assume a
+      // booking-shaped session: in particular the no-bookingId fallback further
+      // down matches the payer's email against NYC MAID clients and treats a
+      // match as an unpaid job payment — a shop order for any tenant with no
+      // real booking behind it must never fall into that recovery path.
+      if (session.metadata?.source === 'shop') {
+        try {
+          await handleShopOrder(session)
+        } catch (err) {
+          console.error('handleShopOrder failed:', err)
+        }
+        return NextResponse.json({ received: true, shop_order: true })
+      }
+
       // True when the client could type their own amount on this checkout —
       // the ONE condition under which an overage is a real, intended tip
       // rather than a bug. See the tip-math comment further down. Two ways

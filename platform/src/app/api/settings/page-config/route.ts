@@ -14,6 +14,7 @@ const VALID_PAGES = [
   'clients',
   'connect',
   'docs',
+  'ecommerce',
   'feedback',
   'finance',
   'google',

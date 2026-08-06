@@ -109,6 +109,15 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   const hasBrandCopy = !!(heroLine || aboutIntro || (differentiators && differentiators.length > 0))
   const googleReviewLink = selena && typeof selena['google_review_link'] === 'string' ? selena['google_review_link'] : undefined
 
+  // /dashboard/ecommerce's Settings drawer — stored the same generic way as
+  // every other page-scoped config (see /api/settings/page-config), read
+  // directly off the tenant row already fetched above instead of a second
+  // query. Default-on (undefined/anything but explicit false) so a brand-new
+  // tenant's Shop page works before they've ever opened Settings.
+  const setupProgress = (tenant['setup_progress'] as Record<string, unknown> | undefined) ?? {}
+  const ecommerceConfig = (setupProgress['__page_config_ecommerce'] as Record<string, unknown> | undefined) ?? {}
+  const storefrontEnabled = ecommerceConfig['storefront_enabled'] !== false
+
   return {
     identity: {
       name,
@@ -136,6 +145,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
       surface: defaultConfig.theme.surface,
     },
     agent: { name: agentName },
+    storefrontEnabled,
     // Reviews come ONLY from the tenant's REAL google_reviews. A tenant with none
     // shows no rating at all — never a fabricated "5.0 / 50+". Emitting an
     // aggregateRating a business did not actually earn is fake-review markup
