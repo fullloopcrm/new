@@ -7,6 +7,7 @@ import { hashAdminPin } from '@/lib/admin-pin'
 import { sendLoginAlert } from '@/lib/login-alert'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { audit } from '@/lib/audit'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
@@ -202,6 +203,20 @@ export async function POST(request: Request) {
       const res = NextResponse.json({ success: true, role: 'tenant_admin' })
       setAdminCookie(res, createTenantAdminToken(headerTenantId, member.id, member.role))
       await sendLoginAlert({ tenantId: headerTenantId, ip, ua, who: `Tenant admin (${member.role})` })
+      // Durable, queryable record of every dashboard sign-in — sendLoginAlert
+      // above is a real-time ping (email/Telegram) but isn't stored anywhere
+      // you can look back at later. This is what makes "who logged into the
+      // dashboard, and when" answerable from the audit log (/dashboard/activity)
+      // instead of only from whatever alert channel happened to catch it live.
+      await audit({
+        tenantId: headerTenantId,
+        action: 'admin.dashboard_login',
+        entityType: 'team_member',
+        entityId: member.id,
+        userId: member.id,
+        ip,
+        details: { role: member.role },
+      })
       return res
     }
   }

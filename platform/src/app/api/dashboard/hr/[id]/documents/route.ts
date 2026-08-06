@@ -17,7 +17,7 @@ async function assertMember(tenantId: string, memberId: string): Promise<boolean
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { tenant, error: permErr } = await requirePermission('team.edit')
+  const { tenant, error: permErr } = await requirePermission('team.compensation')
   if (permErr) return permErr
   try {
     const { tenantId } = tenant
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { tenant, error: permErr } = await requirePermission('team.edit')
+  const { tenant, error: permErr } = await requirePermission('team.compensation')
   if (permErr) return permErr
   try {
     const { tenantId } = tenant

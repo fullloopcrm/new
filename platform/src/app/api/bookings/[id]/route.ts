@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
@@ -386,7 +387,15 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { tenant, error: authError } = await requirePermission('bookings.delete')
+  // Gated on bookings.edit, not bookings.delete: cancel_series=true below is
+  // a soft cancel (status update + one notification), the same action as
+  // PATCH .../status — it just also has to touch every future booking in the
+  // series, which this endpoint already knows how to do. Only the true
+  // hard-delete path further down (no cancel_series, no dependent records)
+  // re-checks bookings.delete, so a role with cancel-but-not-delete (e.g.
+  // virtual_assistant) can cancel a whole series without gaining the power
+  // to permanently, silently delete a booking.
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
 
   try {
@@ -467,6 +476,14 @@ export async function DELETE(
       })
 
       return NextResponse.json({ success: true, schedule_cancelled: !!cancelledSchedule, bookings_cancelled: cancelledBookings?.length || 0 })
+    }
+
+    // Past this point is the real hard-delete — re-check bookings.delete
+    // specifically. The top-level gate only guarantees bookings.edit (enough
+    // for the cancel_series branch above); a role without bookings.delete
+    // must not reach a permanent, unrecoverable, silent-to-the-client delete.
+    if (!hasPermission(tenant.role, 'bookings.delete', overridesFor(tenant))) {
+      return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
     }
 
     // Delete is destructive and irreversible — payments, reviews, and payouts

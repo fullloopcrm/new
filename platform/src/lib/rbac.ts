@@ -15,6 +15,7 @@ export type Permission =
   | 'clients.view' | 'clients.create' | 'clients.edit' | 'clients.delete'
   | 'bookings.view' | 'bookings.create' | 'bookings.edit' | 'bookings.delete'
   | 'team.view' | 'team.create' | 'team.edit' | 'team.delete'
+  | 'team.compensation'
   | 'finance.view' | 'finance.payroll' | 'finance.expenses'
   | 'campaigns.view' | 'campaigns.create' | 'campaigns.send'
   | 'settings.view' | 'settings.edit' | 'settings.integrations'
@@ -39,7 +40,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   owner: [
     'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
     'bookings.view', 'bookings.create', 'bookings.edit', 'bookings.delete',
-    'team.view', 'team.create', 'team.edit', 'team.delete',
+    'team.view', 'team.create', 'team.edit', 'team.delete', 'team.compensation',
     'finance.view', 'finance.payroll', 'finance.expenses',
     'campaigns.view', 'campaigns.create', 'campaigns.send',
     'settings.view', 'settings.edit', 'settings.integrations',
@@ -53,7 +54,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
     'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
     'bookings.view', 'bookings.create', 'bookings.edit', 'bookings.delete',
-    'team.view', 'team.create', 'team.edit',
+    'team.view', 'team.create', 'team.edit', 'team.compensation',
     'finance.view', 'finance.payroll', 'finance.expenses',
     'campaigns.view', 'campaigns.create', 'campaigns.send',
     'settings.view', 'settings.edit',
@@ -67,7 +68,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   manager: [
     'clients.view', 'clients.create', 'clients.edit',
     'bookings.view', 'bookings.create', 'bookings.edit',
-    'team.view',
+    'team.view', 'team.compensation',
     'finance.view',
     'campaigns.view',
     'settings.view',
@@ -88,18 +89,21 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'notifications.view',
   ],
   // Front-office/remote support: The Loop, clients, ComHub/Connect, sales,
-  // production (bookings/schedules), HR (team), and marketing (campaigns).
-  // Deliberately no delete anywhere and zero finance/settings access —
+  // production (bookings/schedules), team roster/contact info, and marketing
+  // (campaigns). Deliberately no delete anywhere, zero finance/settings
+  // access, and — as of the 2026-08-06 team.compensation split — no visibility
+  // into pay rate, employment classification, or compliance documents, which
+  // now require team.compensation on top of team.view/team.edit.
   // 2026-08-03, first VA hire onboarding role.
   virtual_assistant: [
     'clients.view', 'clients.create', 'clients.edit',
     'bookings.view', 'bookings.create', 'bookings.edit',
     'schedules.view', 'schedules.create', 'schedules.edit',
     'team.view', 'team.create', 'team.edit',
-    'campaigns.view', 'campaigns.create', 'campaigns.send',
+    'campaigns.view', 'campaigns.create',
     'reviews.view', 'reviews.request',
-    'referrals.view', 'referrals.create', 'referrals.manage',
-    'sales_partners.view', 'sales_partners.manage',
+    'referrals.view', 'referrals.create',
+    'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
   ],
@@ -138,6 +142,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     { value: 'team.create', label: 'Add team members' },
     { value: 'team.edit', label: 'Edit team members' },
     { value: 'team.delete', label: 'Remove team members' },
+    { value: 'team.compensation', label: 'View/edit pay rate, employment classification, and compliance documents' },
   ] },
   { key: 'finance', label: 'Finance', permissions: [
     { value: 'finance.view', label: 'View finance' },

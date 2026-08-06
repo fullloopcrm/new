@@ -896,11 +896,14 @@ function BookingsPage() {
               return
             }
             if (futureBookings.length > 1) {
-              await Promise.all(
-                futureBookings.slice(1).map(b =>
-                  fetch('/api/bookings/' + b.id + '?skip_email=true', { method: 'DELETE' })
-                )
+              const rest = futureBookings.slice(1)
+              const results = await Promise.allSettled(
+                rest.map(b => fetch('/api/bookings/' + b.id + '?skip_email=true', { method: 'DELETE' }))
               )
+              const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
+              if (failedCount > 0) {
+                alert(`Cancelled ${rest.length - failedCount} of ${rest.length} remaining bookings in this series. ${failedCount} could not be cancelled and are still scheduled — check the bookings list.`)
+              }
             }
           }
         }

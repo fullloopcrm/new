@@ -26,8 +26,10 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-supabase', () => ({ tenantClient: async () => makeTenantDbFake(h) }))
+const roleHolder = vi.hoisted(() => ({ role: 'owner' }))
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: TENANT }, error: null }),
+  requirePermission: async () => ({ tenant: { tenantId: TENANT, role: roleHolder.role }, error: null }),
+  overridesFor: () => null,
 }))
 vi.mock('@/lib/notify', () => ({ notify: async () => ({ success: true }) }))
 vi.mock('@/lib/comms-prefs', () => ({ isCommEnabled: async () => false }))
@@ -54,7 +56,15 @@ function seedBooking() {
 describe('DELETE /api/bookings/[id] — payment/review/payout guard', () => {
   beforeEach(() => {
     h.seq = 0
+    roleHolder.role = 'owner'
     seedBooking()
+  })
+
+  it('a role with bookings.edit but not bookings.delete (e.g. virtual_assistant) is rejected with 403, booking untouched', async () => {
+    roleHolder.role = 'virtual_assistant'
+    const res = await DELETE(req(), { params: Promise.resolve({ id: BOOKING_ID }) })
+    expect(res.status).toBe(403)
+    expect(h.store.bookings.find((b) => b.id === BOOKING_ID)).toBeDefined()
   })
 
   it('deletes cleanly when there is no payment/review/payout history', async () => {
