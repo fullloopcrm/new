@@ -368,7 +368,12 @@ function BookingsPage() {
 
   const applyFilters = () => {
     let result = [...bookings]
-    if (filters.status) result = result.filter(b => b.status === filters.status)
+    // 'confirmed' is backend-equivalent to 'scheduled' (dashboard/route.ts and
+    // every stats endpoint already treat them the same) -- a booking a client
+    // SMS-confirms was invisible under the Scheduled tab/search otherwise
+    // (Brian Prowse, 2026-08-06).
+    if (filters.status === 'scheduled') result = result.filter(b => b.status === 'scheduled' || b.status === 'confirmed')
+    else if (filters.status) result = result.filter(b => b.status === filters.status)
     if (filters.service_type) result = result.filter(b => b.service_type === filters.service_type)
     if (filters.team_member_id) result = result.filter(b => b.team_member_id === filters.team_member_id)
     if (filters.client_id) result = result.filter(b => b.client_id === filters.client_id)
@@ -1043,7 +1048,7 @@ function BookingsPage() {
   // Status counts for filter pills
   const statusCounts = {
     all: bookings.length,
-    scheduled: bookings.filter(b => b.status === 'scheduled').length,
+    scheduled: bookings.filter(b => b.status === 'scheduled' || b.status === 'confirmed').length,
     in_progress: bookings.filter(b => b.status === 'in_progress').length,
     completed: bookings.filter(b => b.status === 'completed').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
@@ -1060,12 +1065,12 @@ function BookingsPage() {
   // ledgerYtdRevenue (from /api/finance/summary's yearRevenue) is already in
   // cents, same as bookings[].price — no conversion needed.
   const totalRevenue = activeFilterCount === 0 && ledgerYtdRevenue != null ? ledgerYtdRevenue : filteredCompletedRevenue
-  const upcomingCount = bookings.filter(b => b.status === 'scheduled' && new Date(b.start_time) > new Date()).length
+  const upcomingCount = bookings.filter(b => (b.status === 'scheduled' || b.status === 'confirmed') && new Date(b.start_time) > new Date()).length
   const thisWeekCount = bookings.filter(b => {
     const d = new Date(b.start_time)
     const now = new Date()
     const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-    return d >= now && d <= weekFromNow && b.status === 'scheduled'
+    return d >= now && d <= weekFromNow && (b.status === 'scheduled' || b.status === 'confirmed')
   }).length
 
   // Daily Overview — today's closeout numbers, shown inside the Close Out
