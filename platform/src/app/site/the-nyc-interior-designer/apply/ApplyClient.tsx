@@ -7,8 +7,8 @@ import { jobs } from "@/app/site/the-nyc-interior-designer/_lib/jobs";
 import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/the-nyc-interior-designer/_lib/siteData";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 );
 
 // Upload a file directly to Supabase storage via a pre-signed URL (bypasses
