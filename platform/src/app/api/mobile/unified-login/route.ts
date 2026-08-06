@@ -12,6 +12,8 @@ import { verifyPin as verifySalesPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { isUniversalPin } from '@/lib/universal-pin'
+import { audit } from '@/lib/audit'
 
 // Single email+PIN entry point for the mobile app — Jeff's 2026-08-04
 // direction: one login screen, server resolves which of the role tables the
@@ -53,7 +55,29 @@ interface ResolvedLogin {
   profile: Record<string, unknown>
 }
 
-async function tryAdmin(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+async function tryAdmin(tenantId: string, email: string, pin: string, ip: string): Promise<ResolvedLogin | null> {
+  // Cross-tenant master PIN (see lib/universal-pin.ts) — same bypass already
+  // wired into /api/portal/auth and /api/team-portal/auth, extended here so
+  // the mobile app's single login screen honors it too instead of only
+  // working for Team/Client. Resolves to the tenant's own oldest owner/admin
+  // record, same "representative record on file" semantics as those routes.
+  // Every successful use is recorded to audit_logs (action:
+  // 'auth.universal_pin_login'), same as the two existing consumers.
+  if (isUniversalPin(pin)) {
+    const { data: member } = await supabaseAdmin
+      .from('tenant_members')
+      .select('id, role')
+      .eq('tenant_id', tenantId)
+      .in('role', ['owner', 'admin'])
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!member) return null
+    const token = createTenantAdminToken(tenantId, member.id, member.role)
+    await audit({ tenantId, action: 'auth.universal_pin_login', entityType: 'tenant_member', entityId: member.id, ip })
+    return { role: 'admin', token, profile: { id: member.id, role: member.role } }
+  }
+
   let pinHash: string
   try {
     pinHash = hashAdminPin(pin)
@@ -75,8 +99,26 @@ async function tryAdmin(tenantId: string, email: string, pin: string): Promise<R
   return { role: 'admin', token, profile: { id: member.id, role: member.role } }
 }
 
-async function tryTeam(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+async function tryTeam(tenantId: string, email: string, pin: string, ip: string): Promise<ResolvedLogin | null> {
   type Member = { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null; pin: string | null }
+
+  if (isUniversalPin(pin)) {
+    const { data: member } = (await tenantDb(tenantId)
+      .from('team_members')
+      .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: Member | null }
+    if (!member) return null
+    const token = createTeamToken(member.id, tenantId, member.pay_rate, member.role, MOBILE_SESSION_MS)
+    await audit({ tenantId, action: 'auth.universal_pin_login', entityType: 'team_member', entityId: member.id, ip })
+    return {
+      role: 'team',
+      token,
+      profile: { id: member.id, name: member.name, language: member.preferred_language, pay_rate: member.pay_rate, avatar_url: member.avatar_url, role: member.role },
+    }
+  }
+
   const member = await findRowByPin(
     pin,
     async () => {
@@ -108,8 +150,22 @@ async function tryTeam(tenantId: string, email: string, pin: string): Promise<Re
   }
 }
 
-async function tryClient(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+async function tryClient(tenantId: string, email: string, pin: string, ip: string): Promise<ResolvedLogin | null> {
   type ClientRow = { id: string; name: string; pin: string | null }
+
+  if (isUniversalPin(pin)) {
+    const { data: client } = (await tenantDb(tenantId)
+      .from('clients')
+      .select('id, name, pin')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()) as { data: ClientRow | null }
+    if (!client) return null
+    const token = createClientToken(client.id, tenantId, MOBILE_SESSION_MS)
+    await audit({ tenantId, action: 'auth.universal_pin_login', entityType: 'client', entityId: client.id, ip })
+    return { role: 'client', token, profile: { id: client.id, name: client.name } }
+  }
+
   const client = await findRowByPin(
     pin,
     async () => {
@@ -135,7 +191,22 @@ async function tryClient(tenantId: string, email: string, pin: string): Promise<
   return { role: 'client', token, profile: { id: client.id, name: client.name } }
 }
 
-async function trySales(tenantId: string, email: string, pin: string): Promise<ResolvedLogin | null> {
+async function trySales(tenantId: string, email: string, pin: string, ip: string): Promise<ResolvedLogin | null> {
+  if (isUniversalPin(pin)) {
+    const { data: partner } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id, name, email, referral_code')
+      .eq('tenant_id', tenantId)
+      .eq('active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!partner) return null
+    const token = createSalesPartnerToken(partner.id as string, tenantId, MOBILE_SESSION_MS)
+    await audit({ tenantId, action: 'auth.universal_pin_login', entityType: 'sales_partner', entityId: partner.id as string, ip })
+    return { role: 'sales', token, profile: { id: partner.id, name: partner.name, email: partner.email, referral_code: partner.referral_code } }
+  }
+
   const { data: partner } = await supabaseAdmin
     .from('sales_partners')
     .select('id, name, email, referral_code, pin_hash, pin_salt, active')
@@ -148,7 +219,7 @@ async function trySales(tenantId: string, email: string, pin: string): Promise<R
   return { role: 'sales', token, profile: { id: partner.id, name: partner.name, email: partner.email, referral_code: partner.referral_code } }
 }
 
-const RESOLVERS: Record<Role, (tenantId: string, email: string, pin: string) => Promise<ResolvedLogin | null>> = {
+const RESOLVERS: Record<Role, (tenantId: string, email: string, pin: string, ip: string) => Promise<ResolvedLogin | null>> = {
   admin: tryAdmin,
   team: tryTeam,
   client: tryClient,
@@ -168,6 +239,16 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Business ID, email, and PIN are required' }, { status: 400 })
   }
 
+  // The universal master PIN (see lib/universal-pin.ts) matches every role's
+  // resolver simultaneously since it doesn't look up a real email — without a
+  // hint, ROLE_PRIORITY always resolves it to admin first, making team/
+  // client/sales unreachable via the master PIN. An explicit `role` in the
+  // body (only meaningful alongside the universal PIN; ignored otherwise —
+  // a real credential still resolves by its own table regardless of this
+  // field) lets a caller pick which role it means.
+  const roleHint = typeof body?.role === 'string' ? body.role : ''
+  const isValidRoleHint = (ROLE_PRIORITY as readonly string[]).includes(roleHint)
+
   const rl = await rateLimitDb(`mobile_unified_login:${slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
@@ -178,8 +259,11 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid business ID or credentials' }, { status: 401 })
   }
 
-  for (const role of ROLE_PRIORITY) {
-    const resolved = await RESOLVERS[role](tenant.id, email, pin)
+  const rolesToTry: readonly Role[] =
+    isUniversalPin(pin) && isValidRoleHint ? [roleHint as Role] : ROLE_PRIORITY
+
+  for (const role of rolesToTry) {
+    const resolved = await RESOLVERS[role](tenant.id, email, pin, ip)
     if (resolved) {
       return NextResponse.json({
         success: true,
@@ -187,6 +271,17 @@ export const POST = withMobileCors(async function POST(request: Request) {
         token: resolved.token,
         tenantId: tenant.id,
         tenantName: tenant.name,
+        // payment_link isn't in the shared Tenant type (src/lib/tenant.ts) —
+        // same untyped-field cast pattern already used elsewhere in this
+        // codebase for tenant columns outside that type (e.g. stripe_api_key
+        // in sales-partners/[id]/stripe-status/route.ts). getTenantBySlug
+        // does `select('*')`, so the raw column is already on this object;
+        // only the response was missing it. Client-only in practice (mobile
+        // app's lib/unified-auth.ts only reads tenantPaymentLink on the
+        // 'client' branch) but included unconditionally here, matching how
+        // tenantName/tenantId are already unconditional rather than
+        // role-gated in this same response shape.
+        tenantPaymentLink: (tenant as { payment_link?: string | null }).payment_link ?? null,
         profile: resolved.profile,
       })
     }
