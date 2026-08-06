@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export function PartnershipForm({ city, state }: { city?: string; state?: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const location = city && state ? `${city}, ${state}` : state || "Nationwide";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,6 +29,7 @@ export function PartnershipForm({ city, state }: { city?: string; state?: string
       hasLicense: String(fd.get("hasLicense") || ""),
       about: String(fd.get("about") || ""),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -57,6 +60,7 @@ export function PartnershipForm({ city, state }: { city?: string; state?: string
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+      <Honeypot inputRef={honeypotRef} />
       <h3 className="text-lg font-bold text-slate-900 font-heading">Partnership Inquiry — {location}</h3>
       <p className="text-sm text-slate-500">Takes 2 minutes. We reply within 48 hours.</p>
       <div>

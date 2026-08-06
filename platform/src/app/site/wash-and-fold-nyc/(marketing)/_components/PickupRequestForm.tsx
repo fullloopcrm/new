@@ -12,9 +12,11 @@
  *  - compact: tight single-column layout for the sitewide CTA band.
  */
 import { useState } from 'react'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 export default function PickupRequestForm({ compact = false, selfBook = false }: { compact?: boolean; selfBook?: boolean }) {
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,6 +31,7 @@ export default function PickupRequestForm({ compact = false, selfBook = false }:
       email: el('email'),
       address: el('address'),
       message: el('message'),
+      ...getSpamGuardFields(),
     }
     try {
       const res = await fetch('/api/contact', {
@@ -62,6 +65,7 @@ export default function PickupRequestForm({ compact = false, selfBook = false }:
   if (compact) {
     return (
       <form onSubmit={handleSubmit} className="space-y-3">
+        <Honeypot inputRef={honeypotRef} />
         <div className="grid gap-3 sm:grid-cols-2">
           <input type="text" name="name" required className={inputClass} placeholder="Name" />
           <input type="tel" name="phone" required className={inputClass} placeholder="Phone" />
@@ -80,6 +84,7 @@ export default function PickupRequestForm({ compact = false, selfBook = false }:
   const labelClass = 'block text-sm font-medium text-[#1a3a5c]'
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label htmlFor="name" className={labelClass}>Name *</label><input type="text" id="name" name="name" required className={`mt-1 ${inputClass}`} placeholder="Your name" /></div>
         <div><label htmlFor="phone" className={labelClass}>Phone *</label><input type="tel" id="phone" name="phone" required className={`mt-1 ${inputClass}`} placeholder="(917) 555-1234" /></div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { track } from "@vercel/analytics";
 import { track as localTrack, getSessionId } from "@/app/site/the-nyc-exterminator/_lib/tracker";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface ContactFormProps {
   service?: string;
@@ -23,6 +24,7 @@ export default function ContactForm({
   const openedRef = useRef(false);
   const submittedRef = useRef(false);
   const lastFieldRef = useRef<string | undefined>(undefined);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   useEffect(() => {
     if (!openedRef.current) {
@@ -69,6 +71,7 @@ export default function ContactForm({
       // Online form submission = self-book online → eligible for the $10 self-book discount
       selfBook: true,
       session_id: getSessionId(),
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -149,6 +152,7 @@ export default function ContactForm({
   if (compact) {
     return (
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Honeypot inputRef={honeypotRef} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="name" className={labelClass}>Name *</label>
@@ -188,6 +192,7 @@ export default function ContactForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="name" className={labelClass}>Your Name *</label>

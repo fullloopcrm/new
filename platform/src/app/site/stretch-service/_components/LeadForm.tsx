@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const inputCls =
   'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500'
@@ -21,6 +22,7 @@ export default function LeadForm() {
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -49,6 +51,7 @@ export default function LeadForm() {
       phone: String(fd.get('phone') || '').trim(),
       message,
       visitAt: fd.get('visitAt') ? new Date(String(fd.get('visitAt'))).toISOString() : undefined,
+      ...getSpamGuardFields(),
     }
     try {
       const res = await fetch('/api/lead', {
@@ -78,6 +81,7 @@ export default function LeadForm() {
 
   return (
     <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <label htmlFor="name" className="block text-sm font-semibold text-slate-700">Name</label>
         <input type="text" id="name" name="name" required onChange={() => setFieldErrors((prev) => ({ ...prev, name: undefined }))} className={`${inputCls} ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : ''}`} placeholder="Your name" />

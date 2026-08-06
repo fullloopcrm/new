@@ -3,9 +3,13 @@
 import { useState, useCallback } from "react";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/toll-trucks-near-me/_data/content";
 import { AddressAutocomplete } from "@/app/site/toll-trucks-near-me/_components/AddressAutocomplete";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function BookPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [address, setAddress] = useState("");
   const [addressConfirmed, setAddressConfirmed] = useState(false);
 
@@ -14,17 +18,57 @@ export default function BookPage() {
     setAddressConfirmed(true);
   }, []);
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    const fd = new FormData(e.currentTarget);
+    const serviceType = String(fd.get("serviceType") || "");
+    const vehicle = String(fd.get("vehicle") || "");
+    const narrative = String(fd.get("narrative") || "");
+    const payload = {
+      type: "booking" as const,
+      name: String(fd.get("name") || ""),
+      phone: String(fd.get("phone") || ""),
+      email: String(fd.get("email") || ""),
+      when: String(fd.get("when") || ""),
+      details: [
+        serviceType && `Service: ${serviceType}`,
+        vehicle && `Vehicle: ${vehicle}`,
+        address && `Location: ${address}`,
+        narrative && `Details: ${narrative}`,
+      ].filter(Boolean).join(" | "),
+      source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
+    };
+    try {
+      const res = await fetch("/api/lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Submission failed");
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setError(`${msg}. Please call ${PHONE} instead.`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <>
       <section className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div className="absolute inset-0 grid-bg opacity-30" />
         <div className="relative mx-auto max-w-5xl px-6 text-center">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">starting at $95 hookup &bull; 1 Hour Minimum &bull; Dump Fees Included</p>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-200 font-cta">24/7 Dispatch &bull; Starting at $95 Hookup &bull; 30-Min Arrival or $50 Off</p>
           <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl font-heading">
             Book Your <span className="gradient-text">Tow Truck Dispatch</span> Today
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-            Fill out the form below and we&apos;ll call you to confirm your pickup. Same-day available.
+            Fill out the form and dispatch will call you. For immediate breakdowns, call <a href={PHONE_HREF} className="text-white underline">{PHONE}</a> directly — the phone is always the fastest path.
           </p>
         </div>
       </section>
@@ -37,10 +81,10 @@ export default function BookPage() {
               <h2 className="text-center text-2xl font-bold text-slate-900 font-heading">How It Works</h2>
               <div className="mt-6 space-y-6">
                 {[
-                  { step: "1", title: "Fill Out the Form", desc: "Tell us your name, number, and what you need removed. Takes 60 seconds." },
-                  { step: "2", title: "We Call You", desc: "Our team calls to confirm pricing, 1 hour minimum, and schedule your pickup." },
-                  { step: "3", title: "We Show Up", desc: "Our crew arrives, loads your items, and appraises anything with resale value on the spot." },
-                  { step: "4", title: "You Pay Less or Get Paid", desc: "value-focused dispatch reduce your bill. If credits exceed the bill, we pay you the difference." },
+                  { step: "1", title: "Call or Submit the Form", desc: "Live dispatcher answers in under 3 rings, 24/7. No IVR, no phone tree." },
+                  { step: "2", title: "Firm Upfront Quote", desc: "Hookup plus per-mile, confirmed before dispatch — no surprises on the invoice." },
+                  { step: "3", title: "ETA Text", desc: "Driver name, truck number, and live ETA within 60 seconds of booking." },
+                  { step: "4", title: "Arrival & Drop-Off", desc: "Equipment-matched truck, pre-load walk-around, damage photographed, delivered to your chosen destination." },
                 ].map((item) => (
                   <div key={item.step} className="flex gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-base font-bold text-white">{item.step}</div>
@@ -54,7 +98,7 @@ export default function BookPage() {
 
               <div className="mt-10 space-y-4">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Prefer to Call?</p>
+                  <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Faster — Call Dispatch</p>
                   <a href={PHONE_HREF} className="mt-1 block text-xl font-bold text-slate-900 hover:text-teal-700 transition-colors">{PHONE}</a>
                 </div>
                 <div>
@@ -63,7 +107,7 @@ export default function BookPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold uppercase tracking-widest text-teal-600 font-cta">Hours</p>
-                  <p className="mt-1 text-base text-slate-700">{HOURS} &bull; 7 Days a Week</p>
+                  <p className="mt-1 text-base text-slate-700">{HOURS}</p>
                 </div>
               </div>
             </div>
@@ -72,92 +116,87 @@ export default function BookPage() {
             <div>
               {submitted ? (
                 <div className="rounded-xl bg-teal-50 border border-teal-200 p-10 text-center">
-                  <p className="text-2xl font-bold text-teal-700 font-heading">Booking received!</p>
-                  <p className="mt-3 text-base text-slate-600">Our team will call you shortly to confirm your pickup time and go over details.</p>
-                  <p className="mt-6 text-sm text-slate-500">Need it faster? Call us directly at <a href={PHONE_HREF} className="text-teal-700 font-bold">{PHONE}</a></p>
+                  <p className="text-2xl font-bold text-teal-700 font-heading">Request received!</p>
+                  <p className="mt-3 text-base text-slate-600">Dispatch will call you shortly to confirm the quote, truck ETA, and dispatch the nearest available driver.</p>
+                  <p className="mt-6 text-sm text-slate-500">Immediate breakdown? Call directly at <a href={PHONE_HREF} className="text-teal-700 font-bold">{PHONE}</a></p>
                 </div>
               ) : (
-                <form onSubmit={(e) => { e.preventDefault(); setSubmitted(true); }} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
-                  <h2 className="text-xl font-bold text-slate-900 font-heading">Book Your Pickup</h2>
-                  <p className="text-sm text-slate-500">We&apos;ll call you to confirm. No payment required now.</p>
+                <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
+                  <h2 className="text-xl font-bold text-slate-900 font-heading">Service Request</h2>
+                  <p className="text-sm text-slate-500">Dispatch will call you to confirm. For immediate service, call <a href={PHONE_HREF} className="text-teal-700 font-bold">{PHONE}</a>.</p>
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name *</label>
-                    <input type="text" required placeholder="Your name" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input type="text" name="name" required placeholder="Your name" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Phone *</label>
-                    <input type="tel" required placeholder="(555) 555-5555" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input type="tel" name="phone" required placeholder="(555) 555-5555" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Email *</label>
-                    <input type="email" required placeholder="you@example.com" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input type="email" name="email" required placeholder="you@example.com" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Service Type *</label>
-                    <select required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+                    <select name="serviceType" required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
                       <option value="">Select service type...</option>
-                      <option value="full-service">Full-Service Tow Truck Dispatch</option>
-                      <option value="furniture">Furniture Removal</option>
-                      <option value="appliance">Appliance Removal</option>
-                      <option value="garage">Garage Cleanout</option>
-                      <option value="basement">Basement Cleanout</option>
-                      <option value="estate">Estate Cleanout</option>
-                      <option value="construction">Construction Debris</option>
-                      <option value="yard">Yard Waste</option>
-                      <option value="office">Office / Commercial</option>
-                      <option value="hot-tub">Hot Tub / Spa Removal</option>
-                      <option value="other">Other</option>
+                      <option value="light-duty-tow">Light-Duty Tow (Car/Sedan/Compact SUV)</option>
+                      <option value="flatbed-tow">Flatbed Tow (AWD / EV / Luxury / Motorcycle)</option>
+                      <option value="heavy-duty-tow">Heavy-Duty Tow (Truck/Van/Commercial)</option>
+                      <option value="jump-start">Jump Start / Dead Battery</option>
+                      <option value="flat-tire">Flat Tire Change</option>
+                      <option value="lockout">Lockout — Keys Locked In</option>
+                      <option value="gas-delivery">Gas Delivery</option>
+                      <option value="winch-out">Winch-Out — Stuck</option>
+                      <option value="accident">Accident / Collision Tow</option>
+                      <option value="impound">Impound / Pound Recovery</option>
+                      <option value="junk-car">Junk Car Removal</option>
+                      <option value="fleet">Fleet / Commercial Account</option>
+                      <option value="other">Other / Not Sure</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Property Type *</label>
-                    <select required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
-                      <option value="">Select property type...</option>
-                      <option value="house">House</option>
-                      <option value="apartment">Apartment</option>
-                      <option value="condo">Condo / Townhouse</option>
-                      <option value="office">Office</option>
-                      <option value="warehouse">Warehouse / Industrial</option>
-                      <option value="retail">Retail / Commercial</option>
-                      <option value="storage">Storage Unit</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Vehicle Year / Make / Model *</label>
+                    <input type="text" name="vehicle" required placeholder="e.g. 2019 Toyota RAV4" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Pickup Address *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Current Location / Cross-Streets *</label>
                     <AddressAutocomplete
                       value={address}
                       onChange={setAddress}
                       onSelect={handleAddressSelect}
-                      placeholder="Start typing your address..."
+                      placeholder="Street address or cross-streets..."
                       className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                     {addressConfirmed && (
                       <p className="mt-1.5 text-xs text-teal-600 font-medium">
-                        ✓ Address confirmed
+                        ✓ Location confirmed
                       </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">When Do You Need Pickup?</label>
-                    <select className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">When</label>
+                    <select name="when" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
                       <option value="">Select timing...</option>
-                      <option value="today">Today (same-day)</option>
+                      <option value="now">Right now — immediate</option>
+                      <option value="today">Today — within a few hours</option>
                       <option value="tomorrow">Tomorrow</option>
-                      <option value="this-week">This Week</option>
-                      <option value="next-week">Next Week</option>
-                      <option value="flexible">Flexible / No Rush</option>
+                      <option value="scheduled">Scheduled in advance</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Describe What You Need Removed *</label>
-                    <textarea required rows={4} placeholder="Tell us what items need to go, approximately how many, and any access details (stairs, narrow hallways, etc.)..." className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Describe What&apos;s Happening *</label>
+                    <textarea name="narrative" required rows={4} placeholder="What's wrong with the vehicle, where it needs to go, and anything unusual (in a garage, on a bridge, hit by another car, etc.)" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
                   </div>
-                  <button type="submit" className="w-full rounded-lg bg-accent py-4 text-lg font-bold text-white transition-colors hover:bg-accent-dark font-cta">
-                    Book Now — We&apos;ll Call You
+                  {error && (
+                    <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>
+                  )}
+                  <button type="submit" disabled={submitting} className="w-full rounded-lg bg-accent py-4 text-lg font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60 font-cta">
+                    {submitting ? "Sending..." : "Submit — Dispatch Will Call"}
                   </button>
-                  <p className="text-center text-xs text-slate-400">starting at $95 hookup &bull; 1 hour minimum &bull; Flat upfront pricing with no surcharge games &bull; flat upfront pricing</p>
+                  <p className="text-center text-xs text-slate-400">24/7 live dispatch &bull; Flat upfront pricing &bull; 30-min arrival option &bull; Licensed &amp; insured</p>
                 </form>
               )}
             </div>

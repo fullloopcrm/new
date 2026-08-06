@@ -5,6 +5,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 // Rate limiting: 3 applications per 10 minutes per IP
 // NOTE: In-memory — resets on server restart (serverless cold start).
@@ -60,6 +61,9 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true }, { status: 201 })
+    }
     const {
       name, email, phone, address, unit, experience, availability, referral_source, references, notes, photo_url,
       preferred_language, service_zones, has_car, labor_only, max_travel_minutes,

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { services } from "@/app/site/landscaping-in-nyc/_lib/siteData";
 import { PHONE } from "@/app/site/landscaping-in-nyc/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface AddressSuggestion {
   label: string;
@@ -65,6 +66,7 @@ export function BookingForm() {
   const [service, setService] = useState("");
   const [address, setAddress] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; address?: string; service?: string; visitAt?: string }>({});
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [addressMeta, setAddressMeta] = useState<AddressSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -290,6 +292,7 @@ export function BookingForm() {
       mediaUrls,
       details: String(fd.get("details") || ""),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -325,6 +328,7 @@ export function BookingForm() {
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md">
+      <Honeypot inputRef={honeypotRef} />
       <h2 className="text-xl font-bold text-slate-900 font-heading mb-4">Book a Free On-Site Consultation</h2>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

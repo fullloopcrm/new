@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import AddressAutocomplete from '@/components/address-autocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { useFormTracking } from '@/lib/useFormTracking'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 interface TenantLite {
   name: string
@@ -28,6 +29,7 @@ function CollectFormContent({ tenant }: { tenant: TenantLite }) {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const primary = tenant.primary_color || '#1E2A4A'
 
@@ -74,6 +76,7 @@ function CollectFormContent({ tenant }: { tenant: TenantLite }) {
           pet_type: form.pet_type || null,
           src: srcDomain || null,
           convo_id: convoId || null,
+          ...getSpamGuardFields(),
         }),
       })
 
@@ -126,6 +129,7 @@ function CollectFormContent({ tenant }: { tenant: TenantLite }) {
 
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} onFocusCapture={trackStart} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           <h2 className="text-xl font-bold" style={{ color: primary }}>Your Information</h2>
 
           <div>

@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { CtaButtons } from "@/app/site/the-home-services-company/_components/CtaButtons";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -22,6 +24,7 @@ export default function ContactPage() {
       phone: String(fd.get("phone") || "n/a"),
       details: `${String(fd.get("subject") || "")}: ${String(fd.get("message") || "")}`,
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
     try {
       const res = await fetch("/api/lead", {
@@ -106,6 +109,7 @@ export default function ContactPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Name *</label>
                     <input type="text" name="name" required placeholder="Your name" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />

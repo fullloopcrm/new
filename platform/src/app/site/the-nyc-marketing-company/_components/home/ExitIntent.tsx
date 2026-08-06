@@ -3,6 +3,7 @@
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
 import { submitLead } from "@/app/site/the-nyc-marketing-company/_lib/submitLead";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function ExitIntent() {
   const [shown, setShown] = useState(false);
@@ -10,6 +11,7 @@ export default function ExitIntent() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const { scrollYProgress } = useScroll();
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
     if (latest > 0.6 && !shown && !dismissed) {
@@ -28,6 +30,7 @@ export default function ExitIntent() {
       name: "Website visitor",
       email,
       subject: "Exit-intent SEO audit request",
+      ...getSpamGuardFields(),
     });
     if (ok) setSent(true);
     else alert("Something went wrong. Please email hello@thenycmarketingcompany.com for your free audit.");
@@ -85,6 +88,7 @@ export default function ExitIntent() {
               </p>
             ) : (
               <form onSubmit={handleSubmit} className="flex gap-2">
+                <Honeypot inputRef={honeypotRef} />
                 <input
                   type="email"
                   required

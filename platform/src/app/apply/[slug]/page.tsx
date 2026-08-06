@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { uploadTeamApplicationPhoto } from '@/lib/client-upload'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 type TenantInfo = {
   name: string
@@ -65,6 +66,7 @@ export default function ApplyPage() {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   useEffect(() => {
     if (!slug) return
@@ -158,6 +160,7 @@ export default function ApplyPage() {
           references,
           notes: form.notes.trim() || null,
           photo_url: photoUrl,
+          ...getSpamGuardFields(),
         }),
       })
 
@@ -244,6 +247,7 @@ export default function ApplyPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           {/* Full Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">

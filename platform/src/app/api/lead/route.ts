@@ -24,6 +24,7 @@ import { createPrimaryContact } from '@/lib/client-contacts'
 import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { formatName } from '@/lib/format'
 import { normalizePhone } from '@/lib/phone'
+import { isSpamSubmission, SPAM_GUARD_KEYS } from '@/lib/spam-guard'
 
 interface LeadBody {
   type?: string
@@ -33,13 +34,16 @@ interface LeadBody {
   details?: string
   message?: string
   source?: string
+  // Bot defense — see src/lib/spam-guard.ts
+  _hp?: string
+  _ts?: number
   [key: string]: unknown
 }
 
 // Standard fields handled explicitly; everything else a form sends
 // (service, address, city, budget, timeframe, etc.) is folded into notes
 // so no field is silently dropped.
-const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photo_url', 'photoUrl'])
+const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photo_url', 'photoUrl', ...SPAM_GUARD_KEYS])
 
 function buildLeadNotes(body: LeadBody): string | null {
   const lines: string[] = []
@@ -70,6 +74,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as LeadBody
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const name = body.name?.trim()
     const email = body.email?.trim().toLowerCase() || null
     const phoneRaw = body.phone?.trim() || ''

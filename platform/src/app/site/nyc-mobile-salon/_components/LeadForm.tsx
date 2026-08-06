@@ -27,6 +27,8 @@ async function submitLead(
   const service = (formData.get("service") as string) || "";
   const date = (formData.get("date") as string) || "";
   const userMessage = (formData.get("message") as string) || "";
+  const honeypot = (formData.get("_hp") as string) || "";
+  const renderedAt = Number(formData.get("_ts")) || 0;
 
   // Show every missing/invalid field at once, before ever hitting the
   // network — matches every other tenant booking form's validation.
@@ -51,6 +53,8 @@ async function submitLead(
     // Online booking through the site = self-book → qualifies for the
     // online-booking discount (amount is per-tenant, resolved server-side).
     selfBook: true,
+    _hp: honeypot,
+    _ts: renderedAt,
   };
 
   try {
@@ -89,6 +93,7 @@ export default function LeadForm({ id, variant = "light" }: { id?: string; varia
     initialState
   );
   const [submitted, setSubmitted] = useState(false);
+  const [renderedAt] = useState(() => Date.now());
 
   const isDark = variant === "dark";
 
@@ -122,6 +127,15 @@ export default function LeadForm({ id, variant = "light" }: { id?: string; varia
 
   return (
     <form id={id} action={formAction} className={`rounded-2xl p-6 sm:p-8 ${isDark ? "border border-white/10" : "border border-gray-100"}`}>
+      <input
+        type="text"
+        name="_hp"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-9999px", top: 0, width: 1, height: 1, opacity: 0, overflow: "hidden" }}
+      />
+      <input type="hidden" name="_ts" value={renderedAt} />
       <h3 className={`mb-1 text-center text-xl font-semibold font-display ${isDark ? "text-white" : "text-charcoal"}`}>
         Book Your Appointment
       </h3>

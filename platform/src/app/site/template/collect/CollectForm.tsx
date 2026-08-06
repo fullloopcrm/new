@@ -6,6 +6,7 @@ import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import type { SiteConfig } from '../_config/types'
 import SmsConsent from '../_components/SmsConsent'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 /**
  * Basic trade-agnostic collect / contact form. Config-driven (services, theme,
@@ -37,6 +38,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -71,6 +73,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
           phone: form.phone.trim(),
           message: composedMessage,
           smsConsent,
+          ...getSpamGuardFields(),
         }),
       })
       const data = await res.json().catch(() => null)
@@ -115,6 +118,7 @@ export default function CollectForm({ config }: { config: SiteConfig }) {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5 border border-slate-100">
+          <Honeypot inputRef={honeypotRef} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Name</label>

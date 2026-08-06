@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -44,6 +45,7 @@ export default function ApplicationForm() {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -127,6 +129,7 @@ export default function ApplicationForm() {
         body: JSON.stringify({
           ...form,
           videoUrl,
+          ...getSpamGuardFields(),
         }),
       })
 
@@ -164,6 +167,7 @@ export default function ApplicationForm() {
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-purple-100 bg-white p-5 sm:p-8 space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h3 className="text-center font-display text-xl font-bold text-slate-800">Apply to Join the Team</h3>
         <p className="text-center text-sm text-slate-500 mt-1">$49/hr via Zelle or Apple Cash — paid within 30 minutes of job completion.</p>

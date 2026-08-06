@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { jobs } from "@/app/site/the-nyc-interior-designer/_lib/jobs";
 import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/the-nyc-interior-designer/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -72,6 +73,7 @@ export default function ApplyClient() {
   const resumeRef = useRef<HTMLInputElement>(null);
   const portfolioRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,6 +149,7 @@ export default function ApplyClient() {
           resumeUrl,
           portfolioFileUrl,
           videoUrl,
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -218,6 +221,7 @@ export default function ApplyClient() {
       <section className="bg-white py-16">
         <div className="mx-auto max-w-2xl px-4 sm:px-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <Honeypot inputRef={honeypotRef} />
             {/* Name */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">

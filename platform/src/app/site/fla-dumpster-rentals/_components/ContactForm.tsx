@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface ContactFormProps {
   service?: string;
@@ -18,6 +19,7 @@ export default function ContactForm({
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
     "idle"
   );
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +43,7 @@ export default function ContactForm({
           : ""
         return [deliveryLine, base].filter(Boolean).join("\n")
       })(),
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -106,6 +109,7 @@ export default function ContactForm({
   if (compact) {
     return (
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Honeypot inputRef={honeypotRef} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="name" className={labelClass}>Name *</label>
@@ -149,6 +153,7 @@ export default function ContactForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="name" className={labelClass}>Your Name *</label>
