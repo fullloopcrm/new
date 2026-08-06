@@ -156,10 +156,10 @@ function CollapsibleSection({ title, badge, defaultOpen = false, children }: {
 // Job Card (expandable, like nycmaid)
 // ---------------------------------------------------------------------------
 
-function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunningLate, checkingIn, checkingOut, sendingHeadsUp, sendingLate, authToken }: {
+function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onOnMyWay, checkingIn, checkingOut, sendingHeadsUp, sendingOmw, authToken }: {
   job: Job; t: (en: string, es: string) => string; showDate?: boolean
-  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void; onRunningLate: (job: Job) => void
-  checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null; sendingLate: string | null
+  onCheckIn: (id: string) => void; onCheckOut: (id: string) => void; onHeadsUp: (job: Job) => void; onOnMyWay: (job: Job, minutes: 30 | 60 | 90) => void
+  checkingIn: string | null; checkingOut: string | null; sendingHeadsUp: string | null; sendingOmw: string | null
   authToken: string
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -280,12 +280,25 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onRunning
               {checkingIn === job.id ? t('Checking In...', 'Registrando...') : t('Check In', 'Registrar Entrada')}
             </button>
           )}
-          {/* Running Late — before check-in only; texts the client + admin once */}
+          {/* Notify Client on My Way — before check-in only; one tap sends a
+              client SMS + email immediately, no confirm step. Decoupled from
+              check-in entirely (replaces the old "Running Late?" flow). */}
           {canCheckIn && (
-            <button onClick={() => onRunningLate(job)} disabled={sendingLate === job.id || !!job.running_late_at}
-              className="w-full bg-orange-50 text-orange-700 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
-              {sendingLate === job.id ? t('Sending...', 'Enviando...') : job.running_late_at ? t('Client Notified', 'Cliente Avisado') : t("Running Late?", 'Voy Tarde')}
-            </button>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 mb-1.5">{t('Notify Client on My Way', 'Avisar Cliente en Camino')}</p>
+              <div className="flex gap-2">
+                {([30, 60, 90] as const).map((minutes) => (
+                  <button
+                    key={minutes}
+                    onClick={() => onOnMyWay(job, minutes)}
+                    disabled={sendingOmw === `${job.id}:${minutes}`}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                  >
+                    {sendingOmw === `${job.id}:${minutes}` ? '...' : minutes}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           {/* 30-Min Heads Up — after check-in, before check-out */}
           {job.check_in_time && !job.check_out_time && (
@@ -402,7 +415,7 @@ export default function TeamHomePage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [claimingJob, setClaimingJob] = useState<string | null>(null)
   const [sendingHeadsUp, setSendingHeadsUp] = useState<string | null>(null)
-  const [sendingLate, setSendingLate] = useState<string | null>(null)
+  const [sendingOmw, setSendingOmw] = useState<string | null>(null)
   const [confirmHeadsUp, setConfirmHeadsUp] = useState<{ job: Job; message: string } | null>(null)
 
   // Trade-agnostic config: whether this tenant pays hourly, and the payout rails.
@@ -616,31 +629,24 @@ export default function TeamHomePage() {
     setSendingHeadsUp(null)
   }
 
-  async function handleRunningLate(job: Job) {
+  async function handleOnMyWay(job: Job, minutes: 30 | 60 | 90) {
     if (!auth) return
-    const etaRaw = prompt(
-      t('How many minutes late will you be? (optional)', '¿Cuántos minutos tarde llegarás? (opcional)')
-    )
-    if (etaRaw === null) return // cancelled
-    const eta = etaRaw.trim() ? parseInt(etaRaw.trim(), 10) : undefined
-
-    setSendingLate(job.id)
+    setSendingOmw(`${job.id}:${minutes}`)
     try {
-      const res = await fetch('/api/team-portal/running-late', {
+      const res = await fetch('/api/team-portal/on-my-way', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
-        body: JSON.stringify({ bookingId: job.id, eta: Number.isFinite(eta) ? eta : undefined }),
+        body: JSON.stringify({ bookingId: job.id, minutes }),
       })
       if (res.ok) {
         alert(t('Client notified!', '¡Cliente avisado!'))
-        fetchData()
       } else {
         alert(t('Failed to send', 'Error al enviar'))
       }
     } catch {
       alert(t('Failed to send', 'Error al enviar'))
     }
-    setSendingLate(null)
+    setSendingOmw(null)
   }
 
   async function claimJob(jobId: string) {
@@ -885,7 +891,7 @@ export default function TeamHomePage() {
         ) : (
           <div className="space-y-2">
             {todayJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
+              <JobCard key={job.id} job={job} t={t} onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onOnMyWay={handleOnMyWay} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingOmw={sendingOmw} authToken={auth.token} />
             ))}
           </div>
         )}
@@ -1073,7 +1079,7 @@ export default function TeamHomePage() {
           </h2>
           <div className="space-y-2">
             {upcomingJobs.map((job) => (
-              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onRunningLate={handleRunningLate} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingLate={sendingLate} authToken={auth.token} />
+              <JobCard key={job.id} job={job} t={t} showDate onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} onHeadsUp={handleHeadsUp} onOnMyWay={handleOnMyWay} checkingIn={checkingIn} checkingOut={checkingOut} sendingHeadsUp={sendingHeadsUp} sendingOmw={sendingOmw} authToken={auth.token} />
             ))}
           </div>
         </div>

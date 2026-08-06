@@ -33,6 +33,11 @@ export function smsReminder(bizName: string, booking: { start_time: string; team
   return `${bizName}: Reminder — appointment ${timeframe} at ${time} with ${memberName}.${STOP_TEXT}`
 }
 
+export function smsOnMyWay(bizName: string, booking: { team_members?: { name?: string | null } | null }, minutes: number): string {
+  const memberName = booking.team_members?.name?.split(' ')[0] || 'Your pro'
+  return `${bizName}: ${memberName} is on the way — arriving in about ${minutes} minutes.${STOP_TEXT}`
+}
+
 export function smsCancellation(bizName: string, booking: { start_time: string }, portalUrl?: string): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const link = portalUrl ? ` Rebook: ${portalUrl}` : ''

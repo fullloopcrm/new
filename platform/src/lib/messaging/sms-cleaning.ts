@@ -97,6 +97,13 @@ export function reminder(brand: TenantBrand, booking: BookingLike, timeframe: st
   return `${brand.name}: Reminder — cleaning ${timeframe}, arrival window ${time}, with ${subject}.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\n${policy}${STOP_TEXT}`
 }
 
+export function onMyWay(brand: TenantBrand, booking: BookingLike, minutes: number): string {
+  const cleanerName = proFirst(booking, 'Your cleaner')
+  const teamSize = booking.team_size || 1
+  const subject = teamSize > 1 ? `Your team of ${teamSize} (${cleanerName} leading)` : cleanerName
+  return `${brand.name}: ${subject} ${teamSize > 1 ? 'are' : 'is'} on the way — arriving in about ${minutes} minutes.${STOP_TEXT}`
+}
+
 export function cancellation(brand: TenantBrand, booking: BookingLike): string {
   const date = etDate(booking.start_time)
   return `${brand.name}: Your ${date} cleaning has been cancelled. Rebook: ${brand.bookUrl}${STOP_TEXT}`

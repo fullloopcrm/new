@@ -34,6 +34,7 @@ export type ClientSmsTemplates = {
   confirmationReminder(booking: BookingLike): string
   bookingConfirmation(booking: BookingLike, portalUrl?: string): string
   reminder(booking: BookingLike, timeframe: string): string
+  onMyWay(booking: BookingLike, minutes: number): string
   cancellation(booking: BookingLike, portalUrl?: string): string
   reschedule(booking: BookingLike, portalUrl?: string): string
   thankYou(clientName: string): string
@@ -75,6 +76,7 @@ export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
       confirmationReminder: b => cleaning.confirmationReminder(brand, b),
       bookingConfirmation: b => cleaning.bookingConfirmation(brand, b),
       reminder: (b, tf) => cleaning.reminder(brand, b, tf),
+      onMyWay: (b, min) => cleaning.onMyWay(brand, b, min),
       cancellation: b => cleaning.cancellation(brand, b),
       reschedule: b => cleaning.reschedule(brand, b),
       thankYou: n => cleaning.thankYou(brand, n),
@@ -97,6 +99,7 @@ export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
     confirmationReminder: b => generic.smsBookingConfirmation(name, b),
     bookingConfirmation: (b, portalUrl) => generic.smsBookingConfirmation(name, b, portalUrl),
     reminder: (b, tf) => generic.smsReminder(name, b, tf),
+    onMyWay: (b, min) => generic.smsOnMyWay(name, b, min),
     cancellation: (b, portalUrl) => generic.smsCancellation(name, b, portalUrl),
     reschedule: (b, portalUrl) => generic.smsReschedule(name, b, portalUrl),
     thankYou: n => generic.smsThankYou(name, n),
