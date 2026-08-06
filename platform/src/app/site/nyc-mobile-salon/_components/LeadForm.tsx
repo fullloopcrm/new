@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { serviceOptions, boroughs } from "@/app/site/nyc-mobile-salon/_lib/constants";
-import type { FormErrors } from "@/app/site/nyc-mobile-salon/_lib/validation";
+import { validateLeadForm, type FormErrors } from "@/app/site/nyc-mobile-salon/_lib/validation";
 
 type FormState = {
   success: boolean;
@@ -20,9 +20,20 @@ async function submitLead(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const name = (formData.get("name") as string) || "";
+  const email = (formData.get("email") as string) || "";
+  const phone = (formData.get("phone") as string) || "";
+  const borough = (formData.get("borough") as string) || "";
   const service = (formData.get("service") as string) || "";
   const date = (formData.get("date") as string) || "";
   const userMessage = (formData.get("message") as string) || "";
+
+  // Show every missing/invalid field at once, before ever hitting the
+  // network — matches every other tenant booking form's validation.
+  const errors = validateLeadForm({ name, email, phone, service, borough, date, message: userMessage });
+  if (Object.keys(errors).length > 0) {
+    return { success: false, errors, serverError: "" };
+  }
 
   // /api/contact is the tenant-aware lead endpoint (resolves the salon from
   // the host, writes to clients + portal_leads, admin-only notification).
