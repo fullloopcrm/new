@@ -25,6 +25,7 @@ import { createPrimaryContact } from '@/lib/client-contacts'
 import { randomInt } from 'crypto'
 import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 interface CollectBody {
   name?: string
@@ -38,6 +39,9 @@ interface CollectBody {
   convo_id?: string
   pet_name?: string
   pet_type?: string
+  // Bot defense — see src/lib/spam-guard.ts
+  _hp?: string
+  _ts?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -55,6 +59,9 @@ export async function POST(request: NextRequest) {
 
     const db = tenantDb(tenant.id)
     const body = (await request.json()) as CollectBody
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const { name, email, phone, address, notes, referrer_name, referrer_phone, src, convo_id, pet_name, pet_type } = body
 
     if (!name) {

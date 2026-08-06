@@ -11,6 +11,8 @@ export interface MarketingLead {
   phone?: string
   subject: string
   message?: string
+  _hp?: string
+  _ts?: number
 }
 
 export async function submitLead(data: MarketingLead): Promise<boolean> {

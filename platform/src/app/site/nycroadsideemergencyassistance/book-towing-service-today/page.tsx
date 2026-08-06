@@ -4,11 +4,13 @@ import { useState, useCallback } from "react";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/nycroadsideemergencyassistance/_data/content";
 import { AddressAutocomplete } from "@/app/site/nycroadsideemergencyassistance/_components/AddressAutocomplete";
 import { JsonLd, breadcrumbSchema } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function BookPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [address, setAddress] = useState("");
   const [addressConfirmed, setAddressConfirmed] = useState(false);
 
@@ -38,6 +40,7 @@ export default function BookPage() {
         narrative && `Details: ${narrative}`,
       ].filter(Boolean).join(" | "),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
     try {
       const res = await fetch("/api/contact", {
@@ -128,6 +131,7 @@ export default function BookPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-xl font-bold text-slate-900 font-heading">Service Request</h2>
                     <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-bold text-slate-900 font-cta">$25 OFF</span>

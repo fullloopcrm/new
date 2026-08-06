@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface AddressSuggestion {
   label: string;
@@ -66,6 +67,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -304,6 +306,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
       mediaUrls,
       details: String(fd.get("details") || ""),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -342,6 +345,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
       onSubmit={handleSubmit}
       className={`rounded-xl p-6 ${isDark ? "bg-white/10 backdrop-blur-sm" : "bg-white border border-slate-200 shadow-md"}`}
     >
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelClass}>Name</label>

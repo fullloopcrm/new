@@ -6,6 +6,7 @@ import { CtaButtons } from "@/app/site/nycroadsideemergencyassistance/_component
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/nycroadsideemergencyassistance/_data/content";
 import { OFFICES } from "@/app/site/nycroadsideemergencyassistance/_data/offices";
 import { JsonLd, breadcrumbSchema, allOfficeLocalBusinessSchemas, SITE_URL, BRAND_NAME } from "@/app/site/nycroadsideemergencyassistance/_lib/schema";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const OFFICE_BUILDING_NAMES: Record<string, string> = {
   manhattan: "Empire State Building",
@@ -19,6 +20,7 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +34,7 @@ export default function ContactPage() {
       phone: String(fd.get("phone") || "n/a"),
       message: `${String(fd.get("subject") || "")}: ${String(fd.get("message") || "")}`,
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
     try {
       const res = await fetch("/api/contact", {
@@ -182,6 +185,7 @@ export default function ContactPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Name *</label>
                     <input type="text" name="name" required placeholder="Your name" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />

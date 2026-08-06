@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SERVICES } from "@/app/site/the-home-services-company/_data/services";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface FieldErrors {
   name?: string;
@@ -22,6 +23,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
   const [zip, setZip] = useState("");
   const [when, setWhen] = useState("");
   const [service, setService] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const isDark = variant === "dark" || variant === "hero";
 
@@ -59,6 +61,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
       service,
       details: String(fd.get("details") || ""),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -92,6 +95,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
       onSubmit={handleSubmit}
       className={`rounded-xl p-6 ${isDark ? "bg-white/10 backdrop-blur-sm" : "bg-white border border-slate-200 shadow-md"}`}
     >
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>Name</label>

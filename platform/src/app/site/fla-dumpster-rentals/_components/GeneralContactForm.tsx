@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function GeneralContactForm() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
     "idle"
   );
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -19,6 +21,7 @@ export default function GeneralContactForm() {
       subject: (form.elements.namedItem("subject") as HTMLInputElement).value,
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
       formType: "general-inquiry",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -65,6 +68,7 @@ export default function GeneralContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="name" className={labelClass}>Name *</label>

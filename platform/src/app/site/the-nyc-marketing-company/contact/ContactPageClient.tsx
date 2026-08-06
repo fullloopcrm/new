@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { submitLead } from "../_lib/submitLead";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -306,6 +307,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
     message: "",
   });
   const [sending, setSending] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -326,6 +328,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
         form.service && `Service: ${form.service}`,
         form.message,
       ].filter(Boolean).join("\n\n"),
+      ...getSpamGuardFields(),
     });
     setSending(false);
     if (ok) onSubmit();
@@ -336,6 +339,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 space-y-6 shadow-sm">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h2 className="text-xl font-bold text-slate-900 font-heading">Schedule a Free Strategy Session</h2>
         <p className="text-slate-500 text-sm mt-1">
@@ -410,6 +414,7 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -438,6 +443,7 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
       phone: form.phone,
       subject: "RFP submission",
       message: ["Request for Proposal received via website.", fileNote].filter(Boolean).join("\n"),
+      ...getSpamGuardFields(),
     });
     setSending(false);
     if (ok) onSubmit();
@@ -448,6 +454,7 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 space-y-5 shadow-sm">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h2 className="text-xl font-bold text-slate-900 font-heading">Submit a Request for Proposal</h2>
         <p className="text-slate-500 text-sm mt-1">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { services, getAllBoroughs, PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/the-nyc-interior-designer/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const budgetRanges = [
   "Under $10,000",
@@ -55,6 +56,7 @@ export default function FreeConsultationClient() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +80,7 @@ export default function FreeConsultationClient() {
           description: form.description,
           visitAt: form.visitAt ? new Date(form.visitAt).toISOString() : undefined,
           source: "free-consultation",
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -130,6 +133,7 @@ export default function FreeConsultationClient() {
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
+                <Honeypot inputRef={honeypotRef} />
                 <h2 className="text-2xl font-bold text-slate-900">Tell Us About Your Project</h2>
                 <p className="text-sm text-slate-500">Fill out the form below and a design specialist will contact you within 1 business day.</p>
 

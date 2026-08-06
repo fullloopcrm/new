@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { submitLead } from "../_lib/submitLead";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -11,6 +12,7 @@ export default function ContactLandingClient() {
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -24,6 +26,7 @@ export default function ContactLandingClient() {
       email: form.email,
       phone: form.phone,
       subject: "Contact inquiry",
+      ...getSpamGuardFields(),
     });
     setSending(false);
     if (ok) setSubmitted(true);
@@ -119,6 +122,7 @@ export default function ContactLandingClient() {
                 onSubmit={handleSubmit}
                 className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 shadow-xl shadow-slate-900/5"
               >
+                <Honeypot inputRef={honeypotRef} />
                 <div className="text-center mb-8">
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-900 font-heading">
                     Book Your Free Strategy Session

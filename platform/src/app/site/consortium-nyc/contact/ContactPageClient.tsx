@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const PHONE = "(212) 202-9220";
 const PHONE_HREF = "tel:+12122029220";
@@ -305,6 +306,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
     message: "",
   });
   const [sending, setSending] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -319,7 +321,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "strategy", ...form }),
+        body: JSON.stringify({ type: "strategy", ...form, ...getSpamGuardFields() }),
       });
       if (res.ok) {
         onSubmit();
@@ -336,6 +338,7 @@ function StrategyForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: (
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 space-y-6 shadow-sm">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h2 className="text-xl font-bold text-slate-900 font-heading">Schedule a Free Strategy Session</h2>
         <p className="text-slate-500 text-sm mt-1">
@@ -410,6 +413,7 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -429,27 +433,37 @@ function RFPForm({ submitted, onSubmit }: { submitted: boolean; onSubmit: () => 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
+    const fileNote = files.length
+      ? `Attached ${files.length} file(s): ${files.map((f) => f.name).join(", ")} (uploaded separately on request)`
+      : "";
     try {
-      const formData = new FormData();
-      formData.append("type", "rfp");
-      formData.append("data", JSON.stringify(form));
-      files.forEach((file) => formData.append("files", file));
-
-      await fetch("/api/contact", {
+      const res = await fetch("/api/contact", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "rfp",
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          subject: "RFP submission",
+          message: ["Request for Proposal received via website.", fileNote].filter(Boolean).join("\n"),
+          ...getSpamGuardFields(),
+        }),
       });
+      setSending(false);
+      if (res.ok) onSubmit();
+      else alert("Something went wrong sending your RFP. Please email hello@consortiumnyc.com and we'll jump on it.");
     } catch {
-      // noop
+      setSending(false);
+      alert("Something went wrong sending your RFP. Please email hello@consortiumnyc.com and we'll jump on it.");
     }
-    onSubmit();
-    setSending(false);
   }
 
   if (submitted) return <SuccessMessage isRFP />;
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 space-y-5 shadow-sm">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h2 className="text-xl font-bold text-slate-900 font-heading">Submit a Request for Proposal</h2>
         <p className="text-slate-500 text-sm mt-1">

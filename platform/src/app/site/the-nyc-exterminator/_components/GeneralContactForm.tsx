@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { track } from "@vercel/analytics";
 import { track as localTrack, getSessionId } from "@/app/site/the-nyc-exterminator/_lib/tracker";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function GeneralContactForm() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
@@ -11,6 +12,7 @@ export default function GeneralContactForm() {
   const openedRef = useRef(false);
   const submittedRef = useRef(false);
   const lastFieldRef = useRef<string | undefined>(undefined);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   useEffect(() => {
     if (!openedRef.current) {
@@ -52,6 +54,7 @@ export default function GeneralContactForm() {
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
       formType: "general-inquiry",
       session_id: getSessionId(),
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -106,6 +109,7 @@ export default function GeneralContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="name" className={labelClass}>Name *</label>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [photoName, setPhotoName] = useState<string>("");
   const [photoUploading, setPhotoUploading] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const location = city && state ? `${city}, ${state}` : state || "Nationwide";
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -81,6 +83,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       about: String(fd.get("about") || ""),
       photo_url: photoUrl,
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -111,6 +114,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+      <Honeypot inputRef={honeypotRef} />
       <h3 className="text-lg font-bold text-slate-900 font-heading">Apply Now — {location}</h3>
       <p className="text-sm text-slate-500">Takes 2 minutes. We&apos;ll call you within 48 hours.</p>
       <div>
