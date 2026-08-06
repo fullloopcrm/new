@@ -214,22 +214,40 @@ export async function verifyStripeAccount(stripeApiKey: string, accountId?: stri
   }
 }
 
-export async function verifyStripeWebhook(stripeApiKey: string, expectedUrl: string): Promise<CheckResult> {
+// A tenant's webhook can legitimately be registered at more than one URL —
+// their own branded domain (thefloridamaid.com) or the platform's canonical
+// domain — since every tenant domain routes through this same shared
+// codebase (see platform/CLAUDE.md's GLOBAL rule). Checking a single
+// hardcoded URL false-negatived EVERY tenant with a Stripe key, including
+// nycmaid, which is processing real payments right now: its webhook is
+// registered at www.thenycmaid.com, never at the platform's own domain.
+export async function verifyStripeWebhook(stripeApiKey: string, expectedUrls: string[]): Promise<CheckResult> {
   if (!stripeApiKey) return { ok: false, detail: 'No Stripe secret key' }
+  if (expectedUrls.length === 0) return { ok: false, detail: 'No candidate webhook URL to check' }
   try {
     const stripe = new Stripe(stripeApiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
     const endpoints = await stripe.webhookEndpoints.list({ limit: 100 })
-    const match = endpoints.data.find(e => e.url === expectedUrl && e.status === 'enabled')
+    const match = endpoints.data.find(e => expectedUrls.includes(e.url) && e.status === 'enabled')
     if (match) {
-      return { ok: true, detail: `Webhook ${expectedUrl} enabled` }
+      return { ok: true, detail: `Webhook ${match.url} enabled` }
     }
     return {
       ok: false,
-      detail: `No enabled webhook at ${expectedUrl} (found ${endpoints.data.length} endpoints)`,
+      detail: `No enabled webhook at ${expectedUrls.join(' or ')} (found ${endpoints.data.length} endpoints)`,
     }
   } catch (e) {
     return { ok: false, detail: `Stripe webhook lookup failed: ${e instanceof Error ? e.message : 'unknown'}` }
   }
+}
+
+/** Every URL a tenant's Stripe webhook could legitimately be registered at. */
+export function candidateStripeWebhookUrls(appUrl: string, domain?: string | null): string[] {
+  const urls = [`${appUrl}/api/webhooks/stripe`]
+  const d = domain?.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+  if (d) {
+    urls.push(`https://${d}/api/webhooks/stripe`, `https://www.${d}/api/webhooks/stripe`)
+  }
+  return urls
 }
 
 // ─── Batch runner ─────────────────────────────────────────────
@@ -255,7 +273,7 @@ export async function runAllChecks(tenant: TenantForVerify, appUrl: string) {
     verifyResendDomain(tenant.resend_api_key || '', tenant.resend_domain || ''),
     verifyTelnyxNumber(tenant.telnyx_api_key || '', tenant.telnyx_phone || ''),
     verifyStripeAccount(tenant.stripe_api_key || '', tenant.stripe_account_id),
-    verifyStripeWebhook(tenant.stripe_api_key || '', `${appUrl}/api/webhooks/stripe`),
+    verifyStripeWebhook(tenant.stripe_api_key || '', candidateStripeWebhookUrls(appUrl, tenant.domain)),
   ])
 
   const unwrap = (r: PromiseSettledResult<CheckResult>): CheckResult =>
