@@ -49,12 +49,16 @@ export default function ShopClient({ config, products }: { config: SiteConfig; p
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {products.map((product) => (
-              <div key={product.id} className="border border-gray-200 rounded-2xl overflow-hidden bg-white hover:border-[var(--accent)] hover:shadow-lg transition-all flex flex-col">
+              <div key={product.id} className="group border border-gray-200 rounded-2xl overflow-hidden bg-white hover:border-[var(--accent)] hover:shadow-lg transition-all flex flex-col">
                 <Link href={`/shop/${product.id}`} className="block">
-                  <div className="aspect-square bg-[var(--surface)] relative">
+                  <div className="aspect-square bg-[var(--surface)] relative overflow-hidden">
                     {product.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- uploaded product photos live in Supabase Storage, not in next.config's image remotePatterns allowlist (same reasoning as CatalogTab.tsx)
-                      <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[rgb(var(--brand-rgb)/0.25)]">
                         <svg aria-hidden="true" className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">

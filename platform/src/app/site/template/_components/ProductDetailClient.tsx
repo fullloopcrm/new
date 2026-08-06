@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -20,7 +20,17 @@ export interface ProductDetail {
 export default function ProductDetailClient({ config, product }: { config: SiteConfig; product: ProductDetail }) {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
+  const [zoomed, setZoomed] = useState(false)
   const business = buildBusiness(config)
+
+  useEffect(() => {
+    if (!zoomed) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setZoomed(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [zoomed])
 
   function handleAdd() {
     for (let i = 0; i < qty; i++) {
@@ -66,8 +76,20 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="aspect-square bg-[var(--surface)] rounded-2xl relative overflow-hidden">
           {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- uploaded product photos live in Supabase Storage, not in next.config's image remotePatterns allowlist
-            <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={() => setZoomed(true)}
+              aria-label={`Zoom in on ${product.name}`}
+              className="absolute inset-0 w-full h-full cursor-zoom-in group"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- uploaded product photos live in Supabase Storage, not in next.config's image remotePatterns allowlist */}
+              <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
+              <span className="absolute bottom-3 right-3 bg-white/90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                <svg aria-hidden="true" className="w-4 h-4 text-[var(--brand)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                </svg>
+              </span>
+            </button>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[rgb(var(--brand-rgb)/0.25)]">
               <svg aria-hidden="true" className="w-24 h-24" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
@@ -111,6 +133,29 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
           )}
         </div>
       </div>
+
+      {zoomed && product.imageUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${product.name} zoomed in`}
+          onClick={() => setZoomed(false)}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- lightbox preview of the same Supabase-hosted product photo */}
+          <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
+          <button
+            type="button"
+            onClick={() => setZoomed(false)}
+            aria-label="Close zoomed image"
+            className="absolute top-4 right-4 bg-white/90 rounded-full p-2 hover:bg-white"
+          >
+            <svg aria-hidden="true" className="w-5 h-5 text-[var(--brand)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

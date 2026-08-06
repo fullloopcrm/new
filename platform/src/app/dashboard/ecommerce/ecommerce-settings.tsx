@@ -11,7 +11,7 @@ export default function EcommerceSettings() {
   return (
     <PageSettingsPanel
       {...settings}
-      title="E-commerce"
+      title="Store"
       tips={[
         'Turn the storefront off to hide the Shop page and cart from your site without deleting your products.',
         'Physical items collect a shipping address at checkout automatically — digital items never do.',
