@@ -36,16 +36,29 @@ export default function RemoteBookForm({ services, businessName }: { services: S
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; phone?: string; service_type?: string; date?: string }>({})
 
-  const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }))
+  const set = (k: keyof typeof form, v: string) => { setForm(p => ({ ...p, [k]: v })); setFieldErrors(prev => ({ ...prev, [k]: undefined })) }
   const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  function validateForm(): typeof fieldErrors {
+    const errors: typeof fieldErrors = {}
+    if (!form.name.trim()) errors.name = 'Please enter your name.'
+    if (!form.email.trim()) errors.email = 'Please enter your email.'
+    if (!form.phone.trim()) errors.phone = 'Please enter your phone number.'
+    if (!form.service_type) errors.service_type = 'Please choose a service.'
+    if (!form.date) errors.date = 'Please choose a start date.'
+    return errors
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { setError('Please add your name, email, and phone.'); return }
-    if (!form.service_type) { setError('Please choose a service.'); return }
-    if (!form.date) { setError('Please choose a start date.'); return }
+    // Show every missing/invalid field at once so the client knows exactly
+    // what's blocking their request, instead of one gate per resubmit.
+    const errors = validateForm()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) { setError('Please fix the highlighted fields below.'); return }
     const cadenceLabel = CADENCE.find(c => c.value === form.cadence)?.label ?? 'One-time'
     const notes = [
       `Plan: ${form.hours} hrs / ${cadenceLabel.toLowerCase()}`,
@@ -102,9 +115,10 @@ export default function RemoteBookForm({ services, businessName }: { services: S
 
       <div>
         <label className={label}>Service</label>
-        <select value={form.service_type} onChange={e => set('service_type', e.target.value)} className={input} required>
+        <select value={form.service_type} onChange={e => set('service_type', e.target.value)} className={`${input} ${fieldErrors.service_type ? 'border-red-400 ring-1 ring-red-300' : ''}`} required>
           {active.map(s => <option key={s.value} value={s.value}>{s.value}</option>)}
         </select>
+        {fieldErrors.service_type && <p className="text-red-600 text-xs mt-1">{fieldErrors.service_type}</p>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -123,7 +137,8 @@ export default function RemoteBookForm({ services, businessName }: { services: S
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className={label}>Start date</label>
-          <input type="date" min={minDate} value={form.date} onChange={e => set('date', e.target.value)} className={input} required />
+          <input type="date" min={minDate} value={form.date} onChange={e => set('date', e.target.value)} className={`${input} ${fieldErrors.date ? 'border-red-400 ring-1 ring-red-300' : ''}`} required />
+          {fieldErrors.date && <p className="text-red-600 text-xs mt-1">{fieldErrors.date}</p>}
         </div>
         <div>
           <label className={label}>Your timezone</label>
@@ -139,10 +154,22 @@ export default function RemoteBookForm({ services, businessName }: { services: S
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div><label className={label}>Name</label><input value={form.name} onChange={e => set('name', e.target.value)} className={input} required /></div>
-        <div><label className={label}>Phone</label><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} className={input} required /></div>
+        <div>
+          <label className={label}>Name</label>
+          <input value={form.name} onChange={e => set('name', e.target.value)} className={`${input} ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : ''}`} required />
+          {fieldErrors.name && <p className="text-red-600 text-xs mt-1">{fieldErrors.name}</p>}
+        </div>
+        <div>
+          <label className={label}>Phone</label>
+          <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} className={`${input} ${fieldErrors.phone ? 'border-red-400 ring-1 ring-red-300' : ''}`} required />
+          {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
+        </div>
       </div>
-      <div><label className={label}>Email</label><input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={input} required /></div>
+      <div>
+        <label className={label}>Email</label>
+        <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={`${input} ${fieldErrors.email ? 'border-red-400 ring-1 ring-red-300' : ''}`} required />
+        {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
+      </div>
 
       <SmsConsent businessName={businessName} checked={smsConsent} onChange={setSmsConsent} />
 
