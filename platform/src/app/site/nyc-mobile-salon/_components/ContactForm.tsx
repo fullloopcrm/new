@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const formatPhone = (value: string) => {
   const cleaned = value.replace(/\D/g, '')
@@ -14,6 +15,7 @@ export default function ContactForm({ id, variant = "light" }: { id?: string; va
   const [done, setDone] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [serverError, setServerError] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const isDark = variant === "dark"
 
@@ -36,7 +38,7 @@ export default function ContactForm({ id, variant = "light" }: { id?: string; va
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, ...getSpamGuardFields() }),
       })
       const json = await res.json()
       if (res.ok) {
@@ -78,6 +80,7 @@ export default function ContactForm({ id, variant = "light" }: { id?: string; va
 
   return (
     <form id={id} onSubmit={handleSubmit} className={`rounded-2xl p-6 sm:p-8 ${isDark ? "border border-white/10" : "border border-gray-100"}`}>
+      <Honeypot inputRef={honeypotRef} />
       <h3 className={`mb-1 text-center text-xl font-semibold font-display ${isDark ? "text-white" : "text-charcoal"}`}>
         Send Us a Message
       </h3>

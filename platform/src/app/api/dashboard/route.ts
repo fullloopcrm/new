@@ -5,13 +5,16 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 interface BookingRow {
   price: number | null
   status?: string
 }
 
-export async function GET() {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
     const db = tenantDb(tenantId)
@@ -166,4 +169,4 @@ export async function GET() {
     console.error('GET /api/dashboard error:', err)
     return NextResponse.json({ error: 'Failed to load dashboard' }, { status: 500 })
   }
-}
+})

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { track } from "@vercel/analytics";
 import { track as localTrack, getSessionId } from "@/app/site/the-nyc-exterminator/_lib/tracker";
 import { uploadViaSignedUrl } from "@/lib/client-upload";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface JobApplicationFormProps {
   position?: string;
@@ -24,6 +25,7 @@ export default function JobApplicationForm({
   const openedRef = useRef(false);
   const submittedRef = useRef(false);
   const lastFieldRef = useRef<string | undefined>(undefined);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -98,6 +100,7 @@ export default function JobApplicationForm({
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
       photo_url: photoUrl,
       session_id: getSessionId(),
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -160,6 +163,7 @@ export default function JobApplicationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="app-name" className={labelClass}>Full Name *</label>

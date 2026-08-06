@@ -74,16 +74,21 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'schedules.edit')).toBe(true)
     })
 
-    it('can view/create/edit team (HR) but not delete', () => {
+    it('can view/create/edit team roster/contact info but not delete or see compensation', () => {
       expect(hasPermission('virtual_assistant', 'team.view')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.create')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.edit')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+      // team.compensation gates pay rate, employment classification, and the
+      // decrypted team-portal PIN — front-office/customer-service scope, not
+      // HR/payroll scope.
+      expect(hasPermission('virtual_assistant', 'team.compensation')).toBe(false)
     })
 
-    it('can view/create/send campaigns (marketing)', () => {
+    it('can view/create campaigns but not send them', () => {
       expect(hasPermission('virtual_assistant', 'campaigns.view')).toBe(true)
-      expect(hasPermission('virtual_assistant', 'campaigns.send')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'campaigns.create')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'campaigns.send')).toBe(false)
     })
 
     it('cannot delete anything', () => {
@@ -100,12 +105,14 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'settings.edit')).toBe(false)
     })
 
-    it('can view/manage sales, referrals, and sales partners but not pay out', () => {
+    it('can view sales and referrals but cannot manage referrers, sales partners, or pay out either', () => {
       expect(hasPermission('virtual_assistant', 'sales.view')).toBe(true)
       expect(hasPermission('virtual_assistant', 'sales.edit')).toBe(true)
-      expect(hasPermission('virtual_assistant', 'referrals.manage')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'referrals.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'referrals.manage')).toBe(false)
       expect(hasPermission('virtual_assistant', 'referrals.payout')).toBe(false)
-      expect(hasPermission('virtual_assistant', 'sales_partners.manage')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'sales_partners.view')).toBe(true)
+      expect(hasPermission('virtual_assistant', 'sales_partners.manage')).toBe(false)
       expect(hasPermission('virtual_assistant', 'sales_partners.payout')).toBe(false)
     })
 

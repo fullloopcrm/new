@@ -60,6 +60,42 @@ export const isPublicRoute = createRouteMatcher([
   '/sales(.*)',             // Sales partner portal (email+PIN auth, not Clerk)
   '/api/portal(.*)',        // Portal API routes
   '/api/team-portal(.*)',   // Team portal API routes
+  // Mobile app API routes use a bearer token (getTenantForRequest()'s mobile
+  // branch), not Clerk — without this, Clerk's own gate 307s every mobile
+  // request to /sign-in before the route's real auth ever runs. Found via
+  // /api/mobile/comhub/send specifically 2026-08-05 (testing only ever hit a
+  // Vercel preview URL, which isn't in MAIN_HOSTS and skips this gate
+  // silently — a real MAIN_HOSTS hit exposed it). Blanket-matched since every
+  // route under /api/mobile is app-facing today; if an admin/dashboard-only
+  // route is ever added under this prefix, give it its own Clerk-gated path
+  // instead of relying on this being narrow.
+  '/api/mobile(.*)',
+  // Same gap, hit live testing these three 2026-08-06: the mobile Admin tab
+  // calls these existing web-dashboard routes directly with its bearer
+  // token (they already authenticate via getTenantForRequest(), same as
+  // the /api/mobile/* routes above — no separate mobile copies needed) but
+  // Clerk's gate 307'd every one of them before that auth ever ran. Listed
+  // individually, not a blanket '/api(.*)', since most other /api routes
+  // here genuinely are Clerk-session-only.
+  '/api/dashboard',
+  '/api/clients(.*)',
+  '/api/schedules(.*)',
+  // Sales Partner + Referrer portal routes the mobile app calls directly
+  // with a bearer token (getSalesPartnerAuth / getReferrerAuth read
+  // Authorization themselves, no Clerk needed) — same MAIN_HOSTS gap as the
+  // /api/mobile(.*) entries above: 2026-08-05 testing only ever hit a
+  // Vercel preview URL, which skips this whole Clerk gate. Scoped narrowly,
+  // NOT a blanket '/api/sales-partners(.*)' or '/api/referrers(.*)' — those
+  // prefixes also carry admin/dashboard-management routes (e.g.
+  // /api/sales-partners (bare, admin create/list), /api/referrers/analytics)
+  // that must stay Clerk-gated.
+  '/api/sales-partners/me',            // Sales partner's own dashboard data (GET/PUT)
+  '/api/referrers/auth(.*)',           // Referrer OTP login (request + verify) — no other routes
+                                        // live under /api/referrers/auth/, safe to wildcard this segment
+  '/api/referrers/connect/[^/]+/stripe-onboard(.*)', // Referrer Stripe Connect onboarding (POST)
+  '/api/referrers/(?!analytics|auth|connect)[^/]+', // Referrer's own dashboard data by code (GET) —
+                                        // negative lookahead excludes the sibling static routes
+                                        // (analytics/auth/connect) which must stay Clerk-gated.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/company/track(.*)', // Full Loop's own marketing-site visit tracking beacon

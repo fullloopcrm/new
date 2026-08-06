@@ -20,7 +20,7 @@ function getStripe(key: string | null | undefined): Stripe {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getSalesPartnerAuth(request)
+  const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   if (id !== auth.pid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -83,7 +83,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
 // Refresh handler — regenerates the onboarding link if the Stripe-hosted one expired.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getSalesPartnerAuth(request)
+  const auth = await getSalesPartnerAuth(request)
   const { id } = await params
   if (!auth || id !== auth.pid) {
     return NextResponse.redirect(new URL('/sales', request.url))

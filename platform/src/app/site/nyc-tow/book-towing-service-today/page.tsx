@@ -4,11 +4,13 @@ import { useState, useCallback } from "react";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/nyc-tow/_data/content";
 import { AddressAutocomplete } from "@/app/site/nyc-tow/_components/AddressAutocomplete";
 import { JsonLd, breadcrumbSchema } from "@/app/site/nyc-tow/_lib/schema";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function BookPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [address, setAddress] = useState("");
   const [addressConfirmed, setAddressConfirmed] = useState(false);
 
@@ -38,6 +40,7 @@ export default function BookPage() {
         narrative && `Details: ${narrative}`,
       ].filter(Boolean).join(" | "),
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
     try {
       const res = await fetch("/api/lead", {
@@ -127,6 +130,7 @@ export default function BookPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
                   <h2 className="text-xl font-bold text-slate-900 font-heading">Service Request</h2>
                   <p className="text-sm text-slate-500">Dispatch will call you to confirm. For immediate service, call <a href={PHONE_HREF} className="text-teal-700 font-bold">{PHONE}</a>.</p>
 

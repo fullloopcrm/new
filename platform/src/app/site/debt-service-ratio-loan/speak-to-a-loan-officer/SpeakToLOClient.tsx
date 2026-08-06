@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { getAllStates } from "@/app/site/debt-service-ratio-loan/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const propertyTypes = [
   "Single-Family Rental",
@@ -46,6 +47,7 @@ export default function SpeakToLOClient() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +70,7 @@ export default function SpeakToLOClient() {
           down_payment: form.downPayment,
           message: form.message,
           source: "speak-to-loan-officer",
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -121,6 +124,7 @@ export default function SpeakToLOClient() {
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
+                <Honeypot inputRef={honeypotRef} />
                 <h2 className="text-2xl font-bold text-slate-900 font-heading">Tell Us About Your Investment</h2>
                 <p className="text-sm text-slate-500">Fill out the form below and a DSCR specialist will contact you within 1 business day.</p>
 

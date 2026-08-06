@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -48,9 +51,9 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(defaults)
-}
+})
 
-export async function PUT(request: NextRequest) {
+export const PUT = withMobileCors(async function PUT(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -80,4 +83,4 @@ export async function PUT(request: NextRequest) {
     .eq('id', auth.id)
 
   return NextResponse.json({ success: true })
-}
+})

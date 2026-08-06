@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -25,12 +26,17 @@ function safeDecryptPin(pin: string | null): string | null {
   }
 }
 
+const COMPENSATION_FIELDS = ['pay_rate', 'hourly_rate', 'employment_type'] as const
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('team.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
 
     const { data, error } = await supabaseAdmin
@@ -62,16 +68,25 @@ export async function GET(
     ])
     const ytdEarningsCents = (ytdBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
     const lifetimeEarningsCents = (lifetimeBookings || []).reduce((sum, b) => sum + (b.team_member_pay || 0), 0)
+    const canSeeCompensation = hasPermission(tenant.role, 'team.compensation', overridesFor(tenant))
+
+    // The PIN is the cleaner's team-portal credential — same sensitivity
+    // tier as pay/employment data, gated the same way (team.compensation),
+    // not just plain team.view/team.edit.
+    const member: Record<string, unknown> = { ...data, pin: canSeeCompensation ? safeDecryptPin(data.pin) : undefined }
+    if (!canSeeCompensation) {
+      for (const f of COMPENSATION_FIELDS) delete member[f]
+    }
 
     return NextResponse.json({
-      member: { ...data, pin: safeDecryptPin(data.pin) },
+      member,
       stats: {
         jobs_completed: jobsCompleted || 0,
         no_show_count: noShowCount || 0,
         avg_rating: data.avg_rating != null ? Number(data.avg_rating) : null,
         rating_count: data.rating_count || 0,
-        ytd_earnings_cents: ytdEarningsCents,
-        lifetime_earnings_cents: lifetimeEarningsCents,
+        ytd_earnings_cents: canSeeCompensation ? ytdEarningsCents : null,
+        lifetime_earnings_cents: canSeeCompensation ? lifetimeEarningsCents : null,
         // Smart-scheduling upgrade spec Part 4 item 1 — see lib/team-retention.ts
         // for what "ever_assigned" does and doesn't capture.
         retention_ever_assigned: retention.ever_assigned,
@@ -104,6 +119,12 @@ export async function PUT(
     const body = await request.json()
 
     if (body.regenerate_pin) {
+      // Same tier as viewing it — resetting a cleaner's team-portal
+      // credential is sensitive access-control, not a roster edit.
+      if (!hasPermission(tenant.role, 'team.compensation', overridesFor(tenant))) {
+        return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+      }
+
       const { data: member } = await supabaseAdmin
         .from('team_members')
         .select('id, name, email, phone')
@@ -141,6 +162,10 @@ export async function PUT(
       'preferred_language', 'notes', 'avatar_url', 'address', 'schedule', 'home_by_time',
       'has_car', 'labor_only', 'service_zones', 'max_travel_minutes',
     ])
+
+    if (!hasPermission(tenant.role, 'team.compensation', overridesFor(tenant))) {
+      for (const f of COMPENSATION_FIELDS) delete (fields as Record<string, unknown>)[f]
+    }
 
     const { data, error } = await supabaseAdmin
       .from('team_members')

@@ -12,8 +12,11 @@ import { formatName } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { isValidLeadSource } from '@/lib/lead-sources'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   try {
     // Every other verb on this route family (POST here, PUT/DELETE on
     // [id]) is gated by requirePermission('clients.*') -- this GET only
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
     }
     throw e
   }
-}
+})
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as Record<string, unknown>

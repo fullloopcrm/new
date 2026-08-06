@@ -53,8 +53,8 @@ beforeEach(() => {
   process.env.TEAM_PORTAL_SECRET = 'referral-commissions-test-secret'
   fake._store.clear()
   fake._seed('referrers', [
-    { id: REFERRER_A, tenant_id: TENANT_A, name: 'Ref A', email: 'a@x.com', referral_code: 'AAAA1' },
-    { id: REFERRER_B, tenant_id: TENANT_B, name: 'Ref B', email: 'b@x.com', referral_code: 'BBBB1' },
+    { id: REFERRER_A, tenant_id: TENANT_A, name: 'Ref A', email: 'a@x.com', referral_code: 'AAAA1', status: 'active' },
+    { id: REFERRER_B, tenant_id: TENANT_B, name: 'Ref B', email: 'b@x.com', referral_code: 'BBBB1', status: 'active' },
   ])
   fake._seed('referral_commissions', [
     {

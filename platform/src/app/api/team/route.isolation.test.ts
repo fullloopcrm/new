@@ -16,6 +16,8 @@ const B = 'tid-b'
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
+const roleHolder = vi.hoisted(() => ({ role: 'owner' }))
+
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
     status: number
@@ -26,16 +28,19 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: roleHolder.role })),
   }
 })
 
-// POST is permission-gated; return tenant A so the write runs under A's context.
+// GET and POST are both permission-gated; return tenant A under whatever
+// role the test set, so both run under A's context with that role's
+// permissions, including (or excluding) team.compensation.
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: vi.fn(async () => ({
-    tenant: { userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' },
+    tenant: { userId: 'u1', tenantId: A, tenant: { id: A }, role: roleHolder.role },
     error: null,
   })),
+  overridesFor: vi.fn(() => null),
 }))
 
 // Settings only supplies numeric/array defaults; no DB access needed in-probe.
@@ -48,7 +53,7 @@ import { GET, POST } from './route'
 function seed() {
   return {
     team_members: [
-      { id: 'tm-a1', tenant_id: A, name: 'Ana', status: 'active', created_at: '2026-01-02' },
+      { id: 'tm-a1', tenant_id: A, name: 'Ana', status: 'active', created_at: '2026-01-02', pay_rate: 22, hourly_rate: 30 },
       { id: 'tm-b1', tenant_id: B, name: 'Foreign Ben', status: 'active', created_at: '2026-01-01' },
     ],
     ratings: [
@@ -65,6 +70,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
 })
 
 describe('team — tenant isolation', () => {
@@ -99,5 +105,23 @@ describe('team — tenant isolation', () => {
     expect(inserted).toBeTruthy()
     expect(inserted!.rows[0].tenant_id).toBe(A) // stamp wins over forged B
     expect(inserted!.rows[0].name).toBe('New Cleaner')
+  })
+
+  it('owner (has team.compensation) sees pay_rate/hourly_rate in the roster', async () => {
+    const res = await GET()
+    const body = await res.json()
+    const ana = (body.team as Array<{ id: string; pay_rate?: number; hourly_rate?: number }>).find((m) => m.id === 'tm-a1')
+    expect(ana?.pay_rate).toBe(22)
+    expect(ana?.hourly_rate).toBe(30)
+  })
+
+  it('staff (no team.compensation) never sees pay_rate/hourly_rate in the roster', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    const body = await res.json()
+    const ana = (body.team as Array<Record<string, unknown>>).find((m) => m.id === 'tm-a1')!
+    expect(ana.pay_rate).toBeUndefined()
+    expect(ana.hourly_rate).toBeUndefined()
+    expect(ana.name).toBe('Ana') // non-compensation fields still visible
   })
 })

@@ -4,19 +4,22 @@ import { tenantDb } from '@/lib/tenant-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 import { bookingPathForTenant } from '@/lib/booking-path'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Referrer earnings dashboard data. Gated: requires a referrer session token
 // (from /api/referrers/auth/verify) whose referrer owns this code. Reads the
 // real `referrers` table — the previous version read the unrelated, empty
 // `referrals` table (client-referral edges), so every code 404'd.
-export async function GET(
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(
   request: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params
   if (!code) return NextResponse.json({ error: 'Code required' }, { status: 400 })
 
-  const auth = getReferrerAuth(request)
+  const auth = await getReferrerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Load the authenticated referrer and confirm the URL code is theirs.
@@ -198,4 +201,4 @@ export async function GET(
     commissions,
     pendingBookings,
   })
-}
+})

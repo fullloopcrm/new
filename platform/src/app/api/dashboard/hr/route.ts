@@ -5,7 +5,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { listEmployees } from '@/lib/hr'
 
 export async function GET() {
-  const { tenant, error } = await requirePermission('team.view')
+  const { tenant, error } = await requirePermission('team.compensation')
   if (error) return error
   try {
     const employees = await listEmployees(tenant.tenantId)

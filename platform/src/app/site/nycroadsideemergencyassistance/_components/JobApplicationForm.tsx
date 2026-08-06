@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { uploadViaSignedUrl } from "@/lib/client-upload";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export function JobApplicationForm({ city, state }: { city?: string; state?: string }) {
   const [submitted, setSubmitted] = useState(false);
@@ -10,6 +11,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [photoName, setPhotoName] = useState<string>("");
   const [photoUploading, setPhotoUploading] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const location = city && state ? `${city}, ${state}` : state || "NYC (All Boroughs)";
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -58,6 +60,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       message: [`Can lift: ${String(fd.get("canLift") || "")}`, String(fd.get("about") || "")].filter(Boolean).join("\n"),
       photo_url: photoUrl,
       source: typeof window !== "undefined" ? window.location.pathname : "",
+      ...getSpamGuardFields(),
     };
 
     try {
@@ -88,6 +91,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+      <Honeypot inputRef={honeypotRef} />
       <h3 className="text-lg font-bold text-slate-900 font-heading">Apply Now — {location}</h3>
       <p className="text-sm text-slate-500">Takes 2 minutes. We&apos;ll call you within 48 hours.</p>
       <div>

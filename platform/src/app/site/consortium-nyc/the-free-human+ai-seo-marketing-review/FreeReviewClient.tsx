@@ -4,12 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import TipBlurb from "@/app/site/consortium-nyc/_components/TipBlurb";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function FreeSEOAudit() {
   const [url, setUrl] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +19,7 @@ export default function FreeSEOAudit() {
       await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "seo-audit", name, email, url }),
+        body: JSON.stringify({ type: "seo-audit", name, email, url, ...getSpamGuardFields() }),
       });
     } catch {
       // noop
@@ -80,6 +82,7 @@ export default function FreeSEOAudit() {
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <Honeypot inputRef={honeypotRef} />
                 <div>
                   <label htmlFor="name" className="block text-sm font-semibold text-slate-700 mb-1">Your Name</label>
                   <input

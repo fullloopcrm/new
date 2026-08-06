@@ -5,6 +5,7 @@ import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantTimezone, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
 // decide if a job is worth claiming, not enough to identify/contact the client.
@@ -17,7 +18,9 @@ function maskArea(address: string | null | undefined): string {
   return parts.length > 1 ? parts[1] : 'Area hidden'
 }
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -128,4 +131,4 @@ export async function GET(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
   return NextResponse.json({ jobs: data })
-}
+})

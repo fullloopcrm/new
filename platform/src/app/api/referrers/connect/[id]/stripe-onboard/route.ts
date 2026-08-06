@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 function getStripe(key: string | null | undefined): Stripe {
   const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
@@ -19,8 +20,14 @@ function getStripe(key: string | null | undefined): Stripe {
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getReferrerAuth(request)
+// POST is the mobile-called entry point (referral-auth.ts's referralApiPost
+// against this route). GET below is a browser-navigation redirect handler
+// (Stripe's own refresh_url callback), not a fetch() call — no CORS needed
+// there.
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await getReferrerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   if (id !== auth.rid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -78,11 +85,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.error('[referrer stripe-onboard]', e)
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Stripe error' }, { status: 500 })
   }
-}
+})
 
 // Refresh handler — regenerates the onboarding link if the Stripe-hosted one expired.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getReferrerAuth(request)
+  const auth = await getReferrerAuth(request)
   const { id } = await params
   if (!auth || id !== auth.rid) {
     return NextResponse.redirect(new URL('/referral', request.url))

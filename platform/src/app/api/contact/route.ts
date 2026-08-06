@@ -30,6 +30,7 @@ import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
 import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { normalizePhone } from '@/lib/phone'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 interface ContactBody {
   formType?: string
@@ -55,6 +56,9 @@ interface ContactBody {
   license?: string
   availability?: string
   photo_url?: string
+  // Bot defense — see src/lib/spam-guard.ts
+  _hp?: string
+  _ts?: number
 }
 
 function inferFormType(body: ContactBody): 'service-quote' | 'general-inquiry' | 'job-application' {
@@ -147,6 +151,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as ContactBody
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const name = body.name?.trim()
     const email = body.email?.trim().toLowerCase()
     const phone = body.phone?.trim()

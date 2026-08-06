@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { services, getAllBoroughs, PHONE, PHONE_HREF, SMS_HREF } from "@/app/site/landscaping-in-nyc/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const budgetRanges = [
   "Under $5,000",
@@ -51,6 +52,7 @@ export default function FreeEstimateClient() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +75,7 @@ export default function FreeEstimateClient() {
           timeframe: form.timeframe,
           description: form.description,
           source: "free-estimate",
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -126,6 +129,7 @@ export default function FreeEstimateClient() {
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
+                <Honeypot inputRef={honeypotRef} />
                 <h2 className="text-2xl font-bold text-slate-900 font-heading">Tell Us About Your Project</h2>
                 <p className="text-sm text-slate-500">Fill out the form below and a landscaping specialist will contact you within 1 business day.</p>
 

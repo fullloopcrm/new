@@ -2,12 +2,14 @@
 
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function ExitIntent() {
   const [shown, setShown] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [email, setEmail] = useState("");
   const { scrollYProgress } = useScroll();
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
     if (latest > 0.6 && !shown && !dismissed) {
@@ -26,7 +28,7 @@ export default function ExitIntent() {
       await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "exit-intent-audit", email }),
+        body: JSON.stringify({ type: "exit-intent-audit", email, ...getSpamGuardFields() }),
       });
     } catch {
       // noop
@@ -82,6 +84,7 @@ export default function ExitIntent() {
             </p>
 
             <form onSubmit={handleSubmit} className="flex gap-2">
+              <Honeypot inputRef={honeypotRef} />
               <input
                 type="email"
                 required

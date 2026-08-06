@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { supabaseAdmin } from './supabase'
 
 // Sales Partner portal session tokens. Same HMAC scheme as the referrer
 // portal (src/lib/referrer-portal-auth.ts) -- a base64 payload plus a
@@ -22,8 +23,12 @@ function getSecret(): string {
   return s
 }
 
-export function createSalesPartnerToken(salesPartnerId: string, tenantId: string): string {
-  const payload = JSON.stringify({ pid: salesPartnerId, tid: tenantId, scope: 'salespartner', exp: Date.now() + TOKEN_TTL_MS })
+// ttlMs is optional and defaults to the web sales-partner portal's existing
+// 30-day session — the mobile unified-login resolver (api/mobile/unified-login)
+// passes a long-lived override (matches tenant_members' 10-year pattern)
+// without changing behavior for the web portal's own email+PIN login.
+export function createSalesPartnerToken(salesPartnerId: string, tenantId: string, ttlMs: number = TOKEN_TTL_MS): string {
+  const payload = JSON.stringify({ pid: salesPartnerId, tid: tenantId, scope: 'salespartner', exp: Date.now() + ttlMs })
   const hmac = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
@@ -46,9 +51,28 @@ export function verifySalesPartnerToken(token: string): { pid: string; tid: stri
   }
 }
 
-// Pull and verify the sales partner bearer token off a request.
-export function getSalesPartnerAuth(request: Request): { pid: string; tid: string } | null {
+// Pull and verify the sales partner bearer token off a request, AND
+// instant-revoke: a signed, unexpired token alone isn't proof the partner is
+// still active -- the token carries no live state, so a deactivated partner
+// would otherwise keep working until the token's natural expiry (up to 10
+// years for a mobile-minted token, see MOBILE_SESSION_MS in
+// api/mobile/unified-login). Re-reads sales_partners.active on every call
+// instead of trusting the signed claim -- mirrors requirePortalPermission's
+// per-request status re-check (lib/team-portal-auth.ts) and the equivalent
+// fix applied to /api/cleaners/upload's team-portal bearer branch.
+export async function getSalesPartnerAuth(request: Request): Promise<{ pid: string; tid: string } | null> {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
-  return verifySalesPartnerToken(token)
+  const verified = verifySalesPartnerToken(token)
+  if (!verified) return null
+
+  const { data: partner } = await supabaseAdmin
+    .from('sales_partners')
+    .select('active')
+    .eq('id', verified.pid)
+    .eq('tenant_id', verified.tid)
+    .maybeSingle()
+  if (!partner || !partner.active) return null
+
+  return verified
 }

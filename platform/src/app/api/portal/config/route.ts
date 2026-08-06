@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // Tells the client portal which funnel this tenant runs so the booking UI can
 // adapt: 'booking' = self-serve hourly/flat scheduling (cleanings, appointments);
 // 'pipeline'/'lead_only' = request a quote/appointment that drops into the sales
 // pipeline instead of self-booking a time. Same funnel_mode the core sale
 // process and Selena already key off of.
-export async function GET(request: NextRequest) {
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -38,4 +41,4 @@ export async function GET(request: NextRequest) {
     tenant_name: tenant?.name || '',
     tenant_phone: tenant?.phone || '',
   })
-}
+})

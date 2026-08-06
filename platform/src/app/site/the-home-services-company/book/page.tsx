@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { AddressAutocomplete } from "@/app/site/the-home-services-company/_components/AddressAutocomplete";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 interface FieldErrors {
   name?: string;
@@ -29,6 +30,7 @@ export default function BookPage() {
   const [details, setDetails] = useState("");
   const [address, setAddress] = useState("");
   const [addressConfirmed, setAddressConfirmed] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleAddressSelect = useCallback((details: { formatted: string }) => {
     setAddress(details.formatted);
@@ -77,6 +79,7 @@ export default function BookPage() {
           when: when || undefined,
           details: details.trim(),
           source: typeof window !== "undefined" ? window.location.pathname : "",
+          ...getSpamGuardFields(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -154,6 +157,7 @@ export default function BookPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+                  <Honeypot inputRef={honeypotRef} />
                   <h2 className="text-xl font-bold text-slate-900 font-heading">Book a Home Service</h2>
                   <p className="text-sm text-slate-500">We&apos;ll call you to confirm. No payment required now.</p>
 

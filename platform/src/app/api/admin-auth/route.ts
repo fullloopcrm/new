@@ -7,6 +7,7 @@ import { hashAdminPin } from '@/lib/admin-pin'
 import { sendLoginAlert } from '@/lib/login-alert'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { audit } from '@/lib/audit'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
@@ -95,6 +96,35 @@ export function verifyTenantAdminToken(
   }
 }
 
+/**
+ * Same verification as verifyTenantAdminToken, but for callers with no prior
+ * knowledge of which tenant the token belongs to (e.g. a mobile app bearer
+ * token, which has no domain-derived x-tenant-id to check against). Trusts
+ * the tenantId claim once the HMAC signature is confirmed — the signature is
+ * what makes the claim unforgeable, not an external comparison.
+ */
+export function verifyTenantAdminTokenAnyTenant(
+  token: string,
+): { tenantId: string; memberId: string; role: string } | null {
+  if (!SECRET) return null
+  try {
+    const [payloadB64, sig] = token.split('.')
+    if (!sig) return null
+    const payload = Buffer.from(payloadB64, 'base64').toString()
+    const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
+    const a = Buffer.from(sig)
+    const b = Buffer.from(expected)
+    if (a.length !== b.length) return null
+    if (!crypto.timingSafeEqual(a, b)) return null
+    const data = JSON.parse(payload)
+    if (data.role !== 'tenant_admin') return null
+    if (data.exp <= Date.now()) return null
+    return { tenantId: String(data.tenantId), memberId: String(data.memberId), role: String(data.memberRole || 'staff') }
+  } catch {
+    return null
+  }
+}
+
 function setAdminCookie(res: NextResponse, token: string): void {
   res.cookies.set('admin_token', token, {
     httpOnly: true,
@@ -173,6 +203,20 @@ export async function POST(request: Request) {
       const res = NextResponse.json({ success: true, role: 'tenant_admin' })
       setAdminCookie(res, createTenantAdminToken(headerTenantId, member.id, member.role))
       await sendLoginAlert({ tenantId: headerTenantId, ip, ua, who: `Tenant admin (${member.role})` })
+      // Durable, queryable record of every dashboard sign-in — sendLoginAlert
+      // above is a real-time ping (email/Telegram) but isn't stored anywhere
+      // you can look back at later. This is what makes "who logged into the
+      // dashboard, and when" answerable from the audit log (/dashboard/activity)
+      // instead of only from whatever alert channel happened to catch it live.
+      await audit({
+        tenantId: headerTenantId,
+        action: 'admin.dashboard_login',
+        entityType: 'team_member',
+        entityId: member.id,
+        userId: member.id,
+        ip,
+        details: { role: member.role },
+      })
       return res
     }
   }

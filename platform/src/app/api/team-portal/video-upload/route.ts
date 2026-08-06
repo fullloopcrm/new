@@ -3,12 +3,15 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
 const ALLOWED_MIMES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v']
 
+export const OPTIONS = corsPreflight
+
 // GET — generate signed upload URL (bypasses Vercel 4.5MB body limit)
-export async function GET(req: NextRequest) {
+export const GET = withMobileCors(async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -69,10 +72,10 @@ export async function GET(req: NextRequest) {
     console.error('Signed URL error:', err)
     return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 })
   }
-}
+})
 
 // POST — save video reference after signed URL upload, or legacy direct upload
-export async function POST(req: NextRequest) {
+export const POST = withMobileCors(async function POST(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -201,4 +204,4 @@ export async function POST(req: NextRequest) {
     console.error('Video upload error:', err)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
-}
+})

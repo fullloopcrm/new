@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { etToday, etDayBoundaryUTC, addCalendarDays, calendarDayOfWeek, daysInCalendarMonth, nowNaiveET } from '@/lib/recurring'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
 const roundToHalfHour = (hours: number) => {
@@ -11,7 +12,9 @@ const roundToHalfHour = (hours: number) => {
   return remainder >= 10 ? (halfHours + 1) * 0.5 : halfHours * 0.5
 }
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -194,4 +197,4 @@ export async function GET(request: NextRequest) {
       year: yearJobDetails,
     },
   })
-}
+})

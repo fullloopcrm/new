@@ -17,6 +17,7 @@ import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { trackError } from '@/lib/error-tracking'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 interface ApplyBody {
   name?: string
@@ -39,6 +40,9 @@ interface ApplyBody {
   portfolioFileUrl?: string | null
   videoUrl?: string | null
   photo_url?: string | null
+  // Bot defense — see src/lib/spam-guard.ts
+  _hp?: string
+  _ts?: number
 }
 
 function buildNotes(body: ApplyBody): string {
@@ -72,6 +76,9 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as ApplyBody
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const name = body.name?.trim()
     const phone = body.phone?.trim()
 

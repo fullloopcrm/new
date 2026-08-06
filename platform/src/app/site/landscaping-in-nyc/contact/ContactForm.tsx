@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { services } from "@/app/site/landscaping-in-nyc/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -45,6 +47,7 @@ export default function ContactForm() {
           description: form.description,
           timeline: form.timeline,
           source: "contact",
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -75,6 +78,7 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <h2 className="text-2xl font-bold text-slate-900 font-heading">Request a Free Estimate</h2>
 
       <div>

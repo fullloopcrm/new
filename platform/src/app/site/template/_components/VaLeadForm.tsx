@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import SmsConsent from '@/app/site/template/_components/SmsConsent'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 /**
  * VA lead-capture form. Posts to the tenant-aware /api/contact endpoint (tenant
@@ -20,14 +21,13 @@ const HOURS_OPTIONS = [
 export default function VaLeadForm({ config }: { config: SiteConfig }) {
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
   const [error, setError] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (status === 'sending') return
     const form = e.currentTarget
     const data = new FormData(form)
-    // Honeypot — bots fill this; humans never see it.
-    if ((data.get('company_website') as string)?.trim()) return
 
     const name = (data.get('name') as string)?.trim()
     const email = (data.get('email') as string)?.trim()
@@ -64,6 +64,7 @@ export default function VaLeadForm({ config }: { config: SiteConfig }) {
           phone,
           message,
           smsConsent,
+          ...getSpamGuardFields(),
         }),
       })
       if (!res.ok) {
@@ -102,8 +103,7 @@ export default function VaLeadForm({ config }: { config: SiteConfig }) {
 
   return (
     <form onSubmit={onSubmit} className="max-w-xl mx-auto bg-white rounded-2xl border border-gray-200 p-8 space-y-4">
-      {/* Honeypot */}
-      <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+      <Honeypot inputRef={honeypotRef} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <input name="name" required placeholder="Your name" className={inputCls} />

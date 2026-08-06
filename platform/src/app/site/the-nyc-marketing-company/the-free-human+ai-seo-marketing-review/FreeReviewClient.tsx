@@ -5,12 +5,14 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import TipBlurb from "@/app/site/the-nyc-marketing-company/_components/TipBlurb";
 import { submitLead } from "@/app/site/the-nyc-marketing-company/_lib/submitLead";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function FreeSEOAudit() {
   const [url, setUrl] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +21,7 @@ export default function FreeSEOAudit() {
       email,
       subject: "Free SEO / marketing review",
       message: `Website to review: ${url}`,
+      ...getSpamGuardFields(),
     });
     if (ok) setSubmitted(true);
     else alert("Something went wrong. Please email hello@thenycmarketingcompany.com and we'll send your review.");
@@ -79,6 +82,7 @@ export default function FreeSEOAudit() {
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <Honeypot inputRef={honeypotRef} />
                 <div>
                   <label htmlFor="name" className="block text-sm font-semibold text-slate-700 mb-1">Your Name</label>
                   <input

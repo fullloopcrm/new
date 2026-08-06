@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
@@ -23,8 +23,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { tenantId } = await getTenantForRequest()
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+
+  {
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const { id } = await params
     const { status } = await request.json()
@@ -100,6 +103,9 @@ export async function PATCH(
             body: (await clientSmsTemplatesFor(tenantId)).cancellation({ start_time: booking.start_time }),
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
+            tenantId,
+            bookingId: id,
+            smsType: 'cancellation',
           }).catch((err) => console.error('Cancellation SMS error:', err))
         }
       } catch (notifErr) {
@@ -131,10 +137,5 @@ export async function PATCH(
     await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: status } })
 
     return NextResponse.json({ booking: data })
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
-    throw e
   }
 }

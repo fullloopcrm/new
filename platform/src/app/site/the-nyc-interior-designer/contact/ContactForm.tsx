@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -67,6 +69,7 @@ export default function ContactForm() {
           budget: form.budget,
           description: form.message,
           source: "contact",
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -97,6 +100,7 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <Honeypot inputRef={honeypotRef} />
       <h2 className="text-2xl font-bold text-slate-900 font-heading">Request a Free Consultation</h2>
 
       <div>

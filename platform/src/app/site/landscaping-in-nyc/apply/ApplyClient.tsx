@@ -5,10 +5,11 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { jobs } from "@/app/site/landscaping-in-nyc/_lib/jobs";
 import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/landscaping-in-nyc/_lib/siteData";
+import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 );
 
 // Upload a file directly to Supabase storage via a pre-signed URL (bypasses
@@ -69,6 +70,7 @@ export default function ApplyClient() {
   const [errorMsg, setErrorMsg] = useState("");
   const resumeRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -125,6 +127,7 @@ export default function ApplyClient() {
           message: form.about,
           resumeUrl,
           videoUrl,
+          ...getSpamGuardFields(),
         }),
       });
 
@@ -196,6 +199,7 @@ export default function ApplyClient() {
       <section className="bg-white py-16">
         <div className="mx-auto max-w-2xl px-4 sm:px-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <Honeypot inputRef={honeypotRef} />
             {/* Name */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">
