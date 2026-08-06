@@ -54,11 +54,20 @@ function formatPhone(raw: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+interface FieldErrors {
+  name?: string;
+  phone?: string;
+  address?: string;
+  pickupAt?: string;
+}
+
 export function BookingForm({ variant = "default" }: { variant?: "default" | "hero" | "dark" }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [addressMeta, setAddressMeta] = useState<AddressSuggestion | null>(null);
@@ -251,9 +260,27 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     });
   }
 
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = "Please enter your name.";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) errors.phone = "Please enter a valid phone number.";
+    if (!address.trim()) errors.address = "Please enter the pickup address.";
+    if (!pickupAt) errors.pickupAt = "Please pick a pickup date and time.";
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // Show every missing/invalid field at once instead of relying on the
+    // browser's native one-at-a-time validation bubble.
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Please fix the highlighted fields below.");
+      return;
+    }
 
     const stillUploading = files.some((f) => f.status === "uploading");
     if (stillUploading) {
@@ -267,8 +294,8 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
 
     const payload = {
       type: "booking" as const,
-      name: String(fd.get("name") || ""),
-      phone: String(fd.get("phone") || ""),
+      name: name.trim(),
+      phone: phone.trim(),
       address,
       city: addressMeta?.city,
       state: addressMeta?.state,
@@ -324,9 +351,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             required
             autoComplete="name"
             placeholder="Your name"
-            className={inputClass}
+            value={name}
+            onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: undefined })); }}
+            className={`${inputClass} ${fieldErrors.name ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
-          <p className={tipClass}>So we know what to call you when we arrive.</p>
+          {fieldErrors.name ? <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p> : <p className={tipClass}>So we know what to call you when we arrive.</p>}
         </div>
 
         <div>
@@ -339,11 +368,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             inputMode="tel"
             placeholder="(555) 555-5555"
             value={phone}
-            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            onChange={(e) => { setPhone(formatPhone(e.target.value)); setFieldErrors((prev) => ({ ...prev, phone: undefined })); }}
             maxLength={14}
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.phone ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
-          <p className={tipClass}>We&apos;ll text to confirm — make sure it can receive SMS.</p>
+          {fieldErrors.phone ? <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p> : <p className={tipClass}>We&apos;ll text to confirm — make sure it can receive SMS.</p>}
         </div>
       </div>
 
@@ -356,12 +385,13 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             onChange={(e) => {
               setAddress(e.target.value);
               setAddressMeta(null);
+              setFieldErrors((prev) => ({ ...prev, address: undefined }));
             }}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             required
             autoComplete="street-address"
             placeholder="Start typing the address..."
-            className={inputClass}
+            className={`${inputClass} ${fieldErrors.address ? "border-red-400 ring-1 ring-red-300" : ""}`}
           />
           {searching && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">searching...</span>
@@ -382,7 +412,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             </ul>
           )}
         </div>
-        <p className={tipClass}>Where the junk is. Pick from the list so we route the right truck.</p>
+        {fieldErrors.address ? <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p> : <p className={tipClass}>Where the junk is. Pick from the list so we route the right truck.</p>}
       </div>
 
       <div className="mt-4">
@@ -391,12 +421,12 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
           type="datetime-local"
           name="pickupAt"
           value={pickupAt}
-          onChange={(e) => setPickupAt(e.target.value)}
+          onChange={(e) => { setPickupAt(e.target.value); setFieldErrors((prev) => ({ ...prev, pickupAt: undefined })); }}
           min={getMinPickup()}
           required
-          className={inputClass}
+          className={`${inputClass} ${fieldErrors.pickupAt ? "border-red-400 ring-1 ring-red-300" : ""}`}
         />
-        <p className={tipClass}>Pick a 2-hour window when someone can be home. We confirm same-day; flexible windows get faster service.</p>
+        {fieldErrors.pickupAt ? <p className="mt-1 text-xs text-red-600">{fieldErrors.pickupAt}</p> : <p className={tipClass}>Pick a 2-hour window when someone can be home. We confirm same-day; flexible windows get faster service.</p>}
       </div>
 
       <div className="mt-4">
