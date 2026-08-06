@@ -991,6 +991,24 @@ export function pinResetEmail(data: TemplateData & {
   `, data)
 }
 
+export function operatorAccountCreatedEmail(data: TemplateData & {
+  personName: string
+  pin: string
+  portalUrl: string
+  role: string
+}): string {
+  const firstName = data.personName.split(' ')[0]
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">You've Been Added to ${escapeHtml(data.tenantName)}</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">Hi ${escapeHtml(firstName)}, you've been added as ${escapeHtml(data.role)}. Use the PIN below to log in.</p>
+    <div style="background:#f9fafb;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Your PIN</p>
+      <p style="margin:0;font-size:36px;font-weight:700;color:#111827;letter-spacing:6px;">${escapeHtml(data.pin)}</p>
+    </div>
+    ${ctaButton('Log In', data.portalUrl, data.primaryColor)}
+  `, data)
+}
+
 export function adminPendingRemindersEmail(
   pendingBookings: { clientName: string; date: string; serviceName: string }[],
   data: TemplateData & { adminUrl?: string },
