@@ -4,8 +4,29 @@ import { useState, useCallback } from "react";
 import { PHONE, PHONE_HREF, EMAIL, HOURS } from "@/app/site/the-home-services-company/_data/content";
 import { AddressAutocomplete } from "@/app/site/the-home-services-company/_components/AddressAutocomplete";
 
+interface FieldErrors {
+  name?: string;
+  phone?: string;
+  email?: string;
+  serviceType?: string;
+  propertyType?: string;
+  address?: string;
+  details?: string;
+}
+
 export default function BookPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [serviceType, setServiceType] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [when, setWhen] = useState("");
+  const [details, setDetails] = useState("");
   const [address, setAddress] = useState("");
   const [addressConfirmed, setAddressConfirmed] = useState(false);
 
@@ -13,6 +34,61 @@ export default function BookPage() {
     setAddress(details.formatted);
     setAddressConfirmed(true);
   }, []);
+
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = "Please enter your name.";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) errors.phone = "Please enter a valid phone number.";
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Please enter a valid email.";
+    if (!serviceType) errors.serviceType = "Please select a service type.";
+    if (!propertyType) errors.propertyType = "Please select a property type.";
+    if (!address.trim()) errors.address = "Please enter the service address.";
+    if (!details.trim()) errors.details = "Please describe the service you need.";
+    return errors;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+
+    // Show every missing/invalid field at once so the client knows exactly
+    // what's blocking their request, instead of the browser's native
+    // one-at-a-time validation bubble.
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Please fix the highlighted fields below.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "booking",
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          service: serviceType,
+          property_type: propertyType,
+          address,
+          when: when || undefined,
+          details: details.trim(),
+          source: typeof window !== "undefined" ? window.location.pathname : "",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Submission failed");
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setError(`${msg}. Please call ${PHONE} instead.`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <>
@@ -77,25 +153,54 @@ export default function BookPage() {
                   <p className="mt-6 text-sm text-slate-500">Need it faster? Call us directly at <a href={PHONE_HREF} className="text-teal-700 font-bold">{PHONE}</a></p>
                 </div>
               ) : (
-                <form onSubmit={(e) => { e.preventDefault(); setSubmitted(true); }} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
+                <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-md space-y-4">
                   <h2 className="text-xl font-bold text-slate-900 font-heading">Book a Home Service</h2>
                   <p className="text-sm text-slate-500">We&apos;ll call you to confirm. No payment required now.</p>
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name *</label>
-                    <input type="text" required placeholder="Your name" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.name ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    />
+                    {fieldErrors.name && <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Phone *</label>
-                    <input type="tel" required placeholder="(555) 555-5555" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="(555) 555-5555"
+                      value={phone}
+                      onChange={(e) => { setPhone(e.target.value); setFieldErrors((prev) => ({ ...prev, phone: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.phone ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    />
+                    {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Email *</label>
-                    <input type="email" required placeholder="you@example.com" className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, email: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.email ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    />
+                    {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Service Type *</label>
-                    <select required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+                    <select
+                      required
+                      value={serviceType}
+                      onChange={(e) => { setServiceType(e.target.value); setFieldErrors((prev) => ({ ...prev, serviceType: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none ${fieldErrors.serviceType ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    >
                       <option value="">Select service type...</option>
                       <option value="hvac-services">HVAC Services</option>
                       <option value="plumbing">Plumbing</option>
@@ -119,10 +224,16 @@ export default function BookPage() {
                       <option value="junk-removal">Junk Removal</option>
                       <option value="other">Other — describe below</option>
                     </select>
+                    {fieldErrors.serviceType && <p className="mt-1 text-xs text-red-600">{fieldErrors.serviceType}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Property Type *</label>
-                    <select required className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+                    <select
+                      required
+                      value={propertyType}
+                      onChange={(e) => { setPropertyType(e.target.value); setFieldErrors((prev) => ({ ...prev, propertyType: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none ${fieldErrors.propertyType ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    >
                       <option value="">Select property type...</option>
                       <option value="house">House</option>
                       <option value="apartment">Apartment</option>
@@ -133,25 +244,30 @@ export default function BookPage() {
                       <option value="storage">Storage Unit</option>
                       <option value="other">Other</option>
                     </select>
+                    {fieldErrors.propertyType && <p className="mt-1 text-xs text-red-600">{fieldErrors.propertyType}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Service Address *</label>
                     <AddressAutocomplete
                       value={address}
-                      onChange={setAddress}
+                      onChange={(v) => { setAddress(v); setFieldErrors((prev) => ({ ...prev, address: undefined })); }}
                       onSelect={handleAddressSelect}
                       placeholder="Start typing your address..."
-                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.address ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
                     />
-                    {addressConfirmed && (
-                      <p className="mt-1.5 text-xs text-teal-600 font-medium">
-                        ✓ Address confirmed
-                      </p>
-                    )}
+                    {fieldErrors.address ? (
+                      <p className="mt-1.5 text-xs text-red-600">{fieldErrors.address}</p>
+                    ) : addressConfirmed ? (
+                      <p className="mt-1.5 text-xs text-teal-600 font-medium">✓ Address confirmed</p>
+                    ) : null}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">When Do You Need Service?</label>
-                    <select className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none">
+                    <select
+                      value={when}
+                      onChange={(e) => setWhen(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 appearance-none"
+                    >
                       <option value="">Select timing...</option>
                       <option value="today">Today (same-day)</option>
                       <option value="tomorrow">Tomorrow</option>
@@ -162,10 +278,23 @@ export default function BookPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Describe the Service You Need *</label>
-                    <textarea required rows={4} placeholder="Tell us what's going on — the issue, the scope, and any access details (stairs, gated community, pets, etc.)..." className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                    <textarea
+                      required
+                      rows={4}
+                      placeholder="Tell us what's going on — the issue, the scope, and any access details (stairs, gated community, pets, etc.)..."
+                      value={details}
+                      onChange={(e) => { setDetails(e.target.value); setFieldErrors((prev) => ({ ...prev, details: undefined })); }}
+                      className={`w-full rounded-lg border bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.details ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
+                    />
+                    {fieldErrors.details && <p className="mt-1 text-xs text-red-600">{fieldErrors.details}</p>}
                   </div>
-                  <button type="submit" className="w-full rounded-lg bg-accent py-4 text-lg font-bold text-white transition-colors hover:bg-accent-dark font-cta">
-                    Book Now — We&apos;ll Call You
+                  {error && <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full rounded-lg bg-accent py-4 text-lg font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60 font-cta"
+                  >
+                    {submitting ? "Sending…" : "Book Now — We'll Call You"}
                   </button>
                   <p className="text-center text-xs text-slate-400">Starting at $99/hour &bull; Upfront pricing &bull; Licensed and insured &bull; Same-day available</p>
                 </form>
