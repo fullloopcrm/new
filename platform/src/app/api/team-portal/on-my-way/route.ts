@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { requirePermission } from '@/lib/require-permission'
 import { sendClientSMS, sendClientEmail, type CommsTenant } from '@/lib/client-contacts'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { genericNotificationEmail } from '@/lib/email-templates'
@@ -10,11 +11,21 @@ const ALLOWED_MINUTES = new Set([30, 60, 90])
 
 export async function POST(request: Request) {
   try {
-    // Auth: fires a real client-facing SMS + email. A member can only notify
-    // for their OWN booking, scoped to the token's tenant — same gate as the
-    // sibling running-late route.
-    const { auth, error } = await requirePortalPermission(request, 'jobs.view_own')
-    if (error) return error
+    // Two legitimate callers, same as the sibling 30min-alert route: a
+    // cleaner from their own team-portal session (jobs.view_own, scoped to
+    // their own booking below), or an admin triggering it manually from the
+    // booking edit panel (bookings.edit, sees every booking in their tenant).
+    const portalAuth = await requirePortalPermission(request, 'jobs.view_own')
+    let tenantId: string
+    let isAdminCaller = false
+    if (!portalAuth.error) {
+      tenantId = portalAuth.auth.tid
+    } else {
+      const adminAuth = await requirePermission('bookings.edit')
+      if (adminAuth.error) return portalAuth.error
+      tenantId = adminAuth.tenant.tenantId
+      isAdminCaller = true
+    }
 
     const { bookingId, minutes } = await request.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
@@ -22,13 +33,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'minutes must be 30, 60, or 90' }, { status: 400 })
     }
 
-    const db = tenantDb(auth.tid)
-    const { data: booking } = (await db
+    const db = tenantDb(tenantId)
+    const bookingQuery = db
       .from('bookings')
       .select('id, tenant_id, client_id, start_time, team_size, recurring_type, team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
-      .eq('team_member_id', auth.id)
-      .single()) as {
+    const { data: booking } = (await (isAdminCaller ? bookingQuery : bookingQuery.eq('team_member_id', portalAuth.auth!.id)).single()) as {
         data: {
           tenant_id: string
           client_id: string | null
@@ -39,10 +49,8 @@ export async function POST(request: Request) {
         } | null
       }
 
-    if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    if (!booking || booking.tenant_id !== tenantId) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     if (!booking.client_id) return NextResponse.json({ error: 'No client on this booking' }, { status: 400 })
-
-    const tenantId = booking.tenant_id
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, primary_color, logo_url, email_from, telnyx_api_key, telnyx_phone, resend_api_key')

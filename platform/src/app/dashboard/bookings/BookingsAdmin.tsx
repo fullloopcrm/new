@@ -167,6 +167,7 @@ function BookingsPage() {
     return () => { cancelled = true }
   }, [showModal, editingBooking?.client_id])
   const [copied, setCopied] = useState(false)
+  const [sendingOmw, setSendingOmw] = useState<number | null>(null)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
   const [resendMenuPos, setResendMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
@@ -1982,6 +1983,31 @@ function BookingsPage() {
                 </div>
               )
             })()}
+            {!editingBooking.check_in_time && (
+              <div className="mb-3">
+                <p className="text-xs font-semibold text-[var(--sched-muted)] mb-1.5">Notify Client on My Way</p>
+                <div className="flex gap-2">
+                  {([30, 60, 90] as const).map((minutes) => (
+                    <button
+                      key={minutes}
+                      type="button"
+                      disabled={sendingOmw === minutes}
+                      onClick={async () => {
+                        setSendingOmw(minutes)
+                        try {
+                          const res = await fetch('/api/team-portal/on-my-way', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: editingBooking.id, minutes }) })
+                          if (!res.ok) alert('Failed to send')
+                        } catch { alert('Failed to send') }
+                        setSendingOmw(null)
+                      }}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      {sendingOmw === minutes ? '...' : minutes}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {form.status === 'scheduled' && !editingBooking.check_in_time && (
               <button type="button" onClick={async () => { setSaving(true); const now = new Date().toISOString(); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress', check_in_time: now, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'in_progress', check_in_time: now }); setForm({ ...form, status: 'in_progress' }); loadBookings(); setSaving(false) }} className="w-full mb-3 py-2 bg-[var(--sched-ink)] text-white rounded-lg text-sm font-medium">Check In (Admin)</button>
             )}
