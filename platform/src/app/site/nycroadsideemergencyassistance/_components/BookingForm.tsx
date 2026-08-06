@@ -2,25 +2,56 @@
 
 import { useState } from "react";
 
+interface FieldErrors {
+  name?: string;
+  phone?: string;
+  zip?: string;
+  when?: string;
+}
+
 export function BookingForm({ variant = "default" }: { variant?: "default" | "hero" | "dark" }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [zip, setZip] = useState("");
+  const [when, setWhen] = useState("");
 
   const isDark = variant === "dark" || variant === "hero";
+
+  function validateForm(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = "Please enter your name.";
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) errors.phone = "Please enter a valid phone number.";
+    if (!zip.trim()) errors.zip = "Please enter your zip code.";
+    if (!when) errors.when = "Please select a timeframe.";
+    return errors;
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSubmitting(true);
 
+    // Show every missing/invalid field at once instead of relying on the
+    // browser's native one-at-a-time validation bubble.
+    const errors = validateForm();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Please fix the highlighted fields below.");
+      return;
+    }
+
+    setSubmitting(true);
     const fd = new FormData(e.currentTarget);
     const payload = {
       type: "booking" as const,
-      name: String(fd.get("name") || ""),
-      phone: String(fd.get("phone") || ""),
-      zip: String(fd.get("zip") || ""),
-      when: String(fd.get("when") || ""),
+      name: name.trim(),
+      phone: phone.trim(),
+      zip: zip.trim(),
+      when,
       message: String(fd.get("details") || ""),
       source: typeof window !== "undefined" ? window.location.pathname : "",
     };
@@ -64,8 +95,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             name="name"
             required
             placeholder="Your name"
-            className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: undefined })); }}
+            className={`w-full rounded-lg border px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.name ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
           />
+          {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
         </div>
         <div>
           <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>Phone</label>
@@ -74,8 +108,11 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             name="phone"
             required
             placeholder="(555) 555-5555"
-            className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            value={phone}
+            onChange={(e) => { setPhone(e.target.value); setFieldErrors((prev) => ({ ...prev, phone: undefined })); }}
+            className={`w-full rounded-lg border px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.phone ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
           />
+          {fieldErrors.phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>}
         </div>
         <div>
           <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>Zip Code</label>
@@ -84,15 +121,20 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             name="zip"
             required
             placeholder="10001"
-            className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            value={zip}
+            onChange={(e) => { setZip(e.target.value); setFieldErrors((prev) => ({ ...prev, zip: undefined })); }}
+            className={`w-full rounded-lg border px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.zip ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
           />
+          {fieldErrors.zip && <p className="mt-1 text-xs text-red-500">{fieldErrors.zip}</p>}
         </div>
         <div>
           <label className={`block text-sm font-semibold mb-1 font-cta ${isDark ? "text-white/80" : "text-slate-700"}`}>When</label>
           <select
             name="when"
             required
-            className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            value={when}
+            onChange={(e) => { setWhen(e.target.value); setFieldErrors((prev) => ({ ...prev, when: undefined })); }}
+            className={`w-full rounded-lg border px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 ${fieldErrors.when ? "border-red-400 ring-1 ring-red-300" : "border-slate-300"}`}
           >
             <option value="">Select timing</option>
             <option value="today">Today</option>
@@ -101,6 +143,7 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
             <option value="next-week">Next Week</option>
             <option value="flexible">Flexible</option>
           </select>
+          {fieldErrors.when && <p className="mt-1 text-xs text-red-500">{fieldErrors.when}</p>}
         </div>
       </div>
       <div className="mt-4">
