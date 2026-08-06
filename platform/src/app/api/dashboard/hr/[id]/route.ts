@@ -13,7 +13,7 @@ const COMP_TYPES: CompType[] = ['per_job', 'hourly', 'salary']
 const PAY_PERIODS: PayPeriod[] = ['per_job', 'weekly', 'biweekly', 'semimonthly', 'monthly']
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { tenant, error: permErr } = await requirePermission('team.view')
+  const { tenant, error: permErr } = await requirePermission('team.compensation')
   if (permErr) return permErr
   try {
     const { tenantId } = tenant
@@ -65,7 +65,7 @@ interface ProfilePatch {
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { tenant, error: permErr } = await requirePermission('team.edit')
+  const { tenant, error: permErr } = await requirePermission('team.compensation')
   if (permErr) return permErr
   try {
     const { tenantId } = tenant

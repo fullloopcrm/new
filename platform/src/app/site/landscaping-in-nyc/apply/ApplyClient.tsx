@@ -8,8 +8,8 @@ import { PHONE, PHONE_HREF, EMAIL } from "@/app/site/landscaping-in-nyc/_lib/sit
 import { useSpamGuard, Honeypot } from "@/hooks/useSpamGuard";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
 );
 
 // Upload a file directly to Supabase storage via a pre-signed URL (bypasses

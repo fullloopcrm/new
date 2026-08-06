@@ -17,8 +17,9 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 let currentTenantId: string
+let currentRole = 'owner'
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenantId }),
+  getTenantForRequest: async () => ({ tenantId: currentTenantId, role: currentRole }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -43,6 +44,7 @@ function paramsFor(id: string): { params: Promise<{ id: string }> } {
 beforeEach(() => {
   fake._store.clear()
   currentTenantId = A_ID
+  currentRole = 'owner'
   fake._seed('bookings', [
     { id: SHARED_ID, tenant_id: A_ID, status: 'scheduled' },
     { id: SHARED_ID, tenant_id: B_ID, status: 'pending' },
@@ -74,5 +76,15 @@ describe('bookings/[id]/status PATCH — tenantDb isolation', () => {
 
     const aDeal = fake._all('deals').find((r) => r.tenant_id === A_ID)!
     expect(aDeal.stage).toBe('sold')
+  })
+
+  it("a role without bookings.edit is rejected with 403 and the booking is left untouched", async () => {
+    currentRole = 'staff'
+    const req = new Request('http://x', { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) })
+    const res = await PATCH(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(403)
+
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.status).toBe('scheduled') // untouched
   })
 })

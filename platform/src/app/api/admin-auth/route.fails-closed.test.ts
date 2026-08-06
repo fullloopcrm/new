@@ -29,6 +29,16 @@ let rateLimitInserts: string[]
 let tenantMembersQueried: boolean
 let updatedMemberIds: string[]
 let mockHeaders: Map<string, string>
+let auditInserts: Record<string, unknown>[]
+
+function auditLogsTable() {
+  return {
+    insert: async (row: Record<string, unknown>) => {
+      auditInserts.push(row)
+      return { error: null }
+    },
+  }
+}
 
 function rateLimitEventsTable() {
   return {
@@ -78,6 +88,7 @@ vi.mock('@supabase/supabase-js', () => ({
     from: (table: string) => {
       if (table === 'rate_limit_events') return rateLimitEventsTable()
       if (table === 'tenant_members') return tenantMembersTable()
+      if (table === 'audit_logs') return auditLogsTable()
       throw new Error(`unexpected table in admin-auth fails-closed test: ${table}`)
     },
   }),
@@ -117,6 +128,7 @@ beforeEach(() => {
   tenantMembersQueried = false
   updatedMemberIds = []
   mockHeaders = new Map()
+  auditInserts = []
   process.env.ADMIN_PIN = 'super-secret-pin'
   process.env.ADMIN_TOKEN_SECRET = 'admin-auth-fails-closed-test-secret'
   delete process.env.TENANT_HEADER_SIG_SECRET
@@ -217,6 +229,32 @@ describe('admin-auth — tenant-admin PIN is scoped to the signed tenant, not gl
     const data = await res.json()
     expect(data.role).toBe('tenant_admin')
     expect(updatedMemberIds).toEqual(['member-b'])
+
+    // A successful dashboard login is now a durable, queryable audit_logs
+    // row — not just a fire-and-forget alert (see sendLoginAlert above).
+    expect(auditInserts).toHaveLength(1)
+    expect(auditInserts[0]).toMatchObject({
+      tenant_id: TENANT_B,
+      action: 'admin.dashboard_login',
+      entity_type: 'team_member',
+      entity_id: 'member-b',
+      user_id: 'member-b',
+    })
+  })
+
+  it('does NOT write an admin.dashboard_login audit row on a failed/wrong-tenant login attempt', async () => {
+    const { hashAdminPin } = await import('@/lib/admin-pin')
+    memberRows[`${TENANT_B}|${hashAdminPin('654321')}`] = { id: 'member-b', role: 'owner' }
+
+    const { signTenantHeader } = await import('@/lib/tenant-header-sig')
+    mockHeaders.set('x-tenant-id', TENANT_A)
+    mockHeaders.set('x-tenant-sig', signTenantHeader(TENANT_A))
+
+    const { POST } = await import('./route')
+    const res = await POST(req({ pin: '654321' }))
+
+    expect(res.status).toBe(401)
+    expect(auditInserts).toHaveLength(0)
   })
 
   it('a forged/unsigned x-tenant-id cannot be used to bypass tenant scoping', async () => {

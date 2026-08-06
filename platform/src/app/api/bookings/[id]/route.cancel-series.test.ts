@@ -30,8 +30,10 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+const roleHolder = vi.hoisted(() => ({ role: 'owner' }))
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: TENANT_ID }, error: null }),
+  requirePermission: async () => ({ tenant: { tenantId: TENANT_ID, role: roleHolder.role }, error: null }),
+  overridesFor: () => null,
 }))
 vi.mock('@/lib/audit', () => ({ audit: async () => ({ success: true }) }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
@@ -59,6 +61,7 @@ function req(cancelSeries: boolean): Request {
 
 beforeEach(() => {
   fake._store.clear()
+  roleHolder.role = 'owner'
   fake._seed('recurring_schedules', [
     { id: SCHEDULE_ID, tenant_id: TENANT_ID, status: 'active' },
   ])
@@ -74,6 +77,14 @@ beforeEach(() => {
 })
 
 describe('DELETE /api/bookings/[id]?cancel_series=true', () => {
+  it('a role with bookings.edit but not bookings.delete (e.g. virtual_assistant) can still cancel_series — it is a status update, not a delete', async () => {
+    roleHolder.role = 'virtual_assistant'
+    const res = await DELETE(req(true), paramsFor(CLICKED_ID))
+    expect(res.status).toBe(200)
+    const byId = (id: string) => fake._all('bookings').find((r) => r.id === id)!
+    expect(byId(CLICKED_ID).status).toBe('cancelled')
+  })
+
   it('cancels the schedule itself', async () => {
     await DELETE(req(true), paramsFor(CLICKED_ID))
     const schedule = fake._all('recurring_schedules').find((r) => r.id === SCHEDULE_ID)!

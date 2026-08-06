@@ -30,7 +30,8 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: currentTenantId }, error: null }),
+  requirePermission: async () => ({ tenant: { tenantId: currentTenantId, role: 'owner' }, error: null }),
+  overridesFor: () => null,
 }))
 vi.mock('@/lib/audit', () => ({ audit: async () => ({ success: true }) }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
