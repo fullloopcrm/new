@@ -185,6 +185,23 @@ export async function POST(request: Request) {
       dates.push(d.toISOString().split('T')[0])
     }
   }
+  // Every legitimate caller sends an initial ~6-week batch (CreateBookingForm
+  // slices generateInitialBatchDates down to a 42-day cutoff client-side; the
+  // no-dates-provided fallback above generates the same 42-day window
+  // server-side). generateInitialBatchDates itself has no such cutoff when
+  // "never end" is selected -- it emits up to ~500 dates (through the end of
+  // next calendar year) -- so a caller that skips the client-side slice (or
+  // sends a hand-built array) can flood a schedule with a year-plus of
+  // bookings in one call, same root cause that hit Kim Nieves (73 bookings,
+  // Aug 2026 - Dec 2027) and Catherine Mollerus (16). Capped generously above
+  // the real 42-date max any correct caller ever sends -- the cron backfills
+  // everything past the initial batch, so nothing legitimate ever needs more.
+  const MAX_INITIAL_BATCH_DATES = 60
+  if (dates.length > MAX_INITIAL_BATCH_DATES) {
+    return NextResponse.json({
+      error: `Too many initial dates requested (${dates.length}). This endpoint creates the initial ~6-week batch only -- the recurring cron backfills future occurrences automatically.`,
+    }, { status: 400 })
+  }
   const lastInitialDate = dates.length > 0 ? dates[dates.length - 1] : null
   const sixWeeksOut = new Date(start_date + 'T12:00:00')
   sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)

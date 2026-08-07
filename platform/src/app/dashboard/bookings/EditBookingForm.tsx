@@ -299,6 +299,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
   const saveBooking = async (scope: 'single' | 'all') => {
     setSaving(true)
     setShowUpdateChoice(false)
+    let convertedToRecurring = false
 
     const newStartStr = buildNaiveTime(form.start_date, form.start_time)
     const newEndStr = buildNaiveTime(form.start_date, form.start_time, form.hours)
@@ -416,6 +417,71 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           })
         }
       }
+    } else if (form.repeat_enabled && !booking.recurring_type && editRecurringDates.length > 1) {
+      convertedToRecurring = true
+      // Converting an existing one-time booking into a recurring series.
+      // Routed through the same canonical endpoint CreateBookingForm.tsx
+      // uses to create a brand-new recurring booking (POST
+      // /api/admin/recurring-schedules) instead of hand-rolling it here --
+      // that's the only endpoint that both creates a real recurring_schedules
+      // row AND stamps recurring_type + schedule_id on every booking it
+      // generates. The old code PUT the original booking then looped
+      // individual POST /api/bookings calls per future date; neither
+      // endpoint's field allowlist included recurring_type, and POST
+      // /api/bookings has no schedule_id parameter at all -- so every
+      // "converted" booking silently stayed one-time in the DB with no
+      // error shown anywhere (the save appeared to succeed).
+      //
+      // Same 6-week initial-batch cutoff CreateBookingForm.tsx applies
+      // before sending -- editRecurringDates itself is uncapped (up to
+      // ~500 dates for "never end"), and the endpoint now rejects anything
+      // over its own server-side cap; slicing here keeps the normal case
+      // from ever hitting that error.
+      const fourWeeksOut = new Date(form.start_date + 'T12:00:00')
+      fourWeeksOut.setDate(fourWeeksOut.getDate() + 42)
+      const cutoff = fourWeeksOut.toISOString().split('T')[0]
+      const initialDates = editRecurringDates.filter(d => d <= cutoff)
+      const startDateObj = new Date(form.start_date + 'T12:00:00')
+
+      const scheduleRes = await fetch('/api/admin/recurring-schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: booking.client_id,
+          property_id: form.property_id || null,
+          team_member_id: form.team_member_id || null,
+          recurring_type: rawRecurringType(form.repeat_type),
+          day_of_week: startDateObj.getDay(),
+          preferred_time: form.start_time,
+          duration_hours: form.hours,
+          hourly_rate: form.hourly_rate,
+          pay_rate: form.pay_rate,
+          notes: form.notes || null,
+          start_date: form.start_date,
+          price: calculateEditPrice(),
+          service_type: form.service_type,
+          status: 'scheduled',
+          dates: initialDates,
+          discount_percent: form.discount_enabled ? form.discount_percent : null,
+        })
+      })
+      if (!scheduleRes.ok) {
+        const err = await scheduleRes.json().catch(() => ({ error: 'Unknown error' }))
+        alert(`Failed to create recurring schedule: ${err.error || scheduleRes.statusText}`)
+        setSaving(false)
+        return
+      }
+
+      // The new schedule's own first generated booking now covers this
+      // date -- retire the original one-time booking rather than leaving a
+      // duplicate on the calendar for the same client/date. Plain status
+      // update, no client notification (matches the schedule endpoint's own
+      // no-client-comms admin-flow policy).
+      await fetch('/api/bookings/' + booking.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', force: true })
+      })
     } else {
       const res = await fetch('/api/bookings/' + booking.id, {
         method: 'PUT',
@@ -429,33 +495,22 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
         setSaving(false)
         return
       }
-
-      if (form.repeat_enabled && !booking.recurring_type && editRecurringDates.length > 1) {
-        for (let i = 1; i < editRecurringDates.length; i++) {
-          const date = editRecurringDates[i]
-          await fetch('/api/bookings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: booking.client_id, team_member_id: form.team_member_id,
-              start_time: buildNaiveTime(date, form.start_time), end_time: buildNaiveTime(date, form.start_time, form.hours),
-              service_type: form.service_type, price: calculateEditPrice(),
-              hourly_rate: form.hourly_rate, recurring_type: recurringType, notes: form.notes || null,
-              skip_email: true
-            })
-          })
-        }
-      }
     }
 
-    await fetch(`/api/bookings/${booking.id}/team`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lead_id: form.team_member_id || null,
-        extra_team_member_ids: form.extra_team_member_ids,
-        team_size: form.team_size,
+    // Skipped when this save just retired `booking.id` in favor of a new
+    // schedule's own bookings above -- setting a team on a now-cancelled
+    // booking is pointless and would be operating on the wrong row.
+    if (!convertedToRecurring) {
+      await fetch(`/api/bookings/${booking.id}/team`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: form.team_member_id || null,
+          extra_team_member_ids: form.extra_team_member_ids,
+          team_size: form.team_size,
+        })
       })
-    })
+    }
 
     setSaving(false)
     onSaved()

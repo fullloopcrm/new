@@ -15,11 +15,14 @@ import { pick } from '@/lib/validate'
 // column and buildSeriesUpdateData() (BookingsAdmin.tsx's _recurring.ts)
 // sends it on every "apply to all future" edit, but it was missing from this
 // allowlist, so pick() silently dropped it and discount changes on recurring
-// series edits never actually saved.
+// series edits never actually saved. recurring_type is the same gap --
+// buildSeriesUpdateData() (lib/recurring.ts) has always included it, this
+// allowlist never did.
 const UPDATABLE_FIELDS = [
   'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
   'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
   'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'price',
+  'recurring_type',
 ] as const
 
 /**

@@ -59,6 +59,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (dates.length === 0) {
     return NextResponse.json({ error: 'dates[] required' }, { status: 400 })
   }
+  // Same cap and same reasoning as POST /api/admin/recurring-schedules --
+  // generateInitialBatchDates has no cutoff of its own when "never end" is
+  // selected (up to ~500 dates, through end of next calendar year), and this
+  // endpoint has never validated dates.length. This is the direct root cause
+  // of the Catherine Mollerus incident (16 runaway future bookings created
+  // via a pattern edit through this exact endpoint).
+  const MAX_REGENERATE_DATES = 60
+  if (dates.length > MAX_REGENERATE_DATES) {
+    return NextResponse.json({
+      error: `Too many dates requested (${dates.length}). This endpoint regenerates the initial ~6-week batch only -- the recurring cron backfills future occurrences automatically.`,
+    }, { status: 400 })
+  }
 
   const teamMemberProvided = team_member_id !== undefined || cleaner_id !== undefined
   const teamMemberId = team_member_id ?? cleaner_id ?? null

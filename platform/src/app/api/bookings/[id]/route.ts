@@ -66,7 +66,16 @@ export async function PUT(
     // ... in the schema cache") -- since BookingsAdmin.tsx spreads the whole
     // form (which always sets discount_enabled) into every save, this broke
     // saving ANY booking edit, not just discounted ones.
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'property_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method'])
+    // recurring_type was the same class of gap, just silent instead of
+    // 400ing: EditBookingForm.tsx's saveBooking() has sent it on every save
+    // since that form existed, pick() dropped it with no error, and it never
+    // reached the UPDATE. A one-time booking with "Repeat" turned on saved
+    // successfully, showed no error, and simply stayed one-time in the DB --
+    // schedule_id isn't included here on purpose (see recurring-schedules
+    // POST, the canonical path that creates a schedule + its bookings
+    // together; a bare PUT here isn't the place to attach a booking to a
+    // schedule without the same ownership/consistency checks that path has).
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'property_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method', 'recurring_type'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm

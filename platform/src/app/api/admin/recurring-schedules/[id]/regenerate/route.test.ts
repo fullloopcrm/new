@@ -127,6 +127,18 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — validation', ()
 
     expect(res.status).toBe(404)
   })
+
+  // REGRESSION — this endpoint never validated dates[]'s length, which is
+  // exactly how the Catherine Mollerus incident happened (16 runaway future
+  // bookings created via a pattern edit through this endpoint).
+  it('LOCK: rejects more than 60 dates and writes nothing', async () => {
+    const tooManyDates = Array.from({ length: 61 }, (_, i) => `2026-${String(1 + (i % 12)).padStart(2, '0')}-01`)
+    const res = await POST(postReq({ ...baseBody, dates: tooManyDates }), params('sched-A1'))
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('Too many') })
+    expect(h.store.bookings.length).toBe(4)
+  })
 })
 
 describe('POST /api/admin/recurring-schedules/:id/regenerate — tenant isolation', () => {

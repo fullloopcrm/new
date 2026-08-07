@@ -107,4 +107,37 @@ describe('recurring schedule → occurrences (happy path)', () => {
     expect(h.store.recurring_schedules).toHaveLength(0)
     expect(h.store.bookings).toHaveLength(0)
   })
+
+  // REGRESSION — this endpoint never validated a caller-supplied dates[]
+  // array's length. generateInitialBatchDates has no cutoff of its own for
+  // "never end" (up to ~500 dates, through end of next calendar year); a
+  // caller that skips CreateBookingForm's own 6-week client-side slice (or
+  // sends a hand-built array) could flood a schedule with a year-plus of
+  // bookings in one call. Real incidents: Kim Nieves (73 bookings, Aug 2026
+  // - Dec 2027) and Catherine Mollerus (16 runaway future bookings).
+  it('LOCK: rejects more than 60 initial dates and writes nothing', async () => {
+    const tooManyDates = Array.from({ length: 61 }, (_, i) => {
+      const d = new Date('2026-08-03T12:00:00')
+      d.setDate(d.getDate() + i * 7)
+      return d.toISOString().split('T')[0]
+    })
+    const res = await POST(req({ ...validBody, dates: tooManyDates }))
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({ error: expect.stringContaining('Too many') })
+
+    expect(h.store.recurring_schedules).toHaveLength(0)
+    expect(h.store.bookings).toHaveLength(0)
+  })
+
+  it('accepts exactly 60 initial dates (the boundary)', async () => {
+    const sixtyDates = Array.from({ length: 60 }, (_, i) => {
+      const d = new Date('2026-08-03T12:00:00')
+      d.setDate(d.getDate() + i * 7)
+      return d.toISOString().split('T')[0]
+    })
+    const res = await POST(req({ ...validBody, dates: sixtyDates }))
+    expect(res.status).toBe(200)
+    expect(h.store.recurring_schedules).toHaveLength(1)
+    expect(h.store.bookings).toHaveLength(60)
+  })
 })
