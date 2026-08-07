@@ -40,8 +40,10 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }))
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: vi.fn(async () => null) }))
-vi.mock('@/lib/tenant', () => ({ getCurrentTenantId: vi.fn(async () => TENANT_A) }))
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: async () => ({ tenantId: TENANT_A, role: 'owner' }),
+  AuthError: class AuthError extends Error { status = 401 },
+}))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ data: { id: 'sms-1' } })) }))
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => ({ id: 'email-1' })) }))
 vi.mock('@/lib/messaging/shell', () => ({ emailShell: vi.fn(() => '<html></html>') }))

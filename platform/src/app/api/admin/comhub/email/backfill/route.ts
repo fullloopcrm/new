@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 export const maxDuration = 300
 
@@ -12,9 +11,9 @@ export const maxDuration = 300
 // active tenant. Idempotent (dedupes by Message-ID + channel='email').
 // IMAP credentials currently env-based; per-tenant IMAP not yet wired.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const url = new URL(req.url)
   const days = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || '90', 10) || 90, 365))

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
 // POST /api/admin/comhub/voice/dial
@@ -10,9 +9,9 @@ import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 // bridges to the customer. Voice config resolved per-tenant (own Telnyx
 // account when configured, else platform env fallback).
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
   if (!cfg.apiKey || !cfg.voiceConnectionId) {

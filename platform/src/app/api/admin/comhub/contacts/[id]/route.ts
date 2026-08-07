@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // PATCH /api/admin/comhub/contacts/[id]
 //   { name?: string|null, address?: string|null }
@@ -10,9 +9,9 @@ import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin
 // values are mirrored onto clients.name/clients.address so the rest of the
 // CRM (bookings, client list) stays in sync with what admins set here.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const { id } = await ctx.params
 

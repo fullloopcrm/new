@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -8,9 +7,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 // Browser softphone reports outbound dial state (started/answered/ended) into
 // comhub. Pure metadata — does not proxy audio.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const adminId = await getActiveAdminMemberId(tenantId)
 
   const body = (await req.json().catch(() => null)) as {

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // POST /api/admin/comhub/messages/[id]/flag   { reason?: string }
 //   Marks the message for prompt-improvement review.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
 
   const { id } = await ctx.params
@@ -27,9 +26,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
 // DELETE — clears the flag
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
 
   const { id } = await ctx.params

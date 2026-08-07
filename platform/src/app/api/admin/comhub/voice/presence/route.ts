@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { tenantDb } from '@/lib/tenant-db'
 
@@ -9,9 +8,9 @@ const VALID_STATUSES: PresenceStatus[] = ['available', 'busy', 'away', 'offline'
 
 // POST /api/admin/comhub/voice/presence — softphone heartbeat / register.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ error: 'no tenant member found' }, { status: 412 })
@@ -53,9 +52,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/admin/comhub/voice/presence — currently-online admins for tenant.
 export async function GET() {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
 
   const cutoff = new Date(Date.now() - 60_000).toISOString()
@@ -72,9 +71,9 @@ export async function GET() {
 
 // DELETE — explicit unregister.
 export async function DELETE() {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ ok: true })
