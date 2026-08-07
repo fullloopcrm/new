@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import Stripe from 'stripe'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
@@ -9,10 +8,8 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
-import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
-import { claimGlobalPayout, finalizeGlobalPayout, getStorageFinancialAccount, ensureFinancialAccountFunded, createOutboundPayment } from '@/lib/finance/global-payouts'
-import { postPayoutToLedger } from '@/lib/finance/post-labor'
-import { decryptSecret } from '@/lib/secret-crypto'
+import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
+import { payCleanerAtCheckout } from '@/lib/finance/checkout-payout'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
@@ -319,133 +316,17 @@ export const POST = withMobileCors(async function POST(request: Request) {
       }).catch((err) => console.error('processPayment from check-out failed:', err))
     }
 
-    // Direct cleaner payout at checkout — pays the cleaner's earned wage via
-    // Stripe Connect the moment they check out, independent of whether the
-    // client has paid yet (per Jeff's explicit instruction 2026-08-07: checkout
-    // pays the cleaner, full stop). The client's own payment via the 30-min
-    // alert's pay link is a separate event handled by the Stripe webhook —
-    // idempotent via the same claim table, so paying here never double-pays
-    // the cleaner if the client also pays the link before or after this.
-    const payoutTeamMember = booking.team_members as unknown as { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null } | null
-    if (
-      booking.team_member_id &&
-      teamMemberPayCents &&
-      teamMemberPayCents > 0 &&
-      (payoutTeamMember?.global_payouts_recipient_id || payoutTeamMember?.stripe_account_id) &&
-      !(await cleanerAlreadyPaid(auth.tid, data.id))
-    ) {
-      const { data: tenantRow } = await supabaseAdmin
-        .from('tenants')
-        .select('stripe_api_key')
-        .eq('id', auth.tid)
-        .single()
-      const stripeKey = tenantRow?.stripe_api_key ? decryptSecret(tenantRow.stripe_api_key as string) : process.env.STRIPE_SECRET_KEY
-
-      // Prefer the Global Payouts (v2 Money Management) rail — that's the
-      // active recipient system real recipients are actually onboarded onto
-      // (team_members.stripe_account_id is the OLDER v1 Connect column and is
-      // null for every recipient created through the current onboarding flow).
-      if (payoutTeamMember?.global_payouts_recipient_id && stripeKey) {
-        const claim = await claimGlobalPayout({
-          tenantId: auth.tid,
-          bookingId: data.id as string,
-          teamMemberId: booking.team_member_id as string,
-          amountCents: teamMemberPayCents,
-        })
-        if (claim.claimed && claim.payoutId) {
-          try {
-            const stripe = new Stripe(stripeKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
-            const financialAccount = await getStorageFinancialAccount(stripeKey)
-            if (!financialAccount) throw new Error('No Global Payouts Financial Account configured')
-            await ensureFinancialAccountFunded(
-              stripe, stripeKey, financialAccount.id, teamMemberPayCents,
-              `checkout-topup:${data.id}`,
-            )
-            const outbound = await createOutboundPayment(stripeKey, {
-              financialAccountId: financialAccount.id,
-              recipientId: payoutTeamMember.global_payouts_recipient_id,
-              amountCents: teamMemberPayCents,
-              description: `Checkout payout for booking ${data.id}`,
-              idempotencyKey: `checkout-gp-payout:${data.id}`,
-            })
-            await finalizeGlobalPayout({
-              tenantId: auth.tid,
-              payoutId: claim.payoutId,
-              amountCents: teamMemberPayCents,
-              tipCents: 0,
-              stripeOutboundPaymentId: outbound.id,
-            })
-            postPayoutToLedger({ tenantId: auth.tid, payoutId: claim.payoutId })
-              .catch((err) => console.error('checkout payout ledger post failed:', err))
-            await tenantDb(auth.tid)
-              .from('bookings')
-              .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
-              .eq('id', data.id)
-              .then(() => {}, () => {})
-          } catch (payErr) {
-            await releaseCleanerPayout(auth.tid, claim.payoutId).catch(() => {})
-            console.error('checkout Global Payouts payout failed:', payErr)
-            smsAdmins(auth.tid, `Cleaner payout FAILED at checkout for booking ${data.id} — pay manually.`).catch(() => {})
-          }
-        }
-      } else if (payoutTeamMember?.stripe_account_id && stripeKey) {
-        const claim = await claimCleanerPayout({
-          tenantId: auth.tid,
-          bookingId: data.id as string,
-          teamMemberId: booking.team_member_id as string,
-          amountCents: teamMemberPayCents,
-        })
-        if (claim.claimed && claim.payoutId) {
-          try {
-            const stripe = new Stripe(stripeKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
-
-            const transfer = await stripe.transfers.create({
-              amount: teamMemberPayCents,
-              currency: 'usd',
-              destination: payoutTeamMember.stripe_account_id,
-              description: `Checkout payout for booking ${data.id}`,
-              metadata: { booking_id: data.id as string, tenant_id: auth.tid },
-            }, { idempotencyKey: `checkout-payout:${data.id}` })
-
-            let instantPayoutId: string | null = null
-            let isInstant = false
-            try {
-              const payout = await stripe.payouts.create(
-                { amount: teamMemberPayCents, currency: 'usd', method: 'instant' },
-                { stripeAccount: payoutTeamMember.stripe_account_id, idempotencyKey: `checkout-instant-payout:${data.id}` },
-              )
-              instantPayoutId = payout.id
-              isInstant = true
-            } catch {
-              // standard schedule fallback — Stripe will pay on default cadence
-            }
-
-            await finalizeCleanerPayout({
-              tenantId: auth.tid,
-              payoutId: claim.payoutId,
-              amountCents: teamMemberPayCents,
-              tipCents: 0,
-              stripeTransferId: transfer.id,
-              stripePayoutId: instantPayoutId,
-              instant: isInstant,
-            })
-            postPayoutToLedger({ tenantId: auth.tid, payoutId: claim.payoutId })
-              .catch((err) => console.error('checkout payout ledger post failed:', err))
-
-            await tenantDb(auth.tid)
-              .from('bookings')
-              .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
-              .eq('id', data.id)
-              .then(() => {}, () => {})
-          } catch (transferErr) {
-            await releaseCleanerPayout(auth.tid, claim.payoutId).catch(() => {})
-            console.error('checkout cleaner payout failed:', transferErr)
-            smsAdmins(auth.tid, `Cleaner payout FAILED at checkout for booking ${data.id} — pay manually.`).catch(() => {})
-          }
-        }
-      }
-    }
-
+    // Direct cleaner payout at checkout — pays the cleaner the moment they
+    // check out, independent of client payment status (Jeff, 2026-08-07).
+    // Shared with the admin dashboard checkout path (PUT /api/bookings/[id])
+    // so both surfaces pay the same way and can never drift out of sync.
+    await payCleanerAtCheckout({
+      tenantId: auth.tid,
+      bookingId: data.id as string,
+      teamMemberId: booking.team_member_id as string | null,
+      teamMemberPayCents,
+      teamMember: booking.team_members as unknown as { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null } | null,
+    })
     if (data.client_id) {
       sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
     }

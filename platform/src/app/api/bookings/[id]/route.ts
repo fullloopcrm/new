@@ -16,6 +16,7 @@ import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
+import { payCleanerAtCheckout } from '@/lib/finance/checkout-payout'
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 
 export async function GET(
@@ -202,17 +203,20 @@ export async function PUT(
     // credit columns via the same canonical computeCheckoutPricing() the UI
     // uses -- an honest client gets the identical result, a tampered request
     // can no longer set an arbitrary price or cleaner payout.
+    let checkoutMember: { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null } | null = null
+    let assignedMemberId: string | null = null
     if (fields.check_out_time && oldBooking?.check_in_time) {
-      const assignedMemberId = (fields.team_member_id as string | undefined) ?? oldBooking.team_member_id ?? null
+      assignedMemberId = (fields.team_member_id as string | undefined) ?? oldBooking.team_member_id ?? null
       let memberPayRate: number | null = null
       if (assignedMemberId) {
         const { data: member } = await supabaseAdmin
           .from('team_members')
-          .select('pay_rate')
+          .select('pay_rate, stripe_account_id, global_payouts_recipient_id')
           .eq('id', assignedMemberId)
           .eq('tenant_id', tenantId)
           .maybeSingle()
         memberPayRate = (member?.pay_rate as number | null) ?? null
+        checkoutMember = member ? { stripe_account_id: member.stripe_account_id as string | null, global_payouts_recipient_id: member.global_payouts_recipient_id as string | null } : null
       }
       const bookingPayRateOverride = (fields.pay_rate as number | null | undefined) ?? oldBooking.pay_rate ?? null
       const pricing = computeCheckoutPricing({
@@ -247,6 +251,21 @@ export async function PUT(
       // access needed. Remove once root-caused.
       console.error('[PUT /api/bookings/[id]] update failed', { bookingId: id, fields, error: error.message })
       return NextResponse.json({ error: `${error.message} | fields: ${JSON.stringify(fields)}` }, { status: 500 })
+    }
+
+    // Same shared payout trigger the team-portal checkout button uses — the
+    // admin dashboard's own Check Out button is a second, independent
+    // surface that sets check_out_time, and was silently paying nobody
+    // (Jeff, 2026-08-07: "same Stripe event trigger" regardless of which
+    // screen checks the job out).
+    if (fields.check_out_time && assignedMemberId) {
+      await payCleanerAtCheckout({
+        tenantId,
+        bookingId: id,
+        teamMemberId: assignedMemberId,
+        teamMemberPayCents: (fields.team_member_pay as number | null) ?? null,
+        teamMember: checkoutMember,
+      }).catch((err) => console.error('[PUT /api/bookings/[id]] payCleanerAtCheckout failed:', err))
     }
 
     // Send notifications based on what changed
