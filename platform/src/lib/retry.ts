@@ -8,6 +8,12 @@ export interface RetryOptions {
   baseDelayMs?: number     // default 1000 (1s)
   maxDelayMs?: number      // default 30000 (30s)
   onRetry?: (attempt: number, error: unknown) => void
+  // Overrides the default isClientError gate. Required for any non-idempotent
+  // side-effecting call (SMS, email, payment) whose underlying fetch can time
+  // out AFTER the remote side already received and acted on the request —
+  // retrying an AbortError there doesn't retry a failed call, it fires a
+  // second real one.
+  shouldRetry?: (error: unknown) => boolean
 }
 
 export async function withRetry<T>(
@@ -19,6 +25,7 @@ export async function withRetry<T>(
     baseDelayMs = 1000,
     maxDelayMs = 30000,
     onRetry,
+    shouldRetry,
   } = options
 
   let lastError: unknown
@@ -31,8 +38,7 @@ export async function withRetry<T>(
 
       if (attempt === maxAttempts) break
 
-      // Don't retry on 4xx client errors (bad request, auth, not found)
-      if (isClientError(error)) break
+      if (shouldRetry ? !shouldRetry(error) : isClientError(error)) break
 
       const delay = Math.min(baseDelayMs * Math.pow(2, attempt - 1), maxDelayMs)
       onRetry?.(attempt, error)
@@ -43,7 +49,7 @@ export async function withRetry<T>(
   throw lastError
 }
 
-function isClientError(error: unknown): boolean {
+export function isClientError(error: unknown): boolean {
   if (error instanceof Error) {
     const msg = error.message.toLowerCase()
     // Don't retry auth failures, bad requests, or validation errors

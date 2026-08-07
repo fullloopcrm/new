@@ -1,6 +1,6 @@
 // Telnyx SMS via REST API (no SDK needed)
 
-import { withRetry } from './retry'
+import { withRetry, isClientError } from './retry'
 import { decryptSecret } from './secret-crypto'
 
 // Normalize to E.164 (+1XXXXXXXXXX) at the send boundary, same spirit as
@@ -121,5 +121,18 @@ export async function sendSMS({
     }
 
     throw new Error(`SMS failed: ${res.status}${detail ? ` — ${detail}` : ''}`)
-  }, { maxAttempts: 3, baseDelayMs: 2000 })
+  }, {
+    maxAttempts: 3,
+    baseDelayMs: 2000,
+    // AbortError (our own 15s timeout in postMessage) means the outcome is
+    // unknown, not failed — Telnyx may have already received and sent the
+    // message before we gave up waiting on the response. Retrying that
+    // fires a second real text (found 2026-08-06: duplicate "on my way" /
+    // "finishing up" SMS to clients with only ONE sms_logs row, because the
+    // retry succeeded and got logged while the timed-out first attempt,
+    // which had already gone out for real, left no trace). Only retry on
+    // errors that mean the request definitely failed before Telnyx acted on
+    // it.
+    shouldRetry: (error) => !isClientError(error) && !(error instanceof Error && error.name === 'AbortError'),
+  })
 }
