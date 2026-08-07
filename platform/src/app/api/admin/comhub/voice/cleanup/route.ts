@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // POST /api/admin/comhub/voice/cleanup
 // Mark stale 'ringing' / 'voicemail' active_call rows as 'ended'.
 export async function POST() {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const cutoff = new Date(Date.now() - 60_000).toISOString()
   const { data, error } = await supabaseAdmin

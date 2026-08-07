@@ -14,12 +14,9 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
  * keys are actually present in the body.
  */
 
-vi.mock('@/lib/require-admin', () => ({
-  requireAdmin: vi.fn(async () => null),
-}))
-
-vi.mock('@/lib/tenant', () => ({
-  getCurrentTenantId: vi.fn(async () => 'tenant-1'),
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: vi.fn(async () => ({ tenantId: 'tenant-1', role: 'owner' })),
+  AuthError: class AuthError extends Error { status = 401 },
 }))
 
 const h = vi.hoisted(() => ({

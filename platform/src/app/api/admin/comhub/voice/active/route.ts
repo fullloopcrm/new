@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // GET /api/admin/comhub/voice/active — active calls for current tenant.
 export async function GET() {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const { data, error } = await supabaseAdmin
     .from('comhub_active_calls')

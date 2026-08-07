@@ -18,8 +18,10 @@ vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
-vi.mock('@/lib/tenant', () => ({ getCurrentTenantId: async () => h.tenantId }))
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, role: 'owner' }),
+  AuthError: class AuthError extends Error { status = 401 },
+}))
 
 import { GET, POST } from './route'
 

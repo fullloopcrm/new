@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 
@@ -9,9 +8,9 @@ import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
 // softphone WebRTC SDK. Voice config is resolved per-tenant (own Telnyx account
 // when configured, else platform env fallback).
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const adminId = await getActiveAdminMemberId(tenantId)
 
   const cfg = await resolveTenantVoiceConfig(tenantId)
@@ -108,10 +107,10 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/admin/comhub/voice/token { credential_id }
 export async function DELETE(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
 
-  const tenantId = await getCurrentTenantId()
+  const tenantId = access.tenantId
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
   const body = (await req.json().catch(() => ({}))) as { credential_id?: string } | null

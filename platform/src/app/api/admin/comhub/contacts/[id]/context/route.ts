@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 // Some client/team-member pin values got written through encryptSecret() by
@@ -22,9 +21,9 @@ const safeDecryptPin = (pin: string | null | undefined): string | null => {
 // Enriched info for the right-side panel: contact + linked client + team_member +
 // recent bookings + counters.
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const { id } = await ctx.params
 

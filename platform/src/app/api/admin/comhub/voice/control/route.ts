@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
@@ -38,9 +37,9 @@ async function telnyxAction(
 //   { active_call_id?, customer_call_id?, action, payload? }
 // Drives mid-call controls on the customer leg.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
   const body = (await req.json().catch(() => null)) as {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 const VALID_TAGS = ['client', 'team', 'lead', 'potential_lead', 'spam', 'vendor', 'other'] as const
 type ContactTag = typeof VALID_TAGS[number]
@@ -12,9 +11,9 @@ type ContactTag = typeof VALID_TAGS[number]
 // unlike notes, this works on unlinked contacts (that's the whole point:
 // reclassifying automated senders the auto-linker mislabeled "lead").
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const { id } = await ctx.params
 

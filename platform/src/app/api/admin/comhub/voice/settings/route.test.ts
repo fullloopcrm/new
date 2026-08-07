@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
@@ -8,15 +8,25 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
  * caller-id mode, recording/transcription toggles) had zero coverage.
  */
 
+const { AuthError: TestAuthError } = vi.hoisted(() => ({
+  AuthError: class AuthError extends Error {
+    status: number
+    constructor(message: string, status: number) {
+      super(message)
+      this.status = status
+    }
+  },
+}))
+
 const h = vi.hoisted(() => ({
   tenantId: 'tenant-A',
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
-  requireAdmin: vi.fn(),
+  getTenantForRequest: vi.fn(),
   adminId: 'admin-A1' as string | null,
 })) as unknown as FakeStoreHandle & {
   tenantId: string
-  requireAdmin: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
+  getTenantForRequest: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
   adminId: string | null
 }
 
@@ -24,8 +34,13 @@ vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: (...a: unknown[]) => h.requireAdmin(...a) }))
-vi.mock('@/lib/tenant', () => ({ getCurrentTenantId: async () => h.tenantId }))
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: (...a: unknown[]) => h.getTenantForRequest(...a),
+  AuthError: TestAuthError,
+}))
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ get: () => undefined }),
+}))
 vi.mock('@/lib/admin-member', () => ({ getActiveAdminMemberId: async () => h.adminId }))
 
 import { GET, PUT } from './route'
@@ -46,14 +61,14 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.adminId = 'admin-A1'
-  h.requireAdmin.mockReset()
-  h.requireAdmin.mockResolvedValue(null)
+  h.getTenantForRequest.mockReset()
+  h.getTenantForRequest.mockResolvedValue({ tenantId: h.tenantId, role: 'owner' })
   h.store = { comhub_admin_voice_settings: [] }
 })
 
 describe('GET /api/admin/comhub/voice/settings — permission gate', () => {
   it('returns the admin-gate error unchanged', async () => {
-    h.requireAdmin.mockResolvedValueOnce(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
+    h.getTenantForRequest.mockRejectedValueOnce(new TestAuthError('Forbidden', 403))
 
     const res = await GET()
 
@@ -116,7 +131,7 @@ describe('GET /api/admin/comhub/voice/settings — defaults', () => {
 
 describe('PUT /api/admin/comhub/voice/settings — permission + preconditions', () => {
   it('returns the admin-gate error unchanged', async () => {
-    h.requireAdmin.mockResolvedValueOnce(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
+    h.getTenantForRequest.mockRejectedValueOnce(new TestAuthError('Forbidden', 403))
 
     const res = await PUT(putReq({ ring_strategy: 'cell_only' }))
 

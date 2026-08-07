@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { listComhubThreads } from '@/lib/comhub-threads'
 
 // GET /api/admin/comhub/threads
@@ -11,9 +10,9 @@ import { listComhubThreads } from '@/lib/comhub-threads'
 //   &q=<search>
 //   &limit=50&offset=0
 export async function GET(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const { searchParams } = new URL(req.url)
   const { threads, error } = await listComhubThreads(tenantId, {

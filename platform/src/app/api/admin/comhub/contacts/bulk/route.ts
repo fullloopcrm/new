@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 const VALID_TAGS = ['client', 'team', 'lead', 'potential_lead', 'spam', 'vendor', 'other'] as const
 type ContactTag = typeof VALID_TAGS[number]
@@ -16,9 +15,9 @@ type ContactTag = typeof VALID_TAGS[number]
 // has its own dedicated safe-purge flow elsewhere. This is scoped to what
 // ComHub owns.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
 
   const body = await req.json().catch(() => null) as {

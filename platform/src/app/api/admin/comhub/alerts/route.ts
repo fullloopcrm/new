@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // GET /api/admin/comhub/alerts?since=<ISO>
 //   Polled by the top-drop live-alert popup. Returns inbound SMS/email/web/
 //   voice ComHub messages that landed after `since`, newest first, capped
 //   small — this drives an interrupt-style UI, not an inbox.
 export async function GET(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const since = req.nextUrl.searchParams.get('since')
   if (!since) return NextResponse.json({ error: 'since is required' }, { status: 400 })

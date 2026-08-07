@@ -13,12 +13,9 @@ import { NextRequest } from 'next/server'
  * lookup for a directly-supplied customer_call_id finds no row.
  */
 
-vi.mock('@/lib/require-admin', () => ({
-  requireAdmin: vi.fn(async () => null),
-}))
-
-vi.mock('@/lib/tenant', () => ({
-  getCurrentTenantId: vi.fn(async () => 'tenant-1'),
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: vi.fn(async () => ({ tenantId: 'tenant-1', role: 'owner' })),
+  AuthError: class AuthError extends Error { status = 401 },
 }))
 
 vi.mock('@/lib/comhub-voice-config', () => ({

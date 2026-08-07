@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { tenantDb } from '@/lib/tenant-db'
 
@@ -21,9 +20,9 @@ const DEFAULT_SETTINGS = {
 
 // GET /api/admin/comhub/voice/settings — current admin's voice settings.
 export async function GET() {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ settings: DEFAULT_SETTINGS })
@@ -38,9 +37,9 @@ export async function GET() {
 
 // PUT /api/admin/comhub/voice/settings — upsert.
 export async function PUT(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const adminId = await getActiveAdminMemberId(tenantId)
   if (!adminId) return NextResponse.json({ error: 'no tenant member found' }, { status: 412 })

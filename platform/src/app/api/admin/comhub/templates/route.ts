@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // GET /api/admin/comhub/templates?channel=sms|email|all
 export async function GET(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const ch = new URL(req.url).searchParams.get('channel') || 'all'
   let q = tenantDb(tenantId)
@@ -24,9 +23,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/admin/comhub/templates  { name, body, channel?, hotkey? }
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
 
   const payload = await req.json().catch(() => null) as {
     name?: string

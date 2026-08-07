@@ -39,8 +39,10 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }))
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: vi.fn(async () => null) }))
-vi.mock('@/lib/tenant', () => ({ getCurrentTenantId: vi.fn(async () => TENANT_A) }))
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: async () => ({ tenantId: TENANT_A, role: 'owner' }),
+  AuthError: class AuthError extends Error { status = 401 },
+}))
 vi.mock('@/lib/comhub-voice-config', () => ({
   resolveTenantVoiceConfig: vi.fn(async () => ({
     apiKey: 'test-telnyx-key',

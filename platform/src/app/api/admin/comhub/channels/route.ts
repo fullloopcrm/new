@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // POST /api/admin/comhub/channels
 //   { slug, name?, description? }  — creates internal channel for the current tenant.
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin()
-  if (authError) return authError
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
 
-  const tenantId = await getCurrentTenantId()
+  const tenantId = access.tenantId
 
   const body = await req.json().catch(() => null) as {
     slug?: string

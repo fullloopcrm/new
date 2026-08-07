@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/require-admin'
-import { getComhubAdminTenantId as getCurrentTenantId } from '@/lib/comhub-admin-tenant'
+import { requireComhubAccess } from '@/lib/comhub-access'
 
 // GET /api/admin/comhub/threads/[id]
 //   Returns thread + contact + ordered messages.
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const { id } = await ctx.params
 
   const { data: thread, error: tErr } = await supabaseAdmin
@@ -52,9 +51,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 // PATCH /api/admin/comhub/threads/[id]
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const authError = await requireAdmin()
-  if (authError) return authError
-  const tenantId = await getCurrentTenantId()
+  const access = await requireComhubAccess()
+  if (access instanceof NextResponse) return access
+  const tenantId = access.tenantId
   const { id } = await ctx.params
   const body = await req.json().catch(() => ({})) as {
     status?: 'open' | 'snoozed' | 'closed'
