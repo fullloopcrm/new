@@ -16,7 +16,7 @@ import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
-import { payCleanerAtCheckout } from '@/lib/finance/checkout-payout'
+import { payCleanerAtCheckout, payExtraCrewAtCheckout } from '@/lib/finance/checkout-payout'
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 
 export async function GET(
@@ -259,13 +259,34 @@ export async function PUT(
     // (Jeff, 2026-08-07: "same Stripe event trigger" regardless of which
     // screen checks the job out).
     if (fields.check_out_time && assignedMemberId) {
+      const checkoutClientName = (data.clients as unknown as { name?: string | null } | null)?.name ?? null
       await payCleanerAtCheckout({
         tenantId,
         bookingId: id,
         teamMemberId: assignedMemberId,
         teamMemberPayCents: (fields.team_member_pay as number | null) ?? null,
         teamMember: checkoutMember,
+        clientName: checkoutClientName,
+        isLead: true,
       }).catch((err) => console.error('[PUT /api/bookings/[id]] payCleanerAtCheckout failed:', err))
+      // Any additional crew on a multi-cleaner job (booking_team_members) gets
+      // paid too, same as the team-portal checkout route — added 2026-08-07,
+      // extras were never paid by either checkout surface before.
+      await payExtraCrewAtCheckout({
+        tenantId,
+        bookingId: id,
+        leadTeamMemberId: assignedMemberId,
+        checkInIso: oldBooking?.check_in_time as string,
+        checkOutIso: fields.check_out_time as string,
+        hourlyRate: (fields.hourly_rate as number | null | undefined) ?? oldBooking?.hourly_rate ?? null,
+        discountPercent: (fields.discount_percent as number | null | undefined) ?? oldBooking?.discount_percent ?? null,
+        oneTimeCreditCents: (fields.one_time_credit_cents as number | null | undefined) ?? oldBooking?.one_time_credit_cents ?? null,
+        recurringType: oldBooking?.recurring_type ?? null,
+        maxHours: oldBooking?.max_hours ?? null,
+        teamSize: (fields.team_size as number | null | undefined) ?? oldBooking?.team_size ?? null,
+        clientAddress: (data.clients as unknown as { address?: string | null } | null)?.address ?? null,
+        clientName: checkoutClientName,
+      }).catch((err) => console.error('[PUT /api/bookings/[id]] payExtraCrewAtCheckout failed:', err))
     }
 
     // Send notifications based on what changed

@@ -1,43 +1,70 @@
 /**
  * Single shared idempotency key for cleaner (team-member) payouts, keyed on
- * booking_id. Every Stripe Connect payout site must consult this before moving
- * money so one booking pays the cleaner exactly once:
+ * (booking_id, team_member_id) — one booking can owe MULTIPLE people
+ * (booking_team_members: a lead + extras on a multi-cleaner job), so the key
+ * must include which person, not just which booking. Every Stripe Connect
+ * payout site must consult this before moving money so one (booking, team
+ * member) pair pays out exactly once:
  *   - lib/payment-processor.ts        (Zelle/Venmo/cash + cleaner-checkout path)
  *   - app/api/team-portal/checkout    (calls processPayment)
  *   - app/api/webhooks/stripe         (Stripe-paid booking auto-payout)
  *
  * Two triggers are covered: (a) the same path invoked twice (repeat checkout,
  * webhook retry), (b) two different paths for the same booking (Stripe webhook
- * pays, then the cleaner also reports a method at checkout). Both resolve to the
- * same booking_id, so a payout row for that booking — or bookings.team_member_paid
- * already true — means "done, do not pay again".
+ * pays, then the cleaner also reports a method at checkout). Both resolve to
+ * the same (booking_id, team_member_id), so a payout row for that pair — or,
+ * for the LEAD specifically, bookings.team_member_paid already true (a
+ * single-payee-per-booking flag that predates multi-cleaner support and only
+ * ever described the lead) — means "done, do not pay again".
+ *
+ * Widened from booking_id-only 2026-08-07 after a multi-cleaner job's extra
+ * crew member (Karina) was silently never paid: the old key made the lead's
+ * payout row read as "this booking is settled" for everyone on the job.
  *
  * NOTE: this is a check-before-transfer guard. It fully closes the sequential /
  * retry exploit (and the regression tests below). A truly simultaneous race
  * (two transfers in flight before either inserts its payout row) is caught at
- * the RECORD level by the UNIQUE(tenant_id, booking_id) backstop in
- * migrations/2026_07_11_team_member_payouts_unique.sql; closing the fund-movement
- * race entirely would require claim-before-transfer, flagged for follow-up.
+ * the RECORD level by the UNIQUE(tenant_id, booking_id, team_member_id)
+ * backstop in supabase/migrations/20260807164759_widen_team_member_payouts_unique_index.sql;
+ * closing the fund-movement race entirely would require claim-before-transfer,
+ * flagged for follow-up.
  */
 import { supabaseAdmin } from '../supabase'
 
-export async function cleanerAlreadyPaid(tenantId: string, bookingId: string): Promise<boolean> {
+export async function cleanerAlreadyPaid(tenantId: string, bookingId: string, teamMemberId: string): Promise<boolean> {
   const { data: payout } = await supabaseAdmin
     .from('team_member_payouts')
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('booking_id', bookingId)
+    .eq('team_member_id', teamMemberId)
     .limit(1)
     .maybeSingle()
   if (payout) return true
 
+  // Legacy single-payee flag — only ever meant "the lead has been paid", so
+  // only trust it when we're asking about the lead. For an extra crew
+  // member it would false-positive the moment the lead's own payout landed.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('team_member_paid')
+    .select('team_member_id, team_member_paid')
     .eq('tenant_id', tenantId)
     .eq('id', bookingId)
     .maybeSingle()
-  return booking?.team_member_paid === true
+  return booking?.team_member_id === teamMemberId && booking?.team_member_paid === true
+}
+
+/** Sum of every tip recorded against a booking (payments.tip_cents can span
+ *  multiple rows — e.g. a cash tip logged separately from a Stripe payment).
+ *  Looked up fresh at payout time so a tip that lands via the Stripe webhook
+ *  before OR after checkout is still included — never hardcoded to 0. */
+export async function tipCentsForBooking(tenantId: string, bookingId: string): Promise<number> {
+  const { data: rows } = await supabaseAdmin
+    .from('payments')
+    .select('tip_cents')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+  return (rows || []).reduce((sum, r) => sum + ((r.tip_cents as number | null) || 0), 0)
 }
 
 export interface PayoutClaim {

@@ -9,7 +9,7 @@ import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
-import { payCleanerAtCheckout } from '@/lib/finance/checkout-payout'
+import { payCleanerAtCheckout, payExtraCrewAtCheckout } from '@/lib/finance/checkout-payout'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
@@ -302,7 +302,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     // Shared booking-keyed idempotency guard: a repeat checkout for an
     // already-paid booking must not run the payment pipeline again (which would
     // double-pay the cleaner via Stripe Connect).
-    if (reportedMethod && updatedPriceCents && !(await cleanerAlreadyPaid(auth.tid, data.id))) {
+    if (reportedMethod && updatedPriceCents && booking.team_member_id && !(await cleanerAlreadyPaid(auth.tid, data.id, booking.team_member_id as string))) {
       // Shared pipeline: marks paid, inserts payment row, transfers the cleaner
       // via Stripe Connect, and notifies client/cleaner/admin — same path as the
       // Stripe webhook. Non-blocking.
@@ -326,7 +326,27 @@ export const POST = withMobileCors(async function POST(request: Request) {
       teamMemberId: booking.team_member_id as string | null,
       teamMemberPayCents,
       teamMember: booking.team_members as unknown as { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null } | null,
+      clientName,
+      isLead: true,
     })
+    // Any additional crew on a multi-cleaner job (booking_team_members) gets
+    // paid too — each at their own rate for the same hours, same as the lead
+    // above. Added 2026-08-07: extras were never paid by this route before.
+    await payExtraCrewAtCheckout({
+      tenantId: auth.tid,
+      bookingId: data.id as string,
+      leadTeamMemberId: booking.team_member_id as string | null,
+      checkInIso: booking.check_in_time as string,
+      checkOutIso: checkOutTime.toISOString(),
+      hourlyRate: booking.hourly_rate as number | null,
+      discountPercent: booking.discount_percent as number | null,
+      oneTimeCreditCents: booking.one_time_credit_cents as number | null,
+      recurringType: booking.recurring_type as string | null,
+      maxHours: booking.max_hours as number | null,
+      teamSize: booking.team_size as number | null,
+      clientAddress: (booking.clients as unknown as { address?: string | null } | null)?.address ?? null,
+      clientName,
+    }).catch((err) => console.error('checkout extra-crew payout failed:', err))
     if (data.client_id) {
       sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
     }

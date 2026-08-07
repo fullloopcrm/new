@@ -268,7 +268,7 @@ export async function executeGroups(
     const clientNames: string[] = []
 
     for (const item of group.items) {
-      if (await cleanerAlreadyPaid(tenantId, item.bookingId)) continue
+      if (await cleanerAlreadyPaid(tenantId, item.bookingId, group.teamMemberId)) continue
 
       const claim = await claimGlobalPayout({
         tenantId,

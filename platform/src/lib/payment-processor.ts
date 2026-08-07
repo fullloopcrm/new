@@ -267,7 +267,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   // idempotency check so a repeat call (or a Stripe-webhook payout for the same
   // booking) never double-pays the cleaner.
   let cleanerPaidCents = 0
-  if (teamMember?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId))) {
+  if (teamMember?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId, booking.team_member_id as string))) {
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {

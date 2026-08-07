@@ -850,7 +850,7 @@ export async function POST(request: Request) {
       // webhook retry) already paid this booking's cleaner.
       let payoutSent = false
       let payoutClaimId: string | null = null
-      if (tm?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId))) {
+      if (tm?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId, booking.team_member_id as string))) {
         try {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
