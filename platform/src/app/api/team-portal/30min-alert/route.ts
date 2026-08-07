@@ -367,11 +367,11 @@ export async function POST(req: NextRequest) {
     // offer, the 30-min button just sends the bill.
     const clientSmsType = '30min_payment'
     const clientSmsText = [
-      `Hi ${firstName}! Here's your balance for today's clean.`,
+      `Hi ${firstName}! Here is your balance for today's cleaning service.`,
       `Total: $${clientOwes}`,
       ...payLines,
       ``,
-      `Reply "paid" once sent.`,
+      `Please reply "paid" once sent. Thank you. We appreciate you.`,
     ].join('\n')
 
     const confirmedVia: string[] = []
