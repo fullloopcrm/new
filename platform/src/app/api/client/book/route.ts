@@ -767,7 +767,7 @@ export async function POST(request: Request) {
                 { tenant_id: tenant.id, booking_id: data.id, team_member_id: chosenLead.id, is_lead: true, position: 1 },
                 ...freeExtras.map((c, i) => ({ tenant_id: tenant.id, booking_id: data.id, team_member_id: c.id, is_lead: false, position: i + 2 })),
               ]
-              await supabaseAdmin.from('booking_team_members').insert(teamRows)
+              await supabaseAdmin.from('booking_team_members').insert(teamRows) // tenant-scope-ok: insert, tenant_id already stamped on every row above
 
               const assignedBooking = assigned as unknown as AutoAssignedBooking
               await notifyAutoAssignment(tenant, assignedBooking, { size: bkTeamSize, assignedCount: teamRows.length })

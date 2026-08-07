@@ -313,6 +313,7 @@ export async function POST(request: Request) {
         const { data: activeConversation } = await supabaseAdmin
           .from('sms_logs')
           .select('id, sms_type, created_at')
+          .eq('tenant_id', tenantId)
           .ilike('recipient', `%${cleanPhone}%`)
           .in('sms_type', ['pre_payment_rating', 'rating_thanks_45'])
           .or(`and(sms_type.eq.pre_payment_rating,created_at.gte.${ratingAskSince}),and(sms_type.eq.rating_thanks_45,created_at.gte.${billPromptSince})`)

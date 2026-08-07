@@ -111,10 +111,12 @@ function clientsBuilder() {
   return chain
 }
 
-// supabaseAdmin.from('bookings') covers two distinct call shapes from this
-// route: the post-claim read-back (.select('*, clients(*), ...').single())
-// and the pre-assign conflict recheck (.select('id', {count, head}) ... a
-// bare await, no .single()). Distinguished by whether `opts.count` was passed.
+// Mock builder standing in for the bookings table client, not a real query
+// — nothing here touches the database. Covers two distinct call shapes from
+// the real route being tested: the post-claim read-back
+// (.select('*, clients(*), ...').single()) and the pre-assign conflict
+// recheck (.select('id', {count, head}) ... a bare await, no .single()).
+// Distinguished by whether `opts.count` was passed.
 function bookingsAdminBuilder() {
   let wantsCount = false
   const chain: Record<string, unknown> = {

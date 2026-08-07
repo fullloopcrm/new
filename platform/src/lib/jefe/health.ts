@@ -422,7 +422,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     // SEO ranking advisories (cron/seo-alerts) — logged into `notifications`
     // with type='error', which is why they were drowning out real errors in
     // `stability`/`tenants_with_issues`. Broken out into their own signal.
-    supabaseAdmin.from('notifications').select('tenant_id, created_at').eq('title', 'cron/seo-alerts').gte('created_at', since7d),
+    supabaseAdmin.from('notifications').select('tenant_id, created_at').eq('title', 'cron/seo-alerts').gte('created_at', since7d), // tenant-scope-ok: Jefe platform-admin health dashboard aggregates across all tenants by design
     // Communications volume — comhub_messages is the real unified cross-
     // channel inbox log (channel: sms/web/voice/email/admin), confirmed live
     // (7d sample: sms 619, web 59, voice 76, email 162, admin 2). Count-only

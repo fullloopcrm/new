@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const serverTime = new Date().toISOString()
 
   const { data: messages, error } = await supabaseAdmin
-    .from('tenant_owner_messages')
+    .from('tenant_owner_messages') // tenant-scope-ok: deliberately cross-tenant, see file header — requireAdmin()-gated
     .select('id, tenant_id, body, body_en, sender, created_at')
     .eq('direction', 'in')
     .eq('channel', 'platform')

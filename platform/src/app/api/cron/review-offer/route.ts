@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const errors: string[] = []
 
   const { data: due } = await supabaseAdmin
-    .from('ratings')
+    .from('ratings') // tenant-scope-ok: cron scans due ratings across all tenants, every downstream action below is scoped by rating.tenant_id per row
     .select('id, tenant_id, client_id, booking_id, service_rating')
     .lte('review_offer_due_at', now)
     .is('review_offer_sent_at', null)
