@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import Stripe from 'stripe'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
@@ -8,7 +9,9 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
-import { cleanerAlreadyPaid } from '@/lib/finance/cleaner-payout'
+import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
+import { postPayoutToLedger } from '@/lib/finance/post-labor'
+import { decryptSecret } from '@/lib/secret-crypto'
 import { sendPushToClient } from '@/lib/push'
 import { bumpSalesPartnerTotalOrFlag } from '@/lib/sales-partner-ledger'
 import { escapeHtml } from '@/lib/escape-html'
@@ -39,7 +42,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await db
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate, stripe_account_id)')
     .eq('id', booking_id)
     .single()
 
@@ -313,6 +316,84 @@ export const POST = withMobileCors(async function POST(request: Request) {
         amountCents: updatedPriceCents,
         referenceId: `cleaner-checkout-${data.id}`,
       }).catch((err) => console.error('processPayment from check-out failed:', err))
+    }
+
+    // Direct cleaner payout at checkout — pays the cleaner's earned wage via
+    // Stripe Connect the moment they check out, independent of whether the
+    // client has paid yet (per Jeff's explicit instruction 2026-08-07: checkout
+    // pays the cleaner, full stop). The client's own payment via the 30-min
+    // alert's pay link is a separate event handled by the Stripe webhook —
+    // idempotent via the same claim table, so paying here never double-pays
+    // the cleaner if the client also pays the link before or after this.
+    const payoutTeamMember = booking.team_members as unknown as { stripe_account_id?: string | null } | null
+    if (
+      booking.team_member_id &&
+      teamMemberPayCents &&
+      teamMemberPayCents > 0 &&
+      payoutTeamMember?.stripe_account_id &&
+      !(await cleanerAlreadyPaid(auth.tid, data.id))
+    ) {
+      const claim = await claimCleanerPayout({
+        tenantId: auth.tid,
+        bookingId: data.id as string,
+        teamMemberId: booking.team_member_id as string,
+        amountCents: teamMemberPayCents,
+      })
+      if (claim.claimed && claim.payoutId) {
+        try {
+          const { data: tenantRow } = await supabaseAdmin
+            .from('tenants')
+            .select('stripe_api_key')
+            .eq('id', auth.tid)
+            .single()
+          const stripeKey = tenantRow?.stripe_api_key ? decryptSecret(tenantRow.stripe_api_key as string) : process.env.STRIPE_SECRET_KEY
+          if (!stripeKey) throw new Error('Stripe not configured')
+          const stripe = new Stripe(stripeKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+
+          const transfer = await stripe.transfers.create({
+            amount: teamMemberPayCents,
+            currency: 'usd',
+            destination: payoutTeamMember.stripe_account_id,
+            description: `Checkout payout for booking ${data.id}`,
+            metadata: { booking_id: data.id as string, tenant_id: auth.tid },
+          }, { idempotencyKey: `checkout-payout:${data.id}` })
+
+          let instantPayoutId: string | null = null
+          let isInstant = false
+          try {
+            const payout = await stripe.payouts.create(
+              { amount: teamMemberPayCents, currency: 'usd', method: 'instant' },
+              { stripeAccount: payoutTeamMember.stripe_account_id, idempotencyKey: `checkout-instant-payout:${data.id}` },
+            )
+            instantPayoutId = payout.id
+            isInstant = true
+          } catch {
+            // standard schedule fallback — Stripe will pay on default cadence
+          }
+
+          await finalizeCleanerPayout({
+            tenantId: auth.tid,
+            payoutId: claim.payoutId,
+            amountCents: teamMemberPayCents,
+            tipCents: 0,
+            stripeTransferId: transfer.id,
+            stripePayoutId: instantPayoutId,
+            instant: isInstant,
+          })
+          postPayoutToLedger({ tenantId: auth.tid, payoutId: claim.payoutId })
+            .catch((err) => console.error('checkout payout ledger post failed:', err))
+
+          await tenantDb(auth.tid)
+            .from('bookings')
+            .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
+            .eq('id', data.id)
+            .then(() => {}, () => {})
+        } catch (transferErr) {
+          await releaseCleanerPayout(auth.tid, claim.payoutId).catch(() => {})
+          console.error('checkout cleaner payout failed:', transferErr)
+          smsAdmins(auth.tid, `Cleaner payout FAILED at checkout for booking ${data.id} — pay manually.`).catch(() => {})
+        }
+      }
     }
 
     if (data.client_id) {
