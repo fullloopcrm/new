@@ -287,12 +287,39 @@ export async function POST(request: Request) {
     const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
     if (feedbackReply) return feedbackReply
 
+    // RATING-REPLY BYPASS — a bare 1-5 digit reply from a phone with an
+    // active rating conversation (a recent 'pre_payment_rating' sms_log)
+    // must reach the review engine further below, even when that phone also
+    // happens to be the tenant's owner_phone (e.g. an owner testing with
+    // their own number as both cleaner and client -- a documented, previously
+    // supported pattern). Without this, the owner-chat branch immediately
+    // below always wins for that phone: the numeric reply gets filed as an
+    // owner text instead of a rating, and the client never gets billed.
+    // Reproduced live 2026-08-06/07 -- this is the root cause behind both
+    // the 2026-07-22 nycmaid cutover regression ("reviews stopped coming in")
+    // and tonight's incident.
+    let ratingReplyBypass = false
+    if (/^[1-5]$/.test(text.trim())) {
+      const cleanPhone = String(from).replace(/\D/g, '').slice(-10)
+      if (cleanPhone) {
+        const ratingAskSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data: activeRating } = await supabaseAdmin
+          .from('sms_logs')
+          .select('id')
+          .ilike('recipient', `%${cleanPhone}%`)
+          .eq('sms_type', 'pre_payment_rating')
+          .gte('created_at', ratingAskSince)
+          .limit(1)
+        ratingReplyBypass = !!(activeRating && activeRating.length > 0)
+      }
+    }
+
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
     // a reply in the platform owner<->admin chat, not a booking conversation.
     // Route it to tenant_owner_messages and stop; don't run client/Selena logic.
     const ownerDigits = (tenant.owner_phone || '').replace(/\D/g, '')
     const fromDigits = String(from).replace(/\D/g, '')
-    if (ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
+    if (!ratingReplyBypass && ownerDigits.length >= 10 && fromDigits.endsWith(ownerDigits.slice(-10))) {
       await supabaseAdmin.from('tenant_owner_messages').insert({
         tenant_id: tenantId, direction: 'in', channel: 'sms', body: text, sender: 'owner',
       })
