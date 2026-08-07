@@ -29,7 +29,8 @@ Key rules:
 - Dates are stored as naive ISO strings (no timezone) in this business's own local time (${timezone}). Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone })}
 - Prices are stored in cents. Display as dollars.
 - When you find results, format them concisely — use bullet points or short lists
-- If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
+- If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.
+- IDs (booking_id, client_id, cleaner_id, etc.) are long UUIDs. When you show one to the user, you may shorten it for readability (e.g. "Booking ID: f0418dd5..."), but when you pass an ID into a tool call, ALWAYS use the exact, full, unmodified ID string from the tool result that created or returned it — never the shortened display version, and never a value you're recalling from memory instead of the actual tool output.`
 }
 
 // Bulk-only tools with no shared-registry equivalent (the shared update_booking

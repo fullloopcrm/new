@@ -83,6 +83,7 @@ export const TOOLS: Anthropic.Tool[] = [
   { name: 'lookup_cleaner', description: 'Cleaner profile: last 5 jobs, payout owed, ratings. Args: name.', input_schema: { type: 'object' as const, properties: { name: { type: 'string' } }, required: ['name'] } },
   { name: 'get_outstanding_payments', description: 'Clients with unpaid bookings, oldest first.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
   { name: 'get_at_risk_clients', description: 'Clients with no booking 45+ days.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+  { name: 'get_client_stats', description: 'Total client count, active/inactive/new-this-month counts, referral count, total revenue, average LTV, and client source breakdown. Use this for "how many clients do we have" — do not estimate from get_at_risk_clients.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
   { name: 'search_messages', description: 'Search SMS messages from last 30 days. Args: query.', input_schema: { type: 'object' as const, properties: { query: { type: 'string' } }, required: ['query'] } },
 
   // Owner-only CONTROL tools — destructive. Confirm with the user before calling.

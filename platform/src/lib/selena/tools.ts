@@ -364,6 +364,8 @@ async function dispatchTool(
       return await handleOutstandingPayments(tid)
     case 'get_at_risk_clients':
       return await handleAtRiskClients(tid)
+    case 'get_client_stats':
+      return await handleGetClientStats(tid)
     case 'search_messages':
       return await handleSearchMessages(String(input.query || ''), tid)
     case 'assign_cleaner_to_booking':
@@ -749,7 +751,7 @@ async function handleGetSmartSuggestion(input: { booking_id: string }, tid: stri
   if (!input.booking_id) return JSON.stringify({ error: 'booking_id required' })
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, start_time, end_time, hourly_rate, status, team_member_id, suggested_team_member_id, suggested_reason, client_id, clients(name, address), team_members(name)')
+    .select('id, start_time, end_time, hourly_rate, status, team_member_id, suggested_team_member_id, suggested_reason, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
     .eq('id', input.booking_id)
     .eq('tenant_id', tid)
     .maybeSingle()
@@ -1021,7 +1023,7 @@ async function handleTodaySummary(tid: string): Promise<string> {
   const [bookingsToday, payouts, outstanding, cleanersOnDuty] = await Promise.all([
     supabaseAdmin
       .from('bookings')
-      .select('id, status, hourly_rate, clients(name), team_members(name), start_time, end_time')
+      .select('id, status, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name), start_time, end_time')
       .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
@@ -1040,7 +1042,7 @@ async function handleTodaySummary(tid: string): Promise<string> {
       .limit(50),
     supabaseAdmin
       .from('bookings')
-      .select('team_member_id, team_members(name)')
+      .select('team_member_id, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tid)
       .gte('start_time', today + 'T00:00:00')
       .lt('start_time', today + 'T23:59:59')
@@ -1212,7 +1214,7 @@ async function handleListBookings(input: { date?: string; from_date?: string; to
 
   let q = supabaseAdmin
     .from('bookings')
-    .select('id, status, payment_status, start_time, end_time, hourly_rate, price, team_size, max_hours, clients(name), team_members(name, id)')
+    .select('id, status, payment_status, start_time, end_time, hourly_rate, price, team_size, max_hours, clients(name), team_members!bookings_team_member_id_fkey(name, id)')
     .eq('tenant_id', tid)
     .order('start_time', { ascending: true })
     .limit(input.limit || 100)
@@ -1375,6 +1377,32 @@ async function handleAtRiskClients(tid: string): Promise<string> {
   }
   results.sort((a, b) => (b.days_since || 0) - (a.days_since || 0))
   return JSON.stringify({ count: results.length, clients: results.slice(0, 50) })
+}
+
+// Mirrors GET /api/clients/stats — total/active/new-this-month/inactive
+// counts, revenue, avg LTV, referral count, source breakdown. Added
+// 2026-08-07: the model had no direct "how many clients do we have" tool and
+// was guessing from get_at_risk_clients's count instead.
+async function handleGetClientStats(tid: string): Promise<string> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const [{ count: totalClients }, { count: activeClients }, { count: newThisMonth }, { data: revenueData }, { data: sourceData }] = await Promise.all([
+    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tid),
+    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tid).eq('status', 'active'),
+    supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tid).gte('created_at', monthStart),
+    supabaseAdmin.from('bookings').select('price, client_id').eq('tenant_id', tid).eq('payment_status', 'paid'),
+    supabaseAdmin.from('clients').select('source').eq('tenant_id', tid),
+  ])
+  const totalRevenue = (revenueData || []).reduce((sum, b) => sum + (b.price || 0), 0)
+  const uniqueClients = new Set((revenueData || []).map(b => b.client_id)).size
+  const avgLtv = uniqueClients > 0 ? Math.round(totalRevenue / uniqueClients) : 0
+  const sourceCounts: Record<string, number> = {}
+  for (const c of sourceData || []) { const src = c.source || 'unknown'; sourceCounts[src] = (sourceCounts[src] || 0) + 1 }
+  return JSON.stringify({
+    total: totalClients || 0, active: activeClients || 0, new_this_month: newThisMonth || 0,
+    inactive: (totalClients || 0) - (activeClients || 0), referrals: sourceCounts['referral'] || 0,
+    total_revenue_cents: totalRevenue, avg_ltv_cents: avgLtv, sources: sourceCounts,
+  })
 }
 
 async function handleSearchMessages(query: string, tid: string): Promise<string> {
