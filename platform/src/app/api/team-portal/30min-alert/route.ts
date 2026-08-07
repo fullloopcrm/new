@@ -361,34 +361,18 @@ export async function POST(req: NextRequest) {
         ]
       : []
 
-    // Client message: the rating ask ONLY. Bundling the bill into this same
-    // text (the prior design) buried the rating question under a payment
-    // demand — clients replied "Paid" to the payment part and the rating
-    // question went unanswered, so the downstream review-offer flow
-    // (src/lib/review-engine.ts / src/lib/nycmaid/review-engine.ts) almost
-    // never fired. Billing now rides on the REPLY to this rating ask.
-    //
-    // Exception: an admin manually re-triggering this (force=true) AFTER a
-    // rating already exists on the booking is asking to bill directly —
-    // e.g. after personally handling a 1-3 rating's "take over the
-    // conversation" admin ping, which never auto-bills the client.
-    const { data: existingRating } = await tenantDb(tenantId)
-      .from('ratings')
-      .select('id')
-      .eq('booking_id', bookingId)
-      .maybeSingle()
-    const sendBillDirectly = isAdminCaller && !!force && !!existingRating
-
-    const clientSmsType = sendBillDirectly ? '30min_payment' : 'pre_payment_rating'
-    const clientSmsText = sendBillDirectly
-      ? [
-          `Hi ${firstName}! Here's your balance for today's clean.`,
-          `Total: $${clientOwes}`,
-          ...payLines,
-          ``,
-          `Reply "paid" once sent.`,
-        ].join('\n')
-      : `Hi ${firstName}, ${cleanerName} is finishing up your clean now 😊 How'd we do? Reply 1-5 (5 = spotless)! (Your balance + pay link will come right after you reply.)`
+    // Client message: bill + balance, sent directly every time. The prior
+    // rating-ask-first flow (reply 1-5, bill rides on the reply) is removed
+    // per Jeff's request 2026-08-07 — no more rating gate, no more review
+    // offer, the 30-min button just sends the bill.
+    const clientSmsType = '30min_payment'
+    const clientSmsText = [
+      `Hi ${firstName}! Here's your balance for today's clean.`,
+      `Total: $${clientOwes}`,
+      ...payLines,
+      ``,
+      `Reply "paid" once sent.`,
+    ].join('\n')
 
     const confirmedVia: string[] = []
     let smsAttempts = 0
