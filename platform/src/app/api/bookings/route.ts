@@ -19,6 +19,7 @@ import { deriveDurationClass } from '@/lib/schedule/duration-class'
 import { logSchedulingOverrideIfAny } from '@/lib/scheduling-override-log'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -66,7 +67,14 @@ async function fetchBookingsList(tenantId: string, filters: BookingsListFilters)
 }
 const fetchBookingsListCached = unstable_cache(fetchBookingsList, ['bookings-list'], { revalidate: 30 })
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+// Mobile Admin's Bookings tab calls this over CORS from the Expo web
+// preview (native iOS/Android isn't CORS-restricted, but web preview is,
+// and had no way to distinguish "backend down" from "browser blocked the
+// response") -- see the 2026-08-04 CORS gotcha this repo already hit on
+// other mobile-facing routes.
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   try {
     const { tenantId, tenant } = await getTenantForRequest()
     const url = request.nextUrl
@@ -121,7 +129,7 @@ export async function GET(request: NextRequest) {
     }
     throw e
   }
-}
+})
 
 export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.create')
