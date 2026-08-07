@@ -31,7 +31,9 @@ import { sendEmail, tenantSender } from '@/lib/email'
 import { getTenantTimezone } from '@/lib/tenant-time'
 import { escapeHtml } from '@/lib/escape-html'
 
-const TIER_RATE: Record<string, number> = { standard: 0.10, tier2: 0.12, tier3: 0.15 }
+// Exported (2026-08-06) so the Selena dashboard-agent tool
+// (create_sales_partner, lib/selena/tools.ts) can reuse the same rate table.
+export const TIER_RATE: Record<string, number> = { standard: 0.10, tier2: 0.12, tier3: 0.15 }
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')

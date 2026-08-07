@@ -90,7 +90,21 @@ export default function SelenaBar({ agentName = 'Selena' }: { agentName?: string
           }}
           ref={scrollRef}
         >
-          <div className="p-4 space-y-3">
+          <div
+            className="sticky top-0 z-10 flex justify-end backdrop-blur"
+            style={{ background: 'rgba(255,255,255,0.96)', padding: '8px 8px 0' }}
+          >
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              title="Close"
+              className="w-6 h-6 inline-flex items-center justify-center rounded-[3px] transition-colors hover:bg-[var(--color-loop-bg)]"
+              style={{ color: 'var(--color-loop-muted)', fontSize: '13px' }}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-4 pt-0 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div

@@ -3,24 +3,20 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError, type TenantContext } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
-import { hasPermission, type Role } from '@/lib/rbac'
-import { overridesFor } from '@/lib/require-permission'
 import { getTenantTimezone } from '@/lib/tenant-time'
-import { nowNaiveET } from '@/lib/recurring'
 import { audit } from '@/lib/audit'
 import { runTool } from '@/lib/selena/tools'
-import { SHARED_TOOL_PERMISSIONS } from '@/lib/selena/tool-permissions'
-import type { YinezResult } from '@/lib/selena/agent'
+import { TOOLS as SHARED_TOOLS, type YinezResult } from '@/lib/selena/agent'
 
-// #3 (fold the dashboard assistant into the shared tool registry — 2026-07-30):
-// every tool that has a clean shared equivalent now dispatches through
-// runTool() (src/lib/selena/tools.ts), the SAME dispatcher SMS/web/Telegram
-// use, gated by the SAME SHARED_TOOL_PERMISSIONS map — no more a second,
-// hand-maintained tool implementation + permission map drifting from the
-// shared one. Two tools stayed local because their query logic has a real
-// semantic difference (see tool-permissions.ts's comments on each) — both
-// are still gated through SHARED_TOOL_PERMISSIONS for one RBAC source of
-// truth even though their handlers remain here.
+// 2026-08-06 (full-access dashboard agent): every tool in the shared registry
+// (src/lib/selena/tools.ts — the SAME dispatcher SMS/web/Telegram use) is now
+// exposed here, and every call runs with role hard-coded to 'owner' — full
+// RBAC permission — regardless of which dashboard user (owner/admin/manager/
+// staff) is actually in the chat. Per-tenant, per-role gating was intentionally
+// removed for this surface: whoever a tenant lets into their dashboard chat
+// gets the agent's full capability, no exceptions. Two tools stay dashboard-
+// local because their query logic has a real semantic difference from the
+// shared equivalent (see each handler below).
 
 function buildSystemPrompt(agentName: string, tenantName: string, industry: string, timezone: string) {
   return `You are ${agentName}, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -36,45 +32,9 @@ Key rules:
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
 }
 
-const tools: Anthropic.Tool[] = [
-  {
-    name: 'search_clients',
-    description: 'Search clients by name, email, phone, or address. Returns matching clients.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        query: { type: 'string', description: 'Search term (name, email, phone, or address fragment)' },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'search_team_members',
-    description: 'Search team members by name, or list all active members if no query given.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        query: { type: 'string', description: 'Optional team member name to search for' },
-      },
-      required: [],
-    },
-  },
-  {
-    name: 'query_bookings',
-    description: 'Query bookings with filters. Returns bookings with client and team member names.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        client_id: { type: 'string', description: 'Filter by client ID' },
-        team_member_id: { type: 'string', description: 'Filter by team member ID' },
-        status: { type: 'string', description: 'Filter by status: scheduled, confirmed, in_progress, completed, paid, cancelled, no_show' },
-        date_from: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
-        date_to: { type: 'string', description: 'End date (YYYY-MM-DD)' },
-        limit: { type: 'number', description: 'Max results (default 20)' },
-      },
-      required: [],
-    },
-  },
+// Bulk-only tools with no shared-registry equivalent (the shared update_booking
+// takes one booking_id at a time) — kept local and additive to SHARED_TOOLS.
+const dashboardOnlyTools: Anthropic.Tool[] = [
   {
     name: 'update_bookings',
     description: 'Update one or more bookings. Use for reassigning team members, changing status, price, notes, times, etc.',
@@ -118,29 +78,6 @@ const tools: Anthropic.Tool[] = [
         confirmed: { type: 'boolean', description: 'Set to true only after user confirms the action' },
       },
       required: ['booking_ids'],
-    },
-  },
-  {
-    name: 'get_schedule_summary',
-    description: 'Get a summary of upcoming bookings for a day or date range. Good for "who is working today/tomorrow/this week".',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        date: { type: 'string', description: 'Date (YYYY-MM-DD). Defaults to today.' },
-        date_to: { type: 'string', description: 'End date for range (YYYY-MM-DD). Optional.' },
-      },
-      required: [],
-    },
-  },
-  {
-    name: 'get_client_details',
-    description: 'Get full details for a client including their booking history.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        client_id: { type: 'string', description: 'Client ID' },
-      },
-      required: ['client_id'],
     },
   },
   {
@@ -188,57 +125,21 @@ function extractAssistantEntityId(input: Record<string, unknown>): string | unde
   return undefined
 }
 
-// Maps this route's externally-exposed tool names (unchanged since 2026-07,
-// kept stable so the system prompt / conversation history don't need to
-// change) to the shared registry's internal tool name, for two purposes:
-// (1) looking up the right entry in SHARED_TOOL_PERMISSIONS, (2) dispatching
-// through runTool() using the name IT recognizes.
-const SHARED_NAME: Partial<Record<string, string>> = {
-  search_clients: 'lookup_client',
-  search_team_members: 'list_cleaners', // overridden to lookup_cleaner below when a query is given
-  query_bookings: 'list_bookings',
-  update_bookings: 'update_booking',
-  cancel_bookings: 'update_booking',
-  get_schedule_summary: 'list_bookings',
-  get_client_details: 'lookup_client',
-}
-
 async function dispatchTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
-  const overrides = overridesFor(tenant)
-  const permissionKey = SHARED_NAME[name] || name
-  const requiredPermission = SHARED_TOOL_PERMISSIONS[permissionKey]
-  if (requiredPermission && !hasPermission(tenant.role, requiredPermission, overrides)) {
-    return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
-  }
   const tenantId = tenant.tenantId
 
-  // #3 fold: every case below now dispatches through the SAME runTool()
-  // dispatcher SMS/web/Telegram use (src/lib/selena/tools.ts) instead of a
-  // second, hand-maintained implementation. `role` present bypasses runTool's
-  // phone-based owner gate (by design, see tools.ts's dispatchTool comment)
-  // and SHARED_TOOL_PERMISSIONS above is the real gate for this caller. A
-  // synthetic conversationId is fine — none of these tools link a real
+  // Full-access dashboard agent: role is hard-coded to 'owner' for every
+  // call, regardless of which dashboard user is actually chatting — see the
+  // file-header note. This also bypasses runTool's phone-based owner gate
+  // (a truthy role skips it by design, see tools.ts's dispatchTool comment).
+  // A synthetic conversationId is fine — none of these tools link a real
   // conversation row (create_client, the one that does, isn't in this set).
   const stubResult: YinezResult = { text: '', toolsCalled: [] }
   const syntheticConversationId = `dashboard:${tenantId}`
   const rt = (toolName: string, toolInput: Record<string, unknown>) =>
-    runTool(toolName, toolInput, syntheticConversationId, null, stubResult, tenantId, tenant.role as Role, overrides ?? undefined)
+    runTool(toolName, toolInput, syntheticConversationId, null, stubResult, tenantId, 'owner')
 
   switch (name) {
-    case 'search_clients':
-      return await rt('lookup_client', { query: (input.query as string || '').trim() })
-
-    case 'search_team_members': {
-      const q = input.query as string | undefined
-      return q ? await rt('lookup_cleaner', { name: q }) : await rt('list_cleaners', { status: 'active' })
-    }
-
-    case 'query_bookings':
-      return await rt('list_bookings', {
-        client_id: input.client_id, cleaner_id: input.team_member_id, status: input.status,
-        from_date: input.date_from, to_date: input.date_to, limit: input.limit,
-      })
-
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
       const updates = input.updates as Record<string, unknown>
@@ -278,20 +179,8 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
       return JSON.stringify({ success: true, cancelled: ids.length })
     }
 
-    case 'get_schedule_summary': {
-      // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
-      // before ET's does. Schema promises "defaults to today"; list_bookings
-      // has no such default (its other callers always pass an explicit date).
-      const date = (input.date as string) || nowNaiveET().slice(0, 10)
-      return await rt('list_bookings', { date, to_date: input.date_to })
-    }
-
-    case 'get_client_details':
-      return await rt('lookup_client', { client_id: input.client_id })
-
     // Kept dashboard-local — no shared equivalent (update_account is the
-    // CLIENT's own self-service tool, a different access pattern) — but still
-    // gated above via SHARED_TOOL_PERMISSIONS.update_client for one RBAC source.
+    // CLIENT's own self-service tool, a different access pattern).
     case 'update_client': {
       const allowedClientFields = ['name', 'email', 'phone', 'address', 'notes', 'active']
       const rawUpdates = (input.updates as Record<string, unknown>) || {}
@@ -313,8 +202,7 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
     // Kept dashboard-local — computes from bookings.price/payment_status
     // (invoiced total), a different basis than the shared get_revenue tool
     // (actual payments.amount collected). Merging would silently change the
-    // dollar figure dashboard users already see. Still gated above via
-    // SHARED_TOOL_PERMISSIONS.get_revenue_stats for one RBAC source.
+    // dollar figure dashboard users already see.
     case 'get_revenue_stats': {
       const { data, error } = await supabaseAdmin
         .from('bookings')
@@ -342,8 +230,12 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tenant
       })
     }
 
+    // Everything else is a tool from the shared registry (SHARED_TOOLS,
+    // imported from agent.ts) — dispatch straight through runTool with no
+    // remapping. This is the "100% permission" surface: every tool SMS/
+    // Telegram can call, the dashboard agent can now call too.
     default:
-      return JSON.stringify({ error: `Unknown tool: ${name}` })
+      return await rt(name, input)
   }
 }
 
@@ -415,7 +307,7 @@ export async function POST(request: Request) {
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: systemPrompt,
-        tools,
+        tools: [...SHARED_TOOLS, ...dashboardOnlyTools],
         messages: currentMessages,
       })
 

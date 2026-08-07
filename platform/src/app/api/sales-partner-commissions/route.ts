@@ -203,15 +203,19 @@ export async function PUT(request: Request) {
   }
 }
 
-type StripeTransferResult = { ok: true; transferId: string } | { ok: false; error: string }
+export type StripeTransferResult = { ok: true; transferId: string } | { ok: false; error: string }
 
 /**
  * Moves the actual money for a paid_via:'stripe_connect' commission. Requires
  * the partner to have completed onboarding (stripe_ready_at set) -- a
  * connect_account_id alone only means "started onboarding" (see
  * stripe-status/route.ts), not "can receive a transfer".
+ *
+ * Exported (2026-08-06) so the Selena dashboard-agent tool
+ * (mark_sales_partner_commission_paid, lib/selena/tools.ts) can reuse the
+ * exact same transfer logic instead of a second, drifting implementation.
  */
-async function transferCommissionViaStripe(opts: {
+export async function transferCommissionViaStripe(opts: {
   tenantId: string
   commission: Record<string, unknown>
 }): Promise<StripeTransferResult> {
