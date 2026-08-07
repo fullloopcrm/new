@@ -12,6 +12,12 @@ interface ErrorContext {
   severity?: 'low' | 'medium' | 'high' | 'critical'
   url?: string
   extra?: string
+  // Force the Telegram alert below regardless of severity. For low-stakes-
+  // looking-but-business-critical events like a booking form submit getting
+  // rejected — every one of those is a lead that didn't land, which is worth
+  // knowing about even though the rejection itself (rate limit, duplicate
+  // date, missing field) is 'low' severity by the normal bug-triage scale.
+  alwaysAlert?: boolean
 }
 
 export async function trackError(error: unknown, context: ErrorContext) {
@@ -82,8 +88,9 @@ export async function trackError(error: unknown, context: ErrorContext) {
     console.error('Failed to log error notification:', e)
   }
 
-  // 2. Email alert for high/critical errors (rate-limited)
-  if (severity === 'high' || severity === 'critical') {
+  // 2. Telegram alert for high/critical errors, or anything explicitly
+  // flagged alwaysAlert regardless of severity (rate-limited per source+message)
+  if (severity === 'high' || severity === 'critical' || context.alwaysAlert) {
     const cooldownKey = `${context.source}:${message.slice(0, 50)}`
     const lastAlert = alertCooldowns.get(cooldownKey) || 0
     const now = Date.now()
@@ -97,7 +104,8 @@ export async function trackError(error: unknown, context: ErrorContext) {
         context.url ? `URL: ${context.url}` : '',
         stack ? `\n${stack.slice(0, 500)}` : '',
       ].filter(Boolean).join('\n')
-      const subject = `${severity === 'critical' ? '🔴 CRITICAL' : '🟠 HIGH'} Error: ${context.source}`
+      const severityLabel = severity === 'critical' ? '🔴 CRITICAL' : severity === 'high' ? '🟠 HIGH' : '⚪️ Submission blocked'
+      const subject = `${severityLabel}: ${context.source}`
       // sendTelegram() (and therefore alertOwner()) never throws on a bad/
       // revoked bot token, wrong chat_id, or missing config -- it resolves
       // with { ok:false, ... } instead (see src/lib/telegram.ts). Before
