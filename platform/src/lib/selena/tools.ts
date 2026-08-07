@@ -3021,7 +3021,7 @@ async function handleAddEmployeeHrNote(input: { team_member_id: string; body: st
   const text = input.body?.trim()
   if (!text) return JSON.stringify({ error: 'body required' })
   const kind = input.kind && HR_NOTE_KINDS.includes(input.kind) ? input.kind : 'note'
-  const { data, error } = await supabaseAdmin.from('hr_notes').insert({ team_member_id: input.team_member_id, author_id: null, author_name: input.author_name?.trim() || null, kind, body: text }).select('id').single()
+  const { data, error } = await supabaseAdmin.from('hr_notes').insert({ tenant_id: tid, team_member_id: input.team_member_id, author_id: null, author_name: input.author_name?.trim() || null, kind, body: text }).select('id').single()
   if (error || !data) return JSON.stringify({ error: error?.message || 'insert failed' })
   return JSON.stringify({ ok: true, note_id: data.id })
 }
