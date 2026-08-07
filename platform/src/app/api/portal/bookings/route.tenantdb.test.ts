@@ -72,10 +72,16 @@ describe('GET /api/portal/bookings — tenantDb scoping', () => {
 
 describe('POST /api/portal/bookings — tenantDb stamping', () => {
   it('stamps the inserted booking with the token tenant, not a caller-supplied value', async () => {
+    // Must stay safely in the future relative to whenever the test actually
+    // runs -- a fixed past date here trips the route's real "cannot book in
+    // the past" guard (route.ts:50-52) and 400s, which is correct route
+    // behavior, not a bug.
+    const future = new Date()
+    future.setDate(future.getDate() + 30)
     const req = new Request('https://x', {
       method: 'POST',
       headers: { authorization: 'Bearer tok' },
-      body: JSON.stringify({ start_time: '2026-08-05T09:00:00Z', tenant_id: TENANT_B }),
+      body: JSON.stringify({ start_time: future.toISOString(), tenant_id: TENANT_B }),
     })
     const res = await POST(req)
     expect(res.status).toBe(201)

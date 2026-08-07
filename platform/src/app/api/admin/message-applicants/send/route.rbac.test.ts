@@ -59,7 +59,7 @@ beforeEach(() => {
   sendSMSCalls = 0
   // TEST_MODE (message-applicants/constants.ts) is hard-coded true, so the
   // seeded recipient must match TEST_APPLICANT_NAME_SUBSTRING ('jeff tucker').
-  fake._seed('cleaner_applications', [
+  fake._seed('team_applications', [
     { id: 'app-a1', tenant_id: TENANT_ID, name: 'Jeff Tucker', phone: '+15559990001', status: 'new' },
   ])
 })

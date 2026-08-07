@@ -30,7 +30,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.store = {
-    cleaner_applications: [
+    team_applications: [
       { id: 'app-A1', tenant_id: 'tenant-A', name: 'Jeff Tucker', phone: '+15551110001', status: 'pending', created_at: '2026-01-01' },
       { id: 'app-B1', tenant_id: 'tenant-B', name: 'Other Applicant', phone: '+15552220002', status: 'pending', created_at: '2026-01-01' },
     ],

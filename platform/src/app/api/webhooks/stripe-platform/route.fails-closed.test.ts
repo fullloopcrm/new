@@ -1,20 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * /api/webhooks/stripe-platform creates a REAL paying tenant on
- * checkout.session.completed — this is the platform's own revenue webhook,
- * separate from the tenant Connect webhook at /api/webhooks/stripe. It had
- * signature-verification code but ZERO test coverage proving it actually
- * fails closed. This locks in:
- *   - no secret configured => 500, no tenant created (never falls through to
- *     "trust the payload" when misconfigured)
- *   - missing stripe-signature header => 400, no tenant created
- *   - a signature that fails Stripe's own verification => 400, no tenant
- *     created (forged/tampered payloads never reach createTenantFromLead)
- *   - a genuinely valid event creates the tenant and auto-activates it
- *   - a REPLAYED valid event (Stripe redelivery) is a no-op — no second
- *     tenant, no second activateTenant call — via createTenantFromLead's own
- *     alreadyConverted check
+ * /api/webhooks/stripe-platform — the platform's own revenue webhook,
+ * separate from the tenant Connect webhook at /api/webhooks/stripe. On
+ * checkout.session.completed it does NOT create a tenant -- current design
+ * (route.ts's own docstring) defers tenant creation until an admin confirms
+ * the separate $25k bank wire landed; this handler only records the
+ * subscription id on the partner_requests lead row so that wire-received
+ * step can find it. This locks in:
+ *   - no secret configured => 500, never reaches signature verification
+ *   - missing stripe-signature header => 400, never reaches verification
+ *   - a signature that fails Stripe's own verification => 400 (forged/
+ *     tampered payloads never reach the DB write)
+ *   - a genuinely valid event records stripe_subscription_id on the lead
+ *   - a DB write failure fails closed with 500 (so Stripe retries instead of
+ *     silently losing the subscription id)
+ *
+ * REGRESSION NOTE (2026-08-06): this file previously asserted the OLD
+ * behavior (createTenantFromLead + activateTenant called synchronously from
+ * this webhook) -- stale since the route was redesigned to defer tenant
+ * creation to the bank-wire step (commit 0231f475e). Rewritten to match the
+ * route's actual, current, intentional behavior.
  */
 
 const constructEvent = vi.fn()
@@ -22,11 +28,18 @@ vi.mock('@/lib/stripe', () => ({
   getStripe: () => ({ webhooks: { constructEvent } }),
 }))
 
-const createTenantFromLead = vi.fn()
-vi.mock('@/lib/create-tenant-from-lead', () => ({ createTenantFromLead: (...args: unknown[]) => createTenantFromLead(...args) }))
-
-const activateTenant = vi.fn()
-vi.mock('@/lib/activate-tenant', () => ({ activateTenant: (...args: unknown[]) => activateTenant(...args) }))
+const update = vi.fn()
+const eq = vi.fn()
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (table: string) => ({
+      update: (values: unknown) => {
+        update(table, values)
+        return { eq }
+      },
+    }),
+  },
+}))
 
 import { POST } from './route'
 
@@ -44,30 +57,31 @@ const validEvent = {
 
 beforeEach(() => {
   constructEvent.mockReset()
-  createTenantFromLead.mockReset()
-  activateTenant.mockReset()
+  update.mockReset()
+  eq.mockReset()
+  eq.mockResolvedValue({ error: null })
   process.env.STRIPE_PLATFORM_WEBHOOK_SECRET = 'whsec_platform_test'
 })
 
 describe('stripe-platform webhook — fails closed on missing/invalid signature', () => {
-  it('no webhook secret configured => 500, never touches createTenantFromLead', async () => {
+  it('no webhook secret configured => 500, never reaches signature verification', async () => {
     delete process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
     const res = await POST(req())
 
     expect(res.status).toBe(500)
     expect(constructEvent).not.toHaveBeenCalled()
-    expect(createTenantFromLead).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
   })
 
-  it('missing stripe-signature header => 400, never touches createTenantFromLead', async () => {
+  it('missing stripe-signature header => 400, never reaches signature verification', async () => {
     const res = await POST(req({ sig: null }))
 
     expect(res.status).toBe(400)
     expect(constructEvent).not.toHaveBeenCalled()
-    expect(createTenantFromLead).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
   })
 
-  it('signature fails Stripe verification => 400, never touches createTenantFromLead', async () => {
+  it('signature fails Stripe verification => 400, never reaches the DB write', async () => {
     constructEvent.mockImplementation(() => {
       throw new Error('No signatures found matching the expected signature for payload')
     })
@@ -76,31 +90,40 @@ describe('stripe-platform webhook — fails closed on missing/invalid signature'
 
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('Invalid signature')
-    expect(createTenantFromLead).not.toHaveBeenCalled()
+    expect(update).not.toHaveBeenCalled()
   })
 
-  it('a genuinely valid event creates the tenant and auto-activates it', async () => {
+  it('a genuinely valid event records stripe_subscription_id on the partner_requests lead', async () => {
     constructEvent.mockReturnValue(validEvent)
-    createTenantFromLead.mockResolvedValue({ ok: true, tenant: { id: 'tenant_new' }, alreadyConverted: false })
 
     const res = await POST(req({ sig: 'sig_valid' }))
 
     expect(res.status).toBe(200)
     expect((await res.json()).received).toBe(true)
-    expect(createTenantFromLead).toHaveBeenCalledWith('lead_1', { status: 'new', stripeSubscriptionId: 'sub_1' })
-    expect(activateTenant).toHaveBeenCalledWith('tenant_new')
+    expect(update).toHaveBeenCalledTimes(1)
+    const [table, values] = update.mock.calls[0]
+    expect(table).toBe('partner_requests')
+    expect(values).toMatchObject({ stripe_subscription_id: 'sub_1' })
+    expect(eq).toHaveBeenCalledWith('id', 'lead_1')
   })
 
-  it('a replayed valid event (Stripe redelivery) does not re-create or re-activate the tenant', async () => {
+  it('a replayed valid event (Stripe redelivery) just writes the same subscription id again -- harmless, no error', async () => {
     constructEvent.mockReturnValue(validEvent)
-    createTenantFromLead.mockResolvedValue({ ok: true, tenant: { id: 'tenant_new' }, alreadyConverted: true })
 
+    await POST(req({ sig: 'sig_valid' }))
     const res = await POST(req({ sig: 'sig_valid' }))
 
     expect(res.status).toBe(200)
-    expect(createTenantFromLead).toHaveBeenCalledTimes(1)
-    // alreadyConverted === true => the route's `!result.alreadyConverted` guard
-    // must skip re-activation.
-    expect(activateTenant).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledTimes(2)
+  })
+
+  it('a DB write failure fails closed with 500 so Stripe retries', async () => {
+    constructEvent.mockReturnValue(validEvent)
+    eq.mockResolvedValue({ error: { message: 'connection refused' } })
+
+    const res = await POST(req({ sig: 'sig_valid' }))
+
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toBe('connection refused')
   })
 })

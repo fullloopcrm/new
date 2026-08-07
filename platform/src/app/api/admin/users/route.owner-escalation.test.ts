@@ -58,7 +58,10 @@ vi.mock('@/lib/supabase', () => {
 })
 
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: TENANT, role: actorRole }, error: null }),
+  requirePermission: async () => ({
+    tenant: { tenantId: TENANT, role: actorRole, tenant: { id: TENANT, domain: null } },
+    error: null,
+  }),
 }))
 
 vi.mock('@/lib/admin-pin', () => ({

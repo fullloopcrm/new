@@ -43,7 +43,7 @@ beforeEach(() => {
   h.seq = 0
   sentTo.length = 0
   h.store = {
-    cleaner_applications: [
+    team_applications: [
       { id: 'app-A1', tenant_id: 'tenant-A', name: 'Jeff Tucker', phone: '+15551110001', status: 'new' },
       { id: 'app-B1', tenant_id: 'tenant-B', name: 'Jeff Tucker', phone: '+15552220002', status: 'new' },
     ],
