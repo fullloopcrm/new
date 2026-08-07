@@ -361,17 +361,19 @@ export async function POST(req: NextRequest) {
         ]
       : []
 
-    // Client message: bill + balance, sent directly every time. The prior
-    // rating-ask-first flow (reply 1-5, bill rides on the reply) is removed
-    // per Jeff's request 2026-08-07 — no more rating gate, no more review
-    // offer, the 30-min button just sends the bill.
+    // Client message: bill + balance + a 1-5 rating ask, all in ONE text,
+    // sent directly every time. Payment is never gated on the reply — the
+    // pay link above already went out. A reply is handled separately by
+    // review-engine.ts (handleReviewRating): 4-5 schedules a delayed
+    // "$20 off, leave a review" text via cron/review-offer; 1-3 alerts the
+    // admin on Telegram. Per Jeff's request 2026-08-07.
     const clientSmsType = '30min_payment'
     const clientSmsText = [
       `Hi ${firstName}! Here is your balance for today's cleaning service.`,
       `Total: $${clientOwes}`,
       ...payLines,
       ``,
-      `Please reply "paid" once sent. Thank you. We appreciate your business.`,
+      `Would you mind please rating your cleaner 1 to 5? We truly appreciate your feedback.`,
     ].join('\n')
 
     const confirmedVia: string[] = []

@@ -14,6 +14,7 @@ import { tenantDb } from '../tenant-db'
 import { supabaseAdmin } from '../supabase'
 import { decryptSecret } from '../secret-crypto'
 import { smsAdmins } from '../admin-contacts'
+import { sendTenantTelegram } from '../notify'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from './cleaner-payout'
 import { claimGlobalPayout, finalizeGlobalPayout, getStorageFinancialAccount, ensureFinancialAccountFunded, createOutboundPayment } from './global-payouts'
 import { postPayoutToLedger } from './post-labor'
@@ -25,11 +26,15 @@ export interface PayCleanerAtCheckoutOpts {
   bookingId: string
   teamMemberId: string | null
   teamMemberPayCents: number | null
-  teamMember: { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null } | null
+  teamMember: { stripe_account_id?: string | null; global_payouts_recipient_id?: string | null; name?: string | null } | null
+  teamMemberName?: string | null
+  clientName?: string | null
 }
 
 export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Promise<void> {
   const { tenantId, bookingId, teamMemberId, teamMemberPayCents, teamMember } = opts
+  const teamMemberName = opts.teamMemberName || teamMember?.name || 'the cleaner'
+  const clientName = opts.clientName || 'the client'
   if (
     !teamMemberId ||
     !teamMemberPayCents ||
@@ -42,11 +47,23 @@ export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Prom
 
   const { data: tenantRow } = await supabaseAdmin
     .from('tenants')
-    .select('stripe_api_key')
+    .select('stripe_api_key, telegram_bot_token, telegram_chat_id')
     .eq('id', tenantId)
     .single()
   const stripeKey = tenantRow?.stripe_api_key ? decryptSecret(tenantRow.stripe_api_key as string) : process.env.STRIPE_SECRET_KEY
   if (!stripeKey) return
+
+  // Confirmation posted to the tenant's own Telegram (per-tenant chat/bot,
+  // same mechanism global-payouts' batch run already uses) — Jeff wants a
+  // "payment sent" confirmation for every checkout-triggered payout,
+  // platform-wide, not just NYC Maid (2026-08-07).
+  const notifyPaid = (amountCents: number) => {
+    sendTenantTelegram(
+      tenantId,
+      { telegram_bot_token: tenantRow?.telegram_bot_token as string | null, telegram_chat_id: tenantRow?.telegram_chat_id as string | null },
+      `✅ Paid ${teamMemberName} $${(amountCents / 100).toFixed(2)} for ${clientName}'s job (checkout).`,
+    ).catch((err) => console.error('checkout payout Telegram confirm failed:', err))
+  }
 
   if (teamMember?.global_payouts_recipient_id) {
     const claim = await claimGlobalPayout({ tenantId, bookingId, teamMemberId, amountCents: teamMemberPayCents })

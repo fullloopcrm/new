@@ -125,6 +125,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/review-offer",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/email-monitor",
       "schedule": "*/5 * * * *"
     },
