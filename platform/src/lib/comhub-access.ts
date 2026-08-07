@@ -3,10 +3,10 @@ import { cookies } from 'next/headers'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 
-// /admin/comhub and /dashboard/comhub share the exact same routes/UI (see
-// comhub-admin-tenant.ts) -- but every one of these routes was gated by
-// requireAdmin(), which only accepts FullLoop's own platform super-admin
-// token. That's correct for FullLoop staff browsing /admin/comhub directly,
+// /admin/comhub and /dashboard/comhub share the exact same routes/UI --
+// but every one of these routes was gated by requireAdmin(), which only
+// accepts FullLoop's own platform super-admin token. That's correct for
+// FullLoop staff browsing /admin/comhub directly,
 // but a tenant's own users (owner, admin, manager, staff, virtual_assistant)
 // hitting /dashboard/comhub authenticate a completely different way --
 // getTenantForRequest(), the same resolver every other tenant-dashboard
@@ -15,9 +15,10 @@ import { verifyAdminToken } from '@/app/api/admin-auth/route'
 // can't see ComHub", 2026-08-07, but affects every tenant role that isn't
 // the platform owner's own login).
 //
-// FULL_LOOP_SYSTEM_TENANT_ID mirrors comhub-admin-tenant.ts's own constant:
-// FullLoop staff viewing /admin/comhub with no tenant impersonated have no
-// tenant_members row to resolve via getTenantForRequest() (it throws), but a
+// FULL_LOOP_SYSTEM_TENANT_ID mirrors the deleted getComhubAdminTenantId()'s
+// own constant (comhub-admin-tenant.ts, removed once this replaced its only
+// callers): FullLoop staff viewing /admin/comhub with no tenant impersonated
+// have no tenant_members row to resolve via getTenantForRequest() (it throws), but a
 // bare valid super-admin token is still enough to show FullLoop's own system
 // inbox -- preserves that pre-existing behavior exactly.
 const FULL_LOOP_SYSTEM_TENANT_ID = '117968d2-24a1-42b5-96bd-7022e4e838ee'
