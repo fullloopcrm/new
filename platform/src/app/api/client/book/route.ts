@@ -444,7 +444,17 @@ export async function POST(request: Request) {
       const duration = Number(body.estimated_hours) || 2
       const pad = (n: number) => n.toString().padStart(2, '0')
       startTime = `${body.date}T${pad(hour)}:${pad(minute)}:00`
-      endTime = `${body.date}T${pad(hour + duration)}:${pad(minute)}:00`
+      // A naive `pad(hour + duration)` produced an out-of-range hour (e.g.
+      // "25:00:00") for any late-day slot with a multi-hour duration —
+      // Postgres rejected the insert outright with "date/time field value
+      // out of range", crashing the whole booking submission (live incident,
+      // 2026-08-06/07, confirmed via error_logs). Route the end time through
+      // Date so an overflow correctly rolls into the next calendar day
+      // instead of producing an invalid timestamp string.
+      const endDate = new Date(`${body.date}T${pad(hour)}:${pad(minute)}:00`)
+      endDate.setHours(endDate.getHours() + duration)
+      const endPad = (n: number) => String(n).padStart(2, '0')
+      endTime = `${endDate.getFullYear()}-${endPad(endDate.getMonth() + 1)}-${endPad(endDate.getDate())}T${endPad(endDate.getHours())}:${endPad(endDate.getMinutes())}:00`
     }
     if (!startTime) {
       await trackError(new Error('missing start_time/date+time'), { source: 'client/book:missing_start_time', tenantId: tenant.id, severity: 'low', extra: ip })
