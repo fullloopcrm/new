@@ -12,7 +12,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { rating, comment, booking_id } = await request.json().catch(() => ({}))
+  const { rating, comment, booking_id, anonymous } = await request.json().catch(() => ({}))
 
   const db = tenantDb(auth.tid)
 
@@ -30,11 +30,20 @@ export const POST = withMobileCors(async function POST(request: Request) {
     ownedBookingId = booking?.id || null
   }
 
+  // The client-facing copy ("your feedback is anonymous") was previously
+  // unconditional on both web and mobile, but every submission has always
+  // attached client_id (and booking_id, which an admin can trace back to a
+  // client just as easily) — a real gap between what clients were told and
+  // what actually happened. anonymous=true now genuinely omits both rather
+  // than just not displaying them; client_id is nullable (verified against
+  // the live PostgREST schema before writing this, not assumed).
+  const isAnonymous = anonymous === true
+
   const { data, error } = await db
     .from('reviews')
     .insert({
-      client_id: auth.id,
-      booking_id: ownedBookingId,
+      client_id: isAnonymous ? null : auth.id,
+      booking_id: isAnonymous ? null : ownedBookingId,
       rating: rating || null,
       comment: comment || null,
       source: 'internal',
