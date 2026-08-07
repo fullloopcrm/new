@@ -13,7 +13,7 @@ import type { LegalDocData } from '../_components/LegalDoc'
  * CCPA/CPRA rights, which home-service operators commonly need.
  */
 
-const UPDATED = 'July 2026'
+const UPDATED = 'August 2026'
 
 interface LegalBiz {
   name: string
@@ -53,15 +53,16 @@ export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
     breadcrumb: 'Privacy Policy',
     breadcrumbHref: '/privacy-policy',
     intro: [
-      `This Privacy Policy explains how ${b.name} ("we," "us," or "our") collects, uses, shares, and protects your information when you request a quote, book a service, or use our website.`,
+      `This Privacy Policy explains how ${b.name} ("we," "us," or "our") collects, uses, shares, and protects your information when you request a quote, book a service, place an order in our store, or use our website.`,
     ],
     sections: [
       {
         heading: 'Information We Collect',
-        body: ['When you contact us, request a quote, or book a service, we may collect:'],
+        body: ['When you contact us, request a quote, book a service, or place an order, we may collect:'],
         bullets: [
-          'Contact information — your name, phone number, email address, and service address.',
+          'Contact information — your name, phone number, email address, and service or shipping address.',
           'Service details — information about the job, your property, access instructions, and any special requests or preferences.',
+          'Order details — the items purchased, quantities, and (for physical items) the shipping address used for delivery.',
           'Payment information — collected through our third-party payment processor. We do not store full payment card numbers on our own servers.',
           'Website usage data — pages visited, links clicked, and general device/browser information, used to measure and improve our site.',
         ],
@@ -70,11 +71,12 @@ export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
         heading: 'How We Use Your Information',
         bullets: [
           'To schedule, confirm, and deliver your service',
-          'To communicate with you about appointments, quotes, updates, and support',
+          'To process, fulfill, and ship or digitally deliver store orders',
+          'To communicate with you about appointments, quotes, orders, updates, and support',
           'To dispatch the right professional to your location',
           'To process payments and maintain records',
           'To measure and improve our website and services',
-          'To send service updates and, only with your consent, occasional offers (you can opt out at any time)',
+          'To send service and order updates and, only with your consent, occasional offers (you can opt out at any time)',
         ],
       },
       {
@@ -152,13 +154,20 @@ export function termsDoc(config: SiteConfig): LegalDocData {
     breadcrumb: 'Terms & Conditions',
     breadcrumbHref: '/terms-conditions',
     intro: [
-      `These Terms & Conditions govern your use of ${b.name}'s website and services. By requesting a quote, booking a service, or using our site, you agree to these terms.`,
+      `These Terms & Conditions govern your use of ${b.name}'s website, services, and online store. By requesting a quote, booking a service, placing an order, or using our site, you agree to these terms.`,
     ],
     sections: [
-      { heading: 'Our Services', body: [`${b.name} provides professional home and property services in ${b.place} and surrounding areas. Specific scope, availability, and pricing are confirmed at the time of booking.`] },
+      { heading: 'Our Services & Store', body: [`${b.name} provides professional home and property services in ${b.place} and surrounding areas, and may also offer branded merchandise or digital products through our online store. Specific scope, availability, and pricing for services are confirmed at the time of booking; product availability and pricing are as shown at checkout.`] },
       { heading: 'Booking, Scheduling & Access', body: ['When you book, you agree to provide accurate details and safe, timely access to the service location. If we cannot access the location or the job differs materially from what was described, additional charges or rescheduling may apply.'] },
-      { heading: 'Pricing & Payment', body: ['Prices are provided as quotes or hourly/flat rates confirmed at booking and may change if the scope changes. Payment is processed through our secure third-party payment processor. You are responsible for any applicable taxes and for keeping a valid payment method on file.'] },
-      { heading: 'Cancellations & Rescheduling', body: ['Cancellation and rescheduling windows are described at booking and in our Refund Policy. Late cancellations or missed appointments may incur a fee.'] },
+      {
+        heading: 'Product Orders, Shipping & Digital Delivery',
+        body: [
+          'When you place an order in our store, you agree to provide accurate contact, payment, and (for physical items) shipping information. Order confirmation does not guarantee availability — if an item cannot be fulfilled, we will contact you and issue a refund for that item.',
+          'Physical items ship to the address provided at checkout; estimated delivery times are not guaranteed and risk of loss passes to you upon delivery to the shipping carrier. Digital items are delivered electronically (by email or download link) after payment is confirmed and are not shipped.',
+        ],
+      },
+      { heading: 'Pricing & Payment', body: ['Prices are provided as quotes or hourly/flat rates confirmed at booking, or as listed at checkout for store orders, and may change if the scope changes. Payment is processed through our secure third-party payment processor. You are responsible for any applicable taxes and shipping charges shown at checkout, and for keeping a valid payment method on file.'] },
+      { heading: 'Cancellations & Rescheduling', body: ['Cancellation and rescheduling windows for services are described at booking and in our Refund Policy. Late cancellations or missed appointments may incur a fee. Store orders may be cancelled only before they ship or are digitally delivered — see our Refund Policy for returns and exchanges.'] },
       {
         heading: 'Text Messaging Consent',
         body: [`By providing your phone number, you consent to receive calls and texts from ${b.name} related to your service, including via automated technology. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out, HELP for help.`],
@@ -183,11 +192,22 @@ export function refundDoc(config: SiteConfig): LegalDocData {
     updated: UPDATED,
     breadcrumb: 'Refund Policy',
     breadcrumbHref: '/refund-policy',
-    intro: [`We want you to be satisfied with your service from ${b.name}. This policy explains how we handle concerns, re-services, cancellations, and refunds.`],
+    intro: [`We want you to be satisfied with your service or purchase from ${b.name}. This policy explains how we handle concerns, re-services, cancellations, product returns, and refunds.`],
     sections: [
       { heading: 'Satisfaction & Re-Service', body: ['If something about your completed service did not meet a reasonable standard, contact us promptly — within 24 hours of service where possible. We will review the concern and, when warranted, return to correct the specific issue at no additional charge before any refund is considered.'] },
-      { heading: 'Cancellations & Rescheduling', body: ['You may cancel or reschedule within the window communicated at booking. Cancellations made after that window, or missed appointments, may incur a fee to cover reserved time and dispatch. Recurring services may require additional notice as described at signup.'] },
-      { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Refunds are for the affected service only and do not apply to concerns reported outside a reasonable timeframe or to conditions outside the agreed scope of work.'] },
+      { heading: 'Cancellations & Rescheduling', body: ['You may cancel or reschedule a booked service within the window communicated at booking. Cancellations made after that window, or missed appointments, may incur a fee to cover reserved time and dispatch. Recurring services may require additional notice as described at signup.'] },
+      {
+        heading: 'Product Returns & Exchanges',
+        body: [
+          'Physical items purchased through our store may be returned within 30 days of delivery for a refund or exchange, provided the item is unused and in its original packaging. Contact us to start a return — we will provide instructions and a return address.',
+          'If an item arrived defective, damaged, or wrong, contact us and we will cover return shipping and send a replacement or refund at no cost to you. For other returns, return shipping is the customer\'s responsibility unless local law says otherwise.',
+        ],
+      },
+      {
+        heading: 'Digital Products',
+        body: ['Digital items are delivered electronically after payment and are generally non-refundable once delivered, since delivery cannot be undone. If a digital item is defective, inaccessible, or not what was described, contact us and we will make it right with a replacement or refund.'],
+      },
+      { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Service refunds are for the affected service only and do not apply to concerns reported outside a reasonable timeframe or to conditions outside the agreed scope of work. Product refunds are issued once a returned item is received and inspected, or immediately for approved defective/wrong-item claims.'] },
       { heading: 'Payment Disputes', body: ['If you believe you were charged in error, contact us first — most issues are resolved quickly and directly. Please reach out before initiating a chargeback so we can make it right.'] },
     ],
     ...contact(b),

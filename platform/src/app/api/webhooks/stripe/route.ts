@@ -69,7 +69,7 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, domain, primary_color, logo_url, phone, email, email_from, resend_api_key, telnyx_api_key, telnyx_phone')
+    .select('id, name, slug, domain, primary_color, logo_url, phone, email, email_from, resend_api_key, telnyx_api_key, telnyx_phone, setup_progress')
     .eq('id', tenantId)
     .single()
   if (!tenant) return
@@ -166,6 +166,76 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     customerName: session.customer_details?.name || null,
     customerPhone: session.customer_details?.phone || null,
   })
+
+  await notifyTenantOfShopOrder({
+    tenant,
+    orderId: order.id,
+    items,
+    subtotalCents: session.amount_total || 0,
+    customerName: session.customer_details?.name || null,
+  })
+}
+
+/**
+ * Alerts the tenant themselves (not the customer) that a new shop order came
+ * in, per the Notify on new order setting in /dashboard/ecommerce Settings
+ * (order_notify: 'email' | 'sms' | 'both' | 'none', default 'email' — matches
+ * the <select> default in ecommerce-settings.tsx). Sends to the tenant's own
+ * contact info, same fields already shown to customers as "Questions? Call or
+ * text us at {tenant.phone}" — there's no separate owner-alert contact field.
+ */
+async function notifyTenantOfShopOrder({
+  tenant,
+  orderId,
+  items,
+  subtotalCents,
+  customerName,
+}: {
+  tenant: { id: string; name: string; email?: string | null; phone?: string | null; email_from?: string | null; resend_api_key?: string | null; telnyx_api_key?: string | null; telnyx_phone?: string | null; setup_progress?: Record<string, unknown> | null }
+  orderId: string
+  items: ShopReceiptItem[]
+  subtotalCents: number
+  customerName: string | null
+}): Promise<void> {
+  const ecommerceConfig = (tenant.setup_progress?.['__page_config_ecommerce'] as Record<string, unknown> | undefined) || {}
+  const orderNotify = (ecommerceConfig['order_notify'] as string) || 'email'
+  if (orderNotify === 'none') return
+
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'}/dashboard/ecommerce`
+  const itemSummary = items.map((i) => `${i.name} × ${i.qty}`).join(', ')
+  const buyer = customerName || 'A customer'
+
+  if ((orderNotify === 'email' || orderNotify === 'both') && tenant.email) {
+    try {
+      await sendEmail({
+        to: tenant.email,
+        subject: `New order — ${shopMoney(subtotalCents)}`,
+        html: `<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+          <h1 style="font-size:18px;margin:0 0 12px;">New order on your store</h1>
+          <p style="color:#555;font-size:14px;">${buyer} just ordered: ${itemSummary}</p>
+          <p style="font-size:14px;font-weight:bold;">Total: ${shopMoney(subtotalCents)}</p>
+          <p style="font-size:13px;"><a href="${dashboardUrl}">View this order in your dashboard</a></p>
+        </div>`,
+        from: tenantSender(tenant),
+        resendApiKey: tenant.resend_api_key,
+      })
+    } catch (err) {
+      console.error('shop order owner-notify email failed:', err)
+    }
+  }
+
+  if ((orderNotify === 'sms' || orderNotify === 'both') && tenant.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    try {
+      await sendSMS({
+        to: tenant.phone,
+        body: `${tenant.name}: New order (${shopMoney(subtotalCents)}) from ${buyer}. Order #${orderId.slice(0, 8)} — view in your dashboard.`,
+        telnyxApiKey: tenant.telnyx_api_key,
+        telnyxPhone: tenant.telnyx_phone,
+      })
+    } catch (err) {
+      console.error('shop order owner-notify SMS failed:', err)
+    }
+  }
 }
 
 async function sendShopReceipt({
