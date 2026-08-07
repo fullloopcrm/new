@@ -56,7 +56,7 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <>
       <JsonLd data={productLd} />
       <JsonLd
         data={breadcrumbSchema([
@@ -66,13 +66,28 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
         ])}
       />
 
-      <Link href="/shop" className="text-sm text-gray-500 hover:text-[var(--brand)] inline-flex items-center gap-1 mb-6">
-        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
-        Back to Shop
-      </Link>
+      <div className="bg-[var(--brand)] text-white py-8 sm:py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Link href="/shop" className="text-white/60 hover:text-white text-sm flex items-center gap-1 mb-4 w-fit">
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Shop
+          </Link>
+          <span className="inline-block text-[10px] font-semibold tracking-widest uppercase text-[var(--brand)] bg-[var(--accent)] rounded-full px-2.5 py-1 mb-3">
+            Official Store
+          </span>
+          <p className="text-[var(--accent)] text-xs font-semibold tracking-widest uppercase mb-1">{product.category || 'Shop'}</p>
+          <h1 className="font-[family-name:var(--font-bebas)] text-2xl sm:text-3xl tracking-wide mb-3">
+            {product.name}
+          </h1>
+          <p className="text-white/70 text-sm max-w-xl leading-relaxed">
+            Hand-picked gear from the {config.identity.name} team you already trust.
+          </p>
+        </div>
+      </div>
 
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="aspect-square bg-[var(--surface)] rounded-2xl relative overflow-hidden">
           {product.imageUrl ? (
@@ -100,14 +115,6 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
         </div>
 
         <div>
-          {product.category && (
-            <span className="inline-block text-[10px] font-semibold tracking-widest uppercase text-[var(--brand)] bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-full px-2.5 py-1 mb-3">
-              {product.category}
-            </span>
-          )}
-          <h1 className="font-[family-name:var(--font-bebas)] text-3xl sm:text-4xl text-[var(--brand)] tracking-wide mb-3">
-            {product.name}
-          </h1>
           <p className="text-2xl font-bold text-[var(--brand)] mb-5">{money(product.priceCents)}</p>
           {product.description && <p className="text-gray-500 leading-relaxed mb-8">{product.description}</p>}
 
@@ -167,6 +174,7 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
           </div>
         </div>
       </div>
+      </div>
 
       {zoomed && product.imageUrl && (
         <div
@@ -190,6 +198,6 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
           </button>
         </div>
       )}
-    </div>
+    </>
   )
 }
