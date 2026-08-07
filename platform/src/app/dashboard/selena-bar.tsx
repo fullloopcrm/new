@@ -9,6 +9,7 @@ type Msg = { role: 'user' | 'assistant'; content: string }
 // /api/ai/assistant — same backend the old assistant used.
 export default function SelenaBar({ agentName = 'Selena' }: { agentName?: string }) {
   const [open, setOpen] = useState(false)
+  const [visible, setVisible] = useState(true)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -71,6 +72,8 @@ export default function SelenaBar({ agentName = 'Selena' }: { agentName?: string
   }
 
   const suggestions = ["Today's revenue", "Who's overdue?", 'Next week']
+
+  if (!visible) return null
 
   return (
     <>
@@ -220,6 +223,15 @@ export default function SelenaBar({ agentName = 'Selena' }: { agentName?: string
           style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)', border: 'none', fontSize: '13px' }}
         >
           ↑
+        </button>
+        <button
+          type="button"
+          onClick={() => setVisible(false)}
+          title="Close"
+          className="w-6 h-6 inline-flex items-center justify-center rounded-[3px] transition-colors hover:bg-[var(--color-loop-bg)]"
+          style={{ color: 'var(--color-loop-muted)', fontSize: '13px' }}
+        >
+          ✕
         </button>
       </form>
     </>
