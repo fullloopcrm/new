@@ -149,6 +149,21 @@ export async function PUT(
 
     await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { fields: Object.keys(fields) } })
 
+    // client_contacts.phone_e164 is a one-time copy of clients.phone made at
+    // client creation (createPrimaryContact) — every reminder/confirmation
+    // SMS (cron jobs, recurring bookings) reads from client_contacts first
+    // via getClientContacts(), so without this the primary contact keeps
+    // texting the old number forever after an edit here. Only the primary
+    // contact mirrors clients.phone; other contacts are distinct people and
+    // must not be overwritten.
+    if (typeof fields.phone === 'string') {
+      await tenantDb(tenantId)
+        .from('client_contacts')
+        .update({ phone_e164: fields.phone })
+        .eq('client_id', id)
+        .eq('is_primary', true)
+    }
+
     // Bookings resolve their address from client_properties (via a booking's
     // property_id), not from clients.address -- so editing the address here
     // alone leaves any existing property row stale and every booking tied to
