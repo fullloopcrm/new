@@ -39,6 +39,7 @@ import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
 import { isValidLeadSource } from '@/lib/lead-sources'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
 import { getSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -661,13 +662,24 @@ export async function POST(request: Request) {
     // (property ?? client.address) instead of the client's default address.
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
-    // Smart team suggestion — and, when the tenant has auto-booking on, a
-    // real assignment: the top-scored available TEAM (lead + extras, up to
-    // bkTeamSize — see pickBestTeam) is put straight on the job and the
-    // booking skips 'pending' entirely. Previously this only ever picked a
-    // single `best` member regardless of bkTeamSize, so a multi-cleaner
-    // booking (team_size 2+) got exactly one cleaner auto-assigned while the
-    // booking itself showed SCHEDULED/confirmed as if fully staffed.
+    // Same-day bookings never auto-assign, tenant-wide (global rule — no
+    // per-tenant carve-out). A same-day job needs a human's eyes before it
+    // goes live on a cleaner's schedule; auto_booking_enabled only governs
+    // bookings for a future date. Computed in the tenant's own timezone, not
+    // the server's — see getTenantTimezone().
+    const isSameDayBooking = startTime.split('T')[0] === new Date().toLocaleDateString('en-CA', { timeZone: getTenantTimezone(tenant) })
+
+    // Smart team suggestion — and, when the tenant has auto-booking on and
+    // this isn't a same-day booking (see isSameDayBooking above), a real
+    // assignment: the best-scoring AVAILABLE candidate (checked one at a
+    // time, in score order) becomes lead, and the booking skips 'pending'
+    // entirely. Previously this only ever tried the single top-scored
+    // candidate and gave up the moment they had a conflict — even when the
+    // very next candidate down the ranked list was completely free — which
+    // left the booking stuck unassigned/pending with no cleaner able to
+    // check in (Grace Wolf / Dan Cunningham / James Coster, NYC Maid,
+    // 2026-08-07). Now it walks the score-ordered list until it finds a
+    // conflict-free lead, or exhausts the list.
     try {
       const scores = await scoreTeamForBooking({
         tenantId: tenant.id,
@@ -677,43 +689,57 @@ export async function POST(request: Request) {
         clientAddress: (body.address as string) || '',
         clientId,
       })
-      const { lead: best, extras: candidateExtras } = pickBestTeam(scores, bkTeamSize)
+      const { lead: best } = pickBestTeam(scores, bkTeamSize)
       if (best) {
         let autoAssigned = false
-        if (settings.auto_booking_enabled) {
-          // scoreTeamForBooking's availability is a snapshot — re-check every
-          // candidate (lead + extras) for a conflicting booking right before
-          // committing, same guard the single-lead path always had, so a
+        if (settings.auto_booking_enabled && !isSameDayBooking) {
+          // scoreTeamForBooking's availability is a snapshot — re-check each
+          // candidate for a conflicting booking right before committing, so a
           // second request that scored the same member in the same instant
-          // can't double-book them. A candidate that now conflicts is simply
-          // dropped (not swapped for the next-best score) — matches
-          // PUT /api/bookings/[id]/team, where team_size is a request, not a
-          // guarantee. On the lead conflicting, this falls back to the
-          // existing suggested-only behavior below, same as before.
+          // can't double-book them.
           const conflictEnd = data.end_time || new Date(new Date(startTime).getTime() + (Number(body.estimated_hours) || 2) * 3_600_000).toISOString()
-          const candidates = [best, ...candidateExtras]
-          const conflictCounts = await Promise.all(candidates.map((c) =>
+          const checkConflict = (memberId: string) =>
             supabaseAdmin
               .from('bookings')
               .select('id', { count: 'exact', head: true })
               .eq('tenant_id', tenant.id)
-              .eq('team_member_id', c.id)
+              .eq('team_member_id', memberId)
               .not('status', 'in', '(cancelled,no_show)')
               .lt('start_time', conflictEnd)
               .gt('end_time', startTime)
               .then((r) => r.count || 0)
-          ))
-          const leadFree = conflictCounts[0] === 0
-          const freeExtras = candidateExtras.filter((_, i) => conflictCounts[i + 1] === 0)
 
-          if (leadFree) {
+          // Try each available candidate as lead, best score first, until one
+          // is actually conflict-free right now. A candidate who conflicts is
+          // skipped in favor of the next-best score — not treated as a dead
+          // end for the whole booking.
+          const availableSorted = scores.filter((s) => s.available).sort((a, b) => b.score - a.score)
+          let chosenLead: (typeof availableSorted)[number] | null = null
+          for (const candidate of availableSorted) {
+            if ((await checkConflict(candidate.id)) === 0) {
+              chosenLead = candidate
+              break
+            }
+          }
+
+          if (chosenLead) {
+            // Extras (team_size > 1): best-effort from whoever's left, same
+            // "dropped not swapped" semantics as before — a candidate extra
+            // that conflicts is simply not added, not replaced by the next
+            // name down the list. Matches PUT /api/bookings/[id]/team, where
+            // team_size is a request, not a guarantee.
+            const wantExtras = Math.max(0, bkTeamSize - 1)
+            const extraCandidates = availableSorted.filter((s) => s.id !== chosenLead!.id).slice(0, wantExtras)
+            const extraConflictCounts = await Promise.all(extraCandidates.map((c) => checkConflict(c.id)))
+            const freeExtras = extraCandidates.filter((_, i) => extraConflictCounts[i] === 0)
+
             const { data: assigned } = await tenantDb(tenant.id)
               .from('bookings')
               .update({
-                team_member_id: best.id,
+                team_member_id: chosenLead.id,
                 status: 'scheduled',
-                suggested_team_member_id: best.id,
-                suggested_reason: best.reason,
+                suggested_team_member_id: chosenLead.id,
+                suggested_reason: chosenLead.reason,
               })
               .eq('id', data.id)
               .select('id, start_time, end_time, hourly_rate, clients(id, name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
@@ -722,7 +748,7 @@ export async function POST(request: Request) {
             if (assigned) {
               autoAssigned = true
               const teamRows = [
-                { tenant_id: tenant.id, booking_id: data.id, team_member_id: best.id, is_lead: true, position: 1 },
+                { tenant_id: tenant.id, booking_id: data.id, team_member_id: chosenLead.id, is_lead: true, position: 1 },
                 ...freeExtras.map((c, i) => ({ tenant_id: tenant.id, booking_id: data.id, team_member_id: c.id, is_lead: false, position: i + 2 })),
               ]
               await supabaseAdmin.from('booking_team_members').insert(teamRows)
@@ -754,13 +780,15 @@ export async function POST(request: Request) {
       console.error('Smart suggestion error:', e)
     }
 
-    // Admin notify
+    // Admin notify — same-day bookings get a distinct, more urgent message
+    // since auto-assign was deliberately skipped for them (see
+    // isSameDayBooking above) and they need a human to assign + schedule.
     const bookingMsg = `New booking from ${data.clients?.name || 'Unknown'}${body.ref_code ? ` (Ref: ${body.ref_code})` : ''} • by Client`
     await notify({
       tenantId: tenant.id,
       type: 'new_booking',
-      title: 'New Booking Request',
-      message: bookingMsg,
+      title: isSameDayBooking ? 'Same-Day Booking — Needs Manual Assignment' : 'New Booking Request',
+      message: isSameDayBooking ? `⚠️ SAME-DAY: ${bookingMsg}. Auto-scheduling is skipped for same-day jobs — assign a cleaner and mark it Scheduled manually.` : bookingMsg,
       booking_id: data.id,
     })
 
