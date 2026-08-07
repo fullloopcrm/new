@@ -47,6 +47,8 @@ const mock = vi.hoisted(() => {
       order: () => chain,
       ilike: () => chain,
       gte: () => chain,
+      in: () => chain,
+      or: () => chain,
       eq: (nextCol: string) => makeChain(table, nextCol),
       limit: () => {
         if (table === 'tenants' && col === 'telnyx_phone') {
@@ -122,5 +124,21 @@ describe('telnyx webhook — owner-phone rating-reply bypass', () => {
     hasActiveRatingLog.value = false
     await POST(req(messageReceivedEvent(OWNER_PHONE, '+18883164019', '3')) as never)
     expect(inserts.tenant_owner_messages.length).toBe(1)
+  })
+
+  // Real live failure 2026-08-07 ~11:31/11:33: the first version of this fix
+  // only covered a bare 1-5 digit (state 1). "Done" and a follow-up
+  // screenshot -- state 2, replying to the bill+review-offer text -- both
+  // still landed in tenant_owner_messages, because they aren't bare digits.
+  it('a "Done" reply with an active conversation does NOT get filed as an owner text', async () => {
+    hasActiveRatingLog.value = true
+    await POST(req(messageReceivedEvent(OWNER_PHONE, '+18883164019', 'Done')) as never)
+    expect(inserts.tenant_owner_messages.length).toBe(0)
+  })
+
+  it('a bare photo/screenshot reply with an active conversation does NOT get filed as an owner text', async () => {
+    hasActiveRatingLog.value = true
+    await POST(req(messageReceivedEvent(OWNER_PHONE, '+18883164019', '')) as never)
+    expect(inserts.tenant_owner_messages.length).toBe(0)
   })
 })

@@ -287,31 +287,43 @@ export async function POST(request: Request) {
     const feedbackReply = await handleFeedbackReply({ tenantId, from, text })
     if (feedbackReply) return feedbackReply
 
-    // RATING-REPLY BYPASS — a bare 1-5 digit reply from a phone with an
-    // active rating conversation (a recent 'pre_payment_rating' sms_log)
-    // must reach the review engine further below, even when that phone also
-    // happens to be the tenant's owner_phone (e.g. an owner testing with
-    // their own number as both cleaner and client -- a documented, previously
-    // supported pattern). Without this, the owner-chat branch immediately
-    // below always wins for that phone: the numeric reply gets filed as an
-    // owner text instead of a rating, and the client never gets billed.
-    // Reproduced live 2026-08-06/07 -- this is the root cause behind both
-    // the 2026-07-22 nycmaid cutover regression ("reviews stopped coming in")
-    // and tonight's incident.
+    // RATING-REPLY BYPASS — ANY reply from a phone mid-way through the
+    // rating/review/bill conversation (either state 1, a reply to the bare
+    // "how'd we do? 1-5" ask, OR state 2, a reply to the "balance + review
+    // offer" text — which can be "5", "Done", a review URL, or a bare photo/
+    // screenshot with no text at all) must reach the review engine further
+    // below, even when that phone also happens to be the tenant's
+    // owner_phone (e.g. an owner testing with their own number as both
+    // cleaner and client -- a documented, previously supported pattern).
+    // Without this, the owner-chat branch immediately below always wins for
+    // that phone, no matter which step of the conversation the reply is
+    // answering. The FIRST version of this fix (2026-08-07 ~03:45) only
+    // covered a bare 1-5 digit -- state 1 -- and missed state 2 entirely:
+    // reproduced live 2026-08-07 ~11:31/11:33, a "Done" reply and a
+    // follow-up screenshot both still landed in tenant_owner_messages. This
+    // is the root cause behind both the 2026-07-22 nycmaid cutover
+    // regression ("reviews stopped coming in") and the two 2026-08-06/07
+    // incidents.
     let ratingReplyBypass = false
-    if (/^[1-5]$/.test(text.trim())) {
+    try {
       const cleanPhone = String(from).replace(/\D/g, '').slice(-10)
       if (cleanPhone) {
         const ratingAskSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        const { data: activeRating } = await supabaseAdmin
+        const billPromptSince = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        const { data: activeConversation } = await supabaseAdmin
           .from('sms_logs')
-          .select('id')
+          .select('id, sms_type, created_at')
           .ilike('recipient', `%${cleanPhone}%`)
-          .eq('sms_type', 'pre_payment_rating')
-          .gte('created_at', ratingAskSince)
+          .in('sms_type', ['pre_payment_rating', 'rating_thanks_45'])
+          .or(`and(sms_type.eq.pre_payment_rating,created_at.gte.${ratingAskSince}),and(sms_type.eq.rating_thanks_45,created_at.gte.${billPromptSince})`)
           .limit(1)
-        ratingReplyBypass = !!(activeRating && activeRating.length > 0)
+        ratingReplyBypass = !!(activeConversation && activeConversation.length > 0)
       }
+    } catch (err) {
+      // Fail safe to the pre-existing behavior (owner-chat routing still
+      // applies) rather than let a lookup hiccup on this new check take
+      // down the whole webhook.
+      console.error('[telnyx webhook] ratingReplyBypass lookup failed:', err)
     }
 
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
