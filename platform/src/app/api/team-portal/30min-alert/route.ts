@@ -371,7 +371,7 @@ export async function POST(req: NextRequest) {
       `Total: $${clientOwes}`,
       ...payLines,
       ``,
-      `Please reply "paid" once sent. Thank you. We appreciate you.`,
+      `Please reply "paid" once sent. Thank you. We appreciate your business.`,
     ].join('\n')
 
     const confirmedVia: string[] = []
