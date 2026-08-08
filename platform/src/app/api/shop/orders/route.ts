@@ -10,13 +10,14 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 
 const STATUSES = ['paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']
+const FULFILLMENT_FIELDS = ['supplier_name', 'external_order_id', 'tracking_number', 'carrier', 'tracking_url'] as const
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
     const { data: orders, error } = await tenantDb(tenantId)
       .from('shop_orders')
-      .select('id, customer_email, customer_name, shipping_address, subtotal_cents, status, fulfillment_type, created_at')
+      .select('id, customer_email, customer_name, shipping_address, subtotal_cents, status, fulfillment_type, supplier_name, external_order_id, tracking_number, carrier, tracking_url, created_at')
       .order('created_at', { ascending: false })
       .limit(200)
     if (error) throw error
@@ -52,13 +53,26 @@ export async function PATCH(request: Request) {
     const id = body.id as string | undefined
     const status = body.status as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    if (!status || !STATUSES.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+
+    const update: Record<string, string | null> = { updated_at: new Date().toISOString() }
+
+    if (status !== undefined) {
+      if (!STATUSES.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+      update.status = status
+    }
+
+    for (const field of FULFILLMENT_FIELDS) {
+      const value = body[field]
+      if (value === undefined) continue
+      if (value !== null && typeof value !== 'string') return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      update[field] = value === '' ? null : value
+    }
 
     const { data, error } = await tenantDb(tenantId)
       .from('shop_orders')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(update)
       .eq('id', id)
-      .select('id, status')
+      .select('id, status, supplier_name, external_order_id, tracking_number, carrier, tracking_url')
       .single()
     if (error) throw error
     return NextResponse.json({ order: data })
