@@ -20,7 +20,17 @@ const BATCH_SIZE = 5
 // Reject anything implausibly far from the rest of the batch's own median
 // point — tenant-agnostic (no hardcoded region), works for any tenant's actual
 // service area since it's relative to that tenant's own other points.
-const OUTLIER_THRESHOLD_MILES = 100
+//
+// 100mi was too tight: found live (2026-08-08) on a tenant serving all of
+// Florida (a single state, but ~450mi Pensacola-to-Miami) — the threshold
+// was rejecting genuinely correct, geographically spread clients as
+// "outliers" relative to whichever regional cluster happened to be the
+// majority, silently erasing real customers from the map. 500mi comfortably
+// covers any single-state service area (even Texas/California/Alaska
+// top-to-bottom) while still catching what this check exists to catch: the
+// actual bad geocodes seen in production landed hundreds to thousands of
+// miles away (Utah, Arkansas, Mississippi, Colorado, the UK, Australia).
+const OUTLIER_THRESHOLD_MILES = 500
 
 export function rejectOutliers<T extends { lat: number; lng: number }>(entries: T[]): T[] {
   if (entries.length < 3) return entries // too few points to judge an outlier meaningfully
