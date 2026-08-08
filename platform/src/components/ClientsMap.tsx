@@ -122,30 +122,41 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
 
       setGeocoded(validPersisted)
 
-      if (needsGeocode.length === 0) {
-        setUnresolvedCount(0)
+      // "Unresolved" is derived from the final plotted count, not
+      // accumulated through each rejection stage — a client can fail to
+      // make the map two different ways (never geocoded, or geocoded but
+      // then rejected as an outlier), and hand-tracking both paths through
+      // multiple rejectOutliers passes kept losing the second kind
+      // silently. Deriving it as clients.length - noAddress - plotted
+      // makes the total exact by construction regardless of how a client
+      // fell out.
+      const finish = (finalGeocoded: GeocodedClient[]) => {
+        setUnresolvedCount(Math.max(0, clients.length - noAddress - finalGeocoded.length))
         setLoading(false)
+      }
+
+      if (needsGeocode.length === 0) {
+        finish(validPersisted)
         return
       }
 
       setProgress({ done: 0, total: needsGeocode.length })
 
       const addresses = needsGeocode.map((c) => c.address.trim())
-      const resolved = await geocodeAddressesCached(addresses, (partial) => {
+      let finalGeocoded = validPersisted
+      await geocodeAddressesCached(addresses, (partial) => {
         if (cancelled) return
         const results = [...validPersisted]
         for (const client of needsGeocode) {
           const coords = partial[client.address.trim()]
           if (coords) results.push({ ...client, ...coords })
         }
-        setGeocoded(rejectOutliers(results))
+        finalGeocoded = rejectOutliers(results)
+        setGeocoded(finalGeocoded)
         setProgress({ done: Object.keys(partial).length, total: needsGeocode.length })
       })
 
-      if (!cancelled) {
-        setUnresolvedCount(needsGeocode.filter((c) => !resolved[c.address.trim()]).length)
-        setLoading(false)
-      }
+      if (!cancelled) finish(finalGeocoded)
     }
 
     if (mounted && clients.length > 0) {
@@ -193,8 +204,8 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
           <strong className="text-gray-700">{clients.length}</strong> clients on the map
         </span>
         {!loading && missing > 0 && (
-          <span className="text-amber-600" title={`${noAddressCount} have no address on file · ${unresolvedCount} couldn't be located from their address`}>
-            {missing} not shown ({noAddressCount} no address, {unresolvedCount} unresolved)
+          <span className="text-amber-600" title={`${noAddressCount} have no address on file · ${unresolvedCount} couldn't be confidently placed (geocode failed, or landed somewhere implausible and was rejected)`}>
+            {missing} not shown ({noAddressCount} no address, {unresolvedCount} couldn't be placed)
           </span>
         )}
       </div>
