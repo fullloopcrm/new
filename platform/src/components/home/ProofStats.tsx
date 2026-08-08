@@ -17,12 +17,12 @@ export default async function ProofStats() {
   const live = await getCaseStudyStats();
 
   const stats: Stat[] = [
-    { value: live ? live.clients.toLocaleString() : "685", label: "Clients", sub: "in the live system" },
-    { value: live ? live.bookingsCompleted.toLocaleString() : "451", label: "Jobs completed", sub: "marked done & paid" },
+    { value: live ? live.clients.toLocaleString() : "852", label: "Clients", sub: "in the live system" },
+    { value: live ? live.bookingsCompleted.toLocaleString() : "695", label: "Jobs completed", sub: "marked done & paid" },
     { value: live ? live.revenueRangeYtd : "$100k–$110k", label: "Revenue", sub: "since launch (Feb 2026)" },
-    { value: "4.9★", label: "Google rating", sub: "across 70 reviews" },
+    { value: "4.8★", label: "Google rating", sub: "across 86 reviews" },
     { value: live ? live.teamSize.toLocaleString() : "11", label: "Active team", sub: "cleaners on the platform" },
-    { value: live ? live.conversations.toLocaleString() : "1,626", label: "SMS conversations", sub: "handled by the AI agent" },
+    { value: live ? live.conversations.toLocaleString() : "1,966", label: "SMS conversations", sub: "handled by the front office" },
   ];
 
   return (

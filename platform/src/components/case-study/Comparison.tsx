@@ -14,7 +14,7 @@ const ROWS: Row[] = [
   { dim: "Who works the front office", avg: "The owner, or a hired rep on payroll", maid: "A trained virtual assistant, $8/hr — see Updates" },
   { dim: "Cleaner payouts", avg: "Manual weekly checks / transfers", maid: "99%+ automatic on job completion" },
   { dim: "Staff needed to reach ~500 clients", avg: "Typically 1–3 office hires (dispatch, books, support)", maid: "Zero back-office hires" },
-  { dim: "Reviews in the first ~5 months", avg: "A handful, gathered by hand", maid: "86 Google reviews at 4.9★, on autopilot" },
+  { dim: "Reviews in the first ~5 months", avg: "A handful, gathered by hand", maid: "86 Google reviews at 4.8★, on autopilot" },
   { dim: "Domain Rating after ~5 months", avg: "Usually low single digits for a new site", maid: "58 — with 19K backlinks, 107 linking sites" },
   { dim: "Time to rank #1 for a head term", avg: "Often 1–3 years, if ever", maid: "#1 for “nyc maid” inside the first months" },
   { dim: "Owner’s time to run it", avg: "Full-time and then some", maid: "~1 hour a day" },

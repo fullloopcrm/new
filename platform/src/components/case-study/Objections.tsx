@@ -28,8 +28,8 @@ const QAS: QA[] = [
   },
   {
     q: "Two review numbers showed up earlier. Which is real?",
-    a: <>Both. The <strong>Google</strong> rating — 4.9★ across 86 reviews — is what you see on the search result and can verify yourself; it&apos;s the public number. The business&apos;s all-sources feedback, including private post-job ratings, averages lower across a larger pool, exactly as any honest business&apos;s internal data does. We lead with the Google figure precisely because it&apos;s the one you don&apos;t have to trust us on.</>,
-    text: "Both. The Google rating — 4.9★ across 86 reviews — is what you see on the search result and can verify yourself; it's the public number. The business's all-sources feedback, including private post-job ratings, averages lower across a larger pool, exactly as any honest business's internal data does. We lead with the Google figure precisely because it's the one you don't have to trust us on.",
+    a: <>Both. The <strong>Google</strong> rating — 4.8★ across 86 reviews — is what you see on the search result and can verify yourself; it&apos;s the public number. The business&apos;s all-sources feedback, including private post-job ratings, averages lower across a larger pool, exactly as any honest business&apos;s internal data does. We lead with the Google figure precisely because it&apos;s the one you don&apos;t have to trust us on.</>,
+    text: "Both. The Google rating — 4.8★ across 86 reviews — is what you see on the search result and can verify yourself; it's the public number. The business's all-sources feedback, including private post-job ratings, averages lower across a larger pool, exactly as any honest business's internal data does. We lead with the Google figure precisely because it's the one you don't have to trust us on.",
   },
   {
     q: "If it's this good, why tell everyone instead of just running businesses?",

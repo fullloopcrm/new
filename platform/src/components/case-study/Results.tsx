@@ -10,7 +10,7 @@ export default function Results({ live }: { live: CaseStudyStats | null }) {
     { v: live ? live.clients.toLocaleString() : "852", l: "Clients", s: "in the live system" },
     { v: live ? live.bookingsCompleted.toLocaleString() : "695", l: "Jobs completed", s: "done & paid" },
     { v: live ? live.revenueRangeYtd : "$100k–$110k", l: "Revenue", s: "since launch (Feb 2026)" },
-    { v: "4.9★", l: "Google rating", s: "86 Google reviews" },
+    { v: "4.8★", l: "Google rating", s: "86 Google reviews" },
     { v: live ? live.teamSize.toLocaleString() : "11", l: "Active cleaners", s: "on the platform" },
     { v: live ? live.conversations.toLocaleString() : "1,966", l: "Conversations", s: "handled by the front office" },
   ];
@@ -34,7 +34,7 @@ export default function Results({ live }: { live: CaseStudyStats | null }) {
           </div>
         )}
         <StatGrid cols={3} items={numbers} />
-        <Source>Operational figures are live from <span style={codeToken}>thenycmaid.com/api/public/case-study-stats</span>, cached hourly. The 4.9★ / 86 figure is the Google Business rating — search &ldquo;nyc maid&rdquo; to confirm it.</Source>
+        <Source>Operational figures are live from <span style={codeToken}>thenycmaid.com/api/public/case-study-stats</span>, cached hourly. The 4.8★ / 86 figure is the Google Business rating — search &ldquo;nyc maid&rdquo; to confirm it.</Source>
 
         <H3>What &ldquo;autonomous&rdquo; actually measures</H3>
         <P>The headline isn&apos;t the client count. Plenty of cleaning companies have {clientsDisplay} clients. The headline is what it costs, in human attention, to run them.</P>
@@ -95,7 +95,7 @@ export default function Results({ live }: { live: CaseStudyStats | null }) {
         <P>One more figure deserves emphasis because it&apos;s the one that compounds: {conversationsDisplay} conversations handled through the front office channel. Every one of those is an interaction that, in a traditional business, would have been the owner&apos;s own phone buzzing — a quote, a question, a booking, a reschedule, a payment confirmation. That number climbs every day, and it&apos;s the clearest single measure of what keeping the owner&apos;s hour-a-day intact actually requires: a front office that never stops, regardless of who or what is staffing it on a given month (see the Updates note above for what changed there).</P>
 
         <Callout title="An honest footnote on the numbers">
-          Two review figures circulate, and both are real: the <strong>Google</strong> rating is 4.9★ across 86 reviews (what you&apos;ll see on the search result), while the business&apos;s all-sources feedback — including private post-job ratings — averages lower across a larger pool, as any business&apos;s does. We publish the Google number because it&apos;s the one you can independently verify. Revenue is shown as a range, from the live system, since exact figures move daily.
+          Two review figures circulate, and both are real: the <strong>Google</strong> rating is 4.8★ across 86 reviews (what you&apos;ll see on the search result), while the business&apos;s all-sources feedback — including private post-job ratings — averages lower across a larger pool, as any business&apos;s does. We publish the Google number because it&apos;s the one you can independently verify. Revenue is shown as a range, from the live system, since exact figures move daily.
         </Callout>
       </Column>
     </Band>

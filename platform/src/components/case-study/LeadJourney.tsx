@@ -7,7 +7,7 @@ import { C, display, mono, partLabel, sectionTitle, codeToken } from "./cs";
 type Step = { n: string; t: string; b: string };
 
 const STEPS: Step[] = [
-  { n: "11:42 PM, Saturday", t: "The search", b: "A Brooklyn renter, fed up after a move, searches “nyc maid” on her phone. The NYC Maid is the first organic result, in the map pack, 4.9★. She taps through — no ad in the way." },
+  { n: "11:42 PM, Saturday", t: "The search", b: "A Brooklyn renter, fed up after a move, searches “nyc maid” on her phone. The NYC Maid is the first organic result, in the map pack, 4.8★. She taps through — no ad in the way." },
   { n: "+8 seconds", t: "The answer", b: "She opens the chat and types “how much for a 1-bed move-out cleaning this week?” Yinez answers in seconds — not with a canned range, but with a real quote pulled from the live pricing engine, plus the next genuinely open slots from the real calendar." },
   { n: "+2 minutes", t: "The booking", b: "She picks Thursday. Yinez creates the booking, and the smart-schedule engine assigns the cleaner who's already working nearby that morning — least travel, gets home on time, covers the zone. A confirmation email goes out with policies, prep tips, a map, and the cleaner's photo. No human has touched any of this." },
   { n: "Wednesday", t: "The reminder", b: "A cron job sends a day-before reminder. She confirms with a tap. The cleaner's portal already shows the job, the address, and the notes." },

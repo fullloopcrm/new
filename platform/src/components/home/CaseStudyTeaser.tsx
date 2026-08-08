@@ -18,7 +18,7 @@ export default async function CaseStudyTeaser() {
     { value: live ? live.clients.toLocaleString() : "685", label: "Real clients" },
     { value: live ? live.bookingsCompleted.toLocaleString() : "451", label: "Jobs completed" },
     { value: live ? live.revenueRangeYtd : "$100k–$110k", label: "Revenue since Feb 2026" },
-    { value: "4.9★", label: "70 reviews on Google" },
+    { value: "4.8★", label: "86 reviews on Google" },
   ];
 
   return (
