@@ -116,6 +116,7 @@ export const WIDE_WIDTH = "max-w-5xl";
 export type Chapter = { id: string; part: string; title: string; nav: string };
 
 export const CHAPTERS: Chapter[] = [
+  { id: "updates", part: "Update Log", title: "What's Changed Since This Was Written", nav: "Updates" },
   { id: "premise", part: "Part I", title: "The Premise", nav: "The Premise" },
   { id: "day-zero", part: "Part II", title: "Day Zero", nav: "Day Zero" },
   { id: "build-log", part: "Part III", title: "The Build Log", nav: "The Build Log" },

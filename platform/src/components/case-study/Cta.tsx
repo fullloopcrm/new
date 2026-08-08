@@ -28,7 +28,6 @@ export default function Cta() {
           Verify everything first ·{" "}
           <a href="https://www.google.com/search?q=nyc+maid" target="_blank" rel="noopener noreferrer" style={{ color: "#6FB58A", textDecoration: "underline" }}>Google &ldquo;nyc maid&rdquo;</a>{" · "}
           <a href="https://www.thenycmaid.com" target="_blank" rel="noopener noreferrer" style={{ color: "#6FB58A", textDecoration: "underline" }}>the live site</a>{" · "}
-          <a href="https://www.thenycmaid.com/chat-with-yinez" target="_blank" rel="noopener noreferrer" style={{ color: "#6FB58A", textDecoration: "underline" }}>talk to Yinez</a>{" · "}
           <a href="https://www.thenycmaid.com/api/public/case-study-stats" target="_blank" rel="noopener noreferrer" style={{ color: "#6FB58A", textDecoration: "underline" }}>the raw numbers</a>
         </p>
       </div>

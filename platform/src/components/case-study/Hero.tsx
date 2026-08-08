@@ -33,7 +33,7 @@ export default function Hero({ generatedAt, clients }: { generatedAt: string | n
         {/* Live stamp */}
         <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3" style={{ fontFamily: mono, fontSize: "12px", letterSpacing: "0.06em", color: "#A8A8A4" }}>
           <span>
-            <span style={{ color: "#6FB58A" }}>{clients ? clients.toLocaleString() : "686"}</span> clients in the live system
+            <span style={{ color: "#6FB58A" }}>{clients ? clients.toLocaleString() : "852"}</span> clients in the live system
           </span>
           <span>·</span>
           <span><span style={{ color: "#6FB58A" }}>1,491</span> commits · 103,162 lines</span>

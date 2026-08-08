@@ -50,7 +50,7 @@ export const metadata: Metadata = {
 // heading → bold description → keyword-rich content with inner links → "learn
 // more" to its full page. The NYC Maid case study lives on
 // /case-study/the-nyc-maid (homepage only teases it). Order per spec:
-// Hero → About → Case study teaser → Features → Testimonials → Industries → FAQ
+// Hero → Case study teaser → About → Features → Testimonials → Industries → FAQ
 // → Thank you (lead form) → inner-link matrix.
 import Hero from "@/components/home/Hero";
 import About from "@/components/home/About";
@@ -131,7 +131,12 @@ export default function Home() {
       {/* 1. Hero */}
       <Hero />
 
-      {/* 2. About */}
+      {/* 2. NYC Maid case study (teaser → full page) — pushed right below the
+          hero, ahead of About/Comparison, so it's the first proof a visitor
+          sees. */}
+      <CaseStudyTeaser />
+
+      {/* 3. About */}
       <About />
 
       {/* Competitor comparison matrix */}
@@ -148,9 +153,6 @@ export default function Home() {
         }
         sub="The first full-cycle home service CRM"
       />
-
-      {/* 3. NYC Maid case study (teaser → full page) */}
-      <CaseStudyTeaser />
 
       {/* 4. Features — the seven stages */}
       <Features />

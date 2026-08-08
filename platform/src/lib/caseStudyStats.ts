@@ -9,6 +9,11 @@ export type CaseStudyStats = {
   reviews: number
   avgRating: number | null
   revenueRangeYtd: string
+  avgTicketPrice: string | null
+  lastMonthCompleted: number
+  thisMonthBooked: number
+  daysLeftInMonth: number
+  cleanerPayoutMedianSeconds: number | null
   generatedAt: string
 }
 

@@ -5,9 +5,8 @@
 import { C, display, mono } from "./cs";
 
 const LINKS: { label: string; href: string; what: string; external?: boolean }[] = [
-  { label: "Search “nyc maid” on Google", href: "https://www.google.com/search?q=nyc+maid", what: "We rank #1 organically. 4.9★, 73 reviews. No ads.", external: true },
+  { label: "Search “nyc maid” on Google", href: "https://www.google.com/search?q=nyc+maid", what: "We rank #1 organically. 4.9★, 86 reviews. No ads.", external: true },
   { label: "The live business", href: "https://www.thenycmaid.com", what: "thenycmaid.com — book a real cleaning right now.", external: true },
-  { label: "Talk to Yinez yourself", href: "https://www.thenycmaid.com/chat-with-yinez", what: "The actual AI agent that runs the front office, live.", external: true },
   { label: "The raw live stats (JSON)", href: "https://www.thenycmaid.com/api/public/case-study-stats", what: "The exact production numbers this page reads from.", external: true },
 ];
 

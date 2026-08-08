@@ -7,6 +7,7 @@ import Reviews from "@/components/home/Reviews";
 import ReadingNav from "@/components/case-study/ReadingNav";
 import Hero from "@/components/case-study/Hero";
 import VerifyYourself from "@/components/case-study/VerifyYourself";
+import Updates from "@/components/case-study/Updates";
 import Premise from "@/components/case-study/Premise";
 import DayZero from "@/components/case-study/DayZero";
 import BuildLog from "@/components/case-study/BuildLog";
@@ -88,6 +89,7 @@ export default async function TheNYCMaidCaseStudy() {
 
       <Hero generatedAt={live?.generatedAt ?? null} clients={live?.clients ?? null} />
       <VerifyYourself />
+      <Updates />
 
       <Premise />
       <DayZero />

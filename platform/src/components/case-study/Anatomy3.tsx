@@ -37,21 +37,31 @@ export default function Anatomy3() {
           <h3 style={{ ...sectionTitle, color: C.cream, fontSize: "clamp(24px, 3vw, 40px)" }} className="mt-4">10 · The acquisition machine: how it grows on $0</h3>
           <P dark>The acquisition engine has a structure most local businesses never build because it&apos;s genuinely a lot of work: a deep surface of content aimed at the real questions and real neighborhoods NYC searchers type, technical SEO so that content actually ranks, structured data so search engines understand it, fast indexing so new pages count quickly, and an attribution layer so nothing is guessed. None of that is a growth hack; it&apos;s infrastructure, and like the rest of the platform it was built once and now runs without anyone tending it. The microsite-and-content approach means the business shows up for the long tail — the specific service, the specific borough, the specific situation — not just the obvious head terms, which is where a surprising amount of real intent lives.</P>
 
-          <P dark>The whole business rests on one improbable-sounding claim: <strong style={{ color: C.cream }}>700+ clients, zero ad spend.</strong> That&apos;s only possible because acquisition is itself a system. The platform runs an organic SEO engine — a <span style={codeToken}>lib/seo</span> module, a content surface of service, location, FAQ, blog and tips pages, structured data, an <span style={codeToken}>indexnow</span> integration for fast indexing, and an attribution layer (<span style={codeToken}>attribution.ts</span>) that tracks where every lead actually came from.</P>
-          <P dark>You can verify the result yourself in one search: as of this writing, The NYC Maid ranks <strong style={{ color: C.cream }}>#1 organically for &ldquo;nyc maid&rdquo;</strong> and appears in the local map pack, against established competitors, with no ads above it that belong to us. An attribution audit of the client base shows no paid sources. Every one of those 700+ clients was earned.</P>
+          <P dark>The whole business rests on one improbable-sounding claim: <strong style={{ color: C.cream }}>850+ clients, zero ad spend.</strong> That&apos;s only possible because acquisition is itself a system. The platform runs an organic SEO engine — a <span style={codeToken}>lib/seo</span> module, a content surface of service, location, FAQ, blog and tips pages, structured data, an <span style={codeToken}>indexnow</span> integration for fast indexing, and an attribution layer (<span style={codeToken}>attribution.ts</span>) that tracks where every lead actually came from.</P>
+          <P dark>You can verify the result yourself in one search: as of this writing, The NYC Maid ranks <strong style={{ color: C.cream }}>#1 organically for &ldquo;nyc maid&rdquo;</strong> and appears in the local map pack, against established competitors, with no ads above it that belong to us. An attribution audit of the client base shows no paid sources. Every one of those 850+ clients was earned.</P>
 
-          <P dark>The authority behind that ranking is not normal for a five-month-old domain. Independent SEO tooling (Ahrefs) and the business&apos;s own Google data tell the same story:</P>
+          <P dark>The authority behind that ranking is not normal for a five-month-old domain. Independent SEO tooling (Ahrefs) tells one side of the story:</P>
           <StatGrid
             dark
-            cols={4}
+            cols={3}
             items={[
               { v: "58", l: "Domain Rating", s: "Ahrefs · in ~5 months" },
               { v: "19K", l: "Backlinks", s: "100% dofollow" },
               { v: "107", l: "Linking websites", s: "referring domains" },
-              { v: "10,448", l: "Profile views", s: "Google, Jan–Jun" },
             ]}
           />
-          <P dark>A Domain Rating of 58 with nineteen thousand backlinks, built in roughly five months, is the kind of authority profile most local businesses never reach. And the Google Business Profile data shows where it&apos;s aimed: of the searches that surfaced the listing, the top terms include <span style={codeToken}>the maids</span> (832), <span style={codeToken}>maid service nyc</span> (433), and <span style={codeToken}>nyc cleaning service</span> (245) — meaning the company shows up on a national competitor&apos;s brand name and on the category&apos;s most valuable head terms at the same time.</P>
+          <P dark>Google&apos;s own data — Search Console and the Business Profile dashboard, both screenshot straight from the account, not a vendor&apos;s estimate — tells the other side:</P>
+          <StatGrid
+            dark
+            cols={4}
+            items={[
+              { v: "17,394", l: "Profile views", s: "Google Business Profile" },
+              { v: "1,299", l: "Profile interactions", s: "calls, bookings, clicks · Mar–Aug" },
+              { v: "2.53K", l: "Organic clicks", s: "Search Console · 16 months" },
+              { v: "569K", l: "Impressions", s: "Search Console · 16 months" },
+            ]}
+          />
+          <P dark>A Domain Rating of 58 with nineteen thousand backlinks, built in roughly five months, is the kind of authority profile most local businesses never reach. And the Google Business Profile data shows where it&apos;s aimed: of the searches that surfaced the listing, the top terms include <span style={codeToken}>the maids</span> (1,297), <span style={codeToken}>maid service nyc</span> (896), and <span style={codeToken}>nyc cleaning service</span> (663) — meaning the company shows up on a national competitor&apos;s brand name and on the category&apos;s most valuable head terms at the same time.</P>
           <Quote dark attribution="Why the loop beats a budget">
             A paid lead costs the same every time and stops the moment you stop paying. An organic ranking, fed by real reviews from real completed jobs, compounds — and the reviews are generated by the same system that does the work. The acquisition engine and the operations engine are the same machine.
           </Quote>
