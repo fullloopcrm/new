@@ -18,15 +18,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ServiceArea } from '@/lib/service-area'
 import { stateName, isStateScoped } from '@/lib/service-area'
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 interface Member {
   id: string
   name: string
   lat: number | null
   lng: number | null
+  address: string | null
   service_zones: string[]
   has_car: boolean
   state: string | null
+}
+
+interface Applicant {
+  id: string
+  name: string
+  lat: number | null
+  lng: number | null
+  address: string | null
 }
 
 interface ClientPin {
@@ -54,39 +64,120 @@ function colorForKey(key: string): string {
 
 export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceArea }) {
   const [members, setMembers] = useState<Member[]>([])
+  const [applicants, setApplicants] = useState<Applicant[]>([])
   const [clients, setClients] = useState<ClientPin[]>([])
   const [loading, setLoading] = useState(true)
+  const [geocoding, setGeocoding] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  const [totalActiveMembers, setTotalActiveMembers] = useState(0)
+  const [totalApplicants, setTotalApplicants] = useState(0)
+  const [totalClients, setTotalClients] = useState(0)
+
+  // Scoped the same way the rest of the page reads it: local tenants operate
+  // in one metro (a distant match is almost certainly a bad geocode), but
+  // national/regional tenants legitimately have team spread across states —
+  // rejecting those as "outliers" would silently erase real, correct pins.
+  const stateBased = isStateScoped(serviceArea.scope)
 
   useEffect(() => {
     let alive = true
-    Promise.all([
-      fetch('/api/cleaners').then((r) => (r.ok ? r.json() : [])).catch(() => []),
-      fetch('/api/clients').then((r) => (r.ok ? r.json() : [])).catch(() => []),
-    ]).then(([m, c]) => {
+
+    async function load() {
+      const [m, c, a] = await Promise.all([
+        fetch('/api/cleaners').then((r) => (r.ok ? r.json() : [])).catch(() => []),
+        // /api/clients defaults to 50 results with no limit param — this map
+        // is meant to show the whole client base for context, not a page 1.
+        // 1000 is the route's max; revisit if a tenant ever exceeds that.
+        fetch('/api/clients?limit=1000').then((r) => (r.ok ? r.json() : { clients: [] })).catch(() => ({ clients: [] })),
+        fetch('/api/team-applications').then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      ])
       if (!alive) return
-      setMembers(
-        (Array.isArray(m) ? m : []).filter((x: any) => x.active).map((x: any) => ({
-          id: x.id, name: x.name,
-          lat: x.home_latitude != null ? Number(x.home_latitude) : null,
-          lng: x.home_longitude != null ? Number(x.home_longitude) : null,
+
+      const rawMembers = (Array.isArray(m) ? m : []).filter((x: any) => x.active)
+      const rawApplicants = (Array.isArray(a) ? a : (a?.applications || [])).filter((x: any) => x.status === 'pending')
+      const clientRows = Array.isArray(c) ? c : (c?.clients || [])
+      setTotalActiveMembers(rawMembers.length)
+      setTotalApplicants(rawApplicants.length)
+
+      const withCoords: Member[] = []
+      const memberNeedsGeocode: any[] = []
+      for (const x of rawMembers) {
+        const lat = x.home_latitude != null ? Number(x.home_latitude) : null
+        const lng = x.home_longitude != null ? Number(x.home_longitude) : null
+        const member: Member = {
+          id: x.id, name: x.name, lat, lng, address: x.address || null,
           service_zones: x.service_zones || [],
           has_car: x.has_car || false,
           state: (x.tax_state || stateFromAddress(x.address)) || null,
-        }))
-      )
-      setClients(
-        (Array.isArray(c) ? c : []).filter((x: any) => x.latitude && x.longitude).map((x: any) => ({
-          id: x.id, name: x.name, lat: Number(x.latitude), lng: Number(x.longitude), address: x.address || '',
-        }))
-      )
-      setLoading(false)
-    })
-    return () => { alive = false }
-  }, [])
+        }
+        if (lat != null && lng != null) withCoords.push(member)
+        else if (x.address?.trim()) memberNeedsGeocode.push({ ...member, rawAddress: x.address.trim() })
+      }
 
-  // Regional and national both render state-by-state; local renders by zone.
-  const stateBased = isStateScoped(serviceArea.scope)
+      // Applicants have no persisted coordinate column at all — every one
+      // with an address goes through the live geocoder.
+      const applicantNeedsGeocode = rawApplicants
+        .filter((x: any) => x.address?.trim())
+        .map((x: any) => ({ id: x.id, name: x.name, address: x.address.trim() as string }))
+
+      const clientsWithCoords: ClientPin[] = []
+      const clientNeedsGeocode: any[] = []
+      for (const x of clientRows) {
+        if (x.latitude && x.longitude) {
+          clientsWithCoords.push({ id: x.id, name: x.name, lat: Number(x.latitude), lng: Number(x.longitude), address: x.address || '' })
+        } else if (x.address?.trim()) {
+          clientNeedsGeocode.push({ id: x.id, name: x.name, rawAddress: x.address.trim() })
+        }
+      }
+      setTotalClients(clientRows.length)
+
+      setMembers(stateBased ? withCoords : rejectOutliers(withCoords as any) as Member[])
+      setClients(stateBased ? clientsWithCoords : rejectOutliers(clientsWithCoords as any) as ClientPin[])
+      setLoading(false)
+
+      const addressesToGeocode = [
+        ...memberNeedsGeocode.map((x) => x.rawAddress),
+        ...applicantNeedsGeocode.map((x: { address: string }) => x.address),
+        ...clientNeedsGeocode.map((x) => x.rawAddress),
+      ]
+      if (addressesToGeocode.length === 0) {
+        setApplicants([])
+        return
+      }
+
+      setGeocoding(true)
+      const resolved = await geocodeAddressesCached(addressesToGeocode)
+      if (!alive) return
+
+      const geocodedMembers = memberNeedsGeocode
+        .map((x) => resolved[x.rawAddress] ? { ...x, lat: resolved[x.rawAddress].lat, lng: resolved[x.rawAddress].lng } : null)
+        .filter(Boolean) as Member[]
+      setMembers((prev) => {
+        const merged = [...prev, ...geocodedMembers]
+        return stateBased ? merged : rejectOutliers(merged as any) as Member[]
+      })
+
+      const geocodedApplicants = applicantNeedsGeocode
+        .map((x: { id: string; name: string; address: string }) =>
+          resolved[x.address] ? { id: x.id, name: x.name, address: x.address, lat: resolved[x.address].lat, lng: resolved[x.address].lng } : null
+        )
+        .filter(Boolean) as Applicant[]
+      setApplicants(stateBased ? geocodedApplicants : rejectOutliers(geocodedApplicants as any) as Applicant[])
+
+      const geocodedClients = clientNeedsGeocode
+        .map((x) => resolved[x.rawAddress] ? { id: x.id, name: x.name, address: x.rawAddress, lat: resolved[x.rawAddress].lat, lng: resolved[x.rawAddress].lng } : null)
+        .filter(Boolean) as ClientPin[]
+      setClients((prev) => {
+        const merged = [...prev, ...geocodedClients]
+        return stateBased ? merged : rejectOutliers(merged as any) as ClientPin[]
+      })
+
+      setGeocoding(false)
+    }
+
+    load()
+    return () => { alive = false }
+  }, [stateBased])
 
   // Coverage buckets: by state (regional/national) or by zone (local).
   const buckets = useMemo(() => {
@@ -109,7 +200,8 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
 
   const gaps = buckets.filter((b) => b.count === 0)
   const thin = buckets.filter((b) => b.count === 1)
-  const plotted = members.filter((m) => m.lat != null && m.lng != null).length
+  const plotted = members.length
+  const plottedApplicants = applicants.length
 
   if (loading) {
     return <div className="bg-gray-50 rounded-xl p-6 text-center text-gray-400 text-sm">Loading coverage map…</div>
@@ -117,14 +209,31 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 mb-6 overflow-hidden">
-      <div className="relative h-[400px] bg-gray-100">
+      <div className="flex items-center justify-between px-4 pt-3 text-xs text-gray-500">
+        <span>
+          Team: <strong className="text-gray-700">{plotted}</strong> of{' '}
+          <strong className="text-gray-700">{totalActiveMembers}</strong> plotted
+          {totalApplicants > 0 && (
+            <>
+              {' · '}Applicants: <strong className="text-gray-700">{plottedApplicants}</strong> of{' '}
+              <strong className="text-gray-700">{totalApplicants}</strong> plotted
+            </>
+          )}
+          {' · '}Clients: <strong className="text-gray-700">{clients.length}</strong> of{' '}
+          <strong className="text-gray-700">{totalClients}</strong> plotted
+        </span>
+        {geocoding && <span className="text-amber-600">Locating addresses…</span>}
+      </div>
+
+      <div className="relative h-[400px] bg-gray-100 mt-2">
         <MapInner
           members={members}
+          applicants={applicants}
           clients={clients}
           national={stateBased}
           selected={selected}
         />
-        {plotted === 0 && (
+        {plotted === 0 && plottedApplicants === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="bg-white/90 rounded-lg px-3 py-2 text-xs text-gray-500">
               No team locations yet — add team members with addresses to populate the map.
@@ -139,6 +248,11 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
           {selected && (
             <button onClick={() => setSelected(null)} className="text-xs text-gray-500 hover:text-[#1E2A4A]">Show all</button>
           )}
+        </div>
+
+        <div className="flex items-center gap-4 mb-3 text-[11px] text-gray-500">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#1E2A4A] inline-block" />Active team</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-amber-500 bg-amber-100 inline-block" />Applicants</span>
         </div>
 
         {buckets.length === 0 && (
@@ -191,8 +305,8 @@ function stateFromAddress(address: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 
-function MapInner({ members, clients, national, selected }: {
-  members: Member[]; clients: ClientPin[]; national: boolean; selected: string | null
+function MapInner({ members, applicants, clients, national, selected }: {
+  members: Member[]; applicants: Applicant[]; clients: ClientPin[]; national: boolean; selected: string | null
 }) {
   const [L, setL] = useState<any>(null)
   const [mapRef, setMapRef] = useState<HTMLDivElement | null>(null)
@@ -255,10 +369,23 @@ function MapInner({ members, clients, national, selected }: {
       pts.push([m.lat as number, m.lng as number])
     })
 
+    // Applicants render as a hollow amber ring — visually distinct from the
+    // filled, zone-colored active-team dots so the two never get confused
+    // at a glance.
+    applicants.forEach((a) => {
+      if (a.lat == null || a.lng == null) return
+      const mk = L.circleMarker([a.lat, a.lng], {
+        radius: 9, fillColor: '#fef3c7', fillOpacity: 0.9, color: '#d97706', weight: 3,
+      }).addTo(map)
+      mk._isMarker = true
+      mk.bindPopup(`<b>${a.name}</b><br/><span style="font-size:11px;color:#d97706">Applicant</span>`)
+      pts.push([a.lat, a.lng])
+    })
+
     if (pts.length > 0) {
       try { map.fitBounds(L.latLngBounds(pts).pad(0.2)) } catch {}
     }
-  }, [L, map, members, clients, national, selected])
+  }, [L, map, members, applicants, clients, national, selected])
 
   return <div ref={setMapRef} className="w-full h-full" />
 }

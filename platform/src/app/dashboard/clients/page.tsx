@@ -51,6 +51,8 @@ type EnrichedClient = {
   email: string | null
   phone: string | null
   address: string | null
+  latitude: number | null
+  longitude: number | null
   customer_number: number | null
   status: string
   source: string | null
@@ -426,6 +428,8 @@ export default function ClientsPage() {
               id: c.id,
               name: c.name,
               address: c.address || '',
+              lat: c.latitude,
+              lng: c.longitude,
               status: (c.stage === 'lead' ? 'potential' : c.stage === 'first' ? 'new' : c.stage === 'lapsed' || c.stage === 'risk' || c.stage === 'dns' ? 'inactive' : 'active') as 'potential' | 'new' | 'active' | 'inactive',
               totalBookings: c.bookings_count,
               totalSpent: c.ltv_actual_cents / 100,

@@ -3,11 +3,14 @@ import { useEffect, useState, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { geocodeAddressesCached, rejectOutliers } from '@/lib/geo-cache'
 
 interface ClientMarker {
   id: string
   name: string
   address: string
+  lat?: number | null
+  lng?: number | null
   status: 'potential' | 'new' | 'active' | 'inactive'
   totalBookings: number
   totalSpent: number
@@ -26,19 +29,6 @@ interface GeocodedClient extends ClientMarker {
   lng: number
 }
 
-const CACHE_KEY = 'fullloop_geocode_cache'
-
-function loadGeoCache(): Record<string, { lat: number; lng: number }> {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
-
-function saveGeoCache(cache: Record<string, { lat: number; lng: number }>) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)) } catch {}
-}
-
 const createIcon = (color: string) => new L.DivIcon({
   className: 'custom-marker',
   html: `<div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
@@ -54,8 +44,6 @@ const icons = {
   inactive: createIcon('#9ca3af'),
   dns: createIcon('#ef4444')
 }
-
-import { geocodeAddress } from '@/lib/geo'
 
 function FitBounds({ clients }: { clients: GeocodedClient[] }) {
   const map = useMap()
@@ -75,70 +63,73 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
   const [geocoded, setGeocoded] = useState<GeocodedClient[]>([])
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [noAddressCount, setNoAddressCount] = useState(0)
+  const [unresolvedCount, setUnresolvedCount] = useState(0)
   const abortRef = useRef(false)
 
   useEffect(() => { setMounted(true) }, [])
 
+  // Every client passed in should end up plotted or explicitly accounted
+  // for — clients used to vanish off this map with zero indication why
+  // (no address on file, or the address failed to geocode). Persisted
+  // lat/lng (backfilled server-side) is trusted first; only clients missing
+  // that go through the shared cached geocoder, and outliers (bad geocodes
+  // landing states away from the rest of the client base) get filtered the
+  // same way the other maps in this app already do.
   useEffect(() => {
     abortRef.current = false
 
     async function geocodeClients() {
       setLoading(true)
-      const cache = loadGeoCache()
-      const results: GeocodedClient[] = []
+      const withCoords: GeocodedClient[] = []
       const needsGeocode: ClientMarker[] = []
+      let noAddress = 0
 
       for (const client of clients) {
-        if (!client.address) continue
-        if (cache[client.address]) {
-          results.push({ ...client, ...cache[client.address] })
-        } else {
+        if (client.lat != null && client.lng != null) {
+          withCoords.push({ ...client, lat: client.lat, lng: client.lng })
+        } else if (client.address?.trim()) {
           needsGeocode.push(client)
+        } else {
+          noAddress++
         }
       }
 
-      if (results.length > 0) {
-        setGeocoded([...results])
-      }
+      setNoAddressCount(noAddress)
+      setGeocoded(rejectOutliers(withCoords))
 
       if (needsGeocode.length === 0) {
-        setGeocoded(results)
+        setUnresolvedCount(0)
         setLoading(false)
         return
       }
 
       setProgress({ done: 0, total: needsGeocode.length })
 
-      const BATCH_SIZE = 5
-      for (let i = 0; i < needsGeocode.length; i += BATCH_SIZE) {
-        if (abortRef.current) break
-        const batch = needsGeocode.slice(i, i + BATCH_SIZE)
-        const batchResults = await Promise.all(
-          batch.map(async (client) => {
-            const coords = await geocodeAddress(client.address)
-            if (coords) {
-              cache[client.address] = coords
-              return { ...client, ...coords }
-            }
-            return null
-          })
-        )
-        for (const r of batchResults) {
-          if (r) results.push(r)
+      const addresses = needsGeocode.map((c) => c.address.trim())
+      const resolved = await geocodeAddressesCached(addresses, (partial) => {
+        if (abortRef.current) return
+        const results = [...withCoords]
+        for (const client of needsGeocode) {
+          const coords = partial[client.address.trim()]
+          if (coords) results.push({ ...client, ...coords })
         }
-        setGeocoded([...results])
-        setProgress({ done: Math.min(i + BATCH_SIZE, needsGeocode.length), total: needsGeocode.length })
-      }
+        setGeocoded(rejectOutliers(results))
+        setProgress({ done: Object.keys(partial).length, total: needsGeocode.length })
+      })
 
-      saveGeoCache(cache)
-      setGeocoded(results)
-      setLoading(false)
+      if (!abortRef.current) {
+        setUnresolvedCount(needsGeocode.filter((c) => !resolved[c.address.trim()]).length)
+        setLoading(false)
+      }
     }
 
     if (mounted && clients.length > 0) {
       geocodeClients()
     } else {
       setGeocoded([])
+      setNoAddressCount(0)
+      setUnresolvedCount(0)
       setLoading(false)
     }
 
@@ -168,8 +159,21 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
     inactive: 'bg-gray-100 text-gray-600'
   }
 
+  const missing = noAddressCount + unresolvedCount
+
   return (
     <div className="relative">
+      <div className="flex items-center justify-between px-1 pb-1.5 text-xs text-gray-500">
+        <span>
+          Showing <strong className="text-gray-700">{geocoded.length}</strong> of{' '}
+          <strong className="text-gray-700">{clients.length}</strong> clients on the map
+        </span>
+        {!loading && missing > 0 && (
+          <span className="text-amber-600" title={`${noAddressCount} have no address on file · ${unresolvedCount} couldn't be located from their address`}>
+            {missing} not shown ({noAddressCount} no address, {unresolvedCount} unresolved)
+          </span>
+        )}
+      </div>
       {loading && progress.total > 0 && (
         <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center rounded-lg">
           <p className="text-gray-500">Geocoding {progress.done}/{progress.total} new addresses...</p>

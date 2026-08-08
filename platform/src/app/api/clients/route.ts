@@ -35,7 +35,7 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
     const search = url.searchParams.get('search') || ''
     const status = url.searchParams.get('status') || ''
     const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 1000)
     const offset = (page - 1) * limit
 
     // tenantDb auto-injects .eq('tenant_id', tenantId) on the select below.

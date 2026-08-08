@@ -13,6 +13,8 @@ type EnrichedClient = {
   email: string | null
   phone: string | null
   address: string | null
+  latitude: number | null
+  longitude: number | null
   status: string
   source: string | null
   created_at: string
@@ -134,7 +136,7 @@ export async function GET(_request: NextRequest) {
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([
       db
         .from('clients')
-        .select('id, name, email, phone, address, status, source, created_at, do_not_service, dns_reason, active, referrer_id, customer_number')
+        .select('id, name, email, phone, address, latitude, longitude, status, source, created_at, do_not_service, dns_reason, active, referrer_id, customer_number')
         .order('created_at', { ascending: false }),
       db
         .from('bookings')
@@ -299,6 +301,8 @@ export async function GET(_request: NextRequest) {
         email: (c.email as string | null) || null,
         phone: (c.phone as string | null) || null,
         address: (c.address as string | null) || null,
+        latitude: (c.latitude as number | null) ?? null,
+        longitude: (c.longitude as number | null) ?? null,
         customer_number: (c.customer_number as number | null) ?? null,
         status: (c.status as string) || 'active',
         source: (c.source as string | null) || null,
