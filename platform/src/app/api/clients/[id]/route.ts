@@ -114,7 +114,7 @@ export async function PUT(
       return NextResponse.json({ success: true, pin: newPin, emailed: result.success })
     }
 
-    const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason'])
+    const fields = pick(body, ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'notes_private', 'notes_public', 'special_instructions', 'preferred_team_member_id', 'sms_consent', 'do_not_service', 'dns_reason', 'latitude', 'longitude'])
 
     if (typeof fields.name === 'string') fields.name = formatName(fields.name)
     if (typeof fields.email === 'string') fields.email = formatEmail(fields.email)
