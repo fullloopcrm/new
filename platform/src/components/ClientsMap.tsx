@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -65,7 +65,6 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [noAddressCount, setNoAddressCount] = useState(0)
   const [unresolvedCount, setUnresolvedCount] = useState(0)
-  const abortRef = useRef(false)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -76,8 +75,16 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
   // that go through the shared cached geocoder, and outliers (bad geocodes
   // landing states away from the rest of the client base) get filtered the
   // same way the other maps in this app already do.
+  //
+  // `cancelled` is local to this specific effect run, not a shared ref — a
+  // shared ref gets reset to false by the NEXT run's setup, which lets a
+  // stale, still in-flight run's completion handler sail past its own
+  // "am I cancelled" check and overwrite fresher state with a partial
+  // result. That produced a real incident: a live tenant map showed 21 of
+  // 58 clients with an "unresolved: 0" count that didn't add up, because
+  // an old run's incomplete batch clobbered a newer, more complete one.
   useEffect(() => {
-    abortRef.current = false
+    let cancelled = false
 
     async function geocodeClients() {
       setLoading(true)
@@ -108,7 +115,7 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
 
       const addresses = needsGeocode.map((c) => c.address.trim())
       const resolved = await geocodeAddressesCached(addresses, (partial) => {
-        if (abortRef.current) return
+        if (cancelled) return
         const results = [...withCoords]
         for (const client of needsGeocode) {
           const coords = partial[client.address.trim()]
@@ -118,7 +125,7 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
         setProgress({ done: Object.keys(partial).length, total: needsGeocode.length })
       })
 
-      if (!abortRef.current) {
+      if (!cancelled) {
         setUnresolvedCount(needsGeocode.filter((c) => !resolved[c.address.trim()]).length)
         setLoading(false)
       }
@@ -133,7 +140,7 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
       setLoading(false)
     }
 
-    return () => { abortRef.current = true }
+    return () => { cancelled = true }
   }, [clients, mounted])
 
   if (!mounted) {

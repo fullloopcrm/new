@@ -261,6 +261,27 @@ export default function ClientsPage() {
     })
   }, [clients, stageFilter, cohortFilter, typeFilter, search])
 
+  // ClientsMap keys its geocoding effect off this array's identity — building
+  // it inline in JSX allocated a new array (and re-ran the whole geocode pass)
+  // on every unrelated re-render of this page, never letting a full pass
+  // finish before the next one restarted it.
+  const mapClients = useMemo(
+    () =>
+      filtered.map((c) => ({
+        id: c.id,
+        name: c.name,
+        address: c.address || '',
+        lat: c.latitude,
+        lng: c.longitude,
+        status: (c.stage === 'lead' ? 'potential' : c.stage === 'first' ? 'new' : c.stage === 'lapsed' || c.stage === 'risk' || c.stage === 'dns' ? 'inactive' : 'active') as 'potential' | 'new' | 'active' | 'inactive',
+        totalBookings: c.bookings_count,
+        totalSpent: c.ltv_actual_cents / 100,
+        lastBooking: c.last_booking?.date || null,
+        do_not_service: c.dns_status,
+      })),
+    [filtered]
+  )
+
   const drawerClient = useMemo(() => clients.find((c) => c.id === drawerId) || null, [clients, drawerId])
 
   function toggleSelected(id: string) {
@@ -424,18 +445,7 @@ export default function ClientsPage() {
       {/* MAP — always on top: every client + lead (lead-stage rows show as potential pins) */}
       <div style={{ height: 420, border: '1px solid var(--clients-line)', borderRadius: 4, overflow: 'hidden', marginBottom: 22 }}>
           <ClientsMap
-            clients={filtered.map((c) => ({
-              id: c.id,
-              name: c.name,
-              address: c.address || '',
-              lat: c.latitude,
-              lng: c.longitude,
-              status: (c.stage === 'lead' ? 'potential' : c.stage === 'first' ? 'new' : c.stage === 'lapsed' || c.stage === 'risk' || c.stage === 'dns' ? 'inactive' : 'active') as 'potential' | 'new' | 'active' | 'inactive',
-              totalBookings: c.bookings_count,
-              totalSpent: c.ltv_actual_cents / 100,
-              lastBooking: c.last_booking?.date || null,
-              do_not_service: c.dns_status,
-            }))}
+            clients={mapClients}
             onClientClick={(id) => setDrawerId(id)}
           />
       </div>
