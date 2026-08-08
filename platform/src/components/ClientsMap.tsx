@@ -89,21 +89,38 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
     async function geocodeClients() {
       setLoading(true)
       const withCoords: GeocodedClient[] = []
-      const needsGeocode: ClientMarker[] = []
+      const noPersistedCoords: ClientMarker[] = []
       let noAddress = 0
 
       for (const client of clients) {
         if (client.lat != null && client.lng != null) {
           withCoords.push({ ...client, lat: client.lat, lng: client.lng })
         } else if (client.address?.trim()) {
-          needsGeocode.push(client)
+          noPersistedCoords.push(client)
         } else {
           noAddress++
         }
       }
-
       setNoAddressCount(noAddress)
-      setGeocoded(rejectOutliers(withCoords))
+
+      // Persisted coords aren't guaranteed correct — this tenant's own data
+      // had clients with DB-stored lat/lng landing states away (a stale bad
+      // geocode written once and never re-checked). Trusting them blindly
+      // would put those bad pins on the map permanently; silently dropping
+      // them without re-geocoding would just as silently erase real clients
+      // from both the map AND the "not shown" count, which is exactly the
+      // gap that made a live tenant's numbers not add up (20 shown + 6
+      // explained out of 58, with 32 outlier-rejected clients uncounted).
+      // So a persisted-coord rejection re-enters the geocode queue by
+      // address instead of just vanishing.
+      const validPersisted = rejectOutliers(withCoords)
+      const validIds = new Set(validPersisted.map((c) => c.id))
+      const needsGeocode: ClientMarker[] = [
+        ...noPersistedCoords,
+        ...withCoords.filter((c) => !validIds.has(c.id)),
+      ]
+
+      setGeocoded(validPersisted)
 
       if (needsGeocode.length === 0) {
         setUnresolvedCount(0)
@@ -116,7 +133,7 @@ export default function ClientsMap({ clients, onClientClick, onClientDelete }: P
       const addresses = needsGeocode.map((c) => c.address.trim())
       const resolved = await geocodeAddressesCached(addresses, (partial) => {
         if (cancelled) return
-        const results = [...withCoords]
+        const results = [...validPersisted]
         for (const client of needsGeocode) {
           const coords = partial[client.address.trim()]
           if (coords) results.push({ ...client, ...coords })
