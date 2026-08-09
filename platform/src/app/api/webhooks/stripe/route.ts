@@ -122,6 +122,7 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
       stripe_checkout_session_id: session.id,
       customer_email: session.customer_details?.email || null,
       customer_name: session.customer_details?.name || null,
+      customer_phone: session.customer_details?.phone || null,
       shipping_address: shipping,
       subtotal_cents: session.amount_total || 0,
       status: 'paid',

@@ -8,11 +8,6 @@ import type { DropshipAdapter, DropshipOrderInput, DropshipOrderResult, Dropship
  * file, not this code review.
  *
  * config shape: { apiKey: string, shopId: string }
- *
- * Known gap: Printify's address_to requires "phone", which
- * DropshipOrderInput doesn't carry (shop checkout doesn't collect it today).
- * Sent as an empty string for now -- if Printify rejects orders over this,
- * phone needs to be captured at checkout and threaded through.
  */
 
 const BASE_URL = 'https://api.printify.com/v1'
@@ -58,7 +53,7 @@ export const printifyAdapter: DropshipAdapter = {
         first_name: firstName,
         last_name: lastName,
         email: input.customerEmail || '',
-        phone: '', // see file header — not collected at checkout today
+        phone: input.customerPhone || '',
         country: addr.country || '',
         region: addr.state || '',
         address1: addr.line1 || '',

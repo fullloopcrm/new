@@ -20,6 +20,7 @@ export interface DropshipOrderInput {
   shippingAddress: Record<string, string | null> | null
   customerName: string | null
   customerEmail: string | null
+  customerPhone: string | null
 }
 
 export interface DropshipOrderResult {

@@ -21,7 +21,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: order, error: orderError } = await db
       .from('shop_orders')
-      .select('id, customer_name, customer_email, shipping_address, dropship_supplier_id')
+      .select('id, customer_name, customer_email, customer_phone, shipping_address, dropship_supplier_id')
       .eq('id', id)
       .single()
     if (orderError) throw orderError
@@ -72,6 +72,7 @@ export async function POST(_request: Request, { params }: Params) {
       shippingAddress: (order.shipping_address as Record<string, string | null>) || null,
       customerName: order.customer_name,
       customerEmail: order.customer_email,
+      customerPhone: order.customer_phone,
     }
 
     const adapter = getAdapter(adapterKey)
