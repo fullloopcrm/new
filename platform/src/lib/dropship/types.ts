@@ -6,7 +6,10 @@
  */
 
 export interface DropshipOrderItem {
+  /** Provider's primary product identifier (e.g. Printify's product_id). */
   externalSku: string | null
+  /** Second identifier some providers need alongside externalSku (e.g. Printify's variant_id). Null if the provider only needs one. */
+  externalVariantId: string | null
   name: string
   qty: number
 }
@@ -28,6 +31,13 @@ export interface DropshipOrderResult {
 }
 
 export interface DropshipTrackingInfo {
+  /**
+   * The provider's own order id this update is about, extracted by the
+   * adapter from whatever shape that provider's webhook actually uses (a
+   * top-level field, a nested `resource.id`, whatever) -- the webhook route
+   * looks orders up by this, never by guessing a payload shape itself.
+   */
+  externalOrderId: string | null
   trackingNumber: string | null
   carrier: string | null
   trackingUrl: string | null

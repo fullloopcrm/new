@@ -10,7 +10,7 @@ import { tenantDb } from '@/lib/tenant-db'
 
 type Params = { params: Promise<{ id: string }> }
 
-const COLUMNS = 'id, dropship_supplier_id, dropship_external_sku'
+const COLUMNS = 'id, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id'
 
 export async function PUT(request: Request, { params }: Params) {
   try {
@@ -20,10 +20,11 @@ export async function PUT(request: Request, { params }: Params) {
     const supplierId = body.dropship_supplier_id as string | null | undefined
     if (supplierId === undefined) return NextResponse.json({ error: 'dropship_supplier_id is required' }, { status: 400 })
     const externalSku = typeof body.dropship_external_sku === 'string' ? body.dropship_external_sku.trim() || null : null
+    const externalVariantId = typeof body.dropship_external_variant_id === 'string' ? body.dropship_external_variant_id.trim() || null : null
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
-      .update({ dropship_supplier_id: supplierId, dropship_external_sku: externalSku })
+      .update({ dropship_supplier_id: supplierId, dropship_external_sku: externalSku, dropship_external_variant_id: externalVariantId })
       .eq('id', id)
       .select(COLUMNS)
       .single()

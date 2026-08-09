@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
-import { getAdapter } from '@/lib/dropship/registry'
+import { getAdapter, decryptSupplierConfig } from '@/lib/dropship/registry'
 import type { DropshipOrderInput } from '@/lib/dropship/types'
 
 type Params = { params: Promise<{ id: string }> }
@@ -35,8 +35,8 @@ export async function POST(_request: Request, { params }: Params) {
 
     const serviceTypeIds = [...new Set((items || []).map((i) => i.service_type_id).filter(Boolean))] as string[]
     const { data: products } = serviceTypeIds.length
-      ? await db.from('service_types').select('id, dropship_supplier_id, dropship_external_sku').in('id', serviceTypeIds)
-      : { data: [] as { id: string; dropship_supplier_id: string | null; dropship_external_sku: string | null }[] }
+      ? await db.from('service_types').select('id, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id').in('id', serviceTypeIds)
+      : { data: [] as { id: string; dropship_supplier_id: string | null; dropship_external_sku: string | null; dropship_external_variant_id: string | null }[] }
     const productById = new Map((products || []).map((p) => [p.id, p]))
 
     // Prefer the supplier already set on the order; otherwise infer it from
@@ -57,7 +57,7 @@ export async function POST(_request: Request, { params }: Params) {
       const { data: supplier } = await db.from('dropship_suppliers').select('adapter_key, config').eq('id', supplierId).single()
       if (supplier) {
         adapterKey = supplier.adapter_key
-        config = (supplier.config as Record<string, unknown>) || {}
+        config = decryptSupplierConfig(supplier.config as Record<string, unknown>)
       }
     }
 
@@ -65,6 +65,7 @@ export async function POST(_request: Request, { params }: Params) {
       orderId: order.id,
       items: (items || []).map((i) => ({
         externalSku: (i.service_type_id && productById.get(i.service_type_id)?.dropship_external_sku) || null,
+        externalVariantId: (i.service_type_id && productById.get(i.service_type_id)?.dropship_external_variant_id) || null,
         name: i.name,
         qty: i.qty,
       })),

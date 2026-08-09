@@ -11,7 +11,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getAdapter } from '@/lib/dropship/registry'
+import { getAdapter, decryptSupplierConfig } from '@/lib/dropship/registry'
 
 type Params = { params: Promise<{ supplierId: string }> }
 
@@ -34,19 +34,16 @@ export async function POST(request: Request, { params }: Params) {
     if (!payload) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
 
     const adapter = getAdapter(supplier.adapter_key)
-    const tracking = adapter.parseTrackingWebhook(payload, (supplier.config as Record<string, unknown>) || {})
+    const tracking = adapter.parseTrackingWebhook(payload, decryptSupplierConfig(supplier.config as Record<string, unknown>))
     if (!tracking) return NextResponse.json({ ok: true, ignored: true })
 
-    const externalOrderId = typeof (payload as Record<string, unknown>)?.external_order_id === 'string'
-      ? (payload as Record<string, unknown>).external_order_id as string
-      : null
-    if (!externalOrderId) return NextResponse.json({ error: 'Payload missing external_order_id' }, { status: 400 })
+    if (!tracking.externalOrderId) return NextResponse.json({ error: 'Adapter could not identify the order for this webhook' }, { status: 400 })
 
     const { data: order, error: findError } = await supabaseAdmin
       .from('shop_orders')
       .select('id')
       .eq('tenant_id', supplier.tenant_id)
-      .eq('external_order_id', externalOrderId)
+      .eq('external_order_id', tracking.externalOrderId)
       .single()
     if (findError || !order) return NextResponse.json({ error: 'Order not found for this supplier' }, { status: 404 })
 
