@@ -51,6 +51,8 @@ export default function OrdersTab() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<FulfillmentDraft | null>(null)
   const [saving, setSaving] = useState(false)
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null)
+  const [dispatchMsg, setDispatchMsg] = useState<Record<string, string>>({})
 
   function load() {
     setLoading(true)
@@ -85,6 +87,22 @@ export default function OrdersTab() {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function dispatch(id: string) {
+    setDispatchingId(id)
+    try {
+      const res = await fetch(`/api/shop/orders/${id}/dispatch`, { method: 'POST' })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d?.order) {
+        setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...d.order } : o)))
+        setDispatchMsg((prev) => ({ ...prev, [id]: d.dispatch?.message || (d.dispatch?.status === 'submitted' ? 'Sent to supplier.' : '') }))
+      } else {
+        setDispatchMsg((prev) => ({ ...prev, [id]: d?.error || 'Dispatch failed.' }))
+      }
+    } finally {
+      setDispatchingId(null)
     }
   }
 
@@ -153,9 +171,13 @@ export default function OrdersTab() {
                       </>
                     ) : 'No fulfillment info yet'}
                   </p>
-                  <button type="button" style={linkBtnCls} onClick={() => openFulfillment(o)}>{o.supplier_name || o.tracking_number ? 'Edit' : 'Add fulfillment info'}</button>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button type="button" style={linkBtnCls} disabled={dispatchingId === o.id} onClick={() => dispatch(o.id)}>{dispatchingId === o.id ? 'Dispatching…' : 'Dispatch to supplier'}</button>
+                    <button type="button" style={linkBtnCls} onClick={() => openFulfillment(o)}>{o.supplier_name || o.tracking_number ? 'Edit' : 'Add fulfillment info'}</button>
+                  </div>
                 </div>
               )}
+              {dispatchMsg[o.id] && <p style={{ fontSize: 11, color: 'var(--sl-muted)', marginTop: 6, marginBottom: 0 }}>{dispatchMsg[o.id]}</p>}
             </div>
           </div>
         ))}
