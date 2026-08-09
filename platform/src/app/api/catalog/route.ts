@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     const tenantId = await resolveTenantId(searchParams.get('token'))
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id')
       .order('sort_order', { ascending: true })
     if (error) throw error
     // Legacy/seeded rows carry the hourly rate in the OLD booking column
@@ -142,8 +142,11 @@ export async function POST(request: Request) {
         active: body.active !== false,
         is_digital: body.is_digital === true,
         digital_delivery_url: body.is_digital === true ? ((body.digital_delivery_url as string) || null) : null,
+        dropship_supplier_id: (body.dropship_supplier_id as string) || null,
+        dropship_external_sku: (body.dropship_external_sku as string)?.trim() || null,
+        dropship_external_variant_id: (body.dropship_external_variant_id as string)?.trim() || null,
       })
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -191,12 +194,15 @@ export async function PATCH(request: Request) {
       if (!body.is_digital) patch.digital_delivery_url = null
     }
     if ('digital_delivery_url' in body) patch.digital_delivery_url = (body.digital_delivery_url as string) || null
+    if ('dropship_supplier_id' in body) patch.dropship_supplier_id = (body.dropship_supplier_id as string) || null
+    if ('dropship_external_sku' in body) patch.dropship_external_sku = (body.dropship_external_sku as string)?.trim() || null
+    if ('dropship_external_variant_id' in body) patch.dropship_external_variant_id = (body.dropship_external_variant_id as string)?.trim() || null
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .update(patch)
       .eq('id', id)
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })
