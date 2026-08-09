@@ -12,6 +12,8 @@ export interface DropshipOrderItem {
   externalVariantId: string | null
   name: string
   qty: number
+  /** Some providers (Printful) require the retail price per line item on order submission. */
+  priceCents: number
 }
 
 export interface DropshipOrderInput {

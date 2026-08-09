@@ -29,7 +29,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: items, error: itemsError } = await db
       .from('shop_order_items')
-      .select('name, qty, service_type_id')
+      .select('name, qty, price_cents, service_type_id')
       .eq('order_id', id)
     if (itemsError) throw itemsError
 
@@ -68,6 +68,7 @@ export async function POST(_request: Request, { params }: Params) {
         externalVariantId: (i.service_type_id && productById.get(i.service_type_id)?.dropship_external_variant_id) || null,
         name: i.name,
         qty: i.qty,
+        priceCents: i.price_cents,
       })),
       shippingAddress: (order.shipping_address as Record<string, string | null>) || null,
       customerName: order.customer_name,

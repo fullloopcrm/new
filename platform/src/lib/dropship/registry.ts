@@ -1,6 +1,8 @@
 import type { DropshipAdapter } from './types'
 import { manualAdapter } from './adapters/manual'
 import { printifyAdapter } from './adapters/printify'
+import { printfulAdapter } from './adapters/printful'
+import { gootenAdapter } from './adapters/gooten'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 // New provider = implement DropshipAdapter in adapters/<name>.ts, add it
@@ -8,6 +10,8 @@ import { decryptSecret } from '@/lib/secret-crypto'
 const ADAPTERS: Record<string, DropshipAdapter> = {
   manual: manualAdapter,
   printify: printifyAdapter,
+  printful: printfulAdapter,
+  gooten: gootenAdapter,
 }
 
 export function getAdapter(key: string): DropshipAdapter {
