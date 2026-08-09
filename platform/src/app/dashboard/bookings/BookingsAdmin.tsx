@@ -552,6 +552,26 @@ function BookingsPage() {
     setCloseOutSaving(null)
   }
 
+  // Manual, admin-clicked payment reminder (text + email) for whatever a
+  // booking's real outstanding balance is. No cron, no auto-fire — only
+  // sends when someone on the team clicks it for this specific booking.
+  const sendPaymentReminder = async (b: Booking) => {
+    setCloseOutSaving(b.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${b.id}/send-payment-reminder`, { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(j.error || 'Reminder failed')
+      } else {
+        alert(`Reminder sent — SMS: ${j.sms?.sent || 0}, Email: ${j.email?.sent || 0}`)
+      }
+    } catch (e) {
+      console.error('Send reminder failed:', e)
+      alert('Reminder failed')
+    }
+    setCloseOutSaving(null)
+  }
+
   const clearFilters = () => {
     setFilters({ status: 'scheduled', service_type: '', team_member_id: '', client_id: '', date_from: '', date_to: '' })
   }
@@ -1591,7 +1611,7 @@ function BookingsPage() {
                           </div>
                         </div>
                         {/* Close out controls */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                           {/* Job Complete */}
                           <button
                             disabled={isSaving}
@@ -1651,6 +1671,15 @@ function BookingsPage() {
                               Apple
                             </button>
                           </div>
+                          {/* Remind — manual, admin-clicked text + email for whatever's
+                              really still outstanding. Never fires on its own. */}
+                          <button
+                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
+                            onClick={() => sendPaymentReminder(b)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700"
+                          >
+                            Remind
+                          </button>
                           {/* Cleaner Paid — pays every team member's REAL outstanding
                               balance (inserts team_member_payouts rows), not a flag flip. */}
                           <button
