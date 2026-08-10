@@ -5,6 +5,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/weekly-staff-payroll",
+      "schedule": "0 13 * * 1"
+    },
+    {
       "path": "/api/cron/finance-post",
       "schedule": "0 4 * * *"
     },
