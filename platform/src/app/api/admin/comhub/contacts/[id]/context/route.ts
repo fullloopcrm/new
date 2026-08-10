@@ -101,7 +101,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (clientId) {
     const { data: c } = await db
       .from('clients')
-      .select('id, name, email, phone, address, address_line1, status, active, do_not_service, sms_consent, pin, pet_name, pet_type, notes_private, notes_public, created_at')
+      .select('id, name, email, phone, address, address_line1, status, active, do_not_service, dns_reason, sms_consent, pin, pet_name, pet_type, notes_private, notes_public, created_at')
       .eq('id', clientId)
       .single()
     client = c ? { ...c, pin: safeDecryptPin(c.pin as string | null) } : c

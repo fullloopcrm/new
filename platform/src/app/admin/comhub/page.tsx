@@ -133,6 +133,7 @@ type ClientRow = {
   status: string | null
   active: boolean | null
   do_not_service: boolean | null
+  dns_reason: string | null
   pin: string | null
   pet_name: string | null
   pet_type: string | null
@@ -1790,6 +1791,9 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
         blockedAt={contact.blocked_at}
         blockedReason={contact.blocked_reason}
         hasIp={!!contact.ip_address}
+        clientId={client?.id ?? null}
+        clientDns={client?.do_not_service ?? null}
+        clientDnsReason={client?.dns_reason ?? null}
         onChanged={onContactSaved}
       />
 
@@ -2106,37 +2110,53 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Block / unblock a contact (2026-08-10). Blocking stops them messaging on
-// any channel (checked in each inbound handler by phone/email/IP) and, when
-// they have an IP on file, also blocks that exact IP site-wide via
-// tenants.blocked_ips (enforced in middleware.ts).
+// DNS (2026-08-10) — one button, one concept, regardless of whether this
+// contact is linked to a real client. Same purpose either way: stop them
+// messaging you again and block their IP from the site (tenants.blocked_ips,
+// enforced in middleware.ts). Two different tables back it only because a
+// Comm Hub contact isn't always a real client:
+//   - linked to a client  -> clients.do_not_service (also blocks rebooking,
+//     the client-side meaning of DNS everywhere else in the app)
+//   - unlinked/anonymous  -> comhub_contacts.blocked_at (no client record to
+//     flag, so this is the only place the "don't service this person" fact
+//     can live)
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, onChanged }: {
+function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, clientId, clientDns, clientDnsReason, onChanged }: {
   contactId: string
   blockedAt: string | null
   blockedReason: string | null
   hasIp: boolean
+  clientId: string | null
+  clientDns: boolean | null
+  clientDnsReason: string | null
   onChanged?: () => void
 }) {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const blocked = !!blockedAt
+  const onDns = clientId ? !!clientDns : !!blockedAt
+  const activeReason = clientId ? clientDnsReason : blockedReason
 
   useEffect(() => { setReason(''); setError(null) }, [contactId])
 
   const toggle = async () => {
-    if (!blocked && !window.confirm(hasIp
-      ? 'Block this contact? They will be unable to message you again, and their IP will be blocked from the site entirely.'
-      : 'Block this contact? They will be unable to message you again on any channel.')) return
+    if (!onDns && !window.confirm(hasIp
+      ? 'Move to DNS? They will be unable to message you again, and their IP will be blocked from the site entirely.'
+      : 'Move to DNS? They will be unable to message you again on any channel.')) return
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/admin/comhub/contacts/${contactId}/block`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(blocked ? { blocked: false } : { blocked: true, reason: reason.trim() || undefined }),
-      })
+      const res = clientId
+        ? await fetch(`/api/clients/${clientId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(onDns ? { do_not_service: false, dns_reason: null } : { do_not_service: true, dns_reason: reason.trim() || null }),
+          })
+        : await fetch(`/api/admin/comhub/contacts/${contactId}/block`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(onDns ? { blocked: false } : { blocked: true, reason: reason.trim() || undefined }),
+          })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setError(data.error || `HTTP ${res.status}`)
@@ -2150,9 +2170,9 @@ function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, onCha
 
   return (
     <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
-      {blocked ? (
+      {onDns ? (
         <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>
-          Blocked{blockedReason ? ` — ${blockedReason}` : ''}
+          DNS{activeReason ? ` — ${activeReason}` : ''}
         </div>
       ) : (
         <input
@@ -2169,11 +2189,11 @@ function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, onCha
         onClick={toggle}
         disabled={busy}
         className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
-        style={blocked
+        style={onDns
           ? { fontFamily: 'var(--mono)', background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line-soft)' }
           : { fontFamily: 'var(--mono)', background: 'rgba(220,38,38,0.9)', color: '#fff' }}
       >
-        {busy ? 'Working…' : blocked ? 'Unblock' : 'Block'}
+        {busy ? 'Working…' : onDns ? 'Restore from DNS' : 'DNS'}
       </button>
     </div>
   )

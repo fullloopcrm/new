@@ -15,6 +15,7 @@ type Booking = {
   hourly_rate: number | null
   pay_rate: number | null
   actual_hours: number | null
+  team_member_id: string | null
   team_member_pay: number | null
   team_member_paid: boolean | null
   team_member_paid_at: string | null
@@ -123,6 +124,22 @@ export default function BookingDetailPage() {
       const { booking: updated } = await res.json()
       setBooking(prev => prev ? { ...prev, ...updated } : prev)
     }
+  }
+
+  // Real payout (inserts team_member_payouts), not a flag flip -- same
+  // endpoint the Close-Out panel's own quick-pay action uses, and same
+  // 'other' default method for a one-click action with no method picker.
+  // The old version of this button only flipped bookings.team_member_paid
+  // with nothing behind it (2026-08-10 finding: 18 of the last 30 "closed"
+  // bookings had zero payout row).
+  async function markTeamPaid() {
+    if (!booking?.team_member_id || !booking.team_member_pay) return
+    const res = await fetch(`/api/admin/bookings/${id}/cleaner-payout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cleaner_id: booking.team_member_id, amount_cents: booking.team_member_pay, method: 'other' }),
+    })
+    if (res.ok) reload()
   }
 
   async function saveEdit() {
@@ -508,7 +525,7 @@ export default function BookingDetailPage() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => updatePayment({ team_member_paid: true })}
+                      onClick={markTeamPaid}
                       className="text-xs px-3 py-1 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700"
                     >
                       Mark Team Paid
@@ -650,7 +667,7 @@ export default function BookingDetailPage() {
                 )}
                 {booking.payment_status === 'paid' && !booking.team_member_paid && (
                   <button
-                    onClick={() => updatePayment({ team_member_paid: true })}
+                    onClick={markTeamPaid}
                     className="w-full text-sm bg-teal-600 text-white py-2 rounded-lg font-medium hover:bg-teal-700"
                   >
                     Mark Team Paid

@@ -452,7 +452,21 @@ function BookingsPage() {
   // data: complete, cleaner actually paid (payouts table), client actually
   // paid (payments table). Not "someone flipped a label." Summary not loaded
   // yet defaults to false — never show a job as closed before it's verified.
+  //
+  // Grandfather cutoff (2026-08-10): this check went live retroactively and
+  // surfaced a real gap — most of the team-member side never had a real
+  // team_member_payouts row, only the flag (traced to the old "Mark Team
+  // Paid" button on the booking detail page, now fixed to write the real
+  // row like this panel's own close-out flow always has). Everyone was
+  // actually paid before that fix landed; the missing row is a record-
+  // keeping gap, not an unpaid cleaner. Anything from before today is
+  // trusted on the flags alone rather than re-litigated against payout
+  // records that were never going to exist for pre-fix bookings. Only
+  // applies here — flagClaimsAttention (the flags themselves saying unpaid)
+  // is untouched, so a booking that's actually flagged unpaid still shows.
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const isBookingReallyClosed = (b: Booking) => {
+    if (new Date(b.start_time) < todayStart) return true
     const summary = closeOutSummaries[b.id]
     if (!summary) return false
     return b.status === 'completed' && summary.laborOutstandingCents === 0 && summary.customerOutstandingCents === 0
