@@ -11,18 +11,23 @@ import { encryptSecret } from '@/lib/secret-crypto'
 
 const COLUMNS = 'id, name, adapter_key, config, active, created_at, updated_at'
 
-/** apiKey never leaves the server once set — the dashboard only needs to know one is present. */
+/** Secret fields never leave the server once set — the dashboard only needs to know one is present. */
 function maskConfig(config: Record<string, unknown> | null): Record<string, unknown> {
   if (!config) return {}
-  if (!('apiKey' in config)) return config
-  const { apiKey: _dropped, ...rest } = config
-  return { ...rest, hasApiKey: true }
+  const { apiKey: _apiKey, sharedSecret: _sharedSecret, ...rest } = config
+  return {
+    ...rest,
+    ...('apiKey' in config ? { hasApiKey: true } : {}),
+    ...('sharedSecret' in config ? { hasSharedSecret: true } : {}),
+  }
 }
 
-/** Encrypts config.apiKey before it's ever written to Postgres — dropship_suppliers.config is never plaintext credentials at rest. */
+/** Encrypts config secret fields before they're ever written to Postgres — dropship_suppliers.config is never plaintext credentials at rest. */
 function encryptConfig(config: Record<string, unknown>): Record<string, unknown> {
-  if (typeof config.apiKey !== 'string' || !config.apiKey) return config
-  return { ...config, apiKey: encryptSecret(config.apiKey) }
+  const encrypted = { ...config }
+  if (typeof encrypted.apiKey === 'string' && encrypted.apiKey) encrypted.apiKey = encryptSecret(encrypted.apiKey)
+  if (typeof encrypted.sharedSecret === 'string' && encrypted.sharedSecret) encrypted.sharedSecret = encryptSecret(encrypted.sharedSecret)
+  return encrypted
 }
 
 export async function GET() {

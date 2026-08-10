@@ -634,6 +634,11 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>
                 {it.category && <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{it.category}</span>}
+                {it.dropship_supplier_id && (
+                  <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-ink)', background: 'var(--sl-canvas,#f2f2ee)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 4, padding: '1px 6px' }}>
+                    {suppliers.find((s) => s.id === it.dropship_supplier_id)?.name || 'Unknown supplier'}
+                  </span>
+                )}
                 {it.description && <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-muted)' }}>{it.description}</span>}
                 {it.notes && <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', fontStyle: 'italic' }} title="Internal only — not shown on the proposal">Note: {it.notes}</span>}
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', marginTop: 2 }}>
