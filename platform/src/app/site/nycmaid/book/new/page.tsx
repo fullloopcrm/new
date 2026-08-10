@@ -7,6 +7,7 @@ import { validateEmail } from '@/app/site/nycmaid/_lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -41,6 +42,7 @@ function BookFormContent() {
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref') || ''
   const srcDomain = searchParams.get('src') || ''
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const [form, setForm] = useState({
     name: '',
@@ -351,6 +353,7 @@ function BookFormContent() {
           confirmed_at: new Date().toISOString(),
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
           sms_opt_in: smsOptIn,
+          ...getSpamGuardFields(),
         }),
       })
       const data = await res.json()
@@ -410,6 +413,7 @@ function BookFormContent() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           {/* Service type — main row excludes Same-Day. Team size, hours, and
               supplies are now defaults (1 cleaner, hours derived from service,
               we-bring); they can be tweaked from "More options" below. */}
