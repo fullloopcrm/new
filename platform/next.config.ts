@@ -63,7 +63,6 @@ const nextConfig: NextConfig = {
       // NOTE: /book/new is the PUBLIC self-book lead form (served from the
       // tenant site), NOT the client portal — so it must NOT redirect to
       // /portal/book (which is auth-gated and bounces new leads to login).
-      { source: '/book/collect', destination: '/portal/collect', permanent: true },
       { source: '/book/reschedule/:id', destination: '/portal/bookings/:id', permanent: true },
       { source: '/book/dashboard', destination: '/portal', permanent: true },
       // Only match UUID check-in tokens so named portal routes (/team/login,
