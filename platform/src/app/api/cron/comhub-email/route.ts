@@ -10,6 +10,8 @@ import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 import { trackError } from '@/lib/error-tracking'
+import { getTenantTimezone } from '@/lib/tenant-time'
+import { isTenantAiAway, type SupportHours } from '@/lib/comhub-away'
 
 // Automated/notification senders (payment processors, banks, dev-tool alerts,
 // marketing blasts) should be mirrored into comhub for visibility but never
@@ -53,6 +55,9 @@ type MailAccount = {
   resendApiKey: string | null // tenant Resend → branded reply; null → nycmaid fallback
   emailFrom: string | null
   brand: Brand
+  timezone: string
+  supportHours: SupportHours | null
+  manualAway: boolean
 }
 
 export async function collectAccounts(): Promise<MailAccount[]> {
@@ -61,13 +66,14 @@ export async function collectAccounts(): Promise<MailAccount[]> {
   // Per-tenant: every tenant that has saved IMAP creds in its profile.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, phone, email, address, logo_url, primary_color, imap_host, imap_user, imap_pass, imap_port, resend_api_key, email_from')
+    .select('id, name, phone, email, address, logo_url, primary_color, imap_host, imap_user, imap_pass, imap_port, resend_api_key, email_from, timezone, selena_config')
     .not('imap_host', 'is', null)
     .not('imap_user', 'is', null)
     .not('imap_pass', 'is', null)
 
   for (const t of tenants || []) {
     try {
+      const selenaConfig = (t.selena_config || {}) as Record<string, unknown>
       accounts.push({
         tenantId: t.id,
         host: String(t.imap_host).trim(),
@@ -88,6 +94,9 @@ export async function collectAccounts(): Promise<MailAccount[]> {
           logoUrl: t.logo_url,
           primaryColor: t.primary_color,
         },
+        timezone: getTenantTimezone(t as { timezone?: string | null }),
+        supportHours: (selenaConfig.support_hours as SupportHours | undefined) || null,
+        manualAway: Boolean(selenaConfig.manual_away),
       })
     } catch {
       // Bad/undecryptable creds for one tenant must not sink the whole run.
@@ -97,6 +106,12 @@ export async function collectAccounts(): Promise<MailAccount[]> {
   // nycmaid env fallback — only if it isn't already covered by a profile entry.
   const envPass = (process.env.EMAIL_PASS || '').trim()
   if (envPass && !accounts.some((a) => a.tenantId === NYCMAID_TENANT_ID)) {
+    const { data: nycmaidTenant } = await supabaseAdmin
+      .from('tenants')
+      .select('timezone, selena_config')
+      .eq('id', NYCMAID_TENANT_ID)
+      .single()
+    const selenaConfig = (nycmaidTenant?.selena_config || {}) as Record<string, unknown>
     accounts.push({
       tenantId: NYCMAID_TENANT_ID,
       host: (process.env.EMAIL_HOST || 'mail.thenycmaid.com').trim(),
@@ -106,6 +121,9 @@ export async function collectAccounts(): Promise<MailAccount[]> {
       resendApiKey: null,
       emailFrom: null,
       brand: { name: 'The NYC Maid' },
+      timezone: getTenantTimezone(nycmaidTenant as { timezone?: string | null } | null),
+      supportHours: (selenaConfig.support_hours as SupportHours | undefined) || null,
+      manualAway: Boolean(selenaConfig.manual_away),
     })
   }
 
@@ -257,7 +275,12 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           // 2026-07-25 — confirmed via comhub_messages that this had silently
           // stopped ALL nycmaid email auto-replies since 2026-07-22 (the FL
           // cutover), not just "inconsistently."
-          if (!paused && !dnsClient?.do_not_service) {
+          const away = isTenantAiAway({
+            timezone: account.timezone,
+            supportHours: account.supportHours,
+            manualAway: account.manualAway,
+          })
+          if (!paused && !dnsClient?.do_not_service && away) {
             // Channel-parity fix (2026-07-25, Jeff): email used to always pass
             // phone=undefined, so Yinez's shared loadContext() (prior bookings,
             // notes, preferred cleaner, remembered facts, owner detection) never

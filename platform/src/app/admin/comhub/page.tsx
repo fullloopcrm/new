@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { isTenantAiAway, type SupportHours } from '@/lib/comhub-away'
 import { formatPhone } from '@/lib/format'
 import ComhubSettings from './comhub-settings'
 
@@ -221,6 +223,48 @@ function renderWithMentions(text: string): React.ReactNode {
   })
 }
 const threadTitle = (t: Thread) => t.kind === 'channel' ? (t.name || `#${t.slug || 'channel'}`) : contactDisplay(t.comhub_contacts)
+
+// Persistent status + one-click override for Yinez's SMS/email auto-reply
+// coverage. Schedule comes from ComHub Settings -> Work hours
+// (selena_config.support_hours); this button flips selena_config.manual_away
+// to force her on immediately regardless of the schedule (e.g. short-staffed
+// mid-day), independent of the per-thread "Away ▾" canned-reply templates.
+function AwayToggle() {
+  const { tenant, updateSelenaConfig, saving } = useTenantSettings()
+  if (!tenant) return null
+
+  const selena = (tenant.selena_config as Record<string, unknown> | null) || {}
+  const manualAway = Boolean(selena.manual_away)
+  const supportHours = (selena.support_hours as Partial<SupportHours> | null) || null
+  const scheduledAway = isTenantAiAway({
+    timezone: tenant.timezone as string | null,
+    supportHours,
+    manualAway: false,
+  })
+  const effectivelyAway = manualAway || scheduledAway
+
+  return (
+    <button
+      type="button"
+      disabled={saving}
+      onClick={() => updateSelenaConfig({ manual_away: !manualAway })}
+      className="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs mb-3 transition-colors disabled:opacity-60"
+      style={{
+        fontFamily: 'var(--mono)',
+        border: '1px solid var(--color-loop-line-soft)',
+        background: effectivelyAway ? 'rgba(16,185,129,0.12)' : 'var(--color-loop-canvas)',
+      }}
+      title={manualAway ? 'Manually marked away — click to hand coverage back to your team' : 'Click to hand coverage to Yinez right now, regardless of the schedule'}
+    >
+      <span style={{ color: effectivelyAway ? '#10b981' : 'var(--color-loop-muted)' }}>
+        {effectivelyAway ? 'Yinez is responding' : 'Yinez is silent — support hours'}
+      </span>
+      <span className="font-medium" style={{ color: 'var(--color-loop-ink)' }}>
+        {manualAway ? 'End away' : 'Away'}
+      </span>
+    </button>
+  )
+}
 
 export default function ComhubPage() {
   // This component renders under two different layouts: /dashboard/comhub
@@ -550,6 +594,7 @@ export default function ComhubPage() {
               <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)', fontFamily: 'var(--mono)' }}>{totalUnread} unread</span>
             </div>
           )}
+          <AwayToggle />
           <div className="flex gap-1.5 mb-3">
             <button
               onClick={() => {
