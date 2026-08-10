@@ -57,4 +57,13 @@ export interface DropshipAdapter {
   getTracking(externalOrderId: string, config: Record<string, unknown>): Promise<DropshipTrackingInfo | null>
   /** Parse an inbound webhook payload from the supplier into tracking info, or null if it isn't one. */
   parseTrackingWebhook(payload: unknown, config: Record<string, unknown>): DropshipTrackingInfo | null
+  /**
+   * Optional: verify an inbound webhook's authenticity from the raw request
+   * body and headers, before it's parsed. Adapters whose provider has no
+   * signature scheme (or none has been wired up yet) should omit this
+   * entirely -- the webhook route treats a missing method as "no
+   * verification available" and processes the webhook unauthenticated,
+   * same as before this method existed. Return false to reject the request.
+   */
+  verifyWebhookSignature?(rawBody: string, headers: Headers, config: Record<string, unknown>): boolean
 }

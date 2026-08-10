@@ -30,11 +30,20 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (supplierError || !supplier) return NextResponse.json({ error: 'Unknown supplier' }, { status: 404 })
 
-    const payload = await request.json().catch(() => null)
-    if (!payload) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+    const rawBody = await request.text()
+    let payload: unknown
+    try {
+      payload = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+    }
 
     const adapter = getAdapter(supplier.adapter_key)
-    const tracking = adapter.parseTrackingWebhook(payload, decryptSupplierConfig(supplier.config as Record<string, unknown>))
+    const config = decryptSupplierConfig(supplier.config as Record<string, unknown>)
+    if (adapter.verifyWebhookSignature && !adapter.verifyWebhookSignature(rawBody, request.headers, config)) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+    const tracking = adapter.parseTrackingWebhook(payload, config)
     if (!tracking) return NextResponse.json({ ok: true, ignored: true })
 
     if (!tracking.externalOrderId) return NextResponse.json({ error: 'Adapter could not identify the order for this webhook' }, { status: 400 })

@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import type { DropshipAdapter, DropshipOrderInput, DropshipOrderResult, DropshipTrackingInfo } from '../types'
 
 /**
@@ -218,5 +218,25 @@ export const apliiqAdapter: DropshipAdapter = {
       // else is left unmapped rather than guessed.
       status: f.status?.trim().toLowerCase() === 'success' ? 'shipped' : null,
     }
+  },
+
+  // Docs (fulfillment-url article): x-apliiq-hmac = base64(HMAC-SHA256(base64(rawBody), sharedSecret)) --
+  // the same scheme as authHeader() above, just base64-encoding the whole
+  // body instead of a request-specific string. NOT smoke-tested against a
+  // real inbound webhook yet (no live order has shipped) -- doc-verified,
+  // not response-verified, same caveat as getTracking above.
+  verifyWebhookSignature(rawBody: string, headers: Headers, config: Record<string, unknown>): boolean {
+    const sharedSecret = config.sharedSecret as string | undefined
+    if (!sharedSecret) return false
+    const provided = headers.get('x-apliiq-hmac')
+    if (!provided) return false
+
+    const bodyB64 = Buffer.from(rawBody).toString('base64')
+    const expected = createHmac('sha256', sharedSecret).update(bodyB64).digest('base64')
+
+    const providedBuf = Buffer.from(provided)
+    const expectedBuf = Buffer.from(expected)
+    if (providedBuf.length !== expectedBuf.length) return false
+    return timingSafeEqual(providedBuf, expectedBuf)
   },
 }
