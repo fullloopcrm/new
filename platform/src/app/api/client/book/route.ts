@@ -278,11 +278,11 @@ export async function POST(request: Request) {
       const emailLower = (body.email as string).toLowerCase()
       const clientName = formatName(body.name as string)
 
-      let matchedClient: { id: string; name: string | null; phone: string | null } | null = null
+      let matchedClient: { id: string; name: string | null; phone: string | null; do_not_service: boolean | null } | null = null
 
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
-        .select('id, name, phone')
+        .select('id, name, phone, do_not_service')
         .eq('tenant_id', tenant.id)
         .ilike('email', escapeLikeValue(emailLower))
         .maybeSingle()
@@ -291,10 +291,23 @@ export async function POST(request: Request) {
       if (!clientId && phone) {
         const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
-          .select('id, name, phone')
+          .select('id, name, phone, do_not_service')
           .eq('phone', phone)
           .maybeSingle()
         if (byPhone) { clientId = byPhone.id; matchedClient = byPhone }
+      }
+
+      // Guest checkout (no client_id cookie/session) matches an existing
+      // client by email/phone above -- without this, a DNS'd client could
+      // bypass the do_not_service gate above entirely just by submitting the
+      // booking form logged out instead of logged in. Same rejection as the
+      // known-client_id path.
+      if (matchedClient?.do_not_service) {
+        await trackError(new Error('do_not_service client attempted guest booking'), { source: 'client/book:do_not_service_guest', tenantId: tenant.id, severity: 'low', extra: matchedClient.id, alwaysAlert: true })
+        const contactPhone = tenant.phone || ''
+        return NextResponse.json({
+          error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
+        }, { status: 403 })
       }
 
       // A client whose name is still exactly their own phone number is the

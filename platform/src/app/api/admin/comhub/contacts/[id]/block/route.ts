@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireComhubAccess } from '@/lib/comhub-access'
-import { supabaseAdmin } from '@/lib/supabase'
+import { setTenantIpBlocked } from '@/lib/ip-block-list'
 
 // PATCH /api/admin/comhub/contacts/[id]/block
 //   { blocked: true, reason?: string } | { blocked: false }
@@ -43,22 +43,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  if (contact.ip_address) {
-    // Read-modify-write on the array — block-list churn is rare (abuse
-    // cases only), so the tiny race window against a concurrent block/unblock
-    // on a DIFFERENT contact's IP is an acceptable tradeoff against the
-    // complexity of a real set-membership RPC.
-    const { data: tenant } = await supabaseAdmin
-      .from('tenants')
-      .select('blocked_ips')
-      .eq('id', tenantId)
-      .single()
-    const current: string[] = tenant?.blocked_ips || []
-    const next = body.blocked
-      ? Array.from(new Set([...current, contact.ip_address]))
-      : current.filter((ip) => ip !== contact.ip_address)
-    await supabaseAdmin.from('tenants').update({ blocked_ips: next }).eq('id', tenantId)
-  }
+  await setTenantIpBlocked(tenantId, contact.ip_address, body.blocked)
 
   return NextResponse.json({ ok: true })
 }
