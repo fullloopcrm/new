@@ -1359,6 +1359,18 @@ function ComposeModal(props: {
       }
       if (props.channel === 'sms') payload.phone = props.recipient.trim()
       else { payload.email = props.recipient.trim(); if (props.subject.trim()) payload.subject = props.subject.trim() }
+      // Pin the exact client/team-member the admin picked from search, so the
+      // backend prefers their existing comhub_contacts row (if any) instead of
+      // re-deriving identity from the phone/email string alone — which can
+      // silently land on a different contact that already owns that number.
+      const pickedMatch = picked && (
+        (props.channel === 'sms' && picked.phone === props.recipient.trim()) ||
+        (props.channel === 'email' && picked.email === props.recipient.trim())
+      )
+      if (pickedMatch) {
+        if (picked!.role === 'client') payload.client_id = picked!.id
+        else if (picked!.role === 'cleaner') payload.team_member_id = picked!.id
+      }
       const res = await fetch('/api/admin/comhub/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1461,7 +1473,7 @@ function ComposeModal(props: {
             </label>
             <input
               value={props.recipient}
-              onChange={(e) => props.setRecipient(e.target.value)}
+              onChange={(e) => { props.setRecipient(e.target.value); setPicked(null) }}
               placeholder={props.channel === 'email' ? 'name@example.com' : '+1212...'}
               className="w-full rounded-md px-3 py-2 text-sm mb-2 focus:outline-none"
               style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}

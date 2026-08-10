@@ -90,7 +90,7 @@ export async function listComhubThreads(tenantId: string, params: ListThreadsPar
   // correctly connected without an admin ever having to open their panel.
   const unresolved = threads
     .map(t => t.comhub_contacts)
-    .filter((c): c is ContactRow => !!c && (!c.client_id || !c.team_member_id || isPlaceholderName(c.name, c.phone)))
+    .filter((c): c is ContactRow => !!c && ((!c.client_id && !c.team_member_id) || isPlaceholderName(c.name, c.phone)))
   if (unresolved.length > 0) {
     const resolved = await Promise.all(
       unresolved.map(c => resolveContactLinkage(db, tenantId, { ...c, email: c.email })),

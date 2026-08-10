@@ -14,6 +14,8 @@ import { emailShell } from '@/lib/messaging/shell'
 export interface SendComhubMessageBody {
   thread_id?: string
   contact_id?: string
+  client_id?: string
+  team_member_id?: string
   phone?: string
   email?: string
   channel?: 'sms' | 'email' | 'internal' | 'web'
@@ -228,6 +230,24 @@ export async function sendComhubMessage(
     if (!contactId) contactId = t.contact_id
   }
 
+  // Caller-supplied client_id/team_member_id (the compose picker's search
+  // result) takes precedence over phone/email string matching: prefer this
+  // exact person's own comhub_contacts row if one already exists, instead of
+  // letting comhub_get_or_create_contact_by_phone below silently attach to a
+  // DIFFERENT existing contact that happens to already own that phone/email
+  // (stale or reused number, duplicate client record, etc).
+  if (!contactId && (body.client_id || body.team_member_id)) {
+    const fkColumn = body.client_id ? 'client_id' : 'team_member_id'
+    const fkValue = body.client_id || body.team_member_id
+    const { data: existing } = await supabaseAdmin
+      .from('comhub_contacts')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq(fkColumn, fkValue as string)
+      .maybeSingle()
+    if (existing) contactId = existing.id
+  }
+
   // Caller-supplied contact_id is verified against THIS tenant unconditionally
   // — regardless of whether `phone`/`email` are ALSO present in the body.
   // A foreign contact_id (with a phone/email attached in the body) must not
@@ -249,7 +269,7 @@ export async function sendComhubMessage(
     if (body.channel === 'sms') {
       if (!phone) return fail(400, 'phone required for sms')
       const { data, error } = await supabaseAdmin
-        .rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: phone })
+        .rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: phone, p_client_id: body.client_id || null })
       if (error || !data) return fail(500, error?.message || 'contact create failed')
       contactId = data as string
     } else {
