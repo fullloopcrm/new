@@ -161,7 +161,7 @@ function bookReq(body: Record<string, unknown>) {
   return POST(
     new Request('http://t/api/client/book', {
       method: 'POST',
-      body: JSON.stringify({ client_id: CLIENT, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00', ...body }),
+      body: JSON.stringify({ _ts: Date.now() - 5000, client_id: CLIENT, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00', ...body }),
     }),
   )
 }
@@ -174,6 +174,7 @@ function bookReqNewClient(body: Record<string, unknown>) {
     new Request('http://t/api/client/book', {
       method: 'POST',
       body: JSON.stringify({
+        _ts: Date.now() - 5000,
         name: 'Nora NewClient', email: 'nora@example.com', phone: '5551234567', address: '1 Main St',
         start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00',
         lead_source: 'website',

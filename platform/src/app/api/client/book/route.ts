@@ -40,6 +40,7 @@ import { isValidLeadSource } from '@/lib/lead-sources'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
 import { getSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -223,6 +224,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+    // Same honeypot + render-timing guard as the other public lead/contact/
+    // application routes (spam-guard.ts) -- this form never had it (2026-08-10
+    // gap: a fabricated booking got through cleanly enough to reach a real
+    // client record). Plausible fake success, not an error, so a scripted
+    // bot gets no signal to adapt to.
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const smsOptedIn = body.sms_opt_in === true
     const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
     const consentText = getSmsConsentText(tenant as { id: string; name: string })
