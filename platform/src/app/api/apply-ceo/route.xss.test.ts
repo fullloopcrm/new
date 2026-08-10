@@ -47,7 +47,7 @@ function req(body: Record<string, unknown>) {
   return new Request('http://t/api/apply-ceo', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ _ts: Date.now() - 5000, ...body }),
   })
 }
 

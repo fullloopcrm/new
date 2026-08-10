@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { validateEmail } from '@/lib/validate-email'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const SEGMENTS = [
   'Homeowners',
@@ -39,6 +40,7 @@ export default function ApplySalesPartnerPage() {
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const formatPhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '')
@@ -126,7 +128,7 @@ export default function ApplySalesPartnerPage() {
       const res = await fetch('/api/sales-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, video_url }),
+        body: JSON.stringify({ ...form, video_url, ...getSpamGuardFields() }),
       })
 
       if (res.ok) {
@@ -169,6 +171,7 @@ export default function ApplySalesPartnerPage() {
 
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           <div>
             <h2 className="text-xl font-bold text-[#1E2A4A]">Apply — Commission Sales Partner</h2>
             <p className="text-gray-500 text-sm mt-1">10% recurring commission · Paid daily via Stripe · 1099 · No cap</p>

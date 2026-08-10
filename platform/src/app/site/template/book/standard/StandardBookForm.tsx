@@ -8,6 +8,7 @@ import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import type { SiteConfig } from '../../_config/types'
 import SmsConsent from '../../_components/SmsConsent'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 /**
  * Trade-agnostic standard booking form. Config-driven (services, theme,
@@ -56,6 +57,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref') || ''
   const srcDomain = searchParams.get('src') || ''
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const [form, setForm] = useState({
     name: '',
@@ -141,6 +143,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
           client_confirmed: true,
           confirmed_at: new Date().toISOString(),
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          ...getSpamGuardFields(),
         }),
       })
       const data = await res.json().catch(() => null)
@@ -202,6 +205,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
           </div>
 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5 border border-slate-100">
+            <Honeypot inputRef={honeypotRef} />
             {/* Service */}
             <div>
               <label className={labelCls}>Service</label>

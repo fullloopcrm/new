@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { QUALIFY_OPTIONS } from '@/lib/lead-fit'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const O = QUALIFY_OPTIONS
 
 export default function QualifyPage() {
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
   const [f, setF] = useState({
     // Identity (free text — can't be a dropdown)
     business_name: '', owner_name: '', owner_email: '', owner_phone: '',
@@ -45,7 +47,7 @@ export default function QualifyPage() {
     setErr(''); setSubmitting(true)
     try {
       const res = await fetch('/api/prospects', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f, ...getSpamGuardFields() }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
@@ -74,6 +76,7 @@ export default function QualifyPage() {
         <p className="text-sm text-slate-500 mb-6">This isn&apos;t a CRM you shop on price — it&apos;s automation that changes how home-service businesses run. A few questions so we know you&apos;re a fit. Takes 60 seconds.</p>
         {err && <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>}
         <form onSubmit={submit} className="space-y-6">
+          <Honeypot inputRef={honeypotRef} />
           <Section title="You & your business">
             <Row>
               <Field label="Business name *"><input required value={f.business_name} onChange={e => up('business_name', e.target.value)} className="input" /></Field>

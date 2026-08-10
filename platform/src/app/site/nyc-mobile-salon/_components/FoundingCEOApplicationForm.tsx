@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -80,6 +81,7 @@ export default function FoundingCEOApplicationForm() {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
   const [uploadProgress, setUploadProgress] = useState('')
 
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,6 +204,7 @@ export default function FoundingCEOApplicationForm() {
           ...form,
           videoUrl,
           resumeUrl,
+          ...getSpamGuardFields(),
         }),
       })
 
@@ -247,6 +250,7 @@ export default function FoundingCEOApplicationForm() {
       onSubmit={handleSubmit}
       className="rounded-2xl border border-purple-100 bg-white p-5 sm:p-8 space-y-5"
     >
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h3 className="text-center font-display text-xl font-bold text-slate-800">
           In-Depth Operator Application

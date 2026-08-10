@@ -7,6 +7,7 @@ import { validateEmail } from '@/app/site/the-florida-maid/_lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
 import { FLORIDA_MAID_SMS_CONSENT_TEXT } from '@/lib/sms-consent'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -40,6 +41,7 @@ function BookFormContent() {
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref') || ''
   const srcDomain = searchParams.get('src') || ''
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', address: '', unit: '',
@@ -191,6 +193,7 @@ function BookFormContent() {
           client_confirmed: true, confirmed_at: new Date().toISOString(),
           sms_opt_in: smsOptIn,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          ...getSpamGuardFields(),
         }),
       })
       const data = await res.json()
@@ -242,6 +245,7 @@ function BookFormContent() {
           </div>
 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5">
+            <Honeypot inputRef={honeypotRef} />
             <div>
               <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Service</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
