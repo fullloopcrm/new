@@ -114,12 +114,12 @@ export default function ServicesIndexPage() {
             </div>
             <div className="bg-[#1E2A4A] rounded-2xl p-6 shadow-lg">
               <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.15em] uppercase mb-2">We Bring Everything</p>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-white tracking-wide">$79<span className="text-xl text-blue-200/40">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-white tracking-wide">$69<span className="text-xl text-blue-200/40">/hr</span></p>
               <p className="text-[#A8F0DC] text-[10px] font-semibold tracking-wide mt-2">20% off weekly &middot; 10% off biweekly/monthly</p>
             </div>
             <div className="bg-white rounded-2xl p-6">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">Same-Day</p>
-              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">$99<span className="text-xl text-gray-300">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">$89<span className="text-xl text-gray-300">/hr</span></p>
             </div>
           </div>
           <Link href="/nyc-cleaning-service-pricing" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
@@ -154,7 +154,7 @@ export default function ServicesIndexPage() {
             {[
               { title: 'Background-Checked & Insured', desc: 'Every cleaner is fully vetted, background-checked, and covered by our general liability insurance and bonding.' },
               { title: 'No Money Upfront', desc: 'You pay only after the cleaning is complete, before the cleaner leaves. No deposits, no pre-charges.' },
-              { title: 'Flat Hourly Rate', desc: 'Same rate regardless of service type or neighborhood. $59/hr with your supplies, $79/hr when we bring everything.' },
+              { title: 'Flat Hourly Rate', desc: 'Same rate regardless of service type or neighborhood. $59/hr with your supplies, $69/hr when we bring everything.' },
               { title: 'Same Cleaner Every Time', desc: 'For recurring services, we match you with the same cleaner so they learn your home and your preferences.' },
               { title: 'No Contracts', desc: 'Stay because you\'re happy, not because you\'re locked in. Cancel recurring service with 7 days notice.' },
             ].map(item => (

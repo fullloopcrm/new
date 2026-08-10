@@ -1,9 +1,8 @@
 import { redirect } from 'next/navigation'
 
-// Sunnyside Clean NYC no longer runs its own self-booking form — it redirects
-// straight to NYC Maid's, carrying referral/attribution params (ref, src)
-// through so tracking isn't lost on the hop.
-export default async function BookNewRedirect({
+// Sunnyside Clean NYC has no collect-info flow of its own — redirect to NYC
+// Maid's, carrying params (src, convo_id, etc.) through unchanged.
+export default async function BookCollectRedirect({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -14,5 +13,5 @@ export default async function BookNewRedirect({
     if (typeof value === 'string') qs.set(key, value)
   }
   const query = qs.toString()
-  redirect(`https://www.thenycmaid.com/book/new${query ? `?${query}` : ''}`)
+  redirect(`https://www.thenycmaid.com/book/collect${query ? `?${query}` : ''}`)
 }

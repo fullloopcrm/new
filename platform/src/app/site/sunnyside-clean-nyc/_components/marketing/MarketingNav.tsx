@@ -55,9 +55,9 @@ export default function MarketingNav() {
               </a>
             </div>
             <div className="hidden lg:flex items-center gap-4">
-              <a href="/book/new" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
+              <a href="https://www.thenycmaid.com/book/new" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Client Login</a>
               <span className="text-white/30">|</span>
-              <a href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
+              <a href="https://www.thenycmaid.com/referral" target="_blank" rel="noopener noreferrer" className="text-[#A8F0DC] font-semibold tracking-widest uppercase text-[10px] hover:text-white transition-colors">Referrer Login</a>
             </div>
           </div>
         </div>
@@ -117,9 +117,9 @@ export default function MarketingNav() {
               <a href="sms:2122028400" className="inline-block bg-[#1E2A4A] text-white px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors whitespace-nowrap">
                 Text 212.202.8400
               </a>
-              <Link href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors whitespace-nowrap">
+              <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors whitespace-nowrap">
                 Self Booking $10 OFF
-              </Link>
+              </a>
             </div>
 
             {/* Mobile hamburger */}
@@ -127,9 +127,9 @@ export default function MarketingNav() {
               <a href="sms:2122028400" className="bg-[#1E2A4A] text-white px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Text
               </a>
-              <Link href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
+              <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-3 py-2 rounded-md font-bold text-xs tracking-widest uppercase">
                 Self Booking $10 OFF
-              </Link>
+              </a>
               <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Open navigation menu" aria-expanded={mobileOpen} className="p-2 text-[#1E2A4A]">
                 <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -196,12 +196,12 @@ export default function MarketingNav() {
               )}
 
               <div className="border-t border-white/10 mt-4 pt-4 space-y-1">
-                <a href="/book/new" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</a>
-                <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Referral Program</Link>
+                <a href="https://www.thenycmaid.com/book/new" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Client Login</a>
+                <a href="https://www.thenycmaid.com/referral" onClick={closeMenu} className="block py-3 text-[#A8F0DC] font-medium">Referral Program</a>
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
-                <Link href="/book/new" onClick={closeMenu} className="block bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Self Booking $10 OFF</Link>
+                <a href="https://www.thenycmaid.com/book/new" onClick={closeMenu} className="block bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Self Booking $10 OFF</a>
                 <a href="sms:2122028400" className="block bg-[#1E2A4A] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Text 212.202.8400</a>
               </div>
             </div>
