@@ -26,6 +26,20 @@ import { isAdminBypassPath } from './middleware/admin-bypass'
 // redirect block while adding EMD microsites, 404ing the site's #1-ranked
 // keyword page for a day-plus before anyone noticed). Order of the checks
 // below is load-bearing — see each inline comment for why.
+// Exact-IP site block (2026-08-10) — see migrations/comhub-contact-ip-tracking-and-blocking.sql.
+function requestIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || ''
+}
+
+function isIpBlocked(ip: string, blockedIps: string[] | undefined): boolean {
+  return !!ip && !!blockedIps?.length && blockedIps.includes(ip)
+}
+
+const BLOCKED_RESPONSE = () => new NextResponse('Forbidden', {
+  status: 403,
+  headers: { 'Content-Type': 'text/plain' },
+})
+
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
@@ -70,6 +84,7 @@ export default async function middleware(req: NextRequest) {
     try {
       const tenant = await getTenantBySlug(subdomain)
       if (tenant && tenantServesSite(tenant.status)) {
+        if (isIpBlocked(requestIp(req), tenant.blockedIps)) return BLOCKED_RESPONSE()
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {
@@ -97,6 +112,7 @@ export default async function middleware(req: NextRequest) {
       // falling through to the main site instead of the tenant's own.
       const tenant = await getTenantByDomain(cleanHost)
       if (tenant && tenantServesSite(tenant.status)) {
+        if (isIpBlocked(requestIp(req), tenant.blockedIps)) return BLOCKED_RESPONSE()
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {

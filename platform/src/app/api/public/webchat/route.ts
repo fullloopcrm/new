@@ -5,6 +5,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { notify } from '@/lib/notify'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 import { trackError } from '@/lib/error-tracking'
+import { lookupIpGeo } from '@/lib/comhub-ip-geo'
 
 // Public, unauthenticated web-chatbot widget endpoint. Tenant is resolved from
 // the signed x-tenant-id header injected by middleware on the tenant host —
@@ -116,6 +117,11 @@ export async function POST(req: NextRequest) {
   if (!tenant) return NextResponse.json({ error: 'Tenant not found for this host' }, { status: 404 })
 
   const ip = clientIp(req)
+  const blockedIps = (tenant as { blocked_ips?: string[] | null }).blocked_ips
+  if (ip !== 'unknown' && blockedIps?.includes(ip)) {
+    return NextResponse.json({ error: 'Unable to start chat' }, { status: 403 })
+  }
+
   const rl = await rateLimitDb(`public_webchat:${tenant.id}:${ip}`, 30, 10 * 60 * 1000)
   if (!rl.allowed) return NextResponse.json({ error: 'Too many messages. Try again later.' }, { status: 429 })
 
@@ -141,6 +147,17 @@ export async function POST(req: NextRequest) {
     const thread = await loadThread(tenant.id, threadId)
     if (!thread) return NextResponse.json({ error: 'Unknown chat session' }, { status: 404 })
     contactId = thread.contact_id
+
+    if (contactId) {
+      const { data: contactBlock } = await supabaseAdmin
+        .from('comhub_contacts')
+        .select('blocked_at')
+        .eq('id', contactId)
+        .single()
+      if (contactBlock?.blocked_at) {
+        return NextResponse.json({ error: 'Unable to send message' }, { status: 403 })
+      }
+    }
     // Backfill only — a visitor who started chatting before giving their name
     // (or on an older thread predating identity capture) still gets it
     // attached the moment they do give it, without clobbering anything
@@ -167,9 +184,18 @@ export async function POST(req: NextRequest) {
     }
   } else {
     const clientId = visitorPhone ? await resolveClientIdForPhone(tenant.id, visitorPhone, visitorName) : null
+    const geo = ip !== 'unknown' ? await lookupIpGeo(ip) : { city: null, region: null }
     const { data: contact, error: contactErr } = await supabaseAdmin
       .from('comhub_contacts')
-      .insert({ tenant_id: tenant.id, name: visitorName, phone: visitorPhone, client_id: clientId })
+      .insert({
+        tenant_id: tenant.id,
+        name: visitorName,
+        phone: visitorPhone,
+        client_id: clientId,
+        ip_address: ip !== 'unknown' ? ip : null,
+        geo_city: geo.city,
+        geo_region: geo.region,
+      })
       .select('id')
       .single()
     if (contactErr || !contact) {

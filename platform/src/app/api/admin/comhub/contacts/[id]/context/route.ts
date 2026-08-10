@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const { data: contact, error: cErr } = await db
     .from('comhub_contacts')
-    .select('id, name, phone, email, address, client_id, team_member_id, tag')
+    .select('id, name, phone, email, address, client_id, team_member_id, tag, ip_address, geo_city, geo_region, blocked_at, blocked_reason')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()

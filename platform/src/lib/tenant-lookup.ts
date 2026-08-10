@@ -23,6 +23,10 @@ type TenantInfo = {
   routingMode?: string
   vercelProject?: string
   domainStatus?: string
+  // Exact-IP site block list (2026-08-10). Piggybacks on this already-cached
+  // tenant lookup instead of a separate per-request query — see
+  // migrations/comhub-contact-ip-tracking-and-blocking.sql.
+  blockedIps?: string[]
 }
 
 // In-memory cache with 5-minute TTL
@@ -68,7 +72,7 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
   const sb = getSupabase()
   const { data, error } = await sb
     .from('tenants')
-    .select('id, slug, name, domain, status')
+    .select('id, slug, name, domain, status, blocked_ips')
     .eq('slug', slug)
     .single()
 
@@ -83,6 +87,7 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
     name: data.name,
     domain: data.domain,
     status: data.status,
+    blockedIps: data.blocked_ips ?? undefined,
   }
 
   setCache(slugCache, slug, tenant)
@@ -136,7 +141,7 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
   if (domainRow?.tenant_id) {
     const { data: t } = await sb
       .from('tenants')
-      .select('id, slug, name, domain, status')
+      .select('id, slug, name, domain, status, blocked_ips')
       .eq('id', domainRow.tenant_id)
       .single()
 
@@ -167,6 +172,7 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
         routingMode: domainRow.routing_mode ?? undefined,
         vercelProject: domainRow.vercel_project ?? undefined,
         domainStatus: domainRow.status ?? undefined,
+        blockedIps: t.blocked_ips ?? undefined,
       }
       setCache(domainCache, cleanDomain, tenant)
       return tenant
@@ -182,7 +188,7 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
   // 2. Fallback: tenants.domain (legacy source of truth, retained per P1 spec).
   const { data: tenantData } = await sb
     .from('tenants')
-    .select('id, slug, name, domain, status')
+    .select('id, slug, name, domain, status, blocked_ips')
     .eq('domain', cleanDomain)
     .single()
 
@@ -193,6 +199,7 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
       name: tenantData.name,
       domain: tenantData.domain,
       status: tenantData.status,
+      blockedIps: tenantData.blocked_ips ?? undefined,
     }
     setCache(domainCache, cleanDomain, tenant)
     return tenant

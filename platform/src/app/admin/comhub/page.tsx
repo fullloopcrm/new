@@ -29,6 +29,11 @@ type Contact = {
   client_id: string | null
   team_member_id: string | null
   tag: ContactTag | null
+  ip_address: string | null
+  geo_city: string | null
+  geo_region: string | null
+  blocked_at: string | null
+  blocked_reason: string | null
 }
 
 const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
@@ -1762,6 +1767,14 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
+          {contact.ip_address && (
+            <div title="City-level only — IP geolocation can't resolve an exact address or identity">
+              {contact.ip_address}
+              {(contact.geo_city || contact.geo_region) && (
+                <> · {[contact.geo_city, contact.geo_region].filter(Boolean).join(', ')}</>
+              )}
+            </div>
+          )}
           {role === 'client' && client?.pin && (
             <div>
               Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span>
@@ -1771,6 +1784,14 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
           )}
         </div>
       </div>
+
+      <ContactBlockControl
+        contactId={contact.id}
+        blockedAt={contact.blocked_at}
+        blockedReason={contact.blocked_reason}
+        hasIp={!!contact.ip_address}
+        onChanged={onContactSaved}
+      />
 
       <ContactDetailsEditor
         contactId={contact.id}
@@ -2080,6 +2101,80 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
           Save
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Block / unblock a contact (2026-08-10). Blocking stops them messaging on
+// any channel (checked in each inbound handler by phone/email/IP) and, when
+// they have an IP on file, also blocks that exact IP site-wide via
+// tenants.blocked_ips (enforced in middleware.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, onChanged }: {
+  contactId: string
+  blockedAt: string | null
+  blockedReason: string | null
+  hasIp: boolean
+  onChanged?: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const blocked = !!blockedAt
+
+  useEffect(() => { setReason(''); setError(null) }, [contactId])
+
+  const toggle = async () => {
+    if (!blocked && !window.confirm(hasIp
+      ? 'Block this contact? They will be unable to message you again, and their IP will be blocked from the site entirely.'
+      : 'Block this contact? They will be unable to message you again on any channel.')) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/comhub/contacts/${contactId}/block`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(blocked ? { blocked: false } : { blocked: true, reason: reason.trim() || undefined }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `HTTP ${res.status}`)
+        return
+      }
+      onChanged?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
+      {blocked ? (
+        <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>
+          Blocked{blockedReason ? ` — ${blockedReason}` : ''}
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (optional, shown to staff only)"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+        />
+      )}
+      {error && <div className="text-[11px]" style={{ color: 'var(--color-loop-warn)' }}>{error}</div>}
+      <button
+        onClick={toggle}
+        disabled={busy}
+        className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+        style={blocked
+          ? { fontFamily: 'var(--mono)', background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line-soft)' }
+          : { fontFamily: 'var(--mono)', background: 'rgba(220,38,38,0.9)', color: '#fff' }}
+      >
+        {busy ? 'Working…' : blocked ? 'Unblock' : 'Block'}
+      </button>
     </div>
   )
 }
