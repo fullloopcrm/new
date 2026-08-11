@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { requireActiveTeamMember } from '@/lib/team-portal-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 export const OPTIONS = corsPreflight
@@ -11,6 +12,13 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
 
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  // Instant revocation: preferences aren't tied to a specific
+  // PortalPermission (every active member edits their own notification
+  // prefs regardless of role), so re-verify the member is still active
+  // rather than gating on RBAC.
+  const { error: statusError } = await requireActiveTeamMember(auth)
+  if (statusError) return statusError
 
   // tenantDb's select() takes a non-literal `columns` param, which widens
   // supabase-js's column-string type inference — cast to the shape actually selected.
@@ -59,6 +67,9 @@ export const PUT = withMobileCors(async function PUT(request: NextRequest) {
 
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  const { error: statusError } = await requireActiveTeamMember(auth)
+  if (statusError) return statusError
 
   const { notification_preferences, sms_consent } = await request.json()
 

@@ -66,6 +66,16 @@ function parseOr(filter: string) {
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
+      // requireActiveTeamMember's live-status re-check — every caller in this
+      // file is an active member of TENANT_A, so this always resolves active.
+      if (table === 'team_members') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          single: async () => ({ data: { status: 'active' }, error: null }),
+        }
+        return chain
+      }
       if (table !== 'notifications') throw new Error(`unexpected table ${table}`)
       const filters: Array<(row: Record<string, unknown>) => boolean> = []
       let updatePayload: Record<string, unknown> | null = null

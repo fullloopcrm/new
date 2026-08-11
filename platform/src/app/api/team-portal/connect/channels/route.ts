@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyToken } from '../../auth/token'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 export const OPTIONS = corsPreflight
@@ -11,11 +11,8 @@ export const OPTIONS = corsPreflight
 // any admin-created group/broadcast 'custom' channels they were added to
 // (mass messaging — see connect_channel_members).
 export const GET = withMobileCors(async function GET(request: Request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const { auth, error } = await requirePortalPermission(request, 'messages.use')
+  if (error) return error
 
   try {
     let { data: teamChannel } = await tenantDb(auth.tid)

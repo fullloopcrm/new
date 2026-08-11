@@ -66,6 +66,28 @@ export async function requirePortalPermission(
   return { auth, error: null }
 }
 
+// Standalone live-status re-check for portal routes that don't gate on a
+// specific RBAC permission — every active team member (any role) is allowed
+// to hit these regardless of tier, so there's no PortalPermission to check.
+// Same instant-revocation query requirePortalPermission runs internally,
+// extracted for callers that already have a verified PortalAuth (e.g. from
+// getPortalAuth/verifyToken directly) and just need to confirm the member
+// hasn't been suspended/removed since the token was issued.
+export async function requireActiveTeamMember(
+  auth: PortalAuth,
+): Promise<{ error: NextResponse | null }> {
+  const { data: member } = await supabaseAdmin
+    .from('team_members')
+    .select('status')
+    .eq('id', auth.id)
+    .eq('tenant_id', auth.tid)
+    .single()
+  if (!member || member.status !== 'active') {
+    return { error: NextResponse.json({ error: 'Account inactive' }, { status: 401 }) }
+  }
+  return { error: null }
+}
+
 // The set of team_member IDs this member is allowed to see, by role + crews:
 //   worker  → just themselves
 //   lead    → everyone sharing at least one crew with them (else just themselves)

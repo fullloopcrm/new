@@ -58,6 +58,10 @@ import { createToken } from '@/app/api/team-portal/auth/token'
 import { POST } from './route'
 
 beforeEach(() => {
+  DB.team_members = [
+    { id: MEMBER_ID, tenant_id: TENANT_A, status: 'active' },
+    { id: MEMBER_ID, tenant_id: TENANT_B, status: 'active' },
+  ]
   DB.bookings = [
     { id: BOOKING_ID, tenant_id: TENANT_A, status: 'confirmed', team_member_id: MEMBER_ID, start_time: '2020-01-01T09:00:00', check_in_time: null, notes: null },
     { id: BOOKING_ID, tenant_id: TENANT_B, status: 'confirmed', team_member_id: MEMBER_ID, start_time: '2020-01-01T09:00:00', check_in_time: null, notes: null },

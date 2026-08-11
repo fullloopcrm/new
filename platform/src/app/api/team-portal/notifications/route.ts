@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { requireActiveTeamMember } from '@/lib/team-portal-auth'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
@@ -12,6 +13,12 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
 
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  // Instant revocation: notifications aren't tied to a specific
+  // PortalPermission (every active member reads their own feed regardless of
+  // role), so re-verify the member is still active rather than gating on RBAC.
+  const { error: statusError } = await requireActiveTeamMember(auth)
+  if (statusError) return statusError
 
   // Try notifications table first, fall back to empty
   try {
@@ -40,6 +47,9 @@ export const PUT = withMobileCors(async function PUT(request: NextRequest) {
 
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  const { error: statusError } = await requireActiveTeamMember(auth)
+  if (statusError) return statusError
 
   const body = await request.json()
 

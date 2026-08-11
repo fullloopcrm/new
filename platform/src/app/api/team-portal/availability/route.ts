@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { dayTokenToIndex } from '@/lib/day-availability'
-import { verifyToken } from '../auth/token'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 export const OPTIONS = corsPreflight
 
 export const GET = withMobileCors(async function GET(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  // No dedicated "view own availability" permission exists — availability.edit_own
+  // is granted to every portal role by default and gates both reading and
+  // writing your own availability in the UI, so it doubles as the view gate too.
+  const { auth, error } = await requirePortalPermission(request, 'availability.edit_own')
+  if (error) return error
 
   // Read the SAME columns the scheduler reads (working_days / unavailable_dates
   // on team_members) — this used to read a `notes` JSON blob that nothing else
@@ -40,11 +40,8 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
 })
 
 export const PUT = withMobileCors(async function PUT(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const { auth, error } = await requirePortalPermission(request, 'availability.edit_own')
+  if (error) return error
 
   const { availability } = await request.json()
 

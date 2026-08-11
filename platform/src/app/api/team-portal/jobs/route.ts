@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantTimezone, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
@@ -21,14 +20,20 @@ function maskArea(address: string | null | undefined): string {
 export const OPTIONS = corsPreflight
 
 export const GET = withMobileCors(async function GET(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
-
   const available = request.nextUrl.searchParams.get('available')
   const upcoming = request.nextUrl.searchParams.get('upcoming')
+
+  // The open-pool branch (available=true) is gated on the stricter
+  // 'jobs.view_unassigned' — a tenant can restrict that pool to leads/
+  // managers separately from a member's own schedule. Every other branch
+  // (today's jobs, upcoming) only needs 'jobs.view_own', same permission the
+  // open-pool branch already required before this permission even existed
+  // for it — checking a second, broader permission here would newly require
+  // BOTH permissions for a role that only has 'jobs.view_unassigned' via a
+  // tenant override, which isn't how this route behaved before.
+  const permission = available === 'true' ? 'jobs.view_unassigned' : 'jobs.view_own'
+  const { auth, error: authError } = await requirePortalPermission(request, permission)
+  if (authError) return authError
 
   // start_time is naive tenant-local — every cutoff below is built as a
   // naive string in that tenant's own timezone, not the server's (UTC).
@@ -55,11 +60,6 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
   }
 
   if (available === 'true') {
-    // Seeing the open (unassigned) pool is a field-staff tier permission — a
-    // tenant can restrict this to leads/managers via the portal permission matrix.
-    const { error: permError } = await requirePortalPermission(request, 'jobs.view_unassigned')
-    if (permError) return permError
-
     // Unassigned jobs — MASKED. Client name/phone/full address are withheld until
     // a job is claimed (prevents the pool from leaking the whole client list to
     // every field worker). Only coarse area + service/time/pay is exposed.

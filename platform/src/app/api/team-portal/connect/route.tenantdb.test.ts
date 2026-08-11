@@ -58,8 +58,12 @@ beforeEach(() => {
   DB.connect_messages = []
   DB.connect_read_cursors = []
   DB.team_members = [
-    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own' },
-    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign' },
+    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own', status: 'active' },
+    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign', status: 'active' },
+  ]
+  DB.tenants = [
+    { id: TENANT_A, selena_config: null },
+    { id: TENANT_B, selena_config: null },
   ]
 })
 
