@@ -31,3 +31,9 @@ CREATE INDEX IF NOT EXISTS mobile_push_tokens_tenant_idx ON public.mobile_push_t
 
 COMMENT ON TABLE public.mobile_push_tokens IS
   'Expo push tokens registered by the Full Loop Mobile app, one row per (tenant, role, member, platform). Storage only -- no send path reads this yet.';
+
+-- No policy defined, matching security_events.sql's convention for a table
+-- only ever touched via supabaseAdmin (service role, bypasses RLS) from API
+-- routes -- this just blocks any anon/authenticated Supabase client key
+-- from reading device push tokens directly.
+ALTER TABLE public.mobile_push_tokens ENABLE ROW LEVEL SECURITY;
