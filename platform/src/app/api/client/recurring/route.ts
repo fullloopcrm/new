@@ -15,7 +15,7 @@ import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { getBookingAddress } from '@/lib/client-properties'
 import { getSettings } from '@/lib/settings'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE, bookingWallClockDate, nycmaidWallClockTime } from '@/lib/nycmaid/time-window'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -378,17 +378,13 @@ export async function POST(request: Request) {
   if (first && first.status !== 'pending') {
     try {
       if (await isCommEnabled(tenantId, 'booking_confirmed', 'email')) {
-        const dateOnly = new Date(first.start_time).toLocaleDateString('en-US', {
-          timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric',
-        })
+        const dateOnly = bookingWallClockDate(first.start_time)
         // NYC Maid clients are told a 2-hour arrival window, never an exact
         // time (see time-window.ts — the same rule every SMS template
         // already follows). Other tenants get the plain wall-clock time.
         const dateTime = isNycMaid(tenantId)
           ? `${dateOnly}, ${clientArrivalWindow(first.start_time)}`
-          : new Date(first.start_time).toLocaleString('en-US', {
-              timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-            })
+          : `${dateOnly}, ${nycmaidWallClockTime(first.start_time)}`
         const html = await buildBookingConfirmationEmail(tenantId, first.id, {
           clientName: first.clients?.name || 'there',
           serviceName: first.service_type || 'Appointment',

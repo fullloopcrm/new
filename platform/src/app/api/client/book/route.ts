@@ -18,6 +18,7 @@ import { teamSmsTemplatesFor } from '@/lib/messaging/team-sms-resolver'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
@@ -40,6 +41,7 @@ import { isValidLeadSource } from '@/lib/lead-sources'
 import { syncComhubContactName } from '@/lib/comhub-contact-sync'
 import { getSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 /** Trade-neutral fallback when no service_type is supplied — the tenant's own
  * first-ranked preset for its industry, not a hardcoded cleaning term. */
@@ -84,8 +86,8 @@ async function notifyAutoAssignment(
   team: { size: number; assignedCount: number },
 ): Promise<void> {
   if (!tenant) return
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time)
+  const time = nycmaidWallClockTime(booking.start_time)
   const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
 
   if (booking.clients?.id) {
@@ -166,7 +168,7 @@ async function notifyExtraTeamMembers(
   extraIds: string[],
 ): Promise<void> {
   if (!tenant || extraIds.length === 0) return
-  const bookingDate = new Date(startTimeISO).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const bookingDate = bookingWallClockDate(startTimeISO)
   const templates = await teamSmsTemplatesFor(tenantId)
 
   for (const extraId of extraIds) {
@@ -223,6 +225,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>
+    // Same honeypot + render-timing guard as the other public lead/contact/
+    // application routes (spam-guard.ts) -- this form never had it (2026-08-10
+    // gap: a fabricated booking got through cleanly enough to reach a real
+    // client record). Plausible fake success, not an error, so a scripted
+    // bot gets no signal to adapt to.
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const smsOptedIn = body.sms_opt_in === true
     const userAgent = typeof body.user_agent === 'string' ? body.user_agent : 'unknown'
     const consentText = getSmsConsentText(tenant as { id: string; name: string })
@@ -278,11 +288,11 @@ export async function POST(request: Request) {
       const emailLower = (body.email as string).toLowerCase()
       const clientName = formatName(body.name as string)
 
-      let matchedClient: { id: string; name: string | null; phone: string | null } | null = null
+      let matchedClient: { id: string; name: string | null; phone: string | null; do_not_service: boolean | null } | null = null
 
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
-        .select('id, name, phone')
+        .select('id, name, phone, do_not_service')
         .eq('tenant_id', tenant.id)
         .ilike('email', escapeLikeValue(emailLower))
         .maybeSingle()
@@ -291,10 +301,23 @@ export async function POST(request: Request) {
       if (!clientId && phone) {
         const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
-          .select('id, name, phone')
+          .select('id, name, phone, do_not_service')
           .eq('phone', phone)
           .maybeSingle()
         if (byPhone) { clientId = byPhone.id; matchedClient = byPhone }
+      }
+
+      // Guest checkout (no client_id cookie/session) matches an existing
+      // client by email/phone above -- without this, a DNS'd client could
+      // bypass the do_not_service gate above entirely just by submitting the
+      // booking form logged out instead of logged in. Same rejection as the
+      // known-client_id path.
+      if (matchedClient?.do_not_service) {
+        await trackError(new Error('do_not_service client attempted guest booking'), { source: 'client/book:do_not_service_guest', tenantId: tenant.id, severity: 'low', extra: matchedClient.id, alwaysAlert: true })
+        const contactPhone = tenant.phone || ''
+        return NextResponse.json({
+          error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
+        }, { status: 403 })
       }
 
       // A client whose name is still exactly their own phone number is the

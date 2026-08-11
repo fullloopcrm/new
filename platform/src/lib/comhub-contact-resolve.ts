@@ -36,7 +36,11 @@ export async function resolveContactLinkage(
 ): Promise<ResolvedContact> {
   let clientId = contact.client_id
   let teamMemberId = contact.team_member_id
-  const alreadyResolved = !!clientId && !!teamMemberId && !isPlaceholderName(contact.name, contact.phone)
+  // A contact is a client OR a team member, never both — requiring BOTH to be
+  // set meant an already-correctly-linked client (team_member_id forever
+  // null) never short-circuited here, so every load re-ran the fuzzy
+  // ilike substring re-match below against it.
+  const alreadyResolved = (!!clientId || !!teamMemberId) && !isPlaceholderName(contact.name, contact.phone)
   if (alreadyResolved) {
     return { id: contact.id, name: contact.name, phone: contact.phone, client_id: clientId, team_member_id: teamMemberId }
   }

@@ -1061,6 +1061,7 @@
   border-top: 1px solid var(--clients-ink);
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   background: var(--clients-canvas);
 }

@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -55,9 +56,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const newNotes = (cur?.notes || '') + '\n[Client accepted terms ' + new Date().toISOString() + ']'
   await db.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
 
-  const startTime = new Date(booking.start_time).toLocaleString('en-US', {
-    timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  })
+  const startTime = `${bookingWallClockDate(booking.start_time)}, ${nycmaidWallClockTime(booking.start_time)}`
   const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
   if (client?.phone) {

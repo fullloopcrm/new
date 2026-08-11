@@ -309,7 +309,7 @@ export default async function ServiceLocationPage({ params }: Props) {
                   </div>
                   <div className="hidden sm:block w-px h-6 bg-white/20" />
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide">$75</span>
+                    <span className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide">$69</span>
                     <span className="text-blue-200/50 text-sm">/hr &middot; we bring everything</span>
                   </div>
                 </div>

@@ -54,6 +54,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     .select('id, role')
     .eq('tenant_id', tenant.id)
     .eq('pin_hash', pinHash)
+    .eq('is_active', true)
     .maybeSingle()
 
   if (!member) {

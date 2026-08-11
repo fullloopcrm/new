@@ -12,8 +12,9 @@
 // same hourly-booking shape as the-florida-maid, but a SEPARATE tenant with its
 // own NYC persona, tiered rates, area, and payment methods (nycmaid stays
 // byte-locked via agent.ts's short-circuit and is never routed here). This
-// tenant runs three supply-tier hourly rates. Data mirrors the marketing site
-// (src/app/site/sunnyside-clean-nyc/_lib/seo/schema.ts — $59/$79/$99 per hour).
+// tenant runs three supply-tier hourly rates, matched to NYC Maid's published
+// rates (2026-08-10 pricing-parity pass). Data mirrors the marketing site
+// (src/app/site/sunnyside-clean-nyc/_lib/seo/schema.ts — $59/$69/$89 per hour).
 import type { AgentConfig } from '../agent-config'
 import type { ServiceType } from '@/lib/settings'
 import { buildPriceCopy } from '../price-copy'
@@ -26,11 +27,11 @@ export const SUNNYSIDE_CLEAN_SLUG = 'sunnyside-clean-nyc'
 // flat total. The nuance below keeps the agent from quoting a locked total.
 const SUNNYSIDE_SERVICES: ServiceType[] = [
   { name: 'You provide supplies', default_hours: 2, rate: 59, active: true },
-  { name: 'We bring everything', default_hours: 2, rate: 79, active: true },
-  { name: 'Same-day / emergency', default_hours: 2, rate: 99, active: true },
+  { name: 'We bring everything', default_hours: 2, rate: 69, active: true },
+  { name: 'Same-day / emergency', default_hours: 2, rate: 89, active: true },
 ]
 
-const SUNNYSIDE_PRICE_COPY = `${buildPriceCopy(SUNNYSIDE_SERVICES, 'hourly')} Cleaning is hourly — the bill is the rate times the actual time worked; we do NOT lock in a flat total. $59/hr if you provide the supplies, $79/hr if we bring everything, $99/hr for same-day/emergency. Deep cleans, move-in/move-out, and post-construction may run longer — confirm the tier before booking. Licensed, insured, and background-checked. Never invent a total.`
+const SUNNYSIDE_PRICE_COPY = `${buildPriceCopy(SUNNYSIDE_SERVICES, 'hourly')} Cleaning is hourly — the bill is the rate times the actual time worked; we do NOT lock in a flat total. $59/hr if you provide the supplies, $69/hr if we bring everything, $89/hr for same-day/emergency. Deep cleans, move-in/move-out, and post-construction may run longer — confirm the tier before booking. Licensed, insured, and background-checked. Never invent a total.`
 
 /** Sunnyside Clean NYC authored persona + policy config. */
 export const sunnysideCleanConfig: AgentConfig = {
@@ -45,7 +46,7 @@ export const sunnysideCleanConfig: AgentConfig = {
       "You're a warm, capable NYC cleaning-service manager who genuinely likes taking care of people's homes and offices. Friendly and reassuring, you get the booking details fast, explain the hourly tiers plainly, and hold the line on price and policy without ever being cold. You've served New York since 2018 and it shows.",
     examples: [
       '"Hi, Selena here 😊 We\'d love to get your place sparkling — is this a standard clean, a deep clean, or a move-in/move-out?"',
-      '"Got it — a 2-bed in Astoria, and you\'d like us to bring supplies. That tier\'s $79/hr; what day works for you?"',
+      '"Got it — a 2-bed in Astoria, and you\'d like us to bring supplies. That tier\'s $69/hr; what day works for you?"',
     ],
     banned_phrases: [
       'certainly', 'absolutely', 'of course', 'great question', 'happy to help',
@@ -66,7 +67,7 @@ export const sunnysideCleanConfig: AgentConfig = {
     questions: [
       'What kind of cleaning? (standard, deep clean, move-in/move-out, post-construction, Airbnb turnover, weekly recurring, or office)',
       'How many bedrooms and bathrooms — or roughly how big is the space?',
-      'Would you like to provide supplies ($59/hr) or have us bring everything ($79/hr)?',
+      'Would you like to provide supplies ($59/hr) or have us bring everything ($69/hr)?',
       'What neighborhood and borough are you in?',
     ],
   },
@@ -77,16 +78,16 @@ export const sunnysideCleanConfig: AgentConfig = {
   service_area: 'across New York City — Manhattan, Brooklyn, and Queens.',
   policies: [
     'Cleaning is hourly — the bill is the hourly rate times actual time worked. We do not lock in a flat total.',
-    'Three tiers: $59/hr if you provide supplies, $79/hr if we bring everything, $99/hr for same-day/emergency.',
+    'Three tiers: $59/hr if you provide supplies, $69/hr if we bring everything, $89/hr for same-day/emergency.',
     'Our cleaners are licensed, insured, and background-checked; we serve NYC and speak English and Spanish.',
   ],
   contact: {
     phone: '(212) 202-9030',
-    portal_url: 'cleaningservicesunnysideny.com/portal',
+    portal_url: 'thenycmaid.com/portal/login',
   },
   booking: {
     model: 'hourly',
-    supplies_policy: 'You choose: provide your own supplies ($59/hr) or we bring everything ($79/hr).',
+    supplies_policy: 'You choose: provide your own supplies ($59/hr) or we bring everything ($69/hr).',
   },
   escalation_extra:
     'Office and commercial contracts and large recurring multi-property accounts are custom — capture the details and flag for the owner rather than quoting a rate on your own.',

@@ -18,6 +18,7 @@ import { handleReviewRating } from '@/lib/review-engine'
 import { handleFeedbackReply } from '@/lib/feedback-reply'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { isTenantAiAway } from '@/lib/comhub-away'
 import { nowNaiveET } from '@/lib/recurring'
 import { sendTenantTelegram } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
@@ -827,7 +828,11 @@ export async function POST(request: Request) {
           // two concerns were wrongly conflated under one flag. A tenant can
           // now go reply-silent on SMS while every inbound text still lands
           // in ComHub for a human to see and answer.
-          const replyEnabled = settings.sms_reply_enabled
+          const replyEnabled = settings.sms_reply_enabled && isTenantAiAway({
+            timezone: settings.timezone,
+            supportHours: settings.support_hours,
+            manualAway: settings.manual_away,
+          })
           const cleanPhone = from.replace(/\D/g, '').slice(-10)
 
           // Handle "START OVER" / "RESET" — expire active conversation

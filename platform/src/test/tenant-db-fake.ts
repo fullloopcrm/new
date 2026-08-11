@@ -28,6 +28,22 @@ export interface FakeStoreHandle {
   store: Record<string, Array<Record<string, unknown>>>
 }
 
+// Columns with a real `NOT NULL DEFAULT` in the schema — a row whose payload
+// doesn't set them explicitly (a fixture seeded before the column existed, or
+// an insert() that (correctly) relies on the DB default) still reads back as
+// the default, exactly like a live Postgres row would. Without this, `.eq()`
+// filters against these columns spuriously fail on any fake row that predates
+// the column, even though the real table would have backfilled it.
+const COLUMN_DEFAULTS: Record<string, Record<string, unknown>> = {
+  tenant_members: { is_active: true },
+}
+
+function readCol(table: string, r: Record<string, unknown>, col: string): unknown {
+  const v = r[col]
+  if (v !== undefined) return v
+  return COLUMN_DEFAULTS[table]?.[col]
+}
+
 type State = {
   table: string
   op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
@@ -54,8 +70,8 @@ function readPath(r: Record<string, unknown>, col: string): unknown {
 }
 
 function matches(r: Record<string, unknown>, s: State): boolean {
-  if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
-  if (!Object.entries(s.neqs).every(([k, v]) => r[k] !== v)) return false
+  if (!Object.entries(s.eqs).every(([k, v]) => readCol(s.table, r, k) === v)) return false
+  if (!Object.entries(s.neqs).every(([k, v]) => readCol(s.table, r, k) !== v)) return false
   for (const f of s.ins) if (!f.vals.includes(r[f.col])) return false
   for (const f of s.iss) {
     const actual = readPath(r, f.col)

@@ -209,7 +209,7 @@ function bookReq(extra: Record<string, unknown> = {}) {
   return POST(
     new Request('http://t/api/client/book', {
       method: 'POST',
-      body: JSON.stringify({ client_id: CLIENT.id, start_time: START_TIME, end_time: END_TIME, ...extra }),
+      body: JSON.stringify({ _ts: Date.now() - 5000, client_id: CLIENT.id, start_time: START_TIME, end_time: END_TIME, ...extra }),
     }),
   )
 }

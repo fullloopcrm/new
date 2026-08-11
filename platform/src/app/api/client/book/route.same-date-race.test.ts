@@ -138,7 +138,7 @@ function bookRequest(body: Row): Request {
   return new Request('https://race.example.com/api/client/book', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ _ts: Date.now() - 5000, ...body }),
   })
 }
 

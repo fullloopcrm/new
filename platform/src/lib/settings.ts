@@ -1,6 +1,8 @@
 import { supabaseAdmin } from './supabase'
 import { normalizePrefs } from './comms-prefs'
 import { mapIndustry, defaultFunnelMode } from './industry-presets'
+import { getTenantTimezone } from './tenant-time'
+import type { SupportHours } from './comhub-away'
 
 // --- Types ---
 
@@ -89,6 +91,17 @@ export interface TenantSettings {
   // every inbound text is still logged to the conversation (and thus mirrored
   // into ComHub) exactly as before. Default true. See selena_config.sms_reply_enabled.
   sms_reply_enabled: boolean
+  // Tenant IANA timezone (tenants.timezone, defaults 'America/New_York') —
+  // drives all Yinez away-hours math below, DST-safe.
+  timezone: string
+  // Staffed/support hours per weekday (selena_config.support_hours jsonb, set
+  // via ComHub Settings -> Work hours). Null when the tenant has never
+  // configured it — isTenantAiAway() treats that as "no schedule to gate on".
+  support_hours: SupportHours | null
+  // Manual override (selena_config.manual_away) — a human flips this from the
+  // ComHub inbox to force Yinez into after-hours coverage mode regardless of
+  // the support_hours schedule (e.g. short-staffed mid-day).
+  manual_away: boolean
   // Lead handling (selena_config + tenants columns)
   auto_respond_leads: boolean
   attribution_window_hours: number
@@ -269,6 +282,9 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     client_reminder_sms: !!commPrefs.comms.booking_reminder?.sms,
     chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
     sms_reply_enabled: selenaConfig.sms_reply_enabled !== false,
+    timezone: getTenantTimezone(tenant as { timezone?: string | null } | null),
+    support_hours: (selenaConfig.support_hours as SupportHours | undefined) || null,
+    manual_away: Boolean(selenaConfig.manual_away),
     chatbot_greeting: (selenaConfig.greeting as string) || (selenaConfig.chatbot_greeting as string) || DEFAULT_FALLBACKS.chatbot_greeting,
     auto_respond_leads: Boolean(selenaConfig.auto_respond_leads ?? true),
     attribution_window_hours: Number(tenant?.attribution_window_hours ?? 24),

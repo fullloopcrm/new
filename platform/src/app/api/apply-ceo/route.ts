@@ -12,8 +12,11 @@ import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { trackError } from '@/lib/error-tracking'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 interface CeoBody {
+  _hp?: unknown
+  _ts?: unknown
   name?: string
   email?: string
   phone?: string
@@ -61,6 +64,9 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as CeoBody
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const name = body.name?.trim()
     const email = body.email?.trim().toLowerCase()
     const phone = body.phone?.trim()

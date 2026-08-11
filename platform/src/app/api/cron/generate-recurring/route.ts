@@ -12,6 +12,7 @@ import { sendSMS } from '@/lib/sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { applyDiscount } from '@/lib/discount'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Cache across the whole cron run — the same handful of cleaners get reused
 // across many schedules/occurrences within one invocation. Keyed by
@@ -149,9 +150,10 @@ export async function GET(request: Request) {
     const clientName = clientRow?.name || 'Client'
     const { data: tenantData } = await supabaseAdmin
       .from('tenants')
-      .select('slug, industry, name, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+      .select('slug, industry, name, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, timezone')
       .eq('id', schedule.tenant_id)
       .single()
+    const tenantTz = getTenantTimezone(tenantData)
     const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
     let notifiedFirstOccurrence = false
 
@@ -233,7 +235,7 @@ export async function GET(request: Request) {
         const [h, m] = String(schedule.preferred_time).split(':').map(Number)
         return (h || 0) * 60 + (m || 0)
       }
-      const hm = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
+      const hm = d.toLocaleTimeString('en-GB', { timeZone: tenantTz, hour12: false })
       const [h, m] = hm.split(':').map(Number)
       return (h || 0) * 60 + (m || 0)
     }
@@ -245,7 +247,7 @@ export async function GET(request: Request) {
       // own scoreTeamForBooking query already filters status != 'inactive';
       // this brings the legacy (default) path to the same standard.
       if (mem.status === 'inactive') return false
-      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const dateStr = d.toLocaleDateString('en-CA', { timeZone: tenantTz })
       if (Array.isArray(mem.unavailable_dates) && mem.unavailable_dates.includes(dateStr)) return false
       if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr)) return false
       const startMin = startMinForDate(d)
@@ -283,7 +285,7 @@ export async function GET(request: Request) {
     // occurrence, or null to skip. Kept out of the insert payload itself.
     const notifyPlan: (string | null)[] = []
     for (const d of dates) {
-      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const dateStr = d.toLocaleDateString('en-CA', { timeZone: tenantTz })
       const ex = exMap.get(dateStr)
       if (ex?.type === 'skip') continue // occurrence cancelled — don't materialize it
 

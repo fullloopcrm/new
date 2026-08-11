@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireComhubAccess } from '@/lib/comhub-access'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { resolveContactLinkage } from '@/lib/comhub-contact-resolve'
 
 // Some client/team-member pin values got written through encryptSecret() by
 // a stray call elsewhere and now sit in the DB as a 'v1:' envelope instead
@@ -29,64 +30,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const { data: contact, error: cErr } = await db
     .from('comhub_contacts')
-    .select('id, name, phone, email, address, client_id, team_member_id, tag')
+    .select('id, name, phone, email, address, client_id, team_member_id, tag, ip_address, geo_city, geo_region, blocked_at, blocked_reason')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
   if (cErr || !contact) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
 
-  let clientId = contact.client_id as string | null
-  let teamMemberId = contact.team_member_id as string | null
-
-  if (!clientId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await db
-      .from('clients')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
-  }
-  if (!clientId && contact.email) {
-    const { data: matched } = await db
-      .from('clients')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
-      .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
-  }
-  if (!teamMemberId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await db
-      .from('team_members')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
-  }
-  if (!teamMemberId && contact.email) {
-    const { data: matched } = await db
-      .from('team_members')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
-      .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
-  }
-
-  if ((clientId && clientId !== contact.client_id) || (teamMemberId && teamMemberId !== contact.team_member_id)) {
-    await db
-      .from('comhub_contacts')
-      .update({
-        client_id: clientId || contact.client_id,
-        team_member_id: teamMemberId || contact.team_member_id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-  }
+  const resolved = await resolveContactLinkage(db, tenantId, {
+    id: contact.id,
+    name: contact.name,
+    phone: contact.phone,
+    email: contact.email,
+    client_id: contact.client_id,
+    team_member_id: contact.team_member_id,
+  })
+  const clientId = resolved.client_id
+  const teamMemberId = resolved.team_member_id
+  contact.name = resolved.name
 
   let client: Record<string, unknown> | null = null
   let teamMember: Record<string, unknown> | null = null
@@ -101,7 +61,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (clientId) {
     const { data: c } = await db
       .from('clients')
-      .select('id, name, email, phone, address, address_line1, status, active, do_not_service, sms_consent, pin, pet_name, pet_type, notes_private, notes_public, created_at')
+      .select('id, name, email, phone, address, address_line1, status, active, do_not_service, dns_reason, sms_consent, pin, pet_name, pet_type, notes_private, notes_public, created_at')
       .eq('id', clientId)
       .single()
     client = c ? { ...c, pin: safeDecryptPin(c.pin as string | null) } : c

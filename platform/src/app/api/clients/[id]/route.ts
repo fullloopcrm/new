@@ -13,6 +13,7 @@ import { normalizePhone } from '@/lib/phone'
 import { updateProperty } from '@/lib/client-properties'
 import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { setTenantIpBlocked } from '@/lib/ip-block-list'
 
 function generatePin(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -152,6 +153,15 @@ export async function PUT(
 
     await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { fields: Object.keys(fields) } })
 
+    // Moving a client to/from DNS also blocks/unblocks their exact IP
+    // site-wide (2026-08-10) — same tenants.blocked_ips list the Comm Hub
+    // contact-block button uses, enforced in middleware.ts. Only covers
+    // clients with an IP on file (consent_ip, captured at booking time via
+    // /api/client/book) — older clients predating that capture have none.
+    if (typeof fields.do_not_service === 'boolean') {
+      await setTenantIpBlocked(tenantId, (data as { consent_ip?: string | null }).consent_ip, fields.do_not_service)
+    }
+
     // client_contacts.phone_e164 is a one-time copy of clients.phone made at
     // client creation (createPrimaryContact) — every reminder/confirmation
     // SMS (cron jobs, recurring bookings) reads from client_contacts first
@@ -213,6 +223,17 @@ export async function DELETE(
       .select('id')
 
     if (error) {
+      // Postgres FK violation (23503) — bookings/payments/deals/etc all use
+      // NO ACTION on delete, so a client with real history can't be hard-
+      // deleted. That's the DB doing its job (protects revenue/booking
+      // records); surface it as a clear, expected 409 rather than a raw
+      // Postgres error, since a true duplicate (no history) deletes cleanly.
+      if (error.code === '23503') {
+        return NextResponse.json(
+          { error: 'has_history', message: 'This client has bookings, payments, or other history and cannot be deleted.' },
+          { status: 409 },
+        )
+      }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     if (!data || data.length === 0) {

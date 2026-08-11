@@ -9,7 +9,7 @@
 //
 // Selected by clientSmsTemplates(tenant) for cleaning-slug tenants only.
 
-import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES } from '../time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES, bookingWallClockDate } from '../time-window'
 import type { TenantBrand } from './brand'
 
 const STOP_TEXT = '\nReply STOP to opt out.'
@@ -26,8 +26,7 @@ export type BookingLike = {
   cleaners?: { name?: string | null } | null
 }
 
-const etDate = (t: string) =>
-  new Date(t).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+const etDate = (t: string) => bookingWallClockDate(t)
 
 function proFirst(b: BookingLike, fallback: string): string {
   const name = b.team_members?.name || b.cleaners?.name || ''

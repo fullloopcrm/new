@@ -39,6 +39,7 @@ import BookingNotes from '@/components/BookingNotes'
 import { formatPhone, formatJobNumber } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { CloseoutDetail } from '@/components/closeout-detail'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { applyTeamMinimum } from '@/lib/billing-hours'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
@@ -392,25 +393,32 @@ function BookingsPage() {
     setFilteredBookings(result)
   }
 
-  // Close-out: jobs needing attention (in_progress/completed with payment or cleaner pay pending)
-  const closeOutJobs = bookings.filter(b =>
+  // Close-out gating: payment_status and team_member_paid are just labels a
+  // button can flip with no real payment or payout behind them (that's how a
+  // $0-received booking landed in "Recently Closed" as fully paid — clicking
+  // "Apple" alone satisfied this filter). They're only trustworthy as a
+  // negative signal ("definitely not marked done yet"); a positive claim of
+  // "paid" must be corroborated by the real payments/payouts totals below
+  // before a job is allowed to actually close out. Never take the flags' word
+  // for "done" on their own.
+  const flagClaimsAttention = bookings.filter(b =>
     (b.status === 'in_progress' || b.status === 'completed') &&
     (b.payment_status !== 'paid' || !b.team_member_paid)
-  ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-
-  // Also show recently completed & fully closed (last 7 days) for reference
-  const recentlyClosedJobs = bookings.filter(b => {
+  )
+  const flagClaimsClosedRecent = bookings.filter(b => {
     if (b.status !== 'completed' || b.payment_status !== 'paid' || !b.team_member_paid) return false
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     return new Date(b.start_time) >= sevenDaysAgo
-  }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+  })
 
   // Fetch the authoritative closeout math (same source CloseoutDetail uses —
   // actual check-in/out hours, discounts, and per-cleaner pay, which can
   // differ from the stored booking.price once actual hours diverge from what
-  // was scheduled) for every visible close-out row, so the customer-owed and
-  // labor-total figures show up front without expanding each row.
-  const closeOutIds = showCloseOut ? closeOutJobs.map(b => b.id).join(',') : ''
+  // was scheduled) for every job whose closed status needs verifying: both
+  // the ones already flagged as needing attention, and the ones claiming to
+  // be closed that still have to prove it against real payment/payout data.
+  const closeOutVerifyCandidates = [...flagClaimsAttention, ...flagClaimsClosedRecent]
+  const closeOutIds = showCloseOut ? closeOutVerifyCandidates.map(b => b.id).join(',') : ''
   useEffect(() => {
     if (!closeOutIds) return
     const ids = closeOutIds.split(',').filter(id => !(id in closeOutSummaries))
@@ -441,6 +449,36 @@ function BookingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeOutIds])
 
+  // A job only closes out once all three are independently true against real
+  // data: complete, cleaner actually paid (payouts table), client actually
+  // paid (payments table). Not "someone flipped a label." Summary not loaded
+  // yet defaults to false — never show a job as closed before it's verified.
+  //
+  // Grandfather cutoff (2026-08-10): this check went live retroactively and
+  // surfaced a real gap — most of the team-member side never had a real
+  // team_member_payouts row, only the flag (traced to the old "Mark Team
+  // Paid" button on the booking detail page, now fixed to write the real
+  // row like this panel's own close-out flow always has). Everyone was
+  // actually paid before that fix landed; the missing row is a record-
+  // keeping gap, not an unpaid cleaner. Anything from before today is
+  // trusted on the flags alone rather than re-litigated against payout
+  // records that were never going to exist for pre-fix bookings. Only
+  // applies here — flagClaimsAttention (the flags themselves saying unpaid)
+  // is untouched, so a booking that's actually flagged unpaid still shows.
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  const isBookingReallyClosed = (b: Booking) => {
+    if (new Date(b.start_time) < todayStart) return true
+    const summary = closeOutSummaries[b.id]
+    if (!summary) return false
+    return b.status === 'completed' && summary.laborOutstandingCents === 0 && summary.customerOutstandingCents === 0
+  }
+
+  const closeOutJobs = [...flagClaimsAttention, ...flagClaimsClosedRecent.filter(b => !isBookingReallyClosed(b))]
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+
+  const recentlyClosedJobs = flagClaimsClosedRecent.filter(isBookingReallyClosed)
+    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+
   const handleCloseOutUpdate = async (bookingId: string, updates: Record<string, unknown>) => {
     setCloseOutSaving(bookingId)
     try {
@@ -454,6 +492,98 @@ function BookingsPage() {
         setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updates } as Booking : b))
       }
     } catch (e) { console.error('Close out update failed:', e) }
+    setCloseOutSaving(null)
+  }
+
+  // Records a REAL client payment (inserts into `payments`, same endpoint
+  // the closeout math reads from) for the full amount still outstanding —
+  // replaces the old Zelle/Apple buttons, which only PATCHed
+  // bookings.payment_status with nothing behind it. Charges exactly what
+  // closeOutSummaries (the real payments-table total) says is still owed,
+  // never a guessed or stale amount.
+  const recordClientPayment = async (b: Booking, method: 'zelle' | 'apple_pay') => {
+    const summary = closeOutSummaries[b.id]
+    if (!summary || summary.customerOutstandingCents <= 0) return
+    setCloseOutSaving(b.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${b.id}/record-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_cents: summary.customerOutstandingCents, method }),
+      })
+      if (res.ok) {
+        setCloseOutSummaries(prev => {
+          const next = { ...prev }
+          delete next[b.id]
+          return next
+        })
+        await loadBookings()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        alert(j.error || 'Recording payment failed')
+      }
+    } catch (e) {
+      console.error('Record payment failed:', e)
+      alert('Recording payment failed')
+    }
+    setCloseOutSaving(null)
+  }
+
+  // Pays every team member still owed money on the booking a REAL payout
+  // (inserts into `team_member_payouts` via the same endpoint CloseoutDetail
+  // uses) — replaces the old "Team Paid" button, which only flipped
+  // bookings.team_member_paid with no payout ever recorded.
+  const payAllCleaners = async (b: Booking) => {
+    setCloseOutSaving(b.id)
+    try {
+      const r = await fetch(`/api/admin/bookings/${b.id}/closeout-summary`)
+      if (!r.ok) throw new Error('Failed to load closeout summary')
+      const j = await r.json()
+      const owed: Array<{ cleaner_id: string; outstanding_cents: number }> = (j.cleaner_payouts || [])
+        .filter((c: { outstanding_cents: number }) => c.outstanding_cents > 0)
+        .map((c: { cleaner_id: string; outstanding_cents: number }) => ({ cleaner_id: c.cleaner_id, outstanding_cents: c.outstanding_cents }))
+      for (const c of owed) {
+        const res = await fetch(`/api/admin/bookings/${b.id}/cleaner-payout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cleaner_id: c.cleaner_id, amount_cents: c.outstanding_cents, method: 'other' }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          alert(err.error || 'Paying a team member failed')
+          break
+        }
+      }
+      setCloseOutSummaries(prev => {
+        const next = { ...prev }
+        delete next[b.id]
+        return next
+      })
+      await loadBookings()
+    } catch (e) {
+      console.error('Pay cleaners failed:', e)
+      alert('Paying team members failed')
+    }
+    setCloseOutSaving(null)
+  }
+
+  // Manual, admin-clicked payment reminder (text + email) for whatever a
+  // booking's real outstanding balance is. No cron, no auto-fire — only
+  // sends when someone on the team clicks it for this specific booking.
+  const sendPaymentReminder = async (b: Booking) => {
+    setCloseOutSaving(b.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${b.id}/send-payment-reminder`, { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(j.error || 'Reminder failed')
+      } else {
+        alert(`Reminder sent — SMS: ${j.sms?.sent || 0}, Email: ${j.email?.sent || 0}`)
+      }
+    } catch (e) {
+      console.error('Send reminder failed:', e)
+      alert('Reminder failed')
+    }
     setCloseOutSaving(null)
   }
 
@@ -1016,7 +1146,7 @@ function BookingsPage() {
     const d = new Date(dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
     return d.toLocaleString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      timeZone: 'America/New_York',
+      timeZone: timezone,
     })
   }
 
@@ -1157,7 +1287,7 @@ function BookingsPage() {
                 return `"${s.replace(/"/g, '""')}"`
               }
               const rows = filteredBookings.map(b => [
-                new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                bookingWallClockDate(b.start_time), nycmaidWallClockTime(b.start_time),
                 b.clients?.name || '', crewNames(b), b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
               ].map(escCsv).join(','))
@@ -1496,7 +1626,7 @@ function BookingsPage() {
                           </div>
                         </div>
                         {/* Close out controls */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                           {/* Job Complete */}
                           <button
                             disabled={isSaving}
@@ -1515,33 +1645,30 @@ function BookingsPage() {
                             </span>
                             Job Done
                           </button>
-                          {/* Payment Collected */}
-                          <button
-                            disabled={isSaving}
-                            onClick={() => {
-                              if (b.payment_status === 'paid') {
-                                handleCloseOutUpdate(b.id, { payment_status: 'pending', payment_method: null })
-                              } else {
-                                handleCloseOutUpdate(b.id, { payment_status: 'paid' })
-                              }
-                            }}
-                            className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ' +
-                              (b.payment_status === 'paid'
-                                ? 'bg-green-50 border-green-200 text-green-700'
-                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50')}
-                          >
-                            <span className={'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' +
-                              (b.payment_status === 'paid' ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
-                              {b.payment_status === 'paid' && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                            </span>
-                            Paid
-                          </button>
-                          {/* Payment Method */}
+                          {/* Payment status — read-only, reflects the REAL payments-table
+                              total (closeOutSummaries), not a flippable flag. There is
+                              nothing to click here: use Zelle/Apple to actually record money. */}
+                          {(() => {
+                            const summary = closeOutSummaries[b.id]
+                            const reallyPaid = !!summary && summary.customerOutstandingCents <= 0
+                            return (
+                              <span className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ' +
+                                (reallyPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500')}>
+                                <span className={'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' +
+                                  (reallyPaid ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
+                                  {reallyPaid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                </span>
+                                {reallyPaid ? 'Paid' : summary ? 'Not paid' : 'Loading…'}
+                              </span>
+                            )
+                          })()}
+                          {/* Record a REAL client payment for whatever's still outstanding —
+                              disabled until the real balance is known, and once it's $0. */}
                           <div className="flex gap-1">
                             <button
-                              disabled={isSaving}
-                              onClick={() => handleCloseOutUpdate(b.id, { payment_method: 'zelle', payment_status: 'paid' })}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border ' +
+                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
+                              onClick={() => recordClientPayment(b, 'zelle')}
+                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
                                 (b.payment_method === 'zelle'
                                   ? 'bg-purple-50 border-purple-300 text-purple-700'
                                   : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-purple-200 hover:text-purple-600')}
@@ -1549,9 +1676,9 @@ function BookingsPage() {
                               Zelle
                             </button>
                             <button
-                              disabled={isSaving}
-                              onClick={() => handleCloseOutUpdate(b.id, { payment_method: 'apple_pay', payment_status: 'paid' })}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border ' +
+                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
+                              onClick={() => recordClientPayment(b, 'apple_pay')}
+                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
                                 (b.payment_method === 'apple_pay'
                                   ? 'bg-gray-800 border-gray-800 text-white'
                                   : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600')}
@@ -1559,18 +1686,28 @@ function BookingsPage() {
                               Apple
                             </button>
                           </div>
-                          {/* Cleaner Paid */}
+                          {/* Remind — manual, admin-clicked text + email for whatever's
+                              really still outstanding. Never fires on its own. */}
                           <button
-                            disabled={isSaving}
-                            onClick={() => handleCloseOutUpdate(b.id, { team_member_paid: !b.team_member_paid })}
-                            className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ' +
-                              (b.team_member_paid
+                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
+                            onClick={() => sendPaymentReminder(b)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700"
+                          >
+                            Remind
+                          </button>
+                          {/* Cleaner Paid — pays every team member's REAL outstanding
+                              balance (inserts team_member_payouts rows), not a flag flip. */}
+                          <button
+                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].laborOutstandingCents <= 0}
+                            onClick={() => payAllCleaners(b)}
+                            className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
+                              (closeOutSummaries[b.id]?.laborOutstandingCents === 0
                                 ? 'bg-green-50 border-green-200 text-green-700'
                                 : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50')}
                           >
                             <span className={'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' +
-                              (b.team_member_paid ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
-                              {b.team_member_paid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                              (closeOutSummaries[b.id]?.laborOutstandingCents === 0 ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
+                              {closeOutSummaries[b.id]?.laborOutstandingCents === 0 && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                             </span>
                             Team Paid
                           </button>

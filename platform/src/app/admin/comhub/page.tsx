@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
+import { isTenantAiAway, type SupportHours } from '@/lib/comhub-away'
 import { formatPhone } from '@/lib/format'
 import ComhubSettings from './comhub-settings'
 
@@ -29,6 +31,11 @@ type Contact = {
   client_id: string | null
   team_member_id: string | null
   tag: ContactTag | null
+  ip_address: string | null
+  geo_city: string | null
+  geo_region: string | null
+  blocked_at: string | null
+  blocked_reason: string | null
 }
 
 const CONTACT_TAG_LABELS: Record<ContactTag, string> = {
@@ -128,6 +135,7 @@ type ClientRow = {
   status: string | null
   active: boolean | null
   do_not_service: boolean | null
+  dns_reason: string | null
   pin: string | null
   pet_name: string | null
   pet_type: string | null
@@ -215,6 +223,48 @@ function renderWithMentions(text: string): React.ReactNode {
   })
 }
 const threadTitle = (t: Thread) => t.kind === 'channel' ? (t.name || `#${t.slug || 'channel'}`) : contactDisplay(t.comhub_contacts)
+
+// Persistent status + one-click override for Yinez's SMS/email auto-reply
+// coverage. Schedule comes from ComHub Settings -> Work hours
+// (selena_config.support_hours); this button flips selena_config.manual_away
+// to force her on immediately regardless of the schedule (e.g. short-staffed
+// mid-day), independent of the per-thread "Away ▾" canned-reply templates.
+function AwayToggle() {
+  const { tenant, updateSelenaConfig, saving } = useTenantSettings()
+  if (!tenant) return null
+
+  const selena = (tenant.selena_config as Record<string, unknown> | null) || {}
+  const manualAway = Boolean(selena.manual_away)
+  const supportHours = (selena.support_hours as Partial<SupportHours> | null) || null
+  const scheduledAway = isTenantAiAway({
+    timezone: tenant.timezone as string | null,
+    supportHours,
+    manualAway: false,
+  })
+  const effectivelyAway = manualAway || scheduledAway
+
+  return (
+    <button
+      type="button"
+      disabled={saving}
+      onClick={() => updateSelenaConfig({ manual_away: !manualAway })}
+      className="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs mb-3 transition-colors disabled:opacity-60"
+      style={{
+        fontFamily: 'var(--mono)',
+        border: '1px solid var(--color-loop-line-soft)',
+        background: effectivelyAway ? 'rgba(16,185,129,0.12)' : 'var(--color-loop-canvas)',
+      }}
+      title={manualAway ? 'Manually marked away — click to hand coverage back to your team' : 'Click to hand coverage to Yinez right now, regardless of the schedule'}
+    >
+      <span style={{ color: effectivelyAway ? '#10b981' : 'var(--color-loop-muted)' }}>
+        {effectivelyAway ? 'Yinez is responding' : 'Yinez is silent — support hours'}
+      </span>
+      <span className="font-medium" style={{ color: 'var(--color-loop-ink)' }}>
+        {manualAway ? 'End away' : 'Away'}
+      </span>
+    </button>
+  )
+}
 
 export default function ComhubPage() {
   // This component renders under two different layouts: /dashboard/comhub
@@ -544,6 +594,7 @@ export default function ComhubPage() {
               <span className="text-xs rounded-full px-2 py-0.5" style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)', fontFamily: 'var(--mono)' }}>{totalUnread} unread</span>
             </div>
           )}
+          <AwayToggle />
           <div className="flex gap-1.5 mb-3">
             <button
               onClick={() => {
@@ -1353,6 +1404,18 @@ function ComposeModal(props: {
       }
       if (props.channel === 'sms') payload.phone = props.recipient.trim()
       else { payload.email = props.recipient.trim(); if (props.subject.trim()) payload.subject = props.subject.trim() }
+      // Pin the exact client/team-member the admin picked from search, so the
+      // backend prefers their existing comhub_contacts row (if any) instead of
+      // re-deriving identity from the phone/email string alone — which can
+      // silently land on a different contact that already owns that number.
+      const pickedMatch = picked && (
+        (props.channel === 'sms' && picked.phone === props.recipient.trim()) ||
+        (props.channel === 'email' && picked.email === props.recipient.trim())
+      )
+      if (pickedMatch) {
+        if (picked!.role === 'client') payload.client_id = picked!.id
+        else if (picked!.role === 'cleaner') payload.team_member_id = picked!.id
+      }
       const res = await fetch('/api/admin/comhub/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1455,7 +1518,7 @@ function ComposeModal(props: {
             </label>
             <input
               value={props.recipient}
-              onChange={(e) => props.setRecipient(e.target.value)}
+              onChange={(e) => { props.setRecipient(e.target.value); setPicked(null) }}
               placeholder={props.channel === 'email' ? 'name@example.com' : '+1212...'}
               className="w-full rounded-md px-3 py-2 text-sm mb-2 focus:outline-none"
               style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
@@ -1762,6 +1825,14 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
           {contact.email && <div className="truncate">{contact.email}</div>}
+          {contact.ip_address && (
+            <div title="City-level only — IP geolocation can't resolve an exact address or identity">
+              {contact.ip_address}
+              {(contact.geo_city || contact.geo_region) && (
+                <> · {[contact.geo_city, contact.geo_region].filter(Boolean).join(', ')}</>
+              )}
+            </div>
+          )}
           {role === 'client' && client?.pin && (
             <div>
               Client portal PIN: <span style={{ color: 'var(--color-loop-ink)', fontWeight: 600 }}>{client.pin}</span>
@@ -1771,6 +1842,17 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
           )}
         </div>
       </div>
+
+      <ContactBlockControl
+        contactId={contact.id}
+        blockedAt={contact.blocked_at}
+        blockedReason={contact.blocked_reason}
+        hasIp={!!contact.ip_address}
+        clientId={client?.id ?? null}
+        clientDns={client?.do_not_service ?? null}
+        clientDnsReason={client?.dns_reason ?? null}
+        onChanged={onContactSaved}
+      />
 
       <ContactDetailsEditor
         contactId={contact.id}
@@ -2080,6 +2162,96 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
           Save
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DNS (2026-08-10) — one button, one concept, regardless of whether this
+// contact is linked to a real client. Same purpose either way: stop them
+// messaging you again and block their IP from the site (tenants.blocked_ips,
+// enforced in middleware.ts). Two different tables back it only because a
+// Comm Hub contact isn't always a real client:
+//   - linked to a client  -> clients.do_not_service (also blocks rebooking,
+//     the client-side meaning of DNS everywhere else in the app)
+//   - unlinked/anonymous  -> comhub_contacts.blocked_at (no client record to
+//     flag, so this is the only place the "don't service this person" fact
+//     can live)
+// ─────────────────────────────────────────────────────────────────────────────
+function ContactBlockControl({ contactId, blockedAt, blockedReason, hasIp, clientId, clientDns, clientDnsReason, onChanged }: {
+  contactId: string
+  blockedAt: string | null
+  blockedReason: string | null
+  hasIp: boolean
+  clientId: string | null
+  clientDns: boolean | null
+  clientDnsReason: string | null
+  onChanged?: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const onDns = clientId ? !!clientDns : !!blockedAt
+  const activeReason = clientId ? clientDnsReason : blockedReason
+
+  useEffect(() => { setReason(''); setError(null) }, [contactId])
+
+  const toggle = async () => {
+    if (!onDns && !window.confirm(hasIp
+      ? 'Move to DNS? They will be unable to message you again, and their IP will be blocked from the site entirely.'
+      : 'Move to DNS? They will be unable to message you again on any channel.')) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = clientId
+        ? await fetch(`/api/clients/${clientId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(onDns ? { do_not_service: false, dns_reason: null } : { do_not_service: true, dns_reason: reason.trim() || null }),
+          })
+        : await fetch(`/api/admin/comhub/contacts/${contactId}/block`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(onDns ? { blocked: false } : { blocked: true, reason: reason.trim() || undefined }),
+          })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `HTTP ${res.status}`)
+        return
+      }
+      onChanged?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="p-4 border-b border-[var(--color-loop-line-soft)] space-y-2 text-sm">
+      {onDns ? (
+        <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-warn)' }}>
+          DNS{activeReason ? ` — ${activeReason}` : ''}
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (optional, shown to staff only)"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+        />
+      )}
+      {error && <div className="text-[11px]" style={{ color: 'var(--color-loop-warn)' }}>{error}</div>}
+      <button
+        onClick={toggle}
+        disabled={busy}
+        className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+        style={onDns
+          ? { fontFamily: 'var(--mono)', background: 'var(--color-loop-canvas)', color: 'var(--color-loop-ink)', border: '1px solid var(--color-loop-line-soft)' }
+          : { fontFamily: 'var(--mono)', background: 'rgba(220,38,38,0.9)', color: '#fff' }}
+      >
+        {busy ? 'Working…' : onDns ? 'Restore from DNS' : 'DNS'}
+      </button>
     </div>
   )
 }

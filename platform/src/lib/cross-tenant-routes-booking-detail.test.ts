@@ -123,8 +123,8 @@ function reseed() {
   // the current role from here on every request (instant-revocation fix), so
   // setAdminSessionFor's minted tm-owner token needs a backing row per tenant.
   fake._seed('tenant_members', [
-    { id: 'tm-owner', tenant_id: A_ID, role: 'owner', name: 'Owner A' },
-    { id: 'tm-owner', tenant_id: B_ID, role: 'owner', name: 'Owner B' },
+    { id: 'tm-owner', tenant_id: A_ID, role: 'owner', name: 'Owner A', is_active: true },
+    { id: 'tm-owner', tenant_id: B_ID, role: 'owner', name: 'Owner B', is_active: true },
   ])
 }
 beforeEach(reseed)

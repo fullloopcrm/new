@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
+    }
     const {
       name, email, phone, location, lane, sales_background,
       target_segments, warm_intros, bilingual, why,

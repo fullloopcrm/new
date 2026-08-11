@@ -3,6 +3,7 @@ import { notify } from '@/lib/nycmaid/notify'
 import { yinezError, NYCMAID_TENANT_ID, type YinezResult } from './core-types'
 import { parseTime, handleCreateBooking, handleGetQuote } from './core-tools-booking'
 import { handleGetAccount, handleUpdateAccount, handleSendPin, handleResendConfirmation, handleCheckPayment, handleConfirmPayment } from './core-tools-account'
+import { nycmaidWallClockTime } from '@/lib/nycmaid/time-window'
 
 async function handleLookupBookings(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
@@ -20,7 +21,7 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
     if (!bookings?.length) return JSON.stringify({ bookings: [], message: 'No bookings found.' })
     return JSON.stringify({ bookings: bookings.map(b => ({
       id: b.id, date: b.start_time?.split('T')[0],
-      time: b.start_time ? new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) : null,
+      time: b.start_time ? nycmaidWallClockTime(b.start_time) : null,
       status: b.status, service: b.service_type, rate: b.hourly_rate,
       price: b.price ? `$${(b.price / 100).toFixed(0)}` : null,
       payment: b.payment_status, cleaner: (b.team_members as unknown as { name: string })?.name || 'TBD',

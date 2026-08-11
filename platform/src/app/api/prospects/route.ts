@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { computeFit } from '@/lib/lead-fit'
 import { buildProspectNotificationHtml } from './notification-email'
+import { isSpamSubmission } from '@/lib/spam-guard'
 
 // Cap free-text fields so a single submission can't balloon to megabytes.
 const MAX_TEXT = 2000
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    if (isSpamSubmission(body)) {
+      return NextResponse.json({ success: true })
     }
     const required = ['business_name', 'owner_name', 'owner_email', 'trade']
     for (const r of required) {

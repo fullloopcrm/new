@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 import { sendSMS, yinezError, NYCMAID_TENANT_ID } from './core-types'
 import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
+import { nycmaidWallClockTime, bookingWallClockDate } from '@/lib/nycmaid/time-window'
 
 export async function handleGetAccount(conversationId: string): Promise<string> {
   try {
@@ -30,7 +31,7 @@ export async function handleGetAccount(conversationId: string): Promise<string> 
       client: { name: client?.name, email: client?.email, phone: client?.phone, address: client?.address, member_since: client?.created_at?.split('T')[0] },
       upcoming: (upcoming || []).map(b => ({
         id: b.id, date: b.start_time?.split('T')[0],
-        time: b.start_time ? new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) : null,
+        time: b.start_time ? nycmaidWallClockTime(b.start_time) : null,
         status: b.status, service: b.service_type, rate: b.hourly_rate,
         payment: b.payment_status, cleaner: (b.team_members as unknown as { name: string })?.name || 'TBD',
       })),
@@ -128,8 +129,8 @@ export async function handleResendConfirmation(input: Record<string, unknown>, c
     const plainPin = client.pin ? decryptSecret(client.pin) : null
 
     const cleaner = booking.team_members as unknown as { name: string }
-    const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-    const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+    const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
+    const time = nycmaidWallClockTime(booking.start_time)
 
     const html = emailWrapper(`
       <h2 style="margin:0 0 16px;font-size:20px;font-weight:600;color:#1a1a1a">Booking Confirmation</h2>

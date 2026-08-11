@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import type { ServiceOption } from '../../_config/types'
 import SmsConsent from '../../_components/SmsConsent'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 const CADENCE: { value: string; label: string }[] = [
   { value: '', label: 'One-time' },
@@ -37,6 +38,7 @@ export default function RemoteBookForm({ services, businessName }: { services: S
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; phone?: string; service_type?: string; date?: string }>({})
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const set = (k: keyof typeof form, v: string) => { setForm(p => ({ ...p, [k]: v })); setFieldErrors(prev => ({ ...prev, [k]: undefined })) }
   const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -83,6 +85,7 @@ export default function RemoteBookForm({ services, businessName }: { services: S
           sms_opt_in: smsConsent,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
           src: 'remote-book',
+          ...getSpamGuardFields(),
         }),
       })
       const d = await res.json().catch(() => ({}))
@@ -108,6 +111,7 @@ export default function RemoteBookForm({ services, businessName }: { services: S
 
   return (
     <form onSubmit={submit} className="max-w-xl mx-auto my-12 px-4 space-y-6">
+      <Honeypot inputRef={honeypotRef} />
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-1">Start your plan</h1>
         <p className="text-sm text-slate-500">Tell us what you need and how often. No appointment or address needed — your assistant works remotely.</p>

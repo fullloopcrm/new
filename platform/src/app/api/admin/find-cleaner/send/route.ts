@@ -15,12 +15,20 @@ function zoneLabel(zoneId: string | null, lang: 'en' | 'es'): string {
 
 function fmtTimeRange(date: string, start: string, hours: number, lang: 'en' | 'es'): { date: string; time: string } {
   const [sh, sm] = start.split(':').map(Number)
+  // startD/endD are built from naive local (ET) components with no timezone
+  // marker — formatting them with an explicit `timeZone: 'America/New_York'`
+  // would double-convert (parse naive-as-runtime-default, then re-shift by
+  // the ET offset), the same bug fixed throughout lib/time-window.ts. Since
+  // there's no 'Z', omitting `timeZone` here formats using the same
+  // (runtime-default) interpretation used to parse it, so it round-trips to
+  // the original wall-clock digits exactly — while still going through
+  // Intl for correct locale-aware AM/PM (e.g. Spanish "a. m."/"p. m.").
   const startD = new Date(`${date}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`)
   const endD = new Date(startD.getTime() + hours * 3600 * 1000)
   const locale = lang === 'es' ? 'es-US' : 'en-US'
-  const dateStr = startD.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' })
-  const startStr = startD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
-  const endStr = endD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+  const dateStr = startD.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' })
+  const startStr = startD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
+  const endStr = endD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
   return { date: dateStr, time: `${startStr}-${endStr}` }
 }
 

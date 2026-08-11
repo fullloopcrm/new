@@ -26,6 +26,37 @@ import { isAdminBypassPath } from './middleware/admin-bypass'
 // redirect block while adding EMD microsites, 404ing the site's #1-ranked
 // keyword page for a day-plus before anyone noticed). Order of the checks
 // below is load-bearing — see each inline comment for why.
+// Exact-IP site block (2026-08-10) — see migrations/comhub-contact-ip-tracking-and-blocking.sql.
+function requestIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || ''
+}
+
+function isIpBlocked(ip: string, blockedIps: string[] | undefined): boolean {
+  return !!ip && !!blockedIps?.length && blockedIps.includes(ip)
+}
+
+// Fire-and-forget-but-awaited: latency doesn't matter for a rejected
+// visitor, and awaiting guarantees the alert fires before the Edge
+// function exits (an un-awaited promise can be dropped when the response
+// returns). notify() itself can't run here — Edge Runtime can't load its
+// Node-only deps — so this hands off to a Node-runtime route instead.
+async function blockedResponse(req: NextRequest, tenantId: string): Promise<NextResponse> {
+  try {
+    await fetch(new URL('/api/internal/blocked-visit-alert', req.nextUrl.origin), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-tenant-id': tenantId,
+        'x-tenant-sig': signTenantHeader(tenantId),
+      },
+      body: JSON.stringify({ ip: requestIp(req), path: req.nextUrl.pathname }),
+    })
+  } catch (e) {
+    console.error('blocked-visit-alert failed:', e)
+  }
+  return new NextResponse('Forbidden', { status: 403, headers: { 'Content-Type': 'text/plain' } })
+}
+
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
@@ -70,6 +101,7 @@ export default async function middleware(req: NextRequest) {
     try {
       const tenant = await getTenantBySlug(subdomain)
       if (tenant && tenantServesSite(tenant.status)) {
+        if (isIpBlocked(requestIp(req), tenant.blockedIps)) return await blockedResponse(req, tenant.id)
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {
@@ -97,6 +129,7 @@ export default async function middleware(req: NextRequest) {
       // falling through to the main site instead of the tenant's own.
       const tenant = await getTenantByDomain(cleanHost)
       if (tenant && tenantServesSite(tenant.status)) {
+        if (isIpBlocked(requestIp(req), tenant.blockedIps)) return await blockedResponse(req, tenant.id)
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
     } catch (e) {

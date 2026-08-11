@@ -76,8 +76,8 @@ export default function MarketingFooter() {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Resources</h3>
             <ul className="space-y-2.5">
-              <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Self Booking — $10 Off</Link></li>
-              <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
+              <li><a href="https://www.thenycmaid.com/book/new" className="text-sm hover:text-white transition-colors">Self Booking — $10 Off</a></li>
+              <li><a href="https://www.thenycmaid.com/referral" className="text-sm hover:text-white transition-colors">Referral Program</a></li>
               <li><a href="tel:2122028400" className="text-sm hover:text-white transition-colors">Call: (212) 202-8400</a></li>
               <li><a href="sms:2122028400" className="text-sm hover:text-white transition-colors">Text: (212) 202-8400</a></li>
               <li><Link href="/cleaning-tips-and-tricks" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>

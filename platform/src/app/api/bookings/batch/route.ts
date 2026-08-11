@@ -8,7 +8,7 @@ import { isCommEnabled } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE, bookingWallClockDate, nycmaidWallClockTime } from '@/lib/nycmaid/time-window'
 
 /**
  * POST /api/bookings/batch
@@ -182,22 +182,13 @@ export async function POST(request: Request) {
       const client = first.clients as { name?: string; email?: string | null; phone?: string | null } | null
       const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null } | null
 
-      const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
-        timeZone: 'America/New_York',
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      })
+      const bookingDate = bookingWallClockDate(first.start_time)
       // NYC Maid clients are told a 2-hour arrival window, never an exact
       // time (see time-window.ts — the same rule every SMS template already
       // follows). Other tenants get the plain wall-clock time.
       const bookingTime = isNycMaid(tenantId)
         ? clientArrivalWindow(first.start_time)
-        : new Date(first.start_time).toLocaleTimeString('en-US', {
-            timeZone: 'America/New_York',
-            hour: 'numeric',
-            minute: '2-digit',
-          })
+        : nycmaidWallClockTime(first.start_time)
 
       // Resolve tenant SMS creds
       const { data: tRow } = await supabaseAdmin

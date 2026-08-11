@@ -47,12 +47,12 @@ const L = (href: string, text: string) => `<a href="${href}" class="text-[#1E2A4
 
 const homepageFAQs = [
   // Pricing & Booking
-  { question: 'How much does house cleaning cost in NYC?', answer: `Our ${L('/services/nyc-house-cleaning-service', 'house cleaning services')} start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $79/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). ${L('/services/nyc-same-day-cleaning-service', 'Same-day and emergency service')} is $99/hour. See ${L('/nyc-cleaning-service-pricing', 'full pricing details')}.` },
-  { question: 'Do you charge by the hour or a flat rate?', answer: `We charge by the hour. The rate is the same regardless of service type or neighborhood — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $79/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No inflated flat-rate quotes. See ${L('/nyc-cleaning-service-pricing', 'pricing')}.` },
+  { question: 'How much does house cleaning cost in NYC?', answer: `Our ${L('/services/nyc-house-cleaning-service', 'house cleaning services')} start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). ${L('/services/nyc-same-day-cleaning-service', 'Same-day and emergency service')} is $89/hour. See ${L('/nyc-cleaning-service-pricing', 'full pricing details')}.` },
+  { question: 'Do you charge by the hour or a flat rate?', answer: `We charge by the hour. The rate is the same regardless of service type or neighborhood — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). No inflated flat-rate quotes. See ${L('/nyc-cleaning-service-pricing', 'pricing')}.` },
   { question: 'Is there a minimum number of hours?', answer: `We have a 2-hour minimum for most bookings. This ensures our cleaners have enough time to deliver a thorough, quality clean. Most ${L('/services/nyc-apartment-cleaning-service', 'apartment cleanings')} take 2–4 hours.` },
   { question: 'How do I book a cleaning?', answer: 'Text or call us at (212) 202-8400. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
   { question: 'Can I book online?', answer: 'Yes! You can book directly through our website. Just click "Book Online" in the menu, or text us if you prefer a personal touch.' },
-  { question: 'Do you offer same-day cleaning?', answer: `Yes. ${L('/services/nyc-same-day-cleaning-service', 'Same-day and emergency cleaning')} is available at $99/hour. We dispatch a professional cleaner to your door within hours.` },
+  { question: 'Do you offer same-day cleaning?', answer: `Yes. ${L('/services/nyc-same-day-cleaning-service', 'Same-day and emergency cleaning')} is available at $89/hour. We dispatch a professional cleaner to your door within hours.` },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Zelle (hi@thenycmaid.com), Venmo, Apple Pay, and cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
@@ -67,10 +67,10 @@ const homepageFAQs = [
   { question: 'Can I customize what gets cleaned?', answer: 'Of course. Just let us know your priorities and we will tailor the cleaning to focus on what matters most to you.' },
 
   // Supplies & Equipment
-  { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $79/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). See ${L('/nyc-cleaning-service-pricing', 'pricing details')}.` },
+  { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). See ${L('/nyc-cleaning-service-pricing', 'pricing details')}.` },
   { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective cleaning products. If you have preferences for eco-friendly or specific brands, just let us know and we will accommodate.' },
   { question: 'Can I request eco-friendly or green products?', answer: 'Yes. We are happy to use eco-friendly, non-toxic, or hypoallergenic products. Just mention your preference when booking.' },
-  { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $79/hour, we bring everything including vacuums, mops, and all cleaning tools. See ${L('/nyc-cleaning-service-pricing', 'pricing')}.` },
+  { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. See ${L('/nyc-cleaning-service-pricing', 'pricing')}.` },
 
   // Trust & Safety
   { question: 'Are your cleaners background-checked and insured?', answer: `Yes. Every cleaner on our team is fully background-checked, licensed, and insured. We carry general liability insurance and bonding for your complete peace of mind. ${L('/about-nyc-cleaning-service-sunnyside-clean-nyc', 'Learn more about us')}.` },
@@ -164,15 +164,14 @@ export default function HomePage() {
               <div className="absolute -top-3 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <div className="flex items-baseline gap-3">
-                <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$79<span className="text-2xl text-blue-200/50">/hr</span></p>
-                <p className="text-blue-200/40 line-through text-lg">$75</p>
+                <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$69<span className="text-2xl text-blue-200/50">/hr</span></p>
               </div>
               <p className="text-blue-200/50 text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
               <p className="text-[#A8F0DC]/80 text-xs mt-2 font-medium">20% off weekly &middot; 10% off biweekly &amp; monthly</p>
             </div>
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
               <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$99<span className="text-2xl text-blue-200/50">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$89<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
             </div>
           </div>
@@ -323,8 +322,7 @@ export default function HomePage() {
               <div className="absolute -top-3.5 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <div className="flex items-baseline gap-3 mb-1">
-                <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none">$79<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
-                <span className="font-[family-name:var(--font-bebas)] text-3xl text-white/30 line-through">$75</span>
+                <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none">$69<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
               </div>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-blue-200/60 text-sm leading-relaxed mb-5">
@@ -358,7 +356,7 @@ export default function HomePage() {
             {/* Tier 3 */}
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Same-Day &amp; Emergency</p>
-              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$99<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
+              <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/nyc-same-day-cleaning-service" className="text-[#1E2A4A] underline underline-offset-2">same-day cleaning</Link> when you need it most.
@@ -396,9 +394,9 @@ export default function HomePage() {
                 {[
                   { tip: 'Book recurring service for the best rate', detail: 'Weekly and bi-weekly clients at $59/hr save significantly over one-time deep cleans. A weekly 2-hour clean costs just $98/visit — less than most NYC dinner tabs.' },
                   { tip: 'First cleaning always takes longer', detail: 'Your initial deep clean may run 4–6 hours. After that, recurring maintenance cleanings are typically 2–3 hours because we\'re maintaining — not catching up.' },
-                  { tip: 'Provide your own supplies to save ~21%', detail: 'The difference between $59/hr and $79/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $16/hr — that\'s $32+ per visit.' },
+                  { tip: 'Provide your own supplies to save ~21%', detail: 'The difference between $59/hr and $69/hr is who provides supplies. If you have a vacuum, mop, and basic products, you save $16/hr — that\'s $32+ per visit.' },
                   { tip: 'Declutter before we arrive', detail: 'Our cleaners are most efficient when surfaces are accessible. Less time moving items means more time actually cleaning — better results, lower cost.' },
-                  { tip: 'Bundle services for new apartments', detail: 'Moving in? Book a move-in deep clean at $79/hr, then transition to weekly or bi-weekly at $59/hr with your own supplies for ongoing maintenance.' },
+                  { tip: 'Bundle services for new apartments', detail: 'Moving in? Book a move-in deep clean at $69/hr, then transition to weekly or bi-weekly at $59/hr with your own supplies for ongoing maintenance.' },
                 ].map(item => (
                   <li key={item.tip}>
                     <p className="text-[#1E2A4A] font-semibold text-sm mb-1">{item.tip}</p>
@@ -415,8 +413,8 @@ export default function HomePage() {
                   { factor: 'Apartment size', detail: 'A studio takes 2 hours. A 3-bedroom may take 5–6. We charge by the hour so you only pay for the time your space actually needs — no inflated flat rates.' },
                   { factor: 'Cleaning type', detail: 'A regular maintenance clean is faster than a deep clean. Deep cleans cover inside appliances, baseboards, window tracks, and behind furniture — expect 2x the time.' },
                   { factor: 'Condition of the space', detail: 'A well-maintained home that gets cleaned weekly takes less time than a first-time clean or post-construction job. Recurring clients see lower bills over time.' },
-                  { factor: 'Supplies', detail: 'At $59/hr you provide supplies. At $79/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.' },
-                  { factor: 'Urgency', detail: 'Same-day and emergency service is $99/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
+                  { factor: 'Supplies', detail: 'At $59/hr you provide supplies. At $69/hr we bring commercial-grade vacuums, microfiber systems, and professional products. Both options include the same quality of work.' },
+                  { factor: 'Urgency', detail: 'Same-day and emergency service is $89/hr because we prioritize your booking and dispatch immediately. Plan ahead to save — most clients book 2–3 days in advance.' },
                 ].map(item => (
                   <li key={item.factor}>
                     <p className="text-[#1E2A4A] font-semibold text-sm mb-1">{item.factor}</p>
@@ -440,7 +438,7 @@ export default function HomePage() {
               </div>
               <div className="bg-[#F5FBF8] border border-[#A8F0DC]/30 rounded-xl p-4">
                 <p className="text-xs text-[#A8F0DC] font-semibold tracking-wide uppercase mb-1">Sunnyside Clean NYC</p>
-                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">$59–$79/hr</p>
+                <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">$59–$69/hr</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
                 <p className="text-xs text-gray-400 font-semibold tracking-wide uppercase mb-1">You Save</p>

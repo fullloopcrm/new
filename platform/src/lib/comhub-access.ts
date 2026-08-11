@@ -23,12 +23,14 @@ import { verifyAdminToken } from '@/app/api/admin-auth/route'
 // inbox -- preserves that pre-existing behavior exactly.
 const FULL_LOOP_SYSTEM_TENANT_ID = '117968d2-24a1-42b5-96bd-7022e4e838ee'
 
-export type ComhubAccess = { tenantId: string; role: string }
+export type ComhubAccess = { tenantId: string; role: string; userId?: string }
 
 export async function requireComhubAccess(): Promise<ComhubAccess | NextResponse> {
   try {
     const ctx = await getTenantForRequest()
-    return { tenantId: ctx.tenantId, role: ctx.role }
+    // userId is 'admin' on the platform-owner login path (no real tenant_members
+    // row) — only a real tenant_members id is usable as blocked_by's FK target.
+    return { tenantId: ctx.tenantId, role: ctx.role, userId: ctx.userId !== 'admin' ? ctx.userId : undefined }
   } catch (err) {
     if (!(err instanceof AuthError)) throw err
     const cookieStore = await cookies()

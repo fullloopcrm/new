@@ -136,7 +136,7 @@ function bookReq(startTime: string) {
   return POST(
     new Request('http://t/api/client/book', {
       method: 'POST',
-      body: JSON.stringify({ client_id: CLIENT, start_time: startTime, end_time: startTime }),
+      body: JSON.stringify({ _ts: Date.now() - 5000, client_id: CLIENT, start_time: startTime, end_time: startTime }),
     }),
   )
 }

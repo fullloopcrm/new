@@ -34,12 +34,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
       updates.role = body.role
     }
+    if (body.is_active !== undefined) {
+      const nextActive = !!body.is_active
+      if (!nextActive) {
+        // Same invariant as DELETE below: a tenant can't be left with zero
+        // active owners, or nobody can log in to reactivate anyone.
+        const { data: target } = await tenantDb(tenant.tenantId)
+          .from('tenant_members')
+          .select('role')
+          .eq('id', id)
+          .single()
+        if (target?.role === 'owner') {
+          const { count } = await tenantDb(tenant.tenantId)
+            .from('tenant_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('role', 'owner')
+            .eq('is_active', true)
+          if ((count ?? 0) <= 1) {
+            return NextResponse.json({ error: 'Cannot deactivate the last active owner' }, { status: 400 })
+          }
+        }
+      }
+      updates.is_active = nextActive
+    }
 
     const { data, error } = await tenantDb(tenant.tenantId)
       .from('tenant_members')
       .update(updates)
       .eq('id', id)
-      .select('id, email, name, role, phone, created_at')
+      .select('id, email, name, role, phone, created_at, is_active')
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
