@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { nycmaidWallClockTime } from '@/lib/time-window'
 
 type Booking = {
   id: string
@@ -39,6 +40,8 @@ function monthBoundsUTC(): { startISO: string; endISO: string } {
   return { startISO: start.toISOString(), endISO: end.toISOString() }
 }
 
+// For genuine UTC instants only (e.g. new Date().toISOString()) -- converts
+// to the corresponding ET calendar day.
 function etDateKey(iso: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
 }
@@ -47,15 +50,21 @@ function todayETDateKey(): string {
   return etDateKey(new Date().toISOString())
 }
 
+// bookings.start_time is a naive ET wall-clock string (no offset) -- its
+// leading YYYY-MM-DD digits ARE the ET calendar day already. Running it
+// through etDateKey() would double-convert (new Date(naive) reads it as
+// UTC, then re-converting to ET shifts it again) -- same bug class as
+// lib/time-window.ts's extractWallClock.
+function bookingDateKey(startTime: string): string {
+  return startTime.slice(0, 10)
+}
+
 function formatDayLabel(dateKey: string): string {
   const [y, m, d] = dateKey.split('-').map(Number)
   const noon = new Date(Date.UTC(y, m - 1, d, 12))
   return noon.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-function formatTimeET(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-}
 
 const STATUS_META: Record<string, { label: string; dotClass: string }> = {
   in_progress: { label: 'Live', dotClass: 'bg-green-500' },
@@ -133,7 +142,7 @@ export default function MobileDayListView() {
 
   const byDay = new Map<string, Booking[]>()
   for (const b of bookings) {
-    const key = etDateKey(b.start_time)
+    const key = bookingDateKey(b.start_time)
     const group = byDay.get(key)
     if (group) group.push(b)
     else byDay.set(key, [b])
@@ -182,7 +191,7 @@ export default function MobileDayListView() {
                           <span className={`w-2 h-2 rounded-full ${meta.dotClass}`} />
                           <p className="font-medium text-slate-900 text-sm">{b.clients?.name || 'Client'}</p>
                         </div>
-                        <p className="text-xs text-slate-400">{formatTimeET(b.start_time)}</p>
+                        <p className="text-xs text-slate-400">{nycmaidWallClockTime(b.start_time)}</p>
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {b.service_type || 'Cleaning'}{b.team_members?.name ? ` · ${b.team_members.name}` : ''}

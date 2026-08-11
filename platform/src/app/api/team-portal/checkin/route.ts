@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
-import { formatET } from '@/lib/dates'
+import { nowNaiveET } from '@/lib/recurring'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient, bookingCoords, bookingAddress } from '@/lib/client-properties'
 import { notify } from '@/lib/nycmaid/notify'
@@ -55,9 +55,12 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Already checked in' }, { status: 400 })
   }
 
-  // Block check-in on future bookings (compare date in ET)
-  const todayET = formatET(new Date(), { year: 'numeric', month: '2-digit', day: '2-digit' })
-  const bookingDateET = formatET(booking.start_time, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  // Block check-in on future bookings (compare date in ET). booking.start_time
+  // is a naive ET wall-clock string (not UTC) -- formatET()/parseTimestamp()
+  // assumes naive strings are UTC and would double-convert it, same bug class
+  // as cron/no-show-check. Both sides compared as naive-ET 'YYYY-MM-DD'.
+  const todayET = nowNaiveET().slice(0, 10)
+  const bookingDateET = booking.start_time.slice(0, 10)
   if (bookingDateET > todayET) {
     return NextResponse.json({ error: 'Cannot check in to a future booking' }, { status: 400 })
   }
