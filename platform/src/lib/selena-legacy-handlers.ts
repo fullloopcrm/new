@@ -7,6 +7,7 @@ import { notify } from '@/lib/notify'
 import { encryptSecretSafe, decryptSecret } from '@/lib/secret-crypto'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,10 +44,20 @@ async function getConvoClientId(conversationId: string): Promise<string | null> 
   return data?.client_id || null
 }
 
-function fmtTime(t: string | null, tz = 'America/New_York'): string | null {
+// start_time/end_time (naive "timestamp without time zone", ET wall-clock
+// digits with no marker) and check_in_time/check_out_time (genuine
+// "timestamp with time zone", real UTC instants) use OPPOSITE conventions —
+// see dates.ts's parseTimestamp() comment. A naive value needs its digits
+// read directly (nycmaidWallClockTime); a real UTC value needs an actual
+// timeZone conversion. Branch on whether a zone marker is present so this
+// one helper is safe for callers passing either column.
+function fmtTime(t: string | null): string | null {
   if (!t) return null
   try {
-    return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz })
+    const hasZoneMarker = /Z$|[+-]\d{2}:?\d{2}$/.test(t)
+    return hasZoneMarker
+      ? new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+      : nycmaidWallClockTime(t)
   } catch {
     return null
   }
@@ -205,9 +216,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
 
     const tm = booking.team_members as unknown as { name: string } | null
     const tenant = booking.tenants as unknown as { name: string } | null
-    const date = new Date(booking.start_time).toLocaleDateString('en-US', {
-      timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric',
-    })
+    const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
     const time = fmtTime(booking.start_time)
 
     const html = `

@@ -53,6 +53,26 @@ export function nycmaidWallClockTime(startTime: string | Date): string {
   return formatMinutesOfDay(hour * 60 + minute)
 }
 
+/**
+ * Format a booking's start_time as its calendar date (weekday, month, day) —
+ * companion to nycmaidWallClockTime for the date half of a confirmation/
+ * reminder line. Same naive-string handling: extracts the Y/M/D digits
+ * directly and builds a local Date from components, never round-tripping
+ * through `new Date(isoString)` + a `timeZone` conversion (the exact bug
+ * this file exists to avoid — see extractWallClock's comment).
+ */
+export function bookingWallClockDate(
+  startTime: string | Date,
+  options: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' },
+  locale = 'en-US',
+): string {
+  const iso = typeof startTime === 'string' ? startTime : startTime.toISOString()
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) throw new Error(`bookingWallClockDate: unrecognized start_time format: ${iso}`)
+  const [, y, m, d] = match
+  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString(locale, options)
+}
+
 // Expectation-setting note that MUST accompany any client-facing arrival-window
 // mention: we cannot commit to an exact arrival time, even day-of.
 export const ARRIVAL_WINDOW_NOTE =

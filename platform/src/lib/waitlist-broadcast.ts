@@ -63,12 +63,18 @@ function zoneLabel(zoneId: string | null, lang: 'en' | 'es'): string {
 
 function fmtTimeRange(date: string, start: string, hours: number, lang: 'en' | 'es'): { date: string; time: string } {
   const [sh, sm] = start.split(':').map(Number)
+  // startD/endD are built from naive local (ET) components with no timezone
+  // marker — an explicit `timeZone: 'America/New_York'` here would
+  // double-convert them (same bug fixed throughout lib/time-window.ts).
+  // Omitting `timeZone` formats using the same interpretation used to parse,
+  // so it round-trips to the original digits while still using Intl for
+  // correct locale-aware AM/PM (e.g. Spanish "a. m."/"p. m.").
   const startD = new Date(`${date}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`)
   const endD = new Date(startD.getTime() + hours * 3600 * 1000)
   const locale = lang === 'es' ? 'es-US' : 'en-US'
-  const dateStr = startD.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' })
-  const startStr = startD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
-  const endStr = endD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+  const dateStr = startD.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' })
+  const startStr = startD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
+  const endStr = endD.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
   return { date: dateStr, time: `${startStr}-${endStr}` }
 }
 

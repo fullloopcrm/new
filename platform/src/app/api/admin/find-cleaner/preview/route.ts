@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 
 // HARD-CODED test mode. Flip to false ONLY after the broadcast pipeline is
 // verified end-to-end with a single test team member. Mass-SMS guard
@@ -45,7 +46,7 @@ export type EligibleCleaner = {
 }
 
 function dayOfWeekShort(date: string): string {
-  return new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+  return bookingWallClockDate(date, { weekday: 'short' })
 }
 
 function bookingOverlapsWindow(b: BookingRow, windowStart: Date, windowEnd: Date): boolean {
@@ -149,7 +150,7 @@ export async function POST(request: Request) {
     }
     const conflict = cleanerBookings.find((b) => bookingOverlapsWindow(b, windowStart, windowEnd))
     if (conflict) {
-      const cStart = new Date(conflict.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+      const cStart = nycmaidWallClockTime(conflict.start_time)
       reasons.push(`Conflict at ${cStart} (±${BUFFER_HOURS}hr)`)
     }
 

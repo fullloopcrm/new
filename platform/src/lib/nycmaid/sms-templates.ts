@@ -4,7 +4,7 @@
 // ============================================
 import { decryptSecret } from '../secret-crypto'
 
-import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES } from './time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE_SMS, ARRIVAL_WINDOW_NOTE_ES, bookingWallClockDate, nycmaidWallClockTime } from './time-window'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 
 const STOP_TEXT = '\nReply STOP to opt out.'
@@ -15,7 +15,7 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 // ============================================
 
 export function smsBookingReceived(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const rate = booking.hourly_rate || 69
   const maxLine = booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''
@@ -29,7 +29,7 @@ export function smsBookingReceived(booking: any): string {
 // reply needed). Acknowledges the lock-in and previews the cleaner-assignment
 // step. Replaces the smsBookingReceived nag for form-confirmed bookings.
 export function smsBookingConfirmed(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const rate = booking.hourly_rate || 69
   const teamLine = (booking.team_size || 1) > 1 ? ` for our team of ${booking.team_size} cleaners` : ''
@@ -38,7 +38,7 @@ export function smsBookingConfirmed(booking: any): string {
 }
 
 export function smsConfirmationReminder(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   return `The NYC Maid: We still need a CONFIRM reply for your booking on ${date}, arrival window ${time}. If we don't receive your confirmation, we'll have to cancel the request and offer the time slot to another client.\n\n${ARRIVAL_WINDOW_NOTE_SMS}\n\nReply CONFIRM to lock it in. Questions? (212) 202-8400${STOP_TEXT}`
 }
@@ -73,7 +73,7 @@ export function smsReviewRequest(cleanerName: string): string {
 }
 
 export function smsBookingConfirmation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your cleaner'
   const isRecurring = !!booking.recurring_type
@@ -103,12 +103,12 @@ export function smsReminder(booking: any, timeframe: string): string {
 }
 
 export function smsCancellation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   return `The NYC Maid: Your ${date} cleaning has been cancelled. Rebook: thenycmaid.com/book/new${STOP_TEXT}`
 }
 
 export function smsReschedule(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const newDate = bookingWallClockDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
   return `The NYC Maid: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}. ${ARRIVAL_WINDOW_NOTE_SMS} Details: thenycmaid.com/book/new${STOP_TEXT}`
 }
@@ -127,7 +127,7 @@ export function smsVerificationCode(code: string): string {
 // ============================================
 
 export function smsBookingConfirmationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const time = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu limpiador/a'
   return `The NYC Maid: Tu limpieza está confirmada para ${date}, ventana de llegada ${time}, con ${cleanerName}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: thenycmaid.com/book/new${STOP_TEXT_ES}`
@@ -149,12 +149,12 @@ export function smsReminderES(booking: any, timeframe: string): string {
 }
 
 export function smsCancellationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   return `The NYC Maid: Tu limpieza del ${date} ha sido cancelada. Reservar de nuevo: thenycmaid.com/book/new${STOP_TEXT_ES}`
 }
 
 export function smsRescheduleES(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const newDate = bookingWallClockDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
   return `The NYC Maid: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: thenycmaid.com/book/new${STOP_TEXT_ES}`
 }
@@ -169,8 +169,8 @@ export function smsThankYouES(clientName: string): string {
 // ============================================
 
 export function smsJobAssignment(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time)
+  const time = nycmaidWallClockTime(booking.start_time)
   const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   const supplies = booking.hourly_rate === 49
     ? ' (Labor only - client has supplies / Solo mano de obra - cliente tiene suministros)'
@@ -186,9 +186,8 @@ export function smsDailySummary(cleanerName: string, count: number, pin?: string
   let jobLines = ''
   if (bookings && bookings.length > 0) {
     jobLines = '\n' + bookings.map(b => {
-      const d = new Date(b.start_time)
-      const date = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-      const time = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+      const date = bookingWallClockDate(b.start_time)
+      const time = nycmaidWallClockTime(b.start_time)
       const client = b.clients?.name || 'Client'
       const addr = b.clients?.address || ''
       const phone = b.clients?.phone || ''
@@ -201,14 +200,14 @@ export function smsDailySummary(cleanerName: string, count: number, pin?: string
 }
 
 export function smsJobCancelled(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   return `The NYC Maid: Cancelled - ${date} job (${booking.clients?.name || 'Client'}). Portal: thenycmaid.com/team PIN: ${pin}\nCancelado - trabajo del ${date}. Portal: thenycmaid.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsJobRescheduled(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const newDate = bookingWallClockDate(booking.start_time)
+  const newTime = nycmaidWallClockTime(booking.start_time)
   const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   const supplies = booking.hourly_rate === 49
     ? ' (Labor only / Solo mano de obra)'
@@ -217,8 +216,8 @@ export function smsJobRescheduled(booking: any): string {
 }
 
 export function smsUrgentBroadcast(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time)
+  const time = nycmaidWallClockTime(booking.start_time)
   const payRate = effectiveCleanerRate(booking.cleaner_pay_rate || 40, booking.clients?.address)
   return `The NYC Maid URGENT: $${payRate}/hr job available ${date} ${time}. Claim now: thenycmaid.com/team\nURGENTE: Trabajo $${payRate}/hr ${date} ${time}. Reclamar: thenycmaid.com/team${STOP_TEXT}`
 }
@@ -250,14 +249,14 @@ export function smsNewClient(name: string): string {
 }
 
 export function smsLateCheckInCleaner(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = nycmaidWallClockTime(booking.start_time)
   const clientName = booking.clients?.name || 'Client'
   const pin = booking.cleaners?.pin ? decryptSecret(booking.cleaners.pin) : ''
   return `The NYC Maid: You're late for your ${time} job (${clientName}). Please check in ASAP: thenycmaid.com/team PIN: ${pin}\nEstás tarde para tu trabajo de las ${time} (${clientName}). Regístrate ahora: thenycmaid.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsLateCheckInAdmin(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = nycmaidWallClockTime(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
   return `The NYC Maid: Late check-in — ${cleanerName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
@@ -276,7 +275,7 @@ export function smsLateCheckOutAdmin(booking: any): string {
 }
 
 export function smsNewBooking(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time)
   return `The NYC Maid: New booking — ${booking.clients?.name || 'Unknown'} on ${date}`
 }
 

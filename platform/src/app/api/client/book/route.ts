@@ -18,6 +18,7 @@ import { teamSmsTemplatesFor } from '@/lib/messaging/team-sms-resolver'
 import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
@@ -85,8 +86,8 @@ async function notifyAutoAssignment(
   team: { size: number; assignedCount: number },
 ): Promise<void> {
   if (!tenant) return
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time)
+  const time = nycmaidWallClockTime(booking.start_time)
   const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
 
   if (booking.clients?.id) {
@@ -167,7 +168,7 @@ async function notifyExtraTeamMembers(
   extraIds: string[],
 ): Promise<void> {
   if (!tenant || extraIds.length === 0) return
-  const bookingDate = new Date(startTimeISO).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const bookingDate = bookingWallClockDate(startTimeISO)
   const templates = await teamSmsTemplatesFor(tenantId)
 
   for (const extraId of extraIds) {

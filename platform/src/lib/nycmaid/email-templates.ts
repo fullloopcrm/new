@@ -2,7 +2,7 @@
 // CLEAN EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
-import { clientArrivalWindow, nycmaidWallClockTime } from '../time-window'
+import { clientArrivalWindow, nycmaidWallClockTime, bookingWallClockDate } from '../time-window'
 import { escapeHtml, safeUrl } from '../escape-html'
 import { formatRecurringLabel } from '../recurring'
 import { applyDiscount } from '../discount'
@@ -111,7 +111,7 @@ const noteBox = (content: string, type: 'info' | 'warning' | 'success' = 'info')
 // ============================================
 
 export function clientBookingReceivedEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const rate = booking.hourly_rate || 69
@@ -226,7 +226,7 @@ export function clientReviewRequestEmail(booking: any) {
 }
 
 export function clientConfirmationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
   const cleanerFirst = (booking.cleaners?.name || 'Your cleaner').split(' ')[0]
@@ -364,7 +364,7 @@ export function clientConfirmationEmail(booking: any) {
 }
 
 export function clientReminderEmail(booking: any, daysOut: string) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
@@ -396,7 +396,7 @@ export function clientReminderEmail(booking: any, daysOut: string) {
 }
 
 export function clientCancellationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
 
   const content = `
@@ -506,8 +506,8 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
 // ============================================
 
 export function cleanerAssignmentEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
+  const dateES = bookingWallClockDate(booking.start_time, { weekday: 'long', day: 'numeric', month: 'long' }, 'es-ES')
   const startTime = nycmaidWallClockTime(booking.start_time)
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
@@ -556,18 +556,18 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
   // Group bookings by date
   const byDate = new Map<string, any[]>()
   for (const b of bookings) {
-    const dateKey = new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+    const dateKey = bookingWallClockDate(b.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
     if (!byDate.has(dateKey)) byDate.set(dateKey, [])
     byDate.get(dateKey)!.push(b)
   }
 
   let jobsList = ''
   for (const [dateEN, dayBookings] of byDate) {
-    const dateES = new Date(dayBookings[0].start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
+    const dateES = bookingWallClockDate(dayBookings[0].start_time, { weekday: 'long', day: 'numeric', month: 'long' }, 'es-ES')
     jobsList += `<p style="color: #000; font-size: 16px; margin: 24px 0 4px 0;"><strong>${dateEN}</strong></p>`
     jobsList += `<p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">${dateES}</p>`
     for (const b of dayBookings) {
-      const startTime = new Date(b.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+      const startTime = nycmaidWallClockTime(b.start_time)
       const address = b.clients?.address || 'TBD'
       const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
       const hourlyRate = b.hourly_rate || 69
@@ -603,9 +603,9 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
 }
 
 export function cleanerCancellationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
+  const dateES = bookingWallClockDate(booking.start_time, { weekday: 'long', day: 'numeric', month: 'long' }, 'es-ES')
+  const time = nycmaidWallClockTime(booking.start_time)
   const firstName = booking.cleaners?.name?.split(' ')[0] || ''
   
   const content = `
@@ -719,8 +719,8 @@ export function newReferrerAdminEmail(referrer: { name: string; email: string; p
 }
 
 export function newBookingAdminEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const date = bookingWallClockDate(booking.start_time)
+  const time = nycmaidWallClockTime(booking.start_time)
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking</h1>
@@ -857,7 +857,7 @@ export function adminNewClientEmail(client: { name: string; phone?: string; emai
 }
 
 export function adminNewBookingRequestEmail(booking: any, details: { time?: string; ref_code?: string; referred_by?: string }) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const date = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking request</h1>
@@ -1035,7 +1035,7 @@ export function adminDailyOpsRecapEmail(data: {
 }
 
 export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+  const newDate = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
   const newTime = clientArrivalWindow(booking.start_time)
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
@@ -1063,8 +1063,8 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
 }
 
 export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const newDate = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
+  const newTime = nycmaidWallClockTime(booking.start_time)
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking rescheduled by client</h1>
@@ -1086,9 +1086,9 @@ export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: str
 }
 
 export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
-  const newDateES = new Date(booking.start_time).toLocaleDateString('es-ES', { timeZone: 'America/New_York', weekday: 'long', day: 'numeric', month: 'long' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const newDate = bookingWallClockDate(booking.start_time, { weekday: 'long', month: 'long', day: 'numeric' })
+  const newDateES = bookingWallClockDate(booking.start_time, { weekday: 'long', day: 'numeric', month: 'long' }, 'es-ES')
+  const newTime = nycmaidWallClockTime(booking.start_time)
   const firstName = booking.cleaners?.name?.split(' ')[0] || ''
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
