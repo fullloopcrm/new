@@ -91,12 +91,11 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     : { data: [] as { id: string; is_digital: boolean; digital_delivery_url: string | null }[] }
   const catalogById = new Map((catalogRows || []).map((r) => [r.id, r]))
 
-  const items: (ShopReceiptItem & { serviceTypeId: string | null })[] = lineItems.data.map((li) => {
+  const items: (ShopReceiptItem & { serviceTypeId: string | null; color: string | null; size: string | null })[] = lineItems.data.map((li) => {
     const product = li.price?.product
-    const serviceTypeId =
-      typeof product === 'object' && product && !('deleted' in product && product.deleted)
-        ? (product as Stripe.Product).metadata?.service_type_id || null
-        : null
+    const isLiveProduct = typeof product === 'object' && product && !('deleted' in product && product.deleted)
+    const stripeProduct = isLiveProduct ? (product as Stripe.Product) : null
+    const serviceTypeId = stripeProduct?.metadata?.service_type_id || null
     const catalog = serviceTypeId ? catalogById.get(serviceTypeId) : undefined
     return {
       serviceTypeId,
@@ -105,6 +104,10 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
       qty: li.quantity || 1,
       isDigital: catalog?.is_digital || false,
       digitalDeliveryUrl: catalog?.digital_delivery_url || null,
+      // Stamped by /api/shop/checkout onto product_data.metadata, only when
+      // the customer picked a real color/size option on a variant product.
+      color: stripeProduct?.metadata?.color || null,
+      size: stripeProduct?.metadata?.size || null,
     }
   })
 
@@ -148,6 +151,8 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
         qty: i.qty,
         is_digital: i.isDigital,
         digital_delivery_url: i.digitalDeliveryUrl,
+        color: i.color,
+        size: i.size,
       }))
     )
   }
