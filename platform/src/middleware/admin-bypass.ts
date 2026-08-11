@@ -45,6 +45,13 @@ export const ADMIN_BYPASS_PREFIXES = [
   // built (same gap class as vendors/booking-notes).
   '/api/quote-budgets', '/api/budget-templates',
   '/api/tenant/public',
+  // Task Board (2026-08-10): same gap class as the vendors/booking-notes/
+  // quote-budgets entries above -- missing this entirely blocked every
+  // fetch from /dashboard/boards for an admin-impersonation session (the
+  // page itself loaded fine since /dashboard is already covered, but every
+  // XHR the client made to /api/boards was redirected to /sign-in by this
+  // gate before ever reaching the route handler).
+  '/api/boards',
 ]
 
 export function isAdminBypassPath(pathname: string): boolean {
