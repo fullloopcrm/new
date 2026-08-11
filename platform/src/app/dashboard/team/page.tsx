@@ -243,6 +243,7 @@ export default function TeamPage() {
     loadApplications()
   }
 
+  const [showInactive, setShowInactive] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<EnrichedMember | null>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -307,11 +308,12 @@ export default function TeamPage() {
 
   const stats = useMemo(() => {
     const active = enriched.filter((m) => (m.status || 'active') !== 'inactive').length
+    const inactive = enriched.filter((m) => (m.status || 'active') === 'inactive').length
     const overcap = enriched.filter((m) => m.utilization_pct >= 100).length
     const idle = enriched.filter((m) => m.utilization_pct < 30).length
     const avgUtil = enriched.length > 0 ? Math.round(enriched.reduce((s, m) => s + m.utilization_pct, 0) / enriched.length) : 0
     const totalJobs = enriched.reduce((s, m) => s + m.jobs_this_week, 0)
-    return { active, overcap, idle, avgUtil, totalJobs }
+    return { active, inactive, overcap, idle, avgUtil, totalJobs }
   }, [enriched])
 
   return (
@@ -587,6 +589,16 @@ export default function TeamPage() {
             <h2 className="tm-section-title">Team<em>.</em></h2>
             <div className="tm-section-actions">
               <span className="tm-section-meta">{stats.active} {stats.active === 1 ? 'member' : 'members'}</span>
+              {stats.inactive > 0 && (
+                <button
+                  type="button"
+                  className="tm-bulk-approve-btn"
+                  onClick={() => setShowInactive((v) => !v)}
+                  style={{ background: showInactive ? '#0f172a' : undefined }}
+                >
+                  {showInactive ? 'Hide' : 'Show'} inactive ({stats.inactive})
+                </button>
+              )}
               <button
                 type="button"
                 className="tm-bulk-approve-btn"
@@ -602,18 +614,21 @@ export default function TeamPage() {
           {!loading && stats.active === 0 && <div className="tm-empty">No team members yet.</div>}
 
           <div className="tm-grid">
-            {enriched.filter((m) => (m.status || 'active') !== 'inactive').map((m) => {
+            {enriched
+              .filter((m) => showInactive || (m.status || 'active') !== 'inactive')
+              .map((m) => {
+              const isInactive = (m.status || 'active') === 'inactive'
               const cardClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 20 ? 'under' : ''
               const utilNumClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'low' : ''
               const utilFillClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct >= 75 ? 'full' : m.utilization_pct >= 40 ? 'med' : 'low'
-              const statusClass = m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'idle' : ''
-              const statusLabel = m.utilization_pct >= 100 ? 'OVERCAP' : m.utilization_pct < 30 ? 'IDLE' : 'ACTIVE'
+              const statusClass = isInactive ? 'idle' : m.utilization_pct >= 100 ? 'over' : m.utilization_pct < 30 ? 'idle' : ''
+              const statusLabel = isInactive ? 'INACTIVE' : m.utilization_pct >= 100 ? 'OVERCAP' : m.utilization_pct < 30 ? 'IDLE' : 'ACTIVE'
               return (
                 <div
                   key={m.id}
                   className={`tm-card ${cardClass}`}
                   onClick={() => router.push(`/dashboard/team/${m.id}`)}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', opacity: isInactive ? 0.6 : undefined }}
                 >
                   <div className="tm-card-head">
                     {m.avatar_url ? (
