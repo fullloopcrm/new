@@ -223,6 +223,17 @@ export async function DELETE(
       .select('id')
 
     if (error) {
+      // Postgres FK violation (23503) — bookings/payments/deals/etc all use
+      // NO ACTION on delete, so a client with real history can't be hard-
+      // deleted. That's the DB doing its job (protects revenue/booking
+      // records); surface it as a clear, expected 409 rather than a raw
+      // Postgres error, since a true duplicate (no history) deletes cleanly.
+      if (error.code === '23503') {
+        return NextResponse.json(
+          { error: 'has_history', message: 'This client has bookings, payments, or other history and cannot be deleted.' },
+          { status: 409 },
+        )
+      }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     if (!data || data.length === 0) {

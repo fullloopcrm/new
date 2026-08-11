@@ -559,6 +559,23 @@ export default function ClientsPage() {
                 >
                   ✉
                 </button>
+                <button
+                  className="clients-icon-btn"
+                  onClick={async () => {
+                    if (!confirm(`Delete ${c.name}? This cannot be undone.`)) return
+                    const res = await fetch(`/api/clients/${c.id}`, { method: 'DELETE' })
+                    if (res.ok) {
+                      loadClients()
+                    } else {
+                      const j = await res.json().catch(() => ({}))
+                      alert(j.message || j.error || 'Failed to delete client')
+                    }
+                  }}
+                  aria-label="Delete client"
+                  title="Delete client"
+                >
+                  🗑
+                </button>
               </div>
             </div>
           ))}

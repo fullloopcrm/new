@@ -155,6 +155,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
   const [editError, setEditError] = useState('')
   const [showDnsPicker, setShowDnsPicker] = useState(false)
   const [dnsSaving, setDnsSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Bookings list — Activity tab
   const [bookings, setBookings] = useState<ClientBooking[]>([])
@@ -316,6 +317,26 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
   function bookNext() {
     if (!client) return
     router.push(`/dashboard/bookings?new=1&client_id=${client.id}`)
+  }
+
+  async function deleteClient() {
+    if (!client) return
+    if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        onClientUpdated?.()
+        onClose()
+        return
+      }
+      const j = await res.json().catch(() => ({}))
+      alert(j.message || j.error || 'Failed to delete client')
+    } catch {
+      alert('Failed to delete client')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function sendNextActionSms() {
@@ -878,6 +899,13 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
         <div className="clients-drawer-foot">
           <button
             className="clients-delete-btn"
+            disabled={deleting}
+            onClick={deleteClient}
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+          <button
+            className="clients-btn clients-btn-ghost"
             disabled={dnsSaving}
             onClick={() => client.dns_status ? restoreFromDns() : setShowDnsPicker(true)}
           >
