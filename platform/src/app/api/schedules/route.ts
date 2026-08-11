@@ -21,7 +21,7 @@ export const GET = withMobileCors(async function GET() {
 
     const { data, error } = await db
       .from('recurring_schedules')
-      .select('*, clients(name), team_members(name)')
+      .select('*, clients(name, phone), team_members(name, phone)')
       .order('created_at', { ascending: false })
 
     if (error) {
