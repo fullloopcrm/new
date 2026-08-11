@@ -214,6 +214,23 @@ describe('getTenantForRequest — signed tenant-domain header path', () => {
     expect(ctx.role).toBe('manager')
   })
 
+  it('rejects an otherwise-valid per-tenant admin token once the member has been deactivated (instant revocation, same as a role change)', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(false)
+    verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+      tenantId === 't-1' ? { memberId: 'member-5', role: 'manager' } : null,
+    )
+    getOwnerUserId.mockResolvedValue(null)
+    // The .eq('is_active', true) filter means a deactivated member's row
+    // never comes back from this lookup, same as if the row didn't exist.
+    resolve = () => ({ data: null, error: null })
+
+    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 401 })
+  })
+
   it('WRONG-TENANT PROBE: a per-tenant admin token minted for tenant A is rejected on tenant B\'s header, even with a valid header signature for B', async () => {
     mockHeaderStore.set('x-tenant-id', 't-B')
     mockHeaderStore.set('x-tenant-sig', 'valid-sig-for-b')
@@ -270,6 +287,14 @@ describe('getTenantForRequest — Clerk-replacement session + membership path', 
     expect(ctx.userId).toBe('user-42')
     expect(ctx.tenantId).toBe('t-7')
     expect(ctx.role).toBe('staff')
+  })
+
+  it('treats a deactivated Clerk-linked member as having no membership (404), same as a removed row', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    // .eq('is_active', true) on the membership lookup excludes the row.
+    resolve = () => ({ data: null, error: null })
+
+    await expect(getTenantForRequest()).rejects.toMatchObject({ status: 404, message: 'No tenant found' })
   })
 
   it('throws Unauthorized (401) when no session/cookie/header path resolves at all', async () => {

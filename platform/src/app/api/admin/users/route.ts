@@ -25,7 +25,7 @@ export async function GET() {
 
   const { data, error } = await tenantDb(tenant.tenantId)
     .from('tenant_members')
-    .select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login')
+    .select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login, is_active')
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -43,6 +43,7 @@ export async function GET() {
       pin_set_at: m.pin_set_at,
       last_login: m.pin_last_login,
       created_at: m.created_at,
+      is_active: m.is_active,
     })),
   )
 }

@@ -24,7 +24,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 type Eqs = Record<string, unknown>
 
 let countResult: { count: number | null; error: unknown }
-let memberRows: Record<string, { id: string; role: string }>
+// Keyed by `${tenantId}|${pinHash}` — value is the member row, absent/undefined
+// means "no such member," and `is_active: false` means "deactivated" (still a
+// real row, but the login lookup filters it out, same as PostgREST would).
+let memberRows: Record<string, { id: string; role: string; is_active?: boolean }>
 let rateLimitInserts: string[]
 let tenantMembersQueried: boolean
 let updatedMemberIds: string[]
@@ -55,25 +58,29 @@ function rateLimitEventsTable() {
 }
 
 function tenantMembersTable() {
+  // Generic N-deep .eq() chain (route.ts currently chains tenant_id, pin_hash,
+  // is_active) terminated by .maybeSingle() — accumulates every filter so the
+  // mock doesn't break if the route adds/reorders .eq() calls.
   const eqs: Eqs = {}
+  const chain = {
+    eq: (col: string, val: unknown) => {
+      eqs[col] = val
+      tenantMembersQueried = true
+      return chain
+    },
+    maybeSingle: async () => {
+      const key = `${eqs.tenant_id}|${eqs.pin_hash}`
+      const row = memberRows[key]
+      if (!row) return { data: null, error: null }
+      // Rows in this fake default to active (matches the real column's
+      // DEFAULT true) unless a test explicitly marks one is_active: false.
+      const rowActive = row.is_active !== false
+      if (eqs.is_active !== undefined && rowActive !== eqs.is_active) return { data: null, error: null }
+      return { data: row, error: null }
+    },
+  }
   return {
-    select: () => ({
-      eq: (col: string, val: unknown) => {
-        eqs[col] = val
-        return {
-          eq: (col2: string, val2: unknown) => {
-            eqs[col2] = val2
-            tenantMembersQueried = true
-            return {
-              maybeSingle: async () => {
-                const key = `${eqs.tenant_id}|${eqs.pin_hash}`
-                return { data: memberRows[key] ?? null, error: null }
-              },
-            }
-          },
-        }
-      },
-    }),
+    select: () => chain,
     update: () => ({
       eq: (_col: string, val: unknown) => {
         updatedMemberIds.push(String(val))
@@ -240,6 +247,22 @@ describe('admin-auth — tenant-admin PIN is scoped to the signed tenant, not gl
       entity_id: 'member-b',
       user_id: 'member-b',
     })
+  })
+
+  it('rejects a correct PIN belonging to a deactivated member', async () => {
+    const { hashAdminPin } = await import('@/lib/admin-pin')
+    memberRows[`${TENANT_B}|${hashAdminPin('654321')}`] = { id: 'member-b', role: 'owner', is_active: false }
+
+    const { signTenantHeader } = await import('@/lib/tenant-header-sig')
+    mockHeaders.set('x-tenant-id', TENANT_B)
+    mockHeaders.set('x-tenant-sig', signTenantHeader(TENANT_B))
+
+    const { POST } = await import('./route')
+    const res = await POST(req({ pin: '654321' }))
+
+    expect(res.status).toBe(401)
+    expect(updatedMemberIds).toHaveLength(0)
+    expect(auditInserts).toHaveLength(0)
   })
 
   it('does NOT write an admin.dashboard_login audit row on a failed/wrong-tenant login attempt', async () => {

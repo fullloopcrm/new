@@ -191,6 +191,7 @@ export async function POST(request: Request) {
       .select('id, role')
       .eq('tenant_id', headerTenantId)
       .eq('pin_hash', hashAdminPin(pin))
+      .eq('is_active', true)
       .maybeSingle()
 
     if (member) {

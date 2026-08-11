@@ -69,6 +69,7 @@ async function tryAdmin(tenantId: string, email: string, pin: string, ip: string
       .select('id, role')
       .eq('tenant_id', tenantId)
       .in('role', ['owner', 'admin'])
+      .eq('is_active', true)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
@@ -90,6 +91,7 @@ async function tryAdmin(tenantId: string, email: string, pin: string, ip: string
     .eq('tenant_id', tenantId)
     .ilike('email', email)
     .eq('pin_hash', pinHash)
+    .eq('is_active', true)
     .maybeSingle()
   if (!member) return null
   // Mirrors /api/mobile/auth/login's v1 scope — manager/staff tenant_members

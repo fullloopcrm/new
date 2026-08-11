@@ -127,6 +127,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             .select('role')
             .eq('id', ta.memberId)
             .eq('tenant_id', headerTenantId)
+            .eq('is_active', true)
             .single()
           if (member) {
             const { data: tenant } = await supabaseAdmin
@@ -161,6 +162,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
           .select('role')
           .eq('id', ta.memberId)
           .eq('tenant_id', ta.tenantId)
+          .eq('is_active', true)
           .single()
         if (member) {
           const { data: tenant } = await supabaseAdmin
@@ -206,6 +208,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
     .from('tenant_members')
     .select('tenant_id, role')
     .eq('clerk_user_id', userId)
+    .eq('is_active', true)
     .single()
 
   if (!membership) {

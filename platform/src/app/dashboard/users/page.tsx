@@ -14,6 +14,7 @@ interface Member {
   pin_set_at: string | null
   last_login: string | null
   created_at: string
+  is_active: boolean
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -103,6 +104,25 @@ export default function UsersPage() {
     } else {
       const j = await res.json().catch(() => ({}))
       setError(j.error || 'Save failed')
+    }
+  }
+
+  const toggleActive = async (u: Member) => {
+    const nextActive = !u.is_active
+    if (!nextActive && !confirm(`Deactivate ${u.name}? They will no longer be able to log in.`)) return
+    setError(''); setSuccess('')
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ is_active: nextActive }),
+    })
+    if (res.ok) {
+      setSuccess(nextActive ? 'Reactivated' : 'Deactivated')
+      loadUsers()
+    } else {
+      const j = await res.json().catch(() => ({}))
+      setError(j.error || (nextActive ? 'Could not reactivate' : 'Could not deactivate'))
     }
   }
 
@@ -263,11 +283,18 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} className="border-t">
+              <tr key={u.id} className={`border-t ${u.is_active ? '' : 'opacity-60'}`}>
                 <td className="px-4 py-3">
                   {editingId === u.id ? (
                     <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="px-2 py-1 border rounded" />
-                  ) : u.name}
+                  ) : (
+                    <>
+                      {u.name}
+                      {!u.is_active && (
+                        <span className="ml-2 px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">Deactivated</span>
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {editingId === u.id ? (
@@ -307,6 +334,7 @@ export default function UsersPage() {
                     <>
                       <button onClick={() => resetPin(u)} className="text-sm text-teal-600 hover:underline">{u.has_pin ? 'Reset PIN' : 'Set PIN'}</button>
                       <button onClick={() => startEdit(u)} className="text-sm text-blue-600 hover:underline">Edit</button>
+                      <button onClick={() => toggleActive(u)} className="text-sm text-orange-600 hover:underline">{u.is_active ? 'Deactivate' : 'Activate'}</button>
                       <button onClick={() => remove(u.id)} className="text-sm text-red-600 hover:underline">Remove</button>
                     </>
                   )}
