@@ -12,6 +12,7 @@ import { WorkerLabelProvider } from './worker-label-context'
 import { PageSettingsOpenProvider, usePageSettingsOpen } from '@/components/page-settings'
 import { KnowledgePanelButton } from '@/components/knowledge-panel'
 import FeedbackWidget from '@/components/FeedbackWidget'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 type SidebarCounts = {
   clients: number
@@ -162,18 +163,19 @@ function todayQuote(): { text: string; author: string } {
   return QUOTES[dayIndex % QUOTES.length]
 }
 
-function topbarMeta(): string {
+function topbarMeta(timezone: string): string {
   const now = new Date()
-  const day = now.toLocaleDateString('en-US', { weekday: 'long' })
-  const month = now.toLocaleDateString('en-US', { month: 'long' })
-  const date = now.getDate()
-  const year = now.getFullYear()
-  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).replace(' ', '')
+  const day = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone })
+  const month = now.toLocaleDateString('en-US', { month: 'long', timeZone: timezone })
+  const date = Number(now.toLocaleDateString('en-US', { day: 'numeric', timeZone: timezone }))
+  const year = Number(now.toLocaleDateString('en-US', { year: 'numeric', timeZone: timezone }))
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).replace(' ', '')
+  const tzAbbrev = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'short' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || ''
   // ISO week
   const target = new Date(now.valueOf())
   target.setDate(target.getDate() + 4 - ((target.getDay() + 6) % 7))
   const week = Math.ceil(((target.getTime() - new Date(target.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7)
-  return `${day} · ${month} ${date}, ${year} · ${time} EST · Week ${week}`
+  return `${day} · ${month} ${date}, ${year} · ${time} ${tzAbbrev} · Week ${week}`
 }
 
 function formatBadge(count: number): string {
@@ -216,10 +218,11 @@ function DashboardShellInner({
 }) {
   const pathname = usePathname() || '/dashboard'
   const pageSettings = usePageSettingsOpen()
+  const timezone = useTenantTimezone()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [notifPanelOpen, setNotifPanelOpen] = useState(false)
   const [counts, setCounts] = useState<SidebarCounts | null>(null)
-  const [meta, setMeta] = useState(topbarMeta())
+  const [meta, setMeta] = useState(topbarMeta(timezone))
   const fold = activeFold(pathname)
 
   // Effective permissions for hiding nav items. null = not loaded yet → show
@@ -245,11 +248,13 @@ function DashboardShellInner({
       .catch(() => {})
   }, [])
 
-  // Tick the topbar minute display.
+  // Tick the topbar minute display, and re-render immediately once the
+  // tenant's real timezone loads in (useTenantTimezone starts at a default).
   useEffect(() => {
-    const id = setInterval(() => setMeta(topbarMeta()), 30_000)
+    setMeta(topbarMeta(timezone))
+    const id = setInterval(() => setMeta(topbarMeta(timezone)), 30_000)
     return () => clearInterval(id)
-  }, [])
+  }, [timezone])
 
   // Onboarding wizard completion, for the "X/Y" badge next to the Platform
   // nav item — fetched once, not polled (it only changes when the tenant

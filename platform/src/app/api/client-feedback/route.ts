@@ -7,6 +7,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { escapeHtml } from '@/lib/escape-html'
 import { trackError } from '@/lib/error-tracking'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Tenant-aware port from nycmaid (originally /api/feedback there — renamed
 // here because /api/feedback in FullLoop is already the unrelated
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
       <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
         <p style="color: #000; font-size: 15px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${escapeHtml(message)}</p>
       </div>
-      <p style="color: #999; font-size: 12px; margin: 0;">Submitted ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })} ET</p>
+      <p style="color: #999; font-size: 12px; margin: 0;">Submitted ${new Date().toLocaleString('en-US', { timeZone: getTenantTimezone(tenant) })}</p>
     </div>
   `
 

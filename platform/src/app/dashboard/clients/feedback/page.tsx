@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/format'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface ClientFeedbackItem {
   id: string
@@ -26,6 +27,7 @@ interface ClientFeedbackItem {
 }
 
 export default function ClientFeedbackPage() {
+  const timezone = useTenantTimezone()
   useEffect(() => { document.title = 'Client Feedback' }, [])
   const [feedback, setFeedback] = useState<ClientFeedbackItem[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -128,7 +130,7 @@ export default function ClientFeedbackPage() {
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
-    return new Date(ts).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
+    return new Date(ts).toLocaleDateString('en-US', { timeZone: timezone, month: 'short', day: 'numeric' })
   }
 
   const creditPendingCount = feedback.filter(f => f.credit_cents && !f.credit_applied).length

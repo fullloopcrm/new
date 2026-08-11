@@ -15,6 +15,7 @@ import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { nowNaiveET } from '@/lib/recurring'
 import { audit } from '@/lib/audit'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -550,7 +551,7 @@ Key rules:
 - Always confirm before destructive actions (cancelling, deleting).
 - When updating multiple bookings, state how many will be affected and ask for confirmation.
 - Use short, direct responses — this is a chat widget, not an essay.
-- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
+- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: getTenantTimezone(tenant), weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
 - Prices are stored in cents. Display as dollars.
 - Format results concisely — bullet points or short lists.
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`

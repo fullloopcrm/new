@@ -2160,9 +2160,9 @@ function BookingsPage() {
               <div className="mb-3 space-y-1.5">
                 {editCheckInVal === null ? (
                   <p className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center justify-between">
-                    <span>Checked in: {toEST(editingBooking.check_in_time)}</span>
+                    <span>Checked in: {toEST(editingBooking.check_in_time, timezone)}</span>
                     <span className="flex items-center gap-2">
-                      <button type="button" onClick={() => setEditCheckInVal(toDateTimeLocalET(editingBooking.check_in_time!))} className="text-[10px] underline text-green-800">edit</button>
+                      <button type="button" onClick={() => setEditCheckInVal(toDateTimeLocalET(editingBooking.check_in_time!, timezone))} className="text-[10px] underline text-green-800">edit</button>
                       {!editingBooking.check_out_time && (
                         <button type="button" disabled={saving} onClick={async () => { if (!confirm('Undo check-in? Sends this job back to scheduled.')) return; setSaving(true); const res = await fetch('/api/bookings/' + editingBooking.id + '/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage: 'check-in' }) }); if (res.ok) { setEditingBooking({ ...editingBooking, status: 'scheduled', check_in_time: null, check_in_location: null, fifteen_min_alert_time: null }); setForm({ ...form, status: 'scheduled' }); loadBookings() } else { const d = await res.json().catch(() => ({})); alert(d.error || 'Failed to undo') } setSaving(false) }} className="text-[10px] underline text-red-600">undo</button>
                       )}
@@ -2172,17 +2172,17 @@ function BookingsPage() {
                   <div className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center gap-2">
                     <span>Check-in:</span>
                     <input type="datetime-local" value={editCheckInVal} onChange={(e) => setEditCheckInVal(e.target.value)} className="bg-white border border-green-200 rounded px-1 py-0.5 text-xs" />
-                    <button type="button" disabled={saving} onClick={async () => { if (!editCheckInVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckInVal); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_in_time: iso, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_in_time: iso }); setEditCheckInVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
+                    <button type="button" disabled={saving} onClick={async () => { if (!editCheckInVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckInVal, timezone); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_in_time: iso, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_in_time: iso }); setEditCheckInVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
                     <button type="button" onClick={() => setEditCheckInVal(null)} className="px-2 py-0.5 border border-green-300 rounded text-[10px]">Cancel</button>
                   </div>
                 )}
-                {editingBooking.fifteen_min_alert_time && <p className="text-xs text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-lg">30-min warning: {toEST(editingBooking.fifteen_min_alert_time)}</p>}
+                {editingBooking.fifteen_min_alert_time && <p className="text-xs text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-lg">30-min warning: {toEST(editingBooking.fifteen_min_alert_time, timezone)}</p>}
                 {editingBooking.check_out_time && (
                   editCheckOutVal === null ? (
                     <p className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center justify-between">
-                      <span>Checked out: {toEST(editingBooking.check_out_time)}{editingBooking.actual_hours ? ` (${editingBooking.actual_hours}hrs)` : ''}</span>
+                      <span>Checked out: {toEST(editingBooking.check_out_time, timezone)}{editingBooking.actual_hours ? ` (${editingBooking.actual_hours}hrs)` : ''}</span>
                       <span className="flex items-center gap-2">
-                        <button type="button" onClick={() => setEditCheckOutVal(toDateTimeLocalET(editingBooking.check_out_time!))} className="text-[10px] underline text-green-800">edit</button>
+                        <button type="button" onClick={() => setEditCheckOutVal(toDateTimeLocalET(editingBooking.check_out_time!, timezone))} className="text-[10px] underline text-green-800">edit</button>
                         <button type="button" disabled={saving} onClick={async () => { if (!confirm('Undo check-out? Sends this job back to in-progress.')) return; setSaving(true); const res = await fetch('/api/bookings/' + editingBooking.id + '/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage: 'check-out' }) }); if (res.ok) { setEditingBooking({ ...editingBooking, status: 'in_progress', check_out_time: null, check_out_location: null, actual_hours: null }); setForm({ ...form, status: 'in_progress', actual_hours: null }); loadBookings() } else { const d = await res.json().catch(() => ({})); alert(d.error || 'Failed to undo') } setSaving(false) }} className="text-[10px] underline text-red-600">undo</button>
                       </span>
                     </p>
@@ -2190,7 +2190,7 @@ function BookingsPage() {
                     <div className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center gap-2 flex-wrap">
                       <span>Check-out:</span>
                       <input type="datetime-local" value={editCheckOutVal} onChange={(e) => setEditCheckOutVal(e.target.value)} className="bg-white border border-green-200 rounded px-1 py-0.5 text-xs" />
-                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.pay_rate; const { actualHours, priceCents: updatedPrice, cleanerPayCents: cleanerPay } = computeCheckoutPricing({ checkInIso: editingBooking.check_in_time!, checkOutIso: iso, hourlyRate: editingBooking.hourly_rate, cleanerHourlyRate: cleanerHourlyPay, discountPercent: editingBooking.discount_percent, oneTimeCreditCents: editingBooking.one_time_credit_cents, recurringType: editingBooking.recurring_type, maxHours: (editingBooking as any).max_hours, teamSize: (editingBooking as any).team_size }); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_member_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
+                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal, timezone); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.pay_rate; const { actualHours, priceCents: updatedPrice, cleanerPayCents: cleanerPay } = computeCheckoutPricing({ checkInIso: editingBooking.check_in_time!, checkOutIso: iso, hourlyRate: editingBooking.hourly_rate, cleanerHourlyRate: cleanerHourlyPay, discountPercent: editingBooking.discount_percent, oneTimeCreditCents: editingBooking.one_time_credit_cents, recurringType: editingBooking.recurring_type, maxHours: (editingBooking as any).max_hours, teamSize: (editingBooking as any).team_size }); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_member_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
                       <button type="button" onClick={() => setEditCheckOutVal(null)} className="px-2 py-0.5 border border-green-300 rounded text-[10px]">Cancel</button>
                     </div>
                   )
@@ -2546,7 +2546,7 @@ function BookingsPage() {
                     return a.name.localeCompare(b.name)
                   })
                   .map((c) => {
-                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours, bookings)
+                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours, bookings, timezone)
                   const isLead = form.team_member_id === c.id
                   const isExtra = form.extra_team_member_ids.includes(c.id)
                   const selected = isLead || isExtra

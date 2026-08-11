@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface DiscountLine { label: string; cents: number }
 interface PaymentRow {
@@ -70,13 +71,14 @@ interface Summary {
 }
 
 const fmtUsd = (cents: number) => `$${(cents / 100).toFixed(2)}`
-const fmtTime = (iso: string | null) => {
+const fmtTime = (iso: string | null, timezone: string) => {
   if (!iso) return '—'
   const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z')
-  return d.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+  return d.toLocaleString('en-US', { timeZone: timezone, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; onAnyChange?: () => void }) {
+  const timezone = useTenantTimezone()
   const [data, setData] = useState<Summary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -161,8 +163,8 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
       <section>
         <h4 className="font-bold text-[#1E2A4A] uppercase tracking-wide text-[10px] mb-1.5">Time</h4>
         <div className="space-y-1">
-          <KV k="Check-in" v={fmtTime(t.check_in)} />
-          <KV k="Check-out" v={t.check_out ? fmtTime(t.check_out) : <em className="text-amber-600">in progress</em>} />
+          <KV k="Check-in" v={fmtTime(t.check_in, timezone)} />
+          <KV k="Check-out" v={t.check_out ? fmtTime(t.check_out, timezone) : <em className="text-amber-600">in progress</em>} />
           <KV k="Raw minutes" v={t.raw_minutes} />
           <KV k="30-min blocks" v={`${t.billed_blocks} (${t.remainder_minutes}m into next)`} />
           <KV k="Billed hours" valueClass="font-semibold" v={<>{t.billed_hours}{t.capped_at_max && <span className="ml-1 text-amber-600">capped @ {t.max_hours_cap}</span>}</>} />
@@ -192,7 +194,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
           <div className="space-y-1">
             {data.payments.map(p => (
               <div key={p.id} className="flex items-baseline gap-3 px-2 py-1 bg-gray-50 rounded">
-                <span className="text-gray-700 whitespace-nowrap">{fmtTime(p.created_at)}</span>
+                <span className="text-gray-700 whitespace-nowrap">{fmtTime(p.created_at, timezone)}</span>
                 <span className="text-gray-500 capitalize whitespace-nowrap">{p.method || '?'}</span>
                 <span className="flex-1 border-b border-dotted border-gray-300 translate-y-[-3px]" aria-hidden />
                 <span className="font-semibold text-gray-900 whitespace-nowrap">{fmtUsd(p.amount_cents || 0)}</span>
@@ -239,7 +241,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
                   <div className="mt-1 pl-2 border-l border-gray-300 text-gray-500">
                     {c.payouts.map(p => (
                       <div key={p.id} className="flex items-baseline gap-2">
-                        <span className="whitespace-nowrap">{fmtTime(p.created_at)} · {p.method || '?'}</span>
+                        <span className="whitespace-nowrap">{fmtTime(p.created_at, timezone)} · {p.method || '?'}</span>
                         <span className="flex-1 border-b border-dotted border-gray-300 translate-y-[-3px]" aria-hidden />
                         <span className="whitespace-nowrap">{fmtUsd(p.amount_cents)}</span>
                       </div>
@@ -268,7 +270,7 @@ export function CloseoutDetail({ bookingId, onAnyChange }: { bookingId: string; 
           <div className="max-h-32 overflow-y-auto pl-1 text-gray-500 space-y-0.5">
             {data.sms_log.slice(-10).map(s => (
               <div key={s.id} className="flex items-baseline gap-2">
-                <span className="whitespace-nowrap">{fmtTime(s.created_at)}</span>
+                <span className="whitespace-nowrap">{fmtTime(s.created_at, timezone)}</span>
                 <span className="text-gray-700 whitespace-nowrap">{s.sms_type}</span>
                 <span className="flex-1 border-b border-dotted border-gray-200 translate-y-[-3px]" aria-hidden />
                 <span className="font-mono text-[10px] whitespace-nowrap">{s.status}</span>

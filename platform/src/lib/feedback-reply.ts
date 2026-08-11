@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Matches an inbound SMS to a pending admin->client feedback reply thread
 // (started from /dashboard/clients/feedback's "Reply" button) and appends it
@@ -36,7 +37,8 @@ export async function handleFeedbackReply(
     .maybeSingle()
   if (!pending) return null
 
-  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: getTenantTimezone(tenantRow), month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   const noteLine = `[${client.name || 'Client'} reply, ${timestamp}] ${rawText}`
   const updatedNotes = pending.notes ? `${pending.notes}\n${noteLine}` : noteLine
 

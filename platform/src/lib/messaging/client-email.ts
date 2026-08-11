@@ -10,6 +10,7 @@
 import * as nycmaidEmail from '../nycmaid/email-templates'
 import { clientBookingReceivedEmail as sharedBookingReceived, bookingConfirmationEmail as sharedConfirmation } from '../email-templates'
 import { supabaseAdmin } from '../supabase'
+import { bookingWallClockDate, nycmaidWallClockTime } from '../time-window'
 
 const EMAIL_CLEANING_SLUGS = new Set<string>(['nycmaid'])
 
@@ -26,11 +27,12 @@ function isNycmaid(tenant: TenantLike): boolean {
   return !!tenant.slug && EMAIL_CLEANING_SLUGS.has(tenant.slug)
 }
 
+// booking.start_time is a naive America/New_York wall-clock string (no
+// offset). Parsing it with new Date() then formatting with an explicit
+// timeZone double-converts, shifting the displayed time by the ET offset —
+// same bug fixed throughout lib/nycmaid/*-templates.ts (see 31da93415).
 function flatDateTime(startTime: string): string {
-  const d = new Date(startTime)
-  const date = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
-  const time = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
-  return `${date} ${time}`
+  return `${bookingWallClockDate(startTime)} ${nycmaidWallClockTime(startTime)}`
 }
 
 function td(tenant: TenantLike) {

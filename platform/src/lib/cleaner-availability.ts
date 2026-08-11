@@ -78,8 +78,9 @@ export function cleanerAvailableForSlot(opts: {
   slot: MinRange
   dayBookings?: MinRange[]
   timeOff?: TimeOffBlock[]
+  timezone: string
 }): AvailabilityResult {
-  const { cleaner, date, slot } = opts
+  const { cleaner, date, slot, timezone } = opts
   const dayBookings = opts.dayBookings ?? []
   const timeOff = opts.timeOff ?? []
 
@@ -101,12 +102,12 @@ export function cleanerAvailableForSlot(opts: {
   }
 
   // 3. Does their weekly schedule include this day? (canonical resolver)
-  if (!worksScheduledDay(cleaner.working_days, cleaner.schedule, date)) {
+  if (!worksScheduledDay(cleaner.working_days, cleaner.schedule, date, timezone)) {
     return { available: false, reason: 'Not scheduled to work this day', code: 'not_scheduled' }
   }
 
   // 4. Does the slot fit inside their set working hours for the day?
-  if (!slotWithinHours(cleaner.schedule, date, slot.startMin, slot.endMin)) {
+  if (!slotWithinHours(cleaner.schedule, date, slot.startMin, slot.endMin, timezone)) {
     return { available: false, reason: 'Outside their working hours', code: 'outside_hours' }
   }
 

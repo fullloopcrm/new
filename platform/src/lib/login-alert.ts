@@ -9,6 +9,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/email'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 interface LoginAlertInput {
   /** Omit for the Full Loop platform super-admin; set for a tenant admin login. */
@@ -33,11 +34,11 @@ function alertHtml(brand: string, ip: string, ua: string, timeET: string, who?: 
 }
 
 export async function sendLoginAlert(input: LoginAlertInput): Promise<void> {
-  const timeET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
   try {
     if (input.tenantId) {
-      const { data: t } = await supabaseAdmin.from('tenants').select('name').eq('id', input.tenantId).single()
+      const { data: t } = await supabaseAdmin.from('tenants').select('name, timezone').eq('id', input.tenantId).single()
       const brand = (t?.name as string) || 'Your Account'
+      const timeET = new Date().toLocaleString('en-US', { timeZone: getTenantTimezone(t as { timezone?: string | null } | null) })
       await emailAdmins(
         input.tenantId,
         `${brand} — Admin Login Alert`,
@@ -46,6 +47,7 @@ export async function sendLoginAlert(input: LoginAlertInput): Promise<void> {
       )
     } else {
       const to = process.env.ADMIN_EMAIL || 'hi@fullloopcrm.com'
+      const timeET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
       await sendEmail({
         to,
         subject: 'Full Loop — Admin Login Alert',

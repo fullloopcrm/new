@@ -9,6 +9,7 @@ import AuthShell, {
   authErrorClass,
 } from '@/components/auth/AuthShell'
 import { useAuthLang } from '@/components/auth/useAuthLang'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface Referrer { id: string; name: string; email: string; ref_code: string; total_earned: number; total_paid: number }
 interface Commission { id: string; client_name: string; gross_amount: number; commission_amount: number; status: string; paid_via: string; paid_at: string; created_at: string }
@@ -17,6 +18,7 @@ interface Activity { action: string; device: string; page: string; time: string 
 
 function ReferrerPortalContent() {
   const { lang, setLang, t } = useAuthLang()
+  const timezone = useTenantTimezone()
   const searchParams = useSearchParams()
   const [referrer, setReferrer] = useState<Referrer | null>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
@@ -84,7 +86,7 @@ function ReferrerPortalContent() {
   }
 
   const formatMoney = (cents: number) => '$' + (cents / 100).toFixed(2)
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { timeZone: timezone, month: 'short', day: 'numeric', year: 'numeric' })
   const formatTime = (d: string) => {
     const date = new Date(d)
     const now = new Date()
@@ -96,7 +98,7 @@ function ReferrerPortalContent() {
     if (hrs < 24) return hrs + 'h ago'
     const days = Math.floor(hrs / 24)
     if (days < 7) return days + 'd ago'
-    return date.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { timeZone: timezone, month: 'short', day: 'numeric' })
   }
   const copyLink = () => { if (referrer) { navigator.clipboard.writeText(origin + '/book/new?ref=' + referrer.ref_code); alert('Copied!') } }
   const pendingAmount = referrer ? referrer.total_earned - referrer.total_paid : 0

@@ -8,6 +8,7 @@ import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
+import { getTenantTimezone } from '@/lib/tenant-time'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenant
+    const timezone = getTenantTimezone(tenant.tenant)
     const db = tenantDb(tenantId)
     const body = await request.json()
     const settings = await getSettings(tenantId)
@@ -277,8 +279,8 @@ export async function POST(request: Request) {
           ? Math.max(startMin + 30, timestampToMin(validated.end_time as string))
           : startMin + 180
         // Working hours for the day (schedule with no hours set imposes no limit).
-        if (!slotWithinHours(member.schedule as Record<string, unknown> | null, bookingDate, startMin, endMin)) {
-          const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, bookingDate)
+        if (!slotWithinHours(member.schedule as Record<string, unknown> | null, bookingDate, startMin, endMin, timezone)) {
+          const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, bookingDate, timezone)
           return NextResponse.json({
             error: w
               ? `${member.name} works ${formatMin(w.start)}–${formatMin(w.end)} that day — this slot is outside their hours.`

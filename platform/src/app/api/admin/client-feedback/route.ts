@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getCurrentTenant } from '@/lib/tenant'
 import { sendSMS } from '@/lib/sms'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // Tenant-aware port from nycmaid.
 //
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
 
   const { data: tenantRow } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone')
+    .select('telnyx_api_key, telnyx_phone, timezone')
     .eq('id', tenantId)
     .maybeSingle()
   if (!tenantRow?.telnyx_api_key || !tenantRow?.telnyx_phone) {
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to send text' }, { status: 502 })
   }
 
-  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: getTenantTimezone(tenantRow), month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   const noteLine = `[You → ${client.name || 'client'}, ${timestamp}] ${message.trim()}`
   const updatedNotes = feedback.notes ? `${feedback.notes}\n${noteLine}` : noteLine
 

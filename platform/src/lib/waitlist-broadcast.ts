@@ -14,6 +14,7 @@ import { tenantDb } from './tenant-db'
 import { sendSMS } from './sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from './service-zones'
 import { worksScheduledDay, slotWithinHours } from './day-availability'
+import { getTenantTimezone } from './tenant-time'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '@/app/api/admin/find-cleaner/preview/route'
 
 type CleanerRow = {
@@ -145,7 +146,7 @@ export async function broadcastWaitlistBooking(opts: {
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, telnyx_api_key, telnyx_phone')
+    .select('name, telnyx_api_key, telnyx_phone, timezone')
     .eq('id', tenantId)
     .single()
   if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
@@ -153,6 +154,7 @@ export async function broadcastWaitlistBooking(opts: {
   }
   const brand = tenant.name || 'Our team'
   const replyNumber = tenant.telnyx_phone
+  const timezone = getTenantTimezone(tenant)
 
   const [sh, sm] = startTime.split(':').map(Number)
   const jobStart = new Date(`${jobDate}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`)
@@ -192,9 +194,9 @@ export async function broadcastWaitlistBooking(opts: {
     if (c.unavailable_dates?.includes(jobDate)) return false
     if (
       ((c.working_days?.length || 0) > 0 || (c.schedule && Object.keys(c.schedule).length > 0)) &&
-      !worksScheduledDay(c.working_days, c.schedule, jobDate)
+      !worksScheduledDay(c.working_days, c.schedule, jobDate, timezone)
     ) return false
-    if (!slotWithinHours(c.schedule, jobDate, slotStartMin, slotEndMin)) return false
+    if (!slotWithinHours(c.schedule, jobDate, slotStartMin, slotEndMin, timezone)) return false
     if (targetZone && c.service_zones && c.service_zones.length > 0 && !c.service_zones.includes(targetZone)) return false
 
     const cleanerBookings = bookingsByCleaner.get(c.id) || []

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface Property {
   id: string
@@ -25,6 +26,7 @@ const fieldStyle = { padding: '10px 12px', border: '1px solid var(--clients-line
 const labelStyle = { fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: 0.5, color: 'var(--clients-muted)' }
 
 export default function ClientAddresses({ clientId, showHistory = false }: { clientId: string; showHistory?: boolean }) {
+  const timezone = useTenantTimezone()
   const [properties, setProperties] = useState<Property[]>([])
   const [history, setHistory] = useState<ChangeRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -219,7 +221,7 @@ export default function ClientAddresses({ clientId, showHistory = false }: { cli
                 {h.new_value?.address ? ` → ${h.new_value.address}` : ''}
                 {h.action === 'edit' && h.old_value?.address ? ` (was ${h.old_value.address})` : ''}
                 {' · '}{h.changed_by || 'system'}{h.source ? `/${h.source}` : ''}{' · '}
-                {new Date(h.created_at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {new Date(h.created_at).toLocaleString('en-US', { timeZone: timezone, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </li>
             ))}
           </ul>

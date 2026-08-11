@@ -26,10 +26,17 @@ export function dayTokenToIndex(token: string): number | null {
   return key in DAY_INDEX ? DAY_INDEX[key] : null
 }
 
-/** Weekday index (0=Sun..6=Sat) for a YYYY-MM-DD string, evaluated in America/New_York. */
-export function dateToWeekdayIndex(date: string): number {
+/**
+ * Weekday index (0=Sun..6=Sat) for a YYYY-MM-DD string, evaluated in the
+ * tenant's own timezone. Required (not defaulted) so every call site is
+ * forced to pass it explicitly -- noon-anchored so realistic timezone gaps
+ * can't shift the result across a day boundary anyway, but this keeps the
+ * whole availability engine consistent with the rest of the tenant-timezone
+ * work rather than silently staying ET-only.
+ */
+export function dateToWeekdayIndex(date: string, timezone: string): number {
   const short = new Date(date + 'T12:00:00')
-    .toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+    .toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short' })
     .toLowerCase()
   return short in DAY_INDEX ? DAY_INDEX[short] : new Date(date + 'T12:00:00').getDay()
 }
@@ -39,11 +46,11 @@ export function dateToWeekdayIndex(date: string): number {
  * Returns null when working_days is unset/empty — the caller decides the default.
  * Handles both numeric ("0") and name ("Sun") tokens.
  */
-export function worksOnDay(working_days: string[] | null | undefined, date: string): boolean | null {
+export function worksOnDay(working_days: string[] | null | undefined, date: string, timezone: string): boolean | null {
   if (!working_days || working_days.length === 0) return null
   const idxs = working_days.map(dayTokenToIndex).filter((x): x is number => x !== null)
   if (idxs.length === 0) return null
-  return idxs.includes(dateToWeekdayIndex(date))
+  return idxs.includes(dateToWeekdayIndex(date, timezone))
 }
 
 /**
@@ -67,9 +74,10 @@ export type DaySchedule = { start?: string; end?: string } | null | undefined
 export function getDaySchedule(
   schedule: Record<string, unknown> | null | undefined,
   date: string,
+  timezone: string,
 ): DaySchedule {
   if (!schedule) return undefined
-  const idx = dateToWeekdayIndex(date)
+  const idx = dateToWeekdayIndex(date, timezone)
   const numKey = String(idx)
   if (numKey in schedule) return schedule[numKey] as DaySchedule
   const nameKey = SHORT_NAMES[idx]
@@ -96,10 +104,11 @@ export function worksScheduledDay(
   working_days: string[] | null | undefined,
   schedule: Record<string, unknown> | null | undefined,
   date: string,
+  timezone: string,
 ): boolean {
-  const wd = worksOnDay(working_days, date)
+  const wd = worksOnDay(working_days, date, timezone)
   if (wd !== null) return wd
-  if (scheduleHasAnyDay(schedule)) return getDaySchedule(schedule, date) != null
+  if (scheduleHasAnyDay(schedule)) return getDaySchedule(schedule, date, timezone) != null
   return false
 }
 
@@ -162,8 +171,9 @@ export function normalizeWorkingHours(
 export function hoursWindowForDate(
   schedule: Record<string, unknown> | null | undefined,
   date: string,
+  timezone: string,
 ): { start: number; end: number } | null {
-  const entry = getDaySchedule(schedule, date)
+  const entry = getDaySchedule(schedule, date, timezone)
   if (!entry || typeof entry !== 'object') return null
   const s = timeTo24h((entry as { start?: unknown }).start)
   const e = timeTo24h((entry as { end?: unknown }).end)
@@ -183,8 +193,9 @@ export function slotWithinHours(
   date: string,
   slotStartMin: number,
   slotEndMin: number,
+  timezone: string,
 ): boolean {
-  const w = hoursWindowForDate(schedule, date)
+  const w = hoursWindowForDate(schedule, date, timezone)
   if (!w) return true
   return slotStartMin >= w.start && slotEndMin <= w.end
 }

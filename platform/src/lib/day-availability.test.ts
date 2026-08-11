@@ -12,6 +12,8 @@ import {
   slotWithinHours,
 } from './day-availability'
 
+const ET = 'America/New_York'
+
 /**
  * Team-member availability helpers. Working_days/schedule exist in BOTH numeric
  * ("0".."6", 24h) and day-name ("Sun".."Sat", 12h) historical formats; every
@@ -40,25 +42,25 @@ describe('dayTokenToIndex', () => {
 
 describe('dateToWeekdayIndex', () => {
   it('maps a YYYY-MM-DD to its NY weekday index', () => {
-    expect(dateToWeekdayIndex('2026-03-09')).toBe(1) // Mon
-    expect(dateToWeekdayIndex('2026-03-13')).toBe(5) // Fri
-    expect(dateToWeekdayIndex('2026-03-15')).toBe(0) // Sun
+    expect(dateToWeekdayIndex('2026-03-09', ET)).toBe(1) // Mon
+    expect(dateToWeekdayIndex('2026-03-13', ET)).toBe(5) // Fri
+    expect(dateToWeekdayIndex('2026-03-15', ET)).toBe(0) // Sun
   })
 })
 
 describe('worksOnDay', () => {
   it('matches numeric working_days against the date weekday', () => {
-    expect(worksOnDay(['1', '3', '5'], '2026-03-13')).toBe(true)  // Fri included
-    expect(worksOnDay(['1', '3', '5'], '2026-03-10')).toBe(false) // Tue not included
+    expect(worksOnDay(['1', '3', '5'], '2026-03-13', ET)).toBe(true)  // Fri included
+    expect(worksOnDay(['1', '3', '5'], '2026-03-10', ET)).toBe(false) // Tue not included
   })
   it('matches day-name working_days too', () => {
-    expect(worksOnDay(['Mon', 'Wed', 'Fri'], '2026-03-13')).toBe(true)
-    expect(worksOnDay(['Mon', 'Wed', 'Fri'], '2026-03-15')).toBe(false) // Sun
+    expect(worksOnDay(['Mon', 'Wed', 'Fri'], '2026-03-13', ET)).toBe(true)
+    expect(worksOnDay(['Mon', 'Wed', 'Fri'], '2026-03-15', ET)).toBe(false) // Sun
   })
   it('returns null when unset, empty, or all-unrecognized', () => {
-    expect(worksOnDay(null, '2026-03-13')).toBeNull()
-    expect(worksOnDay([], '2026-03-13')).toBeNull()
-    expect(worksOnDay(['xyz'], '2026-03-13')).toBeNull()
+    expect(worksOnDay(null, '2026-03-13', ET)).toBeNull()
+    expect(worksOnDay([], '2026-03-13', ET)).toBeNull()
+    expect(worksOnDay(['xyz'], '2026-03-13', ET)).toBeNull()
   })
 })
 
@@ -75,16 +77,16 @@ describe('scheduleHasAnyDay', () => {
 
 describe('getDaySchedule', () => {
   it('finds an entry by numeric key for the date weekday', () => {
-    expect(getDaySchedule({ '5': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(getDaySchedule({ '5': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toEqual({ start: '09:00', end: '17:00' })
   })
   it('finds an entry by day-name key', () => {
-    expect(getDaySchedule({ Fri: { start: '10:00', end: '14:00' } }, '2026-03-13'))
+    expect(getDaySchedule({ Fri: { start: '10:00', end: '14:00' } }, '2026-03-13', ET))
       .toEqual({ start: '10:00', end: '14:00' })
   })
   it('returns null for an explicit day-off entry, undefined when absent', () => {
-    expect(getDaySchedule({ '5': null }, '2026-03-13')).toBeNull()      // present, day off
-    expect(getDaySchedule({ '1': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(getDaySchedule({ '5': null }, '2026-03-13', ET)).toBeNull()      // present, day off
+    expect(getDaySchedule({ '1': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toBeUndefined()                                                   // no Fri key
   })
 })
@@ -92,19 +94,19 @@ describe('getDaySchedule', () => {
 describe('worksScheduledDay', () => {
   it('lets working_days win over schedule when it names any recognizable day', () => {
     // working_days says NOT Friday; schedule WOULD say Friday. working_days wins → false.
-    expect(worksScheduledDay(['1'], { '5': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(worksScheduledDay(['1'], { '5': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toBe(false)
-    expect(worksScheduledDay(['5'], null, '2026-03-13')).toBe(true)
+    expect(worksScheduledDay(['5'], null, '2026-03-13', ET)).toBe(true)
   })
   it('falls back to schedule when working_days is unusable', () => {
-    expect(worksScheduledDay([], { '5': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(worksScheduledDay([], { '5': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toBe(true)
-    expect(worksScheduledDay(null, { '1': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(worksScheduledDay(null, { '1': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toBe(false) // schedule configures Mon, date is Fri
   })
   it('is false when nothing is configured', () => {
-    expect(worksScheduledDay(null, null, '2026-03-13')).toBe(false)
-    expect(worksScheduledDay([], {}, '2026-03-13')).toBe(false)
+    expect(worksScheduledDay(null, null, '2026-03-13', ET)).toBe(false)
+    expect(worksScheduledDay([], {}, '2026-03-13', ET)).toBe(false)
   })
 })
 
@@ -146,22 +148,22 @@ describe('normalizeWorkingHours', () => {
 
 describe('hoursWindowForDate', () => {
   it('returns minutes-of-day window for a configured day', () => {
-    expect(hoursWindowForDate({ '5': { start: '09:00', end: '17:00' } }, '2026-03-13'))
+    expect(hoursWindowForDate({ '5': { start: '09:00', end: '17:00' } }, '2026-03-13', ET))
       .toEqual({ start: 540, end: 1020 }) // 9*60, 17*60
   })
   it('returns null when the day has no specific hours', () => {
-    expect(hoursWindowForDate({ '1': { start: '09:00', end: '17:00' } }, '2026-03-13')).toBeNull()
+    expect(hoursWindowForDate({ '1': { start: '09:00', end: '17:00' } }, '2026-03-13', ET)).toBeNull()
   })
 })
 
 describe('slotWithinHours', () => {
   const sched = { '5': { start: '09:00', end: '17:00' } } // Fri 540..1020
   it('accepts a slot inside the window and rejects one outside', () => {
-    expect(slotWithinHours(sched, '2026-03-13', 600, 660)).toBe(true)   // 10:00-11:00
-    expect(slotWithinHours(sched, '2026-03-13', 500, 560)).toBe(false)  // starts before 09:00
-    expect(slotWithinHours(sched, '2026-03-13', 1000, 1080)).toBe(false) // ends after 17:00
+    expect(slotWithinHours(sched, '2026-03-13', 600, 660, ET)).toBe(true)   // 10:00-11:00
+    expect(slotWithinHours(sched, '2026-03-13', 500, 560, ET)).toBe(false)  // starts before 09:00
+    expect(slotWithinHours(sched, '2026-03-13', 1000, 1080, ET)).toBe(false) // ends after 17:00
   })
   it('imposes no limit when the day has no configured hours', () => {
-    expect(slotWithinHours(sched, '2026-03-10', 0, 1440)).toBe(true) // Tue: unconfigured
+    expect(slotWithinHours(sched, '2026-03-10', 0, 1440, ET)).toBe(true) // Tue: unconfigured
   })
 })

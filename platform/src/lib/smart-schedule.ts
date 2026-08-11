@@ -20,6 +20,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { geocodeAddress, calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 export interface TeamMemberScore {
   id: string
@@ -71,6 +72,8 @@ export async function scoreTeamForBooking(opts: {
   jobCoords?: { lat: number; lng: number } // pre-resolved job coords — skips geocoding (suggestBookingSlots geocodes once, not per candidate time)
 }): Promise<TeamMemberScore[]> {
   const { tenantId, date, startTime, durationHours, clientAddress, clientId, excludeBookingId, hourlyRate } = opts
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  const timezone = getTenantTimezone(tenantRow)
   // If booking is labor-only ($59), labor_only members are fine. If supplies ($69+), they can't do it.
   const bookingIsLaborOnly = hourlyRate != null && hourlyRate <= 60
 
@@ -103,7 +106,7 @@ export async function scoreTeamForBooking(opts: {
     }
   }
 
-  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
+  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short' })
 
   // Active team members for this tenant. Schema uses `status`, not `active` boolean.
   const { data: allMembers } = await supabaseAdmin
@@ -155,7 +158,7 @@ export async function scoreTeamForBooking(opts: {
     // no/all-off days = NOT available). See day-availability.worksScheduledDay.
     const worksToday = (() => {
       if ((member.unavailable_dates as string[] | null)?.includes(date)) return false
-      return worksScheduledDay(member.working_days as string[] | null, member.schedule as Record<string, unknown> | null, date)
+      return worksScheduledDay(member.working_days as string[] | null, member.schedule as Record<string, unknown> | null, date, timezone)
     })()
 
     if (!worksToday) {
@@ -173,8 +176,8 @@ export async function scoreTeamForBooking(opts: {
     // Honor working HOURS, not just the day. A member who works 8–5 must not be
     // suggested for a slot starting before or ending after those hours. Mirrors
     // booking-creation enforcement so suggestions and booking agree.
-    if (!slotWithinHours(member.schedule as Record<string, unknown> | null, date, slotStartMin, slotEndMin)) {
-      const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, date)
+    if (!slotWithinHours(member.schedule as Record<string, unknown> | null, date, slotStartMin, slotEndMin, timezone)) {
+      const w = hoursWindowForDate(member.schedule as Record<string, unknown> | null, date, timezone)
       const hoursLabel = w ? `Works ${formatTime(w.start)}–${formatTime(w.end)}` : 'Outside working hours'
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,

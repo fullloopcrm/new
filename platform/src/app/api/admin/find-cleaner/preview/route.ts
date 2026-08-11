@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
+import { getTenantTimezone } from '@/lib/tenant-time'
 
 // HARD-CODED test mode. Flip to false ONLY after the broadcast pipeline is
 // verified end-to-end with a single test team member. Mass-SMS guard
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     throw err
   }
   const tenantId = ctx.tenantId
+  const timezone = getTenantTimezone(ctx.tenant)
 
   const body = await request.json().catch(() => ({}))
   const { job_date, start_time, duration_hours, qty_needed, job_address } = body as {
@@ -126,13 +128,13 @@ export async function POST(request: Request) {
     // it, so members who haven't set a schedule stay dispatchable.
     if (
       ((c.working_days?.length || 0) > 0 || (c.schedule && Object.keys(c.schedule).length > 0)) &&
-      !worksScheduledDay(c.working_days, c.schedule, job_date)
+      !worksScheduledDay(c.working_days, c.schedule, job_date, timezone)
     ) {
       reasons.push(`Doesn't work ${dow}`)
     }
     // Working hours: a member with set hours that don't fit this slot is excluded;
     // no hours set imposes no constraint.
-    if (!slotWithinHours(c.schedule, job_date, slotStartMin, slotEndMin)) {
+    if (!slotWithinHours(c.schedule, job_date, slotStartMin, slotEndMin, timezone)) {
       reasons.push('Outside working hours')
     }
     if (!c.phone) {
