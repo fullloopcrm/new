@@ -19,6 +19,14 @@ import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 // permission tier yet.
 const ALLOWED_ROLES = new Set(['owner', 'admin'])
 
+// Same layered brute-force throttle as mobile/unified-login + team-portal/
+// auth: the upfront per-IP bucket below alone resets every time an attacker
+// tries a different tenant slug from the same IP. This per-slug bucket
+// closes that gap — a distributed sweep of one tenant's admin PIN space
+// from many rotating IPs now still trips a tenant-wide lockout.
+const MAX_FAILED_PER_TENANT = 10
+const FAILED_WINDOW_MS = 15 * 60 * 1000
+
 export const OPTIONS = corsPreflight
 
 export const POST = withMobileCors(async function POST(request: Request) {
@@ -37,8 +45,21 @@ export const POST = withMobileCors(async function POST(request: Request) {
     return NextResponse.json({ error: 'Business ID and PIN are required' }, { status: 400 })
   }
 
+  // Spent only on an actual failed lookup below (tenant not found, or no
+  // matching PIN) — never on success, and never upfront — same "neither
+  // bucket is spent on success" contract as mobile/unified-login's fail
+  // buckets. A single helper since both failure branches return the same
+  // generic message either way (this route never reveals whether the slug
+  // itself was invalid vs. the PIN was wrong).
+  const spendTenantFailBucket = () =>
+    rateLimitDb(`mobile_auth_fail:slug:${slug}`, MAX_FAILED_PER_TENANT, FAILED_WINDOW_MS, { failClosed: true })
+
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
+    const byTenant = await spendTenantFailBucket()
+    if (!byTenant.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
     return NextResponse.json({ error: 'Invalid business ID or PIN' }, { status: 401 })
   }
 
@@ -58,6 +79,10 @@ export const POST = withMobileCors(async function POST(request: Request) {
     .maybeSingle()
 
   if (!member) {
+    const byTenant = await spendTenantFailBucket()
+    if (!byTenant.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
     return NextResponse.json({ error: 'Invalid business ID or PIN' }, { status: 401 })
   }
 

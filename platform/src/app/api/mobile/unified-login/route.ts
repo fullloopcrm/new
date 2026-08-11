@@ -14,6 +14,7 @@ import { logAuthFailure } from '@/lib/error-tracking'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 import { isUniversalPin } from '@/lib/universal-pin'
 import { audit } from '@/lib/audit'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 // Single email+PIN entry point for the mobile app — Jeff's 2026-08-04
 // direction: one login screen, server resolves which of the role tables the
@@ -89,7 +90,7 @@ async function tryAdmin(tenantId: string, email: string, pin: string, ip: string
     .from('tenant_members')
     .select('id, role')
     .eq('tenant_id', tenantId)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('pin_hash', pinHash)
     .eq('is_active', true)
     .maybeSingle()
@@ -127,7 +128,7 @@ async function tryTeam(tenantId: string, email: string, pin: string, ip: string)
       const { data } = (await tenantDb(tenantId)
         .from('team_members')
         .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
-        .ilike('email', email)
+        .ilike('email', escapeLikeValue(email))
         .eq('pin', pin)
         .eq('status', 'active')
         .maybeSingle()) as { data: Member | null }
@@ -137,7 +138,7 @@ async function tryTeam(tenantId: string, email: string, pin: string, ip: string)
       const { data } = (await tenantDb(tenantId)
         .from('team_members')
         .select('id, name, preferred_language, pay_rate, avatar_url, role, pin')
-        .ilike('email', email)
+        .ilike('email', escapeLikeValue(email))
         .eq('status', 'active')
         .maybeSingle()) as { data: Member | null }
       return data ? [data] : []
@@ -174,7 +175,7 @@ async function tryClient(tenantId: string, email: string, pin: string, ip: strin
       const { data } = (await tenantDb(tenantId)
         .from('clients')
         .select('id, name, pin')
-        .ilike('email', email)
+        .ilike('email', escapeLikeValue(email))
         .eq('pin', pin)
         .maybeSingle()) as { data: ClientRow | null }
       return data
@@ -183,7 +184,7 @@ async function tryClient(tenantId: string, email: string, pin: string, ip: strin
       const { data } = (await tenantDb(tenantId)
         .from('clients')
         .select('id, name, pin')
-        .ilike('email', email)
+        .ilike('email', escapeLikeValue(email))
         .maybeSingle()) as { data: ClientRow | null }
       return data ? [data] : []
     },
@@ -213,7 +214,7 @@ async function trySales(tenantId: string, email: string, pin: string, ip: string
     .from('sales_partners')
     .select('id, name, email, referral_code, pin_hash, pin_salt, active')
     .eq('tenant_id', tenantId)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('active', true)
     .maybeSingle()
   if (!partner || !verifySalesPin(pin, partner.pin_hash as string, partner.pin_salt as string)) return null

@@ -14,6 +14,7 @@ import { verifyPin, generatePin, hashPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 export const OPTIONS = corsPreflight
 
@@ -33,7 +34,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     // PIN space is only 10^6 -- rate limit hard per IP+email (5/15min), tighter
     // than the 10/10min public-lookup limits elsewhere, since this gates login.
     const ip = request.headers.get('x-forwarded-for') || 'unknown'
-    const rl = await rateLimitDb(`sales-partner-login:${ip}:${String(email).toLowerCase()}`, 5, 15 * 60 * 1000)
+    const rl = await rateLimitDb(`sales-partner-login:${ip}:${String(email).toLowerCase()}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       await logAuthFailure({ surface: 'sales-partners/login', ip, identifier: String(email), lockedOut: true })
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
@@ -46,7 +47,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
       .from('sales_partners')
       .select('id, name, email, referral_code, pin_hash, pin_salt, active')
       .eq('tenant_id', tenant.id)
-      .ilike('email', String(email).trim())
+      .ilike('email', escapeLikeValue(String(email).trim()))
       .eq('active', true)
       .maybeSingle()
 
@@ -77,7 +78,7 @@ async function handleRequestPin(body: { email?: string }, request: Request) {
   }
 
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const rl = await rateLimitDb(`sales-partner-pin-request:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000)
+  const rl = await rateLimitDb(`sales-partner-pin-request:${ip}:${email.toLowerCase()}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
@@ -89,7 +90,7 @@ async function handleRequestPin(body: { email?: string }, request: Request) {
     .from('sales_partners')
     .select('id, name, email')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLikeValue(email))
     .eq('active', true)
     .maybeSingle()
 

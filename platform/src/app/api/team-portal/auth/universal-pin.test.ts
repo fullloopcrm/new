@@ -10,6 +10,7 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.hoisted(() => {
   process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
+  process.env.UNIVERSAL_PORTAL_PIN = '020179'
 })
 
 vi.mock('@/lib/supabase', async () => {
