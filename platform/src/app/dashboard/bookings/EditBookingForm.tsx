@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { RecurringOptions } from './_RecurringOptions'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { generateInitialBatchDates, getRecurringDisplayName, buildSeriesUpdateData, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import { applyDiscount, applyCredit } from '@/lib/discount'
@@ -88,6 +89,7 @@ export interface EditBookingFormProps {
 }
 
 export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, onCancel }: EditBookingFormProps) {
+  const timezone = useTenantTimezone()
   const worker = useWorkerLabel()
   const serviceTypesData = useServiceTypes()
   const serviceTypes = serviceTypesData.map(s => s.name)
@@ -640,7 +642,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
                   return a.name.localeCompare(b.name)
                 })
                 .map((c) => {
-                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours, dayBookings)
+                  const avail = getCleanerAvailability(c, form.start_date, form.start_time, form.hours, dayBookings, timezone)
                   const isLead = form.team_member_id === c.id
                   const isExtra = form.extra_team_member_ids.includes(c.id)
                   const selected = isLead || isExtra

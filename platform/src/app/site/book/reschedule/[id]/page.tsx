@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface TimeSlot {
   time: string
@@ -8,6 +9,7 @@ interface TimeSlot {
 }
 
 export default function ReschedulePage() {
+  const timezone = useTenantTimezone()
   useEffect(() => { document.title = 'Reschedule | The NYC Maid' }, []);
   const router = useRouter()
   const params = useParams()
@@ -99,7 +101,7 @@ export default function ReschedulePage() {
 
   const formatDateLabel = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric' })
   }
 
   const canReschedule = () => {

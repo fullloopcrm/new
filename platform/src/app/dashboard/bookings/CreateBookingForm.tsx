@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { RecurringOptions } from './_RecurringOptions'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 import { generateInitialBatchDates, getRecurringDisplayName, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import { formatPhone } from '@/lib/format'
@@ -59,6 +60,7 @@ export interface CreateBookingFormProps {
 }
 
 export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, initialValues, onCreated, onCancel }: CreateBookingFormProps) {
+  const timezone = useTenantTimezone()
   // Weekend (Sat/Sun) new-client surcharge is NYC Maid only (Jeff, 2026-07-27).
   // This is a global/shared component with no tenant prop threaded in, so it
   // reads the operator's own domain — each tenant's dashboard is served on
@@ -713,7 +715,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
                     return a.name.localeCompare(b.name)
                   })
                   .map((c) => {
-                  const avail = getCleanerAvailability(c, createForm.start_date, createForm.start_time, createForm.hours, dayBookings)
+                  const avail = getCleanerAvailability(c, createForm.start_date, createForm.start_time, createForm.hours, dayBookings, timezone)
                   const isLead = createForm.team_member_id === c.id
                   const isExtra = createForm.extra_team_member_ids.includes(c.id)
                   const selected = isLead || isExtra

@@ -47,7 +47,7 @@ const DAY_SHORT: Record<number, string> = {
  * with the smart-schedule scorer instead of drifting from it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
+async function getTeamForDay(tenantId: string, date: string, timezone: string): Promise<any[]> {
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
     .select('*')
@@ -58,7 +58,7 @@ async function getTeamForDay(tenantId: string, date: string): Promise<any[]> {
 
   return allMembers.filter(m => {
     if ((m.unavailable_dates as string[] | null)?.includes(date)) return false
-    return worksScheduledDay(m.working_days, m.schedule, date)
+    return worksScheduledDay(m.working_days, m.schedule, date, timezone)
   })
 }
 
@@ -150,7 +150,7 @@ export async function checkAvailability(
     }
   }
 
-  const team = await getTeamForDay(tenantId, date)
+  const team = await getTeamForDay(tenantId, date, timezone)
   if (team.length === 0) {
     const dayOfWeek = DAY_SHORT[new Date(date + 'T12:00:00').getDay()] || ''
     return { slots: [], message: 'No team members available on ' + dayOfWeek }
@@ -175,7 +175,7 @@ export async function checkAvailability(
     const hasAvailableMember = team.some(member => {
       // Honor the member's working HOURS for the day before checking conflicts —
       // mirrors the scorer so shown slots match what assignment will allow.
-      if (!slotWithinHours(member.schedule, date, slotStartMin, slotEndMin)) return false
+      if (!slotWithinHours(member.schedule, date, slotStartMin, slotEndMin, timezone)) return false
       const result = hasConflict(member.id, slotStartMin, slotEndMin, existingBookings)
       return !result.conflict
     })
@@ -198,12 +198,15 @@ export async function checkMemberDayOff(
   const dayIndex = new Date(date + 'T12:00:00').getDay()
   const dayName = DAY_SHORT[dayIndex] || ''
 
-  const { data: member } = await supabaseAdmin
-    .from('team_members')
-    .select('name, working_days, schedule, unavailable_dates')
-    .eq('id', memberId)
-    .eq('tenant_id', tenantId)
-    .single()
+  const [{ data: member }, { data: tenantRow }] = await Promise.all([
+    supabaseAdmin
+      .from('team_members')
+      .select('name, working_days, schedule, unavailable_dates')
+      .eq('id', memberId)
+      .eq('tenant_id', tenantId)
+      .single(),
+    supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle(),
+  ])
 
   if (!member) return { unavailable: false }
 
@@ -211,7 +214,7 @@ export async function checkMemberDayOff(
     return { unavailable: true, reason: `${member.name} has requested ${date} off. Cannot assign.`, memberName: member.name }
   }
 
-  if (!worksScheduledDay(member.working_days, member.schedule, date)) {
+  if (!worksScheduledDay(member.working_days, member.schedule, date, getTenantTimezone(tenantRow))) {
     return { unavailable: true, reason: `${member.name} does not work on ${dayName}s.`, memberName: member.name }
   }
 
@@ -229,7 +232,8 @@ export async function checkTeamAvailability(
   durationHours: number = 2,
   excludeBookingId?: string
 ): Promise<TeamMemberAvailability[]> {
-  const membersForDay = await getTeamForDay(tenantId, date)
+  const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', tenantId).maybeSingle()
+  const membersForDay = await getTeamForDay(tenantId, date, getTenantTimezone(tenantRow))
   const existingBookings = await getBookingsForDay(tenantId, date, excludeBookingId)
 
   const [h, m] = startTime.split(':').map(Number)

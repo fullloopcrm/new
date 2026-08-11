@@ -10,6 +10,7 @@ import { formatRecurringLabel } from '@/lib/recurring'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { CallTextCopy } from '../_components/CallTextCopy'
 import { worksScheduledDay } from '@/lib/day-availability'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
 
 interface Client { id: string; name: string; phone: string; address: string }
 interface TeamMember {
@@ -79,6 +80,7 @@ const DEFAULT_HOURS: BusinessHours = {
 }
 
 export default function CalendarBoard() {
+  const timezone = useTenantTimezone()
   const [bookings, setBookings] = useState<BookingEvent[]>([])
   const [allBookings, setAllBookings] = useState<Booking[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -233,7 +235,7 @@ export default function CalendarBoard() {
     if (!selectedMemberObj) return []
     const dateStr = toLocalDateOnly(arg.date)
     if (selectedMemberObj.unavailable_dates?.includes(dateStr)) return []
-    return worksScheduledDay(selectedMemberObj.working_days, selectedMemberObj.schedule, dateStr)
+    return worksScheduledDay(selectedMemberObj.working_days, selectedMemberObj.schedule, dateStr, timezone)
       ? ['sched-cleaner-workday']
       : []
   }

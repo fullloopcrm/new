@@ -86,7 +86,8 @@ export function getCleanerAvailability(
   dateStr: string,
   timeStr: string | undefined,
   durationHours: number | undefined,
-  bookings: AvailabilityBooking[]
+  bookings: AvailabilityBooking[],
+  timezone: string
 ): { available: boolean; reason?: string; dayBookings?: Array<{ time: string; client: string; hours: number }> } {
   if (!dateStr) return { available: true }
   const dateObj = new Date(dateStr + 'T12:00:00')
@@ -97,11 +98,11 @@ export function getCleanerAvailability(
   }
   // No days configured (or all off) → NOT available; otherwise honor the set
   // days. worksScheduledDay normalizes both stored formats. See day-availability.ts.
-  if (!worksScheduledDay(cleaner.working_days, cleaner.schedule, dateStr)) {
+  if (!worksScheduledDay(cleaner.working_days, cleaner.schedule, dateStr, timezone)) {
     return { available: false, reason: 'Doesn\'t work ' + dayShort + 's' }
   }
   if (scheduleHasAnyDay(cleaner.schedule)) {
-    const daySchedule = getDaySchedule(cleaner.schedule, dateStr)
+    const daySchedule = getDaySchedule(cleaner.schedule, dateStr, timezone)
     if (daySchedule === null || daySchedule === undefined) {
       return { available: false, reason: 'Not scheduled' }
     }

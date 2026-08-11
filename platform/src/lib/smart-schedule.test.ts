@@ -84,6 +84,7 @@ function makeSmartScheduleFake(getStore: () => Record<string, Array<Record<strin
         in: (col: string, vals: unknown[]) => { f.ins.push({ col, vals }); return chain },
         update: (payload: Record<string, unknown>) => { update = payload; return chain },
         single: () => { single = true; return Promise.resolve(resolve()) },
+        maybeSingle: () => { single = true; return Promise.resolve(resolve()) },
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(resolve()).then(res, rej),
       }
       return chain

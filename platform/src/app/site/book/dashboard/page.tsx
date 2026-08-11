@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import PushPrompt from '@/components/PushPrompt'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 
 interface Booking {
   id: string
@@ -23,6 +25,7 @@ interface Slot {
 }
 
 export default function ClientDashboardPage() {
+  const timezone = useTenantTimezone()
   useEffect(() => { document.title = 'My Bookings | The NYC Maid' }, []);
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState('')
@@ -121,12 +124,16 @@ export default function ClientDashboardPage() {
     router.push('/book')
   }
 
+  // dateStr here is booking.start_time — a naive tenant-local wall-clock
+  // string (no offset). new Date(dateStr) + an explicit timeZone conversion
+  // double-converts it (same bug fixed throughout lib/nycmaid/*-templates.ts
+  // and lib/messaging/client-email.ts) — read the digits directly instead.
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+    return bookingWallClockDate(dateStr, { weekday: 'long', month: 'long', day: 'numeric' })
   }
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+    return nycmaidWallClockTime(dateStr)
   }
 
   const getDaysUntil = (dateStr: string) => {
@@ -221,7 +228,9 @@ export default function ClientDashboardPage() {
 
   const formatPickedDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+    // Noon-anchored (not midnight) so a browser/tenant timezone gap can't
+    // shift the displayed date across a day boundary.
+    return new Date(y, m - 1, d, 12).toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' })
   }
 
   const nextBooking = upcomingBookings[0]

@@ -249,9 +249,9 @@ export async function GET(request: Request) {
       if (mem.status === 'inactive') return false
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: tenantTz })
       if (Array.isArray(mem.unavailable_dates) && mem.unavailable_dates.includes(dateStr)) return false
-      if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr)) return false
+      if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr, tenantTz)) return false
       const startMin = startMinForDate(d)
-      return slotWithinHours(mem.schedule, dateStr, startMin, startMin + durH * 60)
+      return slotWithinHours(mem.schedule, dateStr, startMin, startMin + durH * 60, tenantTz)
     }
 
     // Smart-assign (per-tenant flag, default OFF). When ON, each occurrence is

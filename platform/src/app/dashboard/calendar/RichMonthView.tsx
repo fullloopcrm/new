@@ -7,6 +7,7 @@ import '../bookings/schedule.css'
 import CalendarTimeGrid from './CalendarTimeGrid'
 import { BookingPopup, DayEventsPopup } from './CalendarPopups'
 import { worksScheduledDay } from '@/lib/day-availability'
+import { getTenantTimezone } from '@/lib/tenant-time'
 import {
   type CalendarEvent, type CalendarDay, fmtTime, fmtMoney, ymdToday,
   addDays, addMonths, weekDatesFor, dayLabel,
@@ -218,7 +219,7 @@ export default function RichMonthView() {
   function isWorkday(date: string): boolean {
     if (!selectedSchedule) return false
     if (selectedSchedule.unavailable_dates?.includes(date)) return false
-    return worksScheduledDay(selectedSchedule.working_days, selectedSchedule.schedule, date)
+    return worksScheduledDay(selectedSchedule.working_days, selectedSchedule.schedule, date, getTenantTimezone(tenant as { timezone?: string | null } | null))
   }
   const dayPopupDay = dayPopupDate ? dayByDate.get(dayPopupDate) || emptyDay(dayPopupDate) : null
 

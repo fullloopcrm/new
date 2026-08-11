@@ -193,7 +193,7 @@ export async function GET(request: Request) {
             // resolver handles numeric ("0") + name ("Sun") formats, so numeric-format
             // members are no longer falsely flagged "doesn't work".
             ((member.working_days?.length || 0) > 0 || (member.schedule && Object.keys(member.schedule).length > 0)) &&
-            !worksScheduledDay(member.working_days, member.schedule, date)
+            !worksScheduledDay(member.working_days, member.schedule, date, timezone)
           ) {
             issues.push({ type: 'day_off', severity: 'critical', message: `${member.name} doesn't work ${dayOfWeek}s — booked for ${client?.name} on ${date}`, booking_ids: [b.id], team_member_id: b.team_member_id, tenant_id: tenantId, date })
           }

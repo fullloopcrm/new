@@ -1,5 +1,7 @@
 'use client'
 
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+
 interface RecurringOptionsProps {
   startDate: string
   enabled: boolean
@@ -33,7 +35,8 @@ export function RecurringOptions({
   onCustomIntervalChange,
   previewDates
 }: RecurringOptionsProps) {
-  
+  const timezone = useTenantTimezone()
+
   // Get day info from start date
   const getDayInfo = () => {
     if (!startDate) return { dayName: 'Monday', weekOfMonth: '1st', dayOfMonth: 1 }
@@ -167,7 +170,7 @@ export function RecurringOptions({
             <div className="max-h-24 overflow-y-auto text-xs text-gray-500 space-y-1">
               {previewDates.slice(0, 4).map((date, i) => (
                 <div key={i}>
-                  {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })}
+                  {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short', month: 'short', day: 'numeric' })}
                 </div>
               ))}
               {previewDates.length > 4 && (
