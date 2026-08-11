@@ -23,6 +23,7 @@ import { audit } from '@/lib/audit'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizeVariantSkus } from '@/lib/dropship/variant-skus'
 
 const ITEM_TYPES = ['service', 'project', 'product', 'equipment']
 const PER_UNITS = ['hour', 'job', 'unit', 'sqft', 'linear_ft', 'visit', 'day', 'custom']
@@ -36,23 +37,6 @@ function num(v: unknown): number | null {
 function strArray(v: unknown): string[] {
   if (!Array.isArray(v)) return []
   return v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim())
-}
-
-type VariantSkuMap = Record<string, { externalSku: string; externalVariantId: string }>
-
-// Keeps only entries with a non-empty SKU, keyed "<color>|<size>" to match
-// the dispatch route's lookup (src/app/api/shop/orders/[id]/dispatch).
-function sanitizeVariantSkus(v: unknown): VariantSkuMap {
-  if (!v || typeof v !== 'object') return {}
-  const out: VariantSkuMap = {}
-  for (const [key, entry] of Object.entries(v as Record<string, unknown>)) {
-    if (!entry || typeof entry !== 'object') continue
-    const externalSku = typeof (entry as Record<string, unknown>).externalSku === 'string' ? (entry as Record<string, string>).externalSku.trim() : ''
-    if (!externalSku) continue
-    const externalVariantId = typeof (entry as Record<string, unknown>).externalVariantId === 'string' ? (entry as Record<string, string>).externalVariantId.trim() : ''
-    out[key] = { externalSku, externalVariantId }
-  }
-  return out
 }
 
 const CATALOG_SELECT =

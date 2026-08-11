@@ -11,6 +11,27 @@ import { getAdapter, decryptSupplierConfig } from '@/lib/dropship/registry'
 import type { DropshipOrderInput } from '@/lib/dropship/types'
 
 type VariantSkuMap = Record<string, { externalSku?: string | null; externalVariantId?: string | null }>
+type DropshipProduct = {
+  dropship_external_sku: string | null
+  dropship_external_variant_id: string | null
+  dropship_variant_skus: VariantSkuMap | null
+}
+type OrderItemVariant = { color: string | null; size: string | null }
+
+// Variant products (color/size) route through dropship_variant_skus, keyed
+// "<color>|<size>", falling back to the product-level SKU when the item has
+// no color/size or the map has no entry for that combo.
+export function resolveSku(item: OrderItemVariant, product: DropshipProduct | undefined) {
+  if (!product) return { externalSku: null, externalVariantId: null }
+  if (item.color || item.size) {
+    const key = `${item.color || ''}|${item.size || ''}`
+    const variant = product.dropship_variant_skus?.[key]
+    if (variant?.externalSku) {
+      return { externalSku: variant.externalSku, externalVariantId: variant.externalVariantId || null }
+    }
+  }
+  return { externalSku: product.dropship_external_sku, externalVariantId: product.dropship_external_variant_id }
+}
 
 export async function dispatchShopOrder(tenantId: string, orderId: string) {
   const db = tenantDb(tenantId)
@@ -46,19 +67,6 @@ export async function dispatchShopOrder(tenantId: string, orderId: string) {
       }
   const productById = new Map((products || []).map((p) => [p.id, p]))
 
-  function resolveSku(item: { service_type_id: string | null; color: string | null; size: string | null }) {
-    const product = item.service_type_id ? productById.get(item.service_type_id) : undefined
-    if (!product) return { externalSku: null, externalVariantId: null }
-    if (item.color || item.size) {
-      const key = `${item.color || ''}|${item.size || ''}`
-      const variant = product.dropship_variant_skus?.[key]
-      if (variant?.externalSku) {
-        return { externalSku: variant.externalSku, externalVariantId: variant.externalVariantId || null }
-      }
-    }
-    return { externalSku: product.dropship_external_sku, externalVariantId: product.dropship_external_variant_id }
-  }
-
   // Prefer the supplier already set on the order; otherwise infer it from
   // the items, when every item that has a supplier agrees on the same one.
   let supplierId = order.dropship_supplier_id as string | null
@@ -84,7 +92,7 @@ export async function dispatchShopOrder(tenantId: string, orderId: string) {
   const input: DropshipOrderInput = {
     orderId: order.id,
     items: (items || []).map((i) => ({
-      ...resolveSku(i),
+      ...resolveSku(i, i.service_type_id ? productById.get(i.service_type_id) : undefined),
       name: i.name,
       qty: i.qty,
       priceCents: i.price_cents,
