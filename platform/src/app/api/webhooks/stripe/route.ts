@@ -24,6 +24,7 @@ import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { postPaymentRevenue, postShopOrderRevenue } from '@/lib/finance/post-revenue'
+import { dispatchShopOrder } from '@/lib/dropship/dispatch'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
@@ -161,6 +162,17 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     await postShopOrderRevenue({ tenantId, orderId: order.id, subtotalCents: session.amount_total || 0 })
   } catch (err) {
     console.error('postShopOrderRevenue failed:', err)
+  }
+
+  const ecommerceConfig = (tenant.setup_progress as Record<string, unknown> | null)?.['__page_config_ecommerce'] as Record<string, unknown> | undefined
+  if (anyPhysical && ecommerceConfig?.['auto_dispatch_on_payment'] === true) {
+    try {
+      await dispatchShopOrder(tenantId, order.id)
+    } catch (err) {
+      // Best-effort — the order and its receipt already exist regardless.
+      // Falls back to manual dispatch from the Orders tab.
+      console.error('auto-dispatch on payment failed:', err)
+    }
   }
 
   await sendShopReceipt({

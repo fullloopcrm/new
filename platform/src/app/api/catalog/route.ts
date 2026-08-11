@@ -38,10 +38,27 @@ function strArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim())
 }
 
+type VariantSkuMap = Record<string, { externalSku: string; externalVariantId: string }>
+
+// Keeps only entries with a non-empty SKU, keyed "<color>|<size>" to match
+// the dispatch route's lookup (src/app/api/shop/orders/[id]/dispatch).
+function sanitizeVariantSkus(v: unknown): VariantSkuMap {
+  if (!v || typeof v !== 'object') return {}
+  const out: VariantSkuMap = {}
+  for (const [key, entry] of Object.entries(v as Record<string, unknown>)) {
+    if (!entry || typeof entry !== 'object') continue
+    const externalSku = typeof (entry as Record<string, unknown>).externalSku === 'string' ? (entry as Record<string, string>).externalSku.trim() : ''
+    if (!externalSku) continue
+    const externalVariantId = typeof (entry as Record<string, unknown>).externalVariantId === 'string' ? (entry as Record<string, string>).externalVariantId.trim() : ''
+    out[key] = { externalSku, externalVariantId }
+  }
+  return out
+}
+
 const CATALOG_SELECT =
-  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id'
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id, dropship_variant_skus'
 const CATALOG_SELECT_WRITE =
-  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id'
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id, dropship_variant_skus'
 
 async function resolveTenantId(tokenFromCaller: string | null): Promise<string> {
   const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
@@ -157,6 +174,7 @@ export async function POST(request: Request) {
         dropship_supplier_id: (body.dropship_supplier_id as string) || null,
         dropship_external_sku: (body.dropship_external_sku as string)?.trim() || null,
         dropship_external_variant_id: (body.dropship_external_variant_id as string)?.trim() || null,
+        dropship_variant_skus: sanitizeVariantSkus(body.dropship_variant_skus),
       })
       .select(CATALOG_SELECT_WRITE)
       .single()
@@ -211,6 +229,7 @@ export async function PATCH(request: Request) {
     if ('dropship_supplier_id' in body) patch.dropship_supplier_id = (body.dropship_supplier_id as string) || null
     if ('dropship_external_sku' in body) patch.dropship_external_sku = (body.dropship_external_sku as string)?.trim() || null
     if ('dropship_external_variant_id' in body) patch.dropship_external_variant_id = (body.dropship_external_variant_id as string)?.trim() || null
+    if ('dropship_variant_skus' in body) patch.dropship_variant_skus = sanitizeVariantSkus(body.dropship_variant_skus)
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')

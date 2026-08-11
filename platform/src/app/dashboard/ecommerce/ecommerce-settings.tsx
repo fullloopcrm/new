@@ -54,6 +54,22 @@ export default function EcommerceSettings() {
             </div>
 
             <div className="space-y-3 border-t border-gray-800 pt-4">
+              <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Dropship Fulfillment</p>
+              <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={config.auto_dispatch_on_payment === true}
+                  onChange={(e) => updateConfig('auto_dispatch_on_payment', e.target.checked)}
+                  className="rounded border-gray-600 bg-gray-800 text-emerald-500 focus:ring-emerald-500"
+                />
+                Auto-send orders to the supplier as soon as payment clears
+              </label>
+              <p className="text-xs text-gray-500">
+                Off by default — orders wait in the Orders tab for you to review and dispatch by hand. Turning this on sends real orders to your configured supplier(s) automatically, with no review step.
+              </p>
+            </div>
+
+            <div className="space-y-3 border-t border-gray-800 pt-4">
               <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Order Notifications</p>
               <label className="block">
                 <span className="block text-xs uppercase tracking-wide text-white/70 mb-1">Notify on new order</span>
