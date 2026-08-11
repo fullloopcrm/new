@@ -46,7 +46,13 @@ export async function getTenantServices(tenantId: string) {
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('active', true)
+    // sort_order ties (e.g. a bulk import that left every row at the
+    // default 0) are broken by id so the result order is fully
+    // deterministic — without this, Postgres returns tied rows in
+    // whatever order it feels like per-query, which read as "random"
+    // homepage/shop ordering that changed on every page load.
     .order('sort_order')
+    .order('id')
   return data || []
 }
 

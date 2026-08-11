@@ -12,7 +12,7 @@ async function loadProduct(id: string) {
   if (!tenant) return null
   const { data } = await supabaseAdmin
     .from('service_types')
-    .select('id, name, description, image_url, price_cents, category, is_digital, active')
+    .select('id, name, description, image_url, price_cents, category, is_digital, active, color_options, size_options')
     .eq('tenant_id', tenant.id)
     .eq('item_type', 'product')
     .eq('id', id)
@@ -51,6 +51,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         priceCents: product.price_cents || 0,
         category: product.category,
         isDigital: product.is_digital,
+        colorOptions: product.color_options || [],
+        sizeOptions: product.size_options || [],
       }}
     />
   )

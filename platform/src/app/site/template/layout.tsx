@@ -5,12 +5,15 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 import MarketingNav from '@/app/site/template/_components/MarketingNav'
 import MarketingFooter from '@/app/site/template/_components/MarketingFooter'
+import StreetwearNav from '@/app/site/template/_components/streetwear/StreetwearNav'
+import StreetwearFooter from '@/app/site/template/_components/streetwear/StreetwearFooter'
 import ConsentBanner from '@/app/site/template/_components/ConsentBanner'
 import AnalyticsGate from '@/app/site/template/_components/AnalyticsGate'
 import ClientErrorMonitorByHeaders from '@/components/monitoring/ClientErrorMonitorByHeaders'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { buildThemeCss } from '@/app/site/template/_config/theme'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { anton, plexMono } from '@/app/site/template/_lib/streetwear/fonts'
 
 // Fallback title for tenant pages that set no metadata of their own — namely the
 // 'use client' booking/apply/feedback/referral pages, which would otherwise
@@ -22,8 +25,11 @@ export async function generateMetadata() {
   const p = industryProfile(config.industry)
   const name = config.identity.siteName ?? config.identity.name
   const place = config.geo.placename
-  const ogTitle = `${name} — ${p.serviceLabel} in ${place}`
-  const description = `${name} provides ${p.serviceNoun} in ${place}. Book online or request a quote today.`
+  const isStreetwear = config.layoutVariant === 'streetwear-editorial'
+  const ogTitle = isStreetwear ? `${name} — ${place} Streetwear` : `${name} — ${p.serviceLabel} in ${place}`
+  const description = isStreetwear
+    ? `${name} — streetwear and urban fashion out of ${place}. Shop the latest drop.`
+    : `${name} provides ${p.serviceNoun} in ${place}. Book online or request a quote today.`
   // FULLY override the platform root layout's Full Loop CRM metadata. keywords was
   // already overridden, but description/openGraph/twitter still inherited the
   // product's "maid service software" + NYC-Maid OG on any tenant page that sets
@@ -55,17 +61,18 @@ export async function generateMetadata() {
 
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const config = await getSiteConfig()
+  const isStreetwear = config.layoutVariant === 'streetwear-editorial'
   return (
-    <div className={`${bebasNeue.variable} ${inter.variable} font-[family-name:var(--font-inter)]`}>
+    <div className={`${bebasNeue.variable} ${inter.variable} ${anton.variable} ${plexMono.variable} font-[family-name:var(--font-inter)]`}>
       {/* Per-tenant brand palette → CSS vars. One value re-themes the whole
           template; components read var(--brand)/var(--accent). */}
       <style dangerouslySetInnerHTML={{ __html: buildThemeCss(config.theme) }} />
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[200] focus:bg-[var(--accent)] focus:text-[var(--brand)] focus:px-4 focus:py-2 focus:rounded-md focus:font-bold focus:text-sm">
         Skip to main content
       </a>
-      <MarketingNav config={config} />
+      {isStreetwear ? <StreetwearNav config={config} /> : <MarketingNav config={config} />}
       <main id="main-content">{children}</main>
-      <MarketingFooter config={config} />
+      {isStreetwear ? <StreetwearFooter config={config} /> : <MarketingFooter config={config} />}
       <AnalyticsGate />
       <ClientErrorMonitorByHeaders />
       <ConsentBanner privacyHref="/privacy-policy" />

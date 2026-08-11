@@ -6,6 +6,7 @@ import type { SiteConfig } from '@/app/site/template/_config/types'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import { buildBusiness, productItemListSchema, breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import { addToCart, money } from '@/app/site/template/_lib/cart'
+import ZoomImage from '@/app/site/template/_components/streetwear/ZoomImage'
 
 export interface ShopProduct {
   id: string
@@ -14,10 +15,29 @@ export interface ShopProduct {
   imageUrl: string | null
   priceCents: number
   category: string | null
+  colorOptions?: string[]
+  sizeOptions?: string[]
 }
 
-export default function ShopClient({ config, products }: { config: SiteConfig; products: ShopProduct[] }) {
+export default function ShopClient({
+  config,
+  products,
+  page = 1,
+  totalPages = 1,
+  basePath = '/shop',
+}: {
+  config: SiteConfig
+  products: ShopProduct[]
+  page?: number
+  totalPages?: number
+  basePath?: string
+}) {
   const [addedId, setAddedId] = useState<string | null>(null)
+  const pageHref = (p: number) => (p <= 1 ? basePath : `${basePath}?page=${p}`)
+
+  function hasOptions(product: ShopProduct): boolean {
+    return (product.colorOptions?.length || 0) > 0 || (product.sizeOptions?.length || 0) > 0
+  }
 
   function handleAdd(product: ShopProduct) {
     addToCart({ id: product.id, name: product.name, priceCents: product.priceCents, imageUrl: product.imageUrl })
@@ -59,12 +79,7 @@ export default function ShopClient({ config, products }: { config: SiteConfig; p
                 <Link href={`/shop/${product.id}`} className="block">
                   <div className="aspect-square bg-[var(--surface)] relative overflow-hidden">
                     {product.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- uploaded product photos live in Supabase Storage, not in next.config's image remotePatterns allowlist (same reasoning as CatalogTab.tsx)
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
-                      />
+                      <ZoomImage src={product.imageUrl} alt={product.name} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[rgb(var(--brand-rgb)/0.25)]">
                         <svg aria-hidden="true" className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
@@ -86,18 +101,62 @@ export default function ShopClient({ config, products }: { config: SiteConfig; p
                   {product.description && <p className="text-gray-500 text-sm leading-relaxed mb-4 flex-1">{product.description}</p>}
                   <div className="flex items-center justify-between mt-auto pt-2">
                     <span className="text-[var(--brand)] font-bold text-lg">{money(product.priceCents)}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleAdd(product)}
-                      className="bg-[var(--accent)] text-[var(--brand)] px-4 py-2 rounded-md font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors min-w-[64px]"
-                    >
-                      {addedId === product.id ? 'Added ✓' : 'Add'}
-                    </button>
+                    {hasOptions(product) ? (
+                      <Link
+                        href={`/shop/${product.id}`}
+                        className="bg-[var(--accent)] text-[var(--brand)] px-4 py-2 rounded-md font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors min-w-[64px] text-center"
+                      >
+                        Select
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAdd(product)}
+                        className="bg-[var(--accent)] text-[var(--brand)] px-4 py-2 rounded-md font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors min-w-[64px]"
+                      >
+                        {addedId === product.id ? 'Added ✓' : 'Add'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
+        )}
+
+        {totalPages > 1 && (
+          <nav aria-label="Shop pagination" className="flex items-center justify-center gap-2 mt-10">
+            <Link
+              href={pageHref(Math.max(1, page - 1))}
+              aria-disabled={page <= 1}
+              className={`w-9 h-9 flex items-center justify-center rounded-md border text-xs font-semibold ${
+                page <= 1 ? 'border-gray-100 text-gray-300 pointer-events-none' : 'border-gray-200 text-gray-500 hover:border-[var(--accent)] hover:text-[var(--brand)]'
+              }`}
+            >
+              &larr;
+            </Link>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <Link
+                key={p}
+                href={pageHref(p)}
+                aria-current={p === page ? 'page' : undefined}
+                className={`w-9 h-9 flex items-center justify-center rounded-md border text-xs font-semibold ${
+                  p === page ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-gray-200 text-gray-500 hover:border-[var(--accent)] hover:text-[var(--brand)]'
+                }`}
+              >
+                {p}
+              </Link>
+            ))}
+            <Link
+              href={pageHref(Math.min(totalPages, page + 1))}
+              aria-disabled={page >= totalPages}
+              className={`w-9 h-9 flex items-center justify-center rounded-md border text-xs font-semibold ${
+                page >= totalPages ? 'border-gray-100 text-gray-300 pointer-events-none' : 'border-gray-200 text-gray-500 hover:border-[var(--accent)] hover:text-[var(--brand)]'
+              }`}
+            >
+              &rarr;
+            </Link>
+          </nav>
         )}
       </div>
     </>

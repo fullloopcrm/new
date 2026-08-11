@@ -162,6 +162,10 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     industry,
     googleReviewLink,
     brandCopy: hasBrandCopy ? { heroLine, aboutIntro, differentiators } : undefined,
+    // Additive component-set switch — see the field's doc comment in types.ts.
+    // Keyed off industry rather than a new tenant column so no migration is
+    // needed; add more industry -> variant mappings here as they come up.
+    layoutVariant: industry === 'streetwear' ? 'streetwear-editorial' : 'default',
   }
 }
 

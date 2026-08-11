@@ -33,6 +33,8 @@ type Item = {
   default_target_margin_bps: number | null
   is_digital: boolean
   digital_delivery_url: string | null
+  color_options: string[]
+  size_options: string[]
 }
 
 type MaterialRow = {
@@ -76,6 +78,7 @@ const empty = {
   taxable: true, default_duration_hours: '',
   labor_rate: '', overhead: '', target_margin: '',
   is_digital: false, digital_delivery_url: '',
+  color_options: '', size_options: '',
 }
 
 type EditForm = {
@@ -97,6 +100,8 @@ type EditForm = {
   target_margin: string
   is_digital: boolean
   digital_delivery_url: string
+  color_options: string
+  size_options: string
 }
 
 function toEditForm(it: Item): EditForm {
@@ -119,7 +124,13 @@ function toEditForm(it: Item): EditForm {
     target_margin: it.default_target_margin_bps != null ? String(it.default_target_margin_bps / 100) : '',
     is_digital: it.is_digital,
     digital_delivery_url: it.digital_delivery_url || '',
+    color_options: (it.color_options || []).join(', '),
+    size_options: (it.size_options || []).join(', '),
   }
+}
+
+function parseOptionList(v: string): string[] {
+  return v.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
 type CatalogTabProps = {
@@ -283,6 +294,8 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           default_target_margin_bps: form.target_margin.trim() ? Math.round(Number(form.target_margin) * 100) : undefined,
           is_digital: form.item_type === 'product' ? form.is_digital : false,
           digital_delivery_url: form.item_type === 'product' && form.is_digital ? (form.digital_delivery_url.trim() || undefined) : undefined,
+          color_options: form.item_type === 'product' ? parseOptionList(form.color_options) : [],
+          size_options: form.item_type === 'product' ? parseOptionList(form.size_options) : [],
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
@@ -342,6 +355,8 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           default_target_margin_bps: editForm.target_margin.trim() ? Math.round(Number(editForm.target_margin) * 100) : undefined,
           is_digital: editForm.item_type === 'product' ? editForm.is_digital : false,
           digital_delivery_url: editForm.item_type === 'product' && editForm.is_digital ? (editForm.digital_delivery_url.trim() || undefined) : undefined,
+          color_options: editForm.item_type === 'product' ? parseOptionList(editForm.color_options) : [],
+          size_options: editForm.item_type === 'product' ? parseOptionList(editForm.size_options) : [],
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setEditErr((d && d.error) || 'Could not save changes.'); return }
@@ -411,6 +426,17 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
             {form.is_digital && (
               <input style={inp} value={form.digital_delivery_url} onChange={(e) => setForm({ ...form, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
             )}
+          </div>
+        )}
+
+        {form.item_type === 'product' && !form.is_digital && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div><label style={lbl}>Colors <HelpTip text="Comma-separated color options shown as swatches on the product page, e.g. Black, Royal Blue, Red. Leave blank if this item has no color choice." /></label>
+              <input style={inp} value={form.color_options} onChange={(e) => setForm({ ...form, color_options: e.target.value })} placeholder="Black, Royal Blue, Red" />
+            </div>
+            <div><label style={lbl}>Sizes <HelpTip text="Comma-separated size options shown as buttons on the product page, e.g. S, M, L, XL. Leave blank if this item has no size choice." /></label>
+              <input style={inp} value={form.size_options} onChange={(e) => setForm({ ...form, size_options: e.target.value })} placeholder="S, M, L, XL, 2XL" />
+            </div>
           </div>
         )}
 
@@ -500,6 +526,16 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
                     {editForm.is_digital && (
                       <input style={inp} value={editForm.digital_delivery_url} onChange={(e) => setEditForm({ ...editForm, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
                     )}
+                  </div>
+                )}
+                {editForm.item_type === 'product' && !editForm.is_digital && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div><label style={lbl}>Colors</label>
+                      <input style={inp} value={editForm.color_options} onChange={(e) => setEditForm({ ...editForm, color_options: e.target.value })} placeholder="Black, Royal Blue, Red" />
+                    </div>
+                    <div><label style={lbl}>Sizes</label>
+                      <input style={inp} value={editForm.size_options} onChange={(e) => setEditForm({ ...editForm, size_options: e.target.value })} placeholder="S, M, L, XL, 2XL" />
+                    </div>
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end' }}>

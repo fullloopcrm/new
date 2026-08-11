@@ -6,6 +6,8 @@ import type { SiteConfig } from '@/app/site/template/_config/types'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import { buildBusiness, breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import { addToCart, money } from '@/app/site/template/_lib/cart'
+import { swatchHex } from '@/app/site/template/_lib/colorSwatch'
+import ZoomImage from '@/app/site/template/_components/streetwear/ZoomImage'
 
 export interface ProductDetail {
   id: string
@@ -15,13 +17,20 @@ export interface ProductDetail {
   priceCents: number
   category: string | null
   isDigital: boolean
+  colorOptions: string[]
+  sizeOptions: string[]
 }
 
 export default function ProductDetailClient({ config, product }: { config: SiteConfig; product: ProductDetail }) {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [zoomed, setZoomed] = useState(false)
+  const [color, setColor] = useState<string | null>(null)
+  const [size, setSize] = useState<string | null>(null)
+  const [optionError, setOptionError] = useState('')
   const business = buildBusiness(config)
+  const needsColor = product.colorOptions.length > 0
+  const needsSize = product.sizeOptions.length > 0
 
   useEffect(() => {
     if (!zoomed) return
@@ -33,8 +42,24 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
   }, [zoomed])
 
   function handleAdd() {
+    if (needsColor && !color) {
+      setOptionError('Select a color.')
+      return
+    }
+    if (needsSize && !size) {
+      setOptionError('Select a size.')
+      return
+    }
+    setOptionError('')
     for (let i = 0; i < qty; i++) {
-      addToCart({ id: product.id, name: product.name, priceCents: product.priceCents, imageUrl: product.imageUrl })
+      addToCart({
+        id: product.id,
+        name: product.name,
+        priceCents: product.priceCents,
+        imageUrl: product.imageUrl,
+        color: color || undefined,
+        size: size || undefined,
+      })
     }
     setAdded(true)
     window.setTimeout(() => setAdded(false), 1500)
@@ -91,20 +116,7 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="aspect-square bg-[var(--surface)] rounded-2xl relative overflow-hidden">
           {product.imageUrl ? (
-            <button
-              type="button"
-              onClick={() => setZoomed(true)}
-              aria-label={`Zoom in on ${product.name}`}
-              className="absolute inset-0 w-full h-full cursor-zoom-in group"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- uploaded product photos live in Supabase Storage, not in next.config's image remotePatterns allowlist */}
-              <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
-              <span className="absolute bottom-3 right-3 bg-white/90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-                <svg aria-hidden="true" className="w-4 h-4 text-[var(--brand)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
-                </svg>
-              </span>
-            </button>
+            <ZoomImage src={product.imageUrl} alt={product.name} onClick={() => setZoomed(true)} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[rgb(var(--brand-rgb)/0.25)]">
               <svg aria-hidden="true" className="w-24 h-24" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
@@ -117,6 +129,57 @@ export default function ProductDetailClient({ config, product }: { config: SiteC
         <div>
           <p className="text-2xl font-bold text-[var(--brand)] mb-5">{money(product.priceCents)}</p>
           {product.description && <p className="text-gray-500 leading-relaxed mb-8">{product.description}</p>}
+
+          {needsColor && (
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
+                Color{color ? `: ${color}` : ''}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {product.colorOptions.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { setColor(c); setOptionError('') }}
+                    aria-pressed={color === c}
+                    aria-label={c}
+                    title={c}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      color === c ? 'border-[var(--accent)] scale-110' : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: swatchHex(c) }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {needsSize && (
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
+                Size{size ? `: ${size}` : ''}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {product.sizeOptions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { setSize(s); setOptionError('') }}
+                    aria-pressed={size === s}
+                    className={`min-w-[44px] h-9 px-3 rounded-md border text-xs font-semibold transition-colors ${
+                      size === s
+                        ? 'border-[var(--brand)] bg-[var(--brand)] text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-[var(--brand)]'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {optionError && <p className="text-red-600 text-xs mb-3">{optionError}</p>}
 
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center border border-gray-200 rounded-md">

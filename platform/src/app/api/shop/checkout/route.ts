@@ -20,6 +20,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 interface CartLine {
   id?: string
   qty?: number
+  color?: string
+  size?: string
 }
 
 const MAX_LINE_QTY = 20
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const { data: products, error } = await supabaseAdmin
       .from('service_types')
-      .select('id, name, description, image_url, price_cents, active, item_type, is_digital')
+      .select('id, name, description, image_url, price_cents, active, item_type, is_digital, color_options, size_options')
       .eq('tenant_id', tenant.id)
       .eq('item_type', 'product')
       .in('id', ids)
@@ -65,21 +67,34 @@ export async function POST(request: NextRequest) {
         const product = byId.get(line.id)
         if (!product || !product.active) return null
         const qty = Math.min(MAX_LINE_QTY, Math.max(1, Math.floor(Number(line.qty) || 1)))
+        // Only trust color/size values that are actually one of the
+        // product's real options — never pass arbitrary client text through
+        // to the Stripe-visible line item name.
+        const colorOptions: string[] = product.color_options || []
+        const sizeOptions: string[] = product.size_options || []
+        const color = typeof line.color === 'string' && colorOptions.includes(line.color) ? line.color : null
+        const size = typeof line.size === 'string' && sizeOptions.includes(line.size) ? line.size : null
+        const variantSuffix = [color, size].filter(Boolean).join(' / ')
         return {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: product.name,
+              name: variantSuffix ? `${product.name} — ${variantSuffix}` : product.name,
               description: product.description || undefined,
               images: product.image_url ? [product.image_url] : undefined,
               // Read back in the webhook (Checkout Sessions don't carry our
               // own line items) to snapshot is_digital/digital_delivery_url
               // onto the order without re-trusting client input.
-              metadata: { service_type_id: product.id },
+              metadata: { service_type_id: product.id, ...(color ? { color } : {}), ...(size ? { size } : {}) },
             },
             unit_amount: product.price_cents || 0,
           },
           quantity: qty,
+          // Lets the customer bump quantity up/down on Stripe's own hosted
+          // page without bouncing back to the cart. Removing a line entirely
+          // isn't something Stripe Checkout supports on that page — that
+          // still has to happen in our cart before checkout.
+          adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_LINE_QTY },
         }
       })
       .filter((li): li is NonNullable<typeof li> => li !== null && li.price_data.unit_amount > 0)

@@ -33,6 +33,16 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+function strArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  return v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim())
+}
+
+const CATALOG_SELECT =
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options'
+const CATALOG_SELECT_WRITE =
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options'
+
 async function resolveTenantId(tokenFromCaller: string | null): Promise<string> {
   const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
   if (!tenantId) throw new AuthError('Unauthorized', 401)
@@ -78,7 +88,7 @@ export async function GET(request: Request) {
     const tenantId = await resolveTenantId(searchParams.get('token'))
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select(CATALOG_SELECT)
       .order('sort_order', { ascending: true })
     if (error) throw error
     // Legacy/seeded rows carry the hourly rate in the OLD booking column
@@ -142,8 +152,10 @@ export async function POST(request: Request) {
         active: body.active !== false,
         is_digital: body.is_digital === true,
         digital_delivery_url: body.is_digital === true ? ((body.digital_delivery_url as string) || null) : null,
+        color_options: strArray(body.color_options),
+        size_options: strArray(body.size_options),
       })
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select(CATALOG_SELECT_WRITE)
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -191,12 +203,14 @@ export async function PATCH(request: Request) {
       if (!body.is_digital) patch.digital_delivery_url = null
     }
     if ('digital_delivery_url' in body) patch.digital_delivery_url = (body.digital_delivery_url as string) || null
+    if ('color_options' in body) patch.color_options = strArray(body.color_options)
+    if ('size_options' in body) patch.size_options = strArray(body.size_options)
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .update(patch)
       .eq('id', id)
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url')
+      .select(CATALOG_SELECT_WRITE)
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })

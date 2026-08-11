@@ -56,4 +56,5 @@ export const siteConfig: SiteConfig = {
   ],
   funnelMode: 'booking',
   industry: 'general',
+  layoutVariant: 'default',
 }

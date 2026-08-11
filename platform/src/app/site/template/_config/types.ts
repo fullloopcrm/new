@@ -117,6 +117,17 @@ export interface SiteConfig {
    * generator falls back to its industry-generic copy when this is undefined.
    */
   brandCopy?: SiteBrandCopy
+  /**
+   * Selects an alternate component set for tenants whose vertical doesn't
+   * fit the default home-services template shape (booking CTAs, service
+   * dropdowns, neighborhood footers). Additive: components that don't check
+   * this render their default path unchanged, so every existing tenant is
+   * unaffected. New variants get their own component tree under
+   * _components/<variant>/, wired at the same branch points as GenericHome
+   * (see page.tsx, layout.tsx, ShopClient.tsx) — never a forked route file
+   * under src/app/site/<tenant>/, per the GLOBAL rule in CLAUDE.md.
+   */
+  layoutVariant: 'default' | 'streetwear-editorial'
 }
 
 export interface SiteBrandCopy {

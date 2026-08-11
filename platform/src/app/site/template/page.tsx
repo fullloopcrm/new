@@ -14,6 +14,7 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
+import StreetwearHome from '@/app/site/template/_components/streetwear/StreetwearHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
 import HeroChatEmbed from '@/app/site/template/_components/HeroChatEmbed'
 import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE, WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
@@ -21,7 +22,21 @@ import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_E
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteConfig = await getSiteConfig()
-  const content = homepageContent(toBrand(siteConfig))
+  // homepageContent()'s title/description templates ("Professional {label} —
+  // Licensed, insured — 5-Star Rated") are written for service-business trades
+  // keyed off industryProfile's serviceLabel map, which has no e-commerce
+  // entry and falls back to "Home Services" — wrong on every axis for a
+  // clothing store (not a service, no license/insurance claim, no earned
+  // review count to cite yet). Streetwear/e-commerce tenants get their own
+  // title here instead of routing through that generator.
+  const isStreetwear = siteConfig.layoutVariant === 'streetwear-editorial'
+  const place = siteConfig.geo.placename !== 'Your City' ? siteConfig.geo.placename : 'New York City'
+  const content = isStreetwear
+    ? {
+        title: `${siteConfig.identity.name} — ${place} Streetwear & Urban Clothing`,
+        metaDescription: siteConfig.brandCopy?.heroLine || `${siteConfig.identity.name} — streetwear and urban fashion out of ${place}. Shop hoodies, outerwear, headwear, and accessories.`,
+      }
+    : homepageContent(toBrand(siteConfig))
   return {
   title: { absolute: content.title },
   description: content.metaDescription,
@@ -151,6 +166,12 @@ export default async function HomePage() {
   // Virtual-assistant tenants get a dedicated, remote+national landing.
   if (profile.isVirtualAssistant) {
     return <VirtualAssistantLanding config={siteConfig} />
+  }
+
+  // Streetwear/e-commerce tenants get the editorial variant instead of the
+  // service-business GenericHome — see layoutVariant's doc comment in types.ts.
+  if (siteConfig.layoutVariant === 'streetwear-editorial') {
+    return <StreetwearHome config={siteConfig} />
   }
 
   // The cleaning-editorial homepage below hardcodes nycmaid's OWN real
