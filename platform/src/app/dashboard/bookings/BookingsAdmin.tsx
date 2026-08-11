@@ -39,6 +39,7 @@ import BookingNotes from '@/components/BookingNotes'
 import { formatPhone, formatJobNumber } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { CloseoutDetail } from '@/components/closeout-detail'
+import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { applyDiscount, applyCredit } from '@/lib/discount'
 import { applyTeamMinimum } from '@/lib/billing-hours'
 import { useTenantTimezone } from '@/hooks/useTenantTimezone'
@@ -1145,7 +1146,7 @@ function BookingsPage() {
     const d = new Date(dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
     return d.toLocaleString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      timeZone: 'America/New_York',
+      timeZone: timezone,
     })
   }
 
@@ -1286,7 +1287,7 @@ function BookingsPage() {
                 return `"${s.replace(/"/g, '""')}"`
               }
               const rows = filteredBookings.map(b => [
-                new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' }), new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                bookingWallClockDate(b.start_time), nycmaidWallClockTime(b.start_time),
                 b.clients?.name || '', crewNames(b), b.service_type || '', b.status,
                 b.hourly_rate ? '$' + b.hourly_rate : '', '$' + (b.price / 100).toFixed(0), b.payment_status || ''
               ].map(escCsv).join(','))
