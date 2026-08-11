@@ -39,9 +39,9 @@ function strArray(v: unknown): string[] {
 }
 
 const CATALOG_SELECT =
-  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options'
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id'
 const CATALOG_SELECT_WRITE =
-  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options'
+  'id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, price_is_starting, min_charge_cents, cost_cents, taxable, category, category_id, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order, is_digital, digital_delivery_url, color_options, size_options, dropship_supplier_id, dropship_external_sku, dropship_external_variant_id'
 
 async function resolveTenantId(tokenFromCaller: string | null): Promise<string> {
   const tenantId = await resolveOnboardingTenantId(tokenFromCaller)
@@ -154,6 +154,9 @@ export async function POST(request: Request) {
         digital_delivery_url: body.is_digital === true ? ((body.digital_delivery_url as string) || null) : null,
         color_options: strArray(body.color_options),
         size_options: strArray(body.size_options),
+        dropship_supplier_id: (body.dropship_supplier_id as string) || null,
+        dropship_external_sku: (body.dropship_external_sku as string)?.trim() || null,
+        dropship_external_variant_id: (body.dropship_external_variant_id as string)?.trim() || null,
       })
       .select(CATALOG_SELECT_WRITE)
       .single()
@@ -205,6 +208,9 @@ export async function PATCH(request: Request) {
     if ('digital_delivery_url' in body) patch.digital_delivery_url = (body.digital_delivery_url as string) || null
     if ('color_options' in body) patch.color_options = strArray(body.color_options)
     if ('size_options' in body) patch.size_options = strArray(body.size_options)
+    if ('dropship_supplier_id' in body) patch.dropship_supplier_id = (body.dropship_supplier_id as string) || null
+    if ('dropship_external_sku' in body) patch.dropship_external_sku = (body.dropship_external_sku as string)?.trim() || null
+    if ('dropship_external_variant_id' in body) patch.dropship_external_variant_id = (body.dropship_external_variant_id as string)?.trim() || null
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')

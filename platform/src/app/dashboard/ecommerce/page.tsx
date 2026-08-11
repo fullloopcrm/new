@@ -3,19 +3,22 @@
 import { useState } from 'react'
 import CatalogTab from '../sales/CatalogTab'
 import OrdersTab from './OrdersTab'
+import SuppliersTab from './SuppliersTab'
 import EcommerceSettings from './ecommerce-settings'
 import '../sales/sales.css'
 
 // E-commerce home — Items (the storefront-facing slice of the Catalog,
 // item_type='product' from the same service_types rows /dashboard/catalog
-// manages — no separate product table, see the GLOBAL rule in CLAUDE.md)
-// and Orders (shop_orders, populated by the Stripe webhook on checkout
-// completion). Settings live in the shared top-right gear drawer, same
-// pattern as every other tabbed dashboard page.
-type Tab = 'items' | 'orders'
+// manages — no separate product table, see the GLOBAL rule in CLAUDE.md),
+// Orders (shop_orders, populated by the Stripe webhook on checkout
+// completion), and Suppliers (dropship_suppliers — who fulfills orders,
+// see src/lib/dropship/). Settings live in the shared top-right gear
+// drawer, same pattern as every other tabbed dashboard page.
+type Tab = 'items' | 'orders' | 'suppliers'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'items', label: 'Items' },
   { key: 'orders', label: 'Orders' },
+  { key: 'suppliers', label: 'Suppliers' },
 ]
 
 export default function EcommercePage() {
@@ -52,6 +55,7 @@ export default function EcommercePage() {
         />
       )}
       {tab === 'orders' && <OrdersTab />}
+      {tab === 'suppliers' && <SuppliersTab />}
     </div>
   )
 }

@@ -35,6 +35,9 @@ type Item = {
   digital_delivery_url: string | null
   color_options: string[]
   size_options: string[]
+  dropship_supplier_id: string | null
+  dropship_external_sku: string | null
+  dropship_external_variant_id: string | null
 }
 
 type MaterialRow = {
@@ -79,6 +82,7 @@ const empty = {
   labor_rate: '', overhead: '', target_margin: '',
   is_digital: false, digital_delivery_url: '',
   color_options: '', size_options: '',
+  dropship_supplier_id: '', dropship_external_sku: '', dropship_external_variant_id: '',
 }
 
 type EditForm = {
@@ -102,6 +106,9 @@ type EditForm = {
   digital_delivery_url: string
   color_options: string
   size_options: string
+  dropship_supplier_id: string
+  dropship_external_sku: string
+  dropship_external_variant_id: string
 }
 
 function toEditForm(it: Item): EditForm {
@@ -126,6 +133,9 @@ function toEditForm(it: Item): EditForm {
     digital_delivery_url: it.digital_delivery_url || '',
     color_options: (it.color_options || []).join(', '),
     size_options: (it.size_options || []).join(', '),
+    dropship_supplier_id: it.dropship_supplier_id || '',
+    dropship_external_sku: it.dropship_external_sku || '',
+    dropship_external_variant_id: it.dropship_external_variant_id || '',
   }
 }
 
@@ -199,15 +209,18 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
   const [inventoryItems, setInventoryItems] = useState<{ id: string; name: string; unit_label: string; unit_cost_cents: number }[]>([])
   const [materials, setMaterials] = useState<MaterialRow[]>([])
   const [materialDraft, setMaterialDraft] = useState({ inventory_item_id: '', qty_per_unit: '1' })
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; adapter_key: string }[]>([])
 
   function load() {
     setLoading(true)
     Promise.all([
       fetch('/api/catalog').then((r) => r.json()).catch(() => ({ items: [] })),
       fetch('/api/inventory').then((r) => r.json()).catch(() => ({ items: [] })),
-    ]).then(([c, i]) => {
+      fetch('/api/dropship/suppliers').then((r) => r.json()).catch(() => ({ suppliers: [] })),
+    ]).then(([c, i, s]) => {
       setItems(c?.items || [])
       setInventoryItems(i?.items || [])
+      setSuppliers(s?.suppliers || [])
     }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
@@ -296,6 +309,9 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           digital_delivery_url: form.item_type === 'product' && form.is_digital ? (form.digital_delivery_url.trim() || undefined) : undefined,
           color_options: form.item_type === 'product' ? parseOptionList(form.color_options) : [],
           size_options: form.item_type === 'product' ? parseOptionList(form.size_options) : [],
+          dropship_supplier_id: form.item_type === 'product' && !form.is_digital ? (form.dropship_supplier_id || undefined) : undefined,
+          dropship_external_sku: form.item_type === 'product' && !form.is_digital ? (form.dropship_external_sku.trim() || undefined) : undefined,
+          dropship_external_variant_id: form.item_type === 'product' && !form.is_digital ? (form.dropship_external_variant_id.trim() || undefined) : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
@@ -357,6 +373,9 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           digital_delivery_url: editForm.item_type === 'product' && editForm.is_digital ? (editForm.digital_delivery_url.trim() || undefined) : undefined,
           color_options: editForm.item_type === 'product' ? parseOptionList(editForm.color_options) : [],
           size_options: editForm.item_type === 'product' ? parseOptionList(editForm.size_options) : [],
+          dropship_supplier_id: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_supplier_id || null) : null,
+          dropship_external_sku: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_external_sku.trim() || undefined) : undefined,
+          dropship_external_variant_id: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_external_variant_id.trim() || undefined) : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setEditErr((d && d.error) || 'Could not save changes.'); return }
@@ -425,6 +444,23 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
             </label>
             {form.is_digital && (
               <input style={inp} value={form.digital_delivery_url} onChange={(e) => setForm({ ...form, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
+            )}
+            {!form.is_digital && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 8 }}>
+                <div>
+                  <label style={lbl}>Dropship supplier <HelpTip text="Who fulfills this item. Leave blank to fulfill it yourself. Add suppliers in the Suppliers tab." /></label>
+                  <select style={inp} value={form.dropship_supplier_id} onChange={(e) => setForm({ ...form, dropship_supplier_id: e.target.value })}>
+                    <option value="">— None —</option>
+                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                {form.dropship_supplier_id && (
+                  <>
+                    <div><label style={lbl}>Supplier SKU / product ID</label><input style={inp} value={form.dropship_external_sku} onChange={(e) => setForm({ ...form, dropship_external_sku: e.target.value })} placeholder="—" /></div>
+                    <div><label style={lbl}>Supplier variant ID <HelpTip text="Only some suppliers need this (e.g. Printify) alongside the product ID above." /></label><input style={inp} value={form.dropship_external_variant_id} onChange={(e) => setForm({ ...form, dropship_external_variant_id: e.target.value })} placeholder="—" /></div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -526,6 +562,23 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
                     {editForm.is_digital && (
                       <input style={inp} value={editForm.digital_delivery_url} onChange={(e) => setEditForm({ ...editForm, digital_delivery_url: e.target.value })} placeholder="https://... (download link or access instructions)" />
                     )}
+                    {!editForm.is_digital && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 8 }}>
+                        <div>
+                          <label style={lbl}>Dropship supplier</label>
+                          <select style={inp} value={editForm.dropship_supplier_id} onChange={(e) => setEditForm({ ...editForm, dropship_supplier_id: e.target.value })}>
+                            <option value="">— None —</option>
+                            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </div>
+                        {editForm.dropship_supplier_id && (
+                          <>
+                            <div><label style={lbl}>Supplier SKU / product ID</label><input style={inp} value={editForm.dropship_external_sku} onChange={(e) => setEditForm({ ...editForm, dropship_external_sku: e.target.value })} placeholder="—" /></div>
+                            <div><label style={lbl}>Supplier variant ID</label><input style={inp} value={editForm.dropship_external_variant_id} onChange={(e) => setEditForm({ ...editForm, dropship_external_variant_id: e.target.value })} placeholder="—" /></div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 {editForm.item_type === 'product' && !editForm.is_digital && (
@@ -617,6 +670,11 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>
                 {it.category && <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{it.category}</span>}
+                {it.dropship_supplier_id && (
+                  <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-ink)', background: 'var(--sl-canvas,#f2f2ee)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 4, padding: '1px 6px' }}>
+                    {suppliers.find((s) => s.id === it.dropship_supplier_id)?.name || 'Unknown supplier'}
+                  </span>
+                )}
                 {it.description && <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-muted)' }}>{it.description}</span>}
                 {it.notes && <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', fontStyle: 'italic' }} title="Internal only — not shown on the proposal">Note: {it.notes}</span>}
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', marginTop: 2 }}>

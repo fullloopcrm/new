@@ -45,6 +45,11 @@ export const ADMIN_BYPASS_PREFIXES = [
   // built (same gap class as vendors/booking-notes).
   '/api/quote-budgets', '/api/budget-templates',
   '/api/tenant/public',
+  // /api/shop was missing entirely -- the e-commerce Orders tab has been
+  // unreachable under admin/impersonation auth (currently the only working
+  // login path per the dormant-owner-login note above) since it shipped.
+  // /api/dropship is new this pass, same gap class if left off.
+  '/api/shop', '/api/dropship',
 ]
 
 export function isAdminBypassPath(pathname: string): boolean {
