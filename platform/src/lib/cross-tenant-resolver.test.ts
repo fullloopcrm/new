@@ -76,8 +76,8 @@ function reseed() {
   // team_members. getTenantForRequest() re-reads role from here on every
   // request (see the tenant-query.ts revocation fix below).
   fake._seed('tenant_members', [
-    { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner' },
-    { id: 'tm-b', tenant_id: B_ID, name: 'B Owner', role: 'owner' },
+    { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner', is_active: true },
+    { id: 'tm-b', tenant_id: B_ID, name: 'B Owner', role: 'owner', is_active: true },
   ])
 }
 beforeEach(reseed)
@@ -131,8 +131,8 @@ describe('CROSS-TENANT ATTACK · getTenantForRequest (forged / cross-tenant head
     // without the member logging back in (token is still cryptographically valid).
     fake._store.set('tenant_members', [])
     fake._seed('tenant_members', [
-      { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner' },
-      { id: 'tm-b', tenant_id: B_ID, name: 'B Worker', role: 'staff' },
+      { id: 'tm-a', tenant_id: A_ID, name: 'A Owner', role: 'owner', is_active: true },
+      { id: 'tm-b', tenant_id: B_ID, name: 'B Worker', role: 'staff', is_active: true },
     ])
     const ctx = await getTenantForRequest()
     expect(ctx.role).toBe('staff')
