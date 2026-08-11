@@ -13,8 +13,11 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyPin, generatePin, hashPin } from '@/lib/sales-partner-auth'
 import { createSalesPartnerToken } from '@/lib/sales-partner-portal-auth'
 import { logAuthFailure } from '@/lib/error-tracking'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   try {
     const body = await request.json()
 
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
     console.error('Sales partner login error:', err)
     return NextResponse.json({ error: 'Login failed' }, { status: 500 })
   }
-}
+})
 
 /** "Forgot my PIN" — mint a fresh PIN, email it. Same shape as team-portal/client-portal request_pin. */
 async function handleRequestPin(body: { email?: string }, request: Request) {
