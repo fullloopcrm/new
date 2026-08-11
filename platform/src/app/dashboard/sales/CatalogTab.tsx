@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import HelpTip from '../_components/HelpTip'
+import DropshipVariantSkuEditor, { type VariantSkuMap } from './DropshipVariantSkuEditor'
 
 /**
  * Master Catalog — every item the business sells. Each item is a
@@ -38,6 +39,7 @@ type Item = {
   dropship_supplier_id: string | null
   dropship_external_sku: string | null
   dropship_external_variant_id: string | null
+  dropship_variant_skus: VariantSkuMap
 }
 
 type MaterialRow = {
@@ -83,6 +85,7 @@ const empty = {
   is_digital: false, digital_delivery_url: '',
   color_options: '', size_options: '',
   dropship_supplier_id: '', dropship_external_sku: '', dropship_external_variant_id: '',
+  dropship_variant_skus: {} as VariantSkuMap,
 }
 
 type EditForm = {
@@ -109,6 +112,7 @@ type EditForm = {
   dropship_supplier_id: string
   dropship_external_sku: string
   dropship_external_variant_id: string
+  dropship_variant_skus: VariantSkuMap
 }
 
 function toEditForm(it: Item): EditForm {
@@ -136,6 +140,7 @@ function toEditForm(it: Item): EditForm {
     dropship_supplier_id: it.dropship_supplier_id || '',
     dropship_external_sku: it.dropship_external_sku || '',
     dropship_external_variant_id: it.dropship_external_variant_id || '',
+    dropship_variant_skus: it.dropship_variant_skus || {},
   }
 }
 
@@ -312,6 +317,7 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           dropship_supplier_id: form.item_type === 'product' && !form.is_digital ? (form.dropship_supplier_id || undefined) : undefined,
           dropship_external_sku: form.item_type === 'product' && !form.is_digital ? (form.dropship_external_sku.trim() || undefined) : undefined,
           dropship_external_variant_id: form.item_type === 'product' && !form.is_digital ? (form.dropship_external_variant_id.trim() || undefined) : undefined,
+          dropship_variant_skus: form.item_type === 'product' && !form.is_digital ? form.dropship_variant_skus : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
@@ -376,6 +382,7 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
           dropship_supplier_id: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_supplier_id || null) : null,
           dropship_external_sku: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_external_sku.trim() || undefined) : undefined,
           dropship_external_variant_id: editForm.item_type === 'product' && !editForm.is_digital ? (editForm.dropship_external_variant_id.trim() || undefined) : undefined,
+          dropship_variant_skus: editForm.item_type === 'product' && !editForm.is_digital ? editForm.dropship_variant_skus : {},
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setEditErr((d && d.error) || 'Could not save changes.'); return }
@@ -473,6 +480,16 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
             <div><label style={lbl}>Sizes <HelpTip text="Comma-separated size options shown as buttons on the product page, e.g. S, M, L, XL. Leave blank if this item has no size choice." /></label>
               <input style={inp} value={form.size_options} onChange={(e) => setForm({ ...form, size_options: e.target.value })} placeholder="S, M, L, XL, 2XL" />
             </div>
+            {form.dropship_supplier_id && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <DropshipVariantSkuEditor
+                  colorOptions={form.color_options}
+                  sizeOptions={form.size_options}
+                  value={form.dropship_variant_skus}
+                  onChange={(next) => setForm({ ...form, dropship_variant_skus: next })}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -589,6 +606,16 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
                     <div><label style={lbl}>Sizes</label>
                       <input style={inp} value={editForm.size_options} onChange={(e) => setEditForm({ ...editForm, size_options: e.target.value })} placeholder="S, M, L, XL, 2XL" />
                     </div>
+                    {editForm.dropship_supplier_id && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <DropshipVariantSkuEditor
+                          colorOptions={editForm.color_options}
+                          sizeOptions={editForm.size_options}
+                          value={editForm.dropship_variant_skus}
+                          onChange={(next) => setEditForm({ ...editForm, dropship_variant_skus: next })}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end' }}>

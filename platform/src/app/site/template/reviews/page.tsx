@@ -10,11 +10,24 @@ import ReviewsList from './ReviewsList'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { reviewsContent } from '@/app/site/template/_lib/content/longform'
+import StreetwearReviews from '@/app/site/template/_components/streetwear/StreetwearReviews'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+
+  if (config.layoutVariant === 'streetwear-editorial') {
+    const title = `Reviews | ${config.identity.name}`
+    const description = `What customers are saying about ${config.identity.name}.`
+    return {
+      title,
+      description,
+      alternates: { canonical: `${config.identity.url}/reviews` },
+      openGraph: { title, description, url: `${config.identity.url}/reviews` },
+    }
+  }
+
   const c = reviewsContent(config)
   return {
     title: c.title,
@@ -26,6 +39,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ReviewsPage() {
   const config = await getSiteConfig()
+
+  if (config.layoutVariant === 'streetwear-editorial') {
+    return <StreetwearReviews config={config} />
+  }
+
   const profile = industryProfile(config.industry)
   const isNycmaid = config.identity.url.includes('thenycmaid.com')
 

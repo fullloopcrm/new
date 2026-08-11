@@ -60,6 +60,7 @@ const LABEL_BY_KEY: Record<string, string> = {
   paving: 'Paving', windows_doors: 'Windows & Doors', stucco: 'Stucco', solar: 'Solar Installation',
   smart_home: 'Smart Home & Security', accessibility: 'Accessibility & Mobility',
   restoration: 'Restoration', interior_design: 'Interior Design', general: 'Home Services',
+  streetwear: 'Streetwear',
 }
 
 export function industryProfile(industry?: string | null): IndustryProfile {

@@ -24,6 +24,7 @@ import { applyDiscount, applyCredit } from '@/lib/discount'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { postPaymentRevenue, postShopOrderRevenue } from '@/lib/finance/post-revenue'
+import { dispatchShopOrder } from '@/lib/dropship/dispatch'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
@@ -91,12 +92,11 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     : { data: [] as { id: string; is_digital: boolean; digital_delivery_url: string | null }[] }
   const catalogById = new Map((catalogRows || []).map((r) => [r.id, r]))
 
-  const items: (ShopReceiptItem & { serviceTypeId: string | null })[] = lineItems.data.map((li) => {
+  const items: (ShopReceiptItem & { serviceTypeId: string | null; color: string | null; size: string | null })[] = lineItems.data.map((li) => {
     const product = li.price?.product
-    const serviceTypeId =
-      typeof product === 'object' && product && !('deleted' in product && product.deleted)
-        ? (product as Stripe.Product).metadata?.service_type_id || null
-        : null
+    const isLiveProduct = typeof product === 'object' && product && !('deleted' in product && product.deleted)
+    const stripeProduct = isLiveProduct ? (product as Stripe.Product) : null
+    const serviceTypeId = stripeProduct?.metadata?.service_type_id || null
     const catalog = serviceTypeId ? catalogById.get(serviceTypeId) : undefined
     return {
       serviceTypeId,
@@ -105,6 +105,10 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
       qty: li.quantity || 1,
       isDigital: catalog?.is_digital || false,
       digitalDeliveryUrl: catalog?.digital_delivery_url || null,
+      // Stamped by /api/shop/checkout onto product_data.metadata, only when
+      // the customer picked a real color/size option on a variant product.
+      color: stripeProduct?.metadata?.color || null,
+      size: stripeProduct?.metadata?.size || null,
     }
   })
 
@@ -148,6 +152,8 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
         qty: i.qty,
         is_digital: i.isDigital,
         digital_delivery_url: i.digitalDeliveryUrl,
+        color: i.color,
+        size: i.size,
       }))
     )
   }
@@ -156,6 +162,17 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     await postShopOrderRevenue({ tenantId, orderId: order.id, subtotalCents: session.amount_total || 0 })
   } catch (err) {
     console.error('postShopOrderRevenue failed:', err)
+  }
+
+  const ecommerceConfig = (tenant.setup_progress as Record<string, unknown> | null)?.['__page_config_ecommerce'] as Record<string, unknown> | undefined
+  if (anyPhysical && ecommerceConfig?.['auto_dispatch_on_payment'] === true) {
+    try {
+      await dispatchShopOrder(tenantId, order.id)
+    } catch (err) {
+      // Best-effort — the order and its receipt already exist regardless.
+      // Falls back to manual dispatch from the Orders tab.
+      console.error('auto-dispatch on payment failed:', err)
+    }
   }
 
   await sendShopReceipt({
