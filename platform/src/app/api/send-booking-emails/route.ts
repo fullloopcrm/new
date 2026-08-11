@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { nycmaidWallClockTime } from '@/lib/time-window'
 
 export async function POST(request: Request) {
   try {
@@ -32,9 +33,20 @@ export async function POST(request: Request) {
 
     const client = booking.clients as unknown as { id?: string; name?: string; email?: string; phone?: string; address?: string } | null
     const member = booking.team_members as unknown as { id?: string; name?: string; email?: string; phone?: string } | null
-    const dateTime = booking.start_time ? new Date(booking.start_time).toLocaleString('en-US', {
-      timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-    }) : ''
+    // start_time is a naive wall-clock string (already the correct local
+    // time, no timezone attached). Parsing it with `new Date(...)` on
+    // Vercel's UTC-default runtime and then re-converting with
+    // `timeZone: 'America/New_York'` double-converts it, shifting the
+    // displayed time back by the ET offset (e.g. 9:00 AM -> 5:00 AM,
+    // live incident 2026-08-11 / Tevin Adelman booking). Same fix already
+    // applied in lib/time-window.ts (fl-confirm-email-investigate-2026-07-23)
+    // — extract the wall-clock components directly, no Date/Intl tz round-trip.
+    const dateTime = booking.start_time ? (() => {
+      const [datePart] = booking.start_time.replace(' ', 'T').split('T')
+      const [y, m, d] = datePart.split('-').map(Number)
+      const dateStr = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      return `${dateStr}, ${nycmaidWallClockTime(booking.start_time)}`
+    })() : ''
 
     const results: Array<Record<string, unknown>> = []
 
