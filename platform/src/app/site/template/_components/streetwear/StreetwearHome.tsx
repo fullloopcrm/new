@@ -8,6 +8,7 @@ import { money } from '@/app/site/template/_lib/money'
 import AddToCartButton from './AddToCartButton'
 import ZoomImage from './ZoomImage'
 import HeroTabs, { type HeroTab } from './HeroTabs'
+import PimaCottonFlagship from './PimaCottonFlagship'
 
 interface FeaturedProduct {
   id: string
@@ -133,6 +134,8 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           <HeroTabs tabs={heroTabs} />
         </div>
       </section>
+
+      <PimaCottonFlagship config={config} />
 
       {/* Welcome intro — every section follows badge / heading / description */}
       <section className="bg-[var(--accent)] text-white py-16 sm:py-24">
