@@ -10,7 +10,7 @@
  * Allowlist matches exactly what the composer's TipTap extensions can
  * produce — nothing else should ever legitimately appear in a note body.
  */
-import DOMPurify from 'isomorphic-dompurify'
+import sanitizeHtmlLib from 'sanitize-html'
 
 const ALLOWED_TAGS = [
   'p', 'br', 'strong', 'em', 'u', 's', 'code', 'blockquote', 'hr',
@@ -20,11 +20,20 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ['href', 'target', 'rel', 'data-type', 'data-id', 'data-label', 'class']
 
+// Was isomorphic-dompurify (jsdom-based) -- swapped 2026-08-12. jsdom's own
+// transitive dependency (html-encoding-sniffer -> @exodus/bytes, a pure-ESM
+// package) can't be require()'d once jsdom is externalized via
+// serverExternalPackages (see next.config.ts) on this Node runtime, which
+// 500'd every single request that ever touched note HTML -- the Task
+// Board's page load AND its notes API both crashed on every hit. This
+// package is pure JS, CJS-native, no DOM emulation, no jsdom in the tree at
+// all for this file's purpose -- same allowlist-based sanitization, none of
+// the module-resolution fragility.
 export function sanitizeNoteHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
+  return sanitizeHtmlLib(html, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: { '*': ALLOWED_ATTR },
+    allowedSchemes: ['http', 'https', 'mailto'],
   }).trim()
 }
 
