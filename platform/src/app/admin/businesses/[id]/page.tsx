@@ -423,7 +423,7 @@ export default function BusinessDetailPage() {
   // picker, which this replaces).
   function portalUrl(domain: string, path: string): string {
     const url = new URL(`https://${domain}${path}`)
-    url.searchParams.set('pin', UNIVERSAL_PIN)
+    if (UNIVERSAL_PIN) url.searchParams.set('pin', UNIVERSAL_PIN)
     return url.toString()
   }
 
