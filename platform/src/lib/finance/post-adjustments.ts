@@ -2,9 +2,9 @@
  * Money-event adjustments → ledger: deposits, refunds, chargebacks.
  * Same spine + idempotency model as post-revenue / post-labor.
  *
- *  Deposit    DR 1050 Undeposited      CR 2350 Customer Deposits (liability)
- *  Refund     DR 4000 Service Revenue  CR 1050 Undeposited        (reverse sale)
- *  Chargeback DR 6110 Chargebacks      CR 1050 Undeposited        (loss)
+ *  Deposit    DR 1050 Undeposited                     CR 2350 Customer Deposits (liability)
+ *  Refund     DR 4000 Service Revenue (+ 4100 Tips)    CR 1050 Undeposited        (reverse sale)
+ *  Chargeback DR 6110 Chargebacks                      CR 1050 Undeposited        (loss)
  *
  * A deposit is a liability until the job runs, not revenue — reclassifying it to
  * 4000 on job completion is a follow-up (needs the deposit→final-invoice link).
@@ -71,24 +71,57 @@ export async function postDepositToLedger(opts: {
   return { posted: true, entryId }
 }
 
-/** Refund issued → reverse the sale. `sourceId` = Stripe refund id (unique). */
+/**
+ * Refund issued → reverse the sale. `sourceId` = Stripe refund id (unique).
+ *
+ * A payment that included a tip was originally posted split across TWO
+ * accounts (postPaymentRevenue: CR 4000 service + CR 4100 tip) — refunding
+ * it must reverse both in the same proportion, or the refund silently
+ * over-reverses Service Revenue while leaving the whole tip permanently
+ * sitting in Tips. `originalTotalCents`/`originalTipCents` describe the
+ * ORIGINAL payment being refunded (not this refund), so a partial refund
+ * splits at the same service/tip ratio the sale itself was posted with —
+ * e.g. a $150 payment ($100 service + $50 tip) refunded $60 reverses $40
+ * service / $20 tip, not $60 straight off service. Omit them (or a
+ * zero/undefined tip) for a tip-free payment: behaves exactly as before,
+ * one full debit to 4000.
+ */
 export async function postRefundToLedger(opts: {
   tenantId: string
   sourceId: string
   amountCents: number
   memo?: string
+  originalTotalCents?: number
+  originalTipCents?: number
 }): Promise<PostAdjResult> {
-  const { tenantId, sourceId, amountCents } = opts
+  const { tenantId, sourceId, amountCents, originalTotalCents, originalTipCents } = opts
   if (await journalEntryExists(tenantId, 'refund', sourceId)) return { posted: false, reason: 'already_posted' }
   if (amountCents <= 0) return { posted: false, reason: 'zero_amount' }
 
-  const acct = await resolveAccounts(tenantId, ['4000', '1050'])
-  if (!acct) return { posted: false, reason: 'accounts_missing' }
+  // Guard every input: a missing/zero original total, or a tip that's ≥ the
+  // total (bad data), degrades to the pre-existing all-to-4000 behavior
+  // instead of posting a nonsensical or negative split.
+  const originalTotal = Math.max(0, Math.round(Number(originalTotalCents) || 0))
+  const originalTip = Math.max(0, Math.min(originalTotal, Math.round(Number(originalTipCents) || 0)))
+  const tipRatio = originalTotal > 0 ? originalTip / originalTotal : 0
+  const tipRefundCents = tipRatio > 0 ? Math.min(amountCents, Math.round(amountCents * tipRatio)) : 0
+  const serviceRefundCents = amountCents - tipRefundCents
 
-  const lines: JournalLineInput[] = [
-    { coa_id: acct['4000'], debit_cents: amountCents, memo: 'Refund (revenue reversal)' },
-    { coa_id: acct['1050'], credit_cents: amountCents, memo: 'Refund paid out' },
-  ]
+  await ensureChartAccounts(tenantId)
+  const [revenueAcctId, undepositedId, tipsAcctId] = await Promise.all([
+    getAccountIdByCode(tenantId, '4000'),
+    getAccountIdByCode(tenantId, '1050'),
+    tipRefundCents > 0 ? getAccountIdByCode(tenantId, '4100') : Promise.resolve(null),
+  ])
+  if (!revenueAcctId || !undepositedId || (tipRefundCents > 0 && !tipsAcctId)) {
+    return { posted: false, reason: 'accounts_missing' }
+  }
+
+  const lines: JournalLineInput[] = []
+  if (serviceRefundCents > 0) lines.push({ coa_id: revenueAcctId, debit_cents: serviceRefundCents, memo: 'Refund (revenue reversal)' })
+  if (tipRefundCents > 0 && tipsAcctId) lines.push({ coa_id: tipsAcctId, debit_cents: tipRefundCents, memo: 'Refund (tip reversal)' })
+  lines.push({ coa_id: undepositedId, credit_cents: amountCents, memo: 'Refund paid out' })
+
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
     entry_date: await tenantEntryDate(tenantId),
