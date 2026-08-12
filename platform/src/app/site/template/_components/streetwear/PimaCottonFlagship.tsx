@@ -165,13 +165,13 @@ function FlagshipTile({ garment, color }: { garment: Garment; color: GarmentColo
         )}
       </div>
       <div className="pt-5 pb-2">
-        <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/40 mb-2 font-[family-name:var(--font-plex-mono)]">
+        <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/60 mb-2 font-[family-name:var(--font-plex-mono)]">
           {color.eyebrow}
         </p>
         <h3 className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase tracking-wide leading-[0.95]">
           {garment.name}
         </h3>
-        <p className="mt-3 text-black/50 text-sm leading-relaxed max-w-xs">{garment.description}</p>
+        <p className="mt-3 text-black/60 text-sm leading-relaxed max-w-xs">{garment.description}</p>
         <div className="flex items-center justify-between mt-4">
           <ColorSwatches activeKey={color.colorKey} />
           <span className="font-[family-name:var(--font-plex-mono)] text-black font-semibold text-base">

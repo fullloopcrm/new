@@ -164,7 +164,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           </div>
 
           {featured.length === 0 ? (
-            <div className="border border-black/15 p-12 text-center text-black/40">No products live yet.</div>
+            <div className="border border-black/15 p-12 text-center text-black/60">No products live yet.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16 lg:gap-x-10 lg:gap-y-20">
               {featured.map((p) => (
@@ -180,7 +180,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
                     </div>
                   </Link>
                   <div className="pt-5 pb-2">
-                    {p.category && <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/40 mb-2 font-[family-name:var(--font-plex-mono)]">{p.category}</p>}
+                    {p.category && <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/60 mb-2 font-[family-name:var(--font-plex-mono)]">{p.category}</p>}
                     <Link href={`/shop/${p.id}`}>
                       <h3 className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase tracking-wide leading-[0.95] hover:text-[var(--accent)] transition-colors">{p.name}</h3>
                     </Link>
