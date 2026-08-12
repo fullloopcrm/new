@@ -1,5 +1,7 @@
 import type { SiteConfig } from '@/app/site/template/_config/types'
+import { getTenantFromHeaders, getTenantServices } from '@/lib/tenant-site'
 import { money } from '@/app/site/template/_lib/money'
+import AddToCartButton from './AddToCartButton'
 import ZoomImage from './ZoomImage'
 
 // Flagship spotlight for the 212 collection — real photography, not the
@@ -37,6 +39,10 @@ interface Garment {
   description: string
   colors: GarmentColor[]
   comingSoon?: boolean
+  // Set at render time from the tenant's real catalog row (matched by name).
+  // Undefined means no matching product exists yet — the tile shows price
+  // only, no Add to Cart, rather than a button that would fail on click.
+  productId?: string
 }
 
 const GARMENTS: Garment[] = [
@@ -172,12 +178,43 @@ function FlagshipTile({ garment, color }: { garment: Garment; color: GarmentColo
             {money(garment.priceCents)}
           </span>
         </div>
+        {!garment.comingSoon && garment.productId && (
+          <div className="mt-4">
+            <AddToCartButton
+              product={{
+                id: garment.productId,
+                name: garment.name,
+                priceCents: garment.priceCents,
+                imageUrl: color.imageSrc ?? null,
+                colorOptions: ['Black', 'White', 'Beige'],
+                sizeOptions: ['S', 'M', 'L', 'XL', 'XXL'],
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-export default function PimaCottonFlagship({ config }: { config: SiteConfig }) {
+// Matches real catalog rows (created for "The 212 H" / "The 212 T") onto the
+// hardcoded GARMENTS so Add to Cart uses a real product id instead of
+// linking/adding against nothing. 212HR intentionally has no catalog row
+// yet — comingSoon garments never get a productId.
+async function withRealProductIds(): Promise<Garment[]> {
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return GARMENTS
+  const products = await getTenantServices(tenant.id)
+  const byName = new Map(products.map((p) => [p.name, p]))
+  return GARMENTS.map((g) => {
+    if (g.comingSoon) return g
+    const match = byName.get(g.name)
+    return match ? { ...g, productId: match.id } : g
+  })
+}
+
+export default async function PimaCottonFlagship({ config }: { config: SiteConfig }) {
+  const garments = await withRealProductIds()
   return (
     <section className="bg-white text-black py-16 sm:py-24 border-t border-black/10">
       <div className="max-w-[1600px] mx-auto px-5 sm:px-8">
@@ -194,7 +231,7 @@ export default function PimaCottonFlagship({ config }: { config: SiteConfig }) {
         </div>
 
         <div className="space-y-16 sm:space-y-24">
-          {GARMENTS.map((garment) => (
+          {garments.map((garment) => (
             <div key={garment.key} className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-14 lg:gap-x-10">
               {garment.colors.map((color) => (
                 <FlagshipTile key={`${garment.key}-${color.colorKey}`} garment={garment} color={color} />
