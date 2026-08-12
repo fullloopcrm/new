@@ -67,10 +67,11 @@ const navMain: Array<{
     { letter: 'E', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
     { letter: 'F', label: 'Announcements', href: '/dashboard/announcements' },
   ]},
-  { num: '05', label: 'Store', href: '/dashboard/ecommerce', fold: 'ecommerce', perm: 'sales.view', subs: [] },
-  { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
-  { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
-  { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
+  { num: '05', label: 'Task Board', href: '/dashboard/boards', fold: 'boards', perm: 'boards.view', subs: [] },
+  { num: '06', label: 'E-commerce', href: '/dashboard/ecommerce', fold: 'ecommerce', perm: 'sales.view', subs: [] },
+  { num: '07', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
+  { num: '08', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '09', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Social', href: '/dashboard/social' },
@@ -95,6 +96,7 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/analytics',
   ],
   comhub: ['/dashboard/comhub', '/dashboard/connect'],
+  boards: ['/dashboard/boards'],
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
@@ -119,7 +121,8 @@ function activeFold(pathname: string): string | null {
 // the human label we want shown, or when the default (first-segment-only)
 // derivation can't reach a nested route like /dashboard/jobs/projects.
 const TITLE_OVERRIDES: Record<string, string> = {
-  '/dashboard/ecommerce': 'Store',
+  '/dashboard/ecommerce': 'E-commerce',
+  '/dashboard/boards': 'Task Board',
   '/dashboard/connect': 'Loop Connect',
   '/dashboard/jobs': 'Production',
   '/dashboard/jobs/projects': 'Projects',
@@ -302,11 +305,13 @@ function DashboardShellInner({
   const day = dayOfBuilding()
   const title = pageTitleFromPath(pathname)
   const isLoop = pathname === '/dashboard'
-  // ComHub is a locked, app-like 3-pane surface (like Slack/Gmail) — it owns
-  // its own internal scrolling per pane and needs the full viewport, not the
-  // padded/scrolling content-page chrome every other route gets.
+  // ComHub and Task Board are locked, app-like surfaces (ComHub is a 3-pane
+  // Slack/Gmail-style layout; Task Board has its own persistent left board
+  // list, like Monday's board sidebar) — both own their internal scrolling
+  // and need the full viewport, not the padded/scrolling content-page chrome
+  // every other route gets.
   const segment = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || ''
-  const isComhub = segment === 'comhub'
+  const isFullBleed = segment === 'comhub' || segment === 'boards'
 
   return (
     <div
@@ -503,11 +508,11 @@ function DashboardShellInner({
 
       {/* MAIN */}
       <main
-        className={`flex-1 min-w-0 md:ml-60 ${isComhub ? 'h-screen overflow-hidden flex flex-col' : 'overflow-y-auto pb-32'}`}
+        className={`flex-1 min-w-0 md:ml-60 ${isFullBleed ? 'h-screen overflow-hidden flex flex-col' : 'overflow-y-auto pb-32'}`}
         style={{ background: 'var(--color-loop-bg)' }}
       >
         {impersonationBanner}
-        <div className={isComhub ? 'px-4 md:px-6 pt-2 flex flex-col flex-1 min-h-0' : 'px-12 pt-4 pb-24 max-w-[1500px]'}>
+        <div className={isFullBleed ? 'px-4 md:px-6 pt-2 flex flex-col flex-1 min-h-0' : 'px-12 pt-4 pb-24 max-w-[1500px]'}>
           {/* Mobile hamburger */}
           <button
             className="md:hidden p-2 mb-4 -ml-2"
@@ -523,11 +528,11 @@ function DashboardShellInner({
               (same on every page, ComHub included). Not sticky on ComHub
               since the page itself no longer scrolls. */}
           <div
-            className={`flex items-center gap-4 py-2 justify-end ${isComhub ? '' : 'sticky top-0 z-20 mb-3'}`}
+            className={`flex items-center gap-4 py-2 justify-end ${isFullBleed ? '' : 'sticky top-0 z-20 mb-3'}`}
             style={{ background: 'var(--color-loop-bg)' }}
           >
             <div className="flex items-center gap-4">
-              <span className={isComhub ? 'hidden md:inline-block whitespace-nowrap' : ''} style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <span className={isFullBleed ? 'hidden md:inline-block whitespace-nowrap' : ''} style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 {meta}
               </span>
               <FeedbackWidget source="dashboard" variant="inline" />
@@ -577,10 +582,10 @@ function DashboardShellInner({
           </div>
 
           {/* PERSISTENT PLATFORM-UPDATES BANNER — not on ComHub, it doesn't scroll */}
-          {!isComhub && <AnnouncementBanner />}
+          {!isFullBleed && <AnnouncementBanner />}
 
           {/* MASTHEAD — same title layout/size/spacing on every page, ComHub included */}
-          <div className={`flex items-start justify-between pb-[22px] mb-8 ${isComhub ? 'shrink-0' : ''}`} style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
+          <div className={`flex items-start justify-between pb-[22px] mb-8 ${isFullBleed ? 'shrink-0' : ''}`} style={{ borderBottom: '1px solid var(--color-loop-ink)' }}>
             <div>
               <h1 style={{ fontFamily: 'var(--display)', fontSize: '44px', fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>
                 {title}
@@ -604,7 +609,7 @@ function DashboardShellInner({
           </div>
 
           <AutoPageSettings />
-          {isComhub ? (
+          {isFullBleed ? (
             <div className="flex-1 min-h-0 pb-20">
               <WorkerLabelProvider industry={industry}>{children}</WorkerLabelProvider>
             </div>
