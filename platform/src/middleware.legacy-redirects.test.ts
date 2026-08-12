@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+
+// A tenant-domain request makes middleware.ts call getTenantBySlug, a real
+// Supabase lookup -- unmocked, this hangs in the sandboxed test env with no
+// network access. 'acme' resolving to no tenant is exactly what this test
+// needs (falls through to normal 404 routing, same as a real unknown slug).
+vi.mock('@/lib/tenant-lookup', () => ({
+  getTenantBySlug: vi.fn(async () => null),
+  getTenantByDomain: vi.fn(async () => null),
+}))
 
 /**
  * Regression test for the 2026-08-01 incident: e51fe908e (EMD microsites SEO

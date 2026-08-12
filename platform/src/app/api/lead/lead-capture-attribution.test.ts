@@ -158,11 +158,13 @@ const visitReq = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
-const leadReq = (body: unknown) =>
+const leadReq = (body: Record<string, unknown>) =>
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp.
   new NextRequest('http://acme.example.com/api/lead', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.7' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ _ts: Date.now() - 3000, ...body }),
   })
 
 beforeEach(() => {

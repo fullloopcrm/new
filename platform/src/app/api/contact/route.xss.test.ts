@@ -51,9 +51,12 @@ vi.mock('@/lib/supabase', () => ({
 import { POST } from './route'
 
 function req(body: Record<string, unknown>) {
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp — _ts must be MIN_FILL_MS..MAX_TOKEN_AGE_MS
+  // old. 3s ago satisfies that without faking a real page render.
   return new Request('https://x.test/api/contact', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ _ts: Date.now() - 3000, ...body }),
     headers: { 'content-type': 'application/json' },
   })
 }

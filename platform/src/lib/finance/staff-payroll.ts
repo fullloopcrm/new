@@ -91,13 +91,13 @@ export async function runWeeklyStaffPayroll(): Promise<StaffPayrollResult[]> {
     const tenantId = tenant.id as string
     const tenantName = (tenant.name as string) || tenantId
 
-    // Two flat queries instead of an embedded join: hr_employee_profiles has
-    // no tenant_id of its own (scoped via team_member_id), and eligibility
-    // starts from "who's salaried + weekly + active" — cheaper to filter
+    // Two flat queries instead of an embedded join: eligibility starts from
+    // "who's salaried + weekly + active" for THIS tenant — cheaper to filter
     // there first, then fetch only those team_members' Stripe status.
     const { data: profiles } = await supabaseAdmin
       .from('hr_employee_profiles')
       .select('team_member_id, pay_rate_cents')
+      .eq('tenant_id', tenantId)
       .eq('comp_type', 'salary')
       .eq('pay_period', 'weekly')
       .eq('hr_status', 'active')

@@ -291,8 +291,8 @@ describe('sunnyside-clean-nyc — NYC cleaning, tiered hourly booking persona', 
     const cfg = getAuthoredConfig(SUNNYSIDE_CLEAN_SLUG)!
     expect(cfg.pricing.model).toBe('hourly')
     expect(cfg.pricing.copy).toContain('You provide supplies — $59/hr')
-    expect(cfg.pricing.copy).toContain('We bring everything — $79/hr')
-    expect(cfg.pricing.copy).toContain('Same-day / emergency — $99/hr')
+    expect(cfg.pricing.copy).toContain('We bring everything — $69/hr')
+    expect(cfg.pricing.copy).toContain('Same-day / emergency — $89/hr')
     expect(cfg.pricing.copy).toContain('do NOT lock in a flat total')
   })
 

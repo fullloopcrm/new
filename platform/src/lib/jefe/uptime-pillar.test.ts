@@ -8,6 +8,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { FakeSupabase, Row } from '@/test/fake-supabase'
 
+// unstable_cache requires a real Next.js request-scoped incremental cache,
+// which doesn't exist under plain Vitest ("Invariant: incrementalCache
+// missing"). health.ts's computeSeoRankings wraps computeSeoRankingsUncached
+// with it -- pass the function through uncached so unit tests can call it.
+vi.mock('next/cache', () => ({ unstable_cache: (fn: unknown) => fn }))
+
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()

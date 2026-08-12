@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * POST /api/ai/assistant only checked getTenantForRequest() (any authenticated
- * tenant member, any role) before letting the model execute tools that mutate
- * data or expose finance figures — update_bookings/cancel_bookings/
- * update_client/get_revenue_stats. The equivalent REST endpoints gate these
- * behind requirePermission('bookings.edit'/'clients.edit'/'finance.view'),
- * which 'staff' does not hold (rbac.ts) — but the AI tool-execution path
- * bypassed that check entirely, letting a 'staff' member reach privileged
- * mutations/finance data through the chat widget that the REST API would
- * 403 on directly.
+ * Written 2026-07-14 to lock in per-role RBAC on AI-assistant tool calls.
+ * Superseded 2026-08-06 by a deliberate product decision ("feat: give the
+ * dashboard agent full-owner access to every backend capability", route.ts's
+ * dashboardOnlyTools comment): whoever a tenant lets into their dashboard
+ * chat gets the agent's full capability, no per-role gating, regardless of
+ * whether they're owner/admin/manager/staff. This test now locks in THAT
+ * behavior instead — a 'staff' member CAN use the assistant to do things
+ * the equivalent REST endpoint would 403 them on directly. That's the
+ * current, intentional design, not a gap.
  */
 
 const TENANT = 'aaaaaaaa-1111-2222-3333-444444444444'
@@ -97,20 +97,20 @@ function req(): Request {
   })
 }
 
-describe('POST /api/ai/assistant — tool execution respects RBAC', () => {
+describe('POST /api/ai/assistant — tool execution runs with full owner-level access', () => {
   beforeEach(() => {
     createCallCount = 0
     store.clients = [{ id: 'c1', tenant_id: TENANT, name: 'Old Name' }]
   })
 
-  it('blocks a staff member from having the assistant update a client (no clients.edit)', async () => {
+  it('lets a staff member have the assistant update a client (dashboard-chat full-access design)', async () => {
     actorRole = 'staff'
     const res = await POST(req())
     expect(res.status).toBe(200)
-    expect(store.clients[0].name).toBe('Old Name')
+    expect(store.clients[0].name).toBe('New Name')
   })
 
-  it('allows an admin (has clients.edit) to have the assistant update a client', async () => {
+  it('allows an admin to have the assistant update a client', async () => {
     actorRole = 'admin'
     const res = await POST(req())
     expect(res.status).toBe(200)

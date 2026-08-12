@@ -9,8 +9,9 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * 9 tools. This proves a tool call now produces a real audit_logs row with
  * the 'assistant.tool_call' action.
  *
- * #3 fold (2026-07-30): search_clients now dispatches through the shared
- * runTool() (src/lib/selena/tools.ts), which ALSO writes its own
+ * #3 fold (2026-07-30): tools with no dashboard-specific handler (like
+ * lookup_client, ex-"search_clients") now dispatch straight through the
+ * shared runTool() (src/lib/selena/tools.ts), which ALSO writes its own
  * 'yinez.tool_call' row internally — two rows per call now, not one. Both
  * are truthful and distinguishable by action name; see the comment above
  * executeTool() in route.ts for why this redundancy is accepted rather than
@@ -65,7 +66,7 @@ function toolTurn(name: string, input: Record<string, unknown>) {
 
 describe('ai/assistant executeTool writes to audit_logs', () => {
   it('a tool call writes one audit_logs row with action assistant.tool_call', async () => {
-    toolTurn('search_clients', { query: 'Jane' })
+    toolTurn('lookup_client', { query: 'Jane' })
 
     const res = await post([{ role: 'user', content: 'find Jane' }])
     expect(res.status).toBe(200)
@@ -77,13 +78,13 @@ describe('ai/assistant executeTool writes to audit_logs', () => {
     expect(assistantRow?.rows[0]).toMatchObject({
       tenant_id: TENANT_A,
       action: 'assistant.tool_call',
-      entity_type: 'search_clients',
+      entity_type: 'lookup_client',
     })
     const details = assistantRow?.rows[0].details as Record<string, unknown>
     expect(details).toMatchObject({ actor: 'agent', role: 'owner', success: true })
 
-    // The shared runTool() dispatcher's own internal audit row, using ITS
-    // tool name (lookup_client), not this route's external name.
+    // The shared runTool() dispatcher writes its own internal audit row for
+    // the same call — same tool name both times, this route does no remapping.
     const yinezRow = auditInserts.find((i) => i.rows[0].action === 'yinez.tool_call')
     expect(yinezRow?.rows[0]).toMatchObject({
       tenant_id: TENANT_A,

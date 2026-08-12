@@ -27,10 +27,10 @@ vi.mock('@/lib/notify', () => ({ notify: async () => ({}) }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: async () => {} }))
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
+import { sendClientSMS } from '@/lib/client-contacts'
 import { createToken } from '../auth/token'
 
-vi.mock('@/lib/nycmaid/client-contacts', () => ({
+vi.mock('@/lib/client-contacts', () => ({
   sendClientSMS: vi.fn(async () => ({ sent: 1, skipped: 0 })),
 }))
 

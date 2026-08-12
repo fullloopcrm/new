@@ -54,6 +54,9 @@ describe('job-application admin email (/api/lead) — HTML escaping', () => {
       name: PAYLOAD_NAME,
       phone: '5551234567',
       message: PAYLOAD_MESSAGE,
+      // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing
+      // a plausible render timestamp.
+      _ts: Date.now() - 3000,
     })
     expect(res.status).toBe(200)
     expect(emailAdmins).toHaveBeenCalledTimes(1)

@@ -106,7 +106,7 @@ function seedEligibleMember(overrides: Record<string, unknown> = {}) {
     { id: MEMBER, tenant_id: TENANT, name: 'Admin Person', stripe_account_id: 'acct_1', stripe_ready_at: '2026-08-01T00:00:00Z' },
   ]
   h.store.hr_employee_profiles = [
-    { team_member_id: MEMBER, comp_type: 'salary', pay_period: 'weekly', hr_status: 'active', pay_rate_cents: 100000, ...overrides },
+    { tenant_id: TENANT, team_member_id: MEMBER, comp_type: 'salary', pay_period: 'weekly', hr_status: 'active', pay_rate_cents: 100000, ...overrides },
   ]
 }
 

@@ -49,11 +49,13 @@ beforeEach(() => {
   holder.from = h.from
 })
 
-function post(body: unknown) {
+function post(body: Record<string, unknown>) {
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp.
   return POST(
     new Request('http://acme-a.example.com/api/lead', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ _ts: Date.now() - 3000, ...body }),
     }) as unknown as import('next/server').NextRequest,
   )
 }

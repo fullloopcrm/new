@@ -67,7 +67,9 @@ vi.mock('@/lib/tenant-db', () => ({
 import { POST } from './route'
 
 function req(body: Record<string, unknown>) {
-  return POST(new NextRequest('http://t/api/lead', { method: 'POST', body: JSON.stringify(body) }))
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp.
+  return POST(new NextRequest('http://t/api/lead', { method: 'POST', body: JSON.stringify({ _ts: Date.now() - 3000, ...body }) }))
 }
 
 describe('POST /api/lead — pipeline-entry failure alerting', () => {

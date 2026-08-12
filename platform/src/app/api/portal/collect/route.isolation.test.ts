@@ -61,7 +61,9 @@ beforeEach(() => {
 })
 
 function postReq(body: Record<string, unknown>): NextRequest {
-  return new NextRequest('http://x/api/portal/collect', { method: 'POST', body: JSON.stringify(body) })
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp.
+  return new NextRequest('http://x/api/portal/collect', { method: 'POST', body: JSON.stringify({ _ts: Date.now() - 3000, ...body }) })
 }
 
 describe('portal/collect POST — tenantDb isolation', () => {

@@ -55,6 +55,21 @@ vi.mock('@/lib/ledger', () => ({
   postJournalEntry: h.postJournalEntry,
 }))
 
+// tenantEntryDate() (post-adjustments.ts) looks up the tenant's timezone via
+// a real supabaseAdmin call to compute the ledger entry_date -- unmocked,
+// this hits the real (test-project) Supabase client and hangs.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { timezone: 'America/New_York' }, error: null }),
+        }),
+      }),
+    }),
+  },
+}))
+
 import { postRefundToLedger } from '@/lib/finance/post-adjustments'
 
 function sum(lines: Array<{ debit_cents?: number; credit_cents?: number }>, side: 'debit_cents' | 'credit_cents'): number {

@@ -74,15 +74,15 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'schedules.edit')).toBe(true)
     })
 
-    it('can view/create/edit team roster/contact info but not delete or see compensation', () => {
+    it('can view/create/edit team roster/contact info but not delete', () => {
       expect(hasPermission('virtual_assistant', 'team.view')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.create')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.edit')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
-      // team.compensation gates pay rate, employment classification, and the
-      // decrypted team-portal PIN — front-office/customer-service scope, not
-      // HR/payroll scope.
-      expect(hasPermission('virtual_assistant', 'team.compensation')).toBe(false)
+      // team.compensation was granted 2026-08-12 to unlock PIN reset (see
+      // rbac.ts's virtual_assistant comment) -- pay-rate/compliance-doc
+      // visibility comes along with that grant, deliberately.
+      expect(hasPermission('virtual_assistant', 'team.compensation')).toBe(true)
     })
 
     it('can view/create campaigns but not send them', () => {
@@ -97,8 +97,11 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
     })
 
-    it('cannot access finance or settings at all', () => {
-      expect(hasPermission('virtual_assistant', 'finance.view')).toBe(false)
+    it('can view finance (read-only) but cannot run payroll, edit expenses, or touch settings', () => {
+      // finance.view was granted alongside team.compensation 2026-08-12 --
+      // payroll data is visible but not executable (finance.payroll stays
+      // owner/admin-only).
+      expect(hasPermission('virtual_assistant', 'finance.view')).toBe(true)
       expect(hasPermission('virtual_assistant', 'finance.payroll')).toBe(false)
       expect(hasPermission('virtual_assistant', 'finance.expenses')).toBe(false)
       expect(hasPermission('virtual_assistant', 'settings.view')).toBe(false)

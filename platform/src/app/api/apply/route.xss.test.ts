@@ -37,7 +37,10 @@ vi.mock('@/lib/messaging/shell', () => ({ emailShell: vi.fn(() => '<html></html>
 import { POST } from './route'
 
 function req(body: Record<string, unknown>) {
-  return new Request('http://t/api/apply', { method: 'POST', body: JSON.stringify(body) })
+  // isSpamSubmission (src/lib/spam-guard.ts) rejects any request missing a
+  // plausible render timestamp — _ts must be MIN_FILL_MS..MAX_TOKEN_AGE_MS
+  // old. 3s ago satisfies that without faking a real page render.
+  return new Request('http://t/api/apply', { method: 'POST', body: JSON.stringify({ _ts: Date.now() - 3000, ...body }) })
 }
 
 beforeEach(() => {

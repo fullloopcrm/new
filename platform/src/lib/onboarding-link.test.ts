@@ -15,6 +15,9 @@ vi.mock('./supabase', () => ({
           single: async () => ({ data: h.tenant, error: null }),
         }),
       }),
+      update: () => ({
+        eq: async () => ({ data: null, error: null }),
+      }),
     }),
   },
 }))

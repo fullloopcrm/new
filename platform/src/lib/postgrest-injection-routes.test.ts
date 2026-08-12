@@ -161,7 +161,9 @@ const ALL_FOURTEEN_SITES = [
   'src/app/api/admin/activity/route.ts',
   'src/app/api/admin/comhub/search-recipients/route.ts',
   'src/app/api/admin/comhub/templates/route.ts',
-  'src/app/api/admin/ai-chat/route.ts',
+  // A Next.js route file may only export HTTP method handlers, so this
+  // route's own .or() query lives in the sibling src/app/api/admin/ai-chat/tools.ts instead.
+  'src/app/api/admin/ai-chat/tools.ts',
   // #3 fold (2026-07-30): the assistant route's own search_clients .or() query
   // moved into src/lib/selena/tools.ts's handleLookupClient (now shared with
   // SMS/web/Telegram via runTool) — same sanitizer, new home.

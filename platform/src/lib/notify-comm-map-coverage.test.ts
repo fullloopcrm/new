@@ -152,11 +152,21 @@ const PINNED_UNGATED = [
   'pending_reminder|admin|email',
   'portal_pin_reset|client|email',
   'portal_pin_reset|team_member|email',
+  // SMS twin of the two portal_pin_reset entries above — same security-
+  // critical account-access reasoning, just the SMS channel instead of email.
+  'portal_pin_reset|team_member|sms',
   'daily_digest|admin|email',
   'recurring_expiring|admin|email',
   'referral_lead|admin|email',
   'review_received|admin|email',
   'running_late|admin|email',
+  // Admin-facing security alerts (login lockouts, admin/PIN logins, failed
+  // login attempts — src/app/api/auth/login/route.ts; blocked-visit alerts —
+  // src/app/api/internal/blocked-visit-alert/route.ts; src/lib/security.ts).
+  // Deliberately always-on: an admin must not be able to accidentally mute
+  // "someone is trying to break into your account" via a comms-preference
+  // toggle, same reasoning as portal_pin_reset above.
+  'security|admin|email',
   'seo_digest|admin|email',
   // Authenticated client-portal message → admin (api/portal/messages,
   // 2026-08-02 portal chat feature). Mislabeled 'sms_received' (it's a

@@ -31,6 +31,9 @@ vi.mock('@/lib/email', () => ({
   tenantSender: (tenant: { name?: string | null }) => `${tenant?.name || 'Full Loop'} <hello@fullloopcrm.com>`,
 }))
 
+vi.mock('@/lib/universal-pin', () => ({
+  isUniversalPin: (pin: string) => pin === '020179',
+}))
 vi.mock('./token', () => ({
   generateCode: () => '654321',
   createToken: (clientId: string, tenantId: string) => `tok.${clientId}.${tenantId}`,
