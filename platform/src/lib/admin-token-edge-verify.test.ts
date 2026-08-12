@@ -29,8 +29,18 @@ describe('verifyAdminTokenEdge', () => {
     expect(verifyAdminTokenEdge(token, SECRET)).toBe(false)
   })
 
-  it('rejects a tenant_admin-role token (only super_admin passes this gate)', () => {
-    const token = signToken({ role: 'tenant_admin', tenantId: 't-1', memberId: 'm-1', exp: Date.now() + 60_000 })
+  it('accepts a real tenant_admin token signed by the Node path (2026-08-12 fix — every tenant_member logging in via /fullloop was being redirected to /sign-in on every request before this, regardless of a genuinely valid token)', () => {
+    const token = signToken({ role: 'tenant_admin', tenantId: 't-1', memberId: 'm-1', memberRole: 'virtual_assistant', exp: Date.now() + 60_000 })
+    expect(verifyAdminTokenEdge(token, SECRET)).toBe(true)
+  })
+
+  it('rejects an expired tenant_admin token', () => {
+    const token = signToken({ role: 'tenant_admin', tenantId: 't-1', memberId: 'm-1', exp: Date.now() - 1000 })
+    expect(verifyAdminTokenEdge(token, SECRET)).toBe(false)
+  })
+
+  it('rejects an unrecognized role', () => {
+    const token = signToken({ role: 'staff', exp: Date.now() + 60_000 })
     expect(verifyAdminTokenEdge(token, SECRET)).toBe(false)
   })
 
