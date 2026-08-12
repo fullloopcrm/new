@@ -42,7 +42,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     p_day_end: `${tomorrowStartNaive}.000Z`,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to claim job' }, { status: 500 })
   if (!data?.claimed) {
     if (data?.reason === 'cap_reached') {
       return NextResponse.json({ error: `Daily job limit reached (${data.cap})` }, { status: 409 })

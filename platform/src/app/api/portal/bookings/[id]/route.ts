@@ -79,7 +79,7 @@ export const PUT = withMobileCors(async function PUT(
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 })
   }
 
   const clientName = (oldBooking.clients as unknown as { name: string } | null)?.name || 'Client'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // GET  /api/team-portal/messages  — the authenticated member's comhub thread with admin.
 // POST /api/team-portal/messages { body } — the authenticated member messages admin (lands in Comhub).
@@ -39,7 +40,9 @@ async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ 
   return { contactId, threadId: (tId as string) || null, tenantId: member.tenant_id || null }
 }
 
-export async function GET(req: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(req: NextRequest) {
   const { auth, error: authErr } = await requirePortalPermission(req, 'messages.use')
   if (authErr) return authErr
 
@@ -52,13 +55,13 @@ export async function GET(req: NextRequest) {
     .eq('thread_id', threadId)
     .order('sent_at', { ascending: true })
     .limit(200)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 })
 
   await supabaseAdmin.from('comhub_threads').update({ unread_count: 0 }).eq('id', threadId)
   return NextResponse.json({ thread_id: threadId, messages: data || [] })
-}
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withMobileCors(async function POST(req: NextRequest) {
   const { auth, error: authErr } = await requirePortalPermission(req, 'messages.use')
   if (authErr) return authErr
 
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
     })
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
 
   translateInboundComhubMessage(msg.id, body.body.trim())
 
@@ -99,4 +102,4 @@ export async function POST(req: NextRequest) {
     .eq('id', threadId)
 
   return NextResponse.json({ ok: true, message_id: msg.id, thread_id: threadId })
-}
+})

@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { nowNaiveET } from '@/lib/recurring'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
 // Gated on earnings.view_crew, which defaults ON only for manager. Scoped to the
 // actor's pod. Sums completed-job pay per member over the trailing 30 days.
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'earnings.view_crew')
   if (permError) return permError
 
@@ -65,4 +68,4 @@ export async function GET(request: Request) {
   }))
 
   return NextResponse.json({ members: result, window_days: 30 })
-}
+})

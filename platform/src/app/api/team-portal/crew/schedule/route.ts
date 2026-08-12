@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { nowNaiveET, addCalendarDays, etToday, formatNaiveET } from '@/lib/recurring'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // The crew's upcoming schedule — scoped to the actor's pod (or all, for manager).
 // Gated on schedule.view_crew, so a tenant can restrict crew visibility.
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'schedule.view_crew')
   if (permError) return permError
 
@@ -27,6 +30,6 @@ export async function GET(request: Request) {
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load schedule' }, { status: 500 })
   return NextResponse.json({ jobs: data })
-}
+})

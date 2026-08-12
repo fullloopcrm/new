@@ -30,7 +30,7 @@ export const GET = withMobileCors(async function GET() {
     .neq('direction', 'system')
     .order('started_at', { ascending: false })
     .limit(50)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load calls' }, { status: 500 })
 
   const rows = data || []
   const contactIds = [...new Set(rows.map(r => r.contact_id).filter((id): id is string => !!id))]

@@ -33,7 +33,7 @@ export const GET = withMobileCors(async function GET(_req: NextRequest, ctx: { p
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
-  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 404 })
+  if (tErr) return NextResponse.json({ error: 'Thread not found' }, { status: 404 })
 
   const { data: messages, error: mErr } = await supabaseAdmin
     .from('comhub_messages')
@@ -42,7 +42,7 @@ export const GET = withMobileCors(async function GET(_req: NextRequest, ctx: { p
     .eq('tenant_id', tenantId)
     .order('sent_at', { ascending: true })
     .limit(500)
-  if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+  if (mErr) return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 })
 
   return NextResponse.json({ thread, messages: messages || [] })
 })
@@ -78,7 +78,7 @@ export const PATCH = withMobileCors(async function PATCH(req: NextRequest, ctx: 
     .eq('tenant_id', tenantId)
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to update thread' }, { status: 500 })
 
   await supabaseAdmin
     .from('comhub_messages')

@@ -3,12 +3,15 @@ import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { ownerAlert } from '@/lib/messaging/owner-alerts'
 import { escapeHtml } from '@/lib/escape-html'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // Client "request a quote / appointment" for pipeline & lead_only tenants (trades
 // that don't self-serve an hourly time slot). Drops the request into the SAME
 // sales pipeline the core process uses (deals), tied to the logged-in client —
 // it does not create a scheduled booking.
-export async function POST(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -82,4 +85,4 @@ export async function POST(request: NextRequest) {
   })
 
   return NextResponse.json({ ok: true })
-}
+})

@@ -11,8 +11,11 @@ import { generateCode, verifyPortalToken } from '../../auth/token'
 // parallel mechanism — see portal_contact_verify_codes migration for why
 // this is a separate table from portal_auth_codes (that one is keyed by
 // phone for LOGIN and would collide with this per-contact use).
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -137,9 +140,9 @@ export async function POST(request: Request) {
       .select('id, name, role, phone_e164, email, is_primary, receives_sms, receives_email')
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to update contact' }, { status: 500 })
     return NextResponse.json({ contact: updated })
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-}
+})

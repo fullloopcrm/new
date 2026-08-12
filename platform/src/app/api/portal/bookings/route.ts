@@ -23,7 +23,7 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
     .order('start_time', { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load bookings' }, { status: 500 })
   }
 
   return NextResponse.json({ bookings: data })
@@ -121,7 +121,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
   }
 
   return NextResponse.json({ booking: data }, { status: 201 })

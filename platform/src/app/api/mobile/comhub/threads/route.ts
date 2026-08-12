@@ -30,7 +30,7 @@ export const GET = withMobileCors(async function GET(req: NextRequest) {
     limit: Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 200),
     offset: parseInt(searchParams.get('offset') || '0', 10) || 0,
   })
-  if (error) return NextResponse.json({ error }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load threads' }, { status: 500 })
 
   return NextResponse.json({ threads: threads || [] })
 })

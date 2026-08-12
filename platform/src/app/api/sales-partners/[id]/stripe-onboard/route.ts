@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 function getStripe(key: string | null | undefined): Stripe {
   const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
@@ -19,7 +20,12 @@ function getStripe(key: string | null | undefined): Stripe {
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+// GET below is a browser-navigation redirect handler (Stripe's own
+// refresh_url callback), not a fetch() call — no CORS needed there. POST is
+// the mobile self-service entry point (getSalesPartnerAuth bearer token).
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
@@ -77,9 +83,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ url: link.url, account_id: accountId })
   } catch (e) {
     console.error('[sales-partner stripe-onboard]', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Stripe error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to start Stripe onboarding' }, { status: 500 })
   }
-}
+})
 
 // Refresh handler — regenerates the onboarding link if the Stripe-hosted one expired.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
