@@ -338,6 +338,172 @@ export async function backfillUnpostedCommissions(tenantId: string, limit = 500)
 }
 
 /**
+ * Clawback guard: when a booking's revenue gets reversed (refund/chargeback)
+ * or the booking itself is cancelled, any commission tied to it must not be
+ * left standing — the only prior path to status='void' was a manual admin
+ * PATCH (PUT /api/referral-commissions, /api/sales-partner-commissions), so
+ * a refunded/cancelled job silently kept its commission accrued (or worse,
+ * paid) with nothing flagging it. Looks up BOTH referral_commissions and
+ * sales_partner_commissions rows for the booking (they can legitimately
+ * stack, see postSalesPartnerCommissionAccrual's docstring) and per row:
+ *
+ *   - status='pending' (accrued, never paid out) → void the row AND reverse
+ *     the accrual journal entry (DR 2400/CR 6045) if one was posted, so the
+ *     expense/payable doesn't linger on the books for a job that got
+ *     refunded/cancelled.
+ *   - status='paid' (a real Stripe Connect transfer already went out) → the
+ *     money already left the account. This NEVER auto-reverses the accrual
+ *     or attempts a clawback transfer — that's a real-money operation
+ *     requiring human judgment. Instead it opens a high-priority admin_tasks
+ *     row (idempotent — won't duplicate an already-open one) so it's never
+ *     silently 'paid' with no signal anything is wrong.
+ *   - status='void' already → no-op.
+ *
+ * Called from the charge.refunded / charge.dispute.created webhook handlers
+ * and the booking cancel transition. Safe to call more than once for the
+ * same booking (e.g. cancelled AND later refunded) — each row's own current
+ * status gates what happens, and the ledger reversal itself is idempotent
+ * via postJournalEntry's (tenant, source, source_id) uniqueness.
+ */
+export async function voidCommissionsForBooking(opts: {
+  tenantId: string
+  bookingId: string
+  reason: string
+}): Promise<{ voided: number; flagged: number }> {
+  const { tenantId, bookingId, reason } = opts
+  let voided = 0
+  let flagged = 0
+
+  const { data: refRows } = await supabaseAdmin
+    .from('referral_commissions')
+    .select('id, status, commission_cents')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+  for (const row of refRows || []) {
+    const outcome = await voidOneCommission({
+      tenantId,
+      commissionId: row.id as string,
+      status: row.status as string,
+      commissionCents: Number(row.commission_cents) || 0,
+      table: 'referral_commissions',
+      accrualSource: 'commission',
+      voidSource: 'commission_void',
+      relatedType: 'referral_commission',
+      taskTitle: 'Referral commission needs clawback review',
+      reason,
+    })
+    if (outcome === 'voided') voided++
+    if (outcome === 'flagged') flagged++
+  }
+
+  const { data: spRows } = await supabaseAdmin
+    .from('sales_partner_commissions')
+    .select('id, status, commission_cents')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+  for (const row of spRows || []) {
+    const outcome = await voidOneCommission({
+      tenantId,
+      commissionId: row.id as string,
+      status: row.status as string,
+      commissionCents: Number(row.commission_cents) || 0,
+      table: 'sales_partner_commissions',
+      accrualSource: 'sales_partner_commission',
+      voidSource: 'sales_partner_commission_void',
+      relatedType: 'sales_partner_commission',
+      taskTitle: 'Sales partner commission needs clawback review',
+      reason,
+    })
+    if (outcome === 'voided') voided++
+    if (outcome === 'flagged') flagged++
+  }
+
+  return { voided, flagged }
+}
+
+async function voidOneCommission(opts: {
+  tenantId: string
+  commissionId: string
+  status: string
+  commissionCents: number
+  table: 'referral_commissions' | 'sales_partner_commissions'
+  accrualSource: string
+  voidSource: string
+  relatedType: string
+  taskTitle: string
+  reason: string
+}): Promise<'voided' | 'flagged' | 'skipped'> {
+  const { tenantId, commissionId, status, commissionCents, table, accrualSource, voidSource, relatedType, taskTitle, reason } = opts
+
+  if (status === 'void') return 'skipped'
+
+  if (status === 'paid') {
+    // Real money already moved via Connect transfer. Never claw it back
+    // automatically — flag for a human instead. sales_partner_commissions.status
+    // has a DB CHECK constraint limited to pending|paid|void, so the flag lives
+    // in admin_tasks rather than a new status value (works for both tables the
+    // same way, no migration needed).
+    const { data: existingTask } = await supabaseAdmin
+      .from('admin_tasks')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'commission_clawback_review')
+      .eq('related_id', commissionId)
+      .eq('status', 'open')
+      .maybeSingle()
+    if (existingTask) return 'flagged'
+    await supabaseAdmin
+      .from('admin_tasks')
+      .insert({
+        tenant_id: tenantId,
+        type: 'commission_clawback_review',
+        priority: 'high',
+        status: 'open',
+        title: taskTitle,
+        description: `Commission ${commissionId} ($${(commissionCents / 100).toFixed(2)}) was already paid out via Stripe Connect, but ${reason}. The transfer was NOT automatically reversed — review and claw back manually if appropriate.`,
+        related_type: relatedType,
+        related_id: commissionId,
+      })
+      .then(() => {}, (err: unknown) => console.error('[post-adjustments] clawback-review task insert failed', commissionId, err))
+    return 'flagged'
+  }
+
+  // status is 'pending' (or any other non-terminal value) — void it. The
+  // `.neq('status', 'paid')` CAS guards the race where the commission flips
+  // to 'paid' underneath us between our read and this write (same pattern as
+  // PUT /api/referral-commissions' mark-paid claim) — if that happens the
+  // update matches zero rows and we skip rather than voiding a commission
+  // that just got a real payout.
+  const { data: updated } = await supabaseAdmin
+    .from(table)
+    .update({ status: 'void' })
+    .eq('id', commissionId)
+    .eq('tenant_id', tenantId)
+    .neq('status', 'paid')
+    .select('id')
+    .maybeSingle()
+  if (!updated) return 'skipped'
+
+  if (commissionCents > 0 && (await journalEntryExists(tenantId, accrualSource, commissionId))) {
+    const acct = await resolveAccounts(tenantId, ['6045', '2400'])
+    if (acct) {
+      await postJournalEntry({
+        tenant_id: tenantId,
+        entry_date: await tenantEntryDate(tenantId),
+        memo: 'Commission voided',
+        source: voidSource,
+        source_id: commissionId,
+        lines: [
+          { coa_id: acct['2400'], debit_cents: commissionCents, memo: 'Commission voided — payable cleared' },
+          { coa_id: acct['6045'], credit_cents: commissionCents, memo: 'Commission voided — expense reversed' },
+        ],
+      }).catch((e) => console.error('[post-adjustments] commission void reversal failed', commissionId, e))
+    }
+  }
+  return 'voided'
+}
+
+/**
  * Resolve a tenant id (and payment memo) from a Stripe payment_intent, used by
  * refund/dispute webhook handlers where only the charge/intent is known.
  */
