@@ -133,9 +133,26 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
             <h2 className="font-[family-name:var(--font-anton)] text-3xl sm:text-5xl uppercase tracking-wide leading-[0.95] mb-5">
               Welcome to Urban Co. NYC, local drip.
             </h2>
-            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-8">
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-4">
               {config.brandCopy?.heroLine || 'Global Drip, Local Roots — Where Hype Meets Culture.'}
             </p>
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-8">
+              Born and based in Midtown — 150 West 47th Street, Diamond District. Drip sourced globally, worn locally, made for all five boroughs. No mood boards, no seasonal gimmicks — just heavyweight fabric and hard-edged graphics built for the block, not the boardroom.
+            </p>
+            <div className="grid grid-cols-3 gap-4 max-w-lg mb-8 pt-6 border-t border-black/10">
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">100%</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Pima Cotton</p>
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">NYC</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Diamond District</p>
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">5</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Boroughs Served</p>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-6">
               <Link href="/shop" className="inline-block bg-black text-white text-sm font-bold tracking-wide uppercase px-6 py-3 hover:bg-[var(--accent)] hover:text-black transition-colors">
                 Shop Now
