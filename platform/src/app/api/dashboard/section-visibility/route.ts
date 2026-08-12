@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
-
-// Keys must match the `section` prop passed to <SectionVisibility> in
-// src/app/dashboard/page.tsx. Persisted per-tenant in tenants.setup_progress
-// (same jsonb column + read-merge-write pattern as /api/settings/page-config),
-// so every viewer of this tenant's Loop dashboard sees the same on/off state —
-// this is UI config, not a per-tenant operator dashboard fork (see platform CLAUDE.md).
-export const VALID_SECTIONS = ['revenue', 'sales', 'jobs', 'jobs_by_month', 'kpis', 'today_tomorrow']
+import { VALID_SECTIONS } from './valid-sections'
 
 const STORE_KEY = 'dashboard_hidden_sections'
 

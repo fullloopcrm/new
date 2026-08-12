@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }))
 
-vi.mock('../layout', () => ({
+vi.mock('../portal-auth', () => ({
   usePortalAuth: () => ({
     auth: { token: 'tok', client: { id: 'c1', name: 'Jane' }, tenant: { id: 't1', name: 'Tenant', primary_color: '#000', logo_url: null } },
     setAuth: vi.fn(),

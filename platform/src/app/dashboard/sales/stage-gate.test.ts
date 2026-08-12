@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextStageOptions } from './page'
+import { nextStageOptions } from './stage-gate'
 
 /**
  * The per-deal stage dropdown used to list every pipeline stage regardless of

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { usePortalAuth } from '../layout'
+import { usePortalAuth } from '../portal-auth'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 
 interface Contact {

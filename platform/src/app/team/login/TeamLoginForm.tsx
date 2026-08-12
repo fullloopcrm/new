@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useTeamAuth } from '../layout'
+import { useTeamAuth } from '../team-auth'
 import AuthShell, {
   authLabelClass,
   authInputClass,

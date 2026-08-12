@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTeamAuth } from '../layout'
+import { useTeamAuth } from '../team-auth'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { uploadViaSignedUrl } from '@/lib/client-upload'

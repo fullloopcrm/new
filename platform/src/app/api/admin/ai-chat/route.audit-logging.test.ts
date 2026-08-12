@@ -25,7 +25,7 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/lib/anthropic-client', () => ({ anthropicFromStoredKey: vi.fn() }))
 vi.mock('@/lib/telegram', () => ({ alertOwner: vi.fn(async () => {}) }))
 
-import { executeTool } from './route'
+import { executeTool } from './tools'
 
 function auditRows() {
   return (h.store.audit_logs || []) as Array<Record<string, unknown>>

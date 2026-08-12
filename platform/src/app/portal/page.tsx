@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { usePortalAuth } from './layout'
+import { usePortalAuth } from './portal-auth'
 import PushPrompt from '@/components/PushPrompt'
 import ClientPhotoCapture from '@/components/ClientPhotoCapture'
 

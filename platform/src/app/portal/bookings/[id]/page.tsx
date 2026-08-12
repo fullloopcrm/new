@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { usePortalAuth } from '../../layout'
+import { usePortalAuth } from '../../portal-auth'
 
 type Booking = {
   id: string

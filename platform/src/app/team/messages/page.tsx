@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useTeamAuth } from '../layout'
+import { useTeamAuth } from '../team-auth'
 
 // 1:1 thread between a team member and the office. Messages route through Comhub
 // (see /api/team-portal/messages), so anything sent here lands in the office's

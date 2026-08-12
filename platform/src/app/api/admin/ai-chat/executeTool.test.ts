@@ -31,7 +31,7 @@ vi.mock('@/lib/supabase', () => {
 })
 vi.mock('@/lib/anthropic-client', () => ({ anthropicFromStoredKey: vi.fn() }))
 
-import { executeTool } from './route'
+import { executeTool } from './tools'
 
 beforeEach(() => {
   h.seq = 0

@@ -3,7 +3,7 @@
 import { useEffect, useState, ReactNode, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { useTeamAuth } from './layout'
+import { useTeamAuth } from './team-auth'
 import TranslatedNotes from '@/components/TranslatedNotes'
 import TeamBookingNotes from '@/components/TeamBookingNotes'
 import PushPrompt from '@/components/PushPrompt'

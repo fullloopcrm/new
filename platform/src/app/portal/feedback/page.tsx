@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { usePortalAuth } from '../layout'
+import { usePortalAuth } from '../portal-auth'
 
 export default function FeedbackPage() {
   const { auth } = usePortalAuth()

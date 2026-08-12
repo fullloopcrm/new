@@ -27,7 +27,7 @@ const AUTH = {
   tenant: { id: 't1', name: 'Tenant', phone: '555-1234' },
 }
 
-vi.mock('./layout', () => ({
+vi.mock('./team-auth', () => ({
   useTeamAuth: () => ({
     auth: AUTH,
     authLoaded: true,
