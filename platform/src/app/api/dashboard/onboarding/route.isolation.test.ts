@@ -19,7 +19,12 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { name: 'Tenant A' } }),
+  // role: 'owner' — this suite is about tenant isolation, not permission
+  // gating. PATCH now runs requirePermission('tenant.activate') for real
+  // against this mock, so a role must be present or every PATCH would 403
+  // before reaching the isolation logic under test. Permission denial itself
+  // is covered separately in route.rbac.test.ts.
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { name: 'Tenant A' }, role: 'owner' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 vi.mock('@/lib/onboarding-tasks', async (importOriginal) => {

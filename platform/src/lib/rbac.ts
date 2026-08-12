@@ -27,6 +27,7 @@ export type Permission =
   | 'leads.view'
   | 'notifications.view'
   | 'audit.view'
+  | 'tenant.activate'
 
 // A per-tenant override is a sparse map of deviations from the defaults.
 // { admin: { 'finance.payroll': false }, staff: { 'clients.edit': true } }
@@ -50,6 +51,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
+    'tenant.activate',
   ],
   admin: [
     'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
@@ -64,6 +66,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
+    'tenant.activate',
   ],
   manager: [
     'clients.view', 'clients.create', 'clients.edit',
@@ -182,6 +185,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     { value: 'leads.view', label: 'View leads' },
     { value: 'notifications.view', label: 'View notifications' },
     { value: 'audit.view', label: 'View audit log' },
+    { value: 'tenant.activate', label: 'Activate tenant (go live) and manage onboarding checklist' },
   ] },
 ]
 
