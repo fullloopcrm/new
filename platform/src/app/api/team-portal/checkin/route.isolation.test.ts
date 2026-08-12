@@ -33,6 +33,10 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 beforeEach(() => {
   fake._store.clear()
   currentAuth = { id: 'tm-a', tid: A_ID, role: 'worker' }
+  fake._seed('team_members', [
+    { id: 'tm-a', tenant_id: A_ID, status: 'active' },
+    { id: 'tm-b', tenant_id: B_ID, status: 'active' },
+  ])
   fake._seed('bookings', [
     { id: SHARED_ID, tenant_id: A_ID, team_member_id: 'tm-a', status: 'scheduled', start_time: PAST_START, check_in_time: null, notes: null },
     { id: SHARED_ID, tenant_id: B_ID, team_member_id: 'tm-b', status: 'scheduled', start_time: PAST_START, check_in_time: null, notes: null },

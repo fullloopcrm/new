@@ -2,6 +2,18 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // jsdom (via isomorphic-dompurify, used by src/lib/sanitize-html.ts for
+  // Task Board note HTML) reads its own default-stylesheet.css off disk via
+  // a relative fs path at runtime. Webpack bundling that into the route's
+  // compiled output rewrites the path and the asset never actually gets
+  // copied there, so the deployed function ENOENT's. outputFileTracingIncludes
+  // doesn't fix this (tried, no effect -- it controls what ships in the
+  // deploy bundle, not where webpack rewrites the runtime lookup to).
+  // The documented fix (kkomelin/isomorphic-dompurify#295, vercel/next.js
+  // discussion #58142) is to keep jsdom out of the webpack bundle entirely
+  // via serverExternalPackages, so it's loaded with a real require() at
+  // runtime and resolves its own asset paths normally.
+  serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
   images: {
     // Remote hosts used as next/image sources across tenant sites. Required now
     // that programmatic pages render on-demand (build-time prerender previously

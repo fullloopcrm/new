@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { nowNaiveET } from '@/lib/recurring'
+import { requireActiveTeamMember } from '@/lib/team-portal-auth'
 import { geocodeAddress, calculateDistance, CHECK_IN_MAX_MILES, CHECK_IN_HARD_BLOCK_MILES, CHECK_IN_GPS_ENABLED } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient, bookingCoords, bookingAddress } from '@/lib/client-properties'
 import { notify } from '@/lib/nycmaid/notify'
@@ -15,6 +16,12 @@ export const POST = withMobileCors(async function POST(request: Request) {
 
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  // Instant revocation: check-in isn't tied to a specific PortalPermission
+  // (every active member checks into their own job regardless of role), so
+  // re-verify the member is still active rather than gating on RBAC.
+  const { error: statusError } = await requireActiveTeamMember(auth)
+  if (statusError) return statusError
 
   const { booking_id, lat, lng } = await request.json()
 

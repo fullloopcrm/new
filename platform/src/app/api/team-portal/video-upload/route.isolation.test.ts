@@ -50,6 +50,11 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 
 beforeEach(() => {
   fake._store.clear()
+  fake._seed('team_members', [
+    { id: 'tm-a', tenant_id: A_ID, status: 'active' },
+    { id: 'tm-b', tenant_id: B_ID, status: 'active' },
+    { id: 'tm-a-other', tenant_id: A_ID, status: 'active' },
+  ])
   fake._seed('bookings', [
     { id: A_BOOKING, tenant_id: A_ID, team_member_id: 'tm-a', start_time: '2026-08-01T10:00:00.000Z', service_type: 'Deep Clean', clients: { name: 'A Client' }, team_members: { name: 'A Worker' }, walkthrough_video_url: null, final_video_url: null },
     { id: B_BOOKING, tenant_id: B_ID, team_member_id: 'tm-b', start_time: '2026-08-02T10:00:00.000Z', service_type: 'B Service', clients: { name: 'B Client' }, team_members: { name: 'B Worker' }, walkthrough_video_url: null, final_video_url: null },

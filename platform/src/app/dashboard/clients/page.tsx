@@ -8,6 +8,7 @@ import { useTenantSettings } from '@/lib/use-tenant-settings'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import ClientsSettings from './clients-settings'
 import { SettingsHint } from '@/components/page-settings'
+import { InfoTip } from '@/components/info-tip'
 import { formatPhone as formatPhoneDisplay } from '@/lib/format'
 import { stripPhone } from '@/lib/phone'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
@@ -299,7 +300,10 @@ export default function ClientsPage() {
     <div className="clients-scope">
       <ClientsSettings />
       {/* OUTLOOK BAR */}
-      <div className="clients-bar-label">Health</div>
+      <div className="clients-bar-label">
+        Health
+        <InfoTip text="Each client's 0-100 score: the average of booking frequency, spend, on-time payment, and review sentiment. Higher = more engaged and reliable." />
+      </div>
       <div className="clients-outlook">
         <div className="clients-stat">
           <div className="clients-stat-label">Total <span className="clients-stat-tag">all time</span></div>
@@ -308,7 +312,10 @@ export default function ClientsPage() {
         </div>
         <div className="clients-stat">
           <div className="clients-stat-label">
-            Healthy
+            <span className="inline-flex items-center">
+              Healthy
+              <InfoTip text="Clients with a Health score of 70 or higher — booking regularly, paying on time, and not flagged as VIP-only." />
+            </span>
             <span className="clients-stat-tag up">
               {totals && totals.total ? Math.round((totals.healthy / totals.total) * 100) : 0}%
             </span>
@@ -317,7 +324,13 @@ export default function ClientsPage() {
           <div className="clients-stat-sub">Score 70+ · active</div>
         </div>
         <div className="clients-stat">
-          <div className="clients-stat-label">VIPs <span className="clients-stat-tag vip">●</span></div>
+          <div className="clients-stat-label">
+            <span className="inline-flex items-center">
+              VIPs
+              <InfoTip text="Your highest-value clients based on spend and loyalty. Shown with the gold VIP tag throughout the CRM." />
+            </span>
+            <span className="clients-stat-tag vip">●</span>
+          </div>
           <div className="clients-stat-value">{totals?.vip ?? 0}</div>
           <div className="clients-stat-sub">
             <strong>{fmtMoney(totals?.vip_projected_cents ?? 0)}</strong> proj. LTV
@@ -325,19 +338,35 @@ export default function ClientsPage() {
         </div>
         <div className="clients-stat">
           <div className="clients-stat-label">
-            At-Risk <span className="clients-stat-tag warn">churn</span>
-            <SettingsHint label="Win-back message settings" fieldKey="retention" />
+            <span className="inline-flex items-center">
+              At-Risk
+              <InfoTip text="Churn risk: clients whose Health score has dropped or who haven't booked in a while. These are candidates for a win-back nudge." />
+            </span>
+            <span className="inline-flex items-center">
+              <span className="clients-stat-tag warn">churn</span>
+              <SettingsHint label="Win-back message settings" fieldKey="retention" />
+            </span>
           </div>
           <div className="clients-stat-value">{totals?.at_risk ?? 0}</div>
           <div className="clients-stat-sub warn">{agentName} drafted nudges</div>
         </div>
         <div className="clients-stat">
-          <div className="clients-stat-label">Avg Health</div>
+          <div className="clients-stat-label">
+            <span className="inline-flex items-center">
+              Avg Health
+              <InfoTip text="The average Health score across all active and VIP clients. A quick pulse-check on the overall book of business." />
+            </span>
+          </div>
           <div className="clients-stat-value">{totals?.avg_health ?? 0}</div>
           <div className="clients-stat-sub">Across {(totals?.active ?? 0) + (totals?.vip ?? 0)} active</div>
         </div>
         <div className="clients-stat">
-          <div className="clients-stat-label">MRR</div>
+          <div className="clients-stat-label">
+            <span className="inline-flex items-center">
+              MRR
+              <InfoTip text="Monthly Recurring Revenue — the predictable monthly value from all clients on a standing recurring schedule." />
+            </span>
+          </div>
           <div className="clients-stat-value">
             <span className="unit">$</span>{fmtMoneyShort(totals?.mrr_cents ?? 0)}
           </div>
@@ -414,7 +443,10 @@ export default function ClientsPage() {
       </div>
 
       <div className="clients-filter-row">
-        <span className="clients-filter-label">Cohort</span>
+        <span className="clients-filter-label">
+          Cohort
+          <InfoTip text="Clients grouped by the month they first signed up. Useful for comparing how each signup month is retaining over time." />
+        </span>
         <span
           className={`clients-chip ${cohortFilter === 'all' ? 'active' : ''}`}
           onClick={() => setCohortFilter('all')}
@@ -450,8 +482,11 @@ export default function ClientsPage() {
           />
       </div>
 
-      {/* TABLE */}
-      {tab === 'all' && (
+      {/* TABLE — also shown on Lifecycle: same stage-filtered data, just entered
+          via the Lifecycle tab instead of All Clients. Stage filter chips above
+          already compute `filtered` off stageFilter regardless of which tab is
+          active, so this reuses that instead of duplicating the table. */}
+      {(tab === 'all' || tab === 'lifecycle') && (
       <div className="clients-table">
         <div className="clients-thead">
           <div>
@@ -582,7 +617,7 @@ export default function ClientsPage() {
       </div>
       )}
 
-      {tab !== 'all' && tab !== 'map' && (
+      {tab !== 'all' && tab !== 'map' && tab !== 'lifecycle' && (
         <div style={{ padding: 60, textAlign: 'center', background: 'var(--clients-canvas)', border: '1px dashed var(--clients-line)', borderRadius: 4, marginBottom: 22 }}>
           <div style={{ fontFamily: 'var(--clients-display)', fontSize: 24, color: 'var(--clients-ink)', fontWeight: 500, marginBottom: 8 }}>Coming soon.</div>
           <div style={{ color: 'var(--clients-muted)' }}>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>

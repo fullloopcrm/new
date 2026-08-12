@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { verifyToken } from '../auth/token'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { etToday, etDayBoundaryUTC, addCalendarDays, calendarDayOfWeek, daysInCalendarMonth, nowNaiveET } from '@/lib/recurring'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
@@ -15,11 +15,8 @@ const roundToHalfHour = (hours: number) => {
 export const OPTIONS = corsPreflight
 
 export const GET = withMobileCors(async function GET(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const { auth, error } = await requirePortalPermission(request, 'earnings.view_own')
+  if (error) return error
 
   // Support legacy ?period= param as well as full earnings response
   const period = request.nextUrl.searchParams.get('period')

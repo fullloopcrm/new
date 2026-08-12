@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
+import { requireActiveTeamMember } from '@/lib/team-portal-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
@@ -17,6 +18,13 @@ export const GET = withMobileCors(async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const auth = verifyToken(token)
     if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+    // Instant revocation: video upload isn't tied to a specific
+    // PortalPermission (every active member uploads video for their own
+    // job regardless of role), so re-verify the member is still active
+    // rather than gating on RBAC.
+    const { error: statusError } = await requireActiveTeamMember(auth)
+    if (statusError) return statusError
 
     const bookingId = req.nextUrl.searchParams.get('booking_id')
     const type = req.nextUrl.searchParams.get('type') as 'walkthrough' | 'final'
@@ -81,6 +89,9 @@ export const POST = withMobileCors(async function POST(req: NextRequest) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const auth = verifyToken(token)
     if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+    const { error: statusError } = await requireActiveTeamMember(auth)
+    if (statusError) return statusError
 
     const contentType = req.headers.get('content-type') || ''
 

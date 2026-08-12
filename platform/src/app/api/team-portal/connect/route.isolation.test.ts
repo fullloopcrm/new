@@ -34,7 +34,8 @@ const MEMBER_A1 = 'member-a1'
 
 function seed() {
   fake._store.clear()
-  fake._seed('team_members', [{ id: MEMBER_A1, tenant_id: TENANT_A, name: 'Alice' }])
+  fake._seed('team_members', [{ id: MEMBER_A1, tenant_id: TENANT_A, name: 'Alice', status: 'active' }])
+  fake._seed('tenants', [{ id: TENANT_A, selena_config: null }])
   fake._seed('connect_channels', [
     { id: 'chan-a-general', tenant_id: TENANT_A, type: 'team', team_member_id: MEMBER_A1, name: 'Alice' },
     { id: 'chan-a-client', tenant_id: TENANT_A, type: 'client', client_id: 'client-a1', name: 'Victor' },

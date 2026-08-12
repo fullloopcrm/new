@@ -711,3 +711,30 @@ body {
    Giving the container an explicit z-index contains all of Leaflet's internal
    layers inside it for good. */
 .leaflet-container { z-index: 0; }
+
+/* Task Board — item Updates rich-text composer (UpdateComposer) and the
+   read-only rendering of a posted update's sanitized HTML (UpdateItem).
+   Both share this ruleset since a posted update is literally the editor's
+   own HTML frozen in place. Kept scoped to .tb-rich-text rather than a
+   Tailwind typography plugin — this app doesn't have @tailwindcss/typography
+   installed, and the surface here (short chat-style updates, not full
+   articles) doesn't need it. */
+.tb-rich-text { font-size: 0.875rem; line-height: 1.5; color: #1e293b; }
+.tb-rich-text p { margin: 0 0 0.4em; }
+.tb-rich-text p:last-child { margin-bottom: 0; }
+.tb-rich-text ul, .tb-rich-text ol { margin: 0.3em 0; padding-left: 1.4em; }
+.tb-rich-text ul[data-type='taskList'] { list-style: none; padding-left: 0; }
+.tb-rich-text ul[data-type='taskList'] li { display: flex; align-items: flex-start; gap: 0.4em; }
+.tb-rich-text ul[data-type='taskList'] li > label { margin-top: 0.2em; }
+.tb-rich-text blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.7em; color: #475569; margin: 0.4em 0; }
+.tb-rich-text hr { border: none; border-top: 1px solid #e2e8f0; margin: 0.6em 0; }
+.tb-rich-text a { color: #0d9488; text-decoration: underline; }
+.tb-rich-text code { background: #f1f5f9; border-radius: 3px; padding: 0.1em 0.3em; font-size: 0.85em; }
+.tb-rich-text span[data-type='mention'] {
+  background: #ccfbf1; color: #0f766e; border-radius: 4px; padding: 0.05em 0.35em; font-weight: 600;
+}
+
+.tb-editor .ProseMirror { outline: none; min-height: 4.5em; }
+.tb-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: #94a3b8;
+}

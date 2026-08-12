@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTeamAuth } from '../layout'
+import { useTeamAuth } from '../team-auth'
 
 const DAYS = [
   { en: 'Sunday', es: 'Domingo' },

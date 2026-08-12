@@ -53,7 +53,7 @@ async function publicReviewsResponse(tenantId: string, request?: Request) {
   return NextResponse.json({ reviews, totalReviews: reviews.length, avgRating })
 }
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   try {
     // Authenticated dashboard/admin access (Clerk session, PIN admin, or
     // impersonation) — unchanged: every review for the tenant, any status,

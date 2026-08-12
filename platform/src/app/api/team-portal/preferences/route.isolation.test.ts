@@ -32,8 +32,8 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 beforeEach(() => {
   fake._store.clear()
   fake._seed('team_members', [
-    { id: 'tm-a', tenant_id: A_ID, notes: JSON.stringify({ sms_consent: true }) },
-    { id: 'tm-b', tenant_id: B_ID, notes: JSON.stringify({ sms_consent: false }) },
+    { id: 'tm-a', tenant_id: A_ID, status: 'active', notes: JSON.stringify({ sms_consent: true }) },
+    { id: 'tm-b', tenant_id: B_ID, status: 'active', notes: JSON.stringify({ sms_consent: false }) },
   ])
 })
 

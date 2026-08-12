@@ -1,36 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-
-type Lang = 'en' | 'es'
-type AuthState = {
-  token: string
-  member: { id: string; name: string; language: string; pay_rate?: number | null; avatar_url?: string | null; role?: string | null }
-  tenant: { id: string; name: string; phone?: string | null }
-} | null
+import { AuthContext, type Lang, type AuthState } from './team-auth'
 
 const AUTH_KEY = 'team_auth'
 const LANG_KEY = 'team_lang'
-
-const AuthContext = createContext<{
-  auth: AuthState
-  authLoaded: boolean
-  setAuth: (a: AuthState) => void
-  lang: Lang
-  setLang: (l: Lang) => void
-  t: (en: string, es: string) => string
-}>({
-  auth: null,
-  authLoaded: false,
-  setAuth: () => {},
-  lang: 'en',
-  setLang: () => {},
-  t: (en) => en,
-})
-
-export const useTeamAuth = () => useContext(AuthContext)
 
 export default function TeamLayout({ children }: { children: React.ReactNode }) {
   const [auth, setAuthState] = useState<AuthState>(null)

@@ -42,7 +42,8 @@ import { createToken } from '@/app/api/team-portal/auth/token'
 import { GET } from './route'
 
 beforeEach(() => {
-  DB.team_members = [{ id: MEMBER_ID, tenant_id: TENANT_A, pay_rate: 30 }]
+  DB.team_members = [{ id: MEMBER_ID, tenant_id: TENANT_A, pay_rate: 30, status: 'active' }]
+  DB.tenants = [{ id: TENANT_A, selena_config: null }]
   // A foreign-tenant booking that happens to reuse the same team_member_id —
   // without the tenant_id filter this would leak into tenant A's YTD earnings.
   DB.bookings = [

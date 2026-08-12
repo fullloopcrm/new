@@ -28,6 +28,7 @@ export type Permission =
   | 'notifications.view'
   | 'audit.view'
   | 'tenant.activate'
+  | 'boards.view' | 'boards.edit'
 
 // A per-tenant override is a sparse map of deviations from the defaults.
 // { admin: { 'finance.payroll': false }, staff: { 'clients.edit': true } }
@@ -52,6 +53,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
     'tenant.activate',
+    'boards.view', 'boards.edit',
   ],
   admin: [
     'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
@@ -67,6 +69,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
     'tenant.activate',
+    'boards.view', 'boards.edit',
   ],
   manager: [
     'clients.view', 'clients.create', 'clients.edit',
@@ -81,6 +84,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
+    'boards.view', 'boards.edit',
   ],
   staff: [
     'clients.view',
@@ -90,25 +94,32 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reviews.view',
     'sales.view',
     'notifications.view',
+    'boards.view', 'boards.edit',
   ],
   // Front-office/remote support: The Loop, clients, ComHub/Connect, sales,
-  // production (bookings/schedules), team roster/contact info, and marketing
-  // (campaigns). Deliberately no delete anywhere, zero finance/settings
-  // access, and — as of the 2026-08-06 team.compensation split — no visibility
-  // into pay rate, employment classification, or compliance documents, which
-  // now require team.compensation on top of team.view/team.edit.
+  // production (bookings/schedules), full HR (team roster including PIN
+  // resets and compensation/compliance-doc visibility, plus payroll data),
+  // and marketing (campaigns). Deliberately no delete anywhere and no
+  // settings access. team.compensation was granted 2026-08-12 specifically
+  // to unlock PIN reset (gated on it in /api/team/[id]'s PUT handler as "same
+  // tier as viewing it") — pay-rate/compliance-doc visibility comes along
+  // with that grant, which is why it's a deliberate, not incidental, choice.
+  // finance.payroll (running actual payouts) stays owner/admin-only —
+  // finance.view only, so payroll data is visible but not executable.
   // 2026-08-03, first VA hire onboarding role.
   virtual_assistant: [
     'clients.view', 'clients.create', 'clients.edit',
     'bookings.view', 'bookings.create', 'bookings.edit',
     'schedules.view', 'schedules.create', 'schedules.edit',
-    'team.view', 'team.create', 'team.edit',
+    'team.view', 'team.create', 'team.edit', 'team.compensation',
+    'finance.view',
     'campaigns.view', 'campaigns.create',
     'reviews.view', 'reviews.request',
     'referrals.view', 'referrals.create',
     'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
+    'boards.view', 'boards.edit',
   ],
 }
 
@@ -181,6 +192,10 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     { value: 'settings.edit', label: 'Edit settings' },
     { value: 'settings.integrations', label: 'Manage integrations' },
   ] },
+  { key: 'boards', label: 'Task Board', permissions: [
+    { value: 'boards.view', label: 'View task boards' },
+    { value: 'boards.edit', label: 'Create / edit boards, groups, items, and columns' },
+  ] },
   { key: 'other', label: 'Other', permissions: [
     { value: 'leads.view', label: 'View leads' },
     { value: 'notifications.view', label: 'View notifications' },
@@ -251,5 +266,5 @@ export const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'admin', label: 'Admin', description: 'Full access except deleting team and integrations' },
   { value: 'manager', label: 'Manager', description: 'Manage day-to-day operations, no finance payroll or settings' },
   { value: 'staff', label: 'Staff', description: 'View-only access, can create bookings' },
-  { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'The Loop, clients, ComHub/Connect, sales, production, HR, and marketing — no delete anywhere, no finance or settings access' },
+  { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'The Loop, clients, ComHub/Connect, sales, production, full HR (including PIN reset and compensation data), payroll data, and marketing — no delete anywhere, no settings access, cannot run payroll' },
 ]

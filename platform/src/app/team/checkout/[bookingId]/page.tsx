@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useTeamAuth } from '../../layout'
+import { useTeamAuth } from '../../team-auth'
 import PhotoCapture from '@/components/PhotoCapture'
 import TeamChecklist from '@/components/TeamChecklist'
 

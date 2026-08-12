@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { verifyToken } from '../auth/token'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { translateToEnEs } from '@/lib/connect-translate'
 import { resolveTeamConnectChannel } from '@/lib/connect-team-channel'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
@@ -19,11 +19,8 @@ import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 export const OPTIONS = corsPreflight
 
 export const GET = withMobileCors(async function GET(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const { auth, error } = await requirePortalPermission(request, 'messages.use')
+  if (error) return error
 
   try {
     const requestedChannelId = request.nextUrl.searchParams.get('channel_id')
@@ -54,11 +51,8 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
 })
 
 export const POST = withMobileCors(async function POST(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  const { auth, error } = await requirePortalPermission(request, 'messages.use')
+  if (error) return error
 
   const { body, channel_id: requestedChannelId } = await request.json()
   if (!body?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })

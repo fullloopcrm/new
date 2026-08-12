@@ -73,6 +73,7 @@ function chain(table: string) {
     or: (expr: string) => { filters.push(orMatcher(expr)); return c },
     order: () => c,
     limit: () => Promise.resolve({ data: matched(), error: null }),
+    single: async () => ({ data: matched()[0] ?? null, error: null }),
     update: (values: Row) => updateChain(rowsOf(), values),
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
@@ -87,6 +88,10 @@ import { createToken } from '@/app/api/team-portal/auth/token'
 import { GET, PUT } from './route'
 
 beforeEach(() => {
+  DB.team_members = [
+    { id: MEMBER_ID, tenant_id: TENANT_A, status: 'active' },
+    { id: MEMBER_ID, tenant_id: TENANT_B, status: 'active' },
+  ]
   DB.notifications = [
     { id: NOTIF_ID, tenant_id: TENANT_A, recipient_id: MEMBER_ID, recipient_type: 'team_member', title: 'A notif', message: 'a', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },
     { id: NOTIF_ID, tenant_id: TENANT_B, recipient_id: MEMBER_ID, recipient_type: 'team_member', title: 'B notif', message: 'b', type: 'x', read: false, booking_id: null, created_at: new Date().toISOString() },

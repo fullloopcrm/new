@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { usePortalAuth } from '../layout'
+import { usePortalAuth } from '../portal-auth'
 import AuthShell, {
   authLabelClass,
   authInputClass,

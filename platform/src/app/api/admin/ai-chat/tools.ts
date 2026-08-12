@@ -1,0 +1,527 @@
+/**
+ * Admin AI Chat — tool schemas + dispatch/execute logic. Split out of
+ * route.ts because Next.js route files may only export HTTP method handlers
+ * (and a few config values) — exporting executeTool directly from route.ts
+ * for unit testing broke the App Router route-type check ("executeTool" is
+ * not a valid Route export field).
+ */
+import Anthropic from '@anthropic-ai/sdk'
+import { tenantDb } from '@/lib/tenant-db'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { pick } from '@/lib/validate'
+import { hasPermission, type Permission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
+import { audit } from '@/lib/audit'
+
+// Tools that mutate data or expose finance figures must be gated behind the
+// SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
+// -> bookings.edit, clients/[id].PUT -> clients.edit, etc). Without this, any
+// tenant member reaching this chat widget — including 'staff', which lacks
+// bookings.edit/clients.edit/finance.view — could have the assistant perform
+// actions the REST API would 403 on directly. NOTE: api/ai/assistant/route.ts
+// has the same tool-execution shape and the same gap (unguarded) — not fixed here.
+const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  update_bookings: 'bookings.edit',
+  cancel_bookings: 'bookings.edit',
+  update_client: 'clients.edit',
+  create_booking: 'bookings.create',
+  get_revenue_stats: 'finance.view',
+}
+
+export const tools: Anthropic.Tool[] = [
+  {
+    name: 'search_clients',
+    description: 'Search clients by name, email, phone, or address. Returns matching clients.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { query: { type: 'string', description: 'Search term' } },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'search_team_members',
+    description: 'Search team members by name, or list all active members if no query.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { query: { type: 'string', description: 'Optional name filter' } },
+      required: [],
+    },
+  },
+  {
+    name: 'query_bookings',
+    description: 'Query bookings with filters. Returns bookings with client and team-member names.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client_id: { type: 'string' },
+        team_member_id: { type: 'string' },
+        status: { type: 'string', description: 'scheduled | completed | cancelled | pending | in_progress' },
+        date_from: { type: 'string', description: 'YYYY-MM-DD' },
+        date_to: { type: 'string', description: 'YYYY-MM-DD' },
+        limit: { type: 'number' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'update_bookings',
+    description: 'Update one or more bookings. Use for reassignments, status/price/note/time changes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        booking_ids: { type: 'array', items: { type: 'string' } },
+        updates: {
+          type: 'object',
+          properties: {
+            team_member_id: { type: 'string' },
+            status: { type: 'string' },
+            price: { type: 'number', description: 'Price in cents' },
+            notes: { type: 'string' },
+            start_time: { type: 'string' },
+            end_time: { type: 'string' },
+            payment_status: { type: 'string' },
+            payment_method: { type: 'string' },
+          },
+        },
+        confirmed: { type: 'boolean', description: 'Only true after user confirms' },
+      },
+      required: ['booking_ids', 'updates'],
+    },
+  },
+  {
+    name: 'cancel_bookings',
+    description: 'Cancel bookings (sets status=cancelled).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        booking_ids: { type: 'array', items: { type: 'string' } },
+        confirmed: { type: 'boolean' },
+      },
+      required: ['booking_ids'],
+    },
+  },
+  {
+    name: 'get_schedule_summary',
+    description: 'Get upcoming bookings for a date or range.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { date: { type: 'string' }, date_to: { type: 'string' } },
+      required: [],
+    },
+  },
+  {
+    name: 'get_client_details',
+    description: 'Get full details + booking history for a client.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { client_id: { type: 'string' } },
+      required: ['client_id'],
+    },
+  },
+  {
+    name: 'update_client',
+    description: 'Update client fields (name, email, phone, address, notes, status, do_not_service).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client_id: { type: 'string' },
+        updates: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            email: { type: 'string' },
+            phone: { type: 'string' },
+            address: { type: 'string' },
+            notes: { type: 'string' },
+            status: { type: 'string' },
+            do_not_service: { type: 'boolean' },
+          },
+        },
+      },
+      required: ['client_id', 'updates'],
+    },
+  },
+  {
+    name: 'create_booking',
+    description: 'Create a booking. Search for client first to get client_id. Ask to confirm before creating.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client_id: { type: 'string' },
+        start_time: { type: 'string', description: 'ISO local, YYYY-MM-DDTHH:MM:00' },
+        end_time: { type: 'string', description: 'Optional — defaults to start + 2h' },
+        service_type: { type: 'string' },
+        team_member_id: { type: 'string' },
+        price: { type: 'number', description: 'Price in cents' },
+        notes: { type: 'string' },
+        confirmed: { type: 'boolean' },
+      },
+      required: ['client_id', 'start_time'],
+    },
+  },
+  {
+    name: 'get_revenue_stats',
+    description: 'Get revenue + booking counts for a date range.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { date_from: { type: 'string' }, date_to: { type: 'string' } },
+      required: ['date_from', 'date_to'],
+    },
+  },
+]
+
+// Best-effort real target id for the audit row's entity_id column — mirrors
+// Yinez's extractEntityId (src/lib/selena/tools.ts). Checked across the
+// id-shaped args this engine's tools actually use.
+function extractAdminChatEntityId(input: Record<string, unknown>): string | undefined {
+  if (typeof input.client_id === 'string') return input.client_id
+  if (Array.isArray(input.booking_ids) && typeof input.booking_ids[0] === 'string') return input.booking_ids[0] as string
+  if (typeof input.team_member_id === 'string') return input.team_member_id
+  return undefined
+}
+
+async function dispatchTool(
+  tenantId: string,
+  name: string,
+  input: Record<string, unknown>,
+  role: string,
+  overrides: ReturnType<typeof overridesFor>
+): Promise<string> {
+  const db = tenantDb(tenantId)
+
+  const requiredPermission = TOOL_PERMISSIONS[name]
+  if (requiredPermission && !hasPermission(role, requiredPermission, overrides)) {
+    return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
+  }
+
+  switch (name) {
+    case 'search_clients': {
+      const q = sanitizePostgrestValue(String(input.query || '').trim())
+      const { data, error } = await db
+        .from('clients')
+        .select('id, name, email, phone, address, status, do_not_service, notes')
+        .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,address.ilike.%${q}%`)
+        .limit(10)
+      return JSON.stringify(error ? { error: error.message } : data)
+    }
+
+    case 'search_team_members': {
+      const q = input.query as string | undefined
+      let query = db
+        .from('team_members')
+        .select('id, name, email, phone, status, working_days')
+      query = q ? query.ilike('name', `%${q}%`) : query.eq('status', 'active')
+      const { data, error } = await query.limit(20)
+      return JSON.stringify(error ? { error: error.message } : data)
+    }
+
+    case 'query_bookings': {
+      let query = db
+        .from('bookings')
+        .select('id, start_time, end_time, status, price, payment_status, payment_method, notes, recurring_type, service_type, schedule_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
+        .order('start_time', { ascending: true })
+
+      if (input.client_id) query = query.eq('client_id', input.client_id as string)
+      if (input.team_member_id) query = query.eq('team_member_id', input.team_member_id as string)
+      if (input.status) query = query.eq('status', input.status as string)
+      if (input.date_from) query = query.gte('start_time', `${input.date_from}T00:00:00`)
+      if (input.date_to) query = query.lte('start_time', `${input.date_to}T23:59:59`)
+
+      const limit = Math.min((input.limit as number) || 20, 100)
+      const { data, error } = await query.limit(limit)
+      return JSON.stringify(error ? { error: error.message } : data)
+    }
+
+    case 'update_bookings': {
+      const ids = (input.booking_ids as string[]) || []
+      const updates = pick(input.updates, [
+        'team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status', 'payment_method',
+      ])
+      const confirmed = input.confirmed as boolean
+
+      if (!confirmed) {
+        return JSON.stringify({
+          needs_confirmation: true,
+          message: `Will update ${ids.length} booking(s). Ask the user to confirm.`,
+          booking_count: ids.length,
+          updates,
+        })
+      }
+
+      // team_member_id is a model-supplied FK — query_bookings/get_schedule_summary
+      // embed team_members(name) off this column with no tenant filter on the
+      // embedded side, so an unverified foreign id would surface another tenant's
+      // employee name on the next schedule lookup. Same class as P1/P11/P25/P30/P32.
+      if (updates.team_member_id) {
+        const { data: owned } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .maybeSingle()
+        if (!owned) return JSON.stringify({ error: 'team member not found' })
+      }
+
+      const results = await Promise.all(
+        ids.map(async id => {
+          const { data, error } = await db
+            .from('bookings')
+            .update(updates)
+            .eq('id', id)
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
+        })
+      )
+      const failed = results.filter(r => r.error)
+      if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const updatedCount = results.length - notFound.length
+      if (updatedCount === 0) {
+        return JSON.stringify({
+          success: false,
+          updated: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was updated.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          updated: updatedCount,
+          not_found: notFound,
+          message: `${updatedCount}/${ids.length} booking(s) updated. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, updated: updatedCount })
+    }
+
+    case 'cancel_bookings': {
+      const ids = (input.booking_ids as string[]) || []
+      const confirmed = input.confirmed as boolean
+      if (!confirmed) {
+        return JSON.stringify({
+          needs_confirmation: true,
+          message: `Will cancel ${ids.length} booking(s). Ask the user to confirm.`,
+          booking_count: ids.length,
+        })
+      }
+      const results = await Promise.all(
+        ids.map(async id => {
+          const { data, error } = await db
+            .from('bookings')
+            .update({ status: 'cancelled' })
+            .eq('id', id)
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
+        })
+      )
+      const failed = results.filter(r => r.error)
+      if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const cancelledCount = results.length - notFound.length
+      if (cancelledCount === 0) {
+        return JSON.stringify({
+          success: false,
+          cancelled: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was cancelled.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          cancelled: cancelledCount,
+          not_found: notFound,
+          message: `${cancelledCount}/${ids.length} booking(s) cancelled. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, cancelled: cancelledCount })
+    }
+
+    case 'get_schedule_summary': {
+      // "today" must be ET's calendar date — UTC's date rolls over ~4-5h
+      // before ET's does, so this fallback showed TOMORROW's schedule as
+      // "today" for evening ET admin queries.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
+      const dateTo = (input.date_to as string) || date
+      const { data, error } = await db
+        .from('bookings')
+        .select('id, start_time, end_time, status, price, service_type, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
+        .gte('start_time', `${date}T00:00:00`)
+        .lte('start_time', `${dateTo}T23:59:59`)
+        .in('status', ['scheduled', 'in_progress', 'completed'])
+        .order('start_time', { ascending: true })
+      return JSON.stringify(error ? { error: error.message } : { date, date_to: dateTo, bookings: data, total: data?.length || 0 })
+    }
+
+    case 'get_client_details': {
+      const clientId = input.client_id as string
+      const { data: client, error: clientError } = await db
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .single()
+      if (clientError) return JSON.stringify({ error: clientError.message })
+
+      const { data: bookings } = await db
+        .from('bookings')
+        .select('id, start_time, status, price, payment_status, service_type, team_members!bookings_team_member_id_fkey(name)')
+        .eq('client_id', clientId)
+        .order('start_time', { ascending: false })
+        .limit(10)
+
+      return JSON.stringify({ client, recent_bookings: bookings })
+    }
+
+    case 'update_client': {
+      const updates = pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'status', 'do_not_service'])
+      const { error } = await db
+        .from('clients')
+        .update(updates)
+        .eq('id', input.client_id as string)
+      if (!error) {
+        // Kept alongside the generic dispatch-level audit below (executeTool)
+        // because it's the one entry that shows up under entity_type='client'
+        // in the client's own activity feed (dashboard/activity). executeTool
+        // skips its own row for THIS call when it succeeds, so the invocation
+        // isn't double-logged — see the comment there.
+        await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: input.client_id as string, details: { fields: Object.keys(updates), via: 'ai_chat' } })
+      }
+      return JSON.stringify(error ? { error: error.message } : { success: true })
+    }
+
+    case 'create_booking': {
+      const confirmed = input.confirmed as boolean
+      if (!confirmed) {
+        return JSON.stringify({
+          needs_confirmation: true,
+          message: 'About to create a booking. Ask the user to confirm.',
+          client_id: input.client_id,
+          start_time: input.start_time,
+          service_type: input.service_type || 'regular',
+        })
+      }
+      // client_id and team_member_id are model-supplied FKs — verify both
+      // belong to this tenant before insert. query_bookings/get_schedule_summary
+      // embed clients(name)/team_members(name) off these columns with no
+      // tenant filter on the embedded side, so an unverified foreign id would
+      // read back another tenant's client/employee name on the next lookup.
+      const { data: ownedClient } = await db
+        .from('clients')
+        .select('id')
+        .eq('id', input.client_id as string)
+        .maybeSingle()
+      if (!ownedClient) return JSON.stringify({ error: 'client not found' })
+
+      if (input.team_member_id) {
+        const { data: ownedMember } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', input.team_member_id as string)
+          .maybeSingle()
+        if (!ownedMember) return JSON.stringify({ error: 'team member not found' })
+      }
+
+      const startTime = input.start_time as string
+      let endTime = input.end_time as string | undefined
+      if (!endTime) {
+        const start = new Date(startTime)
+        start.setHours(start.getHours() + 2)
+        endTime = start.toISOString().replace(/\.\d{3}Z$/, '')
+      }
+      const bookingData: Record<string, unknown> = {
+        client_id: input.client_id,
+        start_time: startTime,
+        end_time: endTime,
+        status: 'scheduled',
+        service_type: input.service_type || 'regular',
+        source: 'admin',
+      }
+      if (input.team_member_id) bookingData.team_member_id = input.team_member_id
+      if (input.price) bookingData.price = input.price
+      if (input.notes) bookingData.notes = input.notes
+
+      const { data, error } = await db
+        .from('bookings')
+        .insert(bookingData)
+        .select('id')
+        .single()
+      return JSON.stringify(error ? { error: error.message } : { success: true, booking_id: data.id })
+    }
+
+    case 'get_revenue_stats': {
+      const { data, error } = await db
+        .from('bookings')
+        .select('price, payment_status, status')
+        .gte('start_time', `${input.date_from}T00:00:00`)
+        .lte('start_time', `${input.date_to}T23:59:59`)
+        .in('status', ['scheduled', 'completed', 'in_progress'])
+      if (error) return JSON.stringify({ error: error.message })
+
+      const total = (data || []).reduce((s, b) => s + (b.price || 0), 0)
+      const paid = (data || []).filter(b => b.payment_status === 'paid').reduce((s, b) => s + (b.price || 0), 0)
+      return JSON.stringify({
+        total_revenue: total,
+        paid,
+        pending: total - paid,
+        total_bookings: data?.length || 0,
+        completed: (data || []).filter(b => b.status === 'completed').length,
+        scheduled: (data || []).filter(b => b.status === 'scheduled').length,
+      })
+    }
+
+    default:
+      return JSON.stringify({ error: `Unknown tool: ${name}` })
+  }
+}
+
+// Every tool the admin AI-chat model calls goes through this one function
+// (route.ts's POST loop calls nothing else) — the single choke point for
+// audit logging, mirroring Yinez's runTool wrapper in
+// src/lib/selena/tools.ts. One audit_logs row per invocation, success or
+// failure, entityType = tool name.
+//
+// update_client is the one tool with its own pre-existing inline audit()
+// call (action 'client.updated', entityType 'client' — surfaced in the
+// client's activity feed). To avoid writing two rows for the same call, this
+// wrapper skips its own row for update_client ONLY when that call actually
+// succeeded (the inline call already covered it); on failure the inline call
+// never fires (it's gated on `!error`), so the wrapper still logs it here.
+export async function executeTool(
+  tenantId: string,
+  name: string,
+  input: Record<string, unknown>,
+  role: string,
+  overrides: ReturnType<typeof overridesFor>
+): Promise<string> {
+  let out: string
+  let threw: unknown
+  try {
+    out = await dispatchTool(tenantId, name, input, role, overrides)
+  } catch (err) {
+    threw = err
+    out = JSON.stringify({ error: 'tool_threw', message: err instanceof Error ? err.message : String(err) })
+  }
+
+  let toolError: string | undefined
+  try {
+    const parsed = JSON.parse(out)
+    if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+      toolError = String((parsed as { error: unknown }).error)
+    }
+  } catch {
+    // Non-JSON tool output — treat as success, nothing to parse.
+  }
+
+  const alreadyAuditedInline = name === 'update_client' && !toolError && !threw
+  if (!alreadyAuditedInline) {
+    audit({
+      tenantId,
+      action: 'admin_ai_chat.tool_call',
+      entityType: name,
+      entityId: extractAdminChatEntityId(input),
+      details: { actor: 'agent', role, success: !toolError, error: toolError },
+    }).catch((e) => console.error('[admin/ai-chat] audit log failed for tool', name, e))
+  }
+
+  if (threw) throw threw
+  return out
+}

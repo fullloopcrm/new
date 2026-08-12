@@ -56,6 +56,9 @@ vi.mock('@/lib/supabase', () => {
       },
       single: async () => {
         if (table === 'bookings') return { data: bookingLookupResult, error: null }
+        // requireActiveTeamMember's live-status re-check — MEMBER_A is the
+        // only authenticated caller in this file, and stays active throughout.
+        if (table === 'team_members') return { data: { status: 'active' }, error: null }
         return { data: null, error: null }
       },
     }

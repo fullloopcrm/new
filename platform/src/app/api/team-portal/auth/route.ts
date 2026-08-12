@@ -8,6 +8,7 @@ import { createToken } from './token'
 import { logAuthFailure } from '@/lib/error-tracking'
 import { audit } from '@/lib/audit'
 import { findRowByPin } from '@/lib/pin-lookup'
+import { encryptSecretSafe } from '@/lib/secret-crypto'
 
 const PIN_SCAN_CAP = 5000
 
@@ -201,7 +202,7 @@ async function handleRequestPin(body: Record<string, unknown>, tenant_slug: stri
 
   const { error: updErr } = await tenantDb(tenant.id)
     .from('team_members')
-    .update({ pin: newPin })
+    .update({ pin: encryptSecretSafe(newPin) })
     .eq('id', member.id)
   if (updErr) {
     return NextResponse.json({ error: 'Could not set a new PIN. Try again.' }, { status: 500 })

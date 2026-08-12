@@ -49,8 +49,8 @@ import { GET, PUT } from './route'
 
 beforeEach(() => {
   DB.team_members = [
-    { id: MEMBER_ID, tenant_id: TENANT_A, notes: JSON.stringify({ sms_consent: true }) },
-    { id: MEMBER_ID, tenant_id: TENANT_B, notes: JSON.stringify({ sms_consent: true }) },
+    { id: MEMBER_ID, tenant_id: TENANT_A, status: 'active', notes: JSON.stringify({ sms_consent: true }) },
+    { id: MEMBER_ID, tenant_id: TENANT_B, status: 'active', notes: JSON.stringify({ sms_consent: true }) },
   ]
 })
 

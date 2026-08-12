@@ -55,8 +55,8 @@ import { GET, PUT } from './route'
 
 beforeEach(() => {
   DB.team_members = [
-    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own', working_days: ['1', '2', '3'], unavailable_dates: [] },
-    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign', working_days: ['4', '5'], unavailable_dates: [] },
+    { id: MEMBER_ID, tenant_id: TENANT_A, name: 'A Own', status: 'active', working_days: ['1', '2', '3'], unavailable_dates: [] },
+    { id: MEMBER_ID, tenant_id: TENANT_B, name: 'B Foreign', status: 'active', working_days: ['4', '5'], unavailable_dates: [] },
   ]
   // A foreign-tenant booking for a colliding member id on the date being
   // requested off — must NOT block tenant A's request.
