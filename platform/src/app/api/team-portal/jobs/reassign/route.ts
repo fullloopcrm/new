@@ -3,12 +3,15 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { sendPushToTeamMember } from '@/lib/push'
 import { audit } from '@/lib/audit'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // A lead/manager reassigns a job to another field member. Guardrails:
 //   - requires jobs.reassign
 //   - the target must be inside the actor's scope (their pod / all for manager)
 //   - the previously-assigned member AND the new one are notified + it's audited
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.reassign')
   if (permError) return permError
 
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
     .select()
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to reassign job' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Reassign failed' }, { status: 500 })
 
   await audit({
@@ -81,4 +84,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ booking: data })
-}
+})

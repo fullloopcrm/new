@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   // Auth: field-staff bearer token. A member reads their OWN rating; the id
   // comes from the verified token and the lookup is scoped to the token tenant.
   const { auth, error: authErr } = await requirePortalPermission(request, 'jobs.view_own')
@@ -16,9 +19,9 @@ export async function GET(request: Request) {
     .select('avg_rating, rating_count')
     .eq('id', teamMemberId)
     .single()) as { data: { avg_rating: number | null; rating_count: number | null } | null; error: { message: string } | null }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load rating' }, { status: 500 })
   return NextResponse.json({
     avg: data?.avg_rating != null ? Number(data.avg_rating) : null,
     count: data?.rating_count || 0,
   })
-}
+})

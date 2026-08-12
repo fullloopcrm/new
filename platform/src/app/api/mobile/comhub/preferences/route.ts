@@ -77,7 +77,7 @@ export const GET = withMobileCors(async function GET() {
     .select('comhub_notification_preferences')
     .eq('id', tenantId)
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load preferences' }, { status: 500 })
 
   const stored = normalize(data?.comhub_notification_preferences)
   const notification_preferences = {
@@ -107,7 +107,7 @@ export const PUT = withMobileCors(async function PUT(request: NextRequest) {
     .from('tenants')
     .update({ comhub_notification_preferences: notification_preferences })
     .eq('id', tenantId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to save preferences' }, { status: 500 })
 
   return NextResponse.json({ success: true })
 })

@@ -34,7 +34,7 @@ export const GET = withMobileCors(async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load contacts' }, { status: 500 })
 
   const contacts = (data || []).map(c => ({ ...c, company: null }))
   return NextResponse.json({ contacts })

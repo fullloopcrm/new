@@ -33,7 +33,7 @@ export const GET = withMobileCors(async function GET(req: NextRequest) {
     .select('id, action, entity_type, entity_id, details, created_at')
     .order('created_at', { ascending: false })
     .limit(limit)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load activity' }, { status: 500 })
 
   const events = (data || []).map(row => ({
     id: row.id,

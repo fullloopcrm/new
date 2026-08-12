@@ -9,6 +9,9 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 async function ownedBooking(db: ReturnType<typeof tenantDb>, bookingId: string, teamMemberId: string) {
   const { data: booking } = await db.from('bookings').select('id, job_id, team_member_id').eq('id', bookingId).single()
@@ -16,7 +19,7 @@ async function ownedBooking(db: ReturnType<typeof tenantDb>, bookingId: string, 
   return booking
 }
 
-export async function GET(request: Request) {
+export const GET = withMobileCors(async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyToken(token)
@@ -37,9 +40,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 })
 
   return NextResponse.json({ items: items ?? [] })
-}
+})
 
-export async function PATCH(request: Request) {
+export const PATCH = withMobileCors(async function PATCH(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyToken(token)
@@ -63,4 +66,4 @@ export async function PATCH(request: Request) {
   if (error || !item) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ item })
-}
+})

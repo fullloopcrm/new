@@ -9,6 +9,7 @@ import { logAuthFailure } from '@/lib/error-tracking'
 import { audit } from '@/lib/audit'
 import { findRowByPin } from '@/lib/pin-lookup'
 import { encryptSecretSafe } from '@/lib/secret-crypto'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const PIN_SCAN_CAP = 5000
 
@@ -31,7 +32,9 @@ function clientIp(request: Request): string {
   return request.headers.get('x-real-ip')?.trim() || 'unknown'
 }
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const tenant_slug_early: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
 
@@ -150,7 +153,7 @@ export async function POST(request: Request) {
     },
     tenant: { id: tenant.id, name: tenant.name, phone: tenant.phone },
   })
-}
+})
 
 /**
  * "Forgot my PIN" for the field-staff portal. Mirrors /api/portal/auth's

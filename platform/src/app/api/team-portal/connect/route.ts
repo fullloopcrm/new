@@ -85,7 +85,7 @@ export const POST = withMobileCors(async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
 
     await tenantDb(auth.tid)
       .from('connect_read_cursors') // tenant-scope-ok: tenantDb() stamps tenant_id on upsert

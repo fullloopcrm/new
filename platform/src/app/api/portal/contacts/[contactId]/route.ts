@@ -75,7 +75,7 @@ export const PUT = withMobileCors(async function PUT(request: Request, { params 
     .select('id, name, role, phone_e164, email, is_primary, receives_sms, receives_email')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to update contact' }, { status: 500 })
   return NextResponse.json({ contact: data })
 })
 
@@ -87,6 +87,6 @@ export const DELETE = withMobileCors(async function DELETE(request: Request, { p
 
   const { contactId } = await params
   const { error } = await tenantDb(auth.tid).from('client_contacts').delete().eq('id', contactId).eq('client_id', auth.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to delete contact' }, { status: 500 })
   return NextResponse.json({ ok: true })
 })

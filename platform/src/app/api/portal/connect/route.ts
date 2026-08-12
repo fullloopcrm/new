@@ -3,8 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { translateToEnEs } from '@/lib/connect-translate'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -70,9 +73,9 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json({ messages: [] })
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -149,7 +152,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
 
     // Update read cursor
     await tenantDb(auth.tid)
@@ -168,4 +171,4 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
   }
-}
+})

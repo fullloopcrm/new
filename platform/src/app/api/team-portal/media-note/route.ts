@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 // 150MB client-side cap enforced by the recorder UI (Supabase storage receives
 // the bytes directly via the signed URL — this route never sees the file body,
@@ -14,7 +17,7 @@ const SESSION_TYPES = ['walkthrough', 'before', 'during', 'after', 'issue-flag']
 
 // GET — signed upload URL for a LoopCam video or a still captured mid-recording
 // (?kind=video|still). Bypasses Vercel's 4.5MB body limit either way.
-export async function GET(req: NextRequest) {
+export const GET = withMobileCors(async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -63,11 +66,11 @@ export async function GET(req: NextRequest) {
     console.error('[media-note] signed URL error:', err)
     return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 })
   }
-}
+})
 
 // POST — create the note row once the signed-URL upload has completed. The
 // client calls /process on the returned note id next to kick off transcription.
-export async function POST(req: NextRequest) {
+export const POST = withMobileCors(async function POST(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -136,4 +139,4 @@ export async function POST(req: NextRequest) {
     console.error('[media-note] create error:', err)
     return NextResponse.json({ error: 'Failed to save media note' }, { status: 500 })
   }
-}
+})

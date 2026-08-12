@@ -3,8 +3,11 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { calculateDistance, estimateTransitMinutes, geocodeClient } from '@/lib/nycmaid/geo'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   // Auth: field-staff bearer token. This returns client names + full home
   // addresses + geo, so it must be gated. A member can only see their OWN
   // route — the team_member_id is taken from the verified token, not the query,
@@ -96,4 +99,4 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(result)
-}
+})

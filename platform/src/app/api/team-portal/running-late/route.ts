@@ -7,8 +7,11 @@ import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendPushToTenantAdmins, sendPushToClient } from '@/lib/push'
 import { smsRunningLateClient, smsRunningLateAdmin } from '@/lib/sms-templates'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   try {
     // Auth: this fires client + admin SMS, so it must be gated. The member is
     // taken from the verified token; a member can only report late on their OWN
@@ -72,4 +75,4 @@ export async function POST(request: Request) {
     console.error('Running late error:', err)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
-}
+})
