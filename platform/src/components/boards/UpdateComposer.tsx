@@ -96,19 +96,34 @@ export default function UpdateComposer({ onSubmit, uploadFolder = 'board-updates
     ],
   })
 
+  // Direct PUT to a Supabase signed URL, not a multipart POST through this
+  // Vercel serverless function -- that route (formerly /api/uploads) sits
+  // underneath Vercel's hard ~4.5MB request-body ceiling, so a multi-MB
+  // image/screenshot export died there as a generic browser "Failed to
+  // fetch" before any app code ever ran. Found 2026-08-12 from a real
+  // board-attachment failure report.
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0 || !editor) return
     setUploading(true)
     setError('')
     try {
       for (const file of Array.from(files)) {
-        const fd = new FormData()
-        fd.set('file', file)
-        fd.set('folder', uploadFolder)
-        const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-        const data = await res.json().catch(() => null)
-        if (!res.ok) throw new Error(data?.error || 'Upload failed')
-        setAttachments((prev) => [...prev, { name: file.name, url: data.url, size: file.size, content_type: file.type }])
+        const signedRes = await fetch('/api/boards/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+        })
+        const signedData = await signedRes.json().catch(() => null)
+        if (!signedRes.ok) throw new Error(signedData?.error || 'Failed to prepare upload')
+
+        const putRes = await fetch(signedData.signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type, 'x-upsert': 'false' },
+          body: file,
+        })
+        if (!putRes.ok) throw new Error('Upload failed')
+
+        setAttachments((prev) => [...prev, { name: file.name, url: signedData.publicUrl, size: file.size, content_type: file.type }])
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed')
