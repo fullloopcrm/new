@@ -28,6 +28,15 @@ export default function ReferralsPage() {
   const [copied, setCopied] = useState('')
   const [search, setSearch] = useState('')
   const [portalLinkCopied, setPortalLinkCopied] = useState(false)
+  // Empty on the server and on first client render (so SSR and hydration
+  // match exactly), then filled in by this effect once mounted. Branching
+  // render output on `typeof window !== 'undefined'` instead causes a
+  // hydration mismatch — React logs it and refuses to patch the affected
+  // attributes, which left the Facebook/email hrefs permanently stuck at
+  // their SSR fallback in production.
+  const [origin, setOrigin] = useState('')
+  useEffect(() => setOrigin(window.location.origin), [])
+  const signupUrl = `${origin}/referral/signup`
 
   const tenantSettings = useTenantSettings()
   const [referralsPanelOpen, setReferralsPanelOpen] = useState(false)
@@ -135,11 +144,11 @@ export default function ReferralsPage() {
       <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Referral Signup Page:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/referral/signup` : '/referral/signup'}</code>
+          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{signupUrl}</code>
         </div>
         <div className="flex items-center gap-3">
           <a
-            href={typeof window !== 'undefined' ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/referral/signup`)}` : '#'}
+            href={origin ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(signupUrl)}` : undefined}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Share on Facebook"
@@ -151,7 +160,7 @@ export default function ReferralsPage() {
             </svg>
           </a>
           <a
-            href={typeof window !== 'undefined' ? `mailto:?subject=${encodeURIComponent('Join us — referral signup')}&body=${encodeURIComponent(`${window.location.origin}/referral/signup`)}` : '#'}
+            href={origin ? `mailto:?subject=${encodeURIComponent('Join us — referral signup')}&body=${encodeURIComponent(signupUrl)}` : undefined}
             aria-label="Share by email"
             title="Share by email"
             className="text-slate-400 hover:text-slate-900 transition-colors"
@@ -161,10 +170,10 @@ export default function ReferralsPage() {
               <path d="m22 6-10 7L2 6" />
             </svg>
           </a>
-          {typeof window !== 'undefined' && !!navigator.share && (
+          {!!origin && typeof navigator !== 'undefined' && !!navigator.share && (
             <button
               type="button"
-              onClick={() => navigator.share({ title: 'Referral signup', url: `${window.location.origin}/referral/signup` }).catch(() => {})}
+              onClick={() => navigator.share({ title: 'Referral signup', url: signupUrl }).catch(() => {})}
               aria-label="More share options"
               title="More share options (Messenger, Instagram, etc.)"
               className="text-slate-400 hover:text-slate-900 transition-colors"
@@ -176,7 +185,7 @@ export default function ReferralsPage() {
             </button>
           )}
           <button
-            onClick={() => copyPortalLink(`${window.location.origin}/referral/signup`)}
+            onClick={() => copyPortalLink(signupUrl)}
             className="text-xs text-slate-400 hover:text-slate-900 transition-colors"
           >
             {portalLinkCopied ? 'Link copied!' : 'Copy Link'}
