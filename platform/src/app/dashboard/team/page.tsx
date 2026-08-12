@@ -12,6 +12,7 @@ import SalesAppsTab from './SalesAppsTab'
 import ManagementAppsTab from './ManagementAppsTab'
 import PayrollTab from './PayrollTab'
 import { PORTAL_ROLES } from '@/lib/portal-rbac'
+import { InfoTip } from '@/components/info-tip'
 
 type Tab = 'team' | 'applications' | 'sales_apps' | 'ops_admin' | 'performance' | 'payroll'
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
@@ -391,17 +392,34 @@ export default function TeamPage() {
           <div className="tm-stat-sub">On roster</div>
         </div>
         <div className="tm-stat">
-          <div className="tm-stat-label">Avg Utilization</div>
+          <div className="tm-stat-label">
+            <span className="inline-flex items-center">
+              Avg Utilization
+              <InfoTip text="The percentage of each team member's 40-hour workweek that's been assigned to jobs, averaged across the whole roster." />
+            </span>
+          </div>
           <div className="tm-stat-value">{stats.avgUtil}<span className="pct">%</span></div>
           <div className="tm-stat-sub">Hours sold vs 40h target</div>
         </div>
         <div className="tm-stat">
-          <div className="tm-stat-label">Overcapacity {stats.overcap > 0 && <span className="tm-stat-tag warn">flag</span>}</div>
+          <div className="tm-stat-label">
+            <span className="inline-flex items-center">
+              Overcapacity
+              <InfoTip text="Team members booked at 100% utilization or more — assigned more hours than fit in a standard workweek. Worth rebalancing their schedule." />
+            </span>
+            {stats.overcap > 0 && <span className="tm-stat-tag warn">flag</span>}
+          </div>
           <div className="tm-stat-value">{stats.overcap}</div>
           <div className={`tm-stat-sub ${stats.overcap > 0 ? 'warn' : ''}`}>{stats.overcap > 0 ? '≥100% util' : 'None overloaded'}</div>
         </div>
         <div className="tm-stat">
-          <div className="tm-stat-label">Idle {stats.idle > 0 && <span className="tm-stat-tag warn">slack</span>}</div>
+          <div className="tm-stat-label">
+            <span className="inline-flex items-center">
+              Idle
+              <InfoTip text="Team members under 30% utilization — meaning they have open capacity ('slack') for more jobs this week." />
+            </span>
+            {stats.idle > 0 && <span className="tm-stat-tag warn">slack</span>}
+          </div>
           <div className="tm-stat-value">{stats.idle}</div>
           <div className="tm-stat-sub">Under 30% utilized</div>
         </div>
