@@ -20,13 +20,16 @@ interface UpdateItemProps {
 // reaches this render.
 export default function UpdateItem({ note }: UpdateItemProps) {
   if (note.kind === 'activity') {
+    const when = new Date(note.created_at)
     return (
       <div className="flex items-center gap-2 text-xs text-slate-400 py-0.5">
         <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
         <span className="truncate">
           <span className="font-medium text-slate-500">{note.author_name}</span> {note.body}
         </span>
-        <span className="ml-auto shrink-0">{new Date(note.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+        <span className="ml-auto shrink-0">
+          {when.toLocaleDateString([], { month: 'short', day: 'numeric' })} · {when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+        </span>
       </div>
     )
   }

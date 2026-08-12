@@ -37,11 +37,17 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
   const [tab, setTab] = useState<Tab>('updates')
 
   const loadNotes = useCallback(() => {
+    setErr('')
     boardsFetch<{ notes: BoardItemNote[] }>(`${apiBase}/${boardId}/items/${item.id}/notes`).then((r) => {
       if (r.ok) setNotes(r.data.notes || [])
       else setErr(r.error)
     })
   }, [apiBase, boardId, item.id])
+
+  // API returns oldest-first (a stable insert order for the activity-log
+  // math elsewhere); the feed itself reads newest-first so the latest note
+  // is visible without scrolling.
+  const notesNewestFirst = notes ? [...notes].reverse() : null
 
   // Parent remounts this component (key={item.id}) on item switch, so `name`
   // only needs to track edits within one open item — no sync-from-props effect.
@@ -117,7 +123,20 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none px-1">×</button>
         </div>
 
-        {err && <div className="mx-4 mt-2 p-2 rounded bg-red-50 border border-red-200 text-red-700 text-xs">{err}</div>}
+        {err && (
+          <div className="mx-4 mt-2 p-2 rounded bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2">
+            <span>{err}</span>
+            {/* A re-fetch can't fix an actually-expired cookie — only a full
+                reload (which re-sends whatever cookie the browser currently
+                has) can, so route that case differently from a transient
+                network/server error. */}
+            {err.toLowerCase().includes('sign in') ? (
+              <button onClick={() => window.location.reload()} className="shrink-0 font-semibold underline hover:no-underline">Reload page</button>
+            ) : (
+              <button onClick={loadNotes} className="shrink-0 font-semibold underline hover:no-underline">Retry</button>
+            )}
+          </div>
+        )}
 
         <div className="p-4 border-b border-slate-200 space-y-3 overflow-y-auto max-h-[40%]">
           {columns.map((col) => (
@@ -137,12 +156,7 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
         {!richUpdates ? (
           <div className="flex-1 flex flex-col min-h-0">
             <p className="px-4 pt-3 pb-1 text-xs font-semibold text-slate-500 uppercase">Updates</p>
-            <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-3">
-              {notes === null && <p className="text-xs text-slate-400">Loading…</p>}
-              {notes?.length === 0 && <p className="text-xs text-slate-400">No activity yet.</p>}
-              {notes?.map((n) => <UpdateItem key={n.id} note={n} />)}
-            </div>
-            <div className="p-3 border-t border-slate-200 flex gap-2">
+            <div className="p-3 border-b border-slate-200 flex gap-2">
               <textarea
                 value={draftNote}
                 onChange={(e) => setDraftNote(e.target.value)}
@@ -161,13 +175,18 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
                 Post
               </button>
             </div>
+            <div className="flex-1 overflow-y-auto px-4 pt-3 space-y-2 pb-3">
+              {notesNewestFirst === null && !err && <p className="text-xs text-slate-400">Loading…</p>}
+              {notesNewestFirst?.length === 0 && <p className="text-xs text-slate-400">No activity yet.</p>}
+              {notesNewestFirst?.map((n) => <UpdateItem key={n.id} note={n} />)}
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100">
               {([
                 ['updates', 'Updates'],
-                ['files', 'Files'],
+                ['files', 'Media'],
                 ['activity', 'Activity Log'],
               ] as [Tab, string][]).map(([key, label]) => (
                 <button
@@ -184,13 +203,13 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
 
             {tab === 'updates' && (
               <>
-                <div className="flex-1 overflow-y-auto px-4 pt-3 space-y-2 pb-3">
-                  {notes === null && <p className="text-xs text-slate-400">Loading…</p>}
-                  {notes?.filter((n) => n.kind === 'note').length === 0 && <p className="text-xs text-slate-400">No updates yet.</p>}
-                  {notes?.filter((n) => n.kind === 'note').map((n) => <UpdateItem key={n.id} note={n} />)}
-                </div>
-                <div className="p-3 border-t border-slate-200">
+                <div className="p-3 border-b border-slate-200">
                   <UpdateComposer onSubmit={postUpdate} />
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 pt-3 space-y-2 pb-3">
+                  {notesNewestFirst === null && !err && <p className="text-xs text-slate-400">Loading…</p>}
+                  {notesNewestFirst?.filter((n) => n.kind === 'note').length === 0 && <p className="text-xs text-slate-400">No updates yet.</p>}
+                  {notesNewestFirst?.filter((n) => n.kind === 'note').map((n) => <UpdateItem key={n.id} note={n} />)}
                 </div>
               </>
             )}
@@ -198,9 +217,9 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
             {tab === 'files' && (
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
                 {(() => {
-                  const files = (notes || []).filter((n) => n.kind === 'note').flatMap((n) => n.attachments || [])
-                  if (notes === null) return <p className="text-xs text-slate-400">Loading…</p>
-                  if (files.length === 0) return <p className="text-xs text-slate-400">No files yet.</p>
+                  if (notesNewestFirst === null) return !err && <p className="text-xs text-slate-400">Loading…</p>
+                  const files = notesNewestFirst.filter((n) => n.kind === 'note').flatMap((n) => n.attachments || [])
+                  if (files.length === 0) return <p className="text-xs text-slate-400">No images, screenshots, files, or documents yet — attach one from an Update below.</p>
                   return files.map((a) => (
                     <a
                       key={a.url}
@@ -219,9 +238,9 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
 
             {tab === 'activity' && (
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
-                {notes === null && <p className="text-xs text-slate-400">Loading…</p>}
-                {notes?.filter((n) => n.kind === 'activity').length === 0 && <p className="text-xs text-slate-400">No activity yet.</p>}
-                {notes?.filter((n) => n.kind === 'activity').map((n) => <UpdateItem key={n.id} note={n} />)}
+                {notesNewestFirst === null && !err && <p className="text-xs text-slate-400">Loading…</p>}
+                {notesNewestFirst?.filter((n) => n.kind === 'activity').length === 0 && <p className="text-xs text-slate-400">No activity yet.</p>}
+                {notesNewestFirst?.filter((n) => n.kind === 'activity').map((n) => <UpdateItem key={n.id} note={n} />)}
               </div>
             )}
           </div>

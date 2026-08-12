@@ -37,15 +37,17 @@ async function logImpersonationEvent(
   }
 }
 
-// fl_impersonate is set with a hard 1-hour maxAge (see admin/impersonate/route.ts)
-// and nothing renewed it, so a platform admin mid-session (e.g. building/
-// autosaving a proposal for 20+ minutes) would have the cookie silently expire
-// while admin_token (24h) was still valid -- every subsequent tenant-scoped
-// call then threw AuthError, surfaced as a generic 401 Unauthorized with no
-// visible cause. Sliding-window renewal on every authenticated hit keeps an
-// active session alive indefinitely. Only mutates cookies from a Route
-// Handler / Server Action context; called from a Server Component page this
-// throws, so it's a best-effort no-op there -- the next API call renews it.
+// fl_impersonate is set with a maxAge (see admin/impersonate/route.ts; was a
+// hard 1 hour, bumped to 24h 2026-08-12 -- keep both in sync) and nothing
+// renews it outside a Route Handler, so any idle stretch on a Server
+// Component page (e.g. reading a Task Board item drawer without triggering a
+// renewing fetch) longer than the maxAge silently expires the cookie -- every
+// subsequent tenant-scoped call then throws AuthError, surfaced as a generic
+// 401 Unauthorized with no visible cause. Sliding-window renewal on every
+// authenticated hit keeps an active session alive indefinitely. Only mutates
+// cookies from a Route Handler / Server Action context; called from a Server
+// Component page this throws, so it's a best-effort no-op there -- the next
+// API call renews it.
 async function renewImpersonationCookie(
   cookieStore: Awaited<ReturnType<typeof cookies>>,
   tenantId: string,
@@ -55,7 +57,7 @@ async function renewImpersonationCookie(
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 3600,
+      maxAge: 86400,
       path: '/',
     })
   } catch {
