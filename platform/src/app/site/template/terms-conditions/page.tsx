@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
@@ -7,9 +8,12 @@ import { termsDoc } from '@/app/site/template/_lib/legal'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const retail = industryProfile(config.industry).isPureRetail
   return {
     title: `Terms & Conditions | ${config.identity.name}`,
-    description: `The terms that govern ${config.identity.name}'s website and services.`,
+    description: retail
+      ? `The terms that govern ${config.identity.name}'s website and store.`
+      : `The terms that govern ${config.identity.name}'s website and services.`,
     alternates: { canonical: '/terms-conditions' },
   }
 }

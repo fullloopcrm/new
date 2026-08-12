@@ -31,6 +31,14 @@ export interface IndustryProfile {
    * instruction) — this flag only gates the nav LINK, never the route.
    */
   isProjectLed: boolean
+  /**
+   * True for tenants that sell products only, with no bookable service —
+   * currently just streetwear/apparel. Content generators (legal docs, etc.)
+   * drop "booking," "service location," and "dispatch" language for these
+   * tenants instead of the trade-neutral service+store copy every other
+   * industry gets by default.
+   */
+  isPureRetail: boolean
   /** Title-case service label, e.g. "House Cleaning", "Plumbing", "Home Services". */
   serviceLabel: string
   /** Lowercase noun for mid-sentence use, e.g. "plumbing", "home services". */
@@ -95,6 +103,7 @@ export function industryProfile(industry?: string | null): IndustryProfile {
   else serviceLabel = 'Home Services'
 
   const isProjectLed = PROJECT_LEAD_INDUSTRIES.has(key as IndustryKey)
+  const isPureRetail = key === 'streetwear'
 
   return {
     key,
@@ -102,6 +111,7 @@ export function industryProfile(industry?: string | null): IndustryProfile {
     isVirtualAssistant,
     isRemote: isVirtualAssistant,
     isProjectLed,
+    isPureRetail,
     serviceLabel,
     serviceNoun: serviceLabel.toLowerCase(),
   }
