@@ -54,7 +54,7 @@ describe('comhub-email collectAccounts — nycmaid from-address safety net', () 
       email_from: null,
     }]
 
-    const { collectAccounts } = await import('./route')
+    const { collectAccounts } = await import('./mail-accounts')
     const accounts = await collectAccounts()
 
     const nycmaid = accounts.find(a => a.tenantId === NYCMAID_TENANT_ID)
@@ -74,7 +74,7 @@ describe('comhub-email collectAccounts — nycmaid from-address safety net', () 
       email_from: null,
     }]
 
-    const { collectAccounts } = await import('./route')
+    const { collectAccounts } = await import('./mail-accounts')
     const accounts = await collectAccounts()
 
     const other = accounts.find(a => a.tenantId === 'some-other-tenant-uuid')
@@ -94,7 +94,7 @@ describe('comhub-email collectAccounts — nycmaid from-address safety net', () 
       email_from: 'The NYC Maid <custom@thenycmaid.com>',
     }]
 
-    const { collectAccounts } = await import('./route')
+    const { collectAccounts } = await import('./mail-accounts')
     const accounts = await collectAccounts()
 
     const nycmaid = accounts.find(a => a.tenantId === NYCMAID_TENANT_ID)

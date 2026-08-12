@@ -40,7 +40,8 @@ const requirePermissionMock = vi.fn<(permission: string) => Promise<RequirePermi
 }))
 vi.mock('@/lib/require-permission', () => ({ requirePermission: (permission: string) => requirePermissionMock(permission) }))
 
-import { GET, PUT, VALID_SECTIONS } from './route'
+import { GET, PUT } from './route'
+import { VALID_SECTIONS } from './valid-sections'
 
 let h: Harness
 beforeEach(() => {

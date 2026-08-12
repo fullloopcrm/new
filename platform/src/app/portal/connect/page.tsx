@@ -1,6 +1,6 @@
 'use client'
 
-import { usePortalAuth } from '../layout'
+import { usePortalAuth } from '../portal-auth'
 import PortalChatWidget from '../PortalChatWidget'
 
 // Was previously wired to /api/portal/connect (connect_channels — a separate

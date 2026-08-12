@@ -17,7 +17,7 @@ const TEAM_LOCAL_HOUR = 20 // 8pm — next-day job lookahead for cleaners
 // Naive start_time/end_time digits pass straight through toLocaleTimeString
 // (no timeZone override) same as the rest of this file — see
 // getTenantNaiveDayBoundaries comment above.
-export function formatAdminScheduleLine(job: BookingAdminScheduleLine): string {
+function formatAdminScheduleLine(job: BookingAdminScheduleLine): string {
   const jobName = job.service_type || 'Job'
   const cleaner = job.team_members?.name || 'Unassigned'
   const start = new Date(job.start_time)

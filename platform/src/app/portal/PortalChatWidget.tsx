@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { usePortalAuth } from './layout'
+import { usePortalAuth } from './portal-auth'
 import WebChatWidget, { WebChatWidgetMessage } from '@/components/comhub/WebChatWidget'
 
 interface PortalApiMessage {

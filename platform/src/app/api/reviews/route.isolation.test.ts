@@ -63,7 +63,7 @@ beforeEach(() => {
 
 describe('reviews — tenant isolation', () => {
   it("GET wrong-tenant probe: only the caller tenant's reviews are returned", async () => {
-    const res = await GET()
+    const res = await GET(new Request('http://localhost/api/reviews'))
     expect(res.status).toBe(200)
     const body = await res.json()
     const ids = body.reviews.map((r: { id: string }) => r.id)

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import './sales.css'
 import CalendarShell from '../calendar/CalendarShell'
 import { useUserPrefs } from '@/lib/use-user-prefs'
+import { type Stage, nextStageOptions } from './stage-gate'
 
 // The sales process IS the tabs, left→right. Deals move between them via the
 // stage dropdown on each card. Schedule is the calendar. (The Master Catalog is
@@ -29,7 +30,6 @@ const TAB_TIPS: Record<Tab, string> = {
 }
 
 // Locked stage spine (matches DB + pipeline.ts). Labels are operator-facing.
-type Stage = 'new' | 'qualifying' | 'quoted' | 'pending' | 'sold' | 'lost'
 const STAGES: Array<{ key: Stage; label: string }> = [
   { key: 'new', label: 'Lead' },
   { key: 'qualifying', label: 'Qualify' },
@@ -145,19 +145,6 @@ const ACT_ICON: Record<string, string> = {
   note: '📝', call: '📞', text: '💬', email: '✉️',
   stage_change: '↗', follow_up_set: '⏰', quote_sent: '📄',
   auto_created: '✨',
-}
-
-// Forward-only pipeline order (excludes the terminal 'lost' branch).
-const STAGE_ORDER: Stage[] = ['new', 'qualifying', 'quoted', 'pending', 'sold']
-
-// A deal can only move to its immediate next stage, back to Lost from any
-// open stage, or reopened to Lead from Lost — never skip a stage (e.g. Lead
-// straight to Quote, bypassing Qualify).
-export function nextStageOptions(stage: string): Stage[] {
-  if (stage === 'lost') return ['new']
-  const idx = STAGE_ORDER.indexOf(stage as Stage)
-  const forward = idx > -1 && idx < STAGE_ORDER.length - 1 ? [STAGE_ORDER[idx + 1]] : []
-  return stage === 'sold' ? forward : [...forward, 'lost']
 }
 
 interface StageDropdownProps {

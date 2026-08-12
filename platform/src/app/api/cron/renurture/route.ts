@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { pickNextTouch, RENURTURE_TOUCHES, type RenurtureTouch } from '@/lib/nycmaid/renurture'
+import { pickNextTouch, type RenurtureTouch } from '@/lib/nycmaid/renurture'
 import { sendRenurtureTouch, type RenurtureClient } from '@/lib/nycmaid/renurture-send'
 import { parseNaiveET } from '@/lib/recurring'
 
@@ -150,5 +150,3 @@ async function processTenant(tenantId: string): Promise<number> {
 
   return sent
 }
-
-export { RENURTURE_TOUCHES }

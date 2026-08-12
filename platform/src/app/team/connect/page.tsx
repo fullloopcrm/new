@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useTeamAuth } from '../layout'
+import { useTeamAuth } from '../team-auth'
 import { ChatBubble, DateDivider, ChatInput } from '@/components/chat-bubble'
 import type { ChatMessage } from '@/components/chat-bubble'
 
