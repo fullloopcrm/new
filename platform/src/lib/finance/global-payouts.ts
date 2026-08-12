@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '../supabase'
 import { sendSMS } from '../sms'
 import { sendTenantTelegram } from '../notify'
+import { trackError } from '../error-tracking'
 import { cleanerAlreadyPaid, releaseCleanerPayout } from './cleaner-payout'
 import type { PayoutClaim } from './cleaner-payout'
 import type { TeamMemberPayoutGroup } from './global-payouts-eligibility'
@@ -312,7 +313,18 @@ export async function executeGroups(
         groupTotalCents += item.amountCents + item.tipCents
         clientNames.push(item.clientName)
       } catch (err) {
-        await releaseCleanerPayout(tenantId, claim.payoutId).catch(() => {})
+        // Best-effort cleanup: release the claim so it doesn't stay stuck
+        // blocking this payout forever. If the release itself fails, that
+        // failure used to be swallowed silently with no trace — track it so
+        // a stuck claim is discoverable instead of invisible.
+        await releaseCleanerPayout(tenantId, claim.payoutId).catch((releaseErr) => {
+          trackError(releaseErr, {
+            source: 'finance/global-payouts:release-after-failure',
+            tenantId,
+            severity: 'high',
+            extra: `payoutId=${claim.payoutId}; bookingId=${item.bookingId}; originalError=${err instanceof Error ? err.message : String(err)}`,
+          }).catch(() => {})
+        })
         skipped.push({ bookingId: item.bookingId, teamMemberName: group.name, reason: err instanceof Error ? err.message : 'unknown error' })
       }
     }

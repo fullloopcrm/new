@@ -28,10 +28,15 @@ vi.mock('@/lib/require-permission', () => ({
   })),
 }))
 
+// route.ts imports sendClientSMS from the tenant-aware @/lib/client-contacts
+// (signature: tenant, clientId, message) — the legacy @/lib/nycmaid/client-contacts
+// (signature: clientId, message, options) that this test previously mocked is
+// never touched by the route, so the mock never intercepted and the real,
+// unfaked call fell through to a live tenantDb() lookup + 60s retry backoff.
 const sendClientSMS = vi.hoisted(() =>
-  vi.fn(async (_clientId: string, _message: string, _options?: Record<string, unknown>) => ({ sent: 1, skipped: 0 })),
+  vi.fn(async (_tenant: unknown, _clientId: string, _message: string) => ({ sent: 1, skipped: 0 })),
 )
-vi.mock('@/lib/nycmaid/client-contacts', () => ({ sendClientSMS }))
+vi.mock('@/lib/client-contacts', () => ({ sendClientSMS }))
 
 import { NextRequest } from 'next/server'
 import { POST } from './route'
@@ -101,8 +106,10 @@ describe('POST /api/team-portal/30min-alert — price/quote sync', () => {
     expect(res.status).toBe(200)
 
     expect(sendClientSMS).toHaveBeenCalledTimes(1)
-    const smsText = sendClientSMS.mock.calls[0][1] as string
-    const match = smsText.match(/Your total: \$([0-9]+\.[0-9]{2})/)
+    // @/lib/client-contacts' sendClientSMS is (tenant, clientId, message) —
+    // the message is the 3rd argument (index 2), not the 2nd.
+    const smsText = sendClientSMS.mock.calls[0][2] as string
+    const match = smsText.match(/Total: \$([0-9]+\.[0-9]{2})/)
     expect(match).not.toBeNull()
     const quotedCents = Math.round(parseFloat(match![1]) * 100)
 

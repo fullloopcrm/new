@@ -23,6 +23,7 @@ import { supabaseAdmin } from '../supabase'
 import { decryptSecret } from '../secret-crypto'
 import { smsAdmins } from '../admin-contacts'
 import { sendTenantTelegram } from '../notify'
+import { trackError } from '../error-tracking'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout, tipCentsForBooking } from './cleaner-payout'
 import { claimGlobalPayout, finalizeGlobalPayout, getStorageFinancialAccount, ensureFinancialAccountFunded, createOutboundPayment } from './global-payouts'
 import { postPayoutToLedger } from './post-labor'
@@ -126,7 +127,18 @@ export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Prom
       }
       notifyPaid(totalCents)
     } catch (payErr) {
-      await releaseCleanerPayout(tenantId, claim.payoutId).catch(() => {})
+      // Best-effort cleanup: release the claim so it doesn't stay stuck
+      // blocking this payout forever. If the release itself fails, that
+      // failure used to be swallowed silently with no trace — track it so
+      // a stuck claim is discoverable instead of invisible.
+      await releaseCleanerPayout(tenantId, claim.payoutId).catch((releaseErr) => {
+        trackError(releaseErr, {
+          source: 'finance/checkout-payout:release-after-global-payout-failure',
+          tenantId,
+          severity: 'high',
+          extra: `bookingId=${bookingId}; teamMemberId=${teamMemberId}; payoutId=${claim.payoutId}; originalError=${payErr instanceof Error ? payErr.message : String(payErr)}`,
+        }).catch(() => {})
+      })
       console.error('checkout Global Payouts payout failed:', payErr)
       notifyFailed(payErr instanceof Error ? payErr.message : String(payErr))
     }
@@ -169,7 +181,18 @@ export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Prom
       }
       notifyPaid(totalCents)
     } catch (transferErr) {
-      await releaseCleanerPayout(tenantId, claim.payoutId).catch(() => {})
+      // Best-effort cleanup: release the claim so it doesn't stay stuck
+      // blocking this payout forever. If the release itself fails, that
+      // failure used to be swallowed silently with no trace — track it so
+      // a stuck claim is discoverable instead of invisible.
+      await releaseCleanerPayout(tenantId, claim.payoutId).catch((releaseErr) => {
+        trackError(releaseErr, {
+          source: 'finance/checkout-payout:release-after-cleaner-payout-failure',
+          tenantId,
+          severity: 'high',
+          extra: `bookingId=${bookingId}; teamMemberId=${teamMemberId}; payoutId=${claim.payoutId}; originalError=${transferErr instanceof Error ? transferErr.message : String(transferErr)}`,
+        }).catch(() => {})
+      })
       console.error('checkout cleaner payout failed:', transferErr)
       notifyFailed(transferErr instanceof Error ? transferErr.message : String(transferErr))
     }

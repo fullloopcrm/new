@@ -147,3 +147,90 @@ describe('postRefundToLedger — refund posts a balanced, tenant-scoped revenue 
     expect(h.postJournalEntry).not.toHaveBeenCalled()
   })
 })
+
+describe('postRefundToLedger — tipped payment refunds split proportionally across 4000/4100', () => {
+  it('a FULL refund of a tipped payment splits DR 4000 (service) + DR 4100 (tip) exactly reversing the original split', async () => {
+    // Original sale: $150 payment = $100 service + $50 tip (postPaymentRevenue
+    // would have posted CR 4000 $100 / CR 4100 $50). Refunding the full $150
+    // must reverse both, not dump the whole $150 onto 4000.
+    const res = await postRefundToLedger({
+      tenantId: 'tenant-A',
+      sourceId: 're_tip_full',
+      amountCents: 15000,
+      originalTotalCents: 15000,
+      originalTipCents: 5000,
+    })
+
+    expect(res.posted).toBe(true)
+    const entry = h.entries[0]
+
+    const revenueLine = entry.lines.find((l) => l.coa_id === 'acct-4000')!
+    const tipLine = entry.lines.find((l) => l.coa_id === 'acct-4100')!
+    const undepositedLine = entry.lines.find((l) => l.coa_id === 'acct-1050')!
+
+    expect(revenueLine.debit_cents).toBe(10000)
+    expect(tipLine.debit_cents).toBe(5000)
+    expect(undepositedLine.credit_cents).toBe(15000)
+
+    // Balanced double-entry.
+    expect(sum(entry.lines, 'debit_cents')).toBe(15000)
+    expect(sum(entry.lines, 'credit_cents')).toBe(15000)
+  })
+
+  it('a PARTIAL refund of a tipped payment splits at the SAME service/tip ratio as the original sale', async () => {
+    // Same $150 ($100 service + $50 tip, 1/3 tip ratio) but only $60 refunded
+    // -> $40 service / $20 tip, not $60 straight off service.
+    const res = await postRefundToLedger({
+      tenantId: 'tenant-A',
+      sourceId: 're_tip_partial',
+      amountCents: 6000,
+      originalTotalCents: 15000,
+      originalTipCents: 5000,
+    })
+
+    expect(res.posted).toBe(true)
+    const entry = h.entries[0]
+
+    const revenueLine = entry.lines.find((l) => l.coa_id === 'acct-4000')!
+    const tipLine = entry.lines.find((l) => l.coa_id === 'acct-4100')!
+    const undepositedLine = entry.lines.find((l) => l.coa_id === 'acct-1050')!
+
+    expect(revenueLine.debit_cents).toBe(4000)
+    expect(tipLine.debit_cents).toBe(2000)
+    expect(undepositedLine.credit_cents).toBe(6000)
+    expect(sum(entry.lines, 'debit_cents')).toBe(6000)
+  })
+
+  it('a tip-free payment (originalTipCents omitted) still posts the pre-existing single-line 4000 reversal, no 4100 line at all', async () => {
+    const res = await postRefundToLedger({
+      tenantId: 'tenant-A',
+      sourceId: 're_no_tip',
+      amountCents: 5000,
+      originalTotalCents: 5000,
+    })
+
+    expect(res.posted).toBe(true)
+    const entry = h.entries[0]
+    expect(entry.lines.find((l) => l.coa_id === 'acct-4100')).toBeUndefined()
+    const revenueLine = entry.lines.find((l) => l.coa_id === 'acct-4000')!
+    expect(revenueLine.debit_cents).toBe(5000)
+    expect(sum(entry.lines, 'debit_cents')).toBe(5000)
+  })
+
+  it('a fully-tip refund (originalTipCents === originalTotalCents) posts the whole amount to 4100, no zero-amount 4000 line', async () => {
+    const res = await postRefundToLedger({
+      tenantId: 'tenant-A',
+      sourceId: 're_all_tip',
+      amountCents: 2000,
+      originalTotalCents: 2000,
+      originalTipCents: 2000,
+    })
+
+    expect(res.posted).toBe(true)
+    const entry = h.entries[0]
+    expect(entry.lines.find((l) => l.coa_id === 'acct-4000')).toBeUndefined()
+    const tipLine = entry.lines.find((l) => l.coa_id === 'acct-4100')!
+    expect(tipLine.debit_cents).toBe(2000)
+    expect(sum(entry.lines, 'debit_cents')).toBe(2000)
+  })
+})

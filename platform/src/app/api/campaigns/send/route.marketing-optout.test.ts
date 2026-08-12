@@ -31,6 +31,16 @@ vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: TENANT }, error: null }),
 }))
 
+// route.ts now consults getSettings() for the campaign_approval_required
+// gate (ported from the sibling /api/campaigns/[id]/send route). Mocked here
+// so this file's own restrictive supabaseAdmin mock (below) — which throws on
+// any table other than 'tenants' — doesn't collide with getSettings' real
+// implementation querying 'service_types'. This suite is about marketing
+// opt-out enforcement, not the approval gate, so approval is left off.
+vi.mock('@/lib/settings', () => ({
+  getSettings: async () => ({ campaign_approval_required: false }),
+}))
+
 vi.mock('@/lib/notify', () => ({ notify: h.notify }))
 
 vi.mock('@/lib/supabase', () => ({

@@ -378,7 +378,11 @@ function BookingsPage() {
     if (filters.service_type) result = result.filter(b => b.service_type === filters.service_type)
     if (filters.team_member_id) result = result.filter(b => b.team_member_id === filters.team_member_id)
     if (filters.client_id) result = result.filter(b => b.client_id === filters.client_id)
-    if (filters.date_from) result = result.filter(b => new Date(b.start_time) >= new Date(filters.date_from))
+    // 'T00:00:00' (local time), matching date_to's 'T23:59:59' below -- a
+    // bare 'YYYY-MM-DD' parses as UTC midnight, which silently pulls the
+    // "From" boundary several hours earlier than the admin picked in any
+    // timezone west of UTC.
+    if (filters.date_from) result = result.filter(b => new Date(b.start_time) >= new Date(filters.date_from + 'T00:00:00'))
     if (filters.date_to) result = result.filter(b => new Date(b.start_time) <= new Date(filters.date_to + 'T23:59:59'))
     if (searchQuery) {
       const q = searchQuery.toLowerCase()

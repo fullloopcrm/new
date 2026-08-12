@@ -688,7 +688,7 @@ async function dispatchTool(
 // Verify each referenced id resolves INSIDE the caller's tenant before the
 // side-effect runs; reject with a stable not-found error otherwise (do not
 // disclose that the id exists in some other tenant).
-async function idInTenant(table: 'clients' | 'team_members' | 'deals' | 'bookings' | 'quotes' | 'invoices' | 'documents', id: string, tid: string): Promise<boolean> {
+async function idInTenant(table: 'clients' | 'team_members' | 'deals' | 'bookings' | 'quotes' | 'invoices' | 'documents' | 'vendors' | 'service_types' | 'budget_line_items' | 'job_photos', id: string, tid: string): Promise<boolean> {
   if (!id) return false
   const { data } = await supabaseAdmin.from(table).select('id').eq('id', id).eq('tenant_id', tid).maybeSingle()
   return !!data
@@ -2115,6 +2115,9 @@ async function handleAddJobExpense(input: { job_id: string; category: string; am
   if (!job) return JSON.stringify({ error: 'job not found' })
   if (!input.category?.trim()) return JSON.stringify({ error: 'category is required' })
   if (!input.amount_dollars || input.amount_dollars < 0) return JSON.stringify({ error: 'amount_dollars must be >= 0' })
+  if (input.vendor_id && !(await idInTenant('vendors', input.vendor_id, tid))) return JSON.stringify({ error: 'vendor not found' })
+  if (input.service_type_id && !(await idInTenant('service_types', input.service_type_id, tid))) return JSON.stringify({ error: 'service type not found' })
+  if (input.budget_line_item_id && !(await idInTenant('budget_line_items', input.budget_line_item_id, tid))) return JSON.stringify({ error: 'budget line item not found' })
 
   const entityId = await getDefaultEntityId(tid)
   let categoryId: string | null = null
@@ -2156,7 +2159,10 @@ async function handleListJobPhotos(input: { job_id: string }, tid: string): Prom
 async function handleUpdateJobPhoto(input: { job_id: string; photo_id: string; tags?: string[]; pair_id?: string | null; caption?: string }, tid: string): Promise<string> {
   const patch: Record<string, unknown> = {}
   if (Array.isArray(input.tags)) patch.tags = input.tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 20)
-  if (input.pair_id !== undefined) patch.pair_id = input.pair_id
+  if (input.pair_id !== undefined) {
+    if (input.pair_id && !(await idInTenant('job_photos', input.pair_id, tid))) return JSON.stringify({ error: 'pair photo not found' })
+    patch.pair_id = input.pair_id
+  }
   if (input.caption !== undefined) patch.caption = input.caption.trim() || null
   if (Object.keys(patch).length === 0) return JSON.stringify({ error: 'nothing to update' })
   const { data: photo, error } = await supabaseAdmin.from('job_photos').update(patch).eq('id', input.photo_id).eq('job_id', input.job_id).eq('tenant_id', tid).select('*').maybeSingle()

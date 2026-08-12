@@ -314,6 +314,86 @@ async function bookingHasRealPayoutRecord(tenantId: string, bookingId: string, b
 }
 
 /**
+ * Reverses ONE booking's already-posted revenue, if it has any and hasn't
+ * already been reversed. Wired into the booking cancel transition (POST
+ * /api/bookings/[id]/status) so a job whose revenue was posted — then
+ * cancelled with no Stripe refund attached (e.g. a cash job cancelled after
+ * the fact) — gets its books corrected automatically, instead of relying on
+ * reverseCancelledBookingRevenue() below being run by hand (as it was,
+ * exactly once, on 2026-07-27).
+ *
+ * Skips (does nothing, reason explains why) when:
+ *   - the booking's payment was already refunded through Stripe. The
+ *     charge.refunded webhook's postRefundToLedger already reversed the
+ *     revenue via a DIFFERENT source key ('refund', keyed to the Stripe
+ *     refund id, not the booking id) and stamps bookings.payment_status =
+ *     'refunded' the same way the existing manual Selena refund tool
+ *     (handleProcessStripeRefund) already does — reversing here too would
+ *     double-count the correction. Known gap: a booking merely
+ *     'refund_pending' (approved but not yet processed in Stripe, see
+ *     handleApproveRefund) isn't caught by this check — if it's cancelled
+ *     before the refund actually posts in Stripe and this function has
+ *     already reversed it, a refund landing afterward would double-reverse.
+ *     There's no reliable "a refund is definitely coming" signal today short
+ *     of it having already landed; flagged, not fixed.
+ *   - the booking never had revenue posted (no 'booking'-source entry)
+ *   - it was already reversed (idempotent, same guard reverseCancelledBookingRevenue used)
+ */
+export async function reverseBookingRevenueIfPosted(
+  tenantId: string,
+  bookingId: string,
+): Promise<{ reversed: boolean; reason?: string; reversedCents?: number }> {
+  const { data: booking } = await supabaseAdmin
+    .from('bookings')
+    .select('payment_status')
+    .eq('id', bookingId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (booking?.payment_status === 'refunded') {
+    return { reversed: false, reason: 'refund_path_handled' }
+  }
+
+  const { data: entry } = await supabaseAdmin
+    .from('journal_entries')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('source', 'booking')
+    .eq('source_id', bookingId)
+    .maybeSingle()
+  if (!entry) return { reversed: false, reason: 'no_revenue_posted' }
+
+  if (await journalEntryExists(tenantId, 'booking_reversal', bookingId)) {
+    return { reversed: false, reason: 'already_reversed' }
+  }
+
+  const { data: lines } = await supabaseAdmin
+    .from('journal_lines')
+    .select('coa_id, debit_cents, credit_cents')
+    .eq('tenant_id', tenantId)
+    .eq('entry_id', entry.id as string)
+  if (!lines || lines.length === 0) return { reversed: false, reason: 'no_lines' }
+
+  const reversedLines: JournalLineInput[] = lines.map((l) => ({
+    coa_id: l.coa_id as string,
+    debit_cents: l.credit_cents || 0,
+    credit_cents: l.debit_cents || 0,
+    memo: 'Reversal: booking cancelled after revenue was posted',
+  }))
+  const cents = lines.reduce((s, l) => s + (l.credit_cents || 0), 0)
+
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: new Date().toISOString().slice(0, 10),
+    memo: `Reversal — booking ${bookingId.slice(0, 8)} cancelled`,
+    source: 'booking_reversal',
+    source_id: bookingId,
+    lines: reversedLines,
+  })
+  if (!entryId) return { reversed: false, reason: 'already_reversed' }
+  return { reversed: true, reversedCents: cents }
+}
+
+/**
  * Corrective reversal for revenue already wrongly posted for bookings that
  * were cancelled (the gap backfillRevenueFromBookings/postPaymentRevenue now
  * guard against going forward). Journal entries are append-only -- this never
@@ -322,6 +402,10 @@ async function bookingHasRealPayoutRecord(tenantId: string, bookingId: string, b
  * source='booking_reversal' so the mistake and its correction are both
  * visible in the audit trail, and it's idempotent (unique on
  * tenant_id+source+source_id, same as every other posting path).
+ *
+ * Tenant-wide safety-net scan — shares its per-booking logic with
+ * reverseBookingRevenueIfPosted above (which is now the real-time path, run
+ * automatically on cancel) so both agree on when a reversal is safe.
  */
 export async function reverseCancelledBookingRevenue(
   tenantId: string,
@@ -345,34 +429,10 @@ export async function reverseCancelledBookingRevenue(
     if (booking?.status !== 'cancelled') continue
     scanned++
 
-    if (await journalEntryExists(tenantId, 'booking_reversal', entry.source_id as string)) continue
-
-    const { data: lines } = await supabaseAdmin
-      .from('journal_lines')
-      .select('coa_id, debit_cents, credit_cents')
-      .eq('tenant_id', tenantId)
-      .eq('entry_id', entry.id as string)
-    if (!lines || lines.length === 0) continue
-
-    const reversedLines: JournalLineInput[] = lines.map((l) => ({
-      coa_id: l.coa_id as string,
-      debit_cents: l.credit_cents || 0,
-      credit_cents: l.debit_cents || 0,
-      memo: 'Reversal: booking cancelled after revenue was posted',
-    }))
-    const cents = lines.reduce((s, l) => s + (l.credit_cents || 0), 0)
-
-    const entryId = await postJournalEntry({
-      tenant_id: tenantId,
-      entry_date: new Date().toISOString().slice(0, 10),
-      memo: `Reversal — booking ${String(entry.source_id).slice(0, 8)} cancelled`,
-      source: 'booking_reversal',
-      source_id: entry.source_id as string,
-      lines: reversedLines,
-    })
-    if (entryId) {
+    const result = await reverseBookingRevenueIfPosted(tenantId, entry.source_id as string)
+    if (result.reversed) {
       reversed++
-      reversedCents += cents
+      reversedCents += result.reversedCents || 0
     }
   }
   return { scanned, reversed, reversedCents }
