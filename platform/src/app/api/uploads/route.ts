@@ -21,7 +21,19 @@ const MAX_SIZE = 15 * 1024 * 1024 // 15MB
 // iPhone, and this route is now also the ComHub MMS-attach path, where an
 // admin is very likely attaching straight from their own camera roll.
 // Matches the inbound MMS_ALLOWED_TYPES set in webhooks/telnyx/route.ts.
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf', 'video/mp4', 'video/quicktime']
+// Office document types added 2026-08-12 — this route is also the Task
+// Board's Media/Files attach path now (see UpdateComposer.tsx), where "a
+// document" plainly means Word/Excel/text/csv/zip too, not just PDF/photos.
+const ALLOWED_TYPES = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  'application/pdf', 'video/mp4', 'video/quicktime',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain', 'text/csv',
+  'application/zip',
+]
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData()
