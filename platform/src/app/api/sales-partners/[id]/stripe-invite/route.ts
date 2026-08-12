@@ -127,7 +127,7 @@ export async function sendSalesPartnerStripeInvite(
     return { ok: true, url: link.url, sentSms, sentEmail }
   } catch (e) {
     console.error('[sales-partner stripe-invite]', e)
-    return { ok: false, error: e instanceof Error ? e.message : 'Stripe error' }
+    return { ok: false, error: 'Failed to send Stripe invite' }
   }
 }
 
@@ -143,6 +143,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     console.error('[sales-partner stripe-invite] POST error:', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to send Stripe invite' }, { status: 500 })
   }
 }

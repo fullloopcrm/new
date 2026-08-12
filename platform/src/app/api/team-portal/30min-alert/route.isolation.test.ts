@@ -30,6 +30,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/client-contacts'
 import { createToken } from '../auth/token'
 
+// route.ts imports sendClientSMS from the tenant-aware @/lib/client-contacts
+// (not the legacy @/lib/nycmaid/client-contacts) — mocking the wrong module
+// left this suite's client-SMS calls falling through to the REAL, unmocked
+// getClientContacts()/tenantDb() path, which then hit the route's real
+// unfaked 60s retry backoff and timed out the runner instead of asserting
+// anything. Mocking the module the route actually imports fixes that.
 vi.mock('@/lib/client-contacts', () => ({
   sendClientSMS: vi.fn(async () => ({ sent: 1, skipped: 0 })),
 }))

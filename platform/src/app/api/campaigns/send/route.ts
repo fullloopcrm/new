@@ -4,12 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { getSettings } from '@/lib/settings'
 
 export const maxDuration = 300
 
 // ── POST: Send a campaign with recipient-level tracking ──────────────
 export async function POST(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {
@@ -33,8 +34,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    if (campaign.status !== 'draft') {
+    if (campaign.status !== 'draft' && campaign.status !== 'approved') {
       return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
+
+    // Tenant rule: campaign_approval_required gates send on an explicit
+    // 'approved' status — mirrors the sibling /api/campaigns/[id]/send
+    // route's approval gate so both send paths behave consistently.
+    const settings = await getSettings(tenantId)
+    if (settings.campaign_approval_required && campaign.status !== 'approved') {
+      return NextResponse.json(
+        { error: 'This tenant requires campaign approval before sending. Set status to approved first.' },
+        { status: 403 }
+      )
     }
 
     // Mark as sending
@@ -228,7 +240,7 @@ export async function POST(request: Request) {
 
 // ── PUT: Retry failed recipients ─────────────────────────────────────
 export async function PUT(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {

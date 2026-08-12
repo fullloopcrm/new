@@ -83,7 +83,7 @@ export const POST = withMobileCors(async function POST(request: Request, { param
     return NextResponse.json({ url: link.url, account_id: accountId })
   } catch (e) {
     console.error('[referrer stripe-onboard]', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Stripe error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to start Stripe onboarding' }, { status: 500 })
   }
 })
 

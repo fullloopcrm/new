@@ -4,19 +4,38 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
  * PARITY-DIFF (W4, PAYMENT lane): cutover checklist items "Client `collect` /
  * payment-link page works with link-based Stripe" and "Waitlist / self-book $10
  * path" were both marked not-yet-exercised. The route (ported from nycmaid's
- * team/30min-alert) already carries the right behavior — the tenant's own
- * `payment_link` substituted in with `client_reference_id`, and the $10
- * self-booking discount applied when `booking.notes` carries the flag
- * `/api/client/book` writes at booking time — but neither was locked in by a
- * test. This proves both, and that a non-self-booked job is NOT discounted.
+ * team/30min-alert) already carries the right behavior — a fresh per-booking
+ * adjustable-amount Stripe Payment Link created via `createPaymentLink()`
+ * (gated on the tenant's own `stripe_api_key`, never a hardcoded/shared
+ * link), and the $10 self-booking discount applied when `booking.notes`
+ * carries the flag `/api/client/book` writes at booking time — but neither
+ * was locked in by a test. This proves both, and that a non-self-booked job
+ * is NOT discounted.
+ *
+ * NOTE: this file previously mocked `@/lib/nycmaid/client-contacts` (the
+ * route imports `@/lib/client-contacts` instead), so the mock never
+ * intercepted and every assertion here silently fell through to the real,
+ * unmocked send path — which threw ("tenantDb requires a tenantId", since
+ * this file's fake `tenants` row never had an `id`) and then hung on the
+ * route's real 60s retry backoff. Fixed to mock the module the route
+ * actually imports. Along the way, two assertions here had also gone stale
+ * against the current route: the client SMS text reads "Total: $X.XX", not
+ * "Your total: $X.XX", and pay-link creation no longer substitutes
+ * `tenant.payment_link` + `?client_reference_id=` (that field isn't even
+ * selected from `tenants` anymore) — it creates a real per-booking Stripe
+ * Payment Link. Both are corrected below to match current behavior.
  */
 
 const TENANT = 'aaaaaaaa-0000-0000-0000-000000000001'
 const MEMBER_A = '11111111-0000-0000-0000-000000000001'
 
 type Booking = Record<string, unknown>
-const state: { booking: Booking | null; paymentLink: string | null } = { booking: null, paymentLink: null }
+const state: { booking: Booking | null; stripeApiKey: string | null } = { booking: null, stripeApiKey: null }
 let lastClientSms = ''
+
+const { createPaymentLink } = vi.hoisted(() => ({
+  createPaymentLink: vi.fn(async (_opts: Record<string, unknown>) => ({ url: 'https://buy.stripe.com/test_mocklink' })),
+}))
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
@@ -36,7 +55,7 @@ vi.mock('@/lib/supabase', () => {
       single: async () => {
         if (table === 'team_members' && selectStr.includes('status')) return { data: { status: 'active' }, error: null }
         if (table === 'tenants' && selectStr.includes('selena_config')) return { data: { selena_config: null }, error: null }
-        if (table === 'tenants') return { data: { name: 'T', telnyx_api_key: 'k', telnyx_phone: '+15550001', stripe_api_key: 'sk_test_x', payment_link: state.paymentLink }, error: null }
+        if (table === 'tenants') return { data: { id: TENANT, name: 'T', telnyx_api_key: 'k', telnyx_phone: '+15550001', stripe_api_key: state.stripeApiKey }, error: null }
         if (table === 'bookings') return { data: state.booking, error: null }
         return { data: null, error: null }
       },
@@ -56,15 +75,13 @@ vi.mock('@/lib/supabase', () => {
 
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: async () => {} }))
+// route.ts imports sendClientSMS from the tenant-aware @/lib/client-contacts,
+// whose signature is (tenant, clientId, message) — not the legacy
+// @/lib/nycmaid/client-contacts' (clientId, message, options).
 vi.mock('@/lib/client-contacts', () => ({
   sendClientSMS: async (_tenant: unknown, _clientId: string, body: string) => { lastClientSms = body; return { sent: 1, skipped: 0 } },
 }))
-// Static tenant.payment_link + client_reference_id substitution was replaced
-// by a dynamically-created, per-booking, adjustable-amount Stripe payment
-// link (src/lib/stripe.ts createPaymentLink) -- see route.ts's payLink block.
-vi.mock('@/lib/stripe', () => ({
-  createPaymentLink: async ({ bookingId }: { bookingId: string }) => ({ url: `https://pay.test/link-${bookingId}` }),
-}))
+vi.mock('@/lib/stripe', () => ({ createPaymentLink }))
 
 import { NextRequest } from 'next/server'
 import { createToken } from '@/app/api/team-portal/auth/token'
@@ -93,7 +110,8 @@ function baseBooking(over: Booking = {}): Booking {
 beforeEach(() => {
   process.env.TEAM_PORTAL_SECRET = 'unit-test-team-portal-secret'
   lastClientSms = ''
-  state.paymentLink = 'https://buy.stripe.com/test_abc123'
+  state.stripeApiKey = 'sk_test_123'
+  createPaymentLink.mockClear()
 })
 
 afterEach(() => {
@@ -101,11 +119,19 @@ afterEach(() => {
 })
 
 describe('15min-alert — payment link + $10 self-booking discount parity', () => {
-  it('sends the client a freshly-created, per-booking payment link', async () => {
+  it('creates a fresh per-booking adjustable-amount Stripe payment link (not a hardcoded/shared link) and includes it in the client SMS', async () => {
     state.booking = baseBooking({ notes: null })
     const res = await POST(req())
     expect(res.status).toBe(200)
-    expect(lastClientSms).toContain('Pay here: https://pay.test/link-bk')
+
+    expect(createPaymentLink).toHaveBeenCalledTimes(1)
+    const call = createPaymentLink.mock.calls[0][0] as Record<string, unknown>
+    expect(call.bookingId).toBe('bk')
+    expect(call.tenantId).toBe(TENANT)
+    expect(call.stripeApiKey).toBe('sk_test_123')
+    expect(call.adjustableAmount).toBe(true)
+
+    expect(lastClientSms).toContain('Pay here: https://buy.stripe.com/test_mocklink')
   })
 
   it('applies the $10 self-booking discount when the booking notes carry the flag set by /api/client/book', async () => {
@@ -124,13 +150,12 @@ describe('15min-alert — payment link + $10 self-booking discount parity', () =
     expect(lastClientSms).toContain('Total: $138.00')
   })
 
-  it('uses the freshly-created dynamic link even when the tenant has a stale static payment_link on file', async () => {
-    // Static tenant.payment_link substitution is superseded by a per-booking
-    // dynamic link -- a leftover value here must never leak into the SMS.
-    state.paymentLink = 'https://buy.stripe.com/test_abc123?locale=en'
+  it('omits the payment link entirely when the tenant has no Stripe key configured, instead of falling back to a shared/hardcoded link', async () => {
+    state.stripeApiKey = null
     state.booking = baseBooking({ notes: null })
-    await POST(req())
-    expect(lastClientSms).toContain('Pay here: https://pay.test/link-bk')
-    expect(lastClientSms).not.toContain('buy.stripe.com/test_abc123')
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(createPaymentLink).not.toHaveBeenCalled()
+    expect(lastClientSms).not.toContain('Pay here:')
   })
 })

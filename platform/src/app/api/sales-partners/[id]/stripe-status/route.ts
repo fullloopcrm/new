@@ -16,6 +16,9 @@ import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { getSalesPartnerAuth } from '@/lib/sales-partner-portal-auth'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 function getStripe(key: string | null | undefined): Stripe {
   const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
@@ -74,7 +77,7 @@ async function checkStatus(id: string, tenantId: string, notifyOnFirstReady: boo
   })
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withMobileCors(async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
@@ -84,11 +87,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return await checkStatus(id, auth.tid, true)
   } catch (e) {
     console.error('[sales-partner stripe-status] POST error:', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to check Stripe status' }, { status: 500 })
   }
-}
+})
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withMobileCors(async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getSalesPartnerAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
@@ -98,6 +101,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return await checkStatus(id, auth.tid, false)
   } catch (e) {
     console.error('[sales-partner stripe-status] GET error:', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to check Stripe status' }, { status: 500 })
   }
-}
+})

@@ -6,7 +6,11 @@ import { requireAdmin } from '@/lib/require-admin'
 import { IMPERSONATE_COOKIE, signImpersonation } from '@/lib/impersonation'
 
 const COOKIE_NAME = IMPERSONATE_COOKIE
-const MAX_AGE = 3600 // 1 hour
+// Was 1 hour, which lapsed mid-session on idle-but-still-logged-in tabs
+// (e.g. reading a Task Board item drawer without triggering a renewing
+// request) even though admin_token itself is effectively long-lived —
+// bumped to a full day, 2026-08-12.
+const MAX_AGE = 86400 // 24 hours
 
 // Start impersonation
 export async function POST(request: Request) {

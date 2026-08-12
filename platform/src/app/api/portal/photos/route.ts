@@ -11,8 +11,11 @@ import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { saveJobPhoto, JobPhotoError } from '@/lib/job-photos'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: NextRequest) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyPortalToken(token)
@@ -55,4 +58,4 @@ export async function POST(request: NextRequest) {
     console.error('POST /api/portal/photos', err)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
-}
+})

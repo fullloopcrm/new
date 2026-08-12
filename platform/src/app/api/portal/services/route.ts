@@ -20,6 +20,6 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
     .eq('active', true)
     .order('sort_order')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load services' }, { status: 500 })
   return NextResponse.json({ services: data })
 })

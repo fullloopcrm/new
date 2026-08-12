@@ -47,7 +47,7 @@ export default function BoardsSidebar({ apiBase, boardHrefBase }: BoardsSidebarP
   }
 
   return (
-    <div className="w-56 shrink-0 border-r border-slate-200 bg-white h-full flex flex-col">
+    <div className="w-44 shrink-0 border-r border-slate-200 bg-white h-full flex flex-col">
       <div className="p-3 border-b border-slate-100">
         <p className="text-xs font-semibold text-slate-500 uppercase px-1">Task Board</p>
       </div>

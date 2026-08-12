@@ -10,8 +10,11 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { saveJobPhoto, JobPhotoError } from '@/lib/job-photos'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const auth = verifyToken(token)
@@ -54,4 +57,4 @@ export async function POST(request: Request) {
     console.error('POST /api/team-portal/photos', err)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
-}
+})

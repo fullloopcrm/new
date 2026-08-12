@@ -24,11 +24,13 @@ import { getTenantTimezone, getLocalHour, toTenantNaiveString, getTenantNaiveDay
 //
 // Safety rails (no-mass-SMS rule):
 //   - 14-day recency floor: never chase ancient / migrated bookings.
-//   - per-slot idempotency via sms_logs: at most one text per booking per slot.
+//   - per-slot idempotency via sms_logs: at most one text per booking per
+//     slot, enforced by a real unique index (migrations/2026_08_12_sms_logs_
+//     followup_slot_unique.sql) on (booking_id, sms_type, slot_key), not
+//     just an app-level check -- see the claim-before-send comment below.
 //   - hard cap per tenant per run, with admin notify if exceeded.
 const SEND_SLOTS_LOCAL = new Set([8, 12, 17])
 const RECENCY_FLOOR_DAYS = 14
-const SLOT_IDEMPOTENCY_MS = 3.5 * 60 * 60 * 1000 // < 4h gap between slots
 const MAX_SENDS_PER_RUN = 100
 const SMS_TYPE = 'payment_followup_daily'
 
@@ -52,8 +54,6 @@ export async function GET(request: Request) {
     .not('telnyx_api_key', 'is', null)
     .not('payment_link', 'is', null)
 
-  const idempotencyCutoff = new Date(now.getTime() - SLOT_IDEMPOTENCY_MS).toISOString()
-
   const perTenant: { tenant: string; sent: number; wouldText: number; capHit: boolean }[] = []
   let skippedWrongHour = 0
 
@@ -62,6 +62,11 @@ export async function GET(request: Request) {
     const timezone = getTenantTimezone(tenant)
     const localHour = getLocalHour(timezone, now)
     if (!force && !dryRun && !SEND_SLOTS_LOCAL.has(localHour)) { skippedWrongHour++; continue }
+    // Deterministic identity for "this slot", in the tenant's own local
+    // calendar date + send hour -- e.g. '2026-08-12-8'. Backs the atomic
+    // per-slot claim below via the unique index on
+    // sms_logs(booking_id, sms_type, slot_key).
+    const slotKey = `${toTenantNaiveString(timezone, now).slice(0, 10)}-${localHour}`
     if (!(await isCommEnabled(tenant.id, 'payment_reminder', 'sms'))) continue
 
     // end_time is naive tenant-local — compare against a naive string in
@@ -91,17 +96,40 @@ export async function GET(request: Request) {
       const client = booking.clients as unknown as { name?: string; phone?: string } | null
       if (!booking.client_id || !client?.phone) continue
 
-      // Per-slot idempotency: already chased this booking this slot?
-      const { count } = await supabaseAdmin
-        .from('sms_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('booking_id', booking.id)
-        .eq('sms_type', SMS_TYPE)
-        .gte('created_at', idempotencyCutoff)
-      if (count && count > 0) continue
-
       const amount = (booking.price / 100).toFixed(2)
-      if (dryRun) { wouldText++; continue }
+      if (dryRun) {
+        // Dry-run summary only -- no claim taken, so this is an estimate,
+        // not a guarantee (matches the pre-fix behavior for --dry).
+        const { count } = await supabaseAdmin
+          .from('sms_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('booking_id', booking.id)
+          .eq('sms_type', SMS_TYPE)
+          .eq('slot_key', slotKey)
+        if (count && count > 0) continue
+        wouldText++
+        continue
+      }
+
+      // Claim this booking's slot BEFORE sending. The unique index on
+      // sms_logs(booking_id, sms_type, slot_key) (migrations/2026_08_12_
+      // sms_logs_followup_slot_unique.sql) makes this atomic: only one
+      // concurrent/retried cron invocation can win the insert for a given
+      // booking+slot, so at most one SMS goes out per slot even if two runs
+      // race. A losing insert (23505 unique violation) means another
+      // invocation already claimed this slot -- skip, don't send.
+      const { error: claimError } = await supabaseAdmin.from('sms_logs').insert({
+        tenant_id: tenant.id,
+        booking_id: booking.id,
+        sms_type: SMS_TYPE,
+        recipient: client.phone,
+        slot_key: slotKey,
+      })
+      if (claimError) {
+        if (claimError.code === '23505') continue // already sent this slot
+        console.error(`[payment-followup-daily] claim insert failed (tenant ${tenant.id}, booking ${booking.id}):`, claimError)
+        continue
+      }
 
       const firstName = client.name?.split(' ')[0] || 'there'
       const payLink = `${tenant.payment_link}?client_reference_id=${booking.id}`
@@ -115,14 +143,19 @@ export async function GET(request: Request) {
 
       try {
         await sendSMS({ to: client.phone, body: text, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
-        await supabaseAdmin.from('sms_logs').insert({
-          tenant_id: tenant.id,
-          booking_id: booking.id,
-          sms_type: SMS_TYPE,
-        })
         sent++
       } catch (err) {
         console.error(`[payment-followup-daily] send failed (tenant ${tenant.id}, booking ${booking.id}):`, err)
+        // Revert the claim -- no text actually went out, so a later slot (or
+        // a force-retry) must be able to try this booking again instead of
+        // being permanently blocked by a claim for a send that never happened.
+        await supabaseAdmin
+          .from('sms_logs')
+          .delete()
+          .eq('tenant_id', tenant.id)
+          .eq('booking_id', booking.id)
+          .eq('sms_type', SMS_TYPE)
+          .eq('slot_key', slotKey)
       }
     }
 

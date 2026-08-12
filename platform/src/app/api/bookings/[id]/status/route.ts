@@ -7,6 +7,8 @@ import { notify } from '@/lib/notify'
 import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { voidCommissionsForBooking } from '@/lib/finance/post-adjustments'
+import { reverseBookingRevenueIfPosted } from '@/lib/finance/post-revenue'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['scheduled', 'cancelled'],
@@ -110,6 +112,27 @@ export async function PATCH(
         }
       } catch (notifErr) {
         console.error('Cancellation notification error:', notifErr)
+      }
+    }
+
+    // Finance correctness on cancel — commissions never clawed back and
+    // posted revenue never reversed for a cancelled booking used to require a
+    // human to notice and fix it by hand. Both are independently idempotent
+    // and check their own prior-run state (see their docstrings), so this is
+    // safe even if the same booking also gets refunded through Stripe
+    // (charge.refunded webhook runs the same commission clawback, and skips
+    // the revenue reversal here already having run via payment_status).
+    // Non-blocking: never fail the status change on either of these.
+    if (status === 'cancelled') {
+      try {
+        await voidCommissionsForBooking({ tenantId, bookingId: id, reason: 'the booking was cancelled' })
+      } catch (commErr) {
+        console.error('Commission clawback error (non-blocking):', commErr)
+      }
+      try {
+        await reverseBookingRevenueIfPosted(tenantId, id)
+      } catch (revErr) {
+        console.error('Revenue reversal error (non-blocking):', revErr)
       }
     }
 

@@ -27,7 +27,7 @@ export const GET = withMobileCors(async function GET(request: Request) {
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load contacts' }, { status: 500 })
   return NextResponse.json({ contacts: data })
 })
 
@@ -67,6 +67,6 @@ export const POST = withMobileCors(async function POST(request: Request) {
     .select('id, name, role, phone_e164, email, is_primary, receives_sms, receives_email')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to add contact' }, { status: 500 })
   return NextResponse.json({ contact: data }, { status: 201 })
 })

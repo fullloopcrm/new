@@ -82,7 +82,7 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
       error: { message: string } | null
     }
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to load jobs' }, { status: 500 })
 
     const masked = (data || []).map((b) => {
       const client = Array.isArray(b.clients) ? b.clients[0] : b.clients
@@ -113,7 +113,7 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to load jobs' }, { status: 500 })
     ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
     return NextResponse.json({ jobs: data })
   }
@@ -128,7 +128,7 @@ export const GET = withMobileCors(async function GET(request: NextRequest) {
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load jobs' }, { status: 500 })
   ;(data || []).forEach((b) => applyPropertyToBookingClient(b as never))
   return NextResponse.json({ jobs: data })
 })

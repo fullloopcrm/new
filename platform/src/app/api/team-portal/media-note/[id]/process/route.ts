@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { processMediaNote, MediaNoteError } from '@/lib/job-media-notes'
 import { verifyToken } from '../../../auth/token'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 export const maxDuration = 120
+export const OPTIONS = corsPreflight
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export const POST = withMobileCors(async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
 
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -30,6 +32,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const message = err instanceof Error ? err.message : 'Unknown processing error'
     const status = err instanceof MediaNoteError ? err.status : 500
     console.error('[media-note/process] failed:', message)
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json({ error: 'Failed to process media note' }, { status })
   }
-}
+})

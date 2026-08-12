@@ -39,10 +39,23 @@ export function verifyAdminTokenEdge(token: string | undefined | null, secret: s
     if (!timingSafeStringEqual(sig, expected)) return false
 
     const data = JSON.parse(payload) as AdminTokenPayload
-    // Only the global super-admin token satisfies this check — mirrors
-    // verifyAdminToken's role==='super_admin' gate (tenant-admin tokens are a
-    // separate, tenant-bound check not reachable through this middleware path).
-    return data.role === 'super_admin' && typeof data.exp === 'number' && data.exp > Date.now()
+    if (typeof data.exp !== 'number' || data.exp <= Date.now()) return false
+    // Global super-admin token (mirrors verifyAdminToken's role==='super_admin'
+    // gate) OR a real signed per-tenant-member token (mirrors
+    // verifyTenantAdminToken's role==='tenant_admin' gate, same payload shape
+    // and secret — see createTenantAdminToken in admin-auth/route.ts). Was
+    // super_admin-only, which meant every tenant_member logging in via their
+    // own /fullloop PIN (owner/admin/manager/staff/virtual_assistant — anyone
+    // other than the platform super-admin) had a genuinely valid, correctly
+    // signed cookie that this edge gate rejected on every single request,
+    // redirecting them to /sign-in regardless of the token's actual expiry —
+    // found 2026-08-12 investigating a "Session expired" report for a real
+    // virtual_assistant login, not a super-admin one. This is still only a
+    // coarse signature+expiry check for bypass purposes, same as before — the
+    // authoritative per-request check (including instant-revocation via a
+    // live tenant_members.is_active re-read) still happens downstream in
+    // getTenantForRequest() on the Node side.
+    return data.role === 'super_admin' || data.role === 'tenant_admin'
   } catch {
     return false
   }

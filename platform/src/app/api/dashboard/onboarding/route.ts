@@ -9,6 +9,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness, type OnboardingTaskStatus } from '@/lib/onboarding-tasks'
 
@@ -31,8 +32,11 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const { tenant: tenantCtx, error: authError } = await requirePermission('tenant.activate')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenantCtx
     const { task_id, status } = (await request.json().catch(() => ({}))) as {
       task_id?: string
       status?: OnboardingTaskStatus

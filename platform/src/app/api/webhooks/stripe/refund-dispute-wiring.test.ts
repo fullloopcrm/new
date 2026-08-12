@@ -21,6 +21,13 @@
  *   - dispute → chargeback keyed by dispute id + amount, plus a high-priority task;
  *   - tenant unresolved (no matching payment) → NOTHING posts. Money never lands
  *     on the wrong tenant's books, and a refund with no payment_intent is inert.
+ *
+ * 2026-08-12 addition: both branches also now claw back any commission tied to
+ * the booking (voidCommissionsForBooking) and stamp bookings.payment_status =
+ * 'refunded' so a later cancel-triggered reverseBookingRevenueIfPosted() can't
+ * double-reverse revenue already unwound here. Both are gated on a resolved
+ * bookingId — a non-booking payment (shop order, invoice) must not attempt
+ * either.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
@@ -34,6 +41,7 @@ const adj = vi.hoisted(() => ({
   postRefund: vi.fn(() => Promise.resolve({ posted: true })),
   postChargeback: vi.fn(() => Promise.resolve({ posted: true })),
   postDeposit: vi.fn(() => Promise.resolve({ posted: true })),
+  voidCommissions: vi.fn(() => Promise.resolve({ voided: 0, flagged: 0 })),
 }))
 const stripeEvent = vi.hoisted(() => ({ current: null as unknown }))
 
@@ -44,6 +52,7 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
   postRefundToLedger: adj.postRefund,
   postChargebackToLedger: adj.postChargeback,
   postDepositToLedger: adj.postDeposit,
+  voidCommissionsForBooking: adj.voidCommissions,
 }))
 // Stripe — no network, no real key. constructEvent just returns the fed event.
 vi.mock('stripe', () => ({
@@ -69,16 +78,21 @@ const BOOKING = 'bk_1234abcd-0000'
 
 beforeEach(() => {
   h.seq = 0
-  h.store = { admin_tasks: [], payments: [] }
+  h.store = { admin_tasks: [], payments: [], bookings: [{ id: BOOKING, tenant_id: TENANT, payment_status: 'paid' }] }
   adj.resolved = { tenantId: TENANT, bookingId: BOOKING }
   adj.postRefund.mockClear()
   adj.postChargeback.mockClear()
   adj.postDeposit.mockClear()
+  adj.voidCommissions.mockClear()
   stripeEvent.current = null
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_x'
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
+
+function booking(): Record<string, unknown> | undefined {
+  return (h.store.bookings || []).find((b) => b.id === BOOKING)
+}
 
 describe('charge.refunded → postRefundToLedger wiring', () => {
   it('posts ONE ledger entry per Stripe refund, keyed by that refund id + its own amount', async () => {
@@ -105,6 +119,11 @@ describe('charge.refunded → postRefundToLedger wiring', () => {
     expect(adj.postRefund).toHaveBeenNthCalledWith(2, {
       tenantId: TENANT, sourceId: 're_2', amountCents: 2000, memo: `Refund · booking ${BOOKING.slice(0, 8)}`,
     })
+    // Commission clawback + double-reversal guard both fire once, scoped to
+    // this booking — not once per refund line.
+    expect(adj.voidCommissions).toHaveBeenCalledTimes(1)
+    expect(adj.voidCommissions).toHaveBeenCalledWith({ tenantId: TENANT, bookingId: BOOKING, reason: 'Refund issued in Stripe' })
+    expect(booking()?.payment_status).toBe('refunded')
   })
 
   it('falls back to charge id + amount_refunded when the refunds list is empty', async () => {
@@ -129,6 +148,10 @@ describe('charge.refunded → postRefundToLedger wiring', () => {
     }
     await post()
     expect(adj.postRefund).toHaveBeenCalledWith({ tenantId: TENANT, sourceId: 'ch_3', amountCents: 900, memo: 'Refund' })
+    // No bookingId to claw back against or stamp — a non-booking payment
+    // (shop order, invoice) must not attempt either.
+    expect(adj.voidCommissions).not.toHaveBeenCalled()
+    expect(booking()?.payment_status).toBe('paid')
   })
 
   it('posts NOTHING when the payment intent resolves to no tenant', async () => {
@@ -142,6 +165,8 @@ describe('charge.refunded → postRefundToLedger wiring', () => {
     const res = await post()
     expect(res.status).toBe(200)
     expect(adj.postRefund).not.toHaveBeenCalled()
+    expect(adj.voidCommissions).not.toHaveBeenCalled()
+    expect(booking()?.payment_status).toBe('paid')
   })
 
   it('posts NOTHING when the charge carries no payment_intent to resolve from', async () => {
@@ -171,6 +196,11 @@ describe('charge.dispute.created → postChargebackToLedger wiring', () => {
     expect(h.store.admin_tasks[0]).toMatchObject({
       tenant_id: TENANT, type: 'chargeback', priority: 'high', related_type: 'booking', related_id: BOOKING,
     })
+    // Same clawback + double-reversal guard as a refund — a chargeback
+    // reverses the sale too.
+    expect(adj.voidCommissions).toHaveBeenCalledTimes(1)
+    expect(adj.voidCommissions).toHaveBeenCalledWith({ tenantId: TENANT, bookingId: BOOKING, reason: 'Chargeback / dispute opened in Stripe' })
+    expect(booking()?.payment_status).toBe('refunded')
   })
 
   it('posts NO chargeback and opens NO task when the tenant is unresolved', async () => {
@@ -182,5 +212,6 @@ describe('charge.dispute.created → postChargebackToLedger wiring', () => {
     await post()
     expect(adj.postChargeback).not.toHaveBeenCalled()
     expect(h.store.admin_tasks).toHaveLength(0)
+    expect(adj.voidCommissions).not.toHaveBeenCalled()
   })
 })

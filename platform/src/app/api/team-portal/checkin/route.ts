@@ -114,7 +114,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Check-in failed' }, { status: 500 })
   }
 
   // Owner Telegram/dashboard alert — global for every tenant. notify() only

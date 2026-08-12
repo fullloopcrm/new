@@ -7,6 +7,8 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { describeValueChanges, describeAssignmentChange, NO_ROWS_ERROR_CODE } from '@/lib/boards'
+import { sendEmail, tenantSender } from '@/lib/email'
+import { genericNotificationEmail } from '@/lib/email-templates'
 
 type Params = { params: Promise<{ id: string; itemId: string }> }
 
@@ -64,11 +66,47 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     if ('assigned_to' in updates) {
       let assigneeName: string | null = null
+      let assigneeEmail: string | null = null
       if (updates.assigned_to) {
-        const { data: member } = await db.from('team_members').select('name').eq('id', updates.assigned_to).maybeSingle()
+        const { data: member } = await db.from('tenant_members').select('name, email').eq('id', updates.assigned_to).maybeSingle()
         assigneeName = member?.name || null
+        assigneeEmail = member?.email || null
       }
       lines.push(describeAssignmentChange(assigneeName))
+
+      // Notify the new assignee so a board assignment doesn't sit unseen —
+      // email (targeted, since `notifications` here has no per-user filter,
+      // only a tenant-wide 'admin' feed) plus the same in-app feed everyone
+      // else already sees. Best-effort: a notify failure shouldn't fail the
+      // assignment itself.
+      if (updates.assigned_to && assigneeEmail) {
+        const { data: board } = await db.from('boards').select('name').eq('id', boardId).single()
+        const boardName = board?.name || 'Task Board'
+        const dashboardHost = tenant.domain || `${tenant.slug}.fullloopcrm.com`
+        const boardUrl = `https://${dashboardHost}/dashboard/boards/${boardId}`
+        sendEmail({
+          to: assigneeEmail,
+          subject: `You were assigned: ${item.name}`,
+          html: genericNotificationEmail({
+            title: `New task on ${boardName}`,
+            message: `You were assigned "${item.name}" on the ${boardName} board.\n\nOpen it: ${boardUrl}`,
+            tenantName: tenant.name,
+            primaryColor: tenant.primary_color,
+          }),
+          from: tenantSender(tenant),
+          resendApiKey: tenant.resend_api_key,
+        }).catch((err) => console.error('board assignment email failed:', err))
+      }
+      if (updates.assigned_to) {
+        await db.from('notifications').insert({
+          type: 'board_task_assigned',
+          title: 'Task Board Assignment',
+          message: `${assigneeName || 'Someone'} was assigned "${item.name}"`,
+          channel: 'in_app',
+          recipient_type: 'admin',
+          status: 'sent',
+        }).then(() => {}, (err) => console.error('board assignment in-app notification failed:', err))
+      }
     }
     if (lines.length > 0) {
       await db.from('board_item_notes').insert(

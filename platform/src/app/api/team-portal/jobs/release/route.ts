@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // A member hands their OWN job back to the open pool (e.g. sick that morning).
 // Distinct from reassign — no permission over others, only over your own job.
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.release_own')
   if (permError) return permError
 
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
     .select()
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to release job' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not your job to release' }, { status: 403 })
 
   await audit({
@@ -35,4 +38,4 @@ export async function POST(request: Request) {
   })
 
   return NextResponse.json({ booking: data })
-}
+})

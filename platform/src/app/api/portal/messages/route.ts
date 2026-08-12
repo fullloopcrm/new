@@ -77,7 +77,7 @@ export const GET = withMobileCors(async function GET(req: NextRequest) {
     .eq('thread_id', threadId)
     .order('sent_at', { ascending: true })
     .limit(200)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 })
 
   await db.from('comhub_threads').update({ unread_count: 0 }).eq('id', threadId)
   return NextResponse.json({ thread_id: threadId, messages: data || [] })
@@ -108,7 +108,7 @@ export const POST = withMobileCors(async function POST(req: NextRequest) {
     })
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
 
   translateInboundComhubMessage(msg.id, body.body.trim())
 

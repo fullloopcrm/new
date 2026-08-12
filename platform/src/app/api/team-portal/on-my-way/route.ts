@@ -6,10 +6,13 @@ import { requirePermission } from '@/lib/require-permission'
 import { sendClientSMS, sendClientEmail, type CommsTenant } from '@/lib/client-contacts'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { genericNotificationEmail } from '@/lib/email-templates'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const ALLOWED_MINUTES = new Set([30, 60, 90])
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   try {
     // Two legitimate callers, same as the sibling 30min-alert route: a
     // cleaner from their own team-portal session (jobs.view_own, scoped to
@@ -96,4 +99,4 @@ export async function POST(request: Request) {
     console.error('On-my-way error:', err)
     return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
   }
-}
+})

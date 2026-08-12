@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 // The roster this member is allowed to see (their pod / all for manager).
 // Powers the reassign picker. Gated on team.view_roster.
-export async function GET(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const GET = withMobileCors(async function GET(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'team.view_roster')
   if (permError) return permError
 
@@ -18,6 +21,6 @@ export async function GET(request: Request) {
     .eq('status', 'active')
     .order('name')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Failed to load crew' }, { status: 500 })
   return NextResponse.json({ members: data || [] })
-}
+})

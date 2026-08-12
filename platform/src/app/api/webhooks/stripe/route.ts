@@ -26,7 +26,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { postPaymentRevenue, postShopOrderRevenue } from '@/lib/finance/post-revenue'
 import { dispatchShopOrder } from '@/lib/dropship/dispatch'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
-import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent, voidCommissionsForBooking } from '@/lib/finance/post-adjustments'
 import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
 import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
 import { notify } from '@/lib/notify'
@@ -61,19 +61,55 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
   const tenantId = session.metadata?.tenant_id
   if (!tenantId) return
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from('shop_orders')
     .select('id')
     .eq('stripe_checkout_session_id', session.id)
     .maybeSingle()
+  if (existingError) {
+    // Not silently fatal on its own — the insert below still has the
+    // stripe_checkout_session_id UNIQUE index as a backstop against a real
+    // duplicate (see the 23505 handling further down), so a transient
+    // failure here just costs one redundant insert attempt, not a double
+    // order. Still worth knowing about: it's the same failure mode (a flaky
+    // read) as the tenant/catalog lookups below, just with a cheaper
+    // downstream consequence.
+    await trackError(new Error(existingError.message), {
+      source: 'webhooks/stripe:handleShopOrder:existing-order-check',
+      tenantId,
+      severity: 'medium',
+      extra: `session ${session.id}`,
+    }).catch(() => {})
+  }
   if (existing) return
 
-  const { data: tenant } = await supabaseAdmin
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('id, name, slug, domain, primary_color, logo_url, phone, email, email_from, resend_api_key, telnyx_api_key, telnyx_phone, setup_progress')
     .eq('id', tenantId)
     .single()
-  if (!tenant) return
+  if (tenantError || !tenant) {
+    // Stripe has already charged the customer by the time
+    // checkout.session.completed fires — losing this lookup used to mean
+    // the function returned silently: no shop_orders row, no log, no
+    // alert, nothing. PGRST116 (.single() found zero rows) means tenant_id
+    // on the session metadata doesn't match a real tenant — a data/config
+    // problem, not a transient one, so there's nothing to retry into
+    // existing and 'high' is enough. Any other error code is a real query
+    // failure (RLS blip, connection drop, etc.) that's transient and
+    // retry-worthy, and the money is real, so it's 'critical'.
+    const notFound = tenantError?.code === 'PGRST116'
+    await trackError(
+      tenantError ? new Error(tenantError.message) : new Error(`Tenant lookup returned no row for ${tenantId}`),
+      {
+        source: 'webhooks/stripe:handleShopOrder:tenant-lookup',
+        tenantId,
+        severity: notFound ? 'high' : 'critical',
+        extra: `session ${session.id}`,
+      }
+    ).catch(() => {})
+    return
+  }
 
   const stripe = getStripe()
   const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { expand: ['data.price.product'] })
@@ -87,9 +123,25 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
     })
     .filter((id): id is string => !!id)
 
-  const { data: catalogRows } = serviceTypeIds.length
+  const { data: catalogRows, error: catalogError } = serviceTypeIds.length
     ? await supabaseAdmin.from('service_types').select('id, is_digital, digital_delivery_url').in('id', serviceTypeIds)
-    : { data: [] as { id: string; is_digital: boolean; digital_delivery_url: string | null }[] }
+    : { data: [] as { id: string; is_digital: boolean; digital_delivery_url: string | null }[], error: null }
+  if (catalogError) {
+    // A failed catalog lookup means we cannot tell which of these line items are
+    // actually digital vs physical — silently proceeding (catalogById empty) would
+    // make every item default isDigital:false below, so a paid digital item gets
+    // treated as physical: no download link ever generated, and it sits in the
+    // physical-fulfillment queue forever with no one aware anything's wrong. Rather
+    // than guess wrong, this is tracked here and the order gets flagged for manual
+    // review further down (once order.id exists) so a human resolves fulfillment by
+    // hand instead of the code silently mis-categorizing it.
+    await trackError(new Error(catalogError.message), {
+      source: 'webhooks/stripe:handleShopOrder:catalog-lookup',
+      tenantId,
+      severity: 'high',
+      extra: `session ${session.id}, service_type_ids ${serviceTypeIds.join(',')}`,
+    }).catch(() => {})
+  }
   const catalogById = new Map((catalogRows || []).map((r) => [r.id, r]))
 
   const items: (ShopReceiptItem & { serviceTypeId: string | null; color: string | null; size: string | null })[] = lineItems.data.map((li) => {
@@ -156,6 +208,20 @@ async function handleShopOrder(session: Stripe.Checkout.Session): Promise<void> 
         size: i.size,
       }))
     )
+  }
+
+  if (catalogError && serviceTypeIds.length > 0) {
+    // order.id now exists — flag for manual review instead of leaving the
+    // digital/physical misclassification silently baked into the order.
+    await supabaseAdmin.from('admin_tasks').insert({
+      tenant_id: tenantId,
+      type: 'shop_order_review',
+      priority: 'high',
+      title: 'Shop order needs manual digital/physical review',
+      description: `Order ${order.id}: catalog lookup failed (${catalogError.message}) — could not verify which items are digital vs physical. Confirm fulfillment manually before dispatch/delivery.`,
+      related_type: 'shop_order',
+      related_id: order.id,
+    }).then(() => {}, (err) => console.error('shop order review admin_task insert failed:', err))
   }
 
   try {
@@ -1098,6 +1164,26 @@ export async function POST(request: Request) {
           await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
             .catch(err => console.error('[stripe] refund post failed:', err))
         }
+        if (resolved.bookingId) {
+          // Claw back any commission tied to this booking — a refund that
+          // reverses the sale must not leave a referral/sales-partner
+          // commission still standing (or paid) on money that came back.
+          await voidCommissionsForBooking({ tenantId: resolved.tenantId, bookingId: resolved.bookingId, reason: 'Refund issued in Stripe' })
+            .catch(err => console.error('[stripe] commission clawback (refund) failed:', err))
+          // Stamp payment_status='refunded' — the same convention Selena's
+          // manual handleProcessStripeRefund tool already uses (see
+          // lib/selena/tools.ts) — so reverseBookingRevenueIfPosted() (run
+          // later on a cancel transition) sees this booking as already
+          // reconciled through the refund path and skips it, instead of
+          // posting a second, redundant reversing entry on top of the
+          // refund just posted above.
+          const { error: refundStampError } = await supabaseAdmin
+            .from('bookings')
+            .update({ payment_status: 'refunded' })
+            .eq('id', resolved.bookingId)
+            .eq('tenant_id', resolved.tenantId)
+          if (refundStampError) console.error('[stripe] payment_status refund-stamp failed:', refundStampError)
+        }
       }
       break
     }
@@ -1119,6 +1205,20 @@ export async function POST(request: Request) {
           related_type: 'booking',
           related_id: resolved.bookingId,
         }).then(() => {}, () => {})
+        if (resolved.bookingId) {
+          // Same clawback + double-reversal guard as the refund path above —
+          // a chargeback already reverses the sale (via postChargebackToLedger),
+          // so the commission and the booking's payment_status need the same
+          // treatment as an ordinary refund.
+          await voidCommissionsForBooking({ tenantId: resolved.tenantId, bookingId: resolved.bookingId, reason: 'Chargeback / dispute opened in Stripe' })
+            .catch(err => console.error('[stripe] commission clawback (dispute) failed:', err))
+          const { error: disputeStampError } = await supabaseAdmin
+            .from('bookings')
+            .update({ payment_status: 'refunded' })
+            .eq('id', resolved.bookingId)
+            .eq('tenant_id', resolved.tenantId)
+          if (disputeStampError) console.error('[stripe] payment_status refund-stamp failed (dispute):', disputeStampError)
+        }
       }
       break
     }

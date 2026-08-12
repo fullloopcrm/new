@@ -9,6 +9,7 @@ import { logAuthFailure } from '@/lib/error-tracking'
 import { audit } from '@/lib/audit'
 import { encryptSecretSafe } from '@/lib/secret-crypto'
 import { findRowByPin } from '@/lib/pin-lookup'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 
 const PIN_SCAN_CAP = 5000
 
@@ -46,7 +47,9 @@ async function findClientByContact(tenantId: string, contact: string): Promise<C
   return byEmail.data
 }
 
-export async function POST(request: Request) {
+export const OPTIONS = corsPreflight
+
+export const POST = withMobileCors(async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const { action } = body
   // Prefer an explicit slug, but fall back to the middleware-injected tenant
@@ -203,4 +206,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-}
+})

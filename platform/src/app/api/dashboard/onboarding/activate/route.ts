@@ -7,7 +7,8 @@
  * POST → { activated: true } | 400 with blockers
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { checkActivationReadiness } from '@/lib/onboarding-tasks'
@@ -15,8 +16,11 @@ import { registerCarryingDomain } from '@/lib/vercel-domains'
 import { runLegalOverlookCheck } from '@/lib/legal-overlook'
 
 export async function POST() {
+  const { tenant: tenantCtx, error: authError } = await requirePermission('tenant.activate')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenantCtx
 
     const readiness = await checkActivationReadiness(tenantId)
     if (!readiness.ready) {

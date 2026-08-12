@@ -4,11 +4,14 @@ import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../../auth/token'
 import { translateToEnEs } from '@/lib/connect-translate'
 import { resolveTeamConnectChannel } from '@/lib/connect-team-channel'
+import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+
+export const OPTIONS = corsPreflight
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const MAX_BYTES = 5 * 1024 * 1024
 
-export async function POST(request: NextRequest) {
+export const POST = withMobileCors(async function POST(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to send' }, { status: 500 })
 
     await tenantDb(auth.tid)
       .from('connect_read_cursors') // tenant-scope-ok: tenantDb() stamps tenant_id on upsert
@@ -77,4 +80,4 @@ export async function POST(request: NextRequest) {
     console.error('[team-portal/connect/upload] error:', e)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
-}
+})

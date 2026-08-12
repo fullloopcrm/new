@@ -364,6 +364,12 @@ export default async function DashboardPage() {
   const scheduledWeek = scheduled(startOfWeekNaive, endOfWeekNaive)
   const scheduledMonth = scheduled(startOfMonthNaive, endOfMonthNaive)
 
+  // Plain completion count for the month — independent of payment_status, so
+  // it stays visible to roles without finance.view (unlike the Revenue
+  // Ladder's "collected" jobs count, which requires status=completed AND
+  // payment_status=paid).
+  const completedMonth = allJobs.filter(j => j.status === 'completed' && inRange(j, startOfMonthNaive, endOfMonthNaive))
+
   // Remaining (booked, future months through year-end)
   const remaining = allJobs.filter(j => ['scheduled', 'confirmed'].includes(j.status) && inRange(j, endOfMonthNaive, endOfYearNaive))
 
@@ -407,7 +413,8 @@ export default async function DashboardPage() {
   ]
   const volumeLadder = [
     { label: 'Jobs · Week', val: scheduledWeek.length, sub: canViewFinance ? formatMoney(sum(scheduledWeek)) : '' },
-    { label: `Jobs · ${monthShort}`, val: scheduledMonth.length, sub: canViewFinance ? formatMoney(sum(scheduledMonth)) : '' },
+    { label: `Booked · ${monthShort}`, val: scheduledMonth.length, sub: canViewFinance ? formatMoney(sum(scheduledMonth)) : '' },
+    { label: `Completed · ${monthShort}`, val: completedMonth.length, sub: `${scheduledMonth.length > 0 ? Math.round((completedMonth.length / scheduledMonth.length) * 100) : 0}% of booked` },
     { label: 'Jobs · YTD', val: projectedJobs, sub: canViewFinance ? formatMoney(projectedRevenue) : '' },
     { label: 'Remaining', val: remaining.length, sub: canViewFinance ? formatMoney(sum(remaining)) : '' },
   ]
@@ -533,7 +540,7 @@ export default async function DashboardPage() {
 
       {/* JOBS LADDER */}
       <SectionVisibility section="jobs" label="Jobs" initialHidden={hiddenSections.includes('jobs')}>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', background: V.canvas, border: `1px solid ${V.line}` }}>
         {volumeLadder.map((c, i, arr) => (
           <div key={c.label} className="px-5 py-3" style={{ borderRight: i < arr.length - 1 ? `1px solid ${V.line}` : 'none' }}>
             <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600, marginBottom: 6 }}>{c.label}</div>
