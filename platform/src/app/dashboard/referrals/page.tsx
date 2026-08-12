@@ -27,6 +27,16 @@ export default function ReferralsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [copied, setCopied] = useState('')
   const [search, setSearch] = useState('')
+  const [portalLinkCopied, setPortalLinkCopied] = useState(false)
+  // Empty on the server and on first client render (so SSR and hydration
+  // match exactly), then filled in by this effect once mounted. Branching
+  // render output on `typeof window !== 'undefined'` instead causes a
+  // hydration mismatch — React logs it and refuses to patch the affected
+  // attributes, which left the Facebook/email hrefs permanently stuck at
+  // their SSR fallback in production.
+  const [origin, setOrigin] = useState('')
+  useEffect(() => setOrigin(window.location.origin), [])
+  const signupUrl = `${origin}/referral/signup`
 
   const tenantSettings = useTenantSettings()
   const [referralsPanelOpen, setReferralsPanelOpen] = useState(false)
@@ -93,6 +103,12 @@ export default function ReferralsPage() {
     setTimeout(() => setCopied(''), 2000)
   }
 
+  function copyPortalLink(url: string) {
+    navigator.clipboard.writeText(url)
+    setPortalLinkCopied(true)
+    setTimeout(() => setPortalLinkCopied(false), 2000)
+  }
+
   // Stats
   const totalReferrals = referrals.length
   const converted = referrals.filter(r => r.status === 'converted' || r.status === 'paid').length
@@ -128,9 +144,53 @@ export default function ReferralsPage() {
       <div className="flex items-center justify-between border border-slate-200 rounded-lg px-5 py-3 mb-6">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-400">Referral Signup Page:</span>
-          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{typeof window !== 'undefined' ? `${window.location.origin}/referral/signup` : '/referral/signup'}</code>
+          <code className="text-blue-400 font-mono text-xs bg-slate-50 px-2 py-0.5 rounded">{signupUrl}</code>
         </div>
-        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/referral/signup`)} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Copy Link</button>
+        <div className="flex items-center gap-3">
+          <a
+            href={origin ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(signupUrl)}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Share on Facebook"
+            title="Share on Facebook"
+            className="text-slate-400 hover:text-slate-900 transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.23 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22C18.34 21.23 22 17.08 22 12.06Z" />
+            </svg>
+          </a>
+          <a
+            href={origin ? `mailto:?subject=${encodeURIComponent('Join us — referral signup')}&body=${encodeURIComponent(signupUrl)}` : undefined}
+            aria-label="Share by email"
+            title="Share by email"
+            className="text-slate-400 hover:text-slate-900 transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="m22 6-10 7L2 6" />
+            </svg>
+          </a>
+          {!!origin && typeof navigator !== 'undefined' && !!navigator.share && (
+            <button
+              type="button"
+              onClick={() => navigator.share({ title: 'Referral signup', url: signupUrl }).catch(() => {})}
+              aria-label="More share options"
+              title="More share options (Messenger, Instagram, etc.)"
+              className="text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                <path d="m8.6 13.5 6.8 3.9M15.4 6.6 8.6 10.5" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => copyPortalLink(signupUrl)}
+            className="text-xs text-slate-400 hover:text-slate-900 transition-colors"
+          >
+            {portalLinkCopied ? 'Link copied!' : 'Copy Link'}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between mb-6">

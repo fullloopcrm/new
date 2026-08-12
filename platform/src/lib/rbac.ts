@@ -27,6 +27,7 @@ export type Permission =
   | 'leads.view'
   | 'notifications.view'
   | 'audit.view'
+  | 'boards.view' | 'boards.edit'
 
 // A per-tenant override is a sparse map of deviations from the defaults.
 // { admin: { 'finance.payroll': false }, staff: { 'clients.edit': true } }
@@ -50,6 +51,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
+    'boards.view', 'boards.edit',
   ],
   admin: [
     'clients.view', 'clients.create', 'clients.edit', 'clients.delete',
@@ -64,6 +66,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
+    'boards.view', 'boards.edit',
   ],
   manager: [
     'clients.view', 'clients.create', 'clients.edit',
@@ -78,6 +81,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
+    'boards.view', 'boards.edit',
   ],
   staff: [
     'clients.view',
@@ -87,6 +91,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reviews.view',
     'sales.view',
     'notifications.view',
+    'boards.view', 'boards.edit',
   ],
   // Front-office/remote support: The Loop, clients, ComHub/Connect, sales,
   // production (bookings/schedules), team roster/contact info, and marketing
@@ -106,6 +111,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
+    'boards.view', 'boards.edit',
   ],
 }
 
@@ -177,6 +183,10 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     { value: 'settings.view', label: 'View settings' },
     { value: 'settings.edit', label: 'Edit settings' },
     { value: 'settings.integrations', label: 'Manage integrations' },
+  ] },
+  { key: 'boards', label: 'Task Board', permissions: [
+    { value: 'boards.view', label: 'View task boards' },
+    { value: 'boards.edit', label: 'Create / edit boards, groups, items, and columns' },
   ] },
   { key: 'other', label: 'Other', permissions: [
     { value: 'leads.view', label: 'View leads' },

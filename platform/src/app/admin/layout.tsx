@@ -34,6 +34,7 @@ const navMain: Section[] = [
     { letter: 'c', label: 'Campaigns', href: '/admin/company/campaigns' },
     { letter: 'd', label: 'Analytics', href: '/admin/company/analytics' },
   ] },
+  { num: '07', label: 'Task Board', href: '/admin/boards', fold: 'boards', subs: [] },
 ]
 
 const navPlatform = [

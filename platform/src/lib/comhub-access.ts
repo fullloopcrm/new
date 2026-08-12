@@ -38,6 +38,12 @@ export async function requireComhubAccess(): Promise<ComhubAccess | NextResponse
     if (adminToken && verifyAdminToken(adminToken)) {
       return { tenantId: FULL_LOOP_SYSTEM_TENANT_ID, role: 'owner' }
     }
-    return NextResponse.json({ error: err.message }, { status: err.status })
+    // The bare AuthError message ("Unauthorized") was surfacing verbatim in
+    // the ComHub UI on session expiry, reading like a broken feature rather
+    // than a login problem. Swap in copy that tells the user what to do.
+    const message = err.status === 401
+      ? 'Your session has expired or you don’t have access to ComHub messaging. Try signing in again.'
+      : err.message
+    return NextResponse.json({ error: message }, { status: err.status })
   }
 }
