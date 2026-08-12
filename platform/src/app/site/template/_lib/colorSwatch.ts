@@ -6,6 +6,7 @@
 const KEYWORD_HEX: [RegExp, string][] = [
   [/black/i, '#111111'],
   [/white/i, '#f5f5f0'],
+  [/beige|tan\b/i, '#c9af87'],
   [/natural|bone|ecru|sand|khaki/i, '#e8dcc4'],
   [/charcoal/i, '#36393b'],
   [/grey|gray/i, '#8a8d8f'],
