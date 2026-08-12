@@ -33,10 +33,10 @@ export default function HeroTabs({ tabs }: { tabs: HeroTab[] }) {
             />
           ) : null
         )}
-        <div className="absolute inset-0 bg-black/55" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
       </div>
 
-      <div className="mt-32 flex justify-end flex-wrap gap-2 pr-2 sm:pr-6">
+      <div className="flex justify-end flex-wrap gap-2 pr-2 sm:pr-6">
         {tabs.map((t, i) => (
           <button
             key={t.key}
