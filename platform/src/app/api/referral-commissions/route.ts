@@ -105,12 +105,20 @@ export async function POST(request: Request) {
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     if (!booking.referrer_id) return NextResponse.json({ error: 'Booking has no referrer' }, { status: 400 })
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from('referral_commissions')
       .select('id')
       .eq('booking_id', booking_id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
+    // Fail closed on a transient DB error here -- `existing` comes back null
+    // on error same as "no row found", so trusting it blind would let a
+    // flaky query wave through a duplicate commission for a booking that
+    // already has one. Reject and let the caller retry instead of guessing.
+    if (existingError) {
+      console.error('[ref-comm] duplicate-check query failed:', existingError)
+      return NextResponse.json({ error: 'Failed to verify existing commission, try again' }, { status: 500 })
+    }
     if (existing) return NextResponse.json({ error: 'Commission already exists for this booking' }, { status: 409 })
 
     const { data: ref } = await supabaseAdmin

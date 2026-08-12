@@ -99,12 +99,21 @@ export async function PUT(request: Request) {
         .maybeSingle()
       if (!commissionRow) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-      const { data: partnerForRouting } = await supabaseAdmin
+      const { data: partnerForRouting, error: partnerRoutingError } = await supabaseAdmin
         .from('sales_partners')
         .select('stripe_ready_at, stripe_ineligible')
         .eq('id', commissionRow.sales_partner_id as string)
         .eq('tenant_id', tenantId)
         .maybeSingle()
+      // Fail closed on a transient DB error -- `partnerForRouting` comes back
+      // null same as "not found", which would default partnerReady to false
+      // below and silently route a Stripe-Connect-ready partner to the
+      // legacy manual payout path, violating the mandatory-Connect policy
+      // described above. Reject and let the caller retry instead of guessing.
+      if (partnerRoutingError) {
+        console.error('[sp-comm] partner routing lookup failed:', partnerRoutingError)
+        return NextResponse.json({ error: 'Failed to verify partner payout routing, try again' }, { status: 500 })
+      }
       const partnerReady = !!partnerForRouting?.stripe_ready_at
       const partnerIneligible = !!partnerForRouting?.stripe_ineligible
 
