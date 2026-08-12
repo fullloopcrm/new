@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // jsdom (via isomorphic-dompurify, used by src/lib/sanitize-html.ts for
+  // Task Board note HTML) reads its own default-stylesheet.css off disk at
+  // runtime for CSSOM support -- Next's serverless file tracer doesn't
+  // discover that require(fs)-based read on its own, so the compiled
+  // function 500s with ENOENT in production unless the asset is traced in
+  // explicitly. See vercel/next.js docs on outputFileTracingIncludes.
+  outputFileTracingIncludes: {
+    '/api/boards/**': ['./node_modules/jsdom/lib/jsdom/browser/default-stylesheet.css'],
+  },
   images: {
     // Remote hosts used as next/image sources across tenant sites. Required now
     // that programmatic pages render on-demand (build-time prerender previously
