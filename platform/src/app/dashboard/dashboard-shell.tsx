@@ -67,7 +67,7 @@ const navMain: Array<{
     { letter: 'E', label: 'Find a Team Member', href: '/dashboard/find-cleaner' },
     { letter: 'F', label: 'Announcements', href: '/dashboard/announcements' },
   ]},
-  { num: '05', label: 'Store', href: '/dashboard/ecommerce', fold: 'ecommerce', perm: 'sales.view', subs: [] },
+  { num: '05', label: 'E-commerce', href: '/dashboard/ecommerce', fold: 'ecommerce', perm: 'sales.view', subs: [] },
   { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
   { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
@@ -119,7 +119,7 @@ function activeFold(pathname: string): string | null {
 // the human label we want shown, or when the default (first-segment-only)
 // derivation can't reach a nested route like /dashboard/jobs/projects.
 const TITLE_OVERRIDES: Record<string, string> = {
-  '/dashboard/ecommerce': 'Store',
+  '/dashboard/ecommerce': 'E-commerce',
   '/dashboard/connect': 'Loop Connect',
   '/dashboard/jobs': 'Production',
   '/dashboard/jobs/projects': 'Projects',
