@@ -72,3 +72,12 @@ export function describeValueChanges(
   }
   return lines
 }
+
+// item.assigned_to is a dedicated column (not part of the generic `values`
+// blob describeValueChanges reads), so a reassignment needs its own line —
+// same Updates feed as the rest of describeValueChanges' output, just a
+// separate entry point since the caller resolves the name (team directory
+// lookup) before this is called.
+export function describeAssignmentChange(assigneeName: string | null): string {
+  return assigneeName ? `Assigned to ${assigneeName}` : 'Unassigned'
+}

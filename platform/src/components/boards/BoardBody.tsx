@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import BoardCell from './BoardCell'
 import BoardItemDrawer from './BoardItemDrawer'
 import { boardsFetch } from './boardsFetch'
-import type { BoardColumn, BoardColumnType, BoardGroup, BoardItem } from './types'
+import type { BoardColumn, BoardColumnType, BoardGroup, BoardItem, TeamMember } from './types'
 
 interface BoardBodyProps {
   apiBase: string
@@ -31,6 +31,7 @@ const COLUMN_TYPE_ICONS: Record<BoardColumnType, string> = {
 
 export default function BoardBody({ apiBase, boardId, richUpdates = true }: BoardBodyProps) {
   const [data, setData] = useState<BoardData | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[] | undefined>(undefined)
   const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [addingItemForGroup, setAddingItemForGroup] = useState<string | null>(null)
   const [newItemName, setNewItemName] = useState('')
@@ -49,6 +50,13 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
   }, [apiBase, boardId])
 
   useEffect(load, [load])
+
+  useEffect(() => {
+    if (!richUpdates) return // platform admin boards have no tenant session / team directory
+    boardsFetch<TeamMember[]>('/api/boards/team-mentions').then((r) => {
+      if (r.ok) setTeamMembers(r.data)
+    })
+  }, [richUpdates])
 
   async function updateItem(itemId: string, body: Record<string, unknown>) {
     setData((prev) => {
@@ -284,8 +292,13 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                           <div key={col.id} className="px-1.5 py-1.5 w-[150px] shrink-0 border-l border-slate-100 flex items-center">
                             <BoardCell
                               column={col}
-                              value={item.values?.[col.id]}
-                              onChange={(v) => updateItem(item.id, { values: { [col.id]: v } })}
+                              value={col.type === 'person' && teamMembers ? item.assigned_to : item.values?.[col.id]}
+                              onChange={(v) =>
+                                col.type === 'person' && teamMembers
+                                  ? updateItem(item.id, { assigned_to: v })
+                                  : updateItem(item.id, { values: { [col.id]: v } })
+                              }
+                              teamMembers={teamMembers}
                             />
                           </div>
                         ))}
@@ -369,6 +382,7 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
           boardId={boardId}
           item={openItem}
           columns={columns}
+          teamMembers={teamMembers}
           richUpdates={richUpdates}
           onClose={() => setOpenItemId(null)}
           onItemChange={(updated) => {

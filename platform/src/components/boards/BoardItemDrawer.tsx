@@ -5,13 +5,14 @@ import BoardCell from './BoardCell'
 import UpdateComposer from './UpdateComposer'
 import UpdateItem from './UpdateItem'
 import { boardsFetch } from './boardsFetch'
-import type { BoardColumn, BoardItem, BoardItemNote, BoardAttachment } from './types'
+import type { BoardColumn, BoardItem, BoardItemNote, BoardAttachment, TeamMember } from './types'
 
 interface BoardItemDrawerProps {
   apiBase: string
   boardId: string
   item: BoardItem
   columns: BoardColumn[]
+  teamMembers?: TeamMember[]
   onClose: () => void
   onItemChange: (item: BoardItem) => void
   onDelete: () => void
@@ -27,7 +28,7 @@ interface BoardItemDrawerProps {
 
 type Tab = 'updates' | 'files' | 'activity'
 
-export default function BoardItemDrawer({ apiBase, boardId, item, columns, onClose, onItemChange, onDelete, richUpdates = true }: BoardItemDrawerProps) {
+export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamMembers, onClose, onItemChange, onDelete, richUpdates = true }: BoardItemDrawerProps) {
   const [name, setName] = useState(item.name)
   const [notes, setNotes] = useState<BoardItemNote[] | null>(null)
   const [draftNote, setDraftNote] = useState('')
@@ -61,6 +62,15 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, onClo
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: { [columnId]: value } }),
+    })
+    if (r.ok) { onItemChange(r.data.item); loadNotes() } else setErr(r.error)
+  }
+
+  async function setAssignee(value: unknown) {
+    const r = await boardsFetch<{ item: BoardItem }>(`${apiBase}/${boardId}/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigned_to: value }),
     })
     if (r.ok) { onItemChange(r.data.item); loadNotes() } else setErr(r.error)
   }
@@ -113,7 +123,12 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, onClo
           {columns.map((col) => (
             <div key={col.id}>
               <label className="block text-xs font-medium text-slate-500 uppercase mb-1">{col.name}</label>
-              <BoardCell column={col} value={item.values?.[col.id]} onChange={(v) => setValue(col.id, v)} />
+              <BoardCell
+                column={col}
+                value={col.type === 'person' && teamMembers ? item.assigned_to : item.values?.[col.id]}
+                onChange={(v) => (col.type === 'person' && teamMembers ? setAssignee(v) : setValue(col.id, v))}
+                teamMembers={teamMembers}
+              />
             </div>
           ))}
           {columns.length === 0 && <p className="text-xs text-slate-400">No columns yet — add one from the board view.</p>}

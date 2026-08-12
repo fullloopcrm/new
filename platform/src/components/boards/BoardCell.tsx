@@ -1,18 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import type { BoardColumn } from './types'
+import type { BoardColumn, TeamMember } from './types'
 
 interface BoardCellProps {
   column: BoardColumn
   value: unknown
   onChange: (value: unknown) => void
+  /** Real HR team roster for the 'person' column type. Omitted on platform-level
+   *  admin boards (no tenant, no directory to resolve against) — falls back to
+   *  a plain text field there, same as before this existed. */
+  teamMembers?: TeamMember[]
 }
 
 const STATUS_UNSET = '#c4c4c4'
 
-export default function BoardCell({ column, value, onChange }: BoardCellProps) {
+export default function BoardCell({ column, value, onChange, teamMembers }: BoardCellProps) {
   const [draft, setDraft] = useState<string>(value != null ? String(value) : '')
+
+  if (column.type === 'person' && teamMembers) {
+    const current = typeof value === 'string' ? value : ''
+    return (
+      <select
+        value={current}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="w-full text-sm border-0 bg-transparent focus:bg-white focus:ring-1 focus:ring-teal-400 rounded px-1.5 py-1 cursor-pointer"
+      >
+        <option value="">Unassigned</option>
+        {teamMembers.map((m) => (
+          <option key={m.id} value={m.id}>{m.name}</option>
+        ))}
+      </select>
+    )
+  }
 
   if (column.type === 'status') {
     const current = typeof value === 'string' ? value : ''
@@ -64,9 +84,9 @@ export default function BoardCell({ column, value, onChange }: BoardCellProps) {
     )
   }
 
-  // text and person both render as a free-text field — person has no team
-  // directory to resolve against on the platform-level admin boards, so it's
-  // kept as a plain labeled text field on both surfaces for parity.
+  // text always renders free-text. person falls through to free-text too,
+  // but only when no teamMembers roster was passed in (platform-level admin
+  // boards have no tenant, so no directory to resolve against there).
   return (
     <input
       type="text"

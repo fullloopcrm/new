@@ -24,8 +24,11 @@ export type BoardItem = {
   name: string
   values: Record<string, unknown>
   position: number
+  assigned_to: string | null
   note_count?: number
 }
+
+export type TeamMember = { id: string; name: string }
 
 export type BoardAttachment = {
   name: string

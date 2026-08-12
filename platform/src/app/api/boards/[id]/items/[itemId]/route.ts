@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { describeValueChanges, NO_ROWS_ERROR_CODE } from '@/lib/boards'
+import { describeValueChanges, describeAssignmentChange, NO_ROWS_ERROR_CODE } from '@/lib/boards'
 
 type Params = { params: Promise<{ id: string; itemId: string }> }
 
@@ -57,21 +57,30 @@ export async function PATCH(request: Request, { params }: Params) {
       throw error
     }
 
+    const lines: string[] = []
     if (body.values && typeof body.values === 'object') {
       const { data: columns } = await db.from('board_columns').select('id, name, type').eq('board_id', boardId)
-      const lines = describeValueChanges(body.values, columns || [])
-      if (lines.length > 0) {
-        await db.from('board_item_notes').insert(
-          lines.map((line) => ({
-            item_id: itemId,
-            kind: 'activity' as const,
-            author_type: 'team' as const,
-            author_id: userId,
-            author_name: tenant.owner_name || tenant.name || 'Team',
-            body: line,
-          })),
-        )
+      lines.push(...describeValueChanges(body.values, columns || []))
+    }
+    if ('assigned_to' in updates) {
+      let assigneeName: string | null = null
+      if (updates.assigned_to) {
+        const { data: member } = await db.from('team_members').select('name').eq('id', updates.assigned_to).maybeSingle()
+        assigneeName = member?.name || null
       }
+      lines.push(describeAssignmentChange(assigneeName))
+    }
+    if (lines.length > 0) {
+      await db.from('board_item_notes').insert(
+        lines.map((line) => ({
+          item_id: itemId,
+          kind: 'activity' as const,
+          author_type: 'team' as const,
+          author_id: userId,
+          author_name: tenant.owner_name || tenant.name || 'Team',
+          body: line,
+        })),
+      )
     }
 
     return NextResponse.json({ item })
