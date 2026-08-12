@@ -28,13 +28,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 const h = vi.hoisted(() => {
   const calls = { refund: [] as Array<{ tenantId: string; sourceId: string; amountCents: number; memo?: string }> }
   const owners: Record<string, { tenantId: string; bookingId: string | null }> = {}
+  // bookingId -> { tenantId, payment_status } — lets the refund-stamp update
+  // below be scoped and inspected the same way a real bookings table would be.
+  const bookings: Record<string, { tenant_id: string; payment_status: string }> = {}
   return {
     calls,
     owners,
+    bookings,
     setOwner: (pi: string, val: { tenantId: string; bookingId: string | null }) => { owners[pi] = val },
     reset: () => {
       calls.refund.length = 0
       for (const k of Object.keys(owners)) delete owners[k]
+      for (const k of Object.keys(bookings)) delete bookings[k]
     },
     // Real production module exports the route imports — mock all so import resolves.
     postRefundToLedger: vi.fn(async (o: { tenantId: string; sourceId: string; amountCents: number; memo?: string }) => {
@@ -44,6 +49,7 @@ const h = vi.hoisted(() => {
     tenantFromPaymentIntent: vi.fn(async (pi: string) => owners[pi] ?? null),
     postDepositToLedger: vi.fn(async () => ({ posted: true })),
     postChargebackToLedger: vi.fn(async () => ({ posted: true })),
+    voidCommissionsForBooking: vi.fn(async () => ({ voided: 0, flagged: 0 })),
   }
 })
 
@@ -60,6 +66,36 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
   tenantFromPaymentIntent: h.tenantFromPaymentIntent,
   postDepositToLedger: h.postDepositToLedger,
   postChargebackToLedger: h.postChargebackToLedger,
+  voidCommissionsForBooking: h.voidCommissionsForBooking,
+}))
+
+// The route's payment_status='refunded' stamp is a direct supabaseAdmin call
+// (not routed through post-adjustments), so without this mock it would hit
+// the real (placeholder) Supabase URL on every refund test. Scoped strictly
+// by id+tenant_id, same as the real query — this is also where the "a
+// cross-tenant stamp attempt writes to the WRONG row" case would be caught.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (table: string) => {
+      if (table !== 'bookings') {
+        return { update: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }) }
+      }
+      return {
+        update: (patch: Record<string, unknown>) => ({
+          eq: (col1: string, val1: string) => ({
+            eq: async (col2: string, val2: string) => {
+              const row = h.bookings[val1]
+              if (!row || col1 !== 'id' || col2 !== 'tenant_id' || row.tenant_id !== val2) {
+                return { error: null } // real Postgres: 0 rows matched, not an error
+              }
+              Object.assign(row, patch)
+              return { error: null }
+            },
+          }),
+        }),
+      }
+    },
+  },
 }))
 
 import { POST } from './route'
@@ -88,6 +124,8 @@ beforeEach(() => {
   h.reset()
   h.postRefundToLedger.mockClear()
   h.tenantFromPaymentIntent.mockClear()
+  h.voidCommissionsForBooking.mockClear()
+  h.bookings['bk_A'] = { tenant_id: 'tenant-A', payment_status: 'paid' }
   process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_dummy'
 })
@@ -107,6 +145,14 @@ describe('POST /api/webhooks/stripe charge.refunded — refund cannot leak into 
     // Nothing ever routed to the metadata-claimed tenant.
     expect(h.calls.refund.every((c) => c.tenantId === 'tenant-A')).toBe(true)
     expect(h.calls.refund.some((c) => c.tenantId === 'tenant-B')).toBe(false)
+
+    // The 2026-08-12 clawback + payment_status stamp addition must carry the
+    // same DB-resolved-owner scoping — it's driven off the identical
+    // `resolved` object, but this proves it directly rather than assuming.
+    expect(h.voidCommissionsForBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 'tenant-A', bookingId: 'bk_A' }),
+    )
+    expect(h.bookings['bk_A'].payment_status).toBe('refunded')
   })
 
   it('writes NOTHING when the payment_intent is owned by no tenant (unknown intent → no ledger post at all)', async () => {
