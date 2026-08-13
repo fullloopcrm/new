@@ -58,7 +58,7 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('boards.edit')
     if (_authError) return _authError
     const { tenantId, tenant, userId } = _authTenant
-    const { itemId } = await params
+    const { id: boardId, itemId } = await params
     const body = await request.json().catch(() => ({}))
     const db = tenantDb(tenantId)
 
@@ -71,6 +71,9 @@ export async function POST(request: Request, { params }: Params) {
     if (htmlTextLength(sanitizedBody) === 0 && attachments.length === 0) {
       return NextResponse.json({ error: 'body is required' }, { status: 400 })
     }
+
+    const { data: item } = await db.from('board_items').select('id').eq('board_id', boardId).eq('id', itemId).single()
+    if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 })
 
     const { data: note, error } = await db
       .from('board_item_notes')
