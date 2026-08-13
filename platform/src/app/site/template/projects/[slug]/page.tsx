@@ -50,7 +50,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </h1>
           {project.completed_at && (
             <p className="text-blue-200/70 text-sm font-medium">
-              Completed {new Date(project.completed_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              Completed {new Date(project.completed_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' , timeZone: 'America/New_York' })}
             </p>
           )}
         </div>

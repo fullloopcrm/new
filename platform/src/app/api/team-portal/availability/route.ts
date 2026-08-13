@@ -106,7 +106,7 @@ export const PUT = withMobileCors(async function PUT(request: NextRequest) {
     const memberName = member?.name || 'A team member'
     const dateList = newDatesRequested.map((d: string) => {
       const date = new Date(d + 'T12:00:00')
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
     }).join(', ')
 
     await notify({

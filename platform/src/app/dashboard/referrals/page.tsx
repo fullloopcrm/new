@@ -393,7 +393,7 @@ export default function ReferralsPage() {
                     {r.reward_amount ? fmt(r.reward_amount) : '—'}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-400">
-                    {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                   </td>
                   <td className="px-4 py-3">
                     {r.status === 'converted' && (
@@ -428,7 +428,7 @@ export default function ReferralsPage() {
                 <div key={r.id} className="flex items-center justify-between px-5 py-3">
                   <div>
                     <p className="text-sm font-medium text-slate-900">{r.clients?.name || 'Unknown'}</p>
-                    <p className="text-xs text-slate-400">Code: {r.referral_code} &middot; {new Date(r.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-400">Code: {r.referral_code} &middot; {new Date(r.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-slate-900">{r.reward_amount ? fmt(r.reward_amount) : '—'}</span>

@@ -148,7 +148,7 @@ export async function PUT(request: Request) {
       const [dp, tp] = first.start_time.split('T')
       const [y, m, d] = dp.split('-').map(Number)
       const [h, min] = (tp || '00:00').split(':').map(Number)
-      const bookingDate = new Date(y, m - 1, d, h, min).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const bookingDate = new Date(y, m - 1, d, h, min).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
       const clientName = first.clients?.name || 'Client'
 
       await supabaseAdmin.from('notifications').insert({

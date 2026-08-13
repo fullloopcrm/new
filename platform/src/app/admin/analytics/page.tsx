@@ -31,7 +31,7 @@ export default async function AnalyticsPage() {
   for (let i = 5; i >= 0; i--) {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
-    const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' , timeZone: 'America/New_York' })
     const monthStart = new Date(d.getFullYear(), d.getMonth(), 1)
     const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
     const count = allTenants.filter((t) => {

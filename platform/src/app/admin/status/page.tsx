@@ -114,7 +114,7 @@ export default function SystemStatusPage() {
               </span>
             </div>
             <span className="text-xs text-slate-400">
-              Last checked: {new Date(result.timestamp).toLocaleTimeString()}
+              Last checked: {new Date(result.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/New_York' })}
             </span>
           </div>
           {result.warnings > 0 && result.status === 'healthy' && (
@@ -153,7 +153,7 @@ export default function SystemStatusPage() {
                 <div key={err.id} className="border border-red-100 bg-red-50/50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-red-700">{err.title}</span>
-                    <span className="text-[10px] text-slate-400">{new Date(err.created_at).toLocaleTimeString()}</span>
+                    <span className="text-[10px] text-slate-400">{new Date(err.created_at).toLocaleTimeString('en-US', { timeZone: 'America/New_York' })}</span>
                   </div>
                   <p className="text-xs text-slate-500 line-clamp-2">{err.message}</p>
                 </div>
@@ -173,7 +173,7 @@ export default function SystemStatusPage() {
                 <div key={chk.id} className={`border rounded-lg p-3 ${chk.title.includes('All Clear') ? 'border-green-100 bg-green-50/50' : 'border-yellow-100 bg-yellow-50/50'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-xs font-semibold ${chk.title.includes('All Clear') ? 'text-green-700' : 'text-yellow-700'}`}>{chk.title}</span>
-                    <span className="text-[10px] text-slate-400">{new Date(chk.created_at).toLocaleTimeString()}</span>
+                    <span className="text-[10px] text-slate-400">{new Date(chk.created_at).toLocaleTimeString('en-US', { timeZone: 'America/New_York' })}</span>
                   </div>
                   <p className="text-xs text-slate-500 line-clamp-3 whitespace-pre-wrap">{chk.message}</p>
                 </div>

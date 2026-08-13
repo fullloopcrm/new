@@ -51,7 +51,7 @@ function formatBoardValue(value: unknown, type: BoardColumnType): string {
   if (type === 'checkbox') return value ? 'checked' : 'unchecked'
   if (type === 'date' && typeof value === 'string') {
     const d = new Date(value)
-    return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString()
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-US', { timeZone: 'America/New_York' })
   }
   return String(value)
 }

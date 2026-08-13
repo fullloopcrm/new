@@ -90,7 +90,7 @@ export default async function BlogPostPage({ params }: Props) {
               </span>
             </div>
             <time dateTime={post.publishedDate} className="mt-2 block text-sm text-stone-500">
-              {new Date(post.publishedDate + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date(post.publishedDate + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })}
             </time>
             <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
               {post.title}

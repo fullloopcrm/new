@@ -37,7 +37,7 @@ const V = {
 
 const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
-const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 const formatDuration = (start: string, end: string | null) => {
   if (!end) return null
   const hrs = (new Date(end).getTime() - new Date(start).getTime()) / 3600000

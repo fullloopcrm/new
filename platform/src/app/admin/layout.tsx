@@ -195,7 +195,7 @@ export default async function AdminLayout({
               Platform Admin · Super-User View
             </span>
             <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
             </span>
           </div>
           <div className="pb-3 mb-6" style={{ borderBottom: '1px solid var(--color-loop-ink)' }} />

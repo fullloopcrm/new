@@ -46,7 +46,7 @@ export function computeForecast(deals: DealForForecast[], monthsAhead = 6): Fore
   for (let i = 0; i < monthsAhead; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1))
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    const label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' , timeZone: 'America/New_York' })
     buckets.set(key, { label, deals: 0, totalValueCents: 0, weightedValueCents: 0 })
   }
   for (const d of deals) {

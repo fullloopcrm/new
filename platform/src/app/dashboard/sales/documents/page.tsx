@@ -133,7 +133,7 @@ export default function DocumentsListPage() {
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">{d.sign_order}</td>
                     <td className="px-5 py-3 text-xs text-slate-500">
-                      {new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                     </td>
                   </tr>
                 )

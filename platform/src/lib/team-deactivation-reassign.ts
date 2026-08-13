@@ -198,7 +198,7 @@ async function reassignCrew(tenantId: string, booking: AffectedBooking, oldMembe
 /** Best-effort — a notification failure must never affect the reassignment result. */
 async function notifyReassignment(booking: AffectedBooking, chosen: TeamMemberScore): Promise<void> {
   try {
-    const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+    const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) : ''
     await sendPushToTeamMember(chosen.id, 'New job assigned', `You've been auto-assigned a job${when ? ` on ${when}` : ''} after a teammate was deactivated.`, '/team/jobs')
   } catch (e) {
     console.error('[bsr-02] reassignment push notify failed (non-fatal):', e)

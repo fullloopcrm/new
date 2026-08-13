@@ -320,7 +320,7 @@ export default function SalesPartnerPortalPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">{b.client_name || 'A client'}</p>
                     <p className="text-xs text-gray-400">
-                      {b.referrer_name ? `Via ${b.referrer_name} · ` : ''}{new Date(b.start_time).toLocaleDateString()}
+                      {b.referrer_name ? `Via ${b.referrer_name} · ` : ''}{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                     </p>
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">Scheduled</span>
@@ -342,7 +342,7 @@ export default function SalesPartnerPortalPage() {
                 <div key={c.id} className="flex items-center justify-between px-4 py-3">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{c.client_name || 'A client'}</p>
-                    <p className="text-xs text-gray-400">{c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-400">{c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {new Date(c.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-gray-900">{fmt(c.amount)}</p>

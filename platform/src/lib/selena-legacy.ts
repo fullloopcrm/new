@@ -621,11 +621,11 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
 
 function buildCalendarContext(): string {
   const now = new Date()
-  const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
   const days: string[] = []
   for (let i = 0; i < 14; i++) {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000)
-    days.push(`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} = ${d.toLocaleDateString('en-CA')}`)
+    days.push(`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} = ${d.toLocaleDateString('en-CA')}`)
   }
   return `\n\nToday is ${fullDate}.\nCALENDAR:\n${days.join('\n')}\nUse this to resolve "this Wednesday" etc.`
 }

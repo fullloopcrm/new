@@ -290,7 +290,7 @@ export default function ReviewsPage() {
                 <div>
                   <p className="font-medium text-sm text-slate-900">{r.clients?.name || 'Client'}</p>
                   <p className="text-xs text-slate-400">
-                    {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                     {r.source && ` · ${r.source}`}
                   </p>
                 </div>

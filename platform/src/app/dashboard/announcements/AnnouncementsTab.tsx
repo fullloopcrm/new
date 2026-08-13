@@ -66,7 +66,7 @@ export default function AnnouncementsTab() {
   }
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 
   return (
     <div className="max-w-3xl space-y-6">

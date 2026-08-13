@@ -119,7 +119,7 @@ export default function ProspectsAdminPage() {
                 <tr key={p.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <p className="font-medium">{p.business_name}</p>
-                    <p className="text-xs text-slate-500">{new Date(p.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-500">{new Date(p.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   </td>
                   <td className="px-4 py-3 text-xs">
                     <p className="capitalize">{p.trade.replace(/_/g,' ')}</p>

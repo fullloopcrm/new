@@ -199,7 +199,7 @@ export default function InvoiceDetailPage() {
             <p className="text-sm font-semibold text-amber-700">Balance {formatCents(balance)}</p>
           )}
           {invoice.due_date && (
-            <p className="text-xs text-slate-400">Due {new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-xs text-slate-400">Due {new Date(invoice.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</p>
           )}
         </div>
       </div>

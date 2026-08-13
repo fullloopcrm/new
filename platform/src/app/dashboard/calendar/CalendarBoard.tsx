@@ -251,7 +251,7 @@ export default function CalendarBoard() {
   const formatNaiveDate = (timeStr: string) => {
     const [datePart] = timeStr.split('T')
     const [y, mo, d] = datePart.split('-').map(Number)
-    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   }
 
   const handleDatesSet = (info: { startStr: string; endStr: string }) => {
@@ -396,7 +396,7 @@ export default function CalendarBoard() {
     const newStart = toLocalISOString(info.event.start)
     const newEnd = toLocalISOString(info.event.end)
     const clientName = booking.clients?.name || 'this client'
-    const newDateLabel = info.event.start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    const newDateLabel = info.event.start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
     if (!confirm(`Move ${clientName} to ${newDateLabel}?`)) { info.revert(); return }
     const res = await fetch(`/api/bookings/${booking.id}`, {
       method: 'PUT',
@@ -637,7 +637,7 @@ export default function CalendarBoard() {
           return dateKeys.map(dateKey => {
             const dayDate = new Date(dateKey + 'T12:00:00')
             const isToday = dateKey === todayStr
-            const label = isToday ? 'Today' : dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+            const label = isToday ? 'Today' : dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
             return (
               <div key={dateKey} className="mb-4">
                 <h3 className={`text-xs font-semibold uppercase tracking-wide mb-1.5 px-1 ${isToday ? 'text-teal-600' : 'text-slate-400'}`}>{label}</h3>
@@ -646,8 +646,8 @@ export default function CalendarBoard() {
                     const color = b.status === 'pending' ? '#dc2626' : memberColors[b.team_member_id] || '#0d9488'
                     const [, st] = b.start_time.split('T'); const [sh, sm] = (st || '00:00').split(':').map(Number)
                     const [, et] = b.end_time.split('T'); const [eh, em] = (et || '00:00').split(':').map(Number)
-                    const time = new Date(2000, 0, 1, sh, sm).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                    const endTime = new Date(2000, 0, 1, eh, em).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                    const time = new Date(2000, 0, 1, sh, sm).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+                    const endTime = new Date(2000, 0, 1, eh, em).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
                     return (
                       <button key={b.id} onClick={() => openPanel(b)} className="w-full flex items-center gap-3 bg-white rounded-lg p-3 border border-slate-100 active:bg-slate-50 text-left">
                         <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: color }} />

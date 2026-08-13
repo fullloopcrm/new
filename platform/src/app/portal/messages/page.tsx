@@ -63,7 +63,7 @@ export default function ClientPortalMessages() {
   const fmtTime = (iso: string) => {
     try {
       const d = new Date(iso)
-      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
     } catch { return iso }
   }
 

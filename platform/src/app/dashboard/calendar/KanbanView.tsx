@@ -39,7 +39,7 @@ const CLASS_BADGE: Record<string, string> = {
 function fmtDate(iso: string): string {
   const [datePart] = iso.split('T')
   const [y, mo, d] = datePart.split('-').map(Number)
-  return new Date(y, mo - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(y, mo - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'UTC' })
 }
 
 export default function KanbanView() {

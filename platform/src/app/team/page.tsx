@@ -66,7 +66,7 @@ type DaySchedule = { start: string; end: string }
 // ---------------------------------------------------------------------------
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })
 }
 
 function timeAgo(dateStr: string): string {
@@ -182,7 +182,7 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onOnMyWay
         <div className="flex-1 min-w-0">
           {showDate && (
             <p className="text-xs text-slate-400 mb-0.5">
-              {new Date(job.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+              {new Date(job.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
             </p>
           )}
           <p className="font-semibold text-slate-800 text-sm">
@@ -840,7 +840,7 @@ export default function TeamHomePage() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="text-sm font-medium text-slate-800">
-                      {new Date(job.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      {new Date(job.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                       {' '}{formatTime(job.start_time)}
                       {job.end_time && ` — ${formatTime(job.end_time)}`}
                     </p>
@@ -880,7 +880,7 @@ export default function TeamHomePage() {
           <span className="text-sm font-normal text-slate-400">({todayJobs.length})</span>
         </h2>
         <p className="text-sm text-slate-400 mb-3">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })}
         </p>
 
         {todayJobs.length === 0 ? (
@@ -956,7 +956,7 @@ export default function TeamHomePage() {
           <div className="flex flex-wrap gap-1 mb-3">
             {blockedDates.map((d) => (
               <span key={d} className="bg-red-50 text-red-700 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                {new Date(d + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {new Date(d + 'T00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                 <button onClick={() => setBlockedDates((p) => p.filter((x) => x !== d))} className="text-red-400 hover:text-red-600">✕</button>
               </span>
             ))}

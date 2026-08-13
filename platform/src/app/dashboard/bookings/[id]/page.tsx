@@ -206,7 +206,7 @@ export default function BookingDetailPage() {
           </h2>
           <p className="text-sm text-slate-400">
             {new Date(booking.start_time).toLocaleString()}
-            {booking.end_time && ` — ${new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+            {booking.end_time && ` — ${new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -509,7 +509,7 @@ export default function BookingDetailPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between"><dt className="text-slate-400">Client Payment</dt><dd className="capitalize font-medium">{booking.payment_status || 'unpaid'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Method</dt><dd className="capitalize">{booking.payment_method?.replace('_', ' ') || '—'}</dd></div>
-              <div className="flex justify-between"><dt className="text-slate-400">Paid On</dt><dd>{booking.payment_date ? new Date(booking.payment_date).toLocaleDateString() : '—'}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Paid On</dt><dd>{booking.payment_date ? new Date(booking.payment_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Tip</dt><dd>{booking.tip_amount != null ? `$${(booking.tip_amount / 100).toFixed(2)}` : '—'}</dd></div>
               <div className="border-t border-slate-200 my-2" />
               <div className="flex justify-between">
@@ -521,7 +521,7 @@ export default function BookingDetailPage() {
                 <dd>
                   {booking.team_member_paid ? (
                     <span className="text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-700 font-medium">
-                      Paid {booking.team_member_paid_at && `on ${new Date(booking.team_member_paid_at).toLocaleDateString()}`}
+                      Paid {booking.team_member_paid_at && `on ${new Date(booking.team_member_paid_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}`}
                     </span>
                   ) : (
                     <button

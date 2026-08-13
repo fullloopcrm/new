@@ -89,7 +89,7 @@ export default function PortalBookingDetailPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-3 mb-6">
         <div className="flex justify-between text-sm"><span className="text-slate-400">Status</span><span className="capitalize font-medium">{booking.status}</span></div>
         <div className="flex justify-between text-sm"><span className="text-slate-400">Date</span><span>{new Date(booking.start_time).toLocaleString()}</span></div>
-        {booking.end_time && <div className="flex justify-between text-sm"><span className="text-slate-400">End</span><span>{new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>}
+        {booking.end_time && <div className="flex justify-between text-sm"><span className="text-slate-400">End</span><span>{new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })}</span></div>}
         {booking.price != null && <div className="flex justify-between text-sm"><span className="text-slate-400">Price</span><span>${(booking.price / 100).toFixed(2)}</span></div>}
         {booking.team_members && <div className="flex justify-between text-sm"><span className="text-slate-400">Team Member</span><span>{booking.team_members.name}</span></div>}
         {booking.notes && <div className="text-sm"><span className="text-slate-400">Notes: </span>{booking.notes}</div>}

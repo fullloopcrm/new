@@ -222,6 +222,7 @@ export default async function TermsPage() {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
+                timeZone: "UTC",
               })}
               .
             </p>

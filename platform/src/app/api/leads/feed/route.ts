@@ -50,7 +50,7 @@ function relTime(ts: string): { label: string; sub: string | null; isLive: boole
   const hr = Math.round(ms / 3_600_000)
   if (hr < 24) return { label: `${hr}h ago`, sub: null, isLive: false }
   const days = Math.round(ms / 86_400_000)
-  return { label: `${days}d ago`, sub: new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), isLive: false }
+  return { label: `${days}d ago`, sub: new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }), isLive: false }
 }
 
 export async function GET(_request: NextRequest) {

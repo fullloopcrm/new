@@ -1140,7 +1140,7 @@ function BookingsPage() {
     const [y, mo, d] = datePart.split('-').map(Number)
     const [h, m] = (timePart || '00:00').split(':').map(Number)
     const dt = new Date(y, mo - 1, d, h, m)
-    return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   }
 
   // created_at is a real tz-aware timestamp (unlike start_time's naive ET
@@ -1487,7 +1487,7 @@ function BookingsPage() {
                         <div className="text-right">
                           {entry.preferred_date && (
                             <p className="text-purple-700 font-medium text-sm">
-                              {new Date(entry.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              {new Date(entry.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                             </p>
                           )}
                           {entry.preferred_time && <p className="text-gray-400 text-xs">{entry.preferred_time}</p>}

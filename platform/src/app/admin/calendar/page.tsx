@@ -256,7 +256,7 @@ export default function AdminCalendarPage() {
                 <>
                   <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
-                      {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })}
                     </p>
                     <p className="text-lg font-bold text-slate-900">
                       {selectedDayBookings.length} booking{selectedDayBookings.length !== 1 ? 's' : ''}

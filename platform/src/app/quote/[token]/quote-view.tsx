@@ -334,7 +334,7 @@ export default function QuoteView({ token }: { token: string }) {
           {quote.valid_until && !isFinalized && (
             <div className="px-6 py-3 bg-amber-50 border-t border-amber-200 text-center">
               <p className="text-sm text-amber-800">
-                Valid until <strong>{new Date(quote.valid_until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+                Valid until <strong>{new Date(quote.valid_until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</strong>
               </p>
             </div>
           )}

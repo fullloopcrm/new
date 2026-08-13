@@ -44,7 +44,7 @@ export default function SalesForecastTab() {
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const label = d.toLocaleDateString('en-US', { month: 'short' })
+      const label = d.toLocaleDateString('en-US', { month: 'short' , timeZone: 'America/New_York' })
       const monthDeals = deals.filter((dl) => {
         const target = dl.expected_close_date ? new Date(dl.expected_close_date) : new Date(dl.created_at)
         return target.getFullYear() === d.getFullYear() && target.getMonth() === d.getMonth()

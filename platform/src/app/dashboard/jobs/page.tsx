@@ -38,7 +38,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
 
 function dateOnlyLabel(iso: string) {
   const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
 }
 
 export default function JobsPage() {

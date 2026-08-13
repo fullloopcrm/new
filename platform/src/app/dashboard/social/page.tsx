@@ -297,7 +297,7 @@ export default function SocialPage() {
                       {post.status}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(post.created_at).toLocaleDateString()}
+                      {new Date(post.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                     </span>
                   </div>
                 </div>

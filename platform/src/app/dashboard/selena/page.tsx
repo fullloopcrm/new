@@ -431,7 +431,7 @@ export default function SelenaPage() {
                           <div key={i} className={`flex ${m.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
                             <div className={`max-w-[70%] px-3 py-2 rounded-lg text-sm ${m.direction === 'inbound' ? 'bg-white border' : 'bg-gray-800 text-white'}`}>
                               <p>{m.message}</p>
-                              <p className="text-[10px] opacity-50 mt-1">{new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                              <p className="text-[10px] opacity-50 mt-1">{new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}</p>
                             </div>
                           </div>
                         ))}

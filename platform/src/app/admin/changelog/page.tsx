@@ -111,7 +111,7 @@ export default function ChangelogAdminPage() {
                   <div className="flex items-center gap-2 mb-1.5">
                     <h3 className="font-semibold text-sm text-slate-900">{e.title}</h3>
                     <span className="text-[10px] text-slate-500">
-                      {new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                     </span>
                   </div>
                   <p className="text-sm text-slate-600 whitespace-pre-wrap">{e.body}</p>

@@ -206,7 +206,7 @@ export default function QuoteDetailPage() {
         <div className="text-right">
           <p className="text-3xl font-bold text-slate-900">{formatCents(quote.total_cents)}</p>
           {quote.valid_until && (
-            <p className="text-xs text-slate-400">Valid until {new Date(quote.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+            <p className="text-xs text-slate-400">Valid until {new Date(quote.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</p>
           )}
         </div>
       </div>

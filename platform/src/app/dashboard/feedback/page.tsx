@@ -81,7 +81,7 @@ export default function FeedbackPage() {
     if (mins < 60) return `${mins}m ago`
     if (hours < 24) return `${hours}h ago`
     if (days < 7) return `${days}d ago`
-    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
   }
 
   const getSourceLabel = (source: string) => {

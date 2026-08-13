@@ -274,12 +274,12 @@ export default function PortalHomePage() {
 
   // Helpers
   const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    new Date(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
   const formatTime = (d: string) =>
-    new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   const formatPickedDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
   }
   const getDaysUntil = (d: string) => {
     const diff = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)

@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       }
 
       for (const [date, dayBookings] of Object.entries(byDate)) {
-        const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+        const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
 
         // Duplicate client
         const clientGroups: Record<string, NonNullable<typeof bookings>> = {}

@@ -189,7 +189,7 @@ export default function InvoicesListPage() {
                       {formatCents(balance)}
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">
-                      {inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                      {inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) : '—'}
                     </td>
                   </tr>
                 )

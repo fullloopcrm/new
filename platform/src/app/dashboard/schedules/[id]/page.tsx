@@ -194,7 +194,7 @@ export default function ScheduleDetailPage() {
               <div className="flex justify-between"><dt className="text-slate-400">Time</dt><dd>{schedule.preferred_time || '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Duration</dt><dd>{schedule.duration_hours ? `${schedule.duration_hours} hours` : '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{schedule.status}</dd></div>
-              {schedule.paused_until && <div className="flex justify-between"><dt className="text-slate-400">Paused Until</dt><dd>{new Date(schedule.paused_until).toLocaleDateString()}</dd></div>}
+              {schedule.paused_until && <div className="flex justify-between"><dt className="text-slate-400">Paused Until</dt><dd>{new Date(schedule.paused_until).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>}
               {schedule.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{schedule.notes}</dd></div>}
             </dl>
           </div>
@@ -221,8 +221,8 @@ export default function ScheduleDetailPage() {
               {bookings.map((b) => (
                 <Link key={b.id} href={`/dashboard/bookings?edit=${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                   <div>
-                    <p className="text-sm font-medium">{new Date(b.start_time).toLocaleDateString()}</p>
-                    <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-sm font-medium">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
+                    <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded ${
                     b.status === 'completed' ? 'bg-green-50 text-green-700' :

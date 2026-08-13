@@ -76,7 +76,7 @@ export default function CampaignDetailPage() {
               <div className="flex justify-between"><dt className="text-slate-400">Type</dt><dd className="uppercase">{campaign.type}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{campaign.status}</dd></div>
               {campaign.subject && <div className="flex justify-between"><dt className="text-slate-400">Subject</dt><dd>{campaign.subject}</dd></div>}
-              <div className="flex justify-between"><dt className="text-slate-400">Created</dt><dd>{new Date(campaign.created_at).toLocaleDateString()}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Created</dt><dd>{new Date(campaign.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>
               {campaign.sent_at && <div className="flex justify-between"><dt className="text-slate-400">Sent</dt><dd>{new Date(campaign.sent_at).toLocaleString()}</dd></div>}
             </dl>
 

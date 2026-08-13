@@ -123,8 +123,8 @@ export default function DashboardMap({ jobs }: Props) {
         {geocodedJobs.length > 0 && <FitBounds jobs={geocodedJobs} />}
         {geocodedJobs.map((job) => {
           const icon = icons[job.status as keyof typeof icons] || icons.scheduled
-          const time = new Date(job.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-          const date = new Date(job.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const time = new Date(job.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+          const date = new Date(job.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
           
           return (
             <Marker key={job.id} position={[job.lat, job.lng]} icon={icon}>

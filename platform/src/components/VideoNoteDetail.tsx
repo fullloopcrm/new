@@ -119,9 +119,9 @@ export default function VideoNoteDetail({
               {sessionTypeLabel(note.video_session_type, t)} {t('session', 'sesión')}
             </h1>
             <p className="text-sm text-[var(--vnd-muted)]">
-              {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              {new Date(note.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
               {' · '}
-              {new Date(note.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+              {new Date(note.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}
               {note.author_name && (
                 <>
                   {' · '}

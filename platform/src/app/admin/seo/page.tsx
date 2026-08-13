@@ -482,7 +482,7 @@ export default function AdminSeoPage() {
                 <td className="p-3 text-right tabular-nums text-teal-600">{n(r.applicant_impressions)}</td>
                 <td className="p-3 text-right tabular-nums text-slate-400">{n(r.queries)}</td>
                 <td className="p-3 text-right font-mono text-xs text-slate-400">
-                  {r.last_ingest_at ? new Date(r.last_ingest_at).toLocaleDateString('en-US') : '—'}
+                  {r.last_ingest_at ? new Date(r.last_ingest_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : '—'}
                 </td>
               </tr>
             ))}

@@ -50,7 +50,7 @@ export async function scoreCleanersForBooking(opts: {
   }
 
   // Get day info
-  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
 
   // Get all active stylists
   const { data: allCleaners } = await supabaseAdmin

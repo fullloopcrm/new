@@ -445,7 +445,7 @@ export function adminDailyOpsRecapEmail(data: {
 }) {
   const content = `
     <h1 style="font-size: 20px; font-weight: 600; color: #000; margin: 0 0 16px 0;">Daily Operations Recap</h1>
-    <p style="color: #666; font-size: 14px; margin: 0 0 24px 0;">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+    <p style="color: #666; font-size: 14px; margin: 0 0 24px 0;">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</p>
 
     ${infoTable(`
       ${infoRow('New Leads Today', String(data.newLeads))}

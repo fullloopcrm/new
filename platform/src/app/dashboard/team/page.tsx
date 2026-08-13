@@ -510,7 +510,7 @@ export default function TeamPage() {
                           )}
                           {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
                           <div className="tm-app-date">
-                            applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                           </div>
                         </div>
                         <div className="tm-app-actions">
@@ -546,7 +546,7 @@ export default function TeamPage() {
                           <div className="tm-app-body">
                             <div className="tm-app-name">{app.name}</div>
                             <div className="tm-app-meta">
-                              {app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                               {app.video_url && (
                                 <>
                                   {' · '}

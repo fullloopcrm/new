@@ -186,7 +186,7 @@ export default function ReconcilePage() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-slate-900">{inv.invoice_number}</p>
                           <p className="text-xs text-slate-500 truncate">
-                            {inv.clients?.name || inv.contact_name}{inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString()}` : ''}
+                            {inv.clients?.name || inv.contact_name}{inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}` : ''}
                           </p>
                         </div>
                         <p className="text-sm font-semibold text-amber-700">{formatCents(balance)}</p>
@@ -212,7 +212,7 @@ export default function ReconcilePage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-900 truncate">{b.clients?.name || 'Client'}</p>
-                        <p className="text-xs text-slate-500">{new Date(b.start_time).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-500">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                       </div>
                       <p className="text-sm font-semibold text-amber-700">{formatCents(Math.round((Number(b.price) || 0) * 100))}</p>
                     </li>

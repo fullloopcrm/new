@@ -93,7 +93,7 @@ export default function CpaAccessPage() {
                         className="text-xs text-teal-600 hover:underline">Copy link</button>
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">
-                      {t.expires_at ? new Date(t.expires_at).toLocaleDateString() : 'Never'}
+                      {t.expires_at ? new Date(t.expires_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : 'Never'}
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">{t.use_count}</td>
                     <td className="px-5 py-3 text-right">

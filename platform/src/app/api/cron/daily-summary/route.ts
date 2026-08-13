@@ -23,8 +23,8 @@ function formatAdminScheduleLine(job: BookingAdminScheduleLine): string {
   const start = new Date(job.start_time)
   const end = new Date(job.end_time)
   const durationHours = Math.round(((end.getTime() - start.getTime()) / (1000 * 60 * 60)) * 10) / 10
-  const startStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  const endStr = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const startStr = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const endStr = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   return `${jobName} | ${cleaner} | ${durationHours}h | ${startStr}-${endStr}`
 }
 
@@ -170,7 +170,7 @@ export async function GET(request: Request) {
             .limit(1)
 
           if (!existingNotif || existingNotif.length === 0) {
-            const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
@@ -236,8 +236,8 @@ export async function GET(request: Request) {
         if (member.email) {
           const jobsForEmail = upcomingJobs.map(j => {
             const client = j.clients
-            const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+            const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
             return {
               clientName: client?.name || 'Client',
               dateTime: `${date} ${time}`,
@@ -293,7 +293,7 @@ export async function GET(request: Request) {
           .returns<BookingAdminScheduleLine[]>()
 
         if (tomorrowJobs && tomorrowJobs.length > 0) {
-          const tomorrowLabel = new Date(tomorrowStartNaive).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const tomorrowLabel = new Date(tomorrowStartNaive).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
           const lines = tomorrowJobs.map(formatAdminScheduleLine)
           const body = `${tenant.name} — Schedule ${tomorrowLabel} (${tomorrowJobs.length} job${tomorrowJobs.length === 1 ? '' : 's'}):\n\n${lines.join('\n')}`
 

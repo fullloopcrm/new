@@ -452,13 +452,13 @@ export async function POST(request: Request) {
         .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
-      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
       // NYC Maid clients are told a 2-hour arrival window, never an exact
       // time (see time-window.ts — the same rule every SMS template already
       // follows). Other tenants get the plain wall-clock time.
       const time = isNycMaid(tenantId)
         ? clientArrivalWindow(data.start_time)
-        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
       // Client confirmation email — shared Full Loop template (same content

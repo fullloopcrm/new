@@ -39,13 +39,13 @@ export default function ClientTranscript({ clientId }: { clientId: string }) {
 
   const formatTime = (ts: string) => {
     const d = new Date(ts)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   }
 
   // Group messages by date
   const grouped: Record<string, Message[]> = {}
   for (const msg of messages) {
-    const date = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const date = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
     if (!grouped[date]) grouped[date] = []
     grouped[date].push(msg)
   }
@@ -53,7 +53,7 @@ export default function ClientTranscript({ clientId }: { clientId: string }) {
   const shown = expanded ? messages : messages.slice(-6)
   const shownGrouped: Record<string, Message[]> = {}
   for (const msg of shown) {
-    const date = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const date = new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
     if (!shownGrouped[date]) shownGrouped[date] = []
     shownGrouped[date].push(msg)
   }

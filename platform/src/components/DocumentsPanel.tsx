@@ -142,7 +142,7 @@ export default function DocumentsPanel({ clientId, tenantId, title }: DocumentsP
                 {doc.file_name}
               </a>
               <span className="text-xs text-slate-400 whitespace-nowrap">
-                {new Date(doc.created_at).toLocaleDateString()}
+                {new Date(doc.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                 {doc.file_size_bytes ? ` · ${formatSize(doc.file_size_bytes)}` : ''}
               </span>
               <button

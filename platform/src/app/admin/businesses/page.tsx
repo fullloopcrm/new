@@ -224,7 +224,7 @@ export default function BusinessesPage() {
                     {timeAgo(b.last_active_at)}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
-                    {new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                   </td>
                 </tr>
               )

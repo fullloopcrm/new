@@ -145,7 +145,7 @@ export default function RecurringExpensesPage() {
                   <td className="px-5 py-3 text-slate-500">{r.frequency}</td>
                   <td className="px-5 py-3 text-right font-medium">{formatCents(r.amount_cents)}</td>
                   <td className="px-5 py-3 text-xs text-slate-500">
-                    {r.next_due_date ? new Date(r.next_due_date).toLocaleDateString() : '—'}
+                    {r.next_due_date ? new Date(r.next_due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : '—'}
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button onClick={() => remove(r.id)} className="text-xs text-red-500 hover:text-red-700">Remove</button>

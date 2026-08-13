@@ -127,7 +127,7 @@ export default function TimelineView() {
 
   const dayLabel = (() => {
     const [y, mo, d] = day.split('-').map(Number)
-    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   })()
 
   return (

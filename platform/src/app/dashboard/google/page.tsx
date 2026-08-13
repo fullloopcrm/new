@@ -246,7 +246,7 @@ export default function GoogleBusinessPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{stars(review.rating)}</span>
                         <span className="text-xs text-slate-400">
-                          {new Date(review.review_created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {new Date(review.review_created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                         </span>
                       </div>
                     </div>
@@ -331,7 +331,7 @@ export default function GoogleBusinessPage() {
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-xs text-green-600 font-medium">{post.status}</span>
                       <span className="text-xs text-slate-400">
-                        {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                       </span>
                     </div>
                   </div>

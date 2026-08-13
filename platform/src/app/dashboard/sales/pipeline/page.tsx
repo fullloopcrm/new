@@ -210,7 +210,7 @@ export default function PipelinePage() {
                       </div>
                       {deal.follow_up_at && (
                         <p className={`text-xs mt-1 ${new Date(deal.follow_up_at) < new Date() ? 'text-red-600' : 'text-slate-500'}`}>
-                          ↻ {new Date(deal.follow_up_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          ↻ {new Date(deal.follow_up_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                         </p>
                       )}
                       {deal.stage_changed_at && (

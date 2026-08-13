@@ -116,7 +116,7 @@ export function ContactsPanel() {
       c.city, c.state, c.billing_address, c.billing_city, c.billing_state, c.billing_zip,
       c.service_category, STAGE_LABELS[c.status] || c.status,
       c.fit_bucket ? FIT_BUCKET_META[fitBucket(c.fit_bucket)].label : '',
-      c.referral_source, new Date(c.created_at).toLocaleDateString(),
+      c.referral_source, new Date(c.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' }),
     ].map(esc).join(','))
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -204,7 +204,7 @@ export function ContactsPanel() {
                   ].filter(Boolean).join(' · ')}
                 />
                 <Detail label="Source" value={selected.referral_source} />
-                <Detail label="Added" value={new Date(selected.created_at).toLocaleDateString()} />
+                <Detail label="Added" value={new Date(selected.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })} />
               </div>
 
               {/* Notes — tied to the same lead record */}

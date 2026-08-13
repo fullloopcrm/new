@@ -16,7 +16,7 @@ type Photo = {
 const TYPE_LABEL: Record<string, string> = { before: 'Before', after: 'After', progress: 'Progress' }
 
 function when(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 }
 
 /** Read-only render of stored shapes. Same viewBox contract as the office

@@ -73,7 +73,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
   })
 
   // Notify both sides — accountability so no one silently loses/gains a job.
-  const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+  const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) : ''
   try {
     await sendPushToTeamMember(to_member_id, 'New job assigned', `You've been assigned a job${when ? ` on ${when}` : ''}.`, '/team/jobs')
     if (previous && previous !== to_member_id) {

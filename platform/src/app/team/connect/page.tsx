@@ -9,7 +9,7 @@ function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages:
   const groups: { date: string; messages: ChatMessage[] }[] = []
   let currentDate = ''
   for (const msg of messages) {
-    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
     if (d !== currentDate) {
       currentDate = d
       groups.push({ date: d, messages: [] })

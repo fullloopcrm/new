@@ -222,7 +222,7 @@ export default function DealDetailPage() {
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between"><dt className="text-slate-500">Value</dt><dd className="text-slate-900">{formatCents(deal.value_cents)}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Probability</dt><dd className="text-slate-900">{deal.probability ?? 0}%</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Expected close</dt><dd className="text-slate-900">{deal.expected_close_date ? new Date(deal.expected_close_date).toLocaleDateString() : '—'}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Expected close</dt><dd className="text-slate-900">{deal.expected_close_date ? new Date(deal.expected_close_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : '—'}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Source</dt><dd className="text-slate-900">{deal.source || '—'}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Follow-up</dt><dd className={`text-sm ${deal.follow_up_at && new Date(deal.follow_up_at) < new Date() ? 'text-red-600' : 'text-slate-900'}`}>
                   {deal.follow_up_at ? new Date(deal.follow_up_at).toLocaleString() : '—'}
@@ -302,9 +302,9 @@ export default function DealDetailPage() {
           <section className="bg-white border border-slate-200 rounded-xl p-5">
             <h3 className="font-heading font-semibold text-slate-900 text-sm mb-3">Meta</h3>
             <dl className="text-xs space-y-1">
-              <div className="flex justify-between"><dt className="text-slate-500">Created</dt><dd className="text-slate-700">{new Date(deal.created_at).toLocaleDateString()}</dd></div>
-              {deal.stage_changed_at && <div className="flex justify-between"><dt className="text-slate-500">In stage since</dt><dd className="text-slate-700">{new Date(deal.stage_changed_at).toLocaleDateString()}</dd></div>}
-              {deal.closed_at && <div className="flex justify-between"><dt className="text-slate-500">Closed</dt><dd className="text-slate-700">{new Date(deal.closed_at).toLocaleDateString()}</dd></div>}
+              <div className="flex justify-between"><dt className="text-slate-500">Created</dt><dd className="text-slate-700">{new Date(deal.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>
+              {deal.stage_changed_at && <div className="flex justify-between"><dt className="text-slate-500">In stage since</dt><dd className="text-slate-700">{new Date(deal.stage_changed_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>}
+              {deal.closed_at && <div className="flex justify-between"><dt className="text-slate-500">Closed</dt><dd className="text-slate-700">{new Date(deal.closed_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>}
             </dl>
           </section>
         </div>

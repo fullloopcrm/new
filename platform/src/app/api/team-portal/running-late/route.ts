@@ -46,7 +46,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
     const memberName = (booking.team_members as any)?.name || 'Team member'
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
-    const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 
     // Record on booking
     await tenantDb(tenantId).from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)

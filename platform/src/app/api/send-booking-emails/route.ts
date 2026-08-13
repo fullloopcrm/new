@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const dateTime = booking.start_time ? (() => {
       const [datePart] = booking.start_time.replace(' ', 'T').split('T')
       const [y, m, d] = datePart.split('-').map(Number)
-      const dateStr = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const dateStr = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
       return `${dateStr}, ${nycmaidWallClockTime(booking.start_time)}`
     })() : ''
 

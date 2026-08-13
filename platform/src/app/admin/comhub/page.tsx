@@ -2150,7 +2150,7 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
         <div className="text-[11px]" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {error ? <span style={{ color: 'var(--color-loop-warn)' }}>{error}</span>
             : saving ? 'Saving…'
-            : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}`
             : dirty ? 'Unsaved changes' : ''}
         </div>
         <button
@@ -2383,7 +2383,7 @@ function NotesEditor({ contactId, initialPrivate, initialPublic, onSaved }: {
         <div className="text-[11px]" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
           {error ? <span style={{ color: 'var(--color-loop-warn)' }}>{error}</span>
             : saving ? 'Saving…'
-            : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : savedAt && !dirty ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}`
             : dirty ? 'Unsaved changes' : ''}
         </div>
         <button

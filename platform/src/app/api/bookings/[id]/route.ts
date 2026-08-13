@@ -297,13 +297,13 @@ export async function PUT(
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
-      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
       // NYC Maid clients are told a 2-hour arrival window, never an exact
       // time (see time-window.ts — the same rule every SMS template already
       // follows). Other tenants get the plain wall-clock time.
       const time = isNycMaid(tenantId)
         ? clientArrivalWindow(data.start_time)
-        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 
       const statusChanged = fields.status && fields.status !== oldBooking?.status
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
@@ -579,7 +579,7 @@ export async function DELETE(
 
         // Client cancellation email — nycmaid gets the rich branded template
         if (booking.client_id) {
-          const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
           if (isNycMaid(tenantId) && booking.clients?.email) {
             const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
             const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')

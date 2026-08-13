@@ -53,8 +53,8 @@ function fmtMoney(cents: number | null | undefined): string {
 
 function fmtDate(iso: string): { date: string; time: string } {
   const d = new Date(iso)
-  const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase()
+  const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' }).replace(' ', '').toLowerCase()
   return { date, time }
 }
 

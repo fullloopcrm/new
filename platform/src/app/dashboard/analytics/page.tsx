@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
           const mBookings = bookings.filter((b: { created_at: string }) => b.created_at >= mStart && b.created_at <= mEnd)
           const ledgerPoint = trailingLedger[5 - i]
           monthlyTrend.push({
-            month: d.toLocaleDateString('en-US', { month: 'short' }),
+            month: d.toLocaleDateString('en-US', { month: 'short' , timeZone: 'America/New_York' }),
             bookings: mBookings.length,
             revenue: Math.round((ledgerPoint?.actual ?? 0) * 100),
           })

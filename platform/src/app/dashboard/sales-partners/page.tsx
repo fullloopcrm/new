@@ -442,7 +442,7 @@ export default function SalesPartnersPage() {
                     <div>
                       <p className="text-sm font-medium text-slate-900">{c.sales_partners?.name || 'Unknown partner'}</p>
                       <p className="text-xs text-slate-400">
-                        {c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {c.client_name || 'a client'} &middot; {new Date(c.created_at).toLocaleDateString()}
+                        {c.source === 'direct' ? 'Direct client' : 'Referrer override'} &middot; {c.client_name || 'a client'} &middot; {new Date(c.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">

@@ -569,7 +569,7 @@ export function LeadsPanel() {
                     {l.contact_name} &middot; {l.service_category?.replace(/_/g, ' ')} &middot; {l.city}, {l.state}
                   </p>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                     {l.fit_bucket && (() => {
                       const m = FIT_BUCKET_META[fitBucket(l.fit_bucket)]
                       return (

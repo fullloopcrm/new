@@ -59,7 +59,7 @@ type CleanerRow = {
 }
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
 }
 
 function fmtMoney(cents: number): string {

@@ -104,7 +104,7 @@ export default function AvailabilityPage() {
         <div className="space-y-1">
           {blockedDates.map((d) => (
             <div key={d} className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2 text-sm">
-              <span className="text-red-700">{new Date(d + 'T00:00').toLocaleDateString()}</span>
+              <span className="text-red-700">{new Date(d + 'T00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</span>
               <button onClick={() => setBlockedDates((prev) => prev.filter((x) => x !== d))} className="text-red-400 text-xs">
                 {t('Remove', 'Quitar')}
               </button>

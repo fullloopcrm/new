@@ -48,15 +48,15 @@ function formatPreviewTime(iso: string): string {
   const diff = now.getTime() - d.getTime()
   if (diff < 60000) return 'now'
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m`
-  if (diff < 86400000) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  if (diff < 86400000) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
 }
 
 function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages: ChatMessage[] }[] {
   const groups: { date: string; messages: ChatMessage[] }[] = []
   let currentDate = ''
   for (const msg of messages) {
-    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
     if (d !== currentDate) {
       currentDate = d
       groups.push({ date: d, messages: [] })

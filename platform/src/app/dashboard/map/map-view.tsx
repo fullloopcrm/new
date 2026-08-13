@@ -107,6 +107,7 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric',
+                    timeZone: 'America/New_York',
                   })}
                 </p>
                 <p className="text-xs">
@@ -114,11 +115,13 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                   {new Date(b.start_time).toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
+                    timeZone: 'America/New_York',
                   })}
                   {b.end_time &&
                     ` - ${new Date(b.end_time).toLocaleTimeString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
+                      timeZone: 'America/New_York',
                     })}`}
                 </p>
                 <p className="text-xs">

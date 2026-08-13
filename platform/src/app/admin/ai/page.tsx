@@ -224,7 +224,7 @@ export default function AdminAIPage() {
                   )}
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   <p className={`text-xs mt-2 ${msg.role === 'user' ? 'text-teal-200' : 'text-gray-400'}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}
                   </p>
                 </div>
               </div>

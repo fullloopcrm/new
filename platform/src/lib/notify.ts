@@ -463,7 +463,7 @@ export async function notify({
         clientName,
         serviceName,
         amount: (metadata?.amount as string) || '$0',
-        date: (metadata?.date as string) || new Date().toLocaleDateString(),
+        date: (metadata?.date as string) || new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }),
         paymentMethod: (metadata?.paymentMethod as string) || 'Card',
         hours: metadata?.hours as number | undefined,
         hourlyRate: metadata?.hourlyRate as string | undefined,

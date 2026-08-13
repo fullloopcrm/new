@@ -32,7 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 function monthLabel(y: number, m: number) {
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric' , timeZone: 'America/New_York' })
 }
 
 function currentYearMonth() {
@@ -173,7 +173,7 @@ export default function FinanceClosePage() {
                         </>
                       ) : (
                         <>
-                          <span className="text-xs text-green-700">✓ Locked {p.locked_at ? new Date(p.locked_at).toLocaleDateString() : ''}</span>
+                          <span className="text-xs text-green-700">✓ Locked {p.locked_at ? new Date(p.locked_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : ''}</span>
                           <button
                             onClick={() => setStatus(p, 'reopened')}
                             className="ml-auto px-3 py-1.5 text-xs font-medium rounded bg-white border border-amber-300 text-amber-700 hover:bg-amber-50"

@@ -60,7 +60,7 @@ export async function POST(_request: Request, { params }: Params) {
     const duration = route.total_duration_seconds ? formatDuration(route.total_duration_seconds) : '—'
 
     const firstName = (tm.name || 'there').split(' ')[0]
-    const body = `Hi ${firstName}, your route for ${new Date(route.route_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} is ready.\n\n${stops.length} stops · ${distance} · ~${duration}\n\n${stopSummary}${mapsUrl ? `\n\nFull route: ${mapsUrl}` : ''}`
+    const body = `Hi ${firstName}, your route for ${new Date(route.route_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} is ready.\n\n${stops.length} stops · ${distance} · ~${duration}\n\n${stopSummary}${mapsUrl ? `\n\nFull route: ${mapsUrl}` : ''}`
 
     await sendSMS({ to: tm.phone, body, telnyxApiKey: apiKey, telnyxPhone: from })
 

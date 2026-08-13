@@ -37,7 +37,7 @@ export function fmtTime(iso: string): string {
 }
 
 export function fmtTimeFull(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 }
 
 export function fmtMoney(cents: number): string {
@@ -82,7 +82,7 @@ export function weekDatesFor(dateStr: string): string[] {
 }
 
 export function dayLabel(dateStr: string, opts: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' }): string {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', opts)
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { ...opts, timeZone: 'America/New_York' })
 }
 
 function toMinutes(iso: string): number {

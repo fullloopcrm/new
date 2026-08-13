@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: Params) {
         const fromEmail = tenant.email_from || `quotes@${tenant.domain || 'fullloopcrm.com'}`
         const greeting = quote.contact_name ? `Hi ${quote.contact_name},` : 'Hi there,'
         const validLine = quote.valid_until
-          ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US')}.</p>` : ''
+          ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}.</p>` : ''
         const depositLine = quote.deposit_cents > 0
           ? ` A deposit of <strong>${formatCents(quote.deposit_cents)}</strong> gets it started.` : ''
         const html = emailShell({

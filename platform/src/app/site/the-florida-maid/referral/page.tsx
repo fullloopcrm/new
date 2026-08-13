@@ -75,7 +75,7 @@ function ReferrerPortalContent() {
   }
 
   const formatMoney = (cents: number) => '$' + (cents / 100).toFixed(2)
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
   const formatTime = (d: string) => {
     const date = new Date(d)
     const now = new Date()
@@ -87,7 +87,7 @@ function ReferrerPortalContent() {
     if (hrs < 24) return hrs + 'h ago'
     const days = Math.floor(hrs / 24)
     if (days < 7) return days + 'd ago'
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
   }
   const copyLink = () => { if (referrer) { navigator.clipboard.writeText('https://www.thefloridamaid.com/portal/book?ref=' + referrer.ref_code); alert('Copied!') } }
   const pendingAmount = referrer ? referrer.total_earned - referrer.total_paid : 0

@@ -172,7 +172,7 @@ export default function AdminSocialPage() {
                       <td className="px-4 py-3 text-slate-900">{t.postCount}</td>
                       <td className="px-4 py-3 text-gray-600">
                         {t.lastPostDate
-                          ? new Date(t.lastPostDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          ? new Date(t.lastPostDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
                           : '—'}
                       </td>
                       <td className="px-4 py-3">

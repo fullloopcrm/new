@@ -282,7 +282,7 @@ export default function SchedulesPage() {
                     {s.status}
                   </span>
                   {s.paused_until && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">until {new Date(s.paused_until).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">until {new Date(s.paused_until).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                   )}
                 </td>
               </tr>

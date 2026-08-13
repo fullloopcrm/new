@@ -139,7 +139,7 @@ function relTime(iso: string): string {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   if (days < 30) return `${days}d ago`
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
 }
 const ACT_ICON: Record<string, string> = {
   note: '📝', call: '📞', text: '💬', email: '✉️',
@@ -498,7 +498,7 @@ function SalesPageInner() {
                           : <span className={`sl-deal-source ${srcSafe}`}>{srcSafe}</span>}
                     </span>
                     <span className="sl-row-value">{fmtMoney(d.value_cents)}</span>
-                    <span className="sl-row-date">{new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span className="sl-row-date">{new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}</span>
                     <span className={`sl-row-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
                     <StageDropdown stage={d.stage} onSelect={(stage) => moveDeal(d.id, stage)} />
                   </div>

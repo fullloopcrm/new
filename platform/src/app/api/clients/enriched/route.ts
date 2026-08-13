@@ -108,7 +108,7 @@ function relativeLast(start: string, status: string | null, paymentStatus: strin
   const now = Date.now()
   const diffMs = d.getTime() - now
   const diffDays = Math.round(diffMs / 86_400_000)
-  const fmt = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const fmt = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
   if (diffDays > 0) {
     return { label: fmt, sub: diffDays === 1 ? 'tomorrow' : `in ${diffDays}d`, overdue: false }
   }

@@ -1095,7 +1095,7 @@ export async function POST(request: Request) {
             clientName: client?.name || 'Client',
             serviceName: booking.service_type || 'Service',
             amount: `$${(amountCents / 100).toFixed(2)}`,
-            date: new Date().toLocaleDateString(),
+            date: new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }),
             paymentMethod: 'Card',
             hours: hours || undefined,
             hourlyRate: booking.hourly_rate ? `$${Number(booking.hourly_rate).toFixed(2)}/hr` : undefined,

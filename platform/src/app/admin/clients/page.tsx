@@ -64,7 +64,7 @@ export default function AdminClientsPage() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never'
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
   }
 
   const getClientStatus = (client: Client): 'new' | 'active' | 'inactive' => {

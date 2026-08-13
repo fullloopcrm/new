@@ -91,7 +91,7 @@ export function getCleanerAvailability(
 ): { available: boolean; reason?: string; dayBookings?: Array<{ time: string; client: string; hours: number }> } {
   if (!dateStr) return { available: true }
   const dateObj = new Date(dateStr + 'T12:00:00')
-  const dayShort = dateObj.toLocaleDateString('en-US', { weekday: 'short' })
+  const dayShort = dateObj.toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
 
   if (cleaner.unavailable_dates?.includes(dateStr)) {
     return { available: false, reason: 'Requested off' }
@@ -147,7 +147,7 @@ export function getCleanerAvailability(
       const end = b.end_time ? new Date(b.end_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000)
       const hours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 2) / 2
       return {
-        time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        time: start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true , timeZone: 'America/New_York' }),
         client: b.clients?.name || 'Client',
         hours,
         startMin: start.getHours() * 60 + start.getMinutes(),

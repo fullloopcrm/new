@@ -193,7 +193,7 @@ export default async function AdminSecurityPage() {
                     </td>
                     <td className="px-3 py-2 text-slate-600 max-w-xs truncate">{e.description}</td>
                     <td className="px-3 py-2 text-slate-500 font-mono text-xs">{e.ip_address || '—'}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(e.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
+                    <td className="px-3 py-2 text-slate-500 text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} {new Date(e.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</td>
                   </tr>
                 )
               })}

@@ -85,8 +85,8 @@ export default function TeamMessagesPage() {
   const fmtTime = (iso: string) => {
     try {
       const d = new Date(iso)
-      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) +
-        ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' }) +
+        ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
     } catch {
       return iso
     }

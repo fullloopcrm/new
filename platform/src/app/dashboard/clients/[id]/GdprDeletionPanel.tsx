@@ -77,14 +77,14 @@ export default function GdprDeletionPanel({
       {deletedAt ? (
         <p className="text-sm text-slate-400">
           This client&apos;s personal data was permanently anonymized on{' '}
-          {new Date(deletedAt).toLocaleDateString()}.
+          {new Date(deletedAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}.
         </p>
       ) : pending ? (
         <div className="space-y-3">
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-            Deletion requested {deletionRequestedAt && new Date(deletionRequestedAt).toLocaleDateString()}.
+            Deletion requested {deletionRequestedAt && new Date(deletionRequestedAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}.
             Personal data will be permanently anonymized on{' '}
-            {deletionPurgeAt ? new Date(deletionPurgeAt).toLocaleDateString() : 'the scheduled date'}{' '}
+            {deletionPurgeAt ? new Date(deletionPurgeAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : 'the scheduled date'}{' '}
             unless cancelled before then.
           </div>
           <button

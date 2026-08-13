@@ -51,7 +51,7 @@ export default function BlogIndexPage() {
         <Link href={`/florida-maid-service-blog/${featured.slug}`} className="group block border border-gray-200 rounded-xl p-8 md:p-10 mb-12 hover:border-[#34D399] hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-4">
             <span className="text-xs font-semibold text-[#34D399] bg-[#34D399]/15 px-3 py-1 rounded-full uppercase tracking-widest">{featured.category}</span>
-            <span className="text-xs text-gray-400">{new Date(featured.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            <span className="text-xs text-gray-400">{new Date(featured.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</span>
             <span className="text-xs text-gray-400">{featured.readTime} read</span>
           </div>
           <h2 className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#CC6222] tracking-wide group-hover:text-[#CC6222]/80 mb-3">{featured.title}</h2>
@@ -65,7 +65,7 @@ export default function BlogIndexPage() {
             <Link key={post.slug} href={`/florida-maid-service-blog/${post.slug}`} className="group border border-gray-200 rounded-xl p-6 hover:border-[#34D399] hover:shadow-lg transition-all">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-medium text-[#CC6222]/60 uppercase tracking-widest">{post.category}</span>
-                <span className="text-xs text-gray-400">{new Date(post.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span className="text-xs text-gray-400">{new Date(post.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}</span>
               </div>
               <h2 className="font-semibold text-[#CC6222] group-hover:text-[#CC6222]/80 mb-2 line-clamp-2">{post.title}</h2>
               <p className="text-gray-500 text-sm line-clamp-3">{post.excerpt}</p>

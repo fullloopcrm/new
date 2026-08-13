@@ -369,7 +369,7 @@ export default function HrEmployeeDetailPage() {
               <div className="flex-1">
                 <p className="text-sm text-slate-800">{n.body}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {n.author_name ? `${n.author_name} · ` : ''}{new Date(n.created_at).toLocaleDateString()}
+                  {n.author_name ? `${n.author_name} · ` : ''}{new Date(n.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
                 </p>
               </div>
             </div>

@@ -265,7 +265,7 @@ export default function FinanceReportsPage() {
                         )}
                       </td>
                       <td className="px-5 py-3 text-xs text-slate-500">
-                        {r.due_date ? new Date(r.due_date).toLocaleDateString() : '—'}
+                        {r.due_date ? new Date(r.due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : '—'}
                       </td>
                       <td className="px-5 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded ${
@@ -367,7 +367,7 @@ export default function FinanceReportsPage() {
               <tbody className="divide-y divide-slate-100">
                 {cashFlow.weeks.map(w => (
                   <tr key={w.week_start} className="hover:bg-slate-50">
-                    <td className="px-5 py-3 font-medium">{new Date(w.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
+                    <td className="px-5 py-3 font-medium">{new Date(w.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}</td>
                     <td className="px-5 py-3 text-right text-green-700">{formatCents(w.inflows_cents)}</td>
                     <td className="px-5 py-3 text-right text-red-700">−{formatCents(w.outflows_cents)}</td>
                     <td className={`px-5 py-3 text-right font-semibold ${w.net_cents >= 0 ? 'text-slate-900' : 'text-red-700'}`}>{formatCents(w.net_cents)}</td>

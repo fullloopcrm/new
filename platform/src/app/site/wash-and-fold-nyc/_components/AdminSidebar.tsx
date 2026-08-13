@@ -260,13 +260,13 @@ export default function AdminSidebar() {
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
-    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
+    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
     if (diffMins < 1) return `${time} (just now)`
     if (diffMins < 60) return `${time} (${diffMins}m ago)`
     if (diffHours < 24) return `${time} (${diffHours}h ago)`
     if (diffDays < 7) return `${dayName} ${time} (${diffDays}d ago)`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) + ' ' + time
   }
 
   const getNotificationDetails = (n: Notification) => {
@@ -276,8 +276,8 @@ export default function AdminSidebar() {
     let line2 = n.message
     let line3 = ''
     if (booking) {
-      const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+      const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
       line3 = `${date} @ ${time}`
       if (booking.service_type) line3 += ` • ${booking.service_type}`
     }

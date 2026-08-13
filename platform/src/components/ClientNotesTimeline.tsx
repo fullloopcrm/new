@@ -22,7 +22,7 @@ const AUTHOR_LABEL: Record<string, string> = {
 
 function formatWhen(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })} at ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
 }
 
 export default function ClientNotesTimeline({ clientId }: { clientId: string }) {

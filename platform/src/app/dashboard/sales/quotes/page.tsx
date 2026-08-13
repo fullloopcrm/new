@@ -150,10 +150,10 @@ export default function QuotesListPage() {
                   </td>
                   <td className="px-5 py-3 text-right font-medium text-slate-900">{formatCents(q.total_cents)}</td>
                   <td className="px-5 py-3 text-xs text-slate-500">
-                    {q.sent_at ? new Date(q.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                    {q.sent_at ? new Date(q.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) : '—'}
                   </td>
                   <td className="px-5 py-3 text-xs text-slate-500">
-                    {q.valid_until ? new Date(q.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                    {q.valid_until ? new Date(q.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' }) : '—'}
                   </td>
                 </tr>
               ))}

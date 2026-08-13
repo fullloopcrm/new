@@ -442,7 +442,7 @@ export default function CampaignsPage() {
                 </td>
                 <td className="px-4 py-3 text-slate-400">{c.click_count ?? '—'}</td>
                 <td className="px-4 py-3 text-slate-400 text-xs">
-                  {c.sent_at ? new Date(c.sent_at).toLocaleDateString() : c.scheduled_at ? `Scheduled ${new Date(c.scheduled_at).toLocaleDateString()}` : new Date(c.created_at).toLocaleDateString()}
+                  {c.sent_at ? new Date(c.sent_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : c.scheduled_at ? `Scheduled ${new Date(c.scheduled_at).toLocaleDateString()}` : new Date(c.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3">
                   {c.status === 'draft' && (

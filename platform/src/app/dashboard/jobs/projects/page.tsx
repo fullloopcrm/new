@@ -98,7 +98,7 @@ export default function ProjectsPage() {
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {p.client_name || 'No client'} · {p.session_count} booking{p.session_count === 1 ? '' : 's'}
-                    {p.ends_on ? ` · ends ${new Date(p.ends_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                    {p.ends_on ? ` · ends ${new Date(p.ends_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-6 shrink-0">

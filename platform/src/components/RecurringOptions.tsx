@@ -165,7 +165,7 @@ export function RecurringOptions({
               {previewDates.slice(0, 4).map((date, i) => (
                 <div key={i}>
                   {new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-                    weekday: 'short', month: 'short', day: 'numeric'
+                    weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York'
                   })}
                 </div>
               ))}

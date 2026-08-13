@@ -117,7 +117,7 @@ export default function InvoiceView({ token }: { token: string }) {
         {isPaid && (
           <div className="mb-4 p-4 rounded-xl bg-green-50 border border-green-200">
             <p className="font-semibold text-green-800">Invoice paid — thank you</p>
-            {invoice.paid_at && <p className="text-xs text-green-700 mt-1">Paid on {new Date(invoice.paid_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>}
+            {invoice.paid_at && <p className="text-xs text-green-700 mt-1">Paid on {new Date(invoice.paid_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}</p>}
           </div>
         )}
         {justPaid && !isPaid && (
@@ -135,7 +135,7 @@ export default function InvoiceView({ token }: { token: string }) {
         {invoice.status === 'overdue' && !isPaid && (
           <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200">
             <p className="font-semibold text-red-800">This invoice is overdue</p>
-            {invoice.due_date && <p className="text-xs text-red-700 mt-1">Was due {new Date(invoice.due_date).toLocaleDateString()}</p>}
+            {invoice.due_date && <p className="text-xs text-red-700 mt-1">Was due {new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>}
           </div>
         )}
 
@@ -152,8 +152,8 @@ export default function InvoiceView({ token }: { token: string }) {
               {invoice.contact_email && <p className="text-xs text-slate-500">{invoice.contact_email}</p>}
             </div>
             <div>
-              {invoice.issued_at && <><p className="text-xs text-slate-400 uppercase mb-1">Issued</p><p>{new Date(invoice.issued_at).toLocaleDateString()}</p></>}
-              {invoice.due_date && <><p className="text-xs text-slate-400 uppercase mb-1 mt-2">Due</p><p>{new Date(invoice.due_date).toLocaleDateString()}</p></>}
+              {invoice.issued_at && <><p className="text-xs text-slate-400 uppercase mb-1">Issued</p><p>{new Date(invoice.issued_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p></>}
+              {invoice.due_date && <><p className="text-xs text-slate-400 uppercase mb-1 mt-2">Due</p><p>{new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p></>}
             </div>
           </div>
 

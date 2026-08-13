@@ -88,7 +88,7 @@ export default function SignView({ token }: { token: string }) {
         const values: Record<string, string> = {}
         for (const f of payload.fields as Field[]) {
           if (f.is_mine) {
-            if (f.type === 'date' && !f.value) values[f.id] = new Date().toLocaleDateString('en-US')
+            if (f.type === 'date' && !f.value) values[f.id] = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })
             else if (f.type === 'full_name' && !f.value) values[f.id] = payload.signer.name
             else if (f.value) values[f.id] = f.value
           }

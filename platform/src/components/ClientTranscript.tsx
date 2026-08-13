@@ -39,7 +39,7 @@ export default function ClientTranscript({ clientId }: { clientId: string }) {
 
   const formatTime = (ts: string) => {
     const d = new Date(ts)
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   }
 
   const shown = expanded ? messages : messages.slice(-6)
@@ -49,6 +49,7 @@ export default function ClientTranscript({ clientId }: { clientId: string }) {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+      timeZone: 'America/New_York',
     })
     if (!shownGrouped[date]) shownGrouped[date] = []
     shownGrouped[date].push(msg)

@@ -127,7 +127,7 @@ export default function SalesWonTab({ view = 'won' }: { view?: View }) {
               {(() => {
                 const ts = d.closed_at || d.last_activity_at
                 if (!ts) return '—'
-                return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
               })()}
             </div>
             <div><button type="button" style={{ fontFamily: 'inherit', fontSize: 11, padding: '5px 10px', border: '1px solid var(--sl-line)', borderRadius: 3, background: 'var(--sl-canvas)', cursor: 'pointer' }}>{isLost ? 'Win-back' : 'View'}</button></div>

@@ -99,7 +99,7 @@ export default function NewInvoicePage() {
           setContactEmail(b.clients?.email || '')
           setContactPhone(b.clients?.phone || '')
           setServiceAddress(b.clients?.address || b.address || '')
-          setTitle(`Service on ${new Date(b.start_time).toLocaleDateString('en-US')}`)
+          setTitle(`Service on ${new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}`)
           const hrs = Number(b.actual_hours) || 1
           const price = Number(b.price) || 0
           setItems([{

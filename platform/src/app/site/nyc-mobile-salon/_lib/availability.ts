@@ -43,7 +43,7 @@ async function getCleanersForDay(date: string) {
   // Block holidays — no one works
   if (isHoliday(date)) return []
 
-  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+  const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
 
   const { data: allCleaners } = await supabaseAdmin
     .from('cleaners')
@@ -120,7 +120,7 @@ function hasConflict(
  * Returns all slots, with preferred pockets (8am, 12pm, 4pm) first.
  */
 export async function checkAvailability(date: string, durationHours: number = 2): Promise<AvailabilityResult> {
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   if (date === today) {
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
@@ -132,7 +132,7 @@ export async function checkAvailability(date: string, durationHours: number = 2)
 
   const cleaners = await getCleanersForDay(date)
   if (cleaners.length === 0) {
-    const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+    const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' , timeZone: 'America/New_York' })
     return { slots: [], message: 'No stylists available on ' + dayOfWeek }
   }
 

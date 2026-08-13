@@ -94,7 +94,7 @@ export default async function ProjectsIndexPage() {
                   )}
                   {project.completed_at && (
                     <p className="text-gray-400 text-xs mt-3 font-medium">
-                      Completed {new Date(project.completed_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      Completed {new Date(project.completed_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' , timeZone: 'America/New_York' })}
                     </p>
                   )}
                 </div>

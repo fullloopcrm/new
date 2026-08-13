@@ -384,7 +384,7 @@ export default function ClientDetailPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-slate-400">Member Since</dt>
-                <dd>{new Date(client.created_at).toLocaleDateString()}</dd>
+                <dd>{new Date(client.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd>
               </div>
             </dl>
           </div>

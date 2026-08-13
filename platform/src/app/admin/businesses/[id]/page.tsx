@@ -1203,7 +1203,7 @@ export default function BusinessDetailPage() {
             className={`text-sm py-2 px-4 rounded-lg font-medium ${
               biz?.setup_fee_paid_at ? 'bg-green-50 text-green-600' : 'border border-slate-300 text-slate-500 hover:bg-slate-50'
             }`}>
-            {biz?.setup_fee_paid_at ? `Setup fee paid ${new Date(biz.setup_fee_paid_at).toLocaleDateString()}` : 'Mark setup fee as paid'}
+            {biz?.setup_fee_paid_at ? `Setup fee paid ${new Date(biz.setup_fee_paid_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}` : 'Mark setup fee as paid'}
           </button>
 
           <div className="pt-6 border-t border-slate-200">
@@ -1307,7 +1307,7 @@ export default function BusinessDetailPage() {
               <p className="text-xs text-slate-400 uppercase mb-1">Slug</p>
               <p className="text-sm font-mono text-slate-600">{biz.slug}</p>
               <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Created</p>
-              <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-sm text-slate-600">{new Date(biz.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })}</p>
               <p className="text-xs text-slate-400 uppercase mb-1 mt-3">Last Active</p>
               <p className="text-sm text-slate-600">{biz.last_active_at ? new Date(biz.last_active_at).toLocaleString() : 'Never'}</p>
             </div>

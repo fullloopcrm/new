@@ -120,7 +120,7 @@ export default function LeadsFeed() {
   const period = (() => {
     const end = new Date()
     const start = new Date(Date.now() - 6 * 86_400_000)
-    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
     return `${fmt(start)} — ${fmt(end)}`
   })()
 

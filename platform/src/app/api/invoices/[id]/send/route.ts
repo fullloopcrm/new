@@ -63,7 +63,7 @@ export async function POST(request: Request, { params }: Params) {
           amountDue: formatInvoiceCents(amountOwed),
           isPartial: (invoice.amount_paid_cents || 0) > 0,
           invoiceUrl,
-          dueDate: invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-US') : null,
+          dueDate: invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-US', { timeZone: 'America/New_York' }) : null,
           contactName: invoice.contact_name || null,
         })
         await sendEmail({

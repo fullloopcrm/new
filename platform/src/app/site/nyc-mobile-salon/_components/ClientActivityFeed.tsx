@@ -50,7 +50,7 @@ export default function ClientActivityFeed({ clientId }: { clientId: string }) {
 
   const formatTime = (ts: string) => {
     const d = new Date(ts)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
   }
 
   return (

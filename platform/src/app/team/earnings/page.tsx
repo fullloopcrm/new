@@ -124,7 +124,7 @@ export default function EarningsPage() {
           <div key={j.id} className="bg-white border border-gray-200 rounded-xl p-3 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">{j.service_type || t('Job', 'Trabajo')}</p>
-              <p className="text-xs text-slate-400">{new Date(j.start_time).toLocaleDateString()}</p>
+              <p className="text-xs text-slate-400">{new Date(j.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
             </div>
             <div className="text-right">
               <p className="text-sm font-medium text-green-600">${j.pay.toFixed(2)}</p>

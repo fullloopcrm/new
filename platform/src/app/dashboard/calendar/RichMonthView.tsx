@@ -525,7 +525,7 @@ export default function RichMonthView() {
                     >
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                       <span className="text-xs text-slate-400 w-24 flex-shrink-0">
-                        {new Date(ev.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {new Date(ev.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                       </span>
                       <span className="text-xs font-mono text-slate-500 w-14 flex-shrink-0">{fmtTime(ev.start)}</span>
                       <span className="text-sm text-slate-900 flex-1 truncate">{ev.client}</span>
@@ -609,7 +609,7 @@ export default function RichMonthView() {
                 const peak = peaks[0]
                 return (
                   <>
-                    {peak && <>Peak: <strong style={{ color: 'var(--sched-ink)' }}>{new Date(peak.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {peak.jobs_count} jobs</strong><br /></>}
+                    {peak && <>Peak: <strong style={{ color: 'var(--sched-ink)' }}>{new Date(peak.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} · {peak.jobs_count} jobs</strong><br /></>}
                     {idle.length > 0 && <>Idle days: <strong style={{ color: 'var(--sched-ink)' }}>{idle.join(', ')}</strong></>}
                   </>
                 )

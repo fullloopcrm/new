@@ -256,7 +256,7 @@ export default function AdminWebsitesPage() {
                       <td className="px-5 py-3.5 text-right text-sm font-medium text-slate-900">{formatNumber(site.visits_30d || 0)}</td>
                       <td className="px-5 py-3.5 text-right text-sm text-gray-500">{formatNumber(site.visits_total || 0)}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-400">
-                        {new Date(site.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(site.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                       </td>
                     </tr>
                   ))}

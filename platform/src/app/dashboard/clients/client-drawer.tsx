@@ -133,10 +133,10 @@ type ClientBooking = {
 }
 
 function fmtDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 }
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 }
 
 export default function ClientDrawer({ client, tenantSlug, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
@@ -434,7 +434,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
 
   const bColor = bandColor(client.health_band)
   const dayN = dayOfRelationship(client.created_at)
-  const acquiredFmt = new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const acquiredFmt = new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 
   return (
     <>

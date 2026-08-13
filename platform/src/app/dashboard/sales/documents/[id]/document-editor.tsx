@@ -422,8 +422,8 @@ export default function DocumentEditor({ id }: { id: string }) {
               <div className="flex justify-between"><dt className="text-slate-500">Fields</dt><dd className="text-slate-900">{fields.length}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Pages</dt><dd className="text-slate-900">{doc.page_count || '?'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Order</dt><dd className="text-slate-900">{doc.sign_order}</dd></div>
-              {doc.sent_at && <div className="flex justify-between"><dt className="text-slate-500">Sent</dt><dd className="text-slate-900">{new Date(doc.sent_at).toLocaleDateString()}</dd></div>}
-              {doc.completed_at && <div className="flex justify-between"><dt className="text-slate-500">Completed</dt><dd className="text-slate-900">{new Date(doc.completed_at).toLocaleDateString()}</dd></div>}
+              {doc.sent_at && <div className="flex justify-between"><dt className="text-slate-500">Sent</dt><dd className="text-slate-900">{new Date(doc.sent_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>}
+              {doc.completed_at && <div className="flex justify-between"><dt className="text-slate-500">Completed</dt><dd className="text-slate-900">{new Date(doc.completed_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</dd></div>}
             </dl>
           </section>
 

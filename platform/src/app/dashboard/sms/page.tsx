@@ -120,13 +120,13 @@ export default function SmsInboxPage() {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
     if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
     } else if (diffDays === 1) {
       return 'Yesterday'
     } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' })
+      return date.toLocaleDateString([], { weekday: 'short' , timeZone: 'America/New_York' })
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
   }
 
   function formatTimestamp(dateStr: string) {

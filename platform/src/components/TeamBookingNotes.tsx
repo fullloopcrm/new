@@ -19,7 +19,7 @@ interface TeamBookingNote {
 
 function formatWhen(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
+  return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`
 }
 
 export default function TeamBookingNotes({

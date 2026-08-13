@@ -276,7 +276,7 @@ export default async function ComboPage({
             <div className="text-slate-200">
               <p className="font-cta text-sm uppercase tracking-wider text-slate-400">{industry.name} license — {metro.city}, {metro.stateAbbr}</p>
               <p className="text-lg font-bold text-white font-heading">
-                {isClaimed ? `Taken${territory.claimedAt ? ` on ${new Date(territory.claimedAt).toLocaleDateString()}` : ""}` : isPending ? "Application under review — not yet confirmed" : "Available right now — one operator gets it"}
+                {isClaimed ? `Taken${territory.claimedAt ? ` on ${new Date(territory.claimedAt).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}` : ""}` : isPending ? "Application under review — not yet confirmed" : "Available right now — one operator gets it"}
               </p>
             </div>
           </div>

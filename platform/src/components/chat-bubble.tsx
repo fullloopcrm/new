@@ -23,7 +23,7 @@ function getInitials(name: string): string {
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
 }
 
 export type ChatMessage = {
@@ -105,7 +105,7 @@ export function groupMessagesByDate(messages: ChatMessage[]): { date: string; me
   const groups: { date: string; messages: ChatMessage[] }[] = []
   let currentDate = ''
   for (const msg of messages) {
-    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
     if (d !== currentDate) {
       currentDate = d
       groups.push({ date: d, messages: [] })

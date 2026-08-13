@@ -28,7 +28,7 @@ export default function UpdateItem({ note }: UpdateItemProps) {
           <span className="font-medium text-slate-500">{note.author_name}</span> {note.body}
         </span>
         <span className="ml-auto shrink-0">
-          {when.toLocaleDateString([], { month: 'short', day: 'numeric' })} · {when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          {when.toLocaleDateString([], { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })} · {when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </span>
       </div>
     )

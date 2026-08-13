@@ -97,7 +97,7 @@ export default function AdminBookingsPage() {
   const formatDate = (dateStr: string) => {
     const [datePart] = dateStr.split('T')
     const [y, mo, d] = datePart.split('-').map(Number)
-    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return new Date(y, mo - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'UTC' })
   }
 
   const formatTime = (timeStr: string) => {

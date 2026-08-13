@@ -854,7 +854,7 @@ export default function TeamMemberDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-slate-900">Original Application</h3>
                 <span className="text-xs text-slate-400">
-                  {new Date(application.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(application.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                 </span>
               </div>
               <dl className="space-y-3 text-sm">
@@ -956,8 +956,8 @@ export default function TeamMemberDetailPage() {
                     <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${isPast ? 'border-slate-200 opacity-50' : 'border-slate-200'}`}>
                       <div>
                         <p className="text-sm text-slate-900">
-                          {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {entry.start !== entry.end && <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>}
+                          {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
+                          {entry.start !== entry.end && <> &mdash; {endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}</>}
                           {isPast && <span className="text-xs text-slate-400 ml-2">(past)</span>}
                         </p>
                         {entry.reason && <p className="text-xs text-slate-400 mt-0.5">{entry.reason}</p>}

@@ -205,7 +205,7 @@ export function AccountsPanel() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs">
-                  {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">

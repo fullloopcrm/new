@@ -193,7 +193,7 @@ export default function BillingPage() {
                   ${t.mrr}
                 </td>
                 <td className="px-5 py-3 text-slate-500 text-xs">
-                  {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                 </td>
                 <td className="px-5 py-3">
                   {editingId !== t.id && (
@@ -231,7 +231,7 @@ export default function BillingPage() {
                     {c.plan}
                   </span>
                   <span className="text-xs text-slate-400">
-                    {new Date(c.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(c.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                   </span>
                 </div>
               </div>

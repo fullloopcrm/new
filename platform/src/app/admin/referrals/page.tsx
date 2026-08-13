@@ -69,7 +69,7 @@ export default function AdminReferralsPage() {
   const conversionRate = totalReferrals > 0 ? ((convertedCount / totalReferrals) * 100).toFixed(1) : '0'
 
   const formatMoney = (cents: number) => '$' + (cents / 100).toFixed(2)
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 
   const getStatusBadge = (status: string) => {
     switch (status) {

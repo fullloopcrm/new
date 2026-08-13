@@ -285,7 +285,7 @@ function DashboardShellInner({
           id: n.id,
           tone: /opt_out|error|no_show|fail|overdue/i.test(n.type || '') ? 'warn' : 'info',
           text: n.title || n.message || 'Notification',
-          time: n.created_at ? new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
+          time: n.created_at ? new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' }) : '',
           seen: !!n.metadata?.read,
         })))
       })

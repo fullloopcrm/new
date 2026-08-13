@@ -3902,7 +3902,7 @@ async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: s
   const MAX_DAYS = 366
   const newDates: string[] = []
   for (let d = new Date(from); d <= to && newDates.length < MAX_DAYS; d.setDate(d.getDate() + 1)) {
-    newDates.push(d.toLocaleDateString('en-CA'))
+    newDates.push(d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
   }
 
   const existing: string[] = (member.unavailable_dates as string[] | null) || []

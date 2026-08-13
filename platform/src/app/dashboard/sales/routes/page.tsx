@@ -170,7 +170,7 @@ export default function RoutesPage() {
         <div className="p-10 text-center text-slate-400 text-sm">Loading…</div>
       ) : routes.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
-          <p className="text-slate-500 mb-3">No routes for {new Date(date).toLocaleDateString()}.</p>
+          <p className="text-slate-500 mb-3">No routes for {new Date(date).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}.</p>
           <p className="text-xs text-slate-400">
             Click &quot;Auto-build from bookings&quot; to generate routes from scheduled bookings with geocoded clients.
           </p>

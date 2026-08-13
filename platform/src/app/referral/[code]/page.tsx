@@ -70,7 +70,7 @@ function formatMoney(cents: number) {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 }
 
 function timeAgo(d: string): string {
@@ -82,7 +82,7 @@ function timeAgo(d: string): string {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   if (days < 7) return `${days}d ago`
-  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
 }
 
 function getReferrerToken(): string {
@@ -428,7 +428,7 @@ function ReferralDashboard() {
                   <div key={b.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <div>
                       <p className="font-medium text-slate-800 text-sm">{b.client_name || 'Client'}</p>
-                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                     </div>
                     <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
                       Scheduled — awaiting completion

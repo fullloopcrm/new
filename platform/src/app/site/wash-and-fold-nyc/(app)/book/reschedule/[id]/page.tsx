@@ -99,7 +99,7 @@ export default function ReschedulePage() {
 
   const formatDateLabel = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
   }
 
   const canReschedule = () => {

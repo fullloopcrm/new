@@ -86,7 +86,7 @@ export function TenantUsers({ tenantId }: { tenantId: string }) {
             <div key={u.id} className="flex items-center justify-between px-4 py-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-900">{u.name} <span className="text-xs text-slate-400 capitalize">· {u.role}</span></p>
-                <p className="text-xs text-slate-500 truncate">{u.email || u.phone || '—'} · {u.status}{u.last_login ? ` · last login ${new Date(u.last_login).toLocaleDateString()}` : ''}</p>
+                <p className="text-xs text-slate-500 truncate">{u.email || u.phone || '—'} · {u.status}{u.last_login ? ` · last login ${new Date(u.last_login).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}` : ''}</p>
               </div>
               <button onClick={() => remove(u.id)} className="text-xs text-slate-400 hover:text-red-600 shrink-0">remove</button>
             </div>

@@ -36,7 +36,7 @@ export default function TeamRulesPage() {
   if (!auth) return null
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
 
   return (
     <div className="pb-20">

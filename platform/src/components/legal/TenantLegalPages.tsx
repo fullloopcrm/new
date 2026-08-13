@@ -54,7 +54,7 @@ export function TenantPrivacyPolicy({ identity }: { identity: TenantLegalIdentit
       <p>By giving us your phone number, you consent to receive service-related texts and calls. Reply STOP at any time to opt out of texts.</p>
       <p>We retain your information as long as needed to provide our services and comply with legal obligations. You may request a copy of your data or ask us to delete it by contacting us{identity.email && <> at <a className="underline" href={`mailto:${identity.email}`}>{identity.email}</a></>}.</p>
       <p>If you are a California resident, you have the right to opt out of the sale or sharing of your personal information. We do not sell personal information.</p>
-      <p className="text-sm text-gray-400">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.</p>
+      <p className="text-sm text-gray-400">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' , timeZone: 'America/New_York' })}.</p>
     </Shell>
   )
 }
@@ -68,7 +68,7 @@ export function TenantTermsConditions({ identity }: { identity: TenantLegalIdent
       <p><strong>Liability.</strong> We carry insurance appropriate to our trade. Our liability for any claim is limited to the amount paid for the service giving rise to the claim.</p>
       <p><strong>Communications.</strong> By providing your phone number, you consent to service-related texts and calls related to your booking.</p>
       <p>We may update these terms from time to time. Continued use of our services after a change constitutes acceptance of the updated terms.</p>
-      <p className="text-sm text-gray-400">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.</p>
+      <p className="text-sm text-gray-400">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' , timeZone: 'America/New_York' })}.</p>
     </Shell>
   )
 }
