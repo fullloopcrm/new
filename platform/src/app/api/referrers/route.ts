@@ -326,17 +326,14 @@ export async function PUT(request: Request) {
   }
 }
 
-// Real hard delete, distinct from PUT{active:false} (deactivate) -- Jeff
-// wants an actual delete, not just hidden. referral_commissions.referrer_id
-// is ON DELETE CASCADE (that history disappears with the row, by design --
-// it's the referrer's own commission ledger), but bookings.referrer_id and
-// clients.referrer_id have NO foreign key at all, so a raw delete would
-// leave those rows silently pointing at a referrer_id that no longer
-// resolves to anything -- broken attribution history with no error to
-// signal it happened. Block delete when any of that would go dangling;
-// deactivate is the correct move for a referrer with real history. A
-// referrer with zero bookings/clients ever attributed to them (e.g. added
-// by mistake, or test data) deletes clean.
+// Real hard delete, distinct from PUT{active:false} (deactivate). Jeff:
+// "if I delete somebody, it gets deleted" -- unconditional, no history
+// check, no block. referral_commissions.referrer_id is ON DELETE CASCADE
+// (that history disappears with the row -- it's the referrer's own
+// commission ledger). bookings.referrer_id and clients.referrer_id have no
+// foreign key at all, so those get explicitly nulled out first -- not a
+// permission check, just not leaving other rows silently pointing at an id
+// that no longer resolves to anything.
 export async function DELETE(request: Request) {
   try {
     const { tenant, error: authError } = await requirePermission('referrals.manage')
@@ -354,15 +351,10 @@ export async function DELETE(request: Request) {
       .maybeSingle()
     if (!referrer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const [{ count: bookingCount }, { count: clientCount }] = await Promise.all([
-      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('referrer_id', id),
-      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('referrer_id', id),
+    await Promise.all([
+      supabaseAdmin.from('bookings').update({ referrer_id: null }).eq('tenant_id', tenantId).eq('referrer_id', id),
+      supabaseAdmin.from('clients').update({ referrer_id: null }).eq('tenant_id', tenantId).eq('referrer_id', id),
     ])
-    if ((bookingCount || 0) > 0 || (clientCount || 0) > 0) {
-      return NextResponse.json({
-        error: `Can't delete — ${bookingCount || 0} booking(s) and ${clientCount || 0} client(s) are still attributed to this referrer. Deactivate instead, or reassign that attribution first.`,
-      }, { status: 409 })
-    }
 
     const { error: delError } = await supabaseAdmin
       .from('referrers')
