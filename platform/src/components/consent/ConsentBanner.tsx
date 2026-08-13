@@ -31,6 +31,9 @@ interface ConsentBannerProps {
  * Either variant can be re-opened via the `#privacy-choices` (or legacy
  * `#do-not-sell`) URL hash, e.g. from a footer link.
  */
+/** Global kill switch — set to `true` to hide the banner on every tenant site. Toggle back to `false` to restore it. */
+const DISABLED = true
+
 export default function ConsentBanner({ privacyHref }: ConsentBannerProps) {
   const [mounted, setMounted] = useState(false)
   const [isEu, setIsEu] = useState(false)
@@ -88,7 +91,7 @@ export default function ConsentBanner({ privacyHref }: ConsentBannerProps) {
     window.location.reload()
   }
 
-  if (!mounted || !visible) return null
+  if (DISABLED || !mounted || !visible) return null
 
   const privacyLink = privacyHref ? (
     <a href={privacyHref} className="text-gray-900 underline underline-offset-2">
