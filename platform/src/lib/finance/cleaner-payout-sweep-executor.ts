@@ -29,7 +29,7 @@ import { smsAdmins } from '../admin-contacts'
 import { sendTenantTelegram } from '../notify'
 import { trackError } from '../error-tracking'
 import { claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from './cleaner-payout'
-import { claimGlobalPayout, finalizeGlobalPayout, getStorageFinancialAccount, ensureFinancialAccountFunded, createOutboundPayment } from './global-payouts'
+import { claimGlobalPayout, finalizeGlobalPayout, getStorageFinancialAccount, ensureFinancialAccountFunded, createOutboundPayment, isClosedRecipientError } from './global-payouts'
 import { postPayoutToLedger } from './post-labor'
 import type { CleanerOutstanding } from './cleaner-outstanding'
 
@@ -100,7 +100,22 @@ export async function sweepCleanerOutstanding(opts: {
           extra: `bookingId=${bookingId}; teamMemberId=${cleaner.cleanerId}; payoutId=${claim.payoutId}; originalError=${payErr instanceof Error ? payErr.message : String(payErr)}`,
         }).catch(() => {})
       })
-      notifyFailed(payErr instanceof Error ? payErr.message : String(payErr))
+      const reason = payErr instanceof Error ? payErr.message : String(payErr)
+      // A closed/revoked recipient account will never succeed — retrying it
+      // every 15-min cron tick forever just re-sends the same alert. Clear
+      // the stale link so the next tick falls back to Connect v1 (if the
+      // cleaner has one) or reports "no payout method" through the deduped
+      // admin_tasks path instead of paging admins again.
+      if (isClosedRecipientError(payErr, cleaner.globalPayoutsRecipientId)) {
+        await supabaseAdmin
+          .from('team_members')
+          .update({ global_payouts_recipient_id: null })
+          .eq('tenant_id', tenantId)
+          .eq('id', cleaner.cleanerId)
+        notifyFailed(`${reason} — their Global Payouts account was closed; cleared it so they can be re-onboarded.`)
+      } else {
+        notifyFailed(reason)
+      }
       return 'failed'
     }
   }
