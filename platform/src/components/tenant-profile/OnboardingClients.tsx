@@ -74,16 +74,17 @@ const CHUNK_SIZE = 8
 export default function OnboardingClients({ token }: { token?: string }) {
   const [text, setText] = useState('')
   const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<{ added: number; failed: { line: string; reason: string }[]; skipped: number } | null>(null)
+  const [result, setResult] = useState<{ added: number; deduped: number; failed: { line: string; reason: string }[]; skipped: number } | null>(null)
   const [addedTotal, setAddedTotal] = useState(0)
 
   const importList = async () => {
     const { rows, skipped } = parseClientList(text)
-    if (!rows.length) { setResult({ added: 0, failed: [], skipped }); return }
+    if (!rows.length) { setResult({ added: 0, deduped: 0, failed: [], skipped }); return }
     setImporting(true)
     setResult(null)
     const failed: { line: string; reason: string }[] = []
     let added = 0
+    let deduped = 0
     try {
       for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
         const chunk = rows.slice(i, i + CHUNK_SIZE)
@@ -102,7 +103,14 @@ export default function OnboardingClients({ token }: { token?: string }) {
                 force: true,
               }),
             })
-            if (res.ok) return { ok: true as const }
+            if (res.ok) {
+              // A full phone+email match against an existing client returns
+              // the existing row instead of creating a new one (automated
+              // dedupe, see src/lib/client-dedupe.ts) -- count it separately
+              // so "added" only ever means a genuinely new row landed.
+              const body = await res.json().catch(() => ({}))
+              return { ok: true as const, deduped: body?.deduped === true }
+            }
             const body = await res.json().catch(() => ({}))
             return { ok: false as const, reason: body?.error || `Couldn't save (status ${res.status})` }
           } catch {
@@ -110,13 +118,17 @@ export default function OnboardingClients({ token }: { token?: string }) {
           }
         }))
         outcomes.forEach((outcome, idx) => {
-          if (outcome.ok) added++
-          else failed.push({ line: chunk[idx].line, reason: outcome.reason })
+          if (outcome.ok) {
+            if (outcome.deduped) deduped++
+            else added++
+          } else {
+            failed.push({ line: chunk[idx].line, reason: outcome.reason })
+          }
         })
       }
       setAddedTotal((prev) => prev + added)
-      setResult({ added, failed, skipped })
-      if (added > 0) setText('')
+      setResult({ added, deduped, failed, skipped })
+      if (added > 0 || deduped > 0) setText('')
     } finally {
       setImporting(false)
     }
@@ -164,7 +176,9 @@ export default function OnboardingClients({ token }: { token?: string }) {
       {result && (
         <div className="mt-3 rounded-lg border border-slate-200 p-3 text-xs">
           <p className="text-slate-600">
-            Imported {result.added}{result.skipped > 0 ? `, skipped ${result.skipped} unreadable line${result.skipped === 1 ? '' : 's'}` : ''}
+            Imported {result.added}
+            {result.deduped > 0 ? `, ${result.deduped} already existed (matched an existing client, not re-added)` : ''}
+            {result.skipped > 0 ? `, skipped ${result.skipped} unreadable line${result.skipped === 1 ? '' : 's'}` : ''}
             {result.failed.length > 0 ? `, ${result.failed.length} couldn't save` : ''}.
           </p>
           {result.failed.length > 0 && (

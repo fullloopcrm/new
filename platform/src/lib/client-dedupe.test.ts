@@ -3,8 +3,10 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 
 const TENANT_A = 'tid-a'
 
-const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'], rpc: null as null | Harness['rpc'] }))
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: { from: (t: string) => holder.from!(t), rpc: (fn: string, args: Record<string, unknown>) => holder.rpc!(fn, args) },
+}))
 const auditMock = vi.hoisted(() => vi.fn(async () => ({ success: true })))
 vi.mock('@/lib/audit', () => ({ audit: auditMock }))
 
@@ -46,6 +48,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  holder.rpc = h.rpc
   auditMock.mockClear()
 })
 
