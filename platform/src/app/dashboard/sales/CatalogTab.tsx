@@ -288,6 +288,11 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
   async function addItem() {
     setErr('')
     if (!form.name.trim()) { setErr('Name is required.'); return }
+    if (form.item_type === 'product' && !form.is_digital) {
+      if (!form.description.trim()) { setErr('Description is required for products — it\'s customer-facing.'); return }
+      if (parseOptionList(form.color_options).length === 0) { setErr('At least one color option is required.'); return }
+      if (parseOptionList(form.size_options).length === 0) { setErr('At least one size option is required.'); return }
+    }
     setSaving(true)
     try {
       const res = await fetch('/api/catalog', {
@@ -352,6 +357,11 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
     if (!editForm) return
     setEditErr('')
     if (!editForm.name.trim()) { setEditErr('Name is required.'); return }
+    if (editForm.item_type === 'product' && !editForm.is_digital) {
+      if (!editForm.description.trim()) { setEditErr('Description is required for products — it\'s customer-facing.'); return }
+      if (parseOptionList(editForm.color_options).length === 0) { setEditErr('At least one color option is required.'); return }
+      if (parseOptionList(editForm.size_options).length === 0) { setEditErr('At least one size option is required.'); return }
+    }
     setEditSaving(true)
     try {
       const res = await fetch('/api/catalog', {

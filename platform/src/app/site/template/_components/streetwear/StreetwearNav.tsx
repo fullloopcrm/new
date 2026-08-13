@@ -22,20 +22,25 @@ export default function StreetwearNav({ config }: { config: SiteConfig }) {
 
   return (
     <>
-      {/* Placeholder copy — swap for real announcement text */}
-      <div className="bg-white text-black text-center text-xs sm:text-sm font-bold tracking-[0.15em] uppercase py-2 px-4">
-        Free Shipping On Orders $150+
-      </div>
+      <Link
+        href="/shipping-policy"
+        className="block bg-white text-black text-center text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase py-2 px-4 hover:bg-white/90 transition-colors"
+      >
+        Free Shipping On Every Order (Ships Next Day)
+      </Link>
 
       <header className="bg-black sticky top-0 z-50 border-b border-white/10">
       <div className="max-w-[1600px] mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-20">
           <Link href="/" className="flex-shrink-0" onClick={() => setMobileOpen(false)}>
-            {config.identity.logo ? (
-              <Image src={config.identity.logo} alt={config.identity.name} width={48} height={48} className="h-10 w-10 sm:h-12 sm:w-12" priority />
-            ) : (
-              <span className="font-[family-name:var(--font-anton)] text-2xl text-white tracking-wide uppercase">{config.identity.name}</span>
-            )}
+            <Image
+              src="/logos/urban-co/urban-co-nyc-wordmark-logo.png"
+              alt={`${config.identity.name} — The NYC Urban + Streetwear Clothing Company`}
+              width={1090}
+              height={299}
+              className="h-12 sm:h-16 w-auto"
+              priority
+            />
           </Link>
 
           <div className="flex items-center gap-1">

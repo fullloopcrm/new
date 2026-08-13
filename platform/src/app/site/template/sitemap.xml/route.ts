@@ -5,6 +5,7 @@ import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { getTenantFromHeaders, getTenantServices } from '@/lib/tenant-site'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 import { blogPosts } from '@/app/site/template/_lib/content/longform'
@@ -82,6 +83,24 @@ ${vaUrls
       { loc: `${BASE_URL}/refund-policy`, pri: '0.3', freq: 'yearly' },
       { loc: `${BASE_URL}/do-not-share-policy`, pri: '0.3', freq: 'yearly' },
     ]
+
+    // Storefront tenants (e.g. streetwear) additionally get /shop and one
+    // entry per active, priced product — the generic branch above has no
+    // e-commerce awareness otherwise, so these URLs were previously missing
+    // from the sitemap entirely.
+    if (config.storefrontEnabled) {
+      genUrls.push({ loc: `${BASE_URL}/shop`, pri: '0.9', freq: 'daily' })
+      const tenant = await getTenantFromHeaders()
+      if (tenant) {
+        const products = await getTenantServices(tenant.id)
+        for (const p of products) {
+          if (p.item_type === 'product' && p.active && (p.price_cents || 0) > 0) {
+            genUrls.push({ loc: `${BASE_URL}/shop/${p.id}`, pri: '0.7', freq: 'weekly' })
+          }
+        }
+      }
+    }
+
     const genXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${genUrls

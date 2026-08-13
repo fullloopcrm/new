@@ -9,6 +9,7 @@ import AddToCartButton from './AddToCartButton'
 import ZoomImage from './ZoomImage'
 import HeroTabs, { type HeroTab } from './HeroTabs'
 import PimaCottonFlagship from './PimaCottonFlagship'
+import CityMontage from './CityMontage'
 
 interface FeaturedProduct {
   id: string
@@ -86,19 +87,21 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
   // band behind the tabs reads, one per tab. Placeholder source images,
   // not final photography.
   const heroTabs: HeroTab[] = [
-    { key: 'fellas', label: 'Fellas', imageUrl: '/site-assets/urban-co/hero/hero-1.jpeg' },
-    { key: 'ladies', label: 'Ladies', imageUrl: '/site-assets/urban-co/hero/hero-2.webp' },
-    { key: 'accessories', label: 'Accessories', imageUrl: '/site-assets/urban-co/hero/hero-3.webp' },
-    { key: 'whats-hot', label: "What's Hot", imageUrl: '/site-assets/urban-co/hero/hero-4.webp' },
-    { key: 'about', label: 'About', imageUrl: null },
+    { key: 'landing', label: '', imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-hoodie-packing-fulfillment-hero.jpeg', hidden: true },
+    { key: 'fellas', label: 'Fellas', imageUrl: '/site-assets/urban-co/montage/urban-co-nyc-hoodie-rooftop-skyline-jump.jpeg' },
+    { key: 'ladies', label: 'Ladies', imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-tee-ladies-rooftop-hero.jpeg' },
+    { key: 'accessories', label: 'Accessories', imageUrl: 'https://cdn.fashn.ai/b1a58739-9119-4c01-8a7e-3035522102b3/product_to_model_0.png' },
+    { key: 'whats-hot', label: "What's Hot", imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-hoodie-friends-reveal-hero.jpeg' },
   ]
 
   return (
     <>
       {featured.length > 0 && <JsonLd data={productItemListSchema(business, featured)} />}
 
-      {/* Hero */}
-      <section className="relative isolate bg-black text-white overflow-hidden">
+      {/* Hero — image-only, no copy. The tab row is the only UI on top of the
+          photo (it's the primary nav, not decorative), pinned to the bottom
+          of a full-bleed frame instead of stacked under a wordmark. */}
+      <section className="relative isolate bg-black text-white overflow-hidden min-h-[70vh] sm:min-h-[85vh] flex flex-col justify-end">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-screen"
           style={{
@@ -106,51 +109,66 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
               'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27120%27 height=%27120%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.9%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E")',
           }}
         />
-        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-32 relative">
-          <div className="flex flex-wrap items-center gap-3 mb-8">
-            {/* Value contrast, not hue, does the signaling in a black/white/gray
-                system — a solid white block reads as the loudest thing on a
-                black section, same job a colored badge would do elsewhere. */}
-            <span className="inline-block bg-white text-black text-[11px] font-bold tracking-[0.2em] uppercase px-3 py-1.5">
-              NYC Streetwear
-            </span>
-            <span className="text-[var(--accent)] text-[11px] font-[family-name:var(--font-plex-mono)] tracking-wide uppercase">
-              150 West 47th Street &middot; Diamond District
-            </span>
-          </div>
-
-          {/* Oversized wordmark, intentionally bleeding past the readable measure */}
-          <h1 className="font-[family-name:var(--font-anton)] uppercase leading-[0.82] tracking-tight text-[18vw] sm:text-[13vw] lg:text-[10.5vw] -ml-1">
-            Urban<br />Co.
-          </h1>
-
-          <p className="max-w-2xl text-[var(--accent)] text-base sm:text-lg leading-relaxed">
-            {config.brandCopy?.heroLine || 'Built on New York City streets, not in a mood board. Heavyweight fleece, hard-edged graphics, zero filler.'}
-          </p>
-
-          {/* Manual tabs — replaces the old Shop Now / Our Story CTA row.
-              These double as the primary nav: full link list lives in the
-              hamburger menu instead of a duplicate row here. */}
+        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 pb-10 sm:pb-14 w-full">
           <HeroTabs tabs={heroTabs} />
         </div>
       </section>
 
-      <PimaCottonFlagship config={config} />
-
-      {/* Welcome intro — every section follows badge / heading / description */}
-      <section className="bg-[var(--accent)] text-white py-16 sm:py-24">
-        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 text-center">
-          <span className="inline-block bg-black text-white text-[11px] font-bold tracking-[0.2em] uppercase px-3 py-1.5 mb-6">
-            Welcome
-          </span>
-          <h2 className="font-[family-name:var(--font-anton)] text-4xl sm:text-6xl uppercase tracking-wide leading-[0.95] mb-6">
-            Welcome To Urban Co. NYC
-          </h2>
-          <p className="max-w-2xl mx-auto text-white/80 text-base sm:text-lg leading-relaxed">
-            From the Diamond District to all five boroughs, Urban Co. is where global streetwear culture meets New York grit — heavyweight fabric, hard graphics, no filler.
-          </p>
+      {/* Welcome/About — rubber logo left (30%), content right (70%). */}
+      <section className="bg-white text-black py-16 sm:py-24">
+        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-[30%_70%] gap-10 items-center">
+          <div className="flex justify-start lg:justify-center">
+            <Image
+              src="/logos/urban-co/urban-co-nyc-rubber-logo-badge.png"
+              alt={`${config.identity.name} rubber-patch street-grid logo`}
+              width={800}
+              height={800}
+              className="w-64 h-64 sm:w-96 sm:h-96 object-contain"
+            />
+          </div>
+          <div>
+            <span className="inline-block bg-black text-white text-[11px] font-bold tracking-[0.2em] uppercase px-3 py-1.5 mb-6">
+              NYC Streetwear
+            </span>
+            <h2 className="font-[family-name:var(--font-anton)] text-3xl sm:text-5xl uppercase tracking-wide leading-[0.95] mb-5">
+              Welcome to Urban Co. NYC, local drip.
+            </h2>
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-4">
+              {config.brandCopy?.heroLine || 'Global Drip, Local Roots — Where Hype Meets Culture.'}
+            </p>
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-4">
+              Urban Co. carries the lineage of NYC urban fashion back to the 1980s — the Bronx block parties that gave the world hip-hop, Dapper Dan&rsquo;s Harlem atelier remixing luxury monograms into street armor, and the garment trade that&rsquo;s run through this city&rsquo;s Diamond District for generations. Bomber jackets, bold graphics, heavyweight fleece — the uniform of a city that turned scarcity into style, and never stopped.
+            </p>
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-8">
+              Born and based in Midtown — 150 West 47th Street, Diamond District — we&rsquo;re built on that same old-school foundation: no mood boards, no seasonal gimmicks, just heavyweight fabric and hard-edged graphics sourced globally, worn locally, made for all five boroughs and built for the block, not the boardroom.
+            </p>
+            <div className="grid grid-cols-3 gap-4 max-w-lg mb-8 pt-6 border-t border-black/10">
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">100%</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Pima Cotton</p>
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">NYC</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Diamond District</p>
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase leading-none">5</p>
+                <p className="text-[11px] text-black/50 tracking-[0.1em] uppercase mt-1 font-[family-name:var(--font-plex-mono)]">Boroughs Served</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-6">
+              <Link href="/shop" className="inline-block bg-black text-white text-sm font-bold tracking-wide uppercase px-6 py-3 hover:bg-[var(--accent)] hover:text-black transition-colors">
+                Shop Now
+              </Link>
+              <Link href="/about" className="inline-block text-black text-sm font-semibold tracking-wide uppercase border-b border-black/40 hover:border-black transition-colors">
+                Learn More &rarr;
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
+
+      <PimaCottonFlagship config={config} />
 
       {/* Featured drop — alternates to WHITE, asymmetric bento not a uniform grid */}
       <section className="bg-white text-black py-16 sm:py-24">
@@ -166,7 +184,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           </div>
 
           {featured.length === 0 ? (
-            <div className="border border-black/15 p-12 text-center text-black/40">No products live yet.</div>
+            <div className="border border-black/15 p-12 text-center text-black/60">No products live yet.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16 lg:gap-x-10 lg:gap-y-20">
               {featured.map((p) => (
@@ -182,7 +200,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
                     </div>
                   </Link>
                   <div className="pt-5 pb-2">
-                    {p.category && <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/40 mb-2 font-[family-name:var(--font-plex-mono)]">{p.category}</p>}
+                    {p.category && <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-black/60 mb-2 font-[family-name:var(--font-plex-mono)]">{p.category}</p>}
                     <Link href={`/shop/${p.id}`}>
                       <h3 className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase tracking-wide leading-[0.95] hover:text-[var(--accent)] transition-colors">{p.name}</h3>
                     </Link>
@@ -210,7 +228,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           <div className="lg:col-span-2 flex justify-start lg:justify-center">
             {config.identity.logo && (
               <Image
-                src="/logos/urban-co/logo-black-on-white.png"
+                src="/logos/urban-co/urban-co-nyc-street-grid-icon.png"
                 alt={`${config.identity.name} street-grid mark`}
                 width={140}
                 height={140}
@@ -228,6 +246,8 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           </div>
         </div>
       </section>
+
+      <CityMontage />
     </>
   )
 }

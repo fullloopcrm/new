@@ -1,5 +1,6 @@
 import type { SiteConfig } from '../_config/types'
 import type { LegalDocData } from '../_components/LegalDoc'
+import { industryProfile } from './seo/industry'
 
 /**
  * Per-tenant legal document content, built from SiteConfig.
@@ -46,6 +47,7 @@ function contact(b: LegalBiz) {
 
 export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
   const b = lb(config)
+  const retail = industryProfile(config.industry).isPureRetail
   return {
     title: 'Privacy Policy',
     subtitle: 'How we collect, use, and protect your information',
@@ -53,15 +55,19 @@ export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
     breadcrumb: 'Privacy Policy',
     breadcrumbHref: '/privacy-policy',
     intro: [
-      `This Privacy Policy explains how ${b.name} ("we," "us," or "our") collects, uses, shares, and protects your information when you request a quote, book a service, place an order in our store, or use our website.`,
+      retail
+        ? `This Privacy Policy explains how ${b.name} ("we," "us," or "our") collects, uses, shares, and protects your information when you place an order in our store or use our website.`
+        : `This Privacy Policy explains how ${b.name} ("we," "us," or "our") collects, uses, shares, and protects your information when you request a quote, book a service, place an order in our store, or use our website.`,
     ],
     sections: [
       {
         heading: 'Information We Collect',
-        body: ['When you contact us, request a quote, book a service, or place an order, we may collect:'],
+        body: [retail ? 'When you contact us or place an order, we may collect:' : 'When you contact us, request a quote, book a service, or place an order, we may collect:'],
         bullets: [
-          'Contact information — your name, phone number, email address, and service or shipping address.',
-          'Service details — information about the job, your property, access instructions, and any special requests or preferences.',
+          retail
+            ? 'Contact information — your name, phone number, email address, and shipping address.'
+            : 'Contact information — your name, phone number, email address, and service or shipping address.',
+          ...(retail ? [] : ['Service details — information about the job, your property, access instructions, and any special requests or preferences.']),
           'Order details — the items purchased, quantities, and (for physical items) the shipping address used for delivery.',
           'Payment information — collected through our third-party payment processor. We do not store full payment card numbers on our own servers.',
           'Website usage data — pages visited, links clicked, and general device/browser information, used to measure and improve our site.',
@@ -70,19 +76,21 @@ export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
       {
         heading: 'How We Use Your Information',
         bullets: [
-          'To schedule, confirm, and deliver your service',
+          ...(retail ? [] : ['To schedule, confirm, and deliver your service']),
           'To process, fulfill, and ship or digitally deliver store orders',
-          'To communicate with you about appointments, quotes, orders, updates, and support',
-          'To dispatch the right professional to your location',
+          retail ? 'To communicate with you about orders, updates, and support' : 'To communicate with you about appointments, quotes, orders, updates, and support',
+          ...(retail ? [] : ['To dispatch the right professional to your location']),
           'To process payments and maintain records',
-          'To measure and improve our website and services',
-          'To send service and order updates and, only with your consent, occasional offers (you can opt out at any time)',
+          retail ? 'To measure and improve our website' : 'To measure and improve our website and services',
+          retail ? 'To send order updates and, only with your consent, occasional offers (you can opt out at any time)' : 'To send service and order updates and, only with your consent, occasional offers (you can opt out at any time)',
         ],
       },
       {
         heading: 'Text Messages & Phone Calls',
         body: [
-          `By providing your phone number and opting in, you consent to receive calls and text messages from ${b.name} about your inquiry, appointments, reminders, and support — including messages sent using automated technology. Consent is not a condition of purchase.`,
+          retail
+            ? `By providing your phone number and opting in, you consent to receive calls and text messages from ${b.name} about your inquiry, orders, and support — including messages sent using automated technology. Consent is not a condition of purchase.`
+            : `By providing your phone number and opting in, you consent to receive calls and text messages from ${b.name} about your inquiry, appointments, reminders, and support — including messages sent using automated technology. Consent is not a condition of purchase.`,
           'Message frequency may vary. Message and data rates may apply. Reply STOP to opt out of texts at any time, or HELP for help. Carriers are not liable for delayed or undelivered messages.',
         ],
       },
@@ -147,18 +155,23 @@ export function privacyPolicyDoc(config: SiteConfig): LegalDocData {
 
 export function termsDoc(config: SiteConfig): LegalDocData {
   const b = lb(config)
+  const retail = industryProfile(config.industry).isPureRetail
   return {
     title: 'Terms & Conditions',
-    subtitle: 'The terms that govern our services',
+    subtitle: retail ? 'The terms that govern our store' : 'The terms that govern our services',
     updated: UPDATED,
     breadcrumb: 'Terms & Conditions',
     breadcrumbHref: '/terms-conditions',
     intro: [
-      `These Terms & Conditions govern your use of ${b.name}'s website, services, and online store. By requesting a quote, booking a service, placing an order, or using our site, you agree to these terms.`,
+      retail
+        ? `These Terms & Conditions govern your use of ${b.name}'s website and online store. By placing an order or using our site, you agree to these terms.`
+        : `These Terms & Conditions govern your use of ${b.name}'s website, services, and online store. By requesting a quote, booking a service, placing an order, or using our site, you agree to these terms.`,
     ],
     sections: [
-      { heading: 'Our Services & Store', body: [`${b.name} provides professional home and property services in ${b.place} and surrounding areas, and may also offer branded merchandise or digital products through our online store. Specific scope, availability, and pricing for services are confirmed at the time of booking; product availability and pricing are as shown at checkout.`] },
-      { heading: 'Booking, Scheduling & Access', body: ['When you book, you agree to provide accurate details and safe, timely access to the service location. If we cannot access the location or the job differs materially from what was described, additional charges or rescheduling may apply.'] },
+      retail
+        ? { heading: 'Our Store', body: [`${b.name} sells branded apparel and accessories through our online store. Product availability and pricing are as shown at checkout.`] }
+        : { heading: 'Our Services & Store', body: [`${b.name} provides professional home and property services in ${b.place} and surrounding areas, and may also offer branded merchandise or digital products through our online store. Specific scope, availability, and pricing for services are confirmed at the time of booking; product availability and pricing are as shown at checkout.`] },
+      ...(retail ? [] : [{ heading: 'Booking, Scheduling & Access', body: ['When you book, you agree to provide accurate details and safe, timely access to the service location. If we cannot access the location or the job differs materially from what was described, additional charges or rescheduling may apply.'] }]),
       {
         heading: 'Product Orders, Shipping & Digital Delivery',
         body: [
@@ -166,15 +179,25 @@ export function termsDoc(config: SiteConfig): LegalDocData {
           'Physical items ship to the address provided at checkout; estimated delivery times are not guaranteed and risk of loss passes to you upon delivery to the shipping carrier. Digital items are delivered electronically (by email or download link) after payment is confirmed and are not shipped.',
         ],
       },
-      { heading: 'Pricing & Payment', body: ['Prices are provided as quotes or hourly/flat rates confirmed at booking, or as listed at checkout for store orders, and may change if the scope changes. Payment is processed through our secure third-party payment processor. You are responsible for any applicable taxes and shipping charges shown at checkout, and for keeping a valid payment method on file.'] },
-      { heading: 'Cancellations & Rescheduling', body: ['Cancellation and rescheduling windows for services are described at booking and in our Refund Policy. Late cancellations or missed appointments may incur a fee. Store orders may be cancelled only before they ship or are digitally delivered — see our Refund Policy for returns and exchanges.'] },
+      retail
+        ? { heading: 'Pricing & Payment', body: ['Prices are as listed at checkout and may change without notice until an order is placed. Payment is processed through our secure third-party payment processor. You are responsible for any applicable taxes and shipping charges shown at checkout, and for keeping a valid payment method on file.'] }
+        : { heading: 'Pricing & Payment', body: ['Prices are provided as quotes or hourly/flat rates confirmed at booking, or as listed at checkout for store orders, and may change if the scope changes. Payment is processed through our secure third-party payment processor. You are responsible for any applicable taxes and shipping charges shown at checkout, and for keeping a valid payment method on file.'] },
+      retail
+        ? { heading: 'Cancellations', body: ['Store orders may be cancelled only before they ship or are digitally delivered — see our Refund Policy for returns and exchanges.'] }
+        : { heading: 'Cancellations & Rescheduling', body: ['Cancellation and rescheduling windows for services are described at booking and in our Refund Policy. Late cancellations or missed appointments may incur a fee. Store orders may be cancelled only before they ship or are digitally delivered — see our Refund Policy for returns and exchanges.'] },
       {
         heading: 'Text Messaging Consent',
-        body: [`By providing your phone number, you consent to receive calls and texts from ${b.name} related to your service, including via automated technology. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out, HELP for help.`],
+        body: [retail
+          ? `By providing your phone number, you consent to receive calls and texts from ${b.name} related to your order, including via automated technology. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out, HELP for help.`
+          : `By providing your phone number, you consent to receive calls and texts from ${b.name} related to your service, including via automated technology. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out, HELP for help.`],
       },
-      { heading: 'Your Responsibilities', bullets: ['Provide accurate contact and service information', 'Ensure safe and lawful access to the service location', 'Secure or disclose valuables, pets, and hazards in advance', 'Maintain a valid payment method'] },
-      { heading: 'Service Guarantee & Limitations', body: ['We stand behind our work and will make reasonable efforts to resolve legitimate concerns raised promptly after service. We are not responsible for pre-existing damage, conditions that cannot be corrected by the service requested, or issues outside the agreed scope of work.'] },
-      { heading: 'Limitation of Liability', body: [`To the fullest extent permitted by law, ${b.name}'s total liability for any claim related to our services is limited to the amount you paid for the service giving rise to the claim. We are not liable for indirect, incidental, or consequential damages.`] },
+      retail
+        ? { heading: 'Your Responsibilities', bullets: ['Provide accurate contact and shipping information', 'Maintain a valid payment method'] }
+        : { heading: 'Your Responsibilities', bullets: ['Provide accurate contact and service information', 'Ensure safe and lawful access to the service location', 'Secure or disclose valuables, pets, and hazards in advance', 'Maintain a valid payment method'] },
+      ...(retail ? [] : [{ heading: 'Service Guarantee & Limitations', body: ['We stand behind our work and will make reasonable efforts to resolve legitimate concerns raised promptly after service. We are not responsible for pre-existing damage, conditions that cannot be corrected by the service requested, or issues outside the agreed scope of work.'] }]),
+      retail
+        ? { heading: 'Limitation of Liability', body: [`To the fullest extent permitted by law, ${b.name}'s total liability for any claim related to your order is limited to the amount you paid for the item giving rise to the claim. We are not liable for indirect, incidental, or consequential damages.`] }
+        : { heading: 'Limitation of Liability', body: [`To the fullest extent permitted by law, ${b.name}'s total liability for any claim related to our services is limited to the amount you paid for the service giving rise to the claim. We are not liable for indirect, incidental, or consequential damages.`] },
       { heading: 'Indemnification', body: [`You agree to indemnify and hold ${b.name} harmless from claims arising out of your breach of these terms, your misuse of our services, or your violation of any law or third-party right.`] },
       { heading: 'Intellectual Property', body: ['All content on our website — text, graphics, logos, and design — is owned by or licensed to us and may not be copied or reused without permission.'] },
       { heading: 'Governing Law & Disputes', body: ['These terms are governed by the laws of the state in which we operate, without regard to conflict-of-law rules. Any dispute will be resolved in the courts located in that jurisdiction.'] },
@@ -186,29 +209,94 @@ export function termsDoc(config: SiteConfig): LegalDocData {
 
 export function refundDoc(config: SiteConfig): LegalDocData {
   const b = lb(config)
+  const retail = industryProfile(config.industry).isPureRetail
   return {
     title: 'Refund Policy',
-    subtitle: 'Our satisfaction commitment',
+    subtitle: retail ? 'Our returns & satisfaction commitment' : 'Our satisfaction commitment',
     updated: UPDATED,
     breadcrumb: 'Refund Policy',
     breadcrumbHref: '/refund-policy',
-    intro: [`We want you to be satisfied with your service or purchase from ${b.name}. This policy explains how we handle concerns, re-services, cancellations, product returns, and refunds.`],
+    intro: [retail
+      ? `We want you to be satisfied with your purchase from ${b.name}. This policy explains how we handle returns, exchanges, and refunds.`
+      : `We want you to be satisfied with your service or purchase from ${b.name}. This policy explains how we handle concerns, re-services, cancellations, product returns, and refunds.`],
     sections: [
-      { heading: 'Satisfaction & Re-Service', body: ['If something about your completed service did not meet a reasonable standard, contact us promptly — within 24 hours of service where possible. We will review the concern and, when warranted, return to correct the specific issue at no additional charge before any refund is considered.'] },
-      { heading: 'Cancellations & Rescheduling', body: ['You may cancel or reschedule a booked service within the window communicated at booking. Cancellations made after that window, or missed appointments, may incur a fee to cover reserved time and dispatch. Recurring services may require additional notice as described at signup.'] },
-      {
-        heading: 'Product Returns & Exchanges',
-        body: [
-          'Physical items purchased through our store may be returned within 30 days of delivery for a refund or exchange, provided the item is unused and in its original packaging. Contact us to start a return — we will provide instructions and a return address.',
-          'If an item arrived defective, damaged, or wrong, contact us and we will cover return shipping and send a replacement or refund at no cost to you. For other returns, return shipping is the customer\'s responsibility unless local law says otherwise.',
-        ],
-      },
+      ...(retail ? [] : [
+        { heading: 'Satisfaction & Re-Service', body: ['If something about your completed service did not meet a reasonable standard, contact us promptly — within 24 hours of service where possible. We will review the concern and, when warranted, return to correct the specific issue at no additional charge before any refund is considered.'] },
+        { heading: 'Cancellations & Rescheduling', body: ['You may cancel or reschedule a booked service within the window communicated at booking. Cancellations made after that window, or missed appointments, may incur a fee to cover reserved time and dispatch. Recurring services may require additional notice as described at signup.'] },
+      ]),
+      ...(retail ? [
+        {
+          heading: 'Sizing Issues',
+          body: [
+            'We do not offer refunds or exchanges for sizing issues. If an item doesn\'t fit, place a new order in the correct size and we\'ll give you 25% off that next order — contact us first to get your discount code.',
+          ],
+        },
+        {
+          heading: 'Quality Issues',
+          body: [
+            'Refunds are only issued for genuine quality issues — defective material, misprints, damaged items, or a wrong item shipped. To request one, contact us with photos clearly showing the issue. We review every claim and will not ask you to return the item unless we need it for a supplier claim.',
+          ],
+        },
+      ] : [
+        {
+          heading: 'Product Returns & Exchanges',
+          body: [
+            'Physical items purchased through our store may be returned within 30 days of delivery for a refund or exchange, provided the item is unused and in its original packaging. Contact us to start a return — we will provide instructions and a return address.',
+            'If an item arrived defective, damaged, or wrong, contact us and we will cover return shipping and send a replacement or refund at no cost to you. For other returns, return shipping is the customer\'s responsibility unless local law says otherwise.',
+          ],
+        },
+      ]),
       {
         heading: 'Digital Products',
         body: ['Digital items are delivered electronically after payment and are generally non-refundable once delivered, since delivery cannot be undone. If a digital item is defective, inaccessible, or not what was described, contact us and we will make it right with a replacement or refund.'],
       },
-      { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Service refunds are for the affected service only and do not apply to concerns reported outside a reasonable timeframe or to conditions outside the agreed scope of work. Product refunds are issued once a returned item is received and inspected, or immediately for approved defective/wrong-item claims.'] },
+      retail
+        ? { heading: 'Refunds', body: ['Approved quality-issue refunds are issued to the original payment method once we\'ve reviewed your photos — no return shipment required in most cases. Refunds are not issued for size, fit, or preference — see Sizing Issues above for our 25%-off reorder instead.'] }
+        : { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Service refunds are for the affected service only and do not apply to concerns reported outside a reasonable timeframe or to conditions outside the agreed scope of work. Product refunds are issued once a returned item is received and inspected, or immediately for approved defective/wrong-item claims.'] },
       { heading: 'Payment Disputes', body: ['If you believe you were charged in error, contact us first — most issues are resolved quickly and directly. Please reach out before initiating a chargeback so we can make it right.'] },
+    ],
+    ...contact(b),
+  }
+}
+
+export function shippingDoc(config: SiteConfig): LegalDocData {
+  const b = lb(config)
+  return {
+    title: 'Shipping Policy',
+    subtitle: 'Processing times, rates, and delivery',
+    updated: UPDATED,
+    breadcrumb: 'Shipping Policy',
+    breadcrumbHref: '/shipping-policy',
+    intro: [`This explains how orders from ${b.name} are processed, shipped, and delivered.`],
+    sections: [
+      {
+        heading: 'Processing Time',
+        body: ['Orders are typically processed within 2–5 business days before shipping. Processing time can run longer during high-volume periods (holidays, new drops) — we will note any expected delay at checkout or by email if it changes.'],
+      },
+      {
+        heading: 'Shipping Rates & Delivery',
+        body: ['Standard shipping is free on every order within the US and Canada. Delivery typically takes 5–10 business days after an order ships, depending on destination.'],
+      },
+      {
+        heading: 'Local Hand Delivery',
+        body: [
+          'For customers in Manhattan, we offer hand-to-hand delivery by appointment only for $59. Our most popular meeting spot is Times Square, though we can arrange another location in Manhattan with you.',
+          'Visiting NYC? Order before you leave home, or while you\'re en route — we\'ll have it ready and bring it straight to your hotel or wherever you\'re staying in Manhattan.',
+          'Drop a pin. Send it our way. We\'ll find you — you might not even see us coming. Quick handoff, no small talk: merch in hand, and we\'re gone. Soon as you\'ve got it, keep it moving.',
+        ],
+      },
+      {
+        heading: 'Order Tracking',
+        body: ['You\'ll receive a shipping confirmation with tracking information once your order ships. If you haven\'t received tracking within the processing window above, contact us and we\'ll look into it.'],
+      },
+      {
+        heading: 'Lost, Damaged, or Incorrect Items',
+        body: ['If your order arrives damaged, incorrect, or doesn\'t arrive at all, contact us — we\'ll make it right with a replacement or refund at no cost to you. See our Refund Policy for full details.'],
+      },
+      {
+        heading: 'International Shipping',
+        body: ['We currently ship within the US and Canada only.'],
+      },
     ],
     ...contact(b),
   }

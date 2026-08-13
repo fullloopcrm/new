@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
@@ -7,9 +8,12 @@ import { refundDoc } from '@/app/site/template/_lib/legal'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const retail = industryProfile(config.industry).isPureRetail
   return {
     title: `Refund Policy | ${config.identity.name}`,
-    description: `${config.identity.name}'s satisfaction, re-service, cancellation, and refund policy.`,
+    description: retail
+      ? `${config.identity.name}'s returns, exchanges, and refund policy.`
+      : `${config.identity.name}'s satisfaction, re-service, cancellation, and refund policy.`,
     alternates: { canonical: '/refund-policy' },
   }
 }
