@@ -72,6 +72,8 @@ export type NotificationType =
   | '15min_warning'
   | 'late_check_in'
   | 'duplicate_recurring_schedule'
+  | 'client_dedupe_queued'
+  | 'client_dedupe_merged'
   | 'comms_fail'
   | 'running_late'
   | 'recurring_expiring'

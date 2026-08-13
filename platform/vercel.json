@@ -225,6 +225,10 @@
       "schedule": "30 5 * * *"
     },
     {
+      "path": "/api/cron/dedupe-clients",
+      "schedule": "45 5 * * *"
+    },
+    {
       "path": "/api/cron/renurture",
       "schedule": "0 15 * * 2"
     },
