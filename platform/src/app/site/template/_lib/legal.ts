@@ -224,21 +224,79 @@ export function refundDoc(config: SiteConfig): LegalDocData {
         { heading: 'Satisfaction & Re-Service', body: ['If something about your completed service did not meet a reasonable standard, contact us promptly — within 24 hours of service where possible. We will review the concern and, when warranted, return to correct the specific issue at no additional charge before any refund is considered.'] },
         { heading: 'Cancellations & Rescheduling', body: ['You may cancel or reschedule a booked service within the window communicated at booking. Cancellations made after that window, or missed appointments, may incur a fee to cover reserved time and dispatch. Recurring services may require additional notice as described at signup.'] },
       ]),
-      {
-        heading: 'Product Returns & Exchanges',
-        body: [
-          'Physical items purchased through our store may be returned within 30 days of delivery for a refund or exchange, provided the item is unused and in its original packaging. Contact us to start a return — we will provide instructions and a return address.',
-          'If an item arrived defective, damaged, or wrong, contact us and we will cover return shipping and send a replacement or refund at no cost to you. For other returns, return shipping is the customer\'s responsibility unless local law says otherwise.',
-        ],
-      },
+      ...(retail ? [
+        {
+          heading: 'Sizing Issues',
+          body: [
+            'We do not offer refunds or exchanges for sizing issues. If an item doesn\'t fit, place a new order in the correct size and we\'ll give you 25% off that next order — contact us first to get your discount code.',
+          ],
+        },
+        {
+          heading: 'Quality Issues',
+          body: [
+            'Refunds are only issued for genuine quality issues — defective material, misprints, damaged items, or a wrong item shipped. To request one, contact us with photos clearly showing the issue. We review every claim and will not ask you to return the item unless we need it for a supplier claim.',
+          ],
+        },
+      ] : [
+        {
+          heading: 'Product Returns & Exchanges',
+          body: [
+            'Physical items purchased through our store may be returned within 30 days of delivery for a refund or exchange, provided the item is unused and in its original packaging. Contact us to start a return — we will provide instructions and a return address.',
+            'If an item arrived defective, damaged, or wrong, contact us and we will cover return shipping and send a replacement or refund at no cost to you. For other returns, return shipping is the customer\'s responsibility unless local law says otherwise.',
+          ],
+        },
+      ]),
       {
         heading: 'Digital Products',
         body: ['Digital items are delivered electronically after payment and are generally non-refundable once delivered, since delivery cannot be undone. If a digital item is defective, inaccessible, or not what was described, contact us and we will make it right with a replacement or refund.'],
       },
       retail
-        ? { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Refunds are issued once a returned item is received and inspected, or immediately for approved defective/wrong-item claims.'] }
+        ? { heading: 'Refunds', body: ['Approved quality-issue refunds are issued to the original payment method once we\'ve reviewed your photos — no return shipment required in most cases. Refunds are not issued for size, fit, or preference — see Sizing Issues above for our 25%-off reorder instead.'] }
         : { heading: 'Refunds', body: ['Where a refund is appropriate, it is issued to the original payment method after we have had a reasonable opportunity to inspect and, if possible, correct the issue. Service refunds are for the affected service only and do not apply to concerns reported outside a reasonable timeframe or to conditions outside the agreed scope of work. Product refunds are issued once a returned item is received and inspected, or immediately for approved defective/wrong-item claims.'] },
       { heading: 'Payment Disputes', body: ['If you believe you were charged in error, contact us first — most issues are resolved quickly and directly. Please reach out before initiating a chargeback so we can make it right.'] },
+    ],
+    ...contact(b),
+  }
+}
+
+export function shippingDoc(config: SiteConfig): LegalDocData {
+  const b = lb(config)
+  return {
+    title: 'Shipping Policy',
+    subtitle: 'Processing times, rates, and delivery',
+    updated: UPDATED,
+    breadcrumb: 'Shipping Policy',
+    breadcrumbHref: '/shipping-policy',
+    intro: [`This explains how orders from ${b.name} are processed, shipped, and delivered.`],
+    sections: [
+      {
+        heading: 'Processing Time',
+        body: ['Orders are typically processed within 2–5 business days before shipping. Processing time can run longer during high-volume periods (holidays, new drops) — we will note any expected delay at checkout or by email if it changes.'],
+      },
+      {
+        heading: 'Shipping Rates & Delivery',
+        body: ['Standard shipping is free on every order within the US and Canada. Delivery typically takes 5–10 business days after an order ships, depending on destination.'],
+      },
+      {
+        heading: 'Local Hand Delivery',
+        body: [
+          'For customers in Manhattan, we offer hand-to-hand delivery by appointment only for $59. Our most popular meeting spot is Times Square, though we can arrange another location in Manhattan with you.',
+          'Visiting NYC? Order before you leave home, or while you\'re en route — we\'ll have it ready and bring it straight to your hotel or wherever you\'re staying in Manhattan.',
+          'Drop a pin. Send it our way. We\'ll find you — you might not even see us coming. Quick handoff, no small talk: merch in hand, and we\'re gone. Soon as you\'ve got it, keep it moving.',
+        ],
+      },
+      {
+        heading: 'Order Tracking',
+        body: ['You\'ll receive a shipping confirmation with tracking information once your order ships. If you haven\'t received tracking within the processing window above, contact us and we\'ll look into it.'],
+      },
+      {
+        heading: 'Lost, Damaged, or Incorrect Items',
+        body: ['If your order arrives damaged, incorrect, or doesn\'t arrive at all, contact us — we\'ll make it right with a replacement or refund at no cost to you. See our Refund Policy for full details.'],
+      },
+      {
+        heading: 'International Shipping',
+        body: ['We currently ship within the US and Canada only.'],
+      },
     ],
     ...contact(b),
   }

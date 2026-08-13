@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { money } from '@/app/site/template/_lib/cart'
+import { swatchHex } from '@/app/site/template/_lib/colorSwatch'
 import AddToCartButton from './AddToCartButton'
 import ZoomImage from './ZoomImage'
 
@@ -16,6 +17,22 @@ export interface StreetwearProduct {
   createdAt?: string | null
   colorOptions?: string[]
   sizeOptions?: string[]
+}
+
+function ColorSwatches({ colors }: { colors: string[] }) {
+  if (colors.length === 0) return null
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Available colors">
+      {colors.map((c) => (
+        <span
+          key={c}
+          title={c}
+          className="h-4 w-4 rounded-full border border-white/20"
+          style={{ backgroundColor: swatchHex(c) }}
+        />
+      ))}
+    </div>
+  )
 }
 
 const NEW_WINDOW_DAYS = 14
@@ -100,8 +117,14 @@ export default function StreetwearShopGrid({
                   <Link href={`/shop/${p.id}`}>
                     <h3 className="font-[family-name:var(--font-anton)] text-2xl sm:text-3xl uppercase tracking-wide leading-[0.95] hover:text-[var(--accent)] transition-colors">{p.name}</h3>
                   </Link>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="font-[family-name:var(--font-plex-mono)] text-white font-semibold text-base">{money(p.priceCents)}</span>
+                  {p.description && (
+                    <p className="mt-3 text-white/50 text-sm leading-relaxed line-clamp-2 max-w-xs">{p.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-4 gap-3">
+                    <ColorSwatches colors={p.colorOptions ?? []} />
+                    <span className="font-[family-name:var(--font-plex-mono)] text-white font-semibold text-base shrink-0">{money(p.priceCents)}</span>
+                  </div>
+                  <div className="mt-4">
                     <AddToCartButton product={p} />
                   </div>
                 </div>

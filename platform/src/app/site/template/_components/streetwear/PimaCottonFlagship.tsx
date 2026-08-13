@@ -56,19 +56,19 @@ const GARMENTS: Garment[] = [
       {
         colorKey: 'black',
         eyebrow: 'Black',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-black.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212-hoodie-black.jpeg',
         imageAlt: 'Man wearing the Urban Co. black 212H Pima cotton hoodie on a NYC street',
       },
       {
         colorKey: 'white',
         eyebrow: 'White',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-white.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212-hoodie-white.jpeg',
         imageAlt: 'Woman wearing the Urban Co. white 212H Pima cotton hoodie on a NYC street',
       },
       {
         colorKey: 'beige',
         eyebrow: 'Beige',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-beige.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212-hoodie-beige.jpeg',
         imageAlt: 'Woman wearing the Urban Co. beige 212H Pima cotton hoodie on a NYC street',
       },
     ],
@@ -83,19 +83,19 @@ const GARMENTS: Garment[] = [
       {
         colorKey: 'black',
         eyebrow: 'Black',
-        imageSrc: '/site-assets/urban-co/pima-cotton/tee-black.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212t-tee-black.jpeg',
         imageAlt: 'Man wearing the Urban Co. black 212T Pima cotton tee on a NYC subway platform',
       },
       {
         colorKey: 'white',
         eyebrow: 'White',
-        imageSrc: '/site-assets/urban-co/pima-cotton/tee-white.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212t-tee-white.jpeg',
         imageAlt: 'Man wearing the Urban Co. white 212T Pima cotton tee on a boat with the NYC skyline behind him',
       },
       {
         colorKey: 'beige',
         eyebrow: 'Beige',
-        imageSrc: '/site-assets/urban-co/pima-cotton/tee-beige.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212t-tee-beige.jpeg',
         imageAlt: 'Woman wearing the Urban Co. beige 212T Pima cotton tee at a Mets game',
       },
     ],
@@ -111,19 +111,19 @@ const GARMENTS: Garment[] = [
       {
         colorKey: 'black',
         eyebrow: 'Black',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-rubber-black.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212hr-hoodie-black.jpeg',
         imageAlt: 'Man wearing the Urban Co. black 212HR rubber-print Pima cotton hoodie on a NYC street',
       },
       {
         colorKey: 'white',
         eyebrow: 'White',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-rubber-white.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212hr-hoodie-white.jpeg',
         imageAlt: 'Woman wearing the Urban Co. white 212HR rubber-print Pima cotton hoodie on a Brooklyn street',
       },
       {
         colorKey: 'beige',
         eyebrow: 'Beige',
-        imageSrc: '/site-assets/urban-co/pima-cotton/hoodie-rubber-beige.jpeg',
+        imageSrc: '/site-assets/urban-co/pima-cotton/urban-co-nyc-212hr-hoodie-beige.jpeg',
         imageAlt: 'Woman wearing the Urban Co. beige 212HR rubber-print Pima cotton hoodie on a NYC rooftop',
       },
     ],
@@ -218,14 +218,14 @@ export default async function PimaCottonFlagship({ config }: { config: SiteConfi
   return (
     <section className="bg-white text-black py-16 sm:py-24 border-t border-black/10">
       <div className="max-w-[1600px] mx-auto px-5 sm:px-8">
-        <div className="max-w-2xl mb-12 sm:mb-16">
+        <div className="mb-12 sm:mb-16">
           <span className="inline-block bg-black text-white text-[11px] font-bold tracking-[0.2em] uppercase px-3 py-1.5 mb-6">
             The Flagship
           </span>
           <h2 className="font-[family-name:var(--font-anton)] text-4xl sm:text-6xl uppercase tracking-wide leading-[0.95] mb-5">
             100% Pima Cotton.
           </h2>
-          <p className="text-black/70 text-base sm:text-lg leading-relaxed">
+          <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-4xl">
             The three pieces {config.identity.name} is built on, each in three launch colorways. Longer staple, softer hand, heavier drape than standard cotton — made to be worn every day and outlast a season.
           </p>
         </div>

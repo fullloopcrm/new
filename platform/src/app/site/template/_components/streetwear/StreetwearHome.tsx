@@ -87,11 +87,11 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
   // band behind the tabs reads, one per tab. Placeholder source images,
   // not final photography.
   const heroTabs: HeroTab[] = [
-    { key: 'fellas', label: 'Fellas', imageUrl: '/site-assets/urban-co/hero/hero-1.jpeg' },
-    { key: 'ladies', label: 'Ladies', imageUrl: '/site-assets/urban-co/hero/hero-2.webp' },
-    { key: 'accessories', label: 'Accessories', imageUrl: '/site-assets/urban-co/hero/hero-3.webp' },
-    { key: 'whats-hot', label: "What's Hot", imageUrl: '/site-assets/urban-co/hero/hero-4.webp' },
-    { key: 'about', label: 'About', imageUrl: null },
+    { key: 'landing', label: '', imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-hoodie-packing-fulfillment-hero.jpeg', hidden: true },
+    { key: 'fellas', label: 'Fellas', imageUrl: '/site-assets/urban-co/montage/urban-co-nyc-hoodie-rooftop-skyline-jump.jpeg' },
+    { key: 'ladies', label: 'Ladies', imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-tee-ladies-rooftop-hero.jpeg' },
+    { key: 'accessories', label: 'Accessories', imageUrl: 'https://cdn.fashn.ai/b1a58739-9119-4c01-8a7e-3035522102b3/product_to_model_0.png' },
+    { key: 'whats-hot', label: "What's Hot", imageUrl: '/site-assets/urban-co/hero/urban-co-nyc-hoodie-friends-reveal-hero.jpeg' },
   ]
 
   return (
@@ -119,11 +119,11 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
         <div className="max-w-[1600px] mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-[30%_70%] gap-10 items-center">
           <div className="flex justify-start lg:justify-center">
             <Image
-              src="/logos/urban-co/logo-rubber-black-white.jpeg"
+              src="/logos/urban-co/urban-co-nyc-rubber-logo-badge.png"
               alt={`${config.identity.name} rubber-patch street-grid logo`}
               width={800}
               height={800}
-              className="w-40 h-40 sm:w-56 sm:h-56 object-contain"
+              className="w-64 h-64 sm:w-96 sm:h-96 object-contain"
             />
           </div>
           <div>
@@ -136,8 +136,11 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
             <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-4">
               {config.brandCopy?.heroLine || 'Global Drip, Local Roots — Where Hype Meets Culture.'}
             </p>
+            <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-4">
+              Urban Co. carries the lineage of NYC urban fashion back to the 1980s — the Bronx block parties that gave the world hip-hop, Dapper Dan&rsquo;s Harlem atelier remixing luxury monograms into street armor, and the garment trade that&rsquo;s run through this city&rsquo;s Diamond District for generations. Bomber jackets, bold graphics, heavyweight fleece — the uniform of a city that turned scarcity into style, and never stopped.
+            </p>
             <p className="text-black/70 text-base sm:text-lg leading-relaxed max-w-3xl mb-8">
-              Born and based in Midtown — 150 West 47th Street, Diamond District. Drip sourced globally, worn locally, made for all five boroughs. No mood boards, no seasonal gimmicks — just heavyweight fabric and hard-edged graphics built for the block, not the boardroom.
+              Born and based in Midtown — 150 West 47th Street, Diamond District — we&rsquo;re built on that same old-school foundation: no mood boards, no seasonal gimmicks, just heavyweight fabric and hard-edged graphics sourced globally, worn locally, made for all five boroughs and built for the block, not the boardroom.
             </p>
             <div className="grid grid-cols-3 gap-4 max-w-lg mb-8 pt-6 border-t border-black/10">
               <div>
@@ -225,7 +228,7 @@ export default async function StreetwearHome({ config }: { config: SiteConfig })
           <div className="lg:col-span-2 flex justify-start lg:justify-center">
             {config.identity.logo && (
               <Image
-                src="/logos/urban-co/logo-black-on-white.png"
+                src="/logos/urban-co/urban-co-nyc-street-grid-icon.png"
                 alt={`${config.identity.name} street-grid mark`}
                 width={140}
                 height={140}
