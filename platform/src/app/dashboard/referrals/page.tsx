@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { downloadCSV } from '@/lib/csv'
 import { PageSettingsPanel } from '@/components/page-settings'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
-import { bookingPathForTenant } from '@/lib/booking-path'
 
 type Referral = {
   id: string
@@ -575,10 +574,10 @@ export default function ReferralsPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => copyCode(`${origin}${bookingPathForTenant(refTenant?.slug as string | undefined)}?ref=${r.ref_code || r.referral_code}`)}
+                        onClick={() => copyCode(`${origin}/referral/${r.ref_code || r.referral_code}`)}
                         className="text-xs text-slate-400 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-lg"
                       >
-                        {copied === `${origin}${bookingPathForTenant(refTenant?.slug as string | undefined)}?ref=${r.ref_code || r.referral_code}` ? 'Copied!' : 'Copy Link'}
+                        {copied === `${origin}/referral/${r.ref_code || r.referral_code}` ? 'Copied!' : 'Copy Link'}
                       </button>
                       <button
                         disabled={partnerBusyId === r.id}
