@@ -133,6 +133,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
   }
 
+  // Same tenant policy the internal Add Client form and public booking form
+  // enforce (selena_config.require_client_phone) — a referrer is still a
+  // real person's contact record this tenant is capturing. Read directly off
+  // the already-fetched tenant row instead of calling the heavier
+  // getSettings() just for this one flag.
+  const requireClientPhone = Boolean(tenant?.selena_config?.require_client_phone)
+  if (requireClientPhone && !phone) {
+    return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
+  }
+
   const db = tenantDb(tenant.id)
 
   // Duplicate email — scoped to this tenant (same email may refer for two brands)

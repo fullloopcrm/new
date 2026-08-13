@@ -279,7 +279,8 @@ function BookFormContent() {
   function validateForm(): typeof fieldErrors {
     const errors: typeof fieldErrors = {}
     if (!form.name.trim()) errors.name = 'Please enter your name.'
-    if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) errors.phone = 'Please enter a valid phone number, or leave it blank.'
+    if (!form.phone.trim()) errors.phone = 'Please enter your phone number.'
+    else if (form.phone.replace(/\D/g, '').length < 10) errors.phone = 'Please enter a valid phone number.'
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) errors.email = emailCheck.error || 'Please enter a valid email.'
     if (!form.address.trim()) errors.address = 'Please enter your address.'
@@ -515,9 +516,10 @@ function BookFormContent() {
               {fieldErrors.name && <p className="text-red-600 text-xs mt-1">{fieldErrors.name}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone <span className="normal-case font-normal text-gray-400">(optional)</span></label>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone</label>
               <input
                 type="tel"
+                required
                 placeholder="(212) 555-1234"
                 value={form.phone}
                 onChange={(e) => { update('phone', formatPhone(e.target.value)); setFieldErrors(prev => ({ ...prev, phone: undefined })) }}

@@ -212,6 +212,11 @@ export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
+  // Read directly off the already-fetched tenant row (getTenantFromHeaders
+  // selects '*', so selena_config is already in hand) instead of calling the
+  // heavier getSettings() just for this one flag.
+  const requireClientPhone = Boolean(tenant?.selena_config?.require_client_phone)
+
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const rl = await rateLimitDb(`client-book:${tenant.id}:${ip}`, 3, 10 * 60 * 1000)
@@ -349,6 +354,14 @@ export async function POST(request: Request) {
         if (!isValidLeadSource(body.lead_source)) {
           await trackError(new Error(`invalid lead_source: ${body.lead_source}`), { source: 'client/book:invalid_lead_source', tenantId: tenant.id, severity: 'low', alwaysAlert: true })
           return NextResponse.json({ error: 'lead_source is required and must be one of the known options' }, { status: 400 })
+        }
+
+        // Same tenant policy the internal Add Client form enforces
+        // (settings.require_client_phone) — a public booking form is just
+        // another new-client-creation path and shouldn't be able to bypass it.
+        if (requireClientPhone && !phone) {
+          await trackError(new Error('missing phone (require_client_phone)'), { source: 'client/book:missing_phone', tenantId: tenant.id, severity: 'low', alwaysAlert: true })
+          return NextResponse.json({ error: 'Phone number is required to book.' }, { status: 400 })
         }
 
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)

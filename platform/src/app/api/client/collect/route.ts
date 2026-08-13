@@ -38,6 +38,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
+    // Read directly off the already-fetched tenant row (getTenantFromHeaders
+    // selects '*', so selena_config is already in hand) instead of calling the
+    // heavier getSettings() just for this one flag.
+    const requireClientPhone = Boolean(tenant?.selena_config?.require_client_phone)
     const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
     const { data: existing } = cleanPhone
       ? await tenantDb(tenant.id)
@@ -118,6 +122,13 @@ export async function POST(request: Request) {
       if (error || !updated) throw error || new Error('update failed')
       data = updated as typeof data
     } else {
+      // Same tenant policy the internal Add Client form and public booking
+      // form enforce (settings.require_client_phone) — this endpoint creates
+      // a new client record too and shouldn't be a way around it.
+      if (requireClientPhone && !cleanPhone) {
+        return NextResponse.json({ error: 'Phone number is required.' }, { status: 400 })
+      }
+
       const { data: inserted, error } = await tenantDb(tenant.id)
         .from('clients')
         .insert({

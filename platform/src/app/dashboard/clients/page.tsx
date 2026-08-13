@@ -138,6 +138,7 @@ function stageLabel(stage: Stage): string {
 export default function ClientsPage() {
   const { tenant } = useTenantSettings()
   const agentName = tenant?.agent_name as string || 'Selena'
+  const requireClientPhone = !!(tenant?.selena_config as Record<string, unknown> | undefined)?.require_client_phone
   const clientsPrefs = useUserPrefs('clients', { default_tab: 'all', default_stage_filter: 'all', default_type_filter: 'all' })
   const [clients, setClients] = useState<EnrichedClient[]>([])
   const [tenantSlug, setTenantSlug] = useState('')
@@ -192,6 +193,10 @@ export default function ClientsPage() {
     }
     if (!addForm.source) {
       setAddError('Lead source is required')
+      return
+    }
+    if (requireClientPhone && !addForm.phone.trim()) {
+      setAddError('Phone number is required')
       return
     }
     setAddSaving(true)
@@ -656,9 +661,10 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Phone</label>
+                <label style={{ fontSize: 12, color: 'var(--clients-muted)' }}>Phone{requireClientPhone ? ' *' : ''}</label>
                 <input
                   type="tel"
+                  required={requireClientPhone}
                   value={addForm.phone}
                   onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"

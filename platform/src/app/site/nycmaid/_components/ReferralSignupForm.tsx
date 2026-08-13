@@ -162,9 +162,10 @@ function ReferralSignupFormContent() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Phone / Teléfono</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Phone / Teléfono *</label>
           <input
             type="tel"
+            required
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:border-[#A8F0DC] focus:ring-1 focus:ring-[#A8F0DC] outline-none"
