@@ -142,6 +142,31 @@ describe('createOutboundPayment', () => {
   })
 })
 
+describe('isClosedRecipientError', () => {
+  it('is true for a forbidden error naming the same recipient account', async () => {
+    const { isClosedRecipientError } = await import('./global-payouts')
+    const err = new Error('[global-payouts] POST /v2/money_management/outbound_payments failed: {"error":{"message":"Permission denied. Missing permission to access account: acct_1U1qsIAFGlzVVGrd","code":"forbidden"}}')
+    expect(isClosedRecipientError(err, 'acct_1U1qsIAFGlzVVGrd')).toBe(true)
+  })
+
+  it('is false for a forbidden error naming a different account', async () => {
+    const { isClosedRecipientError } = await import('./global-payouts')
+    const err = new Error('{"error":{"message":"Permission denied. Missing permission to access account: acct_other","code":"forbidden"}}')
+    expect(isClosedRecipientError(err, 'acct_1U1qsIAFGlzVVGrd')).toBe(false)
+  })
+
+  it('is false for a transient, non-forbidden error', async () => {
+    const { isClosedRecipientError } = await import('./global-payouts')
+    const err = new Error('{"error":{"message":"insufficient funds","code":"insufficient_funds"}}')
+    expect(isClosedRecipientError(err, 'acct_1U1qsIAFGlzVVGrd')).toBe(false)
+  })
+
+  it('is false for a non-Error value', async () => {
+    const { isClosedRecipientError } = await import('./global-payouts')
+    expect(isClosedRecipientError('some string', 'acct_1U1qsIAFGlzVVGrd')).toBe(false)
+  })
+})
+
 describe('createRecipientOnboardingLink', () => {
   it('uses the account_onboarding link type for a brand-new recipient', async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://accounts.stripe.com/r/new', expires_at: '2026-08-05T00:00:00Z' }) })
