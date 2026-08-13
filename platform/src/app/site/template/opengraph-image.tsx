@@ -5,7 +5,11 @@ import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 // Per-tenant image: reads config via headers(), so it must be dynamic (not
 // prerendered at build). Node runtime; avoid glyphs that need a font download.
 export const dynamic = 'force-dynamic'
-export const alt = 'Professional home services'
+// Static export (Next.js file-convention constraint — og:image:alt can't read
+// per-tenant config the way the image body below does), so this has to stay
+// industry-neutral rather than hardcode a service-business claim like the
+// old "Professional home services" did for every tenant, including retail.
+export const alt = 'Business preview image'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
