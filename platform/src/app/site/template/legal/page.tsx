@@ -56,14 +56,24 @@ export default async function LegalPage() {
         <div className="mt-12 bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-6">
           <h2 className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide mb-3">The Short Version</h2>
           <ul className="space-y-2.5">
-            {[
-              'We collect only what we need to quote, schedule, and deliver your service',
-              'We do not sell your personal information or share it with data brokers or ad networks',
-              'We share information only with the providers that run our payments, texts, email, and hosting — and only what they need',
-              'By giving us your number you consent to service-related texts and calls; reply STOP to opt out anytime',
-              'You can opt out of the sale or sharing of your info any time, and we honor Global Privacy Control signals',
-              'Cancellation, rescheduling, and refund terms are set at booking and in our Refund Policy',
-            ].map(item => (
+            {(config.storefrontEnabled
+              ? [
+                  'We collect only what we need to process your order, ship it, and support you afterward',
+                  'We do not sell your personal information or share it with data brokers or ad networks',
+                  'We share information only with the providers that run our payments, shipping, texts, email, and hosting — and only what they need',
+                  'By giving us your number you consent to order-related texts; reply STOP to opt out anytime',
+                  'You can opt out of the sale or sharing of your info any time, and we honor Global Privacy Control signals',
+                  'Returns, exchanges, and refund terms are set out in our Refund Policy',
+                ]
+              : [
+                  'We collect only what we need to quote, schedule, and deliver your service',
+                  'We do not sell your personal information or share it with data brokers or ad networks',
+                  'We share information only with the providers that run our payments, texts, email, and hosting — and only what they need',
+                  'By giving us your number you consent to service-related texts and calls; reply STOP to opt out anytime',
+                  'You can opt out of the sale or sharing of your info any time, and we honor Global Privacy Control signals',
+                  'Cancellation, rescheduling, and refund terms are set at booking and in our Refund Policy',
+                ]
+            ).map(item => (
               <li key={item} className="flex items-start gap-3">
                 <span className="text-[var(--accent)] mt-0.5 flex-shrink-0">&#10003;</span>
                 <span className="text-gray-600 text-sm">{item}</span>

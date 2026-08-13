@@ -5,6 +5,7 @@ import { TENANT_SEO, type UrlSpec } from '@/lib/seo/tenant-seo'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
+import { tenantServesSite } from '@/middleware/tenant-routing'
 
 /**
  * Dynamic XML sitemap for a tenant site.
@@ -21,15 +22,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing slug parameter' }, { status: 400 })
   }
 
-  // Look up tenant
+  // Look up tenant. Gating on status==='active' here hid the sitemap for
+  // every tenant still in 'setup' (which already serves live pages — see
+  // tenantServesSite) — same bug the site-serving path fixed previously.
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, domain, website_url, selena_config, industry')
+    .select('id, slug, domain, website_url, selena_config, industry, status')
     .eq('slug', slug)
-    .eq('status', 'active')
     .single()
 
-  if (!tenant) {
+  if (!tenant || !tenantServesSite(tenant.status)) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
@@ -93,7 +95,19 @@ ${vaSpecs
     .select('name')
     .eq('tenant_id', tenant.id)
     .eq('active', true)
+    .eq('item_type', 'service')
     .order('sort_order')
+
+  // Fetch shop products — same eligibility rule the storefront itself uses
+  // (item_type='product', active, priced). Never included here before, so
+  // e-commerce tenants had zero /shop or product URLs in their sitemap.
+  const { data: products } = await supabaseAdmin
+    .from('service_types')
+    .select('id, name, category')
+    .eq('tenant_id', tenant.id)
+    .eq('item_type', 'product')
+    .eq('active', true)
+    .gt('price_cents', 0)
 
   // Fetch areas from selena_config
   const areas: string[] =
@@ -130,6 +144,18 @@ ${vaSpecs
         priority: '0.8',
         changefreq: 'weekly',
       })
+    }
+  }
+
+  // Shop pages — /shop, /shop/c/[category], /shop/[id]
+  if (products && products.length > 0) {
+    urls.push({ loc: `${baseUrl}/shop`, priority: '0.9', changefreq: 'daily' })
+    const categories = new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c)))
+    for (const category of categories) {
+      urls.push({ loc: `${baseUrl}/shop/c/${toSlug(category)}`, priority: '0.7', changefreq: 'weekly' })
+    }
+    for (const product of products) {
+      urls.push({ loc: `${baseUrl}/shop/${product.id}`, priority: '0.6', changefreq: 'weekly' })
     }
   }
 

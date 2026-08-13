@@ -2008,7 +2008,187 @@ export interface BlogPost {
   page: LongformPage
 }
 
+// Storefront tenants sell physical goods, not a booked appointment — the
+// service-business posts below ("hire a pro," "red flags before you hire")
+// don't apply and read as nonsense with the trade noun swapped in. Real,
+// retail-appropriate posts instead. Config-driven like the rest of this file
+// (not an Urban Co fork), so any storefrontEnabled tenant gets these.
+function retailBlogPosts(config: SiteConfig): BlogPost[] {
+  const v = vars(config)
+
+  return [
+    {
+      slug: 'how-to-find-your-size',
+      excerpt: `Sizing runs differently across every brand and cut. Here's how to actually get it right the first time.`,
+      page: {
+        title: `How to Find Your Size — ${v.brand} Sizing Guide`,
+        metaDescription: `A practical guide to finding your true size at ${v.brand}: how our fits run, what to measure, and how to choose between a true-to-size and oversized fit.`,
+        h1: `How to Find Your Size`,
+        intro: `Sizing is the single biggest reason for a return, and it's almost never the customer's fault — it's that "medium" means something different at every brand. Here's how to get it right the first time.`,
+        sections: [
+          { heading: `Why Sizing Charts Aren't Enough on Their Own`, paragraphs: [
+            `A size chart tells you the garment's measurements, not how it's meant to sit on you. Two hoodies labeled "large" from two different brands can differ by two full inches in the chest — one cut for a slim, tailored look, the other cut boxy and oversized on purpose. Reading the chart is step one. Understanding the intended fit is step two, and it's the one people skip.`,
+            `That's especially true in streetwear, where oversized and boxy cuts are often the whole point of the design, not a sizing mistake. A piece that looks "too big" on a chart can be exactly right once you know that's the intended silhouette.`,
+          ]},
+          { heading: `Measure Yourself, Not Your Old Clothes`, paragraphs: [
+            `The most reliable method is measuring your own body, not a shirt you already own — old garments stretch, shrink, and vary by cut just like new ones do. Chest, waist, and length (shoulder to hem) are the three numbers that matter most for tops; waist and inseam for bottoms. Take them with a soft tape, standing naturally, and compare directly against the garment's own measurements, not just the size label.`,
+            `If you're between two sizes, think about how you want the piece to fit. Sizing down gets you closer to true-to-size; sizing up leans into the oversized, streetwear-standard silhouette. Neither is wrong — it's a style choice once you know your actual numbers.`,
+          ]},
+          { heading: `Fabric Weight Changes How a Size Feels`, paragraphs: [
+            `A heavyweight fleece hoodie and a lightweight tee in the "same" size won't feel the same on your body. Heavier fabric holds its shape and drapes more structured; lighter fabric moves and clings more. If you're used to lighter garments, a heavyweight piece in your usual size can feel noticeably roomier — that's the fabric, not a sizing error.`,
+            `When in doubt on a heavier piece, true-to-size is usually the safer call unless you specifically want the oversized look. You can always layer under a slightly roomy hoodie; you can't un-shrink one that runs small.`,
+          ]},
+          { heading: `When You're Still Not Sure`, paragraphs: [
+            `If two sizes both seem plausible, reach out before you order — it's faster than a return. Tell us your usual size in a comparable brand and how you like things to fit, and we'll tell you straight which size to grab. We'd rather answer one question up front than process a return after the fact.`,
+            `And if a piece doesn't fit right when it arrives, our Refund Policy covers exchanges — sizing mistakes happen, and getting you into the right size matters more to us than getting the sale right the first time.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'hoodie-vs-crewneck-vs-zip-up',
+      excerpt: `Three fleece staples, three different jobs. Here's how to pick the right one.`,
+      page: {
+        title: `Hoodie vs. Crewneck vs. Zip-Up — Which One Should You Buy? | ${v.brand}`,
+        metaDescription: `Hoodie, crewneck, or zip-up — they're not interchangeable. Here's how each one wears, layers, and fits into a rotation so you buy the right one.`,
+        h1: `Hoodie vs. Crewneck vs. Zip-Up: Which One Should You Buy?`,
+        intro: `They're all heavyweight fleece, but a hoodie, a crewneck, and a zip-up do genuinely different jobs in a rotation. Here's how to tell them apart and pick the right one for how you actually dress.`,
+        sections: [
+          { heading: `The Hoodie: The Default for a Reason`, paragraphs: [
+            `A hoodie is the most versatile of the three — the hood adds warmth and weather cover, the pocket is genuinely useful, and it layers cleanly under a jacket without bulking up the collar the way a crewneck can. If you only own one heavyweight fleece piece, this is usually the right one.`,
+            `Its downside is exactly its strength: the hood and drawstrings mean it reads a little more casual than a crewneck, which matters if you're layering something over it for a slightly cleaner look.`,
+          ]},
+          { heading: `The Crewneck: Cleaner, More Layer-Friendly`, paragraphs: [
+            `Strip the hood off a hoodie and you get a crewneck — same warmth, same weight, a cleaner silhouette. It layers better under a jacket collar since there's no hood bunching at the neck, and it reads slightly more put-together, which makes it the better pick when you're dressing something up without fully dressing up.`,
+            `What you lose is the hood's weather cover and the front pocket most crewnecks skip. It's a trade of function for a cleaner line — the right call depends on which one you actually need.`,
+          ]},
+          { heading: `The Zip-Up: Built for Getting On and Off`, paragraphs: [
+            `A full-zip hoodie or jacket earns its place for one practical reason: you can put it on or take it off without messing up whatever's underneath, which a pullover can't do. That makes it the better choice for layering over a fresh fit, working out, or anywhere temperature control matters through the day.`,
+            `It runs slightly less warm than a true pullover of the same weight, since the zip is a seam the wind can find. For pure warmth, a pullover hoodie or crewneck wins; for flexibility through a changing day, the zip-up does.`,
+          ]},
+          { heading: `How to Actually Decide`, paragraphs: [
+            `If you want one do-everything piece, get the hoodie. If you're building a rotation and want something that layers cleaner under outerwear, add the crewneck next. If you need something you'll be putting on and off all day — commuting, the gym, a car that runs hot — the zip-up is worth the extra cost over a pullover.`,
+            `None of these are mutually exclusive, and most people who build a real fleece rotation end up owning all three for different days. Text ${v.phone} if you want a second opinion on which piece fits how you actually dress.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'how-to-care-for-heavyweight-streetwear',
+      excerpt: `Heavyweight fleece and printed graphics need different care than a basic tee. Here's how to make it last.`,
+      page: {
+        title: `How to Care for Heavyweight Fleece & Graphics — ${v.brand}`,
+        metaDescription: `Washing and drying instructions for heavyweight hoodies, sweatshirts, and printed graphics — how to keep the fabric, fit, and print looking new.`,
+        h1: `How to Care for Heavyweight Fleece & Graphics`,
+        intro: `Heavyweight fleece and a printed or embroidered graphic are a bigger investment than a basic tee, and they need slightly different care to actually last. None of it is complicated — it's mostly about avoiding a few habits that quietly wreck good pieces over time.`,
+        sections: [
+          { heading: `Wash Cold, Inside Out`, paragraphs: [
+            `Turn printed or embroidered pieces inside out before washing — it's the single easiest thing you can do to protect a graphic. Cold water is worth the habit too: hot water is what actually fades color and breaks down print adhesion over repeated washes, far more than the detergent itself.`,
+            `Wash heavyweight fleece with similar-weight items, not mixed in with jeans or anything with zippers and hardware, which can snag or abrade the fabric surface over a few cycles.`,
+          ]},
+          { heading: `Skip the Dryer When You Can`, paragraphs: [
+            `Heat is the main enemy of both fit and print. A hot dryer is what shrinks heavyweight cotton fleece over time and is the fastest way to crack a printed graphic — the fabric and the print expand and contract at different rates under heat, and repeated cycles are what cause that cracked, worn-out look on an otherwise good piece.`,
+            `Air drying flat takes longer but adds real years to a heavyweight piece. If you do use a dryer, low heat and pulling it out slightly damp to air-finish is a solid middle ground.`,
+          ]},
+          { heading: `Don't Over-Wash It`, paragraphs: [
+            `Fleece doesn't need washing after every wear the way a workout shirt does — over-washing is one of the most common ways people accidentally shorten a hoodie's life. Spot-clean a small mark instead of running a full wash cycle for it, and you'll get meaningfully more wear out of the piece.`,
+          ]},
+          { heading: `Storing It Between Wears`, paragraphs: [
+            `Fold heavyweight pieces rather than hanging them for long stretches — fleece has enough weight that hanging can stretch the shoulders out of shape over months. A drawer or shelf keeps the structure intact far better than a hanger does.`,
+            `Take care of it and a heavyweight piece from ${v.brand} should easily outlast a season. Questions about a specific piece — text ${v.phone} and we'll walk you through it.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'what-heavyweight-fabric-actually-means',
+      excerpt: `"Heavyweight" gets used on every hang tag. Here's what the number actually means and why it matters.`,
+      page: {
+        title: `What "Heavyweight" Actually Means — A Fabric Weight Guide | ${v.brand}`,
+        metaDescription: `Fabric weight (GSM) explained: what heavyweight vs. midweight actually means, how to tell the difference by feel, and why it affects how a piece wears and lasts.`,
+        h1: `What "Heavyweight" Actually Means`,
+        intro: `Every brand's hang tag says "heavyweight" or "premium," and most of it is marketing. Here's what fabric weight actually measures, what it means for how a piece wears, and how to tell real heavyweight fleece from a lighter piece dressed up with bigger branding.`,
+        sections: [
+          { heading: `GSM Is the Real Number`, paragraphs: [
+            `Fabric weight is measured in GSM — grams per square meter — and it's the one objective number behind words like "heavyweight." A basic tee typically runs 140–180 GSM. A genuinely heavyweight hoodie or crewneck runs 350–450+ GSM. Everything in between is "midweight," which is where most mass-market fleece actually lives despite what the tag says.`,
+            `Higher GSM means more fiber per square inch, which is what gives a heavyweight piece its structure, its drape, and its durability — it's not just "thicker," it behaves differently on the body and holds up to more wear.`,
+          ]},
+          { heading: `Why It Actually Matters to You`, paragraphs: [
+            `Heavier fabric holds its shape better wash after wash, resists pilling longer, and drapes with real structure instead of clinging or going limp. It's also warmer for the same reason — more material means more insulation. That's the whole case for paying more for genuinely heavyweight fleece instead of a lighter piece with the same silhouette.`,
+            `The trade-off is that heavyweight pieces cost more to make and take longer to dry, which is exactly why a lot of cheaper "heavyweight" product on the market isn't, in GSM terms, actually heavyweight at all.`,
+          ]},
+          { heading: `How to Tell by Feel`, paragraphs: [
+            `Without a scale, you can still tell a lot by hand: genuine heavyweight fleece has real substance and doesn't go see-through when stretched gently. Held up to light, a lightweight piece shows daylight through the weave; a true heavyweight one doesn't. That simple test tells you more than any hang tag claim.`,
+            `Every heavyweight piece at ${v.brand} is genuinely in that 350+ GSM range — not a marketing word, an actual spec. If you want the exact number on a specific piece, text ${v.phone} and we'll pull it.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'building-a-streetwear-fit',
+      excerpt: `A good streetwear fit isn't about owning more pieces — it's about a handful of pieces that actually work together.`,
+      page: {
+        title: `How to Build a Streetwear Fit That Actually Works — ${v.brand}`,
+        metaDescription: `A practical guide to building a streetwear rotation: proportions, layering, and the small number of pieces that actually make a fit work.`,
+        h1: `How to Build a Streetwear Fit That Actually Works`,
+        intro: `A good streetwear fit isn't about owning the most pieces — it's about a handful of pieces that actually work together, in proportions that read as intentional instead of just baggy. Here's how to think about it.`,
+        sections: [
+          { heading: `Proportion Is the Whole Game`, paragraphs: [
+            `Streetwear leans oversized, but oversized-everywhere reads sloppy, not intentional. The pieces that actually look put together usually contrast a loose top with something slimmer on the bottom, or vice versa — an oversized hoodie with joggers that taper at the ankle, or a boxy tee with straight-leg pants. One loose element, one controlled one.`,
+            `That single rule fixes most fits that "feel off" without you being able to say why. If everything is equally oversized, nothing has shape; if everything is fitted, it stops being streetwear. Contrast is what makes it read as a choice.`,
+          ]},
+          { heading: `Layering Adds Depth Without Adding Effort`, paragraphs: [
+            `A crewneck under an open jacket, a tee under a zip-up, a hood pulled out over a coat collar — layering is the fastest way to make a simple fit look considered instead of thrown on. It also solves the practical problem of temperature changing through the day without you having to change outfits.`,
+            `Keep it to two or three visible layers. Past that, it starts looking bulky rather than intentional, no matter how good the individual pieces are.`,
+          ]},
+          { heading: `Let One Piece Lead`, paragraphs: [
+            `A fit with a bold graphic, a strong color, or a statement piece works best when everything else steps back and lets it lead. Pair a loud graphic hoodie with plain bottoms and neutral footwear. Two loud pieces fighting for attention is the most common way a genuinely good individual piece gets lost in a busy fit.`,
+          ]},
+          { heading: `Footwear and Accessories Finish It`, paragraphs: [
+            `Footwear does more work than people expect — the same fit reads completely differently in a chunky sneaker versus a low-profile one. A cap, a beanie, or a simple chain is usually enough on the accessory side; the goal is finishing the fit, not competing with it.`,
+            `Start with a few core pieces that fit this framework and build out from there. If you want a second opinion on what to pair with something you've got your eye on, text ${v.phone} — we like talking fits, not just selling them.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'streetwear-gift-guide',
+      excerpt: `Buying streetwear for someone else is genuinely harder than buying it for yourself. Here's how to actually get it right.`,
+      page: {
+        title: `A Real Streetwear Gift Guide — How to Buy for Someone Else | ${v.brand}`,
+        metaDescription: `Buying streetwear as a gift without knowing someone's exact size or taste? Here's what actually works — sizing strategy, safe picks, and what to avoid.`,
+        h1: `A Real Streetwear Gift Guide`,
+        intro: `Buying streetwear for someone else is genuinely harder than buying it for yourself — you don't know their exact size, and taste in graphics and fit is personal. Here's how to actually get it right instead of guessing.`,
+        sections: [
+          { heading: `Size Up When You're Not Sure`, paragraphs: [
+            `If you don't know their exact size, lean toward sizing up on anything oversized by design — hoodies, crewnecks, outerwear. A piece that's slightly roomy still works within the intended silhouette; a piece that's genuinely too small doesn't work at all. That asymmetry makes "size up when unsure" the safer default for gifting.`,
+            `For fitted pieces like a true-to-size tee, it's worth actually asking, or checking a size they already own from another brand and comparing measurements rather than guessing blind.`,
+          ]},
+          { heading: `Play It Safer on Graphics, Bolder on Basics`, paragraphs: [
+            `A loud, specific graphic is a personal taste call — great if you know exactly what they'd wear, risky if you're guessing. A well-made basic in a color they already wear a lot of (heavyweight tee, quality crewneck, a beanie) is a much safer bet and still feels like a real gift when the quality is genuinely good, not an afterthought.`,
+            `If you do want to go with a statement piece, one signal to look for: check what they already own or have mentioned wanting. A specific piece they've called out beats a guess every time.`,
+          ]},
+          { heading: `Accessories Are the Underrated Safe Pick`, paragraphs: [
+            `A beanie, a cap, or a tote solves the sizing problem almost entirely and still reads as a considered gift rather than a fallback — especially paired with one clothing piece as the main gift. It's a genuinely good strategy, not a consolation prize.`,
+          ]},
+          { heading: `When You Genuinely Can't Decide`, paragraphs: [
+            `A gift card removes the guesswork entirely and lets them pick exactly what they want in their exact size — sometimes that's the better gift than a guess, even a good one. There's no lost meaning in it; it just moves the decision to the person who actually knows their own closet.`,
+            `Still not sure what to pick? Text ${v.phone} and tell us a bit about who you're shopping for — we're happy to point you toward something that'll actually get worn.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+  ]
+}
+
 export function blogPosts(config: SiteConfig): BlogPost[] {
+  if (config.storefrontEnabled) return retailBlogPosts(config)
   const v = vars(config)
   const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
   const Label = v.label
