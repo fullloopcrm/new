@@ -16,7 +16,18 @@ type Referral = {
   clients?: { name: string } | null
 }
 
-type Tab = 'overview' | 'payouts' | 'referrers'
+type Tab = 'overview' | 'payouts' | 'referrers' | 'partners'
+
+type ReferrerRow = {
+  id: string
+  name: string
+  email: string
+  ref_code: string
+  referral_code: string
+  active: boolean
+  commission_rate: number
+  created_at: string
+}
 
 export default function ReferralsPage() {
   const [referrals, setReferrals] = useState<Referral[]>([])
@@ -28,6 +39,8 @@ export default function ReferralsPage() {
   const [copied, setCopied] = useState('')
   const [search, setSearch] = useState('')
   const [portalLinkCopied, setPortalLinkCopied] = useState(false)
+  const [referrerPartners, setReferrerPartners] = useState<ReferrerRow[]>([])
+  const [partnerBusyId, setPartnerBusyId] = useState('')
   // Empty on the server and on first client render (so SSR and hydration
   // match exactly), then filled in by this effect once mounted. Branching
   // render output on `typeof window !== 'undefined'` instead causes a
@@ -67,7 +80,19 @@ export default function ReferralsPage() {
   useEffect(() => {
     fetch('/api/referrals').then((r) => r.json()).then((data) => setReferrals(data.referrals || []))
     fetch('/api/clients').then((r) => r.json()).then((data) => setClients(data.clients || []))
+    fetch('/api/referrers').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) setReferrerPartners(Array.isArray(j) ? j : (j.referrers ?? [])) }).catch(() => {})
   }, [])
+
+  async function toggleReferrerActive(r: ReferrerRow) {
+    setPartnerBusyId(r.id)
+    const res = await fetch('/api/referrers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: r.id, active: !r.active }),
+    })
+    if (res.ok) setReferrerPartners((prev) => prev.map((x) => (x.id === r.id ? { ...x, active: !x.active } : x)))
+    setPartnerBusyId('')
+  }
 
   async function createReferral(e: React.FormEvent) {
     e.preventDefault()
@@ -341,6 +366,7 @@ export default function ReferralsPage() {
           { value: 'overview', label: 'Overview' },
           { value: 'payouts', label: 'Payout Queue', count: pendingPayouts.length },
           { value: 'referrers', label: 'Leaderboard' },
+          { value: 'partners', label: 'Referrers', count: referrerPartners.length },
         ] as const).map((tab) => (
           <button key={tab.value} onClick={() => setActiveTab(tab.value)}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -496,6 +522,58 @@ export default function ReferralsPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* REFERRER PARTNERS TAB — the roster of people who send referral business,
+          same tier as Sales Partners. Distinct from the client-refers-client
+          `referrals`/Leaderboard data above -- this lists rows from the
+          `referrers` table itself (the list every "Referred by" booking
+          dropdown pulls from), which had no management UI anywhere. */}
+      {activeTab === 'partners' && (
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-400 text-xs uppercase">
+                <th className="px-4 py-3">Referrer</th>
+                <th className="px-4 py-3">Code</th>
+                <th className="px-4 py-3">Commission</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {referrerPartners
+                .filter((r) => !search || r.name.toLowerCase().includes(search.toLowerCase()) || (r.ref_code || r.referral_code || '').toLowerCase().includes(search.toLowerCase()))
+                .map((r) => (
+                <tr key={r.id}>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-900">{r.name}</p>
+                    <p className="text-xs text-slate-400">{r.email}</p>
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{r.ref_code || r.referral_code}</td>
+                  <td className="px-4 py-3 text-slate-500">{Math.round((r.commission_rate || 0) * 100)}%</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${r.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {r.active ? 'Active' : 'Deactivated'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      disabled={partnerBusyId === r.id}
+                      onClick={() => toggleReferrerActive(r)}
+                      className="text-xs text-slate-400 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-lg"
+                    >
+                      {r.active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {referrerPartners.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No referrers yet</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
