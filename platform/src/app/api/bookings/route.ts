@@ -157,6 +157,8 @@ export async function POST(request: Request) {
       pay_rate: { type: 'number' },
       discount_percent: { type: 'number' },
       one_time_credit_cents: { type: 'number' },
+      referrer_id: { type: 'uuid' },
+      sales_partner_id: { type: 'uuid' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
@@ -212,6 +214,32 @@ export async function POST(request: Request) {
         .maybeSingle()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
+    // referrer_id/sales_partner_id are caller-supplied FKs too — verify each
+    // belongs to this tenant before it lands on the booking, same reasoning
+    // as client_id/property_id/team_member_id above.
+    if (validated.referrer_id) {
+      const { data: ownedReferrer } = await supabaseAdmin
+        .from('referrers')
+        .select('id')
+        .eq('id', validated.referrer_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedReferrer) {
+        return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+      }
+    }
+    if (validated.sales_partner_id) {
+      const { data: ownedSalesPartner } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id')
+        .eq('id', validated.sales_partner_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedSalesPartner) {
+        return NextResponse.json({ error: 'Sales partner not found' }, { status: 404 })
       }
     }
 
@@ -350,6 +378,8 @@ export async function POST(request: Request) {
       p_pay_rate: validated.pay_rate ?? null,
       p_discount_percent: validated.discount_percent ?? null,
       p_one_time_credit_cents: validated.one_time_credit_cents ?? null,
+      p_referrer_id: validated.referrer_id ?? null,
+      p_sales_partner_id: validated.sales_partner_id ?? null,
     })
     if (claimError) {
       return NextResponse.json({ error: claimError.message }, { status: 500 })

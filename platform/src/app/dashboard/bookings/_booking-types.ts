@@ -43,6 +43,8 @@ export interface Booking {
   suggested_reason: string | null
   created_at: string
   source: string
+  referrer_id: string | null
+  sales_partner_id: string | null
 }
 
 export interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_team_member_id?: string | null }

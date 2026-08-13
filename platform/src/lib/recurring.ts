@@ -343,6 +343,8 @@ export function buildSeriesUpdateData(opts: {
   notes: string | null
   recurringType: string | null
   discountPercent?: number | null
+  referrerId?: string | null
+  salesPartnerId?: string | null
 }): Record<string, unknown> {
   return {
     start_time: opts.startTime,
@@ -354,6 +356,8 @@ export function buildSeriesUpdateData(opts: {
     notes: opts.notes,
     recurring_type: opts.recurringType,
     discount_percent: opts.discountPercent ?? null,
+    referrer_id: opts.referrerId ?? null,
+    sales_partner_id: opts.salesPartnerId ?? null,
   }
 }
 

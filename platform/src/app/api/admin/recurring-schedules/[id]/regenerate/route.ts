@@ -51,6 +51,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     status: bookingStatus,
     from_date, // ISO/naive cutoff: cancel + regenerate from here forward
     discount_percent,
+    referrer_id,
+    sales_partner_id,
   } = body
 
   const dates: string[] = Array.isArray(body.dates)
@@ -85,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // (that table has no crew concept — see cron/generate-recurring) and were
     // never used below even when selected; requesting them made this whole
     // endpoint error on every call (Postgres 42703, unknown column).
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, discount_percent')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, discount_percent, referrer_id, sales_partner_id')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
@@ -101,6 +103,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { data: ownedMember } = await db.from('team_members').select('id').eq('id', teamMemberId as string).maybeSingle()
     if (!ownedMember) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
   }
+  if (referrer_id) {
+    const { data: ownedReferrer } = await db.from('referrers').select('id').eq('id', referrer_id as string).maybeSingle()
+    if (!ownedReferrer) return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
+  }
+  if (sales_partner_id) {
+    const { data: ownedSalesPartner } = await db.from('sales_partners').select('id').eq('id', sales_partner_id as string).maybeSingle()
+    if (!ownedSalesPartner) return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
+  }
 
   // Fall back to the schedule's stored rates when the caller omits them, so an
   // edit that doesn't resend pay_rate can't zero out cleaner payout. Same
@@ -109,6 +119,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const effPayRate = payRate ?? schedule.pay_rate ?? null
   const effHourlyRate = hourly_rate ?? schedule.hourly_rate ?? null
   const effDiscountPercent = discount_percent !== undefined ? discount_percent : (schedule.discount_percent ?? null)
+  const effReferrerId = referrer_id !== undefined ? referrer_id : (schedule.referrer_id ?? null)
+  const effSalesPartnerId = sales_partner_id !== undefined ? sales_partner_id : (schedule.sales_partner_id ?? null)
 
   const lastDate = dates[dates.length - 1]
 
@@ -123,6 +135,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (discount_percent !== undefined) rulePatch.discount_percent = effDiscountPercent
   if (teamMemberProvided) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
+  if (referrer_id !== undefined) rulePatch.referrer_id = effReferrerId
+  if (sales_partner_id !== undefined) rulePatch.sales_partner_id = effSalesPartnerId
   await db.from('recurring_schedules').update(rulePatch).eq('id', id).eq('tenant_id', tenantId)
 
   // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
@@ -166,6 +180,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       status: bookingStatus || 'scheduled',
       schedule_id: id,
       source: 'admin',
+      referrer_id: effReferrerId,
+      sales_partner_id: effSalesPartnerId,
     }
   })
 

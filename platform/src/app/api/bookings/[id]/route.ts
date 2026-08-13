@@ -76,7 +76,7 @@ export async function PUT(
     // POST, the canonical path that creates a schedule + its bookings
     // together; a bare PUT here isn't the place to attach a booking to a
     // schedule without the same ownership/consistency checks that path has).
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'property_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method', 'recurring_type'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'property_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'one_time_credit_cents', 'one_time_credit_reason', 'price', 'check_in_time', 'check_out_time', 'payment_status', 'payment_method', 'recurring_type', 'referrer_id', 'sales_partner_id'])
     const db = tenantDb(tenantId)
 
     // client_id/team_member_id/service_type_id are cross-table FKs — confirm
@@ -88,7 +88,16 @@ export async function PUT(
       [fields.client_id as string | undefined, 'clients'],
       [fields.team_member_id as string | undefined, 'team_members'],
       [fields.service_type_id as string | undefined, 'service_types'],
+      [fields.referrer_id as string | undefined, 'referrers'],
+      [fields.sales_partner_id as string | undefined, 'sales_partners'],
     ]
+    const fkFieldNames: Record<string, string> = {
+      clients: 'client_id',
+      team_members: 'team_member_id',
+      service_types: 'service_type_id',
+      referrers: 'referrer_id',
+      sales_partners: 'sales_partner_id',
+    }
     for (const [fkId, table] of fkChecks) {
       if (!fkId) continue
       const { data: owned } = await supabaseAdmin
@@ -97,7 +106,7 @@ export async function PUT(
         .eq('id', fkId)
         .eq('tenant_id', tenantId)
         .maybeSingle()
-      if (!owned) return NextResponse.json({ error: `Invalid ${table === 'clients' ? 'client_id' : table === 'team_members' ? 'team_member_id' : 'service_type_id'}` }, { status: 400 })
+      if (!owned) return NextResponse.json({ error: `Invalid ${fkFieldNames[table]}` }, { status: 400 })
     }
 
     // client_id/team_member_id/service_type_id are caller-supplied FKs — this

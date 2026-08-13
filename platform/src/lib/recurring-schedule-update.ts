@@ -27,6 +27,8 @@ export interface RecurringScheduleChanges {
   notes?: string
   special_instructions?: string
   status?: string
+  referrer_id?: string | null
+  sales_partner_id?: string | null
 }
 
 export interface UpdateRecurringScheduleOptions {
@@ -98,6 +100,8 @@ export async function updateRecurringSchedule(
   if (changes.notes !== undefined) updatePayload.notes = changes.notes
   if (changes.special_instructions !== undefined) updatePayload.special_instructions = changes.special_instructions
   if (changes.status !== undefined) updatePayload.status = changes.status
+  if (changes.referrer_id !== undefined) updatePayload.referrer_id = changes.referrer_id || null
+  if (changes.sales_partner_id !== undefined) updatePayload.sales_partner_id = changes.sales_partner_id || null
 
   const datesChanged = datesChangedFrom(
     { recurring_type: current.recurring_type as string, day_of_week: current.day_of_week as number | null, days_of_week: current.days_of_week as number[] | null },
@@ -145,6 +149,24 @@ export async function updateRecurringSchedule(
     await db
       .from('bookings')
       .update({ team_member_id: changes.team_member_id || null })
+      .eq('schedule_id', scheduleId)
+      .in('status', ['scheduled', 'pending'])
+      .gte('start_time', nowNaiveET())
+  }
+
+  // Same reasoning as team_member_id above -- attribution is metadata, not a
+  // scheduling/pricing field, so it doesn't need to flow through
+  // syncFutureBookings' regenerate-or-reprice logic, but already-generated
+  // future occurrences still need to carry a corrected referrer/sales
+  // partner rather than staying stuck on whatever the schedule had at
+  // creation time.
+  if (changes.referrer_id !== undefined || changes.sales_partner_id !== undefined) {
+    const attributionUpdate: Record<string, unknown> = {}
+    if (changes.referrer_id !== undefined) attributionUpdate.referrer_id = changes.referrer_id || null
+    if (changes.sales_partner_id !== undefined) attributionUpdate.sales_partner_id = changes.sales_partner_id || null
+    await db
+      .from('bookings')
+      .update(attributionUpdate)
       .eq('schedule_id', scheduleId)
       .in('status', ['scheduled', 'pending'])
       .gte('start_time', nowNaiveET())
