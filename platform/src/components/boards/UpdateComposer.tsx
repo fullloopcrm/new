@@ -80,6 +80,12 @@ export default function UpdateComposer({ onSubmit, uploadFolder = 'board-updates
 
   const editor = useEditor({
     immediatelyRender: false,
+    // Tiptap v3 defaults useEditor to NOT re-render on every transaction
+    // (perf optimization) -- without this, canPost/editor.getText() below
+    // read a frozen snapshot from the first render, so the Post button
+    // stays disabled no matter what you type. Found 2026-08-13: a real
+    // "hit Post, nothing happens" report.
+    shouldRerenderOnTransaction: true,
     extensions: [
       StarterKit.configure({
         heading: false,

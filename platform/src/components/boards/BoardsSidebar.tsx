@@ -28,6 +28,15 @@ export default function BoardsSidebar({ apiBase, boardHrefBase }: BoardsSidebarP
 
   useEffect(load, [load])
 
+  async function deleteBoard(board: Board) {
+    if (!confirm(`Delete "${board.name}"? This deletes every item and update on it. This cannot be undone.`)) return
+    const result = await boardsFetch(`${apiBase}/${board.id}`, { method: 'DELETE' })
+    if (!result.ok) { setErr(result.error); return }
+    setErr('')
+    load()
+    if (pathname === `${boardHrefBase}/${board.id}`) router.push(boardHrefBase)
+  }
+
   async function createBoard() {
     const name = newName.trim() || 'New Board'
     setErr('')
@@ -60,15 +69,25 @@ export default function BoardsSidebar({ apiBase, boardHrefBase }: BoardsSidebarP
           const href = `${boardHrefBase}/${b.id}`
           const active = pathname === href
           return (
-            <Link
-              key={b.id}
-              href={href}
-              className={`block px-3 py-1.5 text-sm truncate rounded mx-1 ${
-                active ? 'bg-teal-50 text-teal-800 font-medium' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {b.name}
-            </Link>
+            <div key={b.id} className="group flex items-center mx-1 rounded">
+              <Link
+                href={href}
+                className={`flex-1 min-w-0 px-3 py-1.5 text-sm truncate rounded ${
+                  active ? 'bg-teal-50 text-teal-800 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {b.name}
+              </Link>
+              <button
+                onClick={() => deleteBoard(b)}
+                title="Delete board"
+                className="shrink-0 px-1.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           )
         })}
       </div>
