@@ -57,9 +57,9 @@ beforeEach(() => {
 describe('claimGlobalPayout', () => {
   it('inserts a pending row tagged rail=global_payouts', async () => {
     const { claimGlobalPayout } = await import('./global-payouts')
-    const result = await claimGlobalPayout({ tenantId: 't1', bookingId: 'b1', teamMemberId: 'tm1', amountCents: 1000, tipCents: 200 })
+    const result = await claimGlobalPayout({ tenantId: 't1', bookingId: 'b1', teamMemberId: 'tm1', amountCents: 1000, tipCents: 200, sourceRef: 'checkout_base:b1:tm1' })
     expect(result.claimed).toBe(true)
-    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ rail: 'global_payouts', tenant_id: 't1', booking_id: 'b1', amount_cents: 1000, tip_cents: 200, status: 'pending' }))
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ rail: 'global_payouts', tenant_id: 't1', booking_id: 'b1', amount_cents: 1000, tip_cents: 200, status: 'pending', source_ref: 'checkout_base:b1:tm1' }))
   })
 })
 

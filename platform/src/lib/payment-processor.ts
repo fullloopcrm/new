@@ -21,7 +21,7 @@ import { notify } from './notify'
 import { decryptSecret } from './secret-crypto'
 import { postPaymentRevenue } from './finance/post-revenue'
 import { postPayoutToLedger } from './finance/post-labor'
-import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from './finance/cleaner-payout'
+import { payoutSourceAlreadyClaimed, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from './finance/cleaner-payout'
 import { effectiveCleanerRate } from './cleaner-pay'
 import { applyDiscount, applyCredit } from './discount'
 import { isNycMaid } from './nycmaid/tenant'
@@ -263,11 +263,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .eq('id', bookingId)
     .eq('tenant_id', tenantId)
 
-  // Team member auto-pay via Stripe Connect. Guarded by the shared booking-keyed
-  // idempotency check so a repeat call (or a Stripe-webhook payout for the same
-  // booking) never double-pays the cleaner.
+  // Team member auto-pay via Stripe Connect. Guarded per THIS reported
+  // payment (payoutSourceAlreadyClaimed), not "has the cleaner ever been
+  // paid anything on this booking" — an earlier payout (e.g. base pay
+  // auto-paid at checkout) must not block a genuinely new, later payment
+  // report (e.g. a tip the client handed over separately) from paying out.
   let cleanerPaidCents = 0
-  if (teamMember?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId, booking.team_member_id as string))) {
+  const reportedPaymentSourceRef = `reported_payment:${referenceId}`
+  if (teamMember?.stripe_account_id && booking.team_member_id && !(await payoutSourceAlreadyClaimed(tenantId, bookingId, booking.team_member_id as string, reportedPaymentSourceRef))) {
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {
@@ -300,6 +303,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
           teamMemberId: booking.team_member_id as string,
           amountCents: payAmountCents - tipCents,
           tipCents,
+          sourceRef: reportedPaymentSourceRef,
         })
         if (claim.claimed && claim.payoutId) {
           try {

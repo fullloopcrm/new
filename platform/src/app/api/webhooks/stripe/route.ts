@@ -27,7 +27,7 @@ import { postPaymentRevenue, postShopOrderRevenue } from '@/lib/finance/post-rev
 import { dispatchShopOrder } from '@/lib/dropship/dispatch'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent, voidCommissionsForBooking } from '@/lib/finance/post-adjustments'
-import { cleanerAlreadyPaid, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
+import { payoutSourceAlreadyClaimed, claimCleanerPayout, finalizeCleanerPayout, releaseCleanerPayout } from '@/lib/finance/cleaner-payout'
 import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
 import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
@@ -929,12 +929,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, partial: true })
       }
 
-      // 4. Auto-pay cleaner if connected to Stripe Connect. Shared booking-keyed
-      // idempotency guard: never pay twice if the cleaner-checkout path (or a
-      // webhook retry) already paid this booking's cleaner.
+      // 4. Auto-pay cleaner if connected to Stripe Connect. Guarded per THIS
+      // Stripe session (payoutSourceAlreadyClaimed), not "has the cleaner
+      // ever been paid anything on this booking" (cleanerAlreadyPaid) — a
+      // base payout already claimed at checkout must not block a genuinely
+      // new payment (e.g. a tip) that arrives later via a different
+      // session. A webhook retry of THIS SAME session still correctly
+      // no-ops, since it reuses the identical source_ref.
       let payoutSent = false
       let payoutClaimId: string | null = null
-      if (tm?.stripe_account_id && booking.team_member_id && !(await cleanerAlreadyPaid(tenantId, bookingId, booking.team_member_id as string))) {
+      const stripeSessionSourceRef = `stripe_session:${session.id}`
+      if (tm?.stripe_account_id && booking.team_member_id && !(await payoutSourceAlreadyClaimed(tenantId, bookingId, booking.team_member_id as string, stripeSessionSourceRef))) {
         try {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
@@ -963,6 +968,7 @@ export async function POST(request: Request) {
             teamMemberId: booking.team_member_id as string,
             amountCents: cleanerBaseCents,
             tipCents,
+            sourceRef: stripeSessionSourceRef,
           })
           if (claim.claimed && claim.payoutId) {
             payoutClaimId = claim.payoutId

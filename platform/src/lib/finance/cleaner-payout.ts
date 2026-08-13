@@ -54,6 +54,31 @@ export async function cleanerAlreadyPaid(tenantId: string, bookingId: string, te
   return booking?.team_member_id === teamMemberId && booking?.team_member_paid === true
 }
 
+/**
+ * Narrower than cleanerAlreadyPaid: has THIS specific funding event
+ * (sourceRef) already resulted in a payout row, rather than "has the
+ * cleaner ever been paid anything on this booking". Use this as the
+ * pre-transfer gate anywhere a NEW payment event can arrive after an
+ * earlier, different payout already landed (Stripe webhook, manual
+ * payment-report) — cleanerAlreadyPaid's broader check would wrongly skip
+ * a genuinely new amount (e.g. a tip that clears after base pay was
+ * already auto-paid at checkout). The claimCleanerPayout/claimGlobalPayout
+ * insert is the real, atomic guarantee either way; this is just a cheap
+ * pre-check to skip constructing a doomed Stripe call.
+ */
+export async function payoutSourceAlreadyClaimed(tenantId: string, bookingId: string, teamMemberId: string, sourceRef: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('team_member_payouts')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+    .eq('team_member_id', teamMemberId)
+    .eq('source_ref', sourceRef)
+    .limit(1)
+    .maybeSingle()
+  return !!data
+}
+
 /** Sum of every tip recorded against a booking (payments.tip_cents can span
  *  multiple rows — e.g. a cash tip logged separately from a Stripe payment).
  *  Looked up fresh at payout time so a tip that lands via the Stripe webhook
@@ -73,13 +98,20 @@ export interface PayoutClaim {
 }
 
 /**
- * Atomically claim the single payout slot for a booking BEFORE any money moves.
- * Inserts a `pending` team_member_payouts row; the UNIQUE(tenant_id, booking_id)
- * index makes a second concurrent insert conflict → claimed:false, and the caller
+ * Atomically claim a payout slot for a booking+team-member BEFORE any money
+ * moves. Inserts a `pending` team_member_payouts row; the UNIQUE(tenant_id,
+ * booking_id, team_member_id, source_ref) index makes a second concurrent
+ * insert for the SAME source_ref conflict → claimed:false, and the caller
  * must NOT transfer. This is what closes the true-concurrency window that a
- * check-before-transfer guard alone cannot: the DB index, not a prior read, is
- * the gate. Finalize the row with finalizeCleanerPayout() after the transfer
- * lands, or releaseCleanerPayout() if it fails.
+ * check-before-transfer guard alone cannot: the DB index, not a prior read,
+ * is the gate. Finalize the row with finalizeCleanerPayout() after the
+ * transfer lands, or releaseCleanerPayout() if it fails.
+ *
+ * sourceRef identifies WHICH funding event this claim is for (a Stripe
+ * session id, a checkout-time marker, a manual-report reference id, a
+ * sweep-computed key) — required so a genuinely later payout (a tip that
+ * clears after base pay was already claimed) can get its own row instead of
+ * colliding with the earlier one. See 20260812190000_payout_source_ref_staged_payouts.sql.
  */
 export async function claimCleanerPayout(opts: {
   tenantId: string
@@ -87,6 +119,7 @@ export async function claimCleanerPayout(opts: {
   teamMemberId: string
   amountCents: number
   tipCents?: number
+  sourceRef: string
 }): Promise<PayoutClaim> {
   const { data, error } = await supabaseAdmin
     .from('team_member_payouts')
@@ -97,11 +130,12 @@ export async function claimCleanerPayout(opts: {
       amount_cents: opts.amountCents,
       tip_cents: opts.tipCents ?? 0,
       status: 'pending',
+      source_ref: opts.sourceRef,
     })
     .select('id')
     .single()
-  // A unique-violation (another path already claimed this booking) surfaces as an
-  // error here → treat as "not claimed", do not pay.
+  // A unique-violation (another path already claimed this exact funding
+  // event) surfaces as an error here → treat as "not claimed", do not pay.
   if (error || !data) return { claimed: false }
   return { claimed: true, payoutId: data.id as string }
 }

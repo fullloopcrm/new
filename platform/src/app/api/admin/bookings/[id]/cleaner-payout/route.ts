@@ -49,6 +49,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // tenantDb().insert() stamps tenant_id from booking.tenant_id itself — no
   // manual field needed, and it can't drift from the booking it's paying out.
+  // source_ref is a fresh id per click, not a deterministic key — this is an
+  // admin manually recording a specific payment they just made, not an
+  // automated retry that needs to collide with a prior attempt. Without it,
+  // this insert 23505s the moment ANY other payout row already exists for
+  // this booking+cleaner (e.g. a base pay already auto-paid at checkout),
+  // making a second, legitimate installment (a tip, a correction) unrecordable.
   const { data: payoutRow, error: payErr } = await db
     .from('team_member_payouts')
     .insert({
@@ -56,6 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       team_member_id: teamMemberId,
       amount_cents: amountCents,
       status: method,
+      source_ref: `manual:${crypto.randomUUID()}`,
     })
     .select()
     .single()

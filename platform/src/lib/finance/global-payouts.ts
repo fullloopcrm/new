@@ -22,6 +22,7 @@ export async function claimGlobalPayout(opts: {
   teamMemberId: string
   amountCents: number
   tipCents?: number
+  sourceRef: string
 }): Promise<PayoutClaim> {
   const { data, error } = await supabaseAdmin
     .from('team_member_payouts')
@@ -33,6 +34,7 @@ export async function claimGlobalPayout(opts: {
       tip_cents: opts.tipCents ?? 0,
       status: 'pending',
       rail: 'global_payouts',
+      source_ref: opts.sourceRef,
     })
     .select('id')
     .single()
@@ -277,6 +279,7 @@ export async function executeGroups(
         teamMemberId: group.teamMemberId,
         amountCents: item.amountCents,
         tipCents: item.tipCents,
+        sourceRef: `batch:${item.bookingId}:${group.teamMemberId}`,
       })
       if (!claim.claimed || !claim.payoutId) {
         skipped.push({ bookingId: item.bookingId, teamMemberName: group.name, reason: 'already claimed by another run' })

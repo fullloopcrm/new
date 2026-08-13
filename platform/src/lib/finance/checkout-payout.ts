@@ -103,7 +103,7 @@ export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Prom
   }
 
   if (teamMember?.global_payouts_recipient_id) {
-    const claim = await claimGlobalPayout({ tenantId, bookingId, teamMemberId, amountCents: teamMemberPayCents, tipCents })
+    const claim = await claimGlobalPayout({ tenantId, bookingId, teamMemberId, amountCents: teamMemberPayCents, tipCents, sourceRef: `checkout_base:${bookingId}:${teamMemberId}` })
     if (!claim.claimed || !claim.payoutId) return
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION })
@@ -146,7 +146,7 @@ export async function payCleanerAtCheckout(opts: PayCleanerAtCheckoutOpts): Prom
   }
 
   if (teamMember?.stripe_account_id) {
-    const claim = await claimCleanerPayout({ tenantId, bookingId, teamMemberId, amountCents: teamMemberPayCents, tipCents })
+    const claim = await claimCleanerPayout({ tenantId, bookingId, teamMemberId, amountCents: teamMemberPayCents, tipCents, sourceRef: `checkout_base:${bookingId}:${teamMemberId}` })
     if (!claim.claimed || !claim.payoutId) return
     try {
       const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION })
