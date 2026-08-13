@@ -123,6 +123,37 @@ export async function POST(request: Request) {
     }
   }
 
+  // referrer_id/sales_partner_id are the same shape of FK as client_id/
+  // team_member_id/service_type_id/schedule_id above — same ownership guard.
+  const requestedReferrerIds = Array.from(
+    new Set(bookingInputs.map((b) => b.referrer_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedReferrerIds.length > 0) {
+    const { data: validReferrers } = await supabaseAdmin
+      .from('referrers')
+      .select('id')
+      .in('id', requestedReferrerIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validReferrers || []).map((r) => r.id))
+    if (requestedReferrerIds.some((rid) => !validIds.has(rid))) {
+      return NextResponse.json({ error: 'Invalid referrer selection' }, { status: 400 })
+    }
+  }
+  const requestedSalesPartnerIds = Array.from(
+    new Set(bookingInputs.map((b) => b.sales_partner_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedSalesPartnerIds.length > 0) {
+    const { data: validSalesPartners } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id')
+      .in('id', requestedSalesPartnerIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validSalesPartners || []).map((s) => s.id))
+    if (requestedSalesPartnerIds.some((sid) => !validIds.has(sid))) {
+      return NextResponse.json({ error: 'Invalid sales partner selection' }, { status: 400 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)
@@ -148,6 +179,8 @@ export async function POST(request: Request) {
       schedule_id: (b.schedule_id as string) || schedule_id || null,
       source: 'admin',
       team_size: Math.max(1, Math.min(8, Number(b.team_size) || 1)),
+      referrer_id: b.referrer_id || null,
+      sales_partner_id: b.sales_partner_id || null,
     }
   })
 

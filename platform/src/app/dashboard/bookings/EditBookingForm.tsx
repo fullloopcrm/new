@@ -52,6 +52,8 @@ function parseNaive(s: string): { date: string; time: string } {
 }
 
 interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; status?: string; max_jobs_per_day?: number }
+interface Referrer { id: string; name: string; ref_code: string; active: boolean }
+interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
 
 export interface EditableBooking {
   id: string
@@ -74,6 +76,8 @@ export interface EditableBooking {
   property_id?: string | null
   team_size?: number | null
   max_hours?: number | null
+  referrer_id?: string | null
+  sales_partner_id?: string | null
   clients: { name: string; phone?: string | null; address: string | null } | null
 }
 
@@ -95,6 +99,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
   const serviceTypes = serviceTypesData.map(s => s.name)
 
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  const [referrers, setReferrers] = useState<Referrer[]>([])
+  const [salesPartners, setSalesPartners] = useState<SalesPartner[]>([])
   const [memberColors, setMemberColors] = useState<Record<string, string>>({})
   const [dayBookings, setDayBookings] = useState<AvailabilityBooking[]>([])
   const [clientProperties, setClientProperties] = useState<{ id: string; address: string; is_primary: boolean }[]>([])
@@ -137,6 +143,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
     extra_team_member_ids: [] as string[],
     max_hours: booking.max_hours ?? null as number | null,
     property_id: booking.property_id || '',
+    referrer_id: booking.referrer_id || '',
+    sales_partner_id: booking.sales_partner_id || '',
     _originalPrice: booking.price,
   })
 
@@ -154,6 +162,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
       const members: ColorableMember[] = Array.isArray(d) ? d : (d.team || d.team_members || [])
       setMemberColors(buildMemberColors(members))
     }).catch(() => {})
+    fetch('/api/referrers').then(r => r.ok ? r.json() : null).then(j => { if (j) setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }).catch(() => {})
+    fetch('/api/sales-partners').then(r => r.ok ? r.json() : null).then(j => { if (j) setSalesPartners(Array.isArray(j) ? j : (j.sales_partners ?? [])) }).catch(() => {})
   }, [])
 
   // Existing team extras for this booking -- mirrors BookingsAdmin's openEdit.
@@ -360,6 +370,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
             dates: newDates,
             from_date: booking.start_time,
             discount_percent: form.discount_enabled ? form.discount_percent : null,
+            referrer_id: form.referrer_id || null,
+            sales_partner_id: form.sales_partner_id || null,
           })
         })
         if (!res.ok) {
@@ -396,6 +408,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
             notes: form.notes || null,
             recurringType: recurringType,
             discountPercent: form.discount_enabled ? form.discount_percent : null,
+            referrerId: form.referrer_id || null,
+            salesPartnerId: form.sales_partner_id || null,
           })
         }))
 
@@ -422,6 +436,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
               team_member_id: form.team_member_id,
               notes: form.notes || null,
               discount_percent: form.discount_enabled ? form.discount_percent : null,
+              referrer_id: form.referrer_id || null,
+              sales_partner_id: form.sales_partner_id || null,
             })
           })
         }
@@ -472,6 +488,8 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           status: 'scheduled',
           dates: initialDates,
           discount_percent: form.discount_enabled ? form.discount_percent : null,
+          referrer_id: form.referrer_id || null,
+          sales_partner_id: form.sales_partner_id || null,
         })
       })
       if (!scheduleRes.ok) {
@@ -800,6 +818,20 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           <div>
             <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Notes</label>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" rows={2} placeholder="Access codes..." />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Referred by</label>
+            <select value={form.referrer_id} onChange={(e) => setForm({ ...form, referrer_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
+              <option value="">None</option>
+              {referrers.filter(r => r.active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Sales partner</label>
+            <select value={form.sales_partner_id} onChange={(e) => setForm({ ...form, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
+              <option value="">None</option>
+              {salesPartners.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
         </div>
 

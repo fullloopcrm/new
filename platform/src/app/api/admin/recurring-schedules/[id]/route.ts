@@ -56,6 +56,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
   }
 
+  // referrer_id/sales_partner_id are caller-supplied FKs too — same
+  // ownership guard as team_member_id above.
+  if (body.referrer_id) {
+    const { data: referrerRow } = await supabaseAdmin
+      .from('referrers')
+      .select('id')
+      .eq('id', body.referrer_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!referrerRow) return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
+  }
+  if (body.sales_partner_id) {
+    const { data: salesPartnerRow } = await supabaseAdmin
+      .from('sales_partners')
+      .select('id')
+      .eq('id', body.sales_partner_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!salesPartnerRow) return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
+  }
+
   const changes = {
     ...(teamMemberId !== undefined && { team_member_id: teamMemberId || null }),
     ...(body.recurring_type !== undefined && { recurring_type: body.recurring_type }),
@@ -69,6 +90,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     ...(body.notes !== undefined && { notes: body.notes }),
     ...(body.special_instructions !== undefined && { special_instructions: body.special_instructions }),
     ...(body.status !== undefined && { status: body.status }),
+    ...(body.referrer_id !== undefined && { referrer_id: body.referrer_id || null }),
+    ...(body.sales_partner_id !== undefined && { sales_partner_id: body.sales_partner_id || null }),
   }
 
   try {

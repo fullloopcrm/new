@@ -99,6 +99,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     is_emergency: false, pay_rate: null as number | null, status: 'scheduled' as string,
     team_size: 1, extra_team_member_ids: [] as string[], max_hours: null as number | null,
     override_availability: false, property_id: '' as string,
+    referrer_id: '' as string, sales_partner_id: '' as string,
   })
   const [clientProperties, setClientProperties] = useState<{ id: string; address: string; is_primary: boolean }[]>([])
   const [showNewClientModal, setShowNewClientModal] = useState(false)
@@ -385,6 +386,8 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
           status: 'available', pay_rate: createForm.pay_rate,
           max_hours: createForm.max_hours,
           force: true,
+          referrer_id: createForm.referrer_id || null,
+          sales_partner_id: createForm.sales_partner_id || null,
           ...getCreateFormDiscount(),
         })
       })
@@ -421,6 +424,8 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
           status: createForm.status,
           dates: initialDates,
           discount_percent: getCreateFormDiscount().discount_percent,
+          referrer_id: createForm.referrer_id || null,
+          sales_partner_id: createForm.sales_partner_id || null,
         })
       })
       if (!scheduleRes.ok) {
@@ -445,6 +450,8 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
         extra_team_member_ids: createForm.extra_team_member_ids,
         max_hours: createForm.max_hours,
         pay_rate: createForm.pay_rate,
+        referrer_id: createForm.referrer_id || null,
+        sales_partner_id: createForm.sales_partner_id || null,
         ...getCreateFormDiscount(),
       }))
 
@@ -948,6 +955,20 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
           <div>
             <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Notes</label>
             <textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]" rows={2} placeholder="Access codes..." />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Referred by</label>
+            <select value={createForm.referrer_id} onChange={(e) => setCreateForm({ ...createForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
+              <option value="">None</option>
+              {referrers.filter(r => r.active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Sales partner</label>
+            <select value={createForm.sales_partner_id} onChange={(e) => setCreateForm({ ...createForm, sales_partner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
+              <option value="">None</option>
+              {salesPartners.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
         </div>
         <div className="flex gap-3 mt-6">

@@ -105,6 +105,8 @@ export async function POST(request: Request) {
     status: bookingStatus,
     invoice_consolidation,
     discount_percent,
+    referrer_id,
+    sales_partner_id,
   } = body
 
   const teamMemberId = team_member_id || cleaner_id || null
@@ -170,6 +172,28 @@ export async function POST(request: Request) {
       .eq('client_id', client_id)
       .maybeSingle()
     if (!propertyRow) return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
+  }
+
+  // referrer_id/sales_partner_id are caller-supplied FKs too — same ownership
+  // guard as client_id/team_member_id/property_id above, since every
+  // generated occurrence copies whichever value is set here.
+  if (referrer_id) {
+    const { data: referrerRow } = await db
+      .from('referrers')
+      .select('id')
+      .eq('id', referrer_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!referrerRow) return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
+  }
+  if (sales_partner_id) {
+    const { data: salesPartnerRow } = await db
+      .from('sales_partners')
+      .select('id')
+      .eq('id', sales_partner_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!salesPartnerRow) return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
   }
 
   // Dates: use those provided by the frontend, else generate 6 weeks.
@@ -242,6 +266,8 @@ export async function POST(request: Request) {
       next_generate_after: nextGenerateAfter,
       invoice_consolidation: invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit',
       discount_percent: finalDiscountPercent || null,
+      referrer_id: referrer_id || null,
+      sales_partner_id: sales_partner_id || null,
     })
     .select()
     .single()
@@ -322,6 +348,8 @@ export async function POST(request: Request) {
       discount_percent: finalDiscountPercent || null,
       suggested_team_member_id: assignedId ? null : suggestedTeamMemberId,
       source: 'admin',
+      referrer_id: referrer_id || null,
+      sales_partner_id: sales_partner_id || null,
     })
   }
 

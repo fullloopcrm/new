@@ -22,7 +22,7 @@ const UPDATABLE_FIELDS = [
   'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
   'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
   'actual_hours', 'team_member_pay', 'team_member_paid', 'discount_percent', 'price',
-  'recurring_type',
+  'recurring_type', 'referrer_id', 'sales_partner_id',
 ] as const
 
 /**
@@ -115,6 +115,44 @@ export async function PUT(request: Request) {
       const validIds = new Set((validServiceTypes || []).map((s) => s.id))
       if (requestedServiceTypeIds.some((sid) => !validIds.has(sid))) {
         return NextResponse.json({ error: 'Invalid service type selection' }, { status: 400 })
+      }
+    }
+
+    const requestedReferrerIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.referrer_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedReferrerIds.length > 0) {
+      const { data: validReferrers } = await supabaseAdmin
+        .from('referrers')
+        .select('id')
+        .in('id', requestedReferrerIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validReferrers || []).map((r) => r.id))
+      if (requestedReferrerIds.some((rid) => !validIds.has(rid))) {
+        return NextResponse.json({ error: 'Invalid referrer selection' }, { status: 400 })
+      }
+    }
+
+    const requestedSalesPartnerIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.sales_partner_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedSalesPartnerIds.length > 0) {
+      const { data: validSalesPartners } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id')
+        .in('id', requestedSalesPartnerIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validSalesPartners || []).map((s) => s.id))
+      if (requestedSalesPartnerIds.some((sid) => !validIds.has(sid))) {
+        return NextResponse.json({ error: 'Invalid sales partner selection' }, { status: 400 })
       }
     }
 

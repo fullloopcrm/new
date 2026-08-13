@@ -131,6 +131,8 @@ function BookingsPage() {
     max_hours: null as number | null,
     override_availability: false,
     property_id: '' as string,
+    referrer_id: '' as string,
+    sales_partner_id: '' as string,
     _originalPrice: 0
   })
   // Prefill + remount-key for the create form (CreateBookingForm.tsx), which
@@ -662,6 +664,8 @@ function BookingsPage() {
       max_hours: (booking as any).max_hours ?? null,
       override_availability: false,
       property_id: (booking as any).property_id || '',
+      referrer_id: booking.referrer_id || '',
+      sales_partner_id: booking.sales_partner_id || '',
       _originalPrice: booking.price
     })
     setShowModal(true)
@@ -869,6 +873,8 @@ function BookingsPage() {
             dates: newDates,
             from_date: editingBooking.start_time,
             discount_percent: form.discount_enabled ? form.discount_percent : null,
+            referrer_id: form.referrer_id || null,
+            sales_partner_id: form.sales_partner_id || null,
           })
         })
         if (!res.ok) {
@@ -911,6 +917,8 @@ function BookingsPage() {
             notes: form.notes || null,
             recurringType: recurringType,
             discountPercent: form.discount_enabled ? form.discount_percent : null,
+            referrerId: form.referrer_id || null,
+            salesPartnerId: form.sales_partner_id || null,
           })
         }))
 
@@ -938,6 +946,8 @@ function BookingsPage() {
               team_member_id: form.team_member_id,
               notes: form.notes || null,
               discount_percent: form.discount_enabled ? form.discount_percent : null,
+              referrer_id: form.referrer_id || null,
+              sales_partner_id: form.sales_partner_id || null,
             })
           })
         }
@@ -968,6 +978,7 @@ function BookingsPage() {
               start_time: buildNaiveTime(date, form.start_time), end_time: buildNaiveTime(date, form.start_time, form.hours),
               service_type: form.service_type, price: calculateEditPrice(),
               hourly_rate: form.hourly_rate, recurring_type: recurringType, notes: form.notes || null,
+              referrer_id: form.referrer_id || null, sales_partner_id: form.sales_partner_id || null,
               skip_email: true
             })
           })
@@ -2364,6 +2375,22 @@ function BookingsPage() {
               <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
                 <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}{form.one_time_credit_dollars > 0 ? ` − $${form.one_time_credit_dollars} credit` : ''}</span>
                 <span className="font-semibold text-[var(--sched-ink)]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
+              </div>
+              <div className="flex gap-1.5 pt-2 border-t border-gray-200">
+                <div className="flex-1">
+                  <label className="block text-[10px] text-gray-400 uppercase mb-1">Referred by</label>
+                  <select value={form.referrer_id} onChange={(e) => setForm({ ...form, referrer_id: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--sched-ink)] bg-white">
+                    <option value="">None</option>
+                    {referrers.filter(r => r.active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[10px] text-gray-400 uppercase mb-1">Sales partner</label>
+                  <select value={form.sales_partner_id} onChange={(e) => setForm({ ...form, sales_partner_id: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--sched-ink)] bg-white">
+                    <option value="">None</option>
+                    {salesPartners.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="pt-2 border-t border-gray-200">
                 <RecurringOptions startDate={form.start_date} enabled={form.repeat_enabled} onEnabledChange={(v) => setForm({ ...form, repeat_enabled: v })} repeatType={form.repeat_type} onRepeatTypeChange={(v) => setForm({ ...form, repeat_type: v })} repeatEnd={form.repeat_end} onRepeatEndChange={(v) => setForm({ ...form, repeat_end: v })} repeatEndCount={form.repeat_end_count} onRepeatEndCountChange={(v) => setForm({ ...form, repeat_end_count: v })} repeatEndDate={form.repeat_end_date} onRepeatEndDateChange={(v) => setForm({ ...form, repeat_end_date: v })} customInterval={form.custom_interval} onCustomIntervalChange={(v) => setForm({ ...form, custom_interval: v })} previewDates={!(editingBooking?.recurring_type || editingBooking?.schedule_id) ? editRecurringDates : []} />

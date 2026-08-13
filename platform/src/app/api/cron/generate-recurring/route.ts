@@ -392,6 +392,8 @@ export async function GET(request: Request) {
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
         discount_percent: schedule.discount_percent,
+        referrer_id: schedule.referrer_id,
+        sales_partner_id: schedule.sales_partner_id,
         suggested_team_member_id: suggestedId,
         notes: unassignedNote
           ? `${schedule.notes ? schedule.notes + ' — ' : ''}${unassignedNote}`
