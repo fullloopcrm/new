@@ -94,6 +94,19 @@ export default function ReferralsPage() {
     setPartnerBusyId('')
   }
 
+  async function deleteReferrer(r: ReferrerRow) {
+    if (!confirm(`Permanently delete ${r.name}? This can't be undone.`)) return
+    setPartnerBusyId(r.id)
+    const res = await fetch(`/api/referrers?id=${r.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setReferrerPartners((prev) => prev.filter((x) => x.id !== r.id))
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Failed to delete referrer')
+    }
+    setPartnerBusyId('')
+  }
+
   async function createReferral(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -559,13 +572,22 @@ export default function ReferralsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      disabled={partnerBusyId === r.id}
-                      onClick={() => toggleReferrerActive(r)}
-                      className="text-xs text-slate-400 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-lg"
-                    >
-                      {r.active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={partnerBusyId === r.id}
+                        onClick={() => toggleReferrerActive(r)}
+                        className="text-xs text-slate-400 hover:text-slate-900 border border-slate-200 px-2.5 py-1 rounded-lg"
+                      >
+                        {r.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        disabled={partnerBusyId === r.id}
+                        onClick={() => deleteReferrer(r)}
+                        className="text-xs text-red-500 hover:text-red-700 border border-red-200 px-2.5 py-1 rounded-lg"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

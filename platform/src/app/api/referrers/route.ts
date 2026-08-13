@@ -325,3 +325,56 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Failed to update referrer' }, { status: 500 })
   }
 }
+
+// Real hard delete, distinct from PUT{active:false} (deactivate) -- Jeff
+// wants an actual delete, not just hidden. referral_commissions.referrer_id
+// is ON DELETE CASCADE (that history disappears with the row, by design --
+// it's the referrer's own commission ledger), but bookings.referrer_id and
+// clients.referrer_id have NO foreign key at all, so a raw delete would
+// leave those rows silently pointing at a referrer_id that no longer
+// resolves to anything -- broken attribution history with no error to
+// signal it happened. Block delete when any of that would go dangling;
+// deactivate is the correct move for a referrer with real history. A
+// referrer with zero bookings/clients ever attributed to them (e.g. added
+// by mistake, or test data) deletes clean.
+export async function DELETE(request: Request) {
+  try {
+    const { tenant, error: authError } = await requirePermission('referrals.manage')
+    if (authError) return authError
+    const { tenantId } = tenant
+
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+    const { data: referrer } = await supabaseAdmin
+      .from('referrers')
+      .select('id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!referrer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const [{ count: bookingCount }, { count: clientCount }] = await Promise.all([
+      supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('referrer_id', id),
+      supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('referrer_id', id),
+    ])
+    if ((bookingCount || 0) > 0 || (clientCount || 0) > 0) {
+      return NextResponse.json({
+        error: `Can't delete — ${bookingCount || 0} booking(s) and ${clientCount || 0} client(s) are still attributed to this referrer. Deactivate instead, or reassign that attribution first.`,
+      }, { status: 409 })
+    }
+
+    const { error: delError } = await supabaseAdmin
+      .from('referrers')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+    if (delError) throw delError
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    console.error('Referrers DELETE error:', err)
+    return NextResponse.json({ error: 'Failed to delete referrer' }, { status: 500 })
+  }
+}
