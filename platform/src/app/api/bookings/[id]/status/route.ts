@@ -85,7 +85,7 @@ export async function PATCH(
           .eq('id', tenantId)
           .single()
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
-        const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+        const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
         await notify({
           tenantId,

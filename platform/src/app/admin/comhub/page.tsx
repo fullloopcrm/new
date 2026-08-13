@@ -177,22 +177,22 @@ type ContactContext = {
   cleaner_total_earnings_cents: number
 }
 
-const fmtTime = (iso: string) => {
+const fmtTime = (iso: string, tz: string) => {
   try {
     const d = new Date(iso)
     const now = new Date()
     const sameDay = d.toDateString() === now.toDateString()
     return sameDay
-      ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-      : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: tz })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: tz })
   } catch { return '' }
 }
 // Full, unambiguous date + time for a single message — unlike fmtTime (which
 // drops the date for today's messages and drops the time for older ones),
 // this always shows both so a message's exact send time is never ambiguous.
-const fmtExactTime = (iso: string) => {
+const fmtExactTime = (iso: string, tz: string) => {
   try {
-    return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' })
+    return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: tz })
   } catch { return '' }
 }
 
@@ -273,6 +273,8 @@ export default function ComhubPage() {
   // depends on that provider, so it can only mount on the dashboard route.
   const pathname = usePathname()
   const settingsPanelAvailable = pathname?.startsWith('/dashboard') ?? false
+  const { tenant: tzTenant } = useTenantSettings()
+  const tz = (tzTenant?.timezone as string) || 'America/New_York'
 
   const [threads, setThreads] = useState<Thread[]>([])
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set())
@@ -698,7 +700,7 @@ export default function ComhubPage() {
                   >
                     <div className="flex justify-between items-baseline gap-2">
                       <div className="font-medium truncate text-sm">{t.name || `#${t.slug}`}</div>
-                      <div className="text-[10px] text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at)}</div>
+                      <div className="text-[10px] text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at, tz)}</div>
                     </div>
                     {t.last_message_preview && (
                       <div className="text-[11px] text-[var(--color-loop-muted)] truncate mt-0.5">{t.last_message_preview}</div>
@@ -799,7 +801,7 @@ export default function ComhubPage() {
                       </span>
                       <span className="truncate">{contactDisplay(c)}</span>
                     </div>
-                    <div className="text-xs text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at)}</div>
+                    <div className="text-xs text-[var(--color-loop-muted)] shrink-0" style={{ fontFamily: 'var(--mono)' }}>{fmtTime(t.last_message_at, tz)}</div>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] uppercase text-[var(--color-loop-muted-2)]" style={{ fontFamily: 'var(--mono)', letterSpacing: '0.06em' }}>{t.channel}</span>
@@ -1034,7 +1036,7 @@ export default function ComhubPage() {
                       </div>
                       <div className="text-[10px] mt-1 px-1 flex gap-2 items-center" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
                         <span>{authorName}{isAuto ? ' · auto' : ''}</span>
-                        <span title={fmtExactTime(m.sent_at)}>{fmtExactTime(m.sent_at)}</span>
+                        <span title={fmtExactTime(m.sent_at, tz)}>{fmtExactTime(m.sent_at, tz)}</span>
                         {tenantDid && <span title="Which of your numbers this text used">via {formatPhone(tenantDid)}</span>}
                         {isAuto && (
                           <button
@@ -1758,11 +1760,13 @@ function YinezModal({ onClose }: { onClose: () => void }) {
 // Inline version — renders contents only (parent <aside> wraps).
 function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context: ContactContext; onTagChanged?: () => void; onContactSaved?: () => void }) {
   const { contact, client, cleaner, applicant, recent_bookings, total_bookings, total_spent_cents, outstanding_cents, cleaner_bookings, cleaner_total_earnings_cents } = context
+  const { tenant: tzTenant } = useTenantSettings()
+  const tz = (tzTenant?.timezone as string) || 'America/New_York'
   const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`
   const fmtDateTime = (iso: string) => {
     try {
       const d = new Date(iso)
-      return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit', timeZone: tz })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: tz })}`
     } catch { return iso }
   }
   const fmtPhone = (p: string | null | undefined) => {
@@ -2049,6 +2053,8 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
 
 // Right-panel content for an internal channel.
 function ChannelInfoPanel({ thread }: { thread: Thread }) {
+  const { tenant: tzTenant } = useTenantSettings()
+  const tz = (tzTenant?.timezone as string) || 'America/New_York'
   return (
     <div>
       <div className="p-4 border-b border-[var(--color-loop-line-soft)]">
@@ -2064,7 +2070,7 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
         <div>
           <div className="text-[10px] uppercase" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Created</div>
           <div className="text-xs" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-graphite)' }}>
-            {(() => { try { return new Date(thread.created_at).toLocaleString() } catch { return '' } })()}
+            {(() => { try { return new Date(thread.created_at).toLocaleString([], { timeZone: tz }) } catch { return '' } })()}
           </div>
         </div>
         <div>

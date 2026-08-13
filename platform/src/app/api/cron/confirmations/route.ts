@@ -75,7 +75,7 @@ export async function GET(request: Request) {
           if (alreadySent && alreadySent.length > 0) continue
 
           const member = booking.team_members
-          const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+          const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
           const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
           const firstName = client.name?.split(' ')[0] || 'there'
 

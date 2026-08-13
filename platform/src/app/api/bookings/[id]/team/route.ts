@@ -135,7 +135,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const clientName = updatedBooking?.clients?.name || 'Client'
   const startISO = updatedBooking?.start_time
   const bookingDate = startISO
-    ? new Date(startISO).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+    ? new Date(startISO).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     : 'TBD'
 
   for (const extraId of newlyAddedExtras) {

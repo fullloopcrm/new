@@ -11,14 +11,14 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 // ============================================
 
 export function smsBookingReceived(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   return `NYC Mobile Salon: We received your booking request for ${date} at ${time}. We'll confirm with your stylist's details shortly. Questions? (212) 202-8400${STOP_TEXT}`
 }
 
 export function smsBookingConfirmation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your stylist'
   const isRecurring = !!booking.recurring_type
   const cancelPolicy = isRecurring
@@ -28,7 +28,7 @@ export function smsBookingConfirmation(booking: any): string {
 }
 
 export function smsReminder(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your stylist'
   const isRecurring = !!booking.recurring_type
   const policy = isRecurring
@@ -41,13 +41,13 @@ export function smsReminder(booking: any, timeframe: string): string {
 }
 
 export function smsCancellation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return `NYC Mobile Salon: Your ${date} appointment has been cancelled. Rebook: thenycmobilesalon.com/book${STOP_TEXT}`
 }
 
 export function smsReschedule(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   return `NYC Mobile Salon: Your appointment has been rescheduled to ${newDate} at ${newTime}. Details: thenycmobilesalon.com/book${STOP_TEXT}`
 }
 
@@ -65,14 +65,14 @@ export function smsVerificationCode(code: string): string {
 // ============================================
 
 export function smsBookingConfirmationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu estilista'
   return `NYC Mobile Salon: Tu cita está confirmada para ${date} a las ${time} con ${cleanerName}. Detalles: thenycmobilesalon.com/book${STOP_TEXT_ES}`
 }
 
 export function smsReminderES(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu estilista'
   const tfMap: Record<string, string> = {
     'in 2 hours': 'en 2 horas',
@@ -87,13 +87,13 @@ export function smsReminderES(booking: any, timeframe: string): string {
 }
 
 export function smsCancellationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return `NYC Mobile Salon: Tu cita del ${date} ha sido cancelada. Reservar de nuevo: thenycmobilesalon.com/book${STOP_TEXT_ES}`
 }
 
 export function smsRescheduleES(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   return `NYC Mobile Salon: Tu cita ha sido reprogramada para ${newDate} a las ${newTime}. Detalles: thenycmobilesalon.com/book${STOP_TEXT_ES}`
 }
 
@@ -107,8 +107,8 @@ export function smsThankYouES(clientName: string): string {
 // ============================================
 
 export function smsJobAssignment(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const pin = booking.cleaners?.pin || ''
   return `NYC Mobile Salon: New job ${date} ${time} - ${booking.clients?.name || 'Client'}. Portal: thenycmobilesalon.com/team PIN: ${pin}\nNuevo trabajo ${date} ${time}. Portal: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
 }
@@ -134,21 +134,21 @@ export function smsDailySummary(cleanerName: string, count: number, pin?: string
 }
 
 export function smsJobCancelled(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const pin = booking.cleaners?.pin || ''
   return `NYC Mobile Salon: Cancelled - ${date} job (${booking.clients?.name || 'Client'}). Portal: thenycmobilesalon.com/team PIN: ${pin}\nCancelado - trabajo del ${date}. Portal: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsJobRescheduled(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const pin = booking.cleaners?.pin || ''
   return `NYC Mobile Salon: Rescheduled - ${booking.clients?.name || 'Client'} moved to ${newDate} ${newTime}. Portal: thenycmobilesalon.com/team PIN: ${pin}\nReprogramado al ${newDate} ${newTime}. Portal: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsUrgentBroadcast(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const payRate = booking.cleaner_pay_rate || 40
   return `NYC Mobile Salon URGENT: $${payRate}/hr job available ${date} ${time}. Claim now: thenycmobilesalon.com/team\nURGENTE: Trabajo $${payRate}/hr ${date} ${time}. Reclamar: thenycmobilesalon.com/team${STOP_TEXT}`
 }
@@ -180,14 +180,14 @@ export function smsNewClient(name: string): string {
 }
 
 export function smsLateCheckInCleaner(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
   const pin = booking.cleaners?.pin || ''
   return `NYC Mobile Salon: You're late for your ${time} job (${clientName}). Please check in ASAP: thenycmobilesalon.com/team PIN: ${pin}\nEstás tarde para tu trabajo de las ${time} (${clientName}). Regístrate ahora: thenycmobilesalon.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsLateCheckInAdmin(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const cleanerName = booking.cleaners?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
   return `NYC Mobile Salon: Late check-in — ${cleanerName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
@@ -206,7 +206,7 @@ export function smsLateCheckOutAdmin(booking: any): string {
 }
 
 export function smsNewBooking(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
+  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   return `NYC Mobile Salon: New booking — ${booking.clients?.name || 'Unknown'} on ${date}`
 }
 

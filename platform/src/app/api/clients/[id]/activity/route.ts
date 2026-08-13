@@ -53,7 +53,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       activities.push({
         type: 'booking_created',
         title: 'Booking created',
-        description: `${b.notes || 'Service'} with ${memberName || 'unassigned'} - ${new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}`,
+        description: `${b.notes || 'Service'} with ${memberName || 'unassigned'} - ${new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
         timestamp: b.created_at || b.start_time
       })
 
@@ -91,7 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         activities.push({
           type: 'booking_cancelled',
           title: 'Booking cancelled',
-          description: `On ${new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}`,
+          description: `On ${new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
           timestamp: b.updated_at || b.start_time
         })
       }

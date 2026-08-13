@@ -70,7 +70,7 @@ export async function GET(request: Request) {
           .limit(1)
         if (existing && existing.length > 0) continue
 
-        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
