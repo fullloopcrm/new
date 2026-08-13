@@ -327,7 +327,7 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
 
       if (patternChanged && booking.schedule_id && form.repeat_enabled) {
         const startDateObj = new Date(form.start_date + 'T12:00:00')
-        const newDates = generateInitialBatchDates({
+        const allDates = generateInitialBatchDates({
           recurringType: rawRecurringType(form.repeat_type) as RecurringType,
           startDate: form.start_date,
           repeatEnabled: true,
@@ -336,6 +336,13 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           repeatEndDate: form.repeat_end_date,
           customIntervalWeeks: form.custom_interval,
         })
+        // Same 6-week initial-batch cutoff CreateBookingForm applies -- the
+        // recurring cron backfills the rest. Without this, an unbounded
+        // pattern (e.g. "never end") always exceeds /regenerate's 60-date cap.
+        const sixWeeksOut = new Date(form.start_date + 'T12:00:00')
+        sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
+        const cutoffDate = sixWeeksOut.toISOString().split('T')[0]
+        const newDates = allDates.filter(d => d <= cutoffDate)
         const res = await fetch('/api/admin/recurring-schedules/' + booking.schedule_id + '/regenerate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
