@@ -211,6 +211,21 @@ export async function createRecipientOnboardingLink(
   }
 }
 
+/**
+ * True when a v2Post/v2Get failure means the recipient account itself is
+ * permanently unreachable (closed, revoked) rather than a transient error —
+ * Stripe returns `code:"forbidden"` with the account id in the message for
+ * both cases, so this pins the account id too. Retrying a closed account
+ * forever is pointless; callers use this to stop retrying and clear the
+ * stale recipient id instead. See feedback 2026-08-13: a closed Global
+ * Payouts recipient re-failed the cleaner-payout-sweep cron every 15 min
+ * across every tenant with no way for the code to notice or recover.
+ */
+export function isClosedRecipientError(err: unknown, recipientId: string): boolean {
+  if (!(err instanceof Error)) return false
+  return err.message.includes('"code":"forbidden"') && err.message.includes(recipientId)
+}
+
 export async function createOutboundPayment(
   apiKey: string,
   opts: { financialAccountId: string; recipientId: string; amountCents: number; description: string; idempotencyKey: string },
