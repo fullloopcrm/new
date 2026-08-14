@@ -16,6 +16,8 @@ import JobsMap, { type MapJob } from './_components/JobsMap'
 import { CallTextCopy } from './_components/CallTextCopy'
 import { crewNames, type CrewRow } from '@/lib/crew'
 import { formatPhone } from '@/lib/format'
+import { computeRecurringForecast, type ForecastSchedule } from '@/lib/recurring-forecast'
+import type { RecurringType } from '@/lib/recurring'
 
 // Every query below is wrapped in unstable_cache with a 30s revalidate window.
 // This page used to re-run all of them (incl. a full-year booking pagination
@@ -255,6 +257,42 @@ async function fetchMapRows(tenantId: string, startISO: string, endISO: string):
 }
 const fetchMapRowsCached = unstable_cache(fetchMapRows, ['dashboard-map-rows'], { revalidate: CACHE_TTL_SECONDS })
 
+// Active recurring schedules -- read-only, feeds computeRecurringForecast
+// (lib/recurring-forecast.ts). Never used to create/modify a booking; the
+// real generators (cron/generate-recurring, admin+client recurring-schedule
+// routes) are the only writers of `bookings` rows.
+type ForecastScheduleRow = {
+  id: string
+  recurring_type: string
+  day_of_week: number | null
+  days_of_week: number[] | null
+  duration_hours: number | null
+  hourly_rate: number | null
+  discount_percent: number | null
+  created_at: string
+}
+async function fetchActiveRecurringSchedules(tenantId: string): Promise<ForecastScheduleRow[]> {
+  const { data } = await supabaseAdmin
+    .from('recurring_schedules')
+    .select('id, recurring_type, day_of_week, days_of_week, duration_hours, hourly_rate, discount_percent, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+  return (data || []) as ForecastScheduleRow[]
+}
+const fetchActiveRecurringSchedulesCached = unstable_cache(fetchActiveRecurringSchedules, ['dashboard-active-recurring-schedules'], { revalidate: CACHE_TTL_SECONDS })
+
+// Skip-exceptions -- an occurrence explicitly cancelled for one date must
+// never be projected as forecasted revenue/labor.
+async function fetchSkipExceptions(tenantId: string): Promise<{ schedule_id: string; occurrence_date: string }[]> {
+  const { data } = await supabaseAdmin
+    .from('recurring_exceptions')
+    .select('schedule_id, occurrence_date')
+    .eq('tenant_id', tenantId)
+    .eq('type', 'skip')
+  return (data || []) as { schedule_id: string; occurrence_date: string }[]
+}
+const fetchSkipExceptionsCached = unstable_cache(fetchSkipExceptions, ['dashboard-skip-exceptions'], { revalidate: CACHE_TTL_SECONDS })
+
 // Per-tenant row on/off state (see /api/dashboard/section-visibility) — read
 // fresh, not unstable_cache'd, so a toggle takes effect on the very next load.
 async function fetchHiddenSections(tenantId: string): Promise<string[]> {
@@ -356,7 +394,7 @@ export default async function DashboardPage() {
   const mapRangeStart = new Date(Math.min(startOfWeekNaive.getTime(), startOfMonthNaive.getTime()))
   const mapRangeEnd = new Date(Math.max(endOfWeekNaive.getTime(), endOfMonthNaive.getTime()))
 
-  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl, arAging, hiddenSections] = await Promise.all([
+  const [allJobs, roster, newThisMonth, leads, quotesForStats, mapRows, ytdPnl, arAging, hiddenSections, activeSchedules, skipExceptions] = await Promise.all([
     fetchYearBookingsCached(tenant.id, startOfYearNaive.toISOString(), endOfYearNaive.toISOString()),
     fetchRosterCountCached(tenant.id),
     fetchNewClientsCountCached(tenant.id, startOfMonth.toISOString()),
@@ -372,6 +410,8 @@ export default async function DashboardPage() {
     // double-counted refunded bookings as owed and ignored unpaid invoices.
     getArAging(tenant.id),
     fetchHiddenSections(tenant.id),
+    fetchActiveRecurringSchedulesCached(tenant.id),
+    fetchSkipExceptionsCached(tenant.id),
   ])
 
   const mapJobs = mapRows.map((r) => ({
@@ -417,6 +457,45 @@ export default async function DashboardPage() {
   const recurringPct = all2026.length > 0 ? Math.round((recurringJobs.length / all2026.length) * 100) : 0
   const avgJobValue = collectedMonth.length > 0 ? Math.round(sum(collectedMonth) / collectedMonth.length) : 0
 
+  // Recurring forecast — computed, never materialized as bookings rows (see
+  // lib/recurring-forecast.ts). The real generators only ever keep a short
+  // horizon of actual booking rows for a schedule, and can have genuine
+  // mid-series gaps (recurring-reconcile.ts's own documented finding), so
+  // "how many bookings exist right now" understates the rest of the year.
+  // This fills that gap with math, anchored on each schedule's own real
+  // established cadence, so recurring clients never get a materialized
+  // booking they didn't actually get told about (the old system's mass-
+  // cancellation-notification failure mode this was built to avoid).
+  const yearEndYMD = `${yearStr}-12-31`
+  const realDatesByScheduleId = new Set<string>()
+  const earliestRealDateByScheduleId = new Map<string, string>()
+  for (const j of all2026) {
+    if (!j.schedule_id) continue
+    const dateYMD = j.start_time.slice(0, 10)
+    realDatesByScheduleId.add(`${j.schedule_id}:${dateYMD}`)
+    const cur = earliestRealDateByScheduleId.get(j.schedule_id)
+    if (!cur || dateYMD < cur) earliestRealDateByScheduleId.set(j.schedule_id, dateYMD)
+  }
+  const skippedDates = new Set(skipExceptions.map(e => `${e.schedule_id}:${e.occurrence_date}`))
+  const forecastSchedules: ForecastSchedule[] = activeSchedules.map(s => ({
+    id: s.id,
+    recurring_type: s.recurring_type as RecurringType,
+    day_of_week: s.day_of_week,
+    days_of_week: s.days_of_week,
+    duration_hours: s.duration_hours,
+    hourly_rate: s.hourly_rate,
+    discount_percent: s.discount_percent,
+    custom_interval_days: null,
+    phase_anchor_ymd: earliestRealDateByScheduleId.get(s.id) ?? s.created_at.slice(0, 10),
+  }))
+  const forecast = computeRecurringForecast({
+    schedules: forecastSchedules,
+    realDatesByScheduleId,
+    skippedDates,
+    todayYMD,
+    yearEndYMD,
+  })
+
   // nycmaid's V1 build includes a one-off January-actual adjustment (pre-migration
   // jobs/revenue not present in `bookings` — nycmaid didn't start on this platform
   // until February). Not a general formula — gated to that tenant only, same pattern
@@ -424,12 +503,8 @@ export default async function DashboardPage() {
   const isNycmaid = tenant.id === NYCMAID_TENANT_ID
   const NYCMAID_JANUARY_ACTUAL_CENTS = 600000
   const NYCMAID_JANUARY_ACTUAL_JOBS = 30
-  const projectedRevenue = isNycmaid
-    ? NYCMAID_JANUARY_ACTUAL_CENTS + scheduled2026Total
-    : scheduled2026Total
-  const projectedJobs = isNycmaid
-    ? NYCMAID_JANUARY_ACTUAL_JOBS + all2026.length
-    : all2026.length
+  const projectedRevenue = (isNycmaid ? NYCMAID_JANUARY_ACTUAL_CENTS + scheduled2026Total : scheduled2026Total) + forecast.total.revenue_cents
+  const projectedJobs = (isNycmaid ? NYCMAID_JANUARY_ACTUAL_JOBS + all2026.length : all2026.length) + forecast.total.jobs
 
   const revenueLadder: Array<{ label: string; val: number; jobs: number; emphasize: boolean; note?: string }> = [
     { label: 'Today', val: sum(collectedToday), jobs: collectedToday.length, emphasize: false },
@@ -438,7 +513,10 @@ export default async function DashboardPage() {
     { label: `${yearStr} · Actual`, val: ytdPnl.revenue_cents, jobs: collectedYear.length, emphasize: true },
     {
       label: `${yearStr} · Projected`, val: projectedRevenue, jobs: projectedJobs, emphasize: true,
-      note: isNycmaid ? `incl. $${(NYCMAID_JANUARY_ACTUAL_CENTS / 100).toLocaleString()} pre-migration Jan (${NYCMAID_JANUARY_ACTUAL_JOBS} jobs)` : undefined,
+      note: [
+        isNycmaid ? `incl. $${(NYCMAID_JANUARY_ACTUAL_CENTS / 100).toLocaleString()} pre-migration Jan (${NYCMAID_JANUARY_ACTUAL_JOBS} jobs)` : null,
+        forecast.total.jobs > 0 ? `incl. ${formatMoney(forecast.total.revenue_cents)} forecasted from ${activeSchedules.length} active recurring schedule${activeSchedules.length === 1 ? '' : 's'} not yet booked (+${forecast.total.jobs} visits)` : null,
+      ].filter(Boolean).join(' · ') || undefined,
     },
   ]
   const volumeLadder = [
@@ -475,10 +553,15 @@ export default async function DashboardPage() {
     // January is pre-migration for nycmaid — no `bookings` rows exist for it,
     // so fold in the same known actuals used in the Projected ladder above.
     const isNycmaidJan = isNycmaid && monthIdx === 0
+    // Real counts only, matching the `jobs` list below exactly — the forecast
+    // is surfaced as a separate field so opening a month never shows a job
+    // count that doesn't match the rows actually listed.
     return {
       label: mStart.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
       count: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_JOBS + jobs.length : jobs.length,
       revenue: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_CENTS + sum(jobs) : sum(jobs),
+      projectedCount: forecast.byMonth[monthIdx].jobs,
+      projectedRevenue: forecast.byMonth[monthIdx].revenue_cents,
       isCurrent: monthIdx === zonedNow.getUTCMonth(), isFuture: monthIdx > zonedNow.getUTCMonth(),
       jobs: jobs
         .slice()
