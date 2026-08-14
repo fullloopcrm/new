@@ -8,7 +8,6 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { getArAging } from '@/lib/finance/ar-aging'
 import ScheduleIssues from './_components/ScheduleIssues'
-import BillingIssues from './_components/BillingIssues'
 import AutoScheduled from './_components/AutoScheduled'
 import SectionVisibility from './_components/SectionVisibility'
 import { JobsByMonthGrid } from './_components/JobsByMonthGrid'
@@ -614,10 +613,6 @@ export default async function DashboardPage() {
 
       {/* SCHEDULE ISSUES — Fix-now triage (client; tenant-scoped API) */}
       <ScheduleIssues />
-
-      {/* BILLING ISSUES — payment_overdue/cleaner_unpaid/price_mismatch split
-          out of Schedule Issues (same table+API, filtered the other way) */}
-      <BillingIssues />
 
       {/* REVENUE LADDER — money figures, hidden without finance.view */}
       {canViewFinance && (

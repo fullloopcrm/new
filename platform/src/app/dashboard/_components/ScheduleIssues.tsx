@@ -12,23 +12,24 @@ interface ScheduleIssue {
   created_at: string
 }
 
-// payment_overdue / cleaner_unpaid / price_mismatch are financial, not
-// scheduling — they live in BillingIssues.tsx now (same schedule_issues
-// table + API, just filtered the other way). Excluded here so a booking
-// mixup doesn't show as a "schedule" problem.
-const BILLING_TYPES = new Set(['payment_overdue', 'cleaner_unpaid', 'price_mismatch'])
+// The panel only surfaces what genuinely needs attention: an unfilled shift,
+// or a severity:'critical' problem (double-booking, overlapping jobs, a
+// member booked on a day off, an area requiring a car with none assigned,
+// a no-show, etc). Everything softer — zone mismatches, home-by-time risk,
+// unscheduled-but-not-yet-late sales/jobs, buffer/overbooking warnings — and
+// everything financial (payment_overdue, cleaner_unpaid, price_mismatch) is
+// deliberately left off so this doesn't turn back into a scroll-through-first
+// wall of low-stakes noise.
+const shouldShow = (i: ScheduleIssue) => i.severity === 'critical' || i.type === 'unassigned'
 
-type IssueGroup = 'fix' | 'review'
+type IssueGroup = 'fix'
 const ISSUE_GROUP: Record<string, IssueGroup> = {
-  time_conflict: 'fix', duplicate_client: 'fix', unassigned: 'fix', over_max_jobs: 'fix',
-  tight_buffer: 'fix', day_off: 'fix', no_car: 'fix', no_show: 'fix', stuck_pending: 'fix',
-  unscheduled_sale: 'fix', unscheduled_job: 'fix',
-  home_by_risk: 'review',
+  time_conflict: 'fix', duplicate_client: 'fix', unassigned: 'fix',
+  day_off: 'fix', no_car: 'fix', no_show: 'fix', unscheduled_job: 'fix',
 }
 const ISSUE_ACTION: Record<string, string> = {
   unassigned: 'Assign', time_conflict: 'Reassign', duplicate_client: 'Reassign', no_car: 'Reassign',
-  day_off: 'Reassign', over_max_jobs: 'Rebalance', tight_buffer: 'Adjust', home_by_risk: 'Adjust',
-  no_show: 'View job', stuck_pending: 'Schedule', unscheduled_sale: 'Schedule', unscheduled_job: 'Schedule',
+  day_off: 'Reassign', no_show: 'View job', unscheduled_job: 'Schedule',
 }
 // booking_id doubles as "the related record's id" for issue types whose
 // record isn't a booking — unscheduled_job carries a Jobs id, so it must
@@ -41,7 +42,7 @@ const issueHref = (issue: ScheduleIssue): string | null =>
     : null
 const groupOf = (type: string): IssueGroup => ISSUE_GROUP[type] || 'fix'
 const GROUP_META: { key: IssueGroup; label: string }[] = [
-  { key: 'fix', label: 'Fix now' }, { key: 'review', label: 'Review' },
+  { key: 'fix', label: 'Fix now' },
 ]
 
 const V = {
@@ -57,7 +58,7 @@ export default function ScheduleIssues() {
     const res = await fetch('/api/admin/schedule-issues')
     if (res.ok) {
       const data = (await res.json()) as ScheduleIssue[]
-      setIssues(data.filter(i => !BILLING_TYPES.has(i.type)))
+      setIssues(data.filter(shouldShow))
     }
   }
   useEffect(() => { load() }, [])
