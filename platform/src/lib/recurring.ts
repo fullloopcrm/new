@@ -489,18 +489,38 @@ export function nowNaiveET(msOffset = 0): string {
  * (which — being within a few hours of the true instant — falls on the same
  * side of any DST boundary), then correct by that offset.
  */
-export function parseNaiveET(naive: string): Date {
-  const guess = new Date(naive.endsWith('Z') ? naive : `${naive}Z`)
+function etOffsetMsAt(instant: Date): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).formatToParts(guess)
+  }).formatToParts(instant)
   const get = (type: string) => Number(parts.find(p => p.type === type)?.value)
   const hour = get('hour')
-  const etAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
-  const offsetMs = etAsUtc - guess.getTime()
-  return new Date(guess.getTime() - offsetMs)
+  const wallAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
+  return wallAsUtc - instant.getTime()
+}
+
+export function parseNaiveET(naive: string): Date {
+  // Single-pass double-conversion (the original version of this function)
+  // computes the ET/UTC offset from a "guess" that treats the naive digits
+  // as if they were already UTC — which can land up to ~5h away from the
+  // true instant, occasionally on the WRONG SIDE of a DST transition. That
+  // produces an hour-off result for any naive time within a few hours of
+  // the spring-forward/fall-back boundary (confirmed 2026-08-14: e.g.
+  // "2026-03-08T03:30:00" — just after spring-forward — resolved to
+  // 08:30Z instead of the correct 07:30Z). Iterating re-anchors the offset
+  // estimate using a guess that's already close to the true instant, which
+  // converges onto the correct side of the transition within 1-2 passes.
+  const targetAsUtc = new Date(naive.endsWith('Z') ? naive : `${naive}Z`).getTime()
+  let t = targetAsUtc
+  for (let i = 0; i < 3; i++) {
+    const offset = etOffsetMsAt(new Date(t))
+    const next = targetAsUtc - offset
+    if (next === t) break
+    t = next
+  }
+  return new Date(t)
 }
 
 export interface CalendarDate {

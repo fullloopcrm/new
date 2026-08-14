@@ -5,6 +5,7 @@ import {
   getRecurringDisplayName,
   generateInitialBatchDates,
   buildSeriesUpdateData,
+  parseNaiveET,
   type RecurringType,
 } from './recurring'
 
@@ -35,6 +36,47 @@ function dayGap(a: Date, b: Date): number {
 function noon(year: number, monthIdx: number, day: number): Date {
   return new Date(year, monthIdx, day, 12, 0, 0, 0)
 }
+
+describe('parseNaiveET — converts naive ET wall-clock strings to real UTC instants', () => {
+  // bookings.start_time/end_time are naive America/New_York strings with no
+  // zone info. parseNaiveET is the one place in the codebase that's supposed
+  // to correctly convert one into a real Date for comparison against
+  // Date.now()/other timestamptz columns. A single-pass double-conversion
+  // (this function's original implementation, fixed 2026-08-14) computes the
+  // ET/UTC offset from a "guess" that treats the naive digits as if they
+  // were already UTC — which can land on the wrong side of a DST transition
+  // and be off by exactly one hour for naive times within a few hours of
+  // the boundary. These cases pin that regression.
+  it('converts an ordinary summer (EDT, UTC-4) date correctly', () => {
+    expect(parseNaiveET('2026-08-13T09:00:00').toISOString()).toBe('2026-08-13T13:00:00.000Z')
+  })
+
+  it('converts an ordinary winter (EST, UTC-5) date correctly', () => {
+    expect(parseNaiveET('2026-01-15T09:00:00').toISOString()).toBe('2026-01-15T14:00:00.000Z')
+  })
+
+  it('converts a naive time just before spring-forward (still EST)', () => {
+    // 2026-03-08 02:00 ET is the spring-forward instant.
+    expect(parseNaiveET('2026-03-08T01:30:00').toISOString()).toBe('2026-03-08T06:30:00.000Z')
+  })
+
+  it('converts a naive time just after spring-forward (now EDT)', () => {
+    expect(parseNaiveET('2026-03-08T03:30:00').toISOString()).toBe('2026-03-08T07:30:00.000Z')
+  })
+
+  it('converts a naive time just before fall-back (still EDT)', () => {
+    // 2026-11-01 02:00 ET (first occurrence) is the fall-back instant.
+    expect(parseNaiveET('2026-11-01T00:30:00').toISOString()).toBe('2026-11-01T04:30:00.000Z')
+  })
+
+  it('converts a naive time just after fall-back (now EST)', () => {
+    expect(parseNaiveET('2026-11-01T03:30:00').toISOString()).toBe('2026-11-01T08:30:00.000Z')
+  })
+
+  it('handles a different year\'s spring-forward boundary (not hardcoded to 2026)', () => {
+    expect(parseNaiveET('2027-03-14T03:30:00').toISOString()).toBe('2027-03-14T07:30:00.000Z')
+  })
+})
 
 describe('generateRecurringDates — counts per type', () => {
   const start = noon(2026, 0, 5) // Mon Jan 5 2026, noon
