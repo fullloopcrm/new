@@ -1849,7 +1849,7 @@ function BookingsPage() {
                           </div>
                         </div>
                         {/* Close out controls */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {/* Job Complete */}
                           <button
                             disabled={isSaving}
@@ -1869,8 +1869,10 @@ function BookingsPage() {
                             Job Done
                           </button>
                           {/* Payment status — read-only, reflects the REAL payments-table
-                              total (closeOutSummaries), not a flippable flag. There is
-                              nothing to click here: use Zelle/Apple to actually record money. */}
+                              total (closeOutSummaries), not a flippable flag once it's actually
+                              Paid. While unpaid, this pill itself IS the click — records a real
+                              payment for whatever's outstanding, same as the old single-click
+                              "Paid" button admin remembers, backed by a real payments row now. */}
                           {(() => {
                             const summary = closeOutSummaries[b.id]
                             const reallyPaid = !!summary && summary.customerOutstandingCents <= 0
@@ -1885,26 +1887,27 @@ function BookingsPage() {
                                 </button>
                               )
                             }
-                            return (
-                              <span className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ' +
-                                (reallyPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500')}>
-                                <span className={'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' +
-                                  (reallyPaid ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
-                                  {reallyPaid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                            if (reallyPaid) {
+                              return (
+                                <span className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border bg-green-50 border-green-200 text-green-700">
+                                  <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 border-green-500 bg-green-500">
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                  </span>
+                                  Paid
                                 </span>
-                                {reallyPaid ? 'Paid' : summary ? 'Not paid' : 'Loading…'}
-                              </span>
+                              )
+                            }
+                            return (
+                              <button
+                                disabled={isSaving || !summary || summary.customerOutstandingCents <= 0}
+                                onClick={() => recordClientPayment(b)}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700"
+                              >
+                                <span className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 border-gray-300" />
+                                {summary ? 'Not paid' : 'Loading…'}
+                              </button>
                             )
                           })()}
-                          {/* Record a REAL client payment for whatever's still outstanding —
-                              disabled until the real balance is known, and once it's $0. */}
-                          <button
-                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
-                            onClick={() => recordClientPayment(b)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700"
-                          >
-                            Mark Paid
-                          </button>
                           {/* Remind — manual, admin-clicked text + email for whatever's
                               really still outstanding. Never fires on its own. */}
                           <button
