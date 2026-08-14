@@ -4,16 +4,42 @@ export function getTenantTimezone(tenant: { timezone?: string | null } | null | 
   return tenant?.timezone || DEFAULT_TIMEZONE
 }
 
+// Was: `new Date(at.toLocaleString('en-US', { timeZone: ... }))` — parsing a
+// locale string with no zone info back through `new Date()` uses the
+// CALLING ENVIRONMENT's ambient timezone, not UTC. This only "worked"
+// because it always ran on Vercel (UTC). Confirmed wrong 2026-08-14 running
+// it locally (non-UTC machine): a full hour off for the same instant.
+// formatToParts avoids the round-trip entirely — same technique as
+// lib/recurring.ts's parseNaiveET, proven correct across DST boundaries.
 function getTimezoneOffsetMinutes(timezone: string, at: Date): number {
-  const utcDate = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }))
-  const tzDate = new Date(at.toLocaleString('en-US', { timeZone: timezone }))
-  return (tzDate.getTime() - utcDate.getTime()) / 60000
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(at)
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value)
+  const hour = get('hour')
+  const wallAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
+  return (wallAsUtc - at.getTime()) / 60000
 }
 
+// Single-pass double-conversion (the original version of this function)
+// computes the offset from a "guess" that treats the naive digits as if
+// they were already UTC — which can land several hours away from the true
+// instant and, for an hour near a DST transition, land on the wrong side of
+// it. The underlying pattern is exactly the bug fixed platform-wide in
+// lib/recurring.ts's parseNaiveET 2026-08-14 — iterating here too so a
+// future caller with a different hour can't reintroduce it.
 function zonedYmdToUtc(year: number, month: number, day: number, hour: number, timezone: string): Date {
-  const naiveUtc = new Date(Date.UTC(year, month - 1, day, hour, 0, 0))
-  const offsetMin = getTimezoneOffsetMinutes(timezone, naiveUtc)
-  return new Date(naiveUtc.getTime() - offsetMin * 60000)
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, 0, 0)
+  let t = targetAsUtc
+  for (let i = 0; i < 3; i++) {
+    const offsetMin = getTimezoneOffsetMinutes(timezone, new Date(t))
+    const next = targetAsUtc - offsetMin * 60000
+    if (next === t) break
+    t = next
+  }
+  return new Date(t)
 }
 
 // Current local hour (0-23) for a tenant's IANA timezone.

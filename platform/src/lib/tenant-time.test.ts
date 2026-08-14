@@ -16,6 +16,27 @@ import {
 // 2026 US DST: EDT (UTC-4) runs Mar 8 - Nov 1. EST (UTC-5) otherwise.
 // PDT (UTC-7) runs the same window; PST (UTC-8) otherwise.
 
+describe('getTenantDayBoundaries — midnight on the DST transition days themselves', () => {
+  // zonedYmdToUtc (internal) used to compute the ET/UTC offset via
+  // `new Date(at.toLocaleString('en-US', { timeZone }))` — parsing a
+  // zone-less locale string back through `new Date()` uses the CALLING
+  // ENVIRONMENT's ambient timezone, not UTC. That's the same "only works on
+  // a UTC-ambient server" landmine fixed platform-wide 2026-08-14; caught
+  // here because midnight of the two 2026 DST transition days themselves is
+  // exactly the case where the miscalculation stops canceling out. Pinning
+  // both the ordinary DST-window cases and the transition days.
+  it('spring-forward: midnight is still EST the day of, EDT the day after', () => {
+    expect(getTenantDayBoundaries('America/New_York', new Date('2026-03-06T18:00:00Z')).todayStart.toISOString()).toBe('2026-03-06T05:00:00.000Z')
+    expect(getTenantDayBoundaries('America/New_York', new Date('2026-03-08T18:00:00Z')).todayStart.toISOString()).toBe('2026-03-08T05:00:00.000Z')
+    expect(getTenantDayBoundaries('America/New_York', new Date('2026-03-09T18:00:00Z')).todayStart.toISOString()).toBe('2026-03-09T04:00:00.000Z')
+  })
+
+  it('fall-back: midnight is still EDT the day of, EST the day after', () => {
+    expect(getTenantDayBoundaries('America/New_York', new Date('2026-11-01T18:00:00Z')).todayStart.toISOString()).toBe('2026-11-01T04:00:00.000Z')
+    expect(getTenantDayBoundaries('America/New_York', new Date('2026-11-02T18:00:00Z')).todayStart.toISOString()).toBe('2026-11-02T05:00:00.000Z')
+  })
+})
+
 describe('getTenantTimezone', () => {
   it('returns the tenant value when set', () => {
     expect(getTenantTimezone({ timezone: 'America/Chicago' })).toBe('America/Chicago')
