@@ -38,7 +38,18 @@ const V = {
 
 const formatMoney = (cents: number) =>
   '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
-const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+// start_time is a NAIVE Eastern wall-clock string (see parseNaive comment
+// below) — parse the digits directly instead of going through `new Date()`,
+// which on the server (UTC on Vercel) treats it as a UTC instant and then
+// double-shifts it when reformatted with timeZone: 'America/New_York'.
+const formatTime = (s: string) => {
+  const timePart = s.split(/[T ]/)[1] || '00:00'
+  const [hStr, mStr] = timePart.split(':')
+  const h24 = parseInt(hStr, 10)
+  const ampm = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 % 12 || 12
+  return `${h12}:${mStr} ${ampm}`
+}
 const formatDuration = (start: string, end: string | null) => {
   if (!end) return null
   const hrs = (new Date(end).getTime() - new Date(start).getTime()) / 3600000
