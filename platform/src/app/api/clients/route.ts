@@ -15,6 +15,7 @@ import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
 import { queueForReview } from '@/lib/client-dedupe'
 import { trackError } from '@/lib/error-tracking'
+import { notify } from '@/lib/notify'
 
 export const OPTIONS = corsPreflight
 
@@ -240,16 +241,30 @@ export async function POST(request: Request) {
     // force=true -- the new row now genuinely duplicates an existing client
     // on one field. Not safe to auto-merge (see client-dedupe.ts), so queue
     // it for a human instead of letting it silently sit as an unflagged dupe.
+    const queuedMatches: string[] = []
     for (const dupe of uniqueDupes) {
       const matchType = dupe.phone === fields?.phone ? 'phone' : 'email'
       const matchValue = matchType === 'phone' ? String(fields?.phone) : String(fields?.email)
       try {
         await queueForReview({ tenantId, clientAId: data.id, clientBId: dupe.id, matchType, matchValue })
+        queuedMatches.push(`${fields.name} + ${dupe.name || dupe.id} — matched on ${matchType} only`)
       } catch (queueErr) {
         // Best-effort: the client was already created successfully -- don't
         // fail the request over a queue-write hiccup, but don't lose it silently either.
         await trackError(queueErr, { source: 'api/clients:dedupe-queue', severity: 'medium', tenantId })
       }
+    }
+    // One notify() for this request, even if uniqueDupes has more than one
+    // entry -- never one notify() per dupe (see client-dedupe.ts's
+    // sweepTenant docstring for the 2026-08-14 incident this avoids).
+    if (queuedMatches.length > 0) {
+      await notify({
+        tenantId,
+        type: 'client_dedupe_queued',
+        title: 'Duplicate Client Queued for Review',
+        message: `force=true created a client that duplicates an existing one — queued for review (Clients > Duplicates):\n${queuedMatches.join('\n')}`,
+        recipientType: 'admin',
+      })
     }
 
     // Required by every client-creation path — without it, getClientContacts()

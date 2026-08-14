@@ -161,7 +161,7 @@ describe('sweepTenantDuplicateBookings', () => {
     expect(result.notified).toBe(1)
     expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({
       recipientType: 'admin',
-      title: 'Duplicate Booking Auto-Cancelled',
+      title: 'Duplicate Bookings Auto-Cancelled',
     }))
   })
 
@@ -179,6 +179,26 @@ describe('sweepTenantDuplicateBookings', () => {
     expect(result.autoCancelled).toBe(0)
     expect(result.flaggedForReview).toBe(1)
     expect(result.notified).toBe(1)
-    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Duplicate Booking Detected' }))
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Duplicate Bookings Detected' }))
+  })
+
+  // Regression (2026-08-14 incident): a single sweep resolving many
+  // collisions used to call notify() once PER collision -- 72 separate
+  // emails to one admin inbox for one nycmaid run. Must be exactly one
+  // notify() call per sweep, no matter how many collisions it resolves.
+  it('sends exactly ONE notify() call for a sweep that resolves many collisions', async () => {
+    h.seed.recurring_schedules.push({ id: 'sched-old', tenant_id: TENANT_A, created_at: '2026-01-01T00:00:00Z' })
+    for (let i = 0; i < 5; i++) {
+      h.seed.bookings.push(
+        { id: `bk-${i}-a`, tenant_id: TENANT_A, client_id: `c${i}`, schedule_id: null, service_type: null, status: 'scheduled', start_time: `2026-09-0${i + 1}T09:00:00`, created_at: '2026-08-01T12:00:00Z', clients: { name: `Client ${i}`, phone: '555', email: null } },
+        { id: `bk-${i}-b`, tenant_id: TENANT_A, client_id: `c${i}`, schedule_id: null, service_type: null, status: 'scheduled', start_time: `2026-09-0${i + 1}T14:00:00`, created_at: '2026-08-01T12:05:00Z', clients: { name: `Client ${i}`, phone: '555', email: null } },
+      )
+    }
+    const result = await sweepTenantDuplicateBookings(TENANT_A)
+
+    expect(result.autoCancelled).toBe(5)
+    expect(result.notified).toBe(1)
+    expect(notifyMock).toHaveBeenCalledTimes(1)
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Auto-cancelled 5 duplicate booking(s) across 5 collision(s)') }))
   })
 })

@@ -6,6 +6,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+import { nowNaiveET } from '@/lib/recurring'
 import type { ServiceOption } from '../../_config/types'
 import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
 import SmsConsent from '../../_components/SmsConsent'
@@ -134,13 +135,18 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
     }
   }, [form.date, form.time])
 
-  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const isSameDay = form.service_type === emergencyValue
+  // Same-day booking used to require 24 hours' notice; that floor is gone
+  // (Jeff, 2026-08-14) — clients can now book today directly, at same-day
+  // pricing, from either service tab. minDate uses ET (not raw UTC) so it
+  // matches the naive-ET convention start_time is stored in platform-wide.
+  const todayET = nowNaiveET().slice(0, 10)
+  const minDate = todayET
+  const isSameDay = form.service_type === emergencyValue || form.date === todayET
   const isMultiCleaner = form.team_size >= 2
   // The 48-hour rule applies ONLY to multi-cleaner bookings: a 2+ cleaner
   // booking with under 48hr notice is billed at emergency pricing ($89/hr).
-  // Single-cleaner bookings under 48hr are NOT emergency (same-day is its own
-  // explicitly-chosen service type).
+  // Single-cleaner bookings under 48hr are NOT emergency unless the date is
+  // actually today (isSameDay above already covers that).
   const bookingStart = form.date ? new Date(`${form.date}T${to24h(form.time)}:00`) : null
   const hoursUntilBooking = bookingStart && !isNaN(bookingStart.getTime()) ? (bookingStart.getTime() - Date.now()) / 3_600_000 : Infinity
   const isUnder48 = hoursUntilBooking < 48
@@ -456,7 +462,7 @@ function BookFormContent({ services, businessName, isNycmaid }: { services: Serv
               <input
                 type="date"
                 required
-                min={isSameDay ? new Date().toISOString().split('T')[0] : minDate}
+                min={minDate}
                 value={form.date}
                 onChange={(e) => { update('date', e.target.value); setFieldErrors(prev => ({ ...prev, date: undefined })) }}
                 className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[var(--brand)] ${fieldErrors.date ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}

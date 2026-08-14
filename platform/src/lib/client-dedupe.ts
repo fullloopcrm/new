@@ -31,6 +31,7 @@
 //     saw on an invoice).
 import { tenantDb } from './tenant-db'
 import { mergeClients, type ClientMergeResult } from './client-merge'
+import { notify } from './notify'
 
 // Matches the convention already established in
 // src/app/api/client/book/route.ts's create_booking_atomic call.
@@ -263,6 +264,10 @@ export interface ResolveResult {
   merged: boolean
   queued: boolean
   mergeResult?: ClientMergeResult
+  /** Names of the two clients involved -- for the sweep's digest notification. */
+  clientNames?: [string, string]
+  /** Why it merged or got queued -- for the sweep's digest notification. */
+  reason: string
 }
 
 /**
@@ -277,19 +282,22 @@ export async function resolveFullMatch(pair: DuplicatePair, mergedBy?: string): 
   const rows = (data || []) as { id: string; name: string | null }[]
   const a = rows.find((r) => r.id === pair.clientAId)
   const b = rows.find((r) => r.id === pair.clientBId)
+  const names: [string, string] = [a?.name || pair.clientAId, b?.name || pair.clientBId]
 
   if (!a || !b || !namesAgree(a.name, b.name)) {
-    await queueForReview({ ...pair, suggestedReason: 'name mismatch on an exact phone+email match -- needs a human look' })
-    return { merged: false, queued: true }
+    const reason = 'name mismatch on an exact phone+email match -- needs a human look'
+    await queueForReview({ ...pair, suggestedReason: reason })
+    return { merged: false, queued: true, clientNames: names, reason }
   }
   if (await hasJobSeqCollision(pair.tenantId, pair.clientAId, pair.clientBId)) {
-    await queueForReview({ ...pair, suggestedReason: 'colliding job/booking numbers between the two clients -- needs a human look' })
-    return { merged: false, queued: true }
+    const reason = 'colliding job/booking numbers between the two clients -- needs a human look'
+    await queueForReview({ ...pair, suggestedReason: reason })
+    return { merged: false, queued: true, clientNames: names, reason }
   }
 
-  const { canonicalId, duplicateId } = await pickCanonical(pair.tenantId, pair.clientAId, pair.clientBId)
+  const { canonicalId, duplicateId, reason: pickReason } = await pickCanonical(pair.tenantId, pair.clientAId, pair.clientBId)
   const mergeResult = await mergeClients({ tenantId: pair.tenantId, canonicalClientId: canonicalId, duplicateClientId: duplicateId, mergedBy })
-  return { merged: true, queued: false, mergeResult }
+  return { merged: true, queued: false, mergeResult, clientNames: names, reason: pickReason }
 }
 
 export interface SweepResult {
@@ -298,20 +306,56 @@ export interface SweepResult {
   queued: number
 }
 
-/** Runs the full sweep for one tenant: auto-merges the clean cases, queues the rest. Used by the daily cron. */
+/**
+ * Runs the full sweep for one tenant: auto-merges the clean cases, queues
+ * the rest. Used by the daily cron. Sends exactly ONE digest notify() per
+ * tenant per run summarizing everything resolved/queued -- never one
+ * notify() per pair (see duplicate-bookings.ts's sweepTenantDuplicateBookings
+ * docstring for the 2026-08-14 incident this pattern avoids repeating).
+ */
 export async function sweepTenant(tenantId: string): Promise<SweepResult> {
   const { full, partial } = await findDuplicatePairs(tenantId)
   let merged = 0
   let queued = 0
+  const mergedLines: string[] = []
+  const queuedLines: string[] = []
 
   for (const pair of full) {
     const result = await resolveFullMatch(pair)
-    if (result.merged) merged++
-    if (result.queued) queued++
+    const [nameA, nameB] = result.clientNames || ['?', '?']
+    if (result.merged) {
+      merged++
+      mergedLines.push(`${nameA} + ${nameB} — ${result.reason}`)
+    }
+    if (result.queued) {
+      queued++
+      queuedLines.push(`${nameA} + ${nameB} — ${result.reason}`)
+    }
   }
-  for (const pair of partial) {
-    await queueForReview(pair)
-    queued++
+  if (partial.length > 0) {
+    const db = tenantDb(tenantId)
+    const partialIds = [...new Set(partial.flatMap((p) => [p.clientAId, p.clientBId]))]
+    const { data: partialClients } = await db.from('clients').select('id, name').in('id', partialIds)
+    const nameById = new Map(((partialClients || []) as { id: string; name: string | null }[]).map((c) => [c.id, c.name || c.id]))
+    for (const pair of partial) {
+      await queueForReview(pair)
+      queued++
+      queuedLines.push(`${nameById.get(pair.clientAId) || pair.clientAId} + ${nameById.get(pair.clientBId) || pair.clientBId} — matched on ${pair.matchType} only, needs a human look`)
+    }
+  }
+
+  if (mergedLines.length > 0 || queuedLines.length > 0) {
+    const sections = [
+      mergedLines.length ? `Auto-merged ${mergedLines.length} duplicate client(s):\n${mergedLines.join('\n')}` : '',
+      queuedLines.length ? `${queuedLines.length} pair(s) queued for review (Clients > Duplicates):\n${queuedLines.join('\n')}` : '',
+    ].filter(Boolean)
+    await notify({
+      tenantId,
+      type: mergedLines.length ? 'client_dedupe_merged' : 'client_dedupe_queued',
+      title: mergedLines.length ? 'Duplicate Clients Auto-Merged' : 'Duplicate Clients Queued for Review',
+      message: sections.join('\n\n'),
+      recipientType: 'admin',
+    })
   }
 
   return { tenantId, merged, queued }
