@@ -3,11 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { tenantClient } from '@/lib/tenant-supabase'
 import { requirePermission } from '@/lib/require-permission'
-import { applyDiscount, describeDiscount } from '@/lib/discount'
 import { clientBilledHours, cleanerPaidHours, applyTeamMinimum } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
+import { computeBookingBill } from '@/lib/finance/booking-bill'
 
 // GET /api/admin/bookings/:id/closeout-summary
 // Backs the shared /dashboard bookings closeout widget (every tenant's own
@@ -119,54 +118,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const billedHours = (ci && co) ? computedHours : (booking.actual_hours ?? computedHours)
   const cleanerBilledHours = (ci && co) ? cleanerComputedHours : (booking.actual_hours ?? cleanerComputedHours)
 
-  // Bill math
+  // Bill math — delegated to computeBookingBill (lib/finance/booking-bill.ts)
+  // so this screen and every route that decides "is this booking paid in
+  // full" (record-payment, unmatched-payments/resolve) are reading the exact
+  // same number. They used to compute this independently and could disagree
+  // by exactly the amount of a self-booking/promo discount — see that file's
+  // header comment for the Grace Wolf / Simon Dolsten incident this fixed.
   const hourlyRate = booking.hourly_rate || 79
-  const grossCents = Math.round(billedHours * hourlyRate * teamSize * 100)
-
-  // Itemize discounts. Two independent mechanisms feed this list:
-  // (1) the admin-set discount stored on discount_percent -- the same column
-  //     applyDiscount() uses at payment-processor/Stripe-webhook/checkout time,
-  //     so this line always matches what the client is actually charged --
-  //     plus the one-time credit, a flat comp that stacks on top.
-  // (2) auto-promo text like "[Promo: $X foo discount applied]" written into
-  //     notes by SMS/self-booking flows. Self-booking now derives its dollar
-  //     amount from SELF_BOOKING_DISCOUNT_DOLLARS (was hardcoded 1000 cents
-  //     here -- the exact "$20 vs $10" drift class this constant exists to
-  //     prevent, just one hop further downstream: this cents value had
-  //     already been manually nudged from 2000 to 1000 once by hand, with
-  //     nothing stopping it from drifting again).
-  //     Separately, the generic promoRe below required text ending in
-  //     literally "applied]" -- the real self-booking note ends "applies at
-  //     billing]", so it never actually matched anything, ever (dead code
-  //     wearing a comment that claimed it worked). Fixed to match both
-  //     endings so a FUTURE non-self-booking promo (there are none today)
-  //     would actually be picked up -- and explicitly skips any match that's
-  //     the self-booking promo, since that's already itemized above and
-  //     would otherwise double-count the same discount.
-  const discounts: Array<{ label: string; cents: number }> = []
-  const discountedGrossCents = applyDiscount(grossCents, booking.discount_percent as number | null)
-  const customDiscountCents = grossCents - discountedGrossCents
-  if (customDiscountCents > 0) {
-    discounts.push({ label: describeDiscount(booking.discount_percent as number | null) || 'Discount', cents: customDiscountCents })
-  }
-  const creditCents = (booking.one_time_credit_cents as number | null) || 0
-  if (creditCents > 0) {
-    discounts.push({ label: (booking.one_time_credit_reason as string | null) || 'One-time credit', cents: creditCents })
-  }
-  const noteText = (booking.notes as string) || ''
-  const isSelfBooked = /self-booking discount/i.test(noteText)
-  if (isSelfBooked) discounts.push({ label: 'Self-booking discount', cents: SELF_BOOKING_DISCOUNT_DOLLARS * 100 })
-  const promoRe = /\[Promo:\s*\$(\d+)\s+([^\]]+?)\s+(?:discount\s+)?(?:applied|applies(?:\s+at\s+billing)?)\]/gi
-  let m: RegExpExecArray | null
-  while ((m = promoRe.exec(noteText)) !== null) {
-    const dollars = parseInt(m[1], 10)
-    const label = m[2].replace(/\s+/g, ' ').trim()
-    if (/self-book/i.test(label)) continue // already itemized above -- don't double-count
-    discounts.push({ label, cents: dollars * 100 })
-  }
-  const totalDiscountCents = discounts.reduce((s, d) => s + d.cents, 0)
-  const finalCents = Math.max(0, grossCents - totalDiscountCents)
-  const ccCents = Math.round(finalCents * 1.04)
+  const bill = await computeBookingBill(tenantId, id)
+  if (!bill) return NextResponse.json({ error: 'Bill computation failed' }, { status: 500 })
+  const { grossCents, discounts, totalDiscountCents, finalCents, ccCents } = bill
 
   // Payments
   const paidCents = (payments || []).reduce((s, p) => s + (p.amount_cents || 0), 0)

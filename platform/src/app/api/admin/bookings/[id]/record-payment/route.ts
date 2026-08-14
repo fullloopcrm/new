@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantClient } from '@/lib/tenant-supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
+import { computeBookingBill } from '@/lib/finance/booking-bill'
 
 // POST /api/admin/bookings/:id/record-payment
 // Backs the shared /dashboard bookings closeout widget. Records a real
@@ -66,15 +67,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Sum every real payment on the booking (not just this one) to decide
   // paid vs partial -- a booking can be paid across more than one manual
-  // payment (e.g. a deposit + balance), same logic the Stripe webhook and
-  // closeout-summary route already apply.
+  // payment (e.g. a deposit + balance). Root-caused 2026-08-14: this used to
+  // compare against raw `bookings.price` (the quote from booking time) --
+  // a different, larger number than what the close-out screen actually
+  // showed as owed and charged via this same button, whenever real billed
+  // hours or a self-booking/promo discount made the two diverge. Grace Wolf
+  // and Simon Dolsten both paid exactly what the UI said was owed and still
+  // showed "partial" forever. Now uses the same computeBookingBill the
+  // close-out screen itself reads from — same number, can't diverge.
   const { data: allPayments } = await (await tenantClient(tenantId))
     .from('payments')
     .select('amount_cents')
     .eq('booking_id', id)
     .eq('tenant_id', tenantId)
   const totalPaidCents = (allPayments || []).reduce((s, p) => s + (p.amount_cents || 0), 0)
-  const isFullyPaid = totalPaidCents >= (booking.price || 0)
+  const bill = await computeBookingBill(tenantId, id)
+  const expectedCents = bill?.finalCents ?? (booking.price || 0)
+  const isFullyPaid = totalPaidCents >= expectedCents
 
   await supabaseAdmin
     .from('bookings')

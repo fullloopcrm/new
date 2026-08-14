@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantClient } from '@/lib/tenant-supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
+import { computeBookingBill } from '@/lib/finance/booking-bill'
 
 // POST /api/admin/unmatched-payments/:id/resolve
 // Manually links a real Stripe payment (one the webhook's auto-match
@@ -86,7 +87,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .eq('booking_id', bookingId)
     .eq('tenant_id', tenantId)
   const totalPaidCents = (allPayments || []).reduce((s, p) => s + (p.amount_cents || 0), 0)
-  const isFullyPaid = totalPaidCents >= (booking.price || 0)
+  // Same computeBookingBill the close-out screen and record-payment route
+  // use — not raw bookings.price. See booking-bill.ts's header comment.
+  const bill = await computeBookingBill(tenantId, bookingId)
+  const expectedCents = bill?.finalCents ?? (booking.price || 0)
+  const isFullyPaid = totalPaidCents >= expectedCents
 
   await supabaseAdmin
     .from('bookings')
