@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { sendClientSMS, sendClientEmail } from '@/lib/client-contacts'
+import { computeOutstandingCents, ensureBookingPaymentLink } from '@/lib/booking-payment'
 
 // POST /api/admin/bookings/:id/send-payment-reminder
 // Manual, admin-clicked payment reminder for a single booking's REAL
@@ -24,33 +25,41 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { data: booking, error: bookingErr } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, client_id, price')
+    .select('id, tenant_id, client_id, price, service_type')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
   if (bookingErr || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   if (!booking.client_id) return NextResponse.json({ error: 'Booking has no client' }, { status: 400 })
 
-  const { data: payments } = await supabaseAdmin
-    .from('payments')
-    .select('amount_cents')
-    .eq('booking_id', id)
-    .eq('tenant_id', tenantId)
-  const paidCents = (payments || []).reduce((s, p) => s + (p.amount_cents || 0), 0)
-  const outstandingCents = Math.max(0, (booking.price || 0) - paidCents)
+  const outstandingCents = await computeOutstandingCents(tenantId, id, booking.price || 0)
   if (outstandingCents <= 0) {
     return NextResponse.json({ error: 'Nothing outstanding on this booking' }, { status: 400 })
   }
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, email_from, telnyx_api_key, telnyx_phone, resend_api_key, payment_link')
+    .select('id, name, slug, email_from, telnyx_api_key, telnyx_phone, resend_api_key, payment_link, stripe_api_key')
     .eq('id', tenantId)
     .single()
   if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
   const amount = (outstandingCents / 100).toFixed(2)
-  const payLink = tenant.payment_link ? `${tenant.payment_link}?client_reference_id=${id}` : null
+
+  // A real per-booking Stripe link (correct amount baked in, tied to this
+  // booking via metadata) beats the tenant-wide static link + a
+  // caller-editable client_reference_id query param -- see
+  // route.payment-link-hijack.witness.test.ts on the webhook side for why
+  // that param alone can't be trusted to identify the booking.
+  let payLink: string | null = null
+  try {
+    payLink = await ensureBookingPaymentLink(tenant, id, booking.service_type || 'Service', outstandingCents)
+  } catch (err) {
+    console.error('Payment reminder link creation failed:', err)
+  }
+  if (!payLink) {
+    payLink = tenant.payment_link ? `${tenant.payment_link}?client_reference_id=${id}` : null
+  }
 
   const smsText = payLink
     ? `Hi — just a reminder your balance of $${amount} for your recent service is still open 😊\n\nPay here: ${payLink}\n\nThank you! — ${tenant.name}`
@@ -68,5 +77,5 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     sendClientEmail(tenant, booking.client_id, `Payment reminder — $${amount} due`, emailHtml),
   ])
 
-  return NextResponse.json({ ok: true, outstanding_cents: outstandingCents, sms: smsResult, email: emailResult })
+  return NextResponse.json({ ok: true, outstanding_cents: outstandingCents, sms: smsResult, email: emailResult, payment_link: payLink })
 }

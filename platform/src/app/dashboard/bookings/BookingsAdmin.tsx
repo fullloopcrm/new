@@ -178,6 +178,8 @@ function BookingsPage() {
   const [editCheckOutVal, setEditCheckOutVal] = useState<string | null>(null)
   const [showCloseOut, setShowCloseOut] = useState(false)
   const [closeOutSaving, setCloseOutSaving] = useState<string | null>(null)
+  const [copyLinkSaving, setCopyLinkSaving] = useState<string | null>(null)
+  const [copyLinkDoneId, setCopyLinkDoneId] = useState<string | null>(null)
   const [closeOutExpanded, setCloseOutExpanded] = useState<Set<string>>(new Set())
   const [closeOutSummaries, setCloseOutSummaries] = useState<Record<string, { customerOwesCents: number; customerOutstandingCents: number; laborDueCents: number; laborOutstandingCents: number }>>({})
   // Real Stripe payments the webhook couldn't auto-match to a booking (see
@@ -664,6 +666,28 @@ function BookingsPage() {
       alert('Reminder failed')
     }
     setCloseOutSaving(null)
+  }
+
+  // Copies this booking's unique payment link to the clipboard without
+  // sending anything -- for handing it to a client manually (own phone,
+  // in person) instead of through the automated Remind SMS/email.
+  const copyPaymentLink = async (b: Booking) => {
+    setCopyLinkSaving(b.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${b.id}/payment-link`, { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.url) {
+        alert(j.error || 'Could not get payment link')
+      } else {
+        await navigator.clipboard.writeText(j.url)
+        setCopyLinkDoneId(b.id)
+        setTimeout(() => setCopyLinkDoneId(prev => (prev === b.id ? null : prev)), 2000)
+      }
+    } catch (e) {
+      console.error('Copy payment link failed:', e)
+      alert('Could not copy payment link')
+    }
+    setCopyLinkSaving(null)
   }
 
   const clearFilters = () => {
@@ -1849,7 +1873,7 @@ function BookingsPage() {
                           </div>
                         </div>
                         {/* Close out controls */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                           {/* Job Complete */}
                           <button
                             disabled={isSaving}
@@ -1916,6 +1940,18 @@ function BookingsPage() {
                             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700"
                           >
                             Remind
+                          </button>
+                          {/* Copy — grabs this booking's unique payment link
+                              and copies it, no SMS/email sent. */}
+                          <button
+                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0 || copyLinkSaving === b.id}
+                            onClick={() => copyPaymentLink(b)}
+                            className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
+                              (copyLinkDoneId === b.id
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700')}
+                          >
+                            {copyLinkDoneId === b.id ? 'Copied!' : copyLinkSaving === b.id ? 'Copying…' : 'Copy'}
                           </button>
                           {/* Cleaner Paid — pays every team member's REAL outstanding
                               balance (inserts team_member_payouts rows), not a flag flip. */}
