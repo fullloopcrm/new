@@ -185,12 +185,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   })
 
-  const { data: created, error: insErr } = await db.from('bookings').insert(rows).select('id')
-  // Insert failed → old series untouched. Surface the error, change nothing else.
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+  // Same fallback as POST /api/admin/recurring-schedules and cron/generate-recurring:
+  // a plain batch insert aborts entirely on one colliding row (e.g.
+  // uq_bookings_client_same_date_service_active), which used to mean either
+  // the WHOLE pattern change silently failed with a raw 500, or -- worse, if
+  // that error had gone unchecked -- old bookings could be deleted with no
+  // replacement. Fall back to per-row so non-conflicting dates still land.
+  let created: { id: string }[] = []
+  const skippedDates: string[] = []
+  const { data: batchCreated, error: batchInsErr } = await db.from('bookings').insert(rows).select('id')
+  if (!batchInsErr) {
+    created = batchCreated || []
+  } else {
+    for (const row of rows) {
+      const { data: rowCreated, error: rowErr } = await db.from('bookings').insert(row).select('id').single()
+      if (rowErr) skippedDates.push(String(row.start_time))
+      else if (rowCreated) created.push(rowCreated)
+    }
+  }
 
-  // 4. New rows are in; now retire the old future ones by exact id (never hits
-  // the rows we just created).
+  // Insert produced nothing at all → old series untouched. Surface the error,
+  // change nothing else (same safety the single-shot version had).
+  if (created.length === 0) {
+    return NextResponse.json({ error: batchInsErr?.message || 'Insert failed for all occurrences' }, { status: 500 })
+  }
+
+  // 4. At least one new occurrence landed; now retire the old future ones by
+  // exact id (never hits the rows we just created).
   let removedCount = 0
   if (oldIds.length > 0) {
     const { data: removed } = await db
@@ -204,6 +225,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({
     success: true,
     bookings_removed: removedCount,
-    bookings_created: created?.length || 0,
+    bookings_created: created.length,
+    skipped_dates: skippedDates,
   })
 }

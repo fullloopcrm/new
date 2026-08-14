@@ -397,6 +397,11 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ booking_id: booking.id })
         })
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        alert(`Failed to create emergency booking: ${err.error || res.statusText}`)
+        setSaving(false)
+        return
       }
     } else if (createForm.repeat_enabled && recurringType && recurringDates.length > 1) {
       // Recurring: create schedule + first 6 weeks of bookings (cron generates the rest daily)
@@ -431,6 +436,14 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
       if (!scheduleRes.ok) {
         const err = await scheduleRes.json().catch(() => ({ error: 'Unknown error' }))
         alert(`Failed to create recurring schedule: ${err.error || scheduleRes.statusText}`)
+        setSaving(false)
+        return
+      }
+      // Route returns 200 even when some occurrences were skipped (date/service
+      // conflict) -- it already tracks this in skipped_dates, this just surfaces it.
+      const scheduleResult = await scheduleRes.json().catch(() => null)
+      if (scheduleResult?.skipped_dates?.length > 0) {
+        alert(`Recurring schedule created, but ${scheduleResult.skipped_dates.length} occurrence(s) were skipped (date/service conflict): ${scheduleResult.skipped_dates.join(', ')}. Check these dates manually.`)
       }
     } else {
       // Single booking via batch (1 booking)
@@ -455,10 +468,16 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
         ...getCreateFormDiscount(),
       }))
 
-      await fetch('/api/bookings/batch', {
+      const batchRes = await fetch('/api/bookings/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookings })
       })
+      if (!batchRes.ok) {
+        const err = await batchRes.json().catch(() => ({ error: 'Unknown error' }))
+        alert(`Failed to create booking: ${err.error || batchRes.statusText}`)
+        setSaving(false)
+        return
+      }
     }
     setSaving(false)
     onCreated()

@@ -383,6 +383,14 @@ export async function POST(request: Request) {
       p_sales_partner_id: validated.sales_partner_id ?? null,
     })
     if (claimError) {
+      // uq_bookings_client_same_date_service_active (2026_08_14_bookings_same_date_service_dedup.sql)
+      // has no admin-path handling like client/book/route.ts already does --
+      // without this, a same-date+service collision here surfaces as a raw
+      // "duplicate key value violates unique constraint ..." 500 instead of
+      // the same clear duplicate message the client-facing path gives.
+      if ((claimError as { code?: string }).code === '23505') {
+        return NextResponse.json({ error: 'This client already has a booking on this date for this service.' }, { status: 409 })
+      }
       return NextResponse.json({ error: claimError.message }, { status: 500 })
     }
     if (!claim?.created) {

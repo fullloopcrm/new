@@ -189,7 +189,16 @@ export async function POST(request: Request) {
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // uq_bookings_client_same_date_service_active is a single unique index
+    // across all rows in this insert -- one colliding date aborts the WHOLE
+    // batch (no rows created), so give admins the same clear message the
+    // single-booking create path now gives instead of a raw Postgres error.
+    if ((error as { code?: string }).code === '23505') {
+      return NextResponse.json({ error: 'One or more of these dates already has a booking for this client and service. No bookings in this batch were created.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   // team_size above only sets the headcount column — the actual roster lives
   // in booking_team_members (same shape PUT /api/bookings/[id]/team writes:

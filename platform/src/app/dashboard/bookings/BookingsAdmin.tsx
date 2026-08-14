@@ -965,6 +965,12 @@ function BookingsPage() {
           setSaving(false)
           return
         }
+        // Endpoint now falls back to per-row insert and can succeed with some
+        // dates skipped (collision) instead of failing outright -- surface that.
+        const regenResult = await res.json().catch(() => null)
+        if (regenResult?.skipped_dates?.length > 0) {
+          alert(`Recurring series updated, but ${regenResult.skipped_dates.length} occurrence(s) were skipped (date/service conflict): ${regenResult.skipped_dates.join(', ')}. Check these dates manually.`)
+        }
       } else {
         // Pattern unchanged: shift times/update fields on existing bookings
         const deltaMinutes = naiveMinuteDiff(newStartStr, editingBooking.start_time)
@@ -1049,11 +1055,17 @@ function BookingsPage() {
         return
       }
 
-      // If repeat newly enabled on a non-recurring booking, create future bookings
+      // If repeat newly enabled on a non-recurring booking, create future bookings.
+      // These POSTs used to be fire-and-forget -- a same-date+service collision
+      // (uq_bookings_client_same_date_service_active) or any other rejection
+      // failed completely silently: the edit panel just closed as if the whole
+      // series was created, with zero indication some/all future occurrences
+      // never got made. Track failures and tell the admin what didn't take.
       if (form.repeat_enabled && !editingBooking?.recurring_type && editRecurringDates.length > 1) {
+        const failedDates: string[] = []
         for (let i = 1; i < editRecurringDates.length; i++) {
           const date = editRecurringDates[i]
-          await fetch('/api/bookings', {
+          const futureRes = await fetch('/api/bookings', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               client_id: editingBooking?.client_id, team_member_id: form.team_member_id,
@@ -1064,6 +1076,10 @@ function BookingsPage() {
               skip_email: true
             })
           })
+          if (!futureRes.ok) failedDates.push(date)
+        }
+        if (failedDates.length > 0) {
+          alert(`This booking saved, but ${failedDates.length} of ${editRecurringDates.length - 1} future occurrence(s) could not be created (likely a date/service conflict): ${failedDates.join(', ')}. Check these dates manually.`)
         }
       }
     }
