@@ -23,6 +23,7 @@ function matches(row: Row, eqs: Record<string, unknown>) {
 function builder(table: string) {
   const eqs: Record<string, unknown> = {}
   const neqs: Record<string, unknown> = {}
+  const isNulls: string[] = []
   let insertedRow: Row | null = null
 
   const chain: Record<string, unknown> = {
@@ -33,6 +34,11 @@ function builder(table: string) {
     },
     neq: (col: string, val: unknown) => {
       neqs[col] = val
+      return chain
+    },
+    is: (col: string, val: unknown) => {
+      if (val === null) isNulls.push(col)
+      else eqs[col] = val
       return chain
     },
     order: () => chain,
@@ -54,7 +60,9 @@ function builder(table: string) {
     },
     then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
       const rows = (store[table] || []).filter((r) => matches(r, eqs))
-      const filtered = rows.filter((r) => Object.entries(neqs).every(([k, v]) => r[k] !== v))
+      const filtered = rows
+        .filter((r) => Object.entries(neqs).every(([k, v]) => r[k] !== v))
+        .filter((r) => isNulls.every((k) => r[k] == null))
       return resolve({ data: filtered, error: null })
     },
   }

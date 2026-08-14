@@ -2,8 +2,10 @@
  * Waitlist — tenant-scoped. Ported from NYC Maid (src/app/api/waitlist/route.ts).
  *
  * GET  (admin): unions BOTH sources into one list:
- *   1. the dedicated `waitlist` table (public form / future admin+agent adds)
- *   2. legacy sms_conversations rows with outcome='waitlisted' (agent SMS flow)
+ *   1. the dedicated `waitlist` table (public form + SMS agent, via lib/waitlist.ts)
+ *   2. legacy sms_conversations rows with outcome='waitlisted' and no linked
+ *      waitlist_id — pre-migration history only; every new SMS-agent waitlist
+ *      add now writes a real row in (1), so this shrinks to nothing over time.
  * POST (public): lead capture from /book/new when nothing fits a day. No admin
  *   auth — tenant is resolved from the signed middleware header. Rate-limited.
  */
@@ -15,8 +17,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { escapeHtml } from '@/lib/escape-html'
-import { createPrimaryContact } from '@/lib/client-contacts'
-import { broadcastWaitlistBooking } from '@/lib/waitlist-broadcast'
+import { createWaitlistEntry } from '@/lib/waitlist'
 
 interface WaitlistEntry {
   id: string
@@ -86,13 +87,15 @@ export async function GET() {
     }
   }
 
-  // Legacy SMS-conversation waitlist.
+  // Legacy SMS-conversation waitlist — pre-migration rows only. Anything with
+  // a linked waitlist_id already has a real row in the dedicated table above.
   const { data: convos } = await (await tenantClient(tenantId))
     .from('sms_conversations')
     .select('id, name, phone, service_type, booking_checklist, created_at, client_id')
     .eq('tenant_id', tenantId)
     .eq('outcome', 'waitlisted')
     .eq('expired', false)
+    .is('waitlist_id', null)
     .order('created_at', { ascending: false })
     .limit(50)
   for (const row of (convos || []) as unknown as SmsConvoRow[]) {
@@ -161,19 +164,24 @@ export async function POST(request: Request) {
   const serviceType = str(body.service_type)
   const address = str(body.address)
 
-  const { data: waitlistRow, error } = await tenantDb(tenant.id).from('waitlist').insert({
+  // Creates the waitlist row plus (when a date is known) the linked pending
+  // booking that puts this request in Bookings' "Pending Approval" list
+  // (source='waitlist' — BookingsAdmin badges it distinctly) and auto-texts
+  // eligible cleaners. No preferred_time given: defaults to 9:00 AM as a
+  // placeholder slot — the claiming cleaner or admin still confirms/adjusts.
+  const { error } = await createWaitlistEntry(tenant.id, {
     name,
     phone,
     email: str(body.email),
-    service_type: serviceType,
+    serviceType,
     address,
-    preferred_date: preferredDate,
-    preferred_time: preferredTime,
-    estimated_hours: estimatedHours,
-    hourly_rate: hourlyRate,
+    preferredDate,
+    preferredTime,
+    estimatedHours,
+    hourlyRate,
     notes: str(body.notes),
     source: 'web',
-  }).select('id').single()
+  })
 
   const contactPhone = (tenant.phone as string | null) || ''
   // Graceful degrade: if the table isn't migrated yet, don't 500 the client —
@@ -191,75 +199,6 @@ export async function POST(request: Request) {
     message: `${escapeHtml(name)} (${escapeHtml(phone)}) waitlisted for ${escapeHtml(when)}${serviceType ? ` · ${escapeHtml(serviceType)}` : ''}`,
   }).catch(() => {})
   await smsAdmins(tenant.id, `WAITLIST — ${name} ${phone} for ${when}. They couldn't find an open slot at /book/new. Reach out to book them.`).catch(() => {})
-
-  // Create a real pending booking so the request sits in Bookings' "Pending
-  // Approval" list (source='waitlist' — BookingsAdmin badges it distinctly)
-  // instead of only living in the separate waitlist table, then auto-text
-  // eligible cleaners about it. Needs a date at minimum; a lead with no date
-  // preference at all can't be scheduled, so it stays waitlist-table-only.
-  // No preferred_time given: defaults to 9:00 AM as a placeholder slot — the
-  // claiming cleaner or admin still confirms/adjusts the real time.
-  if (preferredDate) {
-    const startClock = /^\d{1,2}:\d{2}/.test(preferredTime || '') ? preferredTime! : '09:00'
-    const [sh, sm] = startClock.split(':').map(Number)
-    const startNaive = `${preferredDate}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`
-    const endMinutes = sh * 60 + sm + Math.round(estimatedHours * 60)
-    const endNaive = `${preferredDate}T${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}:00`
-
-    let clientId: string | null = null
-    const cleanPhone = phone.replace(/\D/g, '')
-    if (cleanPhone) {
-      const { data: existingClient } = await tenantDb(tenant.id)
-        .from('clients')
-        .select('id')
-        .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-        .limit(1)
-        .maybeSingle()
-      if (existingClient) {
-        clientId = existingClient.id as string
-      } else {
-        const { data: newClient } = await tenantDb(tenant.id)
-          .from('clients')
-          .insert({ name, phone, email: str(body.email), address })
-          .select('id')
-          .single()
-        if (newClient) {
-          clientId = newClient.id as string
-          await createPrimaryContact(tenant.id, clientId, { name, phone, email: str(body.email) }).catch(() => {})
-        }
-      }
-    }
-
-    const { data: booking } = await tenantDb(tenant.id)
-      .from('bookings')
-      .insert({
-        client_id: clientId,
-        service_type: serviceType,
-        start_time: startNaive,
-        end_time: endNaive,
-        status: 'pending',
-        source: 'waitlist',
-        hourly_rate: hourlyRate,
-        price: hourlyRate ? Math.round(hourlyRate * estimatedHours * 100) : 0,
-        notes: str(body.notes),
-      })
-      .select('id')
-      .single()
-
-    if (booking && waitlistRow) {
-      await tenantDb(tenant.id).from('waitlist').update({ booking_id: booking.id }).eq('id', waitlistRow.id)
-
-      await broadcastWaitlistBooking({
-        tenantId: tenant.id,
-        jobDate: preferredDate,
-        startTime: startClock,
-        durationHours: estimatedHours,
-        jobAddress: address,
-        hourlyRate,
-        serviceType,
-      }).catch((err) => console.error('[waitlist] broadcast failed:', err))
-    }
-  }
 
   return NextResponse.json({ ok: true })
 }

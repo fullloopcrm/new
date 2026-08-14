@@ -6,6 +6,7 @@ import { audit } from '@/lib/audit'
 import { checkAvailability } from '@/lib/availability'
 import { getSettings } from '@/lib/settings'
 import { notify } from '@/lib/notify'
+import { createWaitlistEntry } from '@/lib/waitlist'
 import {
   detectIntent,
   isTeamMemberPhone,
@@ -821,16 +822,42 @@ async function handleCreateBooking(tenantId: string, input: Record<string, unkno
 
 async function handleAddToWaitlist(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    await supabaseAdmin.from('sms_conversations').update({
-      outcome: 'waitlisted', updated_at: new Date().toISOString(),
-    }).eq('id', conversationId)
+    const { data: convo } = await supabaseAdmin
+      .from('sms_conversations').select('client_id, phone, name').eq('id', conversationId).single()
 
     const cl = await loadChecklist(conversationId)
+    const preferredDate = (input.preferred_date as string) || cl.date || null
+    const preferredTime = (input.preferred_time as string) || cl.time || null
+    const name = cl.name || convo?.name || 'Client'
+    const phone = cl.phone || convo?.phone || ''
+
+    // Writes a real `waitlist` row (+ linked pending booking when a date is
+    // known) instead of only flagging the conversation, so agent-driven
+    // waitlist adds show in the dashboard panel and the Bookings
+    // Pending/Waitlist badge exactly like the public web form's do.
+    const { waitlistId } = await createWaitlistEntry(tenantId, {
+      name,
+      phone,
+      email: cl.email,
+      serviceType: cl.service_type,
+      address: cl.address,
+      preferredDate,
+      preferredTime,
+      hourlyRate: cl.rate,
+      notes: cl.notes,
+      source: 'agent',
+      clientId: convo?.client_id || null,
+    })
+
+    await supabaseAdmin.from('sms_conversations').update({
+      outcome: 'waitlisted', waitlist_id: waitlistId, updated_at: new Date().toISOString(),
+    }).eq('id', conversationId)
+
     await notify({
       tenantId,
       type: 'waitlist' as never,
       title: 'New Waitlist Entry',
-      message: `${cl.name || 'Client'} added to waitlist. Preferred: ${input.preferred_date || cl.day || 'TBD'} ${input.preferred_time || cl.time || ''}`,
+      message: `${name} added to waitlist. Preferred: ${preferredDate || 'TBD'} ${preferredTime || ''}`,
     }).catch(() => {})
 
     return JSON.stringify({ success: true, message: 'Added to waitlist' })

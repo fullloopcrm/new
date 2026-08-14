@@ -100,6 +100,7 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   'new_lead',
   'new_client',
   'new_booking',
+  'waitlist',
   'referral_lead',
   'payment_received',
   'review_received',
