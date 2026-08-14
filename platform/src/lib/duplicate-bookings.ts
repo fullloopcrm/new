@@ -178,47 +178,65 @@ export interface SweepResult {
   notified: number
 }
 
-/** Runs the full duplicate-booking sweep for one tenant: auto-cancels true duplicates, notifies admin either way. Used by the daily cron. */
+/**
+ * Runs the full duplicate-booking sweep for one tenant: auto-cancels true
+ * duplicates, notifies admin ONCE per sweep run with a single summary
+ * (2026-08-14 incident: this used to notify() once per resolved collision --
+ * 72 individual emails for one nycmaid sweep run, all landing in the same
+ * inbox at once. One digest notification per tenant per run instead, same
+ * pattern as dailySummaryEmail/notificationDigestEmail elsewhere in the
+ * platform).
+ */
 export async function sweepTenantDuplicateBookings(tenantId: string): Promise<SweepResult> {
   const groups = await findDuplicateBookingGroups(tenantId)
   let autoCancelled = 0
   let flaggedForReview = 0
-  let notified = 0
+  const resolvedLines: string[] = []
+  const flaggedLines: string[] = []
   const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
 
   for (const group of groups) {
     const result = await resolveDuplicateBookingGroup(group)
     if (result.autoResolved) {
       autoCancelled += result.autoCancelledBookingIds.length
+      resolvedLines.push(`${group.clientName} — ${group.date} (${result.autoCancelledBookingIds.length} cancelled, kept the more established booking)`)
     } else {
       flaggedForReview++
+      flaggedLines.push(`${group.clientName} — ${group.date} (different services, needs a human)`)
     }
+  }
 
+  let notified = 0
+  if (resolvedLines.length > 0 || flaggedLines.length > 0) {
+    // Same once-per-~week dedupe as the original per-item version, now
+    // applied to the whole digest -- don't re-notify daily while the same
+    // flagged (never-auto-resolved) items are still sitting unreviewed.
     const messageType = 'duplicate_recurring_schedule'
-    const message = result.autoResolved
-      ? `${group.clientName} had ${result.autoCancelledBookingIds.length + 1} bookings collide on ${group.date}. Auto-cancelled the duplicate(s); the more established booking was kept.`
-      : `${group.clientName} has 2+ active bookings on the same date: ${group.date}. Different services on the colliding bookings -- couldn't auto-resolve, review and cancel the duplicate.`
-
-    // Same once-per-~week dedupe as the original cron -- don't re-notify daily for a still-unresolved flagged case.
-    if (!result.autoResolved) {
+    let skip = false
+    if (resolvedLines.length === 0) {
       const { count } = await supabaseAdmin
         .from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('type', messageType)
-        .ilike('message', `${group.clientName} has 2+ active bookings%`)
+        .ilike('message', '%needs a human%')
         .gte('created_at', sixDaysAgo)
-      if ((count || 0) > 0) continue
+      skip = (count || 0) > 0
     }
-
-    await notify({
-      tenantId,
-      type: messageType,
-      title: result.autoResolved ? 'Duplicate Booking Auto-Cancelled' : 'Duplicate Booking Detected',
-      message,
-      recipientType: 'admin',
-    })
-    notified++
+    if (!skip) {
+      const sections = [
+        resolvedLines.length ? `Auto-cancelled ${autoCancelled} duplicate booking(s) across ${resolvedLines.length} collision(s):\n${resolvedLines.join('\n')}` : '',
+        flaggedLines.length ? `${flaggedLines.length} collision(s) need a human look:\n${flaggedLines.join('\n')}` : '',
+      ].filter(Boolean)
+      await notify({
+        tenantId,
+        type: messageType,
+        title: resolvedLines.length ? 'Duplicate Bookings Auto-Cancelled' : 'Duplicate Bookings Detected',
+        message: sections.join('\n\n'),
+        recipientType: 'admin',
+      })
+      notified = 1
+    }
   }
 
   return { tenantId, autoCancelled, flaggedForReview, notified }
