@@ -11,11 +11,9 @@ export interface SmartScore {
   available: boolean
   zone_match: boolean
   has_car: boolean
-  can_make_home?: boolean
   distance_miles?: number
   travel_from_prev_min?: number
   travel_to_next_min?: number
-  travel_to_home_min?: number
   prev_job_label?: string
   next_job_label?: string
   is_preferred?: boolean
@@ -106,7 +104,14 @@ export function getCleanerAvailability(
     if (daySchedule === null || daySchedule === undefined) {
       return { available: false, reason: 'Not scheduled' }
     }
-    // Check if requested time falls within cleaner's working hours
+    // Check if the requested START time falls within the cleaner's working
+    // hours. The job's END time is NOT checked against the day's end time
+    // (Jeff, 2026-08-14) — a job running past the cleaner's day-end time is
+    // a manual "ask first" decision, not a scheduling block. The start still
+    // has to fall within their shift window, though — this is "are they on
+    // shift at this hour" (same as the day-off check above), not "will they
+    // run late." See slotWithinHours in day-availability.ts, the canonical
+    // version of this same rule.
     if (timeStr && daySchedule.start && daySchedule.end) {
       const parseTimeToMin = (t: string): number => {
         const match = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i)
@@ -122,11 +127,10 @@ export function getCleanerAvailability(
       const schedEnd = parseTimeToMin(daySchedule.end)
       const [rh, rm] = timeStr.split(':').map(Number)
       const requestStart = rh * 60 + rm
-      const requestEnd = requestStart + (durationHours || 2) * 60
       if (requestStart < schedStart) {
         return { available: false, reason: `Starts at ${daySchedule.start}` }
       }
-      if (requestEnd > schedEnd) {
+      if (requestStart >= schedEnd) {
         return { available: false, reason: `Off by ${daySchedule.end}` }
       }
     }

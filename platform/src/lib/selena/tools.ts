@@ -742,7 +742,6 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
       conflict: s.conflict ? s.conflict.replace(/\s*\([^)]*\)\s*$/, '') : null,
       zone_match: s.zone_match,
       has_car: s.has_car,
-      home_by: s.home_by,
     })),
   })
 }

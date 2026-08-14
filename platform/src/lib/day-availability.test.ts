@@ -158,10 +158,12 @@ describe('hoursWindowForDate', () => {
 
 describe('slotWithinHours', () => {
   const sched = { '5': { start: '09:00', end: '17:00' } } // Fri 540..1020
-  it('accepts a slot inside the window and rejects one outside', () => {
+  it('accepts a slot starting inside the window and rejects one starting before it', () => {
     expect(slotWithinHours(sched, '2026-03-13', 600, 660, ET)).toBe(true)   // 10:00-11:00
     expect(slotWithinHours(sched, '2026-03-13', 500, 560, ET)).toBe(false)  // starts before 09:00
-    expect(slotWithinHours(sched, '2026-03-13', 1000, 1080, ET)).toBe(false) // ends after 17:00
+  })
+  it('no longer enforces the end boundary (Jeff, 2026-08-14) — a job running past the day-end time is not blocked', () => {
+    expect(slotWithinHours(sched, '2026-03-13', 1000, 1080, ET)).toBe(true) // starts 16:40, ends after 17:00 — allowed
   })
   it('imposes no limit when the day has no configured hours', () => {
     expect(slotWithinHours(sched, '2026-03-10', 0, 1440, ET)).toBe(true) // Tue: unconfigured

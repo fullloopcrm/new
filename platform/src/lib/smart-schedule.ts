@@ -8,7 +8,7 @@
  * count as conflicts for scheduling.
  *
  * Required team_members columns (added in migration 049):
- *   home_latitude, home_longitude, home_by_time, service_zones.
+ *   home_latitude, home_longitude, service_zones.
  * Required clients columns (added in migration 050):
  *   preferred_team_member_id.
  *
@@ -31,11 +31,8 @@ export interface TeamMemberScore {
   distance_miles?: number
   travel_from_prev_min?: number
   travel_to_next_min?: number
-  travel_to_home_min?: number
   prev_job_label?: string // "9:00 AM Sarah J"
   next_job_label?: string // "4:00 PM Mike R"
-  home_by: string
-  can_make_home?: boolean
   zone_match: boolean
   has_car: boolean
   is_preferred: boolean // client's preferred team member — strongest signal
@@ -53,7 +50,11 @@ type ClientFK = { name?: string | null; address?: string | null; latitude?: numb
  * 4. Proximity from member's home (max +30 for <1mi)
  * 5. Clustering with the member's other jobs that day (+5/+10/+20)
  * 6. Travel-from-previous job penalty (max +20 for <10min commute)
- * 7. Won't make it home by `home_by_time` after this slot (-50)
+ *
+ * `home_by_time` was removed as a scoring/blocking factor (Jeff, 2026-08-14)
+ * — the business rule is a fixed last-booking cutoff (4PM), not a per-member
+ * preference, and running late is a manual "ask first, then override" human
+ * decision, not something the scheduler should auto-penalize or block on.
  *
  * Multi-tech: a member is conflicted on a booking when they're the lead
  * (bookings.team_member_id) OR an extra (booking_team_members row).
@@ -111,7 +112,7 @@ export async function scoreTeamForBooking(opts: {
   // Active team members for this tenant. Schema uses `status`, not `active` boolean.
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status')
+    .select('id, name, address, home_latitude, home_longitude, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status')
     .eq('tenant_id', tenantId)
     .neq('status', 'inactive')
 
@@ -165,7 +166,6 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: 'Not scheduled to work',
-        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred,
         day_jobs: [], reason: 'off',
@@ -182,7 +182,6 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: hoursLabel,
-        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred,
         day_jobs: [], reason: 'outside_hours',
@@ -229,7 +228,6 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: conflictReason,
-        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred,
         day_jobs: dayJobs, reason: 'conflict',
@@ -246,7 +244,6 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: `Outside service zone (${hardJobZone.replace(/_/g, ' ')})`,
-        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: Boolean(member.has_car),
         is_preferred: isPreferred, day_jobs: dayJobs, reason: 'out_of_zone',
       })
@@ -258,7 +255,6 @@ export async function scoreTeamForBooking(opts: {
       scores.push({
         id: member.id, name: member.name, score: -1, available: false,
         conflict: `Needs a car (${hardJobZone.replace(/_/g, ' ')})`,
-        home_by: (member.home_by_time as string) || 'No limit',
         zone_match: false, has_car: false,
         is_preferred: isPreferred, day_jobs: dayJobs, reason: 'needs_car',
       })
@@ -365,48 +361,11 @@ export async function scoreTeamForBooking(opts: {
       }
     }
 
-    // 4. Can they get home on time? Only enforced when a home-by is actually set.
-    // Null/empty = "No limit" (no pickup constraint) → no penalty, no flag.
-    const hasHomeBy = !!member.home_by_time
-    const homeBy = (member.home_by_time as string) || ''
-    const [hbH, hbM] = ((member.home_by_time as string) || '18:00').split(':').map(Number)
-    const homeByMin = hbH * 60 + hbM
-    let travelToHome: number | undefined
-    let canMakeHome = true
-    if (jobCoords && hasHomeBy) {
-      let homeCoords: { lat: number; lng: number } | null =
-        member.home_latitude && member.home_longitude
-          ? { lat: Number(member.home_latitude), lng: Number(member.home_longitude) }
-          : null
-      if (!homeCoords && member.address) {
-        homeCoords = await geocodeAddress(member.address as string)
-      }
-      if (homeCoords) {
-        const allJobEnds = [...memberBookings.map((b) => toMin(b.end_time as string)), slotEndMin]
-        const lastEndMin = Math.max(...allJobEnds)
-        // Find the coordinates of whichever job ends last (might not be this one)
-        let lastJobCoords = jobCoords
-        if (lastEndMin !== slotEndMin) {
-          const lastJob = memberBookings.find((b) => toMin(b.end_time as string) === lastEndMin)
-          if (lastJob) {
-            const c = lastJob.clients as ClientFK
-            if (c?.latitude && c?.longitude) lastJobCoords = { lat: Number(c.latitude), lng: Number(c.longitude) }
-            else if (c?.address) lastJobCoords = (await geocodeAddress(c.address)) || jobCoords
-          }
-        }
-        const homeDist = calculateDistance(lastJobCoords.lat, lastJobCoords.lng, homeCoords.lat, homeCoords.lng)
-        travelToHome = estimateTransitMinutes(homeDist)
-        canMakeHome = lastEndMin + travelToHome <= homeByMin
-        if (!canMakeHome) score -= 50
-      }
-    }
-
     // Detailed, human-readable breakdown of every factor that fed the score —
     // not just the winning category — so an admin reviewing an auto-assignment
     // later can see the actual calculation, not a one-word label.
     const reasonParts: string[] = []
     if (jobZone && zoneRequiresCar(jobZone) && !hasCar) reasonParts.push('No car — area requires driving')
-    if (!canMakeHome) reasonParts.push(`Won't make home by ${homeBy}`)
     if (isPreferred) reasonParts.push("Client's preferred tech")
     if (zoneMatch) reasonParts.push(`Zone match${jobZone ? ` (${jobZone})` : ''}`)
     if (clusterBonus >= 20) reasonParts.push('Clustered with other jobs today')
@@ -423,11 +382,8 @@ export async function scoreTeamForBooking(opts: {
       distance_miles: distMiles ? Math.round(distMiles * 10) / 10 : undefined,
       travel_from_prev_min: travelFromPrev,
       travel_to_next_min: travelToNext,
-      travel_to_home_min: travelToHome,
       prev_job_label: prevJobLabel,
       next_job_label: nextJobLabel,
-      home_by: hasHomeBy ? homeBy : 'No limit',
-      can_make_home: canMakeHome,
       zone_match: zoneMatch,
       has_car: hasCar,
       is_preferred: isPreferred,

@@ -184,18 +184,29 @@ export function hoursWindowForDate(
 }
 
 /**
- * True if a [slotStartMin, slotEndMin] booking fits within the member's working
+ * True if a slot starting at slotStartMin fits within the member's working
  * hours for the date. A day with no specific hours set imposes no time limit.
  * Mirrors the booking-creation enforcement so suggestions and booking agree.
+ *
+ * The slot's END time is NOT checked against the day's end time (Jeff,
+ * 2026-08-14) — a job running past the member's day-end time ("done by") is
+ * no longer a scheduling-blocking factor. The business rule is a fixed
+ * last-booking cutoff (4PM) with a manual "ask first, then override"
+ * decision for anything later, not a per-member end-time preference the
+ * scheduler auto-enforces. The slot must still START within the member's
+ * working window — this isn't about running late, it's "are they even on
+ * shift at this hour" (same as the day-off / not-scheduled checks above).
+ * slotEndMin is kept as a parameter (unused) so existing call sites don't
+ * need updating.
  */
 export function slotWithinHours(
   schedule: Record<string, unknown> | null | undefined,
   date: string,
   slotStartMin: number,
-  slotEndMin: number,
+  _slotEndMin: number,
   timezone: string,
 ): boolean {
   const w = hoursWindowForDate(schedule, date, timezone)
   if (!w) return true
-  return slotStartMin >= w.start && slotEndMin <= w.end
+  return slotStartMin >= w.start && slotStartMin < w.end
 }

@@ -789,13 +789,11 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
                             : <span className="text-xs text-red-500">{avail.reason}</span>
                         )}
                       </div>
-                      {smart?.available && (smart.distance_miles != null || smart.travel_from_prev_min != null || smart.travel_to_next_min != null || smart.travel_to_home_min != null || smart.can_make_home === false) && (
+                      {smart?.available && (smart.distance_miles != null || smart.travel_from_prev_min != null || smart.travel_to_next_min != null) && (
                         <div className="mt-0.5 text-[10px] text-gray-500 flex flex-wrap gap-x-2">
                           {smart.distance_miles != null && <span>📍 {smart.distance_miles} mi from home</span>}
                           {smart.travel_from_prev_min != null && <span>🚗 {smart.travel_from_prev_min} min from {smart.prev_job_label || 'prev job'}</span>}
                           {smart.travel_to_next_min != null && <span>➡️ {smart.travel_to_next_min} min to {smart.next_job_label || 'next job'}</span>}
-                          {smart.travel_to_home_min != null && <span>🏠 {smart.travel_to_home_min} min to home</span>}
-                          {smart.can_make_home === false && <span className="text-amber-600">won&apos;t make home on time</span>}
                         </div>
                       )}
                       {createForm.start_date && avail.dayBookings && avail.dayBookings.length > 0 && (

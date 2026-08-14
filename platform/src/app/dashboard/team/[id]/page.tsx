@@ -172,7 +172,6 @@ export default function TeamMemberDetailPage() {
   // (working_days/schedule), NOT from notes. Same canonical model the smart
   // scheduler and the ind-build editor both use (day-availability.ts).
   const [workingHours, setWorkingHours] = useState<WorkingHours>(ALL_OFF_HOURS)
-  const [homeByTime, setHomeByTime] = useState('')
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [scheduleMessage, setScheduleMessage] = useState('')
   const [sendingOnboard, setSendingOnboard] = useState(false)
@@ -206,7 +205,6 @@ export default function TeamMemberDetailPage() {
         setMember(data.member)
         setForm(data.member)
         setWorkingHours(normalizeWorkingHours(data.member?.working_days, data.member?.schedule))
-        setHomeByTime(data.member?.home_by_time || '')
         const notesData = parseNotesData(data.member?.notes)
         if (notesData.time_off) setTimeOff(notesData.time_off)
         if (data.stats) setStats(data.stats)
@@ -352,7 +350,7 @@ export default function TeamMemberDetailPage() {
       const res = await fetch(`/api/team/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ working_days, schedule, home_by_time: homeByTime || null }),
+        body: JSON.stringify({ working_days, schedule }),
       })
       const payload = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -912,18 +910,6 @@ export default function TeamMemberDetailPage() {
                   </div>
                 )
               })}
-            </div>
-            <div className="mt-4 pt-4 border-t border-slate-200">
-              <label className="block text-sm font-medium text-slate-900 mb-1">Home by</label>
-              <p className="text-xs text-slate-500 mb-2">Latest they can finish. Scheduler won&apos;t book them past this. Leave as <strong>Not applicable</strong> unless it&apos;s a real constraint.</p>
-              <select
-                value={homeByTime}
-                onChange={(e) => setHomeByTime(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 bg-white"
-              >
-                <option value="">Not applicable (no limit)</option>
-                {TIME_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-200">
               <button onClick={saveSchedule} disabled={savingSchedule} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50">

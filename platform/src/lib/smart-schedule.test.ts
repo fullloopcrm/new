@@ -261,20 +261,19 @@ describe('scoreTeamForBooking — scoring signals', () => {
     expect(byId['tm-labor-only'].score).toBe(byId['tm-full-service'].score)
   })
 
-  it('flags can_make_home:false and applies the penalty when the member cannot get home in time, but never gates a member with no home_by_time set', async () => {
+  it('home_by_time is no longer a scoring/blocking factor (Jeff, 2026-08-14) — a member with a tight home_by_time scores and is available like anyone else', async () => {
     seedMember(A, {
-      id: 'tm-tight', home_by_time: '10:30', home_latitude: 41.0, home_longitude: -74.5, // far from job
+      id: 'tm-tight', home_by_time: '10:30', home_latitude: 41.0, home_longitude: -74.5, // far from job — used to trigger the -50 penalty
     })
-    seedMember(A, { id: 'tm-no-limit', home_by_time: null })
     const scores = await scoreTeamForBooking({
       tenantId: A, date: DATE, startTime: '09:00', durationHours: 1,
       clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
     })
     const byId = Object.fromEntries(scores.map((s) => [s.id, s]))
-    expect(byId['tm-tight'].can_make_home).toBe(false)
-    expect(byId['tm-tight'].reason).toContain("Won't make home by")
-    expect(byId['tm-no-limit'].home_by).toBe('No limit')
-    expect(byId['tm-no-limit'].can_make_home).toBe(true)
+    expect(byId['tm-tight'].available).toBe(true)
+    expect(byId['tm-tight'].reason).not.toContain('make home')
+    expect('can_make_home' in byId['tm-tight']).toBe(false)
+    expect('home_by' in byId['tm-tight']).toBe(false)
   })
 })
 
