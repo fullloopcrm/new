@@ -89,6 +89,7 @@ export type NotificationType =
   | 'cleaner_application'
   | 'auto_booking_assigned'
   | 'board_note_mention'
+  | 'client_contact_dedupe_merged'
 
 // Operational event types worth pushing to the tenant's Telegram, ported from
 // lib/nycmaid/notify.ts (2026-07-22) — that nycmaid-specific notify() had
@@ -113,6 +114,16 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   '15min_warning',
   'sms_received',
   'auto_booking_assigned',
+  // Automated dedupe actions (Jeff, 2026-08-14): every resolved/queued
+  // duplicate -- client, booking, or contact -- should reach the tenant's
+  // Telegram if they have one, same as any other operational event. Each of
+  // these call sites sends exactly ONE notify() per batch/event (never one
+  // per item within a batch -- see the 2026-08-14 72-email incident in
+  // duplicate-bookings.ts's sweepTenantDuplicateBookings).
+  'duplicate_recurring_schedule',
+  'client_dedupe_merged',
+  'client_dedupe_queued',
+  'client_contact_dedupe_merged',
 ])
 
 // Per-tenant Telegram: post to the tenant's own bot when configured. A

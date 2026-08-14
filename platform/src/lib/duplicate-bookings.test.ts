@@ -199,6 +199,6 @@ describe('sweepTenantDuplicateBookings', () => {
     expect(result.autoCancelled).toBe(5)
     expect(result.notified).toBe(1)
     expect(notifyMock).toHaveBeenCalledTimes(1)
-    expect(notifyMock.mock.calls[0][0].message).toContain('Auto-cancelled 5 duplicate booking(s) across 5 collision(s)')
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Auto-cancelled 5 duplicate booking(s) across 5 collision(s)') }))
   })
 })

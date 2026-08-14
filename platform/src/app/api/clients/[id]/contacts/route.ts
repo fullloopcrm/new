@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizePhone } from '@/lib/client-contacts'
 import { audit } from '@/lib/audit'
+import { notify } from '@/lib/notify'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   // FL auth (replaces legacy admin_session): authenticates the caller + scopes
@@ -108,6 +109,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         entityType: 'client_contact',
         entityId: existing.id,
         details: { clientId: id, matchedOn: phoneMatch ? 'phone' : 'email' },
+      })
+      // One notify() per merge event -- this route only ever merges one
+      // contact per request, so no batching needed here (unlike the cron
+      // sweeps, which can resolve many in one run — see client-dedupe.ts's
+      // sweepTenant docstring for why that distinction matters).
+      await notify({
+        tenantId: tenant.tenantId,
+        type: 'client_contact_dedupe_merged',
+        title: 'Duplicate Contact Merged',
+        message: `A new contact (${payload.name || 'unnamed'}) matched an existing contact on this client on ${phoneMatch ? 'phone' : 'email'} — merged instead of creating a duplicate.`,
+        recipientType: 'admin',
       })
       return NextResponse.json({ ...updated, merged: true })
     }
