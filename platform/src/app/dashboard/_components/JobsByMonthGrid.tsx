@@ -13,6 +13,12 @@ export type MonthCell = {
   label: string
   count: number
   revenue: number
+  /** Computed, never-materialized forecast for this month — schedules'
+   * expected future/gap occurrences that don't have a real booking row yet.
+   * Always shown separately from count/revenue so it never contradicts the
+   * `jobs` list below (which only ever lists real rows). */
+  projectedCount: number
+  projectedRevenue: number
   isCurrent: boolean
   isFuture: boolean
   jobs: MonthJob[]
@@ -46,6 +52,11 @@ export function JobsByMonthGrid({ months, canViewFinance, V }: {
             {canViewFinance && (
               <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: V.muted, marginTop: 4 }}>{m.revenue > 0 ? formatMoney(m.revenue) : '—'}</div>
             )}
+            {m.projectedCount > 0 && (
+              <div style={{ fontFamily: V.mono, fontSize: '9.5px', color: '#8a6d3b', marginTop: 4 }}>
+                +{m.projectedCount} fcst{canViewFinance ? ` · ${formatMoney(m.projectedRevenue)}` : ''}
+              </div>
+            )}
           </button>
         ))}
       </div>
@@ -63,16 +74,25 @@ export function JobsByMonthGrid({ months, canViewFinance, V }: {
           >
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${V.line}` }}>
               <div>
-                <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600 }}>{open.label} — {open.count} jobs</div>
+                <div style={{ fontFamily: V.mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.18em', color: V.muted, fontWeight: 600 }}>
+                  {open.label} — {open.count} booked{open.projectedCount > 0 ? ` + ${open.projectedCount} forecasted` : ''}
+                </div>
                 {canViewFinance && (
-                  <div style={{ fontFamily: V.display, fontSize: '20px', fontWeight: 500, color: V.ink, marginTop: 2 }}>{formatMoney(open.revenue)}</div>
+                  <div style={{ fontFamily: V.display, fontSize: '20px', fontWeight: 500, color: V.ink, marginTop: 2 }}>
+                    {formatMoney(open.revenue)}
+                    {open.projectedRevenue > 0 && <span style={{ fontSize: '13px', color: '#8a6d3b', marginLeft: 8 }}>+{formatMoney(open.projectedRevenue)} fcst</span>}
+                  </div>
                 )}
               </div>
               <button type="button" onClick={() => setOpenIdx(null)} style={{ fontFamily: V.mono, fontSize: '12px', color: V.muted }}>Close ✕</button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
               {open.jobs.length === 0 ? (
-                <div className="px-5 py-8 text-center" style={{ fontFamily: V.mono, fontSize: '12px', color: V.muted }}>No jobs this month.</div>
+                <div className="px-5 py-8 text-center" style={{ fontFamily: V.mono, fontSize: '12px', color: V.muted }}>
+                  {open.projectedCount > 0
+                    ? `No bookings created yet — ${open.projectedCount} visit${open.projectedCount === 1 ? '' : 's'} forecasted from active recurring schedules.`
+                    : 'No jobs this month.'}
+                </div>
               ) : (
                 open.jobs.map((j) => (
                   <div key={j.id} className="flex items-center justify-between px-5 py-3" style={{ borderBottom: `1px solid ${V.line}` }}>
