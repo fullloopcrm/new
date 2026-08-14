@@ -54,7 +54,7 @@ export interface CreateBookingFormProps {
   // point of broadcasting. The booking is created unassigned regardless;
   // this only controls whether the picker UI shows).
   hideCleanerPicker?: boolean
-  initialValues?: { clientId?: string; startDate?: string; startTime?: string; serviceType?: string; notes?: string }
+  initialValues?: { clientId?: string; startDate?: string; startTime?: string; serviceType?: string; notes?: string; repeatEnabled?: boolean }
   onCreated: () => void
   onCancel: () => void
 }
@@ -92,7 +92,7 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     start_date: initialValues?.startDate || tomorrow.toISOString().split('T')[0],
     start_time: initialValues?.startTime || '09:00',
     hours: 2, hourly_rate: 69, service_type: initialValues?.serviceType || 'Standard Cleaning', notes: initialValues?.notes || '',
-    repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
+    repeat_enabled: initialValues?.repeatEnabled ?? false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
     discount_enabled: false, discount_percent: 10,
     one_time_credit_dollars: 0, one_time_credit_reason: '',

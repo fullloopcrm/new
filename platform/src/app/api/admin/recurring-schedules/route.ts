@@ -47,12 +47,18 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const clientId = url.searchParams.get('client_id')
+  // ?active=true scopes to status in (active, paused) -- for the Reoccurring
+  // page roster, where a cancelled series shouldn't keep showing as an
+  // ongoing recurring client. Existing callers (CreateBookingForm,
+  // EditBookingForm, client-drawer) omit this and keep seeing every status.
+  const activeOnly = url.searchParams.get('active') === 'true'
 
   let query = db
     .from('recurring_schedules')
     .select('*, clients(id, name, phone, address), team_members(id, name)')
     .order('created_at', { ascending: false })
   if (clientId) query = query.eq('client_id', clientId)
+  if (activeOnly) query = query.in('status', ['active', 'paused'])
 
   const { data, error: qErr } = await query
   if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 })

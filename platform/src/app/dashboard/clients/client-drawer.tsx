@@ -9,6 +9,8 @@ import ClientAddresses from './client-addresses'
 import ClientContacts from './client-contacts'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { CallTextCopy } from '../_components/CallTextCopy'
+import { useTenantTimezone } from '@/hooks/useTenantTimezone'
+import { parseTenantNaiveString } from '@/lib/tenant-time'
 
 type EnrichedClient = {
   id: string
@@ -132,16 +134,22 @@ type ClientBooking = {
   team_members: { id: string; name: string } | null
 }
 
-function fmtDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })
+// b.start_time is a naive tenant-local wall-clock string (no zone suffix) —
+// new Date(iso) parses it in the BROWSER's local zone, not the tenant's, so
+// an admin outside the tenant's zone saw the wrong time. parseTenantNaiveString
+// resolves the real instant using the tenant's actual configured timezone
+// first, then these render that instant back in the same zone for display.
+function fmtDateShort(iso: string, timezone: string): string {
+  return parseTenantNaiveString(iso, timezone).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: timezone })
 }
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+function fmtTime(iso: string, timezone: string): string {
+  return parseTenantNaiveString(iso, timezone).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone })
 }
 
 export default function ClientDrawer({ client, tenantSlug, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
   const router = useRouter()
   const worker = useWorkerLabel()
+  const timezone = useTenantTimezone()
   const [drawerTab, setDrawerTab] = useState<'overview' | 'activity' | 'service' | 'notes'>('overview')
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
@@ -786,7 +794,7 @@ export default function ClientDrawer({ client, tenantSlug, open, onClose, onClie
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, color: 'var(--clients-ink)', fontWeight: 500 }}>
-                          {fmtDateShort(b.start_time)} · {fmtTime(b.start_time)}
+                          {fmtDateShort(b.start_time, timezone)} · {fmtTime(b.start_time, timezone)}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--clients-muted)', marginTop: 2 }}>
                           {b.service_type || 'Cleaning'}
