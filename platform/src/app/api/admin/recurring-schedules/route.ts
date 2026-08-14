@@ -68,7 +68,7 @@ export async function GET(request: Request) {
     (data || []).map(async (schedule: { id: string }) => {
       const { data: nextBooking } = await db
         .from('bookings')
-        .select('start_time')
+        .select('id, start_time')
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending'])
         // start_time is naive ET — a real-instant boundary here excluded
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         .order('start_time')
         .limit(1)
         .single()
-      return { ...schedule, next_booking_date: nextBooking?.start_time || null }
+      return { ...schedule, next_booking_date: nextBooking?.start_time || null, next_booking_id: nextBooking?.id || null }
     })
   )
 

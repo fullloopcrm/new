@@ -1,0 +1,43 @@
+/* Reoccurring page — own grid track widths. Reuses clients.css's cell-level
+ * classes (clients-health-cell, clients-row-client, etc.) but NOT its
+ * clients-thead/clients-row grid-template-columns, which is fixed for the
+ * Clients page's own 10-column layout (checkbox, date-added, etc). This page
+ * has a different column set (no checkbox, no date-added, a wider actions
+ * cell for row-level booking actions) — reusing that grid literally squeezed
+ * every cell into the wrong track and left the last two tracks empty.
+ */
+.recurring-thead,
+.recurring-row {
+  display: grid;
+  grid-template-columns: 90px 1.6fr 1.2fr 120px 110px 110px 100px 160px;
+  gap: 10px;
+  align-items: center;
+}
+.recurring-thead {
+  padding: 11px 16px;
+  background: var(--clients-bg);
+  border-bottom: 1px solid var(--clients-line);
+  font-family: var(--clients-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--clients-muted);
+  font-weight: 600;
+}
+.recurring-thead .right { text-align: right; }
+.recurring-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--clients-line-soft);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.recurring-row:last-child { border-bottom: none; }
+.recurring-row:hover { background: #FBFBF8; }
+
+.recurring-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  position: relative;
+}

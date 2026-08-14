@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import '../clients/clients.css'
+import './recurring.css'
 import ClientDrawer from '../clients/client-drawer'
 import { ContactChips } from '../bookings/ContactChips'
 import CreateBookingForm from '../bookings/CreateBookingForm'
@@ -51,12 +53,21 @@ type Totals = { mrr_cents: number; recurring: number }
 
 type ScheduleInfo = {
   next_booking_date: string | null
+  next_booking_id: string | null
   team_members: { id: string; name: string } | null
   status: string
 }
 
 function fmtMoney(cents: number): string {
   return '$' + Math.round(cents / 100).toLocaleString('en-US')
+}
+
+// .clients-ltv-projected has a CSS ::before { content: '→ $' } — the value
+// here must NOT include its own '$' or it renders as '→ $$824'.
+function fmtMoneyShort(cents: number): string {
+  const dollars = cents / 100
+  if (dollars >= 1000) return `${(dollars / 1000).toFixed(1)}k`
+  return `${Math.round(dollars)}`
 }
 
 function initials(name: string): string {
@@ -100,6 +111,48 @@ export default function RecurringPage() {
   const [createInitialValues, setCreateInitialValues] = useState<{ clientId?: string; repeatEnabled?: boolean }>({})
   const [formInstanceKey, setFormInstanceKey] = useState(0)
 
+  // Resend/30-min-alert menu — same actions + same endpoints as the row
+  // actions on the Bookings list (BookingsAdmin.tsx), scoped to each
+  // client's next upcoming booking. Portal'd to body + fixed-positioned
+  // because .clients-table has overflow:hidden, which would clip an
+  // absolutely-positioned dropdown anchored inside a row.
+  const [resendMenuId, setResendMenuId] = useState<string | null>(null)
+  const [resendMenuPos, setResendMenuPos] = useState<{ top: number; left: number } | null>(null)
+
+  async function handleResend(bookingId: string, channel: 'email' | 'sms') {
+    setResendMenuId(null)
+    const res = await fetch('/api/send-booking-emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId, clientOnly: true, ...(channel === 'sms' ? { channel: 'sms' } : {}) }),
+    })
+    if (res.ok) {
+      alert(channel === 'sms' ? 'Confirmation text sent!' : 'Confirmation email sent!')
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || `Failed to send ${channel}`)
+    }
+  }
+
+  async function handleSend30MinAlert(bookingId: string) {
+    setResendMenuId(null)
+    const res = await fetch('/api/team-portal/30min-alert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId, force: true }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(data.error || 'Failed to send 30-min alert')
+    } else if (data.skipped) {
+      alert('Already paid — no alert sent')
+    } else if (data.clientNotified === false) {
+      alert('Admin notified, but client text failed to send — check Notifications')
+    } else {
+      alert('30-min alert sent!')
+    }
+  }
+
   function load() {
     setLoading(true)
     Promise.all([
@@ -124,6 +177,7 @@ export default function RecurringPage() {
             if (!existing || (s.next_booking_date && (!existing.next_booking_date || s.next_booking_date < existing.next_booking_date))) {
               byClient[cid] = {
                 next_booking_date: s.next_booking_date || null,
+                next_booking_id: s.next_booking_id || null,
                 team_members: s.team_members || null,
                 status: s.status,
               }
@@ -234,7 +288,7 @@ export default function RecurringPage() {
       </div>
 
       <div className="clients-table">
-        <div className="clients-thead">
+        <div className="recurring-thead">
           <div>Health</div>
           <div>Client</div>
           <div>Recurring</div>
@@ -242,7 +296,7 @@ export default function RecurringPage() {
           <div>Assigned</div>
           <div>Stage</div>
           <div className="right">LTV</div>
-          <div />
+          <div className="right">Actions</div>
         </div>
 
         {loading && <div className="clients-empty">Loading recurring clients…</div>}
@@ -254,7 +308,7 @@ export default function RecurringPage() {
           recurringClients.map((c) => {
             const sched = scheduleByClient[c.id]
             return (
-              <div key={c.id} className="clients-row" onClick={() => setDrawerId(c.id)}>
+              <div key={c.id} className="recurring-row" onClick={() => setDrawerId(c.id)}>
                 <div className="clients-health-cell">
                   <span className={`clients-health-num ${c.health_band}`}>{c.health}</span>
                   <div className="clients-health-bar">
@@ -304,10 +358,42 @@ export default function RecurringPage() {
                 <div className="clients-ltv-cell">
                   <div className="clients-ltv-actual">{fmtMoney(c.ltv_actual_cents)}</div>
                   <div className={`clients-ltv-projected ${c.ltv_projected_cents === 0 ? 'muted' : ''}`}>
-                    {fmtMoney(c.ltv_projected_cents)}
+                    {fmtMoneyShort(c.ltv_projected_cents)}
                   </div>
                 </div>
-                <div className="clients-row-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="recurring-row-actions" onClick={(e) => e.stopPropagation()}>
+                  {sched?.next_booking_id && (
+                    <button
+                      className="clients-icon-btn"
+                      onClick={(e) => {
+                        if (resendMenuId === c.id) {
+                          setResendMenuId(null)
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setResendMenuPos({ top: rect.bottom + 4, left: rect.right - 130 })
+                          setResendMenuId(c.id)
+                        }
+                      }}
+                      title="Resend confirmation / 30-min alert"
+                      aria-label="Resend confirmation / 30-min alert"
+                    >
+                      ✉
+                    </button>
+                  )}
+                  {resendMenuId === c.id && resendMenuPos && sched?.next_booking_id && createPortal(
+                    <>
+                      <div className="fixed inset-0 z-[9998]" onClick={() => setResendMenuId(null)} />
+                      <div
+                        className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[9999] py-1 min-w-[150px]"
+                        style={{ top: resendMenuPos.top, left: resendMenuPos.left }}
+                      >
+                        <button onClick={() => handleResend(sched.next_booking_id as string, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-slate-900 hover:bg-gray-50 transition-colors">Resend Email</button>
+                        <button onClick={() => handleResend(sched.next_booking_id as string, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-slate-900 hover:bg-gray-50 transition-colors">Resend Text</button>
+                        <button onClick={() => handleSend30MinAlert(sched.next_booking_id as string)} className="w-full text-left px-3 py-1.5 text-sm text-slate-900 hover:bg-gray-50 transition-colors whitespace-nowrap">30-Min Alert</button>
+                      </div>
+                    </>,
+                    document.body
+                  )}
                   <button
                     className="clients-icon-btn"
                     onClick={() => openCreateForClient(c.id)}
