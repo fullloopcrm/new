@@ -21,13 +21,25 @@
 // to the duplicate's own `notes` field and an audit_logs row
 // (action: 'client.merged') recording both ids and exactly what moved.
 //
-// Tenant safety: every read/write here goes through tenantDb(tenantId), which
+// Tenant safety: the initial lookup goes through tenantDb(tenantId), which
 // auto-scopes every query to `.eq('tenant_id', tenantId)` (see tenant-db.ts).
 // Combined with looking both client rows up by id WITHIN that tenant scope
 // before doing anything else, a caller can never merge across tenants even if
-// it somehow obtained a foreign client id.
+// it somehow obtained a foreign client id. The actual writes happen inside
+// merge_client_atomic (2026_08_13_merge_client_atomic.sql), which
+// re-verifies tenant_id on both rows itself before touching anything.
+//
+// Atomicity (added 2026-08-13): the demote/repoint/retire writes below used
+// to be separate sequential calls with no surrounding transaction -- fine
+// when a human triggered one merge at a time and could notice a partial
+// failure, not fine once the automated dedupe cron (client-dedupe.ts) started
+// calling this unattended, nightly, across every tenant. merge_client_atomic
+// folds all of it into one plpgsql function/transaction: a failure partway
+// through now rolls back everything instead of leaving some tables repointed
+// and others not.
 
 import { tenantDb } from './tenant-db'
+import { supabaseAdmin } from './supabase'
 import { audit } from './audit'
 
 export class ClientMergeError extends Error {
@@ -107,41 +119,26 @@ export async function mergeClients({
   if (canonicalErr || !canonical) throw new ClientMergeError('Canonical client not found', 404)
   if (duplicateErr || !duplicate) throw new ClientMergeError('Duplicate client not found', 404)
 
-  // Demote the duplicate's own "primary" flags BEFORE re-pointing, so the
-  // re-point below never leaves the canonical client with two
-  // is_primary=true contacts or two is_primary=true properties. The
-  // canonical client's own existing primary (if any) is left untouched.
-  await db.from('client_contacts').update({ is_primary: false }).eq('client_id', duplicateClientId)
-  await db.from('client_properties').update({ is_primary: false }).eq('client_id', duplicateClientId)
-
-  const movedCounts: Record<string, number> = {}
-  for (const table of REPOINT_TABLES) {
-    const { data, error } = await db
-      .from(table)
-      .update({ client_id: canonicalClientId })
-      .eq('client_id', duplicateClientId)
-      .select('id')
-    if (error) {
-      throw new ClientMergeError(`Failed to move ${table} to the canonical client: ${error.message}`, 500)
-    }
-    movedCounts[table] = Array.isArray(data) ? data.length : 0
-  }
-
   const mergedAt = new Date().toISOString()
   const mergeNote = `[Merged into client ${canonicalClientId} (${(canonical as ClientRow).name}) on ${mergedAt}${mergedBy ? ` by ${mergedBy}` : ''}]`
   const existingNotes = (duplicate as ClientRow).notes ? String((duplicate as ClientRow).notes) : ''
 
-  const { error: retireErr } = await db
-    .from('clients')
-    .update({
-      active: false,
-      do_not_service: true,
-      notes: existingNotes ? `${mergeNote}\n${existingNotes}` : mergeNote,
-    })
-    .eq('id', duplicateClientId)
-  if (retireErr) {
-    throw new ClientMergeError(`Moved child records but failed to retire the duplicate client: ${retireErr.message}`, 500)
+  // One RPC, one transaction -- see the atomicity note above. Demotes the
+  // duplicate's own "primary" flags, repoints every REPOINT_TABLES row, and
+  // retires the duplicate, all inside merge_client_atomic. Any failure
+  // anywhere in that sequence rolls the whole thing back.
+  const { data: moved, error: mergeErr } = await supabaseAdmin.rpc('merge_client_atomic', {
+    p_tenant_id: tenantId,
+    p_canonical_id: canonicalClientId,
+    p_duplicate_id: duplicateClientId,
+    p_repoint_tables: [...REPOINT_TABLES],
+    p_merge_note: mergeNote,
+    p_existing_notes: existingNotes,
+  })
+  if (mergeErr) {
+    throw new ClientMergeError(`Failed to merge client records: ${mergeErr.message}`, 500)
   }
+  const movedCounts = (moved || {}) as Record<string, number>
 
   await audit({
     tenantId,

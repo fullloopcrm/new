@@ -88,7 +88,7 @@ type Totals = {
   recurring: number
 }
 
-type Tab = 'all' | 'map' | 'lifecycle' | 'cohorts' | 'conversations' | 'reviews' | 'referrals'
+type Tab = 'all' | 'map' | 'lifecycle' | 'cohorts' | 'conversations' | 'reviews' | 'referrals' | 'duplicates'
 
 const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'all', letter: 'A', label: 'All Clients' },
@@ -97,7 +97,22 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'conversations', letter: 'E', label: 'Conversations' },
   { key: 'reviews', letter: 'F', label: 'Reviews' },
   { key: 'referrals', letter: 'G', label: 'Referrals' },
+  { key: 'duplicates', letter: 'H', label: 'Duplicates' },
 ]
+
+type DedupeQueueClient = { id: string; name: string; phone: string | null; email: string | null; created_at: string }
+type DedupeQueueRow = {
+  id: string
+  client_a_id: string
+  client_b_id: string
+  match_type: string
+  match_value: string
+  suggested_canonical_id: string | null
+  suggested_reason: string | null
+  created_at: string
+  client_a: DedupeQueueClient | null
+  client_b: DedupeQueueClient | null
+}
 
 function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -166,6 +181,46 @@ export default function ClientsPage() {
   const [addForm, setAddForm] = useState({ name: '', phone: '', email: '', address: '', notes: '', source: '' })
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState('')
+  const [dedupeQueue, setDedupeQueue] = useState<DedupeQueueRow[]>([])
+  const [dedupeLoading, setDedupeLoading] = useState(true)
+  const [dedupeCanonicalChoice, setDedupeCanonicalChoice] = useState<Record<string, string>>({})
+  const [dedupeBusyId, setDedupeBusyId] = useState<string | null>(null)
+
+  function loadDedupeQueue() {
+    setDedupeLoading(true)
+    fetch('/api/clients/dedupe-queue')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && Array.isArray(data.queue)) setDedupeQueue(data.queue)
+      })
+      .catch(() => {})
+      .finally(() => setDedupeLoading(false))
+  }
+
+  useEffect(() => {
+    loadDedupeQueue()
+  }, [])
+
+  async function resolveDedupe(row: DedupeQueueRow, action: 'approve' | 'dismiss') {
+    setDedupeBusyId(row.id)
+    try {
+      const canonicalId = dedupeCanonicalChoice[row.id] || row.suggested_canonical_id || row.client_a_id
+      const res = await fetch(`/api/clients/dedupe-queue/${row.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'approve' ? { action, canonical_id: canonicalId } : { action }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        alert(j.error || `Failed to ${action}`)
+        return
+      }
+      setDedupeQueue((prev) => prev.filter((r) => r.id !== row.id))
+      if (action === 'approve') loadClients()
+    } finally {
+      setDedupeBusyId(null)
+    }
+  }
 
   function loadClients() {
     setLoading(true)
@@ -391,6 +446,7 @@ export default function ClientsPage() {
             <span className="clients-tab-letter">{t.letter}</span>
             {t.label}
             {t.key === 'all' && <span className="clients-tab-count">{stageCounts.all}</span>}
+            {t.key === 'duplicates' && dedupeQueue.length > 0 && <span className="clients-tab-count">{dedupeQueue.length}</span>}
           </button>
         ))}
       </div>
@@ -622,7 +678,80 @@ export default function ClientsPage() {
       </div>
       )}
 
-      {tab !== 'all' && tab !== 'map' && tab !== 'lifecycle' && (
+      {tab === 'duplicates' && (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ color: 'var(--clients-muted)', fontSize: 13, marginBottom: 12 }}>
+            Exact phone+email matches are merged automatically. These matched on only one field, or tripped a safety check (name mismatch, colliding job numbers) — pick which record stays primary, or mark them as two different people.
+          </div>
+          {dedupeLoading && <div className="clients-empty">Loading…</div>}
+          {!dedupeLoading && dedupeQueue.length === 0 && <div className="clients-empty">No duplicates waiting on review.</div>}
+          {!dedupeLoading && dedupeQueue.map((row) => {
+            const choice = dedupeCanonicalChoice[row.id] || row.suggested_canonical_id || row.client_a_id
+            const busy = dedupeBusyId === row.id
+            return (
+              <div key={row.id} style={{ border: '1px solid var(--clients-line)', borderRadius: 6, padding: 16, marginBottom: 10, background: 'var(--clients-canvas)' }}>
+                <div style={{ fontSize: 12, color: 'var(--clients-muted)', marginBottom: 10 }}>
+                  Matched on <strong>{row.match_type}</strong> ({row.match_value}){row.suggested_reason ? ` — ${row.suggested_reason}` : ''}
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                  {[row.client_a, row.client_b].map((c) => {
+                    if (!c) return null
+                    const isChoice = choice === c.id
+                    return (
+                      <label
+                        key={c.id}
+                        style={{
+                          flex: 1,
+                          border: isChoice ? '2px solid var(--clients-accent, #2563eb)' : '1px solid var(--clients-line)',
+                          borderRadius: 4,
+                          padding: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <input
+                            type="radio"
+                            name={`dedupe-${row.id}`}
+                            checked={isChoice}
+                            onChange={() => setDedupeCanonicalChoice((prev) => ({ ...prev, [row.id]: c.id }))}
+                          />
+                          <strong>{c.name}</strong>
+                          {isChoice && <span className="clients-chip active" style={{ fontSize: 10 }}>Keep as primary</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--clients-muted)' }}>
+                          {c.phone && <div>{formatPhoneDisplay(c.phone)}</div>}
+                          {c.email && <div>{c.email}</div>}
+                          <div>Added {fmtDateAdded(c.created_at)}</div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    className="clients-btn clients-btn-ghost"
+                    disabled={busy}
+                    onClick={() => resolveDedupe(row, 'dismiss')}
+                  >
+                    Not a duplicate
+                  </button>
+                  <button
+                    type="button"
+                    className="clients-btn clients-btn-primary"
+                    disabled={busy}
+                    onClick={() => resolveDedupe(row, 'approve')}
+                  >
+                    {busy ? 'Merging…' : 'Merge'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {tab !== 'all' && tab !== 'map' && tab !== 'lifecycle' && tab !== 'duplicates' && (
         <div style={{ padding: 60, textAlign: 'center', background: 'var(--clients-canvas)', border: '1px dashed var(--clients-line)', borderRadius: 4, marginBottom: 22 }}>
           <div style={{ fontFamily: 'var(--clients-display)', fontSize: 24, color: 'var(--clients-ink)', fontWeight: 500, marginBottom: 8 }}>Coming soon.</div>
           <div style={{ color: 'var(--clients-muted)' }}>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>

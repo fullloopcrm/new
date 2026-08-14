@@ -5,14 +5,7 @@ import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { getTenantTimezone } from '@/lib/tenant-time'
-
-// HARD-CODED test mode. Flip to false ONLY after the broadcast pipeline is
-// verified end-to-end with a single test team member. Mass-SMS guard
-// (feedback_no_mass_sms): keep TEST_MODE on until explicitly cleared.
-export const TEST_MODE = true
-export const TEST_CLEANER_NAME_SUBSTRING = 'jeff tucker'
-export const BROADCAST_CAP = 50
-export const BUFFER_HOURS = 1
+import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '@/lib/find-cleaner-config'
 
 type CleanerRow = {
   id: string

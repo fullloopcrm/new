@@ -13,6 +13,8 @@ import { stripPhone } from '@/lib/phone'
 import { isValidLeadSource } from '@/lib/lead-sources'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { queueForReview } from '@/lib/client-dedupe'
+import { trackError } from '@/lib/error-tracking'
 
 export const OPTIONS = corsPreflight
 
@@ -188,6 +190,30 @@ export async function POST(request: Request) {
     const duplicates = dupeResults.flatMap(r => r.data || [])
     const uniqueDupes = [...new Map(duplicates.map(d => [d.id, d])).values()]
 
+    // Automated dedupe (2026-08-13): a submission whose phone AND email both
+    // exactly match one existing client is treated as that same client, not
+    // a new one -- no new row is created, no force-to-override step needed.
+    // Two different real customers sharing both pieces of contact info at
+    // once is a vanishingly rare false positive (unlike a single-field
+    // match, which is common -- shared landline, typo'd email -- and still
+    // goes through the warn-and-force flow below). See src/lib/client-dedupe.ts.
+    if (fields?.email && fields?.phone) {
+      const fullMatches = uniqueDupes.filter(
+        (d) => d.phone === fields.phone && d.email && String(d.email).toLowerCase() === String(fields.email).toLowerCase()
+      )
+      if (fullMatches.length === 1) {
+        const existing = fullMatches[0]
+        await audit({
+          tenantId,
+          action: 'client.dedupe_prevented',
+          entityType: 'client',
+          entityId: existing.id,
+          details: { name: fields.name, phone: fields.phone, email: fields.email },
+        })
+        return NextResponse.json({ client: existing, deduped: true }, { status: 200 })
+      }
+    }
+
     // If force=true in body, skip duplicate warning
     const force = (body as Record<string, unknown>).force === true
 
@@ -208,6 +234,22 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // A partial match (phone-only or email-only) was overridden with
+    // force=true -- the new row now genuinely duplicates an existing client
+    // on one field. Not safe to auto-merge (see client-dedupe.ts), so queue
+    // it for a human instead of letting it silently sit as an unflagged dupe.
+    for (const dupe of uniqueDupes) {
+      const matchType = dupe.phone === fields?.phone ? 'phone' : 'email'
+      const matchValue = matchType === 'phone' ? String(fields?.phone) : String(fields?.email)
+      try {
+        await queueForReview({ tenantId, clientAId: data.id, clientBId: dupe.id, matchType, matchValue })
+      } catch (queueErr) {
+        // Best-effort: the client was already created successfully -- don't
+        // fail the request over a queue-write hiccup, but don't lose it silently either.
+        await trackError(queueErr, { source: 'api/clients:dedupe-queue', severity: 'medium', tenantId })
+      }
     }
 
     // Required by every client-creation path — without it, getClientContacts()

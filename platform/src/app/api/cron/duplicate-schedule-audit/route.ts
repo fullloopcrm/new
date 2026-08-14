@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
-import { nowNaiveET } from '@/lib/recurring'
+import { sweepTenantDuplicateBookings } from '@/lib/duplicate-bookings'
 
 export const maxDuration = 300
 
@@ -11,8 +10,16 @@ export const maxDuration = 300
 // active recurring_schedules for the same client both generating a booking
 // on the SAME calendar date. That's the real duplicate signal — NOT "same
 // day_of_week + preferred_time," which also matches legitimate biweekly
-// service modeled as two offset weekly schedules. Flags via an admin
-// notification; does not auto-cancel anything.
+// service modeled as two offset weekly schedules.
+//
+// Upgraded 2026-08-14 (Jeff: "there should never be a duplicate booking"):
+// used to only send an admin notification and leave the duplicate sitting
+// there for a human to notice and fix. Now auto-cancels the true-duplicate
+// case (same service, colliding schedules) via duplicate-bookings.ts,
+// keeping the booking from the more established schedule — same "established
+// wins" rule client-dedupe.ts uses for canonical client pick. A collision
+// across two different services still just notifies; that's plausibly
+// intentional, not a duplicate.
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -23,85 +30,20 @@ export async function GET(request: Request) {
     .eq('status', 'active')
     .limit(1000)
 
+  let totalAutoCancelled = 0
   let totalFlagged = 0
   let totalNotified = 0
 
   for (const tenant of tenants || []) {
     try {
-      const result = await auditTenant(tenant.id)
-      totalFlagged += result.flagged
+      const result = await sweepTenantDuplicateBookings(tenant.id)
+      totalAutoCancelled += result.autoCancelled
+      totalFlagged += result.flaggedForReview
       totalNotified += result.notified
     } catch (err) {
       await trackError(err, { source: 'cron/duplicate-schedule-audit', severity: 'high', tenantId: tenant.id })
     }
   }
 
-  return NextResponse.json({ success: true, flagged: totalFlagged, notified: totalNotified })
-}
-
-async function auditTenant(tenantId: string): Promise<{ flagged: number; notified: number }> {
-  const { data: rows, error } = await supabaseAdmin
-    .from('bookings')
-    .select('client_id, schedule_id, start_time, clients(name)')
-    .eq('tenant_id', tenantId)
-    .in('status', ['scheduled', 'pending'])
-    .not('schedule_id', 'is', null)
-    // start_time is naive ET — a real-instant boundary here missed
-    // this-morning's duplicate bookings for hours after they'd actually
-    // happened (same bug as cron/no-show-check).
-    .gte('start_time', `${nowNaiveET()}Z`)
-
-  if (error) throw new Error(error.message)
-
-  // client_id -> date -> Set of schedule_ids
-  const byClientDate = new Map<string, Map<string, Set<string>>>()
-  const clientNames = new Map<string, string>()
-
-  for (const b of rows || []) {
-    const date = (b.start_time as string).split('T')[0]
-    const clientId = b.client_id as string
-    clientNames.set(clientId, (b.clients as { name?: string } | null)?.name || 'Unknown')
-    if (!byClientDate.has(clientId)) byClientDate.set(clientId, new Map())
-    const dateMap = byClientDate.get(clientId)!
-    if (!dateMap.has(date)) dateMap.set(date, new Set())
-    dateMap.get(date)!.add(b.schedule_id as string)
-  }
-
-  const flagged: { client_id: string; name: string; dates: string[] }[] = []
-  for (const [clientId, dateMap] of byClientDate) {
-    const collidingDates = [...dateMap.entries()]
-      .filter(([, scheduleIds]) => scheduleIds.size > 1)
-      .map(([date]) => date)
-    if (collidingDates.length > 0) {
-      flagged.push({ client_id: clientId, name: clientNames.get(clientId) || 'Unknown', dates: collidingDates })
-    }
-  }
-
-  let notified = 0
-  const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
-
-  for (const f of flagged) {
-    // Don't re-notify daily for a still-unresolved issue — once per ~week per client.
-    // notifications has no client_id column, so dedupe on the message text instead.
-    const { count } = await supabaseAdmin
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('type', 'duplicate_recurring_schedule')
-      .ilike('message', `${f.name} has 2+ active recurring schedules%`)
-      .gte('created_at', sixDaysAgo)
-
-    if ((count || 0) > 0) continue
-
-    await notify({
-      tenantId,
-      type: 'duplicate_recurring_schedule',
-      title: 'Duplicate Recurring Schedule Detected',
-      message: `${f.name} has 2+ active recurring schedules generating bookings on the same date(s): ${f.dates.join(', ')}. Review and deactivate the duplicate.`,
-      recipientType: 'admin',
-    })
-    notified++
-  }
-
-  return { flagged: flagged.length, notified }
+  return NextResponse.json({ success: true, autoCancelled: totalAutoCancelled, flagged: totalFlagged, notified: totalNotified })
 }

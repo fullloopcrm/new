@@ -36,6 +36,7 @@ export interface Capture {
 
 export interface Harness {
   from: (table: string) => any
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
   seed: Seed
   capture: Capture
 }
@@ -227,5 +228,58 @@ export function createTenantDbHarness(seed: Seed): Harness {
     return builder()
   }
 
-  return { from: table, seed, capture }
+  // Fake of merge_client_atomic (2026_08_13_merge_client_atomic.sql) --
+  // mirrors that plpgsql function's exact steps (demote primaries BEFORE
+  // repointing, so the demote's client_id=duplicate filter still matches;
+  // repoint every table; retire the duplicate) against the in-memory seed,
+  // same spirit as `from()` faking Postgres for `.eq`/`.update`/etc above.
+  // Any other RPC name is unmocked and throws, so a test exercising an
+  // untested RPC fails loudly instead of silently no-op'ing.
+  function rpc(fnName: string, args: Record<string, unknown>): Promise<{ data: unknown; error: unknown }> {
+    if (fnName !== 'merge_client_atomic') {
+      throw new Error(`tenant-isolation-harness: unmocked rpc "${fnName}"`)
+    }
+    const { p_tenant_id, p_canonical_id, p_duplicate_id, p_repoint_tables, p_merge_note, p_existing_notes } = args as {
+      p_tenant_id: string
+      p_canonical_id: string
+      p_duplicate_id: string
+      p_repoint_tables: string[]
+      p_merge_note: string
+      p_existing_notes: string
+    }
+    const clientsRows = seed.clients || []
+    const canonicalRow = clientsRows.find((c) => c.id === p_canonical_id && c.tenant_id === p_tenant_id)
+    const duplicateRow = clientsRows.find((c) => c.id === p_duplicate_id && c.tenant_id === p_tenant_id)
+    if (!canonicalRow || !duplicateRow) {
+      return Promise.resolve({ data: null, error: { message: 'canonical or duplicate client not found for this tenant' } })
+    }
+
+    const demote = (table: string) => {
+      for (const row of seed[table] || []) {
+        if (row.client_id === p_duplicate_id && row.tenant_id === p_tenant_id) row.is_primary = false
+      }
+    }
+    demote('client_contacts')
+    demote('client_properties')
+
+    const moved: Record<string, number> = {}
+    for (const t of p_repoint_tables) {
+      let count = 0
+      for (const row of seed[t] || []) {
+        if (row.client_id === p_duplicate_id && row.tenant_id === p_tenant_id) {
+          row.client_id = p_canonical_id
+          count++
+        }
+      }
+      moved[t] = count
+    }
+
+    duplicateRow.active = false
+    duplicateRow.do_not_service = true
+    duplicateRow.notes = p_existing_notes ? `${p_merge_note}\n${p_existing_notes}` : p_merge_note
+
+    return Promise.resolve({ data: moved, error: null })
+  }
+
+  return { from: table, rpc, seed, capture }
 }
