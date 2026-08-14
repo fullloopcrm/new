@@ -501,12 +501,6 @@ function BookingsPage() {
     setCloseOutSaving(null)
   }
 
-  // Records a REAL client payment (inserts into `payments`, same endpoint
-  // the closeout math reads from) for the full amount still outstanding —
-  // replaces the old Zelle/Apple buttons, which only PATCHed
-  // bookings.payment_status with nothing behind it. Charges exactly what
-  // closeOutSummaries (the real payments-table total) says is still owed,
-  // never a guessed or stale amount.
   // Once client + cleaner are both actually paid in full (real payments/
   // payouts rows, not a flag), the booking closes out automatically instead
   // of needing a separate "Job Done" click. Re-checks against the live
@@ -526,35 +520,6 @@ function BookingsPage() {
     } catch (e) {
       console.error('Auto-complete check failed:', e)
     }
-  }
-
-  const recordClientPayment = async (b: Booking, method: 'zelle' | 'apple_pay') => {
-    const summary = closeOutSummaries[b.id]
-    if (!summary || summary.customerOutstandingCents <= 0) return
-    setCloseOutSaving(b.id)
-    try {
-      const res = await fetch(`/api/admin/bookings/${b.id}/record-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount_cents: summary.customerOutstandingCents, method }),
-      })
-      if (res.ok) {
-        setCloseOutSummaries(prev => {
-          const next = { ...prev }
-          delete next[b.id]
-          return next
-        })
-        await maybeAutoComplete(b)
-        await loadBookings()
-      } else {
-        const j = await res.json().catch(() => ({}))
-        alert(j.error || 'Recording payment failed')
-      }
-    } catch (e) {
-      console.error('Record payment failed:', e)
-      alert('Recording payment failed')
-    }
-    setCloseOutSaving(null)
   }
 
   // Pays every team member still owed money on the booking a REAL payout
@@ -1664,7 +1629,7 @@ function BookingsPage() {
                           </div>
                         </div>
                         {/* Close out controls */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {/* Job Complete */}
                           <button
                             disabled={isSaving}
@@ -1684,8 +1649,8 @@ function BookingsPage() {
                             Job Done
                           </button>
                           {/* Payment status — read-only, reflects the REAL payments-table
-                              total (closeOutSummaries), not a flippable flag. There is
-                              nothing to click here: use Zelle/Apple to actually record money. */}
+                              total (closeOutSummaries), not a flippable flag. Client
+                              payments come through Stripe only; nothing to click here. */}
                           {(() => {
                             const summary = closeOutSummaries[b.id]
                             const reallyPaid = !!summary && summary.customerOutstandingCents <= 0
@@ -1700,30 +1665,6 @@ function BookingsPage() {
                               </span>
                             )
                           })()}
-                          {/* Record a REAL client payment for whatever's still outstanding —
-                              disabled until the real balance is known, and once it's $0. */}
-                          <div className="flex gap-1">
-                            <button
-                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
-                              onClick={() => recordClientPayment(b, 'zelle')}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
-                                (b.payment_method === 'zelle'
-                                  ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-purple-200 hover:text-purple-600')}
-                            >
-                              Zelle
-                            </button>
-                            <button
-                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
-                              onClick={() => recordClientPayment(b, 'apple_pay')}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
-                                (b.payment_method === 'apple_pay'
-                                  ? 'bg-gray-800 border-gray-800 text-white'
-                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600')}
-                            >
-                              Apple
-                            </button>
-                          </div>
                           {/* Remind — manual, admin-clicked text + email for whatever's
                               really still outstanding. Never fires on its own. */}
                           <button
