@@ -6,7 +6,7 @@
 // this does NOT reimplement availability logic, it calls the same TEST_MODE /
 // BROADCAST_CAP guarded path those routes already use, so the mass-SMS safety
 // gate (feedback_no_mass_sms) applies automatically here too: until Jeff
-// flips TEST_MODE to false in find-cleaner/preview/route.ts, this only ever
+// flips TEST_MODE to false in lib/find-cleaner-config.ts, this only ever
 // messages the "jeff tucker" test row, regardless of how many cleaners are
 // actually eligible.
 import { supabaseAdmin } from './supabase'
@@ -15,7 +15,7 @@ import { sendSMS } from './sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from './service-zones'
 import { worksScheduledDay, slotWithinHours } from './day-availability'
 import { getTenantTimezone } from './tenant-time'
-import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '@/app/api/admin/find-cleaner/preview/route'
+import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '@/lib/find-cleaner-config'
 
 type CleanerRow = {
   id: string
