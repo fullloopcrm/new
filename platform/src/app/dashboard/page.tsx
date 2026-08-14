@@ -283,14 +283,29 @@ export default async function DashboardPage() {
   const tz = tenant.timezone || 'America/New_York'
   const now = new Date()
 
+  // Wall-clock-in-tz for a UTC instant, as UTC-millis — ambient-timezone-
+  // independent (formatToParts always reads the specified `tz`, regardless
+  // of what timezone this process happens to be running in). The previous
+  // version reformatted the instant as a locale STRING and reparsed it with
+  // `new Date(string)`, which uses the CALLING ENVIRONMENT's ambient
+  // timezone — correct only because this always runs on Vercel (UTC); see
+  // the identical bug fixed in lib/tenant-time.ts's getTimezoneOffsetMinutes
+  // 2026-08-14. Zero behavior change on Vercel; portable everywhere now.
+  const wallAsUtcMs = (at: Date, atTz: string): number => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: atTz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).formatToParts(at)
+    const get = (type: string) => Number(parts.find(p => p.type === type)?.value)
+    const hour = get('hour')
+    return Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
+  }
   // True UTC instants for a given tenant-local Y-M-D midnight — correct for
   // filtering genuine timestamptz columns (clients/lead_clicks/quotes
   // created_at/accepted_at) via inDateRange() above.
   const zonedMidnight = (ymd: string): Date => {
     const guess = new Date(`${ymd}T00:00:00Z`)
-    const asIfInTz = new Date(guess.toLocaleString('en-US', { timeZone: tz }))
-    const asIfUTC = new Date(guess.toLocaleString('en-US', { timeZone: 'UTC' }))
-    return new Date(guess.getTime() + (asIfUTC.getTime() - asIfInTz.getTime()))
+    return new Date(2 * guess.getTime() - wallAsUtcMs(guess, tz))
   }
   // Naive fake-UTC instant for the same Y-M-D — for bookings.start_time,
   // matching how parseNaive() above reads it back.
@@ -301,8 +316,11 @@ export default async function DashboardPage() {
   }
 
   const todayYMD = now.toLocaleDateString('en-CA', { timeZone: tz }) // 'YYYY-MM-DD'
-  const zonedNow = new Date(now.toLocaleString('en-US', { timeZone: tz }))
-  const weekStartYMD = addDaysYMD(todayYMD, -zonedNow.getDay())
+  // UTC-anchored so .getUTCDay()/.getUTCMonth() below read the tz's wall
+  // clock regardless of ambient timezone — same portability fix as
+  // zonedMidnight above.
+  const zonedNow = new Date(wallAsUtcMs(now, tz))
+  const weekStartYMD = addDaysYMD(todayYMD, -zonedNow.getUTCDay())
   const monthStartYMD = `${todayYMD.slice(0, 7)}-01`
   const [tyY, tyM] = todayYMD.slice(0, 7).split('-').map(Number)
   const nextMonthStartYMD = tyM === 12 ? `${tyY + 1}-01-01` : `${tyY}-${String(tyM + 1).padStart(2, '0')}-01`
@@ -461,7 +479,7 @@ export default async function DashboardPage() {
       label: mStart.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
       count: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_JOBS + jobs.length : jobs.length,
       revenue: isNycmaidJan ? NYCMAID_JANUARY_ACTUAL_CENTS + sum(jobs) : sum(jobs),
-      isCurrent: monthIdx === zonedNow.getMonth(), isFuture: monthIdx > zonedNow.getMonth(),
+      isCurrent: monthIdx === zonedNow.getUTCMonth(), isFuture: monthIdx > zonedNow.getUTCMonth(),
       jobs: jobs
         .slice()
         .sort((a, b) => a.start_time.localeCompare(b.start_time))
