@@ -943,9 +943,21 @@ function BookingsPage() {
     }
 
     if (scope === 'all' && (editingBooking?.schedule_id || editingBooking?.recurring_type)) {
-      // Check if the recurring pattern itself changed (not just time/price/cleaner)
+      // Check if the recurring pattern itself changed (not just time/price/cleaner).
+      // editingBooking.recurring_type is the RAW recurring_schedules key
+      // ('weekly', 'biweekly', ...) for every schedule-linked booking -- written
+      // straight from POST /api/admin/recurring-schedules's recurring_type param,
+      // never through getRecurringDisplayName. Comparing it against the
+      // display-name `recurringType` computed above ('Weekly') made
+      // patternChanged true on EVERY "all future bookings" save, even pure
+      // time/cleaner edits with no pattern change -- routing every edit through
+      // the destructive /regenerate rebuild (capped to a ~6-week window, cron
+      // backfills the rest) instead of the lightweight in-place
+      // /api/bookings/batch-update path meant for this case. Compare raw to raw,
+      // same normalization already used to build the regenerate/create payloads
+      // elsewhere in this file (see line 830 etc).
       const oldRecurringType = editingBooking.recurring_type
-      const patternChanged = recurringType !== oldRecurringType
+      const patternChanged = rawRecurringType(form.repeat_type) !== oldRecurringType
 
       if (patternChanged && editingBooking.schedule_id && form.repeat_enabled) {
         // Pattern changed: one atomic server call replaces the old N+N
