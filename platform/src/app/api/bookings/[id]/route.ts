@@ -253,14 +253,18 @@ export async function PUT(
       .single()
 
     if (error) {
-      // TEMP DIAGNOSTIC 2026-07-24 -- pinpointing which field is an empty-
-      // string uuid causing "invalid input syntax for type uuid: ''" on
-      // booking edit save. Server log pulling wasn't surfacing traffic, so
-      // putting the fields sent directly in the error message the frontend
-      // already alert()s -- visible on the next failed attempt with no log
-      // access needed. Remove once root-caused.
+      // Root-caused 2026-08-14: the "invalid input syntax for type uuid: ''"
+      // failures came from BookingsAdmin.tsx sending '' instead of null for
+      // an unset referrer_id/sales_partner_id on single-booking edits (fixed
+      // in that file's updateData). Full details stay server-side only --
+      // the client alert() showing raw Postgres text plus the whole fields
+      // payload (booking notes, client IP, user agent) was unreadable to
+      // non-engineers and needlessly exposed that payload in the browser.
       console.error('[PUT /api/bookings/[id]] update failed', { bookingId: id, fields, error: error.message })
-      return NextResponse.json({ error: `${error.message} | fields: ${JSON.stringify(fields)}` }, { status: 500 })
+      const friendlyError = error.message.includes('invalid input syntax for type uuid')
+        ? 'One of the selected options (referrer, sales partner, team member, or address) has an invalid value. Try clearing and reselecting it, then save again.'
+        : 'Could not save this booking. Please try again, and let support know if it keeps happening.'
+      return NextResponse.json({ error: friendlyError }, { status: 500 })
     }
 
     // Same shared payout trigger the team-portal checkout button uses — the

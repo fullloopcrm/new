@@ -815,6 +815,15 @@ function BookingsPage() {
       // "invalid input syntax for type uuid: ''" save failure. Reproduced on
       // Erin Han's booking (property_id null in the DB, no client_properties row).
       property_id: form.property_id || null,
+      // Same bug again: referrer_id/sales_partner_id default to '' when a
+      // booking has no referrer or sales partner (the common case), and
+      // bookings.referrer_id/sales_partner_id are uuid columns. Every other
+      // save path in this file (regenerate, batch-update, recurring-schedule
+      // PUT, batch create) null-coerces these — this single-booking update
+      // path was the one spot commit 976a1fdb1 missed, breaking "invalid
+      // input syntax for type uuid: ''" saves on any single booking edit.
+      referrer_id: form.referrer_id || null,
+      sales_partner_id: form.sales_partner_id || null,
       start_time: newStartStr,
       end_time: newEndStr,
       price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
