@@ -502,14 +502,12 @@ function BookingsPage() {
     setCloseOutSaving(null)
   }
 
-  // Records a REAL client payment (inserts into `payments`, same endpoint
-  // the closeout math reads from) for the full amount still outstanding —
-  // for late/manual payments that don't come through Stripe (Zelle, Apple
-  // Pay, cash, confirmed-outside-the-system). Charges exactly what
-  // closeOutSummaries (the real payments-table total) says is still owed,
-  // never a guessed or stale amount. Backend: /api/admin/bookings/[id]/
-  // record-payment (still live — this restores the UI that called it).
-  const recordClientPayment = async (b: Booking, method: 'zelle' | 'apple_pay') => {
+  // Single admin override for a late/manual client payment that didn't come
+  // through Stripe (already confirmed paid some other way — Zelle, cash,
+  // whatever). Records a REAL payments-table row for the full outstanding
+  // amount via the still-live /api/admin/bookings/[id]/record-payment
+  // endpoint — no method picker, just "mark this paid."
+  const recordClientPayment = async (b: Booking) => {
     const summary = closeOutSummaries[b.id]
     if (!summary || summary.customerOutstandingCents <= 0) return
     setCloseOutSaving(b.id)
@@ -517,7 +515,7 @@ function BookingsPage() {
       const res = await fetch(`/api/admin/bookings/${b.id}/record-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount_cents: summary.customerOutstandingCents, method }),
+        body: JSON.stringify({ amount_cents: summary.customerOutstandingCents, method: 'other' }),
       })
       if (res.ok) {
         setCloseOutSummaries(prev => {
@@ -1715,28 +1713,13 @@ function BookingsPage() {
                           })()}
                           {/* Record a REAL client payment for whatever's still outstanding —
                               disabled until the real balance is known, and once it's $0. */}
-                          <div className="flex gap-1">
-                            <button
-                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
-                              onClick={() => recordClientPayment(b, 'zelle')}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
-                                (b.payment_method === 'zelle'
-                                  ? 'bg-purple-50 border-purple-300 text-purple-700'
-                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-purple-200 hover:text-purple-600')}
-                            >
-                              Zelle
-                            </button>
-                            <button
-                              disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
-                              onClick={() => recordClientPayment(b, 'apple_pay')}
-                              className={'flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 ' +
-                                (b.payment_method === 'apple_pay'
-                                  ? 'bg-gray-800 border-gray-800 text-white'
-                                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600')}
-                            >
-                              Apple
-                            </button>
-                          </div>
+                          <button
+                            disabled={isSaving || !closeOutSummaries[b.id] || closeOutSummaries[b.id].customerOutstandingCents <= 0}
+                            onClick={() => recordClientPayment(b)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border disabled:opacity-40 bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-700"
+                          >
+                            Mark Paid
+                          </button>
                           {/* Remind — manual, admin-clicked text + email for whatever's
                               really still outstanding. Never fires on its own. */}
                           <button
