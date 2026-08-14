@@ -507,6 +507,27 @@ function BookingsPage() {
   // bookings.payment_status with nothing behind it. Charges exactly what
   // closeOutSummaries (the real payments-table total) says is still owed,
   // never a guessed or stale amount.
+  // Once client + cleaner are both actually paid in full (real payments/
+  // payouts rows, not a flag), the booking closes out automatically instead
+  // of needing a separate "Job Done" click. Re-checks against the live
+  // closeout-summary rather than trusting the summary already in state, so
+  // this never completes a booking on a stale/partial number.
+  const maybeAutoComplete = async (b: Booking) => {
+    if (b.status === 'completed') return
+    try {
+      const r = await fetch(`/api/admin/bookings/${b.id}/closeout-summary`)
+      if (!r.ok) return
+      const j = await r.json()
+      const laborOutstandingCents = (j.cleaner_payouts || []).reduce((s: number, c: { outstanding_cents: number }) => s + c.outstanding_cents, 0)
+      const customerOutstandingCents = Math.max(0, (j.payment_totals?.expected_cents ?? j.bill.final_cents) - (j.payment_totals?.paid_cents ?? 0))
+      if (laborOutstandingCents <= 0 && customerOutstandingCents <= 0) {
+        await handleCloseOutUpdate(b.id, { status: 'completed' })
+      }
+    } catch (e) {
+      console.error('Auto-complete check failed:', e)
+    }
+  }
+
   const recordClientPayment = async (b: Booking, method: 'zelle' | 'apple_pay') => {
     const summary = closeOutSummaries[b.id]
     if (!summary || summary.customerOutstandingCents <= 0) return
@@ -523,6 +544,7 @@ function BookingsPage() {
           delete next[b.id]
           return next
         })
+        await maybeAutoComplete(b)
         await loadBookings()
       } else {
         const j = await res.json().catch(() => ({}))
@@ -565,6 +587,7 @@ function BookingsPage() {
         delete next[b.id]
         return next
       })
+      await maybeAutoComplete(b)
       await loadBookings()
     } catch (e) {
       console.error('Pay cleaners failed:', e)

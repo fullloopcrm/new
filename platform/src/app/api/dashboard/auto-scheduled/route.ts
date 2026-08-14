@@ -28,7 +28,7 @@ export async function GET() {
     .select('id, message, booking_id, created_at')
     .eq('type', 'auto_booking_assigned')
     .order('created_at', { ascending: false })
-    .limit(30)
+    .limit(5)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

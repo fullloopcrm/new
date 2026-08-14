@@ -12,19 +12,23 @@ interface ScheduleIssue {
   created_at: string
 }
 
-type IssueGroup = 'fix' | 'review' | 'verify'
+// payment_overdue / cleaner_unpaid / price_mismatch are financial, not
+// scheduling — they live in BillingIssues.tsx now (same schedule_issues
+// table + API, just filtered the other way). Excluded here so a booking
+// mixup doesn't show as a "schedule" problem.
+const BILLING_TYPES = new Set(['payment_overdue', 'cleaner_unpaid', 'price_mismatch'])
+
+type IssueGroup = 'fix' | 'review'
 const ISSUE_GROUP: Record<string, IssueGroup> = {
   time_conflict: 'fix', duplicate_client: 'fix', unassigned: 'fix', over_max_jobs: 'fix',
   tight_buffer: 'fix', day_off: 'fix', no_car: 'fix', no_show: 'fix', stuck_pending: 'fix',
   unscheduled_sale: 'fix', unscheduled_job: 'fix',
   home_by_risk: 'review',
-  price_mismatch: 'verify', payment_overdue: 'verify', cleaner_unpaid: 'verify',
 }
 const ISSUE_ACTION: Record<string, string> = {
   unassigned: 'Assign', time_conflict: 'Reassign', duplicate_client: 'Reassign', no_car: 'Reassign',
   day_off: 'Reassign', over_max_jobs: 'Rebalance', tight_buffer: 'Adjust', home_by_risk: 'Adjust',
-  no_show: 'View job', stuck_pending: 'Schedule', unscheduled_sale: 'Schedule', payment_overdue: 'Collect', cleaner_unpaid: 'Pay',
-  price_mismatch: 'Review price', unscheduled_job: 'Schedule',
+  no_show: 'View job', stuck_pending: 'Schedule', unscheduled_sale: 'Schedule', unscheduled_job: 'Schedule',
 }
 // booking_id doubles as "the related record's id" for issue types whose
 // record isn't a booking — unscheduled_job carries a Jobs id, so it must
@@ -35,9 +39,9 @@ const issueHref = (issue: ScheduleIssue): string | null =>
       ? `/dashboard/jobs/${issue.booking_id}`
       : `/dashboard/bookings?edit=${issue.booking_id}`
     : null
-const groupOf = (type: string): IssueGroup => ISSUE_GROUP[type] || 'verify'
+const groupOf = (type: string): IssueGroup => ISSUE_GROUP[type] || 'fix'
 const GROUP_META: { key: IssueGroup; label: string }[] = [
-  { key: 'fix', label: 'Fix now' }, { key: 'review', label: 'Review' }, { key: 'verify', label: 'Verify' },
+  { key: 'fix', label: 'Fix now' }, { key: 'review', label: 'Review' },
 ]
 
 const V = {
@@ -51,7 +55,10 @@ export default function ScheduleIssues() {
 
   const load = async () => {
     const res = await fetch('/api/admin/schedule-issues')
-    if (res.ok) setIssues(await res.json())
+    if (res.ok) {
+      const data = (await res.json()) as ScheduleIssue[]
+      setIssues(data.filter(i => !BILLING_TYPES.has(i.type)))
+    }
   }
   useEffect(() => { load() }, [])
 
