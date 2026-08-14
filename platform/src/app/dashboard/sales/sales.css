@@ -710,3 +710,131 @@ a.sl-contact-item:hover { text-decoration: underline; }
   font-family: var(--sl-mono); font-size: 9px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--sl-muted); font-weight: 600;
 }
+
+/* CATALOG TABLE — mirrors .clients-table (clients.css) / .sched-table
+ * (schedule.css) so all three wide-screen list pages read as one system:
+ * same box, same mono uppercase header band, same serif item names, same
+ * hover/border tokens. Distinct class names from .sl-row/.sl-thead above
+ * (the deals pipeline) — different column layout, same visual language.
+ */
+.sl-catalog-table {
+  background: var(--sl-canvas);
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sl-catalog-thead {
+  display: grid;
+  grid-template-columns: 90px 1fr 140px 172px;
+  padding: 11px 16px;
+  background: var(--sl-bg);
+  border-bottom: 1px solid var(--sl-line);
+  font-family: var(--sl-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--sl-muted);
+  font-weight: 600;
+  align-items: center;
+  gap: 10px;
+}
+.sl-catalog-thead .right { text-align: right; }
+.sl-catalog-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 140px 172px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sl-line-soft);
+  align-items: center;
+  gap: 10px;
+  cursor: move;
+  transition: background 0.15s ease;
+}
+.sl-catalog-row:last-child { border-bottom: none; }
+.sl-catalog-row:hover { background: #FBFBF8; }
+.sl-catalog-row.dragging { opacity: 0.4; }
+.sl-catalog-row.inactive { opacity: 0.5; }
+
+.sl-catalog-item { min-width: 0; }
+.sl-catalog-name-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sl-catalog-name {
+  font-family: var(--sl-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--sl-ink);
+  letter-spacing: -0.01em;
+}
+.sl-catalog-category {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sl-catalog-tag {
+  font-family: var(--sl-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  border: 1px solid var(--sl-line);
+  color: var(--sl-muted);
+}
+.sl-catalog-desc { font-size: 12.5px; color: var(--sl-muted); margin-top: 2px; }
+.sl-catalog-note { font-size: 11px; color: var(--sl-muted); font-style: italic; margin-top: 2px; }
+.sl-catalog-meta {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-muted);
+  margin-top: 3px;
+  letter-spacing: 0.03em;
+}
+
+.sl-catalog-price-cell { text-align: right; }
+.sl-catalog-price {
+  font-family: var(--sl-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--sl-ink);
+  letter-spacing: -0.015em;
+  line-height: 1;
+}
+.sl-catalog-unit {
+  font-family: var(--sl-mono);
+  font-size: 10px;
+  color: var(--sl-muted);
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+.sl-catalog-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+.sl-catalog-btn {
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  padding: 4px 9px;
+  cursor: pointer;
+  color: var(--sl-ink);
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.sl-catalog-btn:hover { border-color: var(--sl-ink); background: var(--sl-bg); }
+.sl-catalog-btn.danger { border-color: transparent; color: var(--sl-danger); }
+.sl-catalog-btn.danger:hover { background: rgba(139,26,26,0.06); }
+.sl-catalog-drag {
+  color: var(--sl-muted-2);
+  font-size: 13px;
+  letter-spacing: -1px;
+  cursor: grab;
+  user-select: none;
+}
+
+@media (max-width: 720px) {
+  .sl-catalog-thead, .sl-catalog-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .sl-catalog-thead { display: none; }
+}

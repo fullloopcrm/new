@@ -540,11 +540,19 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
         aria-label="Search catalog"
       />
 
-      {/* LIST */}
-      <div>
+      {/* LIST — grid-row pattern matching .clients-table / .sched-table */}
+      <div className="sl-catalog-table">
         {loading && <div className="sl-empty">Loading…</div>}
         {!loading && scopedItems.length === 0 && <div className="sl-empty">No items yet — add your first above.</div>}
         {!loading && scopedItems.length > 0 && filteredItems.length === 0 && <div className="sl-empty">No items match &quot;{query}&quot;.</div>}
+        {!loading && filteredItems.length > 0 && (
+          <div className="sl-catalog-thead">
+            <div>Type</div>
+            <div>Item</div>
+            <div className="right">Price</div>
+            <div />
+          </div>
+        )}
         {filteredItems.map((it) => {
           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
 
@@ -693,40 +701,43 @@ export default function CatalogTab({ defaultType, lockType, title, subtitle }: C
               onDragOver={(e) => onRowDragOver(e, it.id)}
               onDrop={(e) => e.preventDefault()}
               onDragEnd={onRowDragEnd}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.id === dragId ? 0.4 : it.active ? 1 : 0.5, cursor: 'move' }}
+              className={'sl-catalog-row' + (it.id === dragId ? ' dragging' : !it.active ? ' inactive' : '')}
             >
-              <span title="Drag to reorder" style={{ color: 'var(--sl-muted)', fontSize: 13, letterSpacing: '-1px', cursor: 'grab', userSelect: 'none' }}>⠿</span>
-              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{TYPE_LABELS[it.item_type] || it.item_type}</span>
-              {it.item_type === 'product' && it.is_digital && (
-                <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--sl-muted)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 4, padding: '2px 6px' }}>Digital</span>
-              )}
-              {it.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', flexShrink: 0 }} />
-              )}
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>
-                {it.category && <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{it.category}</span>}
-                {it.dropship_supplier_id && (
-                  <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-ink)', background: 'var(--sl-canvas,#f2f2ee)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 4, padding: '1px 6px' }}>
-                    {suppliers.find((s) => s.id === it.dropship_supplier_id)?.name || 'Unknown supplier'}
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span title="Drag to reorder" className="sl-catalog-drag">⠿</span>
+                <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`}>{TYPE_LABELS[it.item_type] || it.item_type}</span>
+              </div>
+              <div className="sl-catalog-item">
+                {it.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', float: 'left', marginRight: 10 }} />
                 )}
-                {it.description && <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-muted)' }}>{it.description}</span>}
-                {it.notes && <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', fontStyle: 'italic' }} title="Internal only — not shown on the proposal">Note: {it.notes}</span>}
-                <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', marginTop: 2 }}>
+                <div className="sl-catalog-name-line">
+                  <span className="sl-catalog-name">{it.name}</span>
+                  {it.category && <span className="sl-catalog-category">{it.category}</span>}
+                  {it.item_type === 'product' && it.is_digital && <span className="sl-catalog-tag">Digital</span>}
+                  {it.dropship_supplier_id && (
+                    <span className="sl-catalog-tag">{suppliers.find((s) => s.id === it.dropship_supplier_id)?.name || 'Unknown supplier'}</span>
+                  )}
+                </div>
+                {it.description && <div className="sl-catalog-desc">{it.description}</div>}
+                {it.notes && <div className="sl-catalog-note" title="Internal only — not shown on the proposal">Note: {it.notes}</div>}
+                <div className="sl-catalog-meta">
                   {it.min_charge_cents ? `min ${money(it.min_charge_cents)} · ` : ''}
                   {it.default_duration_hours ? `${it.default_duration_hours}h · ` : ''}
                   {it.taxable ? 'taxable' : 'no tax'}
                   {margin != null ? ` · ${margin}% margin` : ''}
-                </span>
-              </span>
-              <span style={{ fontSize: 14, color: 'var(--sl-ink)', minWidth: 120, textAlign: 'right' }}>
-                {money(it.price_cents)} <span style={{ color: 'var(--sl-muted)', fontSize: 11 }}>/ {unitShort(it.per_unit, it.unit_label)}</span>
-              </span>
-              <button type="button" onClick={() => startEdit(it)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
-              <button type="button" onClick={() => toggleActive(it.id, it.active)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>{it.active ? 'Active' : 'Off'}</button>
-              <button type="button" onClick={() => remove(it.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
+                </div>
+              </div>
+              <div className="sl-catalog-price-cell">
+                <div className="sl-catalog-price">{money(it.price_cents)}</div>
+                <div className="sl-catalog-unit">/ {unitShort(it.per_unit, it.unit_label)}</div>
+              </div>
+              <div className="sl-catalog-actions">
+                <button type="button" onClick={() => startEdit(it)} className="sl-catalog-btn">Edit</button>
+                <button type="button" onClick={() => toggleActive(it.id, it.active)} className="sl-catalog-btn">{it.active ? 'Active' : 'Off'}</button>
+                <button type="button" onClick={() => remove(it.id)} className="sl-catalog-btn danger">Delete</button>
+              </div>
             </div>
           )
         })}
