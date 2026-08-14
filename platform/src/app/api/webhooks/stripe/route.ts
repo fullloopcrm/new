@@ -32,6 +32,7 @@ import { notify as nycmaidNotify } from '@/lib/nycmaid/notify'
 import { notify } from '@/lib/notify'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
+import { normalizePhone } from '@/lib/phone'
 import { trackError } from '@/lib/error-tracking'
 import { sendEmail, tenantSender } from '@/lib/email'
 import { tenantSiteUrl } from '@/lib/tenant-site'
@@ -758,39 +759,87 @@ export async function POST(request: Request) {
       }
 
       // NYC Maid parity: a Stripe pay-link payment that arrived with NO booking
-      // reference — recover by matching the payer email to the NYC Maid client's
-      // most recent unpaid job; if we can't, alert admin so money never sits
-      // invisible (FL previously dropped these silently).
+      // reference — recover by matching the payer to the NYC Maid client's most
+      // recent unpaid job. Root-caused 2026-08-14: Simon Dolsten paid $155 via
+      // Stripe and it sat unmatched because he has two duplicate client
+      // records — one with a garbled phone + an email, one with the correct
+      // phone + no email — and the payer's actual checkout email
+      // (simon@dolsten.com) was on neither. Email-only matching is fragile
+      // against exactly the kind of messy/duplicate contact data this system
+      // already has; try phone too (Stripe's customer_details.phone is
+      // E.164, same as how clients.phone is stored) before giving up.
       if (!bookingId) {
         const payerEmail = session.customer_details?.email?.toLowerCase()
+        const payerPhone = normalizePhone(session.customer_details?.phone || null)
+        const payerName = session.customer_details?.name || null
         const amountC = session.amount_total || 0
+        let mc: { id: string; name: string } | null = null
         if (payerEmail) {
-          const { data: mc } = await supabaseAdmin
+          const { data } = await supabaseAdmin
             .from('clients')
             .select('id, name')
             .eq('tenant_id', NYCMAID_TENANT_ID)
             .ilike('email', payerEmail)
             .limit(1)
             .maybeSingle()
-          if (mc) {
-            const { data: cands } = await supabaseAdmin
-              .from('bookings')
-              .select('id, status')
-              .eq('tenant_id', NYCMAID_TENANT_ID)
-              .eq('client_id', mc.id)
-              .neq('payment_status', 'paid')
-              .in('status', ['completed', 'in_progress', 'scheduled'])
-              .order('start_time', { ascending: false })
-              .limit(5)
-            const pick = (cands || []).find((b) => b.status === 'completed') || (cands || [])[0]
-            if (pick) {
-              bookingId = pick.id
-              tenantId = NYCMAID_TENANT_ID
-            }
+          mc = data
+        }
+        if (!mc && payerPhone) {
+          const { data } = await supabaseAdmin
+            .from('clients')
+            .select('id, name')
+            .eq('tenant_id', NYCMAID_TENANT_ID)
+            .eq('phone', payerPhone)
+            .limit(1)
+            .maybeSingle()
+          mc = data
+        }
+        if (mc) {
+          const { data: cands } = await supabaseAdmin
+            .from('bookings')
+            .select('id, status')
+            .eq('tenant_id', NYCMAID_TENANT_ID)
+            .eq('client_id', mc.id)
+            .neq('payment_status', 'paid')
+            .in('status', ['completed', 'in_progress', 'scheduled'])
+            .order('start_time', { ascending: false })
+            .limit(5)
+          const pick = (cands || []).find((b) => b.status === 'completed') || (cands || [])[0]
+          if (pick) {
+            bookingId = pick.id
+            tenantId = NYCMAID_TENANT_ID
           }
         }
         if (!bookingId) {
-          await nmSmsAdmins(`Stripe $${(amountC / 100).toFixed(2)} from ${payerEmail || 'unknown'} — no booking ref, couldn't auto-match. Apply manually.`).catch(() => {})
+          // Root-caused 2026-08-14: this used to ONLY text admins — a message
+          // that scrolls away and leaves zero durable, queryable record. If it
+          // was missed (or the send itself failed), the money had no trace
+          // anywhere in the app at all, only in Stripe. admin_tasks is the
+          // existing durable-alert table this same file already uses for
+          // partial payments (see the isPartial branch above) — reuse it so
+          // this shows up as an actual open task, not just a text. metadata
+          // carries everything needed to reconcile it later (session id,
+          // payment intent, amount, payer identity) without re-querying
+          // Stripe by hand.
+          await supabaseAdmin.from('admin_tasks').insert({
+            tenant_id: NYCMAID_TENANT_ID,
+            type: 'unmatched_stripe_payment',
+            priority: 'high',
+            title: `Unmatched Stripe payment — $${(amountC / 100).toFixed(2)}`,
+            description: `Paid by ${payerName || 'unknown'} (${payerEmail || 'no email'}${payerPhone ? ', ' + payerPhone : ''}). No client/booking match found by email or phone. Apply to the right booking manually.`,
+            related_type: 'stripe_session',
+            metadata: {
+              stripe_session_id: session.id,
+              stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+              amount_cents: amountC,
+              payer_email: payerEmail || null,
+              payer_phone: payerPhone,
+              payer_name: payerName,
+            },
+          }).then(({ error }) => {
+            if (error) console.error('[stripe] unmatched-payment admin_task insert failed:', error)
+          })
+          await nmSmsAdmins(`Stripe $${(amountC / 100).toFixed(2)} from ${payerEmail || payerPhone || 'unknown'} — no booking ref, couldn't auto-match. Logged as an open task, apply manually.`).catch(() => {})
           break
         }
       }

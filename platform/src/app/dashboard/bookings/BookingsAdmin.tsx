@@ -180,6 +180,46 @@ function BookingsPage() {
   const [closeOutSaving, setCloseOutSaving] = useState<string | null>(null)
   const [closeOutExpanded, setCloseOutExpanded] = useState<Set<string>>(new Set())
   const [closeOutSummaries, setCloseOutSummaries] = useState<Record<string, { customerOwesCents: number; customerOutstandingCents: number; laborDueCents: number; laborOutstandingCents: number }>>({})
+  // Real Stripe payments the webhook couldn't auto-match to a booking (see
+  // webhooks/stripe/route.ts) — surfaced here, the one screen this money
+  // actually needs resolving on, instead of only a text that scrolls away.
+  const [unmatchedPayments, setUnmatchedPayments] = useState<Array<{ id: string; title: string; description: string; created_at: string; metadata: { amount_cents?: number; payer_name?: string | null; payer_email?: string | null; payer_phone?: string | null } }>>([])
+  const [unmatchedPaymentLinking, setUnmatchedPaymentLinking] = useState<string | null>(null)
+  const [unmatchedPaymentQuery, setUnmatchedPaymentQuery] = useState<Record<string, string>>({})
+  const [unmatchedPaymentSaving, setUnmatchedPaymentSaving] = useState<string | null>(null)
+
+  const loadUnmatchedPayments = async () => {
+    try {
+      const res = await fetch('/api/admin/unmatched-payments')
+      if (!res.ok) return
+      const j = await res.json()
+      setUnmatchedPayments(j.tasks || [])
+    } catch (e) { console.error('Load unmatched payments failed:', e) }
+  }
+
+  const resolveUnmatchedPayment = async (taskId: string, bookingId: string) => {
+    setUnmatchedPaymentSaving(taskId)
+    try {
+      const res = await fetch(`/api/admin/unmatched-payments/${taskId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingId }),
+      })
+      if (res.ok) {
+        setUnmatchedPayments(prev => prev.filter(t => t.id !== taskId))
+        setUnmatchedPaymentLinking(null)
+        await loadBookings()
+      } else {
+        const j = await res.json().catch(() => ({}))
+        alert(j.error || 'Linking payment failed')
+      }
+    } catch (e) {
+      console.error('Resolve unmatched payment failed:', e)
+      alert('Linking payment failed')
+    }
+    setUnmatchedPaymentSaving(null)
+  }
+
   const [showWaitlist, setShowWaitlist] = useState(false)
   const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null }>>([])
   const [waitlistLoading, setWaitlistLoading] = useState(false)
@@ -427,13 +467,22 @@ function BookingsPage() {
   const closeOutVerifyCandidates = [...flagClaimsAttention, ...flagClaimsClosedRecent]
   const closeOutIds = showCloseOut ? closeOutVerifyCandidates.map(b => b.id).join(',') : ''
   useEffect(() => {
-    if (!closeOutIds) return
-    const ids = closeOutIds.split(',').filter(id => !(id in closeOutSummaries))
-    if (ids.length === 0) return
-    let cancelled = false
-    Promise.all(ids.map(async (id) => {
+    if (showCloseOut) loadUnmatchedPayments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCloseOut])
+  // Root-caused 2026-08-14: a failed closeout-summary fetch (transient
+  // network blip, 500, timeout) used to return null and vanish -- the row's
+  // payment pill stuck on "Loading…" forever, every close-out button
+  // (Mark Paid, Remind, Team Paid) silently and permanently disabled with
+  // zero indication anything was wrong. Indistinguishable from a real "still
+  // loading" state, so it read exactly like the dead-button bug this was
+  // supposed to fix. Failures now land in closeOutSummaryErrors and render
+  // an explicit Retry action instead of an infinite spinner.
+  const [closeOutSummaryErrors, setCloseOutSummaryErrors] = useState<Set<string>>(new Set())
+  const fetchOneCloseOutSummary = async (id: string) => {
+    try {
       const r = await fetch(`/api/admin/bookings/${id}/closeout-summary`)
-      if (!r.ok) return null
+      if (!r.ok) throw new Error('non-200')
       const j = await r.json()
       const laborDueCents = (j.cleaner_payouts || []).reduce((s: number, c: { total_due_cents: number }) => s + c.total_due_cents, 0)
       const laborOutstandingCents = (j.cleaner_payouts || []).reduce((s: number, c: { outstanding_cents: number }) => s + c.outstanding_cents, 0)
@@ -443,16 +492,17 @@ function BookingsPage() {
       // the labor-still-owed line right below it, reading as unpaid client debt
       // when the client had already paid in full.
       const customerOutstandingCents = Math.max(0, (j.payment_totals?.expected_cents ?? j.bill.final_cents) - (j.payment_totals?.paid_cents ?? 0))
-      return [id, { customerOwesCents: j.bill.final_cents as number, customerOutstandingCents, laborDueCents, laborOutstandingCents }] as const
-    })).then((results) => {
-      if (cancelled) return
-      setCloseOutSummaries(prev => {
-        const next = { ...prev }
-        for (const r of results) { if (r) next[r[0]] = r[1] }
-        return next
-      })
-    })
-    return () => { cancelled = true }
+      setCloseOutSummaries(prev => ({ ...prev, [id]: { customerOwesCents: j.bill.final_cents as number, customerOutstandingCents, laborDueCents, laborOutstandingCents } }))
+      setCloseOutSummaryErrors(prev => { if (!prev.has(id)) return prev; const next = new Set(prev); next.delete(id); return next })
+    } catch {
+      setCloseOutSummaryErrors(prev => new Set(prev).add(id))
+    }
+  }
+  useEffect(() => {
+    if (!closeOutIds) return
+    const ids = closeOutIds.split(',').filter(id => !(id in closeOutSummaries) && !closeOutSummaryErrors.has(id))
+    if (ids.length === 0) return
+    ids.forEach(id => { fetchOneCloseOutSummary(id) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closeOutIds])
 
@@ -1586,6 +1636,73 @@ function BookingsPage() {
                 <button onClick={() => setShowCloseOut(false)} className="text-gray-400 hover:text-gray-600 text-sm">Close</button>
               </div>
 
+              {/* Unmatched Stripe payments — real money the webhook couldn't
+                  auto-attach to a booking (see webhooks/stripe/route.ts).
+                  Shown here, not just texted, so it can't get lost. */}
+              {unmatchedPayments.length > 0 && (
+                <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4">
+                  <h4 className="text-[10px] font-bold text-amber-800 uppercase tracking-wide mb-2">
+                    Unmatched Stripe Payments ({unmatchedPayments.length}) — real money, needs a booking
+                  </h4>
+                  <div className="space-y-2">
+                    {unmatchedPayments.map((t) => {
+                      const isLinking = unmatchedPaymentLinking === t.id
+                      const query = (unmatchedPaymentQuery[t.id] || '').trim().toLowerCase()
+                      const candidates = query.length < 2 ? [] : bookings.filter(b => {
+                        const name = b.clients?.name?.toLowerCase() || ''
+                        const phone = b.clients?.phone || ''
+                        return (name.includes(query) || phone.includes(query)) && b.payment_status !== 'paid'
+                      }).slice(0, 8)
+                      const amount = ((t.metadata.amount_cents || 0) / 100).toFixed(2)
+                      return (
+                        <div key={t.id} className="bg-white rounded-lg border border-amber-200 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--sched-ink)]">${amount} — {t.metadata.payer_name || t.metadata.payer_email || t.metadata.payer_phone || 'unknown payer'}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{t.metadata.payer_email || ''}{t.metadata.payer_email && t.metadata.payer_phone ? ' · ' : ''}{t.metadata.payer_phone || ''}</p>
+                            </div>
+                            <button
+                              onClick={() => setUnmatchedPaymentLinking(isLinking ? null : t.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-amber-300 text-amber-800 hover:bg-amber-100 transition-all flex-shrink-0"
+                            >
+                              {isLinking ? 'Cancel' : 'Link to booking'}
+                            </button>
+                          </div>
+                          {isLinking && (
+                            <div className="mt-3 pt-3 border-t border-amber-100">
+                              <input
+                                type="text"
+                                autoFocus
+                                placeholder="Search client name or phone…"
+                                value={unmatchedPaymentQuery[t.id] || ''}
+                                onChange={(e) => setUnmatchedPaymentQuery(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm mb-2"
+                              />
+                              {query.length >= 2 && candidates.length === 0 && (
+                                <p className="text-xs text-gray-400">No unpaid bookings match that.</p>
+                              )}
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {candidates.map(b => (
+                                  <button
+                                    key={b.id}
+                                    disabled={unmatchedPaymentSaving === t.id}
+                                    onClick={() => resolveUnmatchedPayment(t.id, b.id)}
+                                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm border border-gray-200 hover:border-amber-300 hover:bg-amber-50/50 transition-all disabled:opacity-40"
+                                  >
+                                    <span>{b.clients?.name} — {b.service_type} — {formatDate(b.start_time)}</span>
+                                    <span className="text-gray-400 text-xs">${(b.price / 100).toFixed(0)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Daily Overview — today's revenue/tips/labor snapshot (see dailyOverview above) */}
               <div className="mb-4">
                 <h4 className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide mb-2">Daily Overview</h4>
@@ -1700,6 +1817,17 @@ function BookingsPage() {
                           {(() => {
                             const summary = closeOutSummaries[b.id]
                             const reallyPaid = !!summary && summary.customerOutstandingCents <= 0
+                            const failed = !summary && closeOutSummaryErrors.has(b.id)
+                            if (failed) {
+                              return (
+                                <button
+                                  onClick={() => fetchOneCloseOutSummary(b.id)}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border bg-red-50 border-red-200 text-red-700 hover:bg-red-100 transition-all"
+                                >
+                                  Failed to load — Retry
+                                </button>
+                              )
+                            }
                             return (
                               <span className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ' +
                                 (reallyPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500')}>
