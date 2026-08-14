@@ -17,6 +17,7 @@ import type {
   BookingWithThankYou,
   BookingPending,
 } from '@/lib/types'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
                   tenantId,
                   type: 'booking_reminder',
                   title: `Reminder: Appointment ${label}`,
-                  message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
+                  message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })} at ${naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}.`,
                   channel: 'email',
                   recipientType: 'client',
                   recipientId: booking.client_id ?? undefined,
@@ -191,7 +192,7 @@ export async function GET(request: Request) {
           const member = booking.team_members
           if (!member || !booking.team_member_id) continue
 
-          let teamMsg = `${client?.name || 'Client'} - tomorrow at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          let teamMsg = `${client?.name || 'Client'} - tomorrow at ${naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}`
 
           // NYC Maid parity: send the cleaner their FULL next-day route with
           // travel times (property-aware coords). Only the earliest job of the
@@ -222,7 +223,7 @@ export async function GET(request: Request) {
               for (let i = 0; i < jobs.length; i++) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const j = jobs[i] as any
-                const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                const t = naiveToAnchoredDate(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
                 const addr = j.client_properties?.address || j.clients?.address
                 // Full name, phone, address, and service type — not just
                 // first name — so a cleaner still has the booking's real
@@ -297,7 +298,7 @@ export async function GET(request: Request) {
 
         // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
         if (reminderSmsOn && booking.client_id && tenant.telnyx_api_key && tenant.telnyx_phone) {
-          const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
+          const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}. Almost time!\nReply STOP to opt out.`
           try {
             const result = await sendClientSMS(tenant, booking.client_id, smsBody)
             sent += result.sent
@@ -310,7 +311,7 @@ export async function GET(request: Request) {
 
         // Team member SMS — 2hr reminder
         if (booking.team_member_id && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-          const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}`
           try {
             await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
             sent++
@@ -532,7 +533,7 @@ export async function GET(request: Request) {
         if (pendingBookings && pendingBookings.length > 0) {
           const details = pendingBookings.slice(0, 5).map(b => {
             const clientName = b.clients?.name || 'Unknown'
-            const date = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            const date = naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
             return `${clientName} - ${date}`
           }).join(', ')
 
@@ -606,7 +607,7 @@ export async function GET(request: Request) {
         const todayJobsList = (todayBookings || []).map((b: any) => ({
           clientName: b.clients?.name || 'Unknown',
           teamMemberName: b.team_members?.name || 'Unassigned',
-          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          time: `${naiveToAnchoredDate(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })} – ${naiveToAnchoredDate(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}`,
           revenue: fmt(b.price || 0),
           paymentStatus: b.payment_status || 'pending',
         }))
@@ -614,7 +615,7 @@ export async function GET(request: Request) {
         const tomorrowJobsList = (tomorrowBookings || []).map((b: any) => ({
           clientName: b.clients?.name || 'Unknown',
           teamMemberName: b.team_members?.name || 'Unassigned',
-          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          time: `${naiveToAnchoredDate(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })} – ${naiveToAnchoredDate(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}`,
           revenue: fmt(b.price || 0),
         }))
 

@@ -21,6 +21,7 @@ import { logSchedulingOverrideIfAny } from '@/lib/scheduling-override-log'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -482,13 +483,13 @@ export async function POST(request: Request) {
         .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
         .eq('id', tenantId)
         .single()
-      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const date = naiveToAnchoredDate(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
       // NYC Maid clients are told a 2-hour arrival window, never an exact
       // time (see time-window.ts — the same rule every SMS template already
       // follows). Other tenants get the plain wall-clock time.
       const time = isNycMaid(tenantId)
         ? clientArrivalWindow(data.start_time)
-        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : naiveToAnchoredDate(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
       // Client confirmation email — shared Full Loop template (same content

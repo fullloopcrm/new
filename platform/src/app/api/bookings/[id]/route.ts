@@ -18,6 +18,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { payCleanerAtCheckout, payExtraCrewAtCheckout } from '@/lib/finance/checkout-payout'
 import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '@/lib/nycmaid/time-window'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export async function GET(
   _request: Request,
@@ -306,13 +307,13 @@ export async function PUT(
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
-      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const date = naiveToAnchoredDate(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
       // NYC Maid clients are told a 2-hour arrival window, never an exact
       // time (see time-window.ts — the same rule every SMS template already
       // follows). Other tenants get the plain wall-clock time.
       const time = isNycMaid(tenantId)
         ? clientArrivalWindow(data.start_time)
-        : new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : naiveToAnchoredDate(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
 
       const statusChanged = fields.status && fields.status !== oldBooking?.status
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
@@ -588,7 +589,7 @@ export async function DELETE(
 
         // Client cancellation email — nycmaid gets the rich branded template
         if (booking.client_id) {
-          const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
           if (isNycMaid(tenantId) && booking.clients?.email) {
             const { clientCancellationEmail } = await import('@/lib/nycmaid/email-templates')
             const { sendClientEmail } = await import('@/lib/nycmaid/client-contacts')

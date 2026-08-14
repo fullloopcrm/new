@@ -11,6 +11,7 @@ import ClientAddresses from '../client-addresses'
 import { CallTextCopy } from '../../_components/CallTextCopy'
 import ClientNotesTimeline from '@/components/ClientNotesTimeline'
 import DocumentsPanel from '@/components/DocumentsPanel'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type Client = {
   id: string
@@ -283,7 +284,7 @@ export default function ClientDetailPage() {
                       <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                         <div>
                           <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
-                          <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
+                          <p className="text-xs text-slate-400">{naiveToAnchoredDate(b.start_time).toLocaleString('en-US', { timeZone: 'UTC' })}</p>
                         </div>
                         <div className="text-right">
                           <span className={`text-xs px-2 py-0.5 rounded ${

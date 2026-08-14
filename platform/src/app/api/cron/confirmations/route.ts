@@ -5,6 +5,7 @@ import { sendClientSMS } from '@/lib/client-contacts'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { etHour, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 import type { BookingTomorrowConfirm } from '@/lib/types'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
           if (alreadySent && alreadySent.length > 0) continue
 
           const member = booking.team_members
-          const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+          const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
           const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
           const firstName = client.name?.split(' ')[0] || 'there'
 

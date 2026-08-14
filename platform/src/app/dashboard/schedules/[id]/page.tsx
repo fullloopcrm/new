@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type Schedule = {
   id: string
@@ -221,8 +222,8 @@ export default function ScheduleDetailPage() {
               {bookings.map((b) => (
                 <Link key={b.id} href={`/dashboard/bookings?edit=${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                   <div>
-                    <p className="text-sm font-medium">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
-                    <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })}</p>
+                    <p className="text-sm font-medium">{naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
+                    <p className="text-xs text-slate-400">{naiveToAnchoredDate(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'UTC' })}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded ${
                     b.status === 'completed' ? 'bg-green-50 text-green-700' :

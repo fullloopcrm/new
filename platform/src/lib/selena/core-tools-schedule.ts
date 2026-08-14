@@ -4,6 +4,7 @@ import { yinezError, NYCMAID_TENANT_ID, type YinezResult } from './core-types'
 import { parseTime, handleCreateBooking, handleGetQuote } from './core-tools-booking'
 import { handleGetAccount, handleUpdateAccount, handleSendPin, handleResendConfirmation, handleCheckPayment, handleConfirmPayment } from './core-tools-account'
 import { nycmaidWallClockTime } from '@/lib/nycmaid/time-window'
+import { parseNaiveET } from '@/lib/recurring'
 
 async function handleLookupBookings(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
@@ -47,7 +48,7 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     // Client-ownership: the booking must belong to the caller, not merely to their tenant.
     if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
-    const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const daysUntil = Math.ceil((parseNaiveET(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
     const parsed = parseTime(input.new_time as string)
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
@@ -100,7 +101,7 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
     // Client-ownership: the booking must belong to the caller, not merely to their tenant.
     if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking', message: 'That booking is not on your account.' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
-    const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const daysUntil = Math.ceil((parseNaiveET(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
     // Does NOT cancel the booking — only the policy checks above run here.
     // Flags it for owner approval instead of mutating status directly; the

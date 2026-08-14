@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
+import { parseNaiveET } from '@/lib/recurring'
 import './bookings-list.css'
 
 type Booking = {
@@ -78,7 +79,7 @@ function computeMargin(b: Booking): { cents: number; pct: number; band: 'good' |
 function riskFor(b: Booking): { level: 'low' | 'med' | 'high' | 'live'; label: string } {
   if (b.status === 'in_progress') return { level: 'live', label: 'Live' }
   if (!b.team_member_id && b.status !== 'cancelled') return { level: 'high', label: 'No team' }
-  if (b.payment_status === 'unpaid' && new Date(b.start_time).getTime() < Date.now()) return { level: 'med', label: 'Owed' }
+  if (b.payment_status === 'unpaid' && parseNaiveET(b.start_time).getTime() < Date.now()) return { level: 'med', label: 'Owed' }
   return { level: 'low', label: 'OK' }
 }
 
@@ -125,7 +126,7 @@ export default function BookingsListTab() {
         if (smartFilter === 'low_margin' && computeMargin(b).pct >= 50) return false
         if (smartFilter === 'high_risk' && riskFor(b).level !== 'high') return false
         if (smartFilter === 'overdue_pay') {
-          const past = new Date(b.start_time).getTime() < Date.now()
+          const past = parseNaiveET(b.start_time).getTime() < Date.now()
           if (!(past && b.payment_status === 'unpaid')) return false
         }
         if (smartFilter === 'late') {

@@ -8,6 +8,7 @@ import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { nowNaiveET, etDayBoundaryUTC } from '@/lib/recurring'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const maxDuration = 300
 
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
           .limit(1)
         if (existing && existing.length > 0) continue
 
-        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone

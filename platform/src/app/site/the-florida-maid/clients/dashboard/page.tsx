@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import PushPrompt from '@/app/site/the-florida-maid/_components/PushPrompt'
 import { useServiceTypes } from '@/app/site/the-florida-maid/_lib/useServiceTypes'
 import BookingNotes from '@/app/site/the-florida-maid/_components/BookingNotes'
+import { formatNaiveTime, naiveToAnchoredDate } from '@/lib/naive-time'
 
 interface Booking {
   id: string
@@ -122,12 +123,10 @@ export default function ClientDashboardPage() {
   }
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
+    return naiveToAnchoredDate(dateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
   }
 
-  const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
-  }
+  const formatTime = (dateStr: string) => formatNaiveTime(dateStr)
 
   const getDaysUntil = (dateStr: string) => {
     const now = new Date()

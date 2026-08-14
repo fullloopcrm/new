@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { nowNaiveET } from '@/lib/recurring'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { parseNaiveET } from '@/lib/recurring'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
 // Gated on earnings.view_crew, which defaults ON only for manager. Scoped to the
@@ -46,13 +47,19 @@ export const GET = withMobileCors(async function GET(request: Request) {
   for (const m of members || []) rateFor.set(m.id, Number(m.pay_rate) || 25)
 
   // Earnings = worked hours × hourly rate (NOT a per-job total). Prefer
-  // check-in/out span; fall back to scheduled start→end.
+  // check-in/out span; fall back to scheduled start→end. check_in_time/
+  // check_out_time are real timestamptz, start_time/end_time are naive
+  // Eastern wall-clock strings (see lib/naive-time.ts) — mixing one real
+  // instant with one naive-parsed-as-UTC instant in the same subtraction
+  // silently skews the duration by the ET/UTC offset, so the pair is always
+  // drawn from the same source, never split across the two.
   const totals = new Map<string, { jobs: number; earnings: number }>()
   for (const j of jobs || []) {
     if (!j.team_member_id) continue
-    const startMs = new Date(j.check_in_time || j.start_time).getTime()
-    const endRaw = j.check_out_time || j.end_time
-    const hours = endRaw ? roundToHalfHour((new Date(endRaw).getTime() - startMs) / 3_600_000) : 0
+    const hasCheckPair = Boolean(j.check_in_time && j.check_out_time)
+    const startMs = hasCheckPair ? new Date(j.check_in_time).getTime() : parseNaiveET(j.start_time).getTime()
+    const endRaw = hasCheckPair ? j.check_out_time : j.end_time
+    const hours = endRaw ? roundToHalfHour(((hasCheckPair ? new Date(endRaw).getTime() : parseNaiveET(endRaw).getTime()) - startMs) / 3_600_000) : 0
     const rate = Number(j.pay_rate) || rateFor.get(j.team_member_id) || 25
     const prev = totals.get(j.team_member_id) || { jobs: 0, earnings: 0 }
     prev.jobs += 1

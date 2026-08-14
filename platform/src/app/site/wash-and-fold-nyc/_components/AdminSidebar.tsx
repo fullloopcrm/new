@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import SidePanel from '@/app/site/wash-and-fold-nyc/_components/SidePanel'
 import PushPrompt from '@/app/site/wash-and-fold-nyc/_components/PushPrompt'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 interface Notification {
   id: string
@@ -276,8 +277,8 @@ export default function AdminSidebar() {
     let line2 = n.message
     let line3 = ''
     if (booking) {
-      const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })
-      const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+      const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+      const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
       line3 = `${date} @ ${time}`
       if (booking.service_type) line3 += ` • ${booking.service_type}`
     }

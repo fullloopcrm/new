@@ -29,7 +29,7 @@ import { buildMemberColors, colorForMember, type ColorableMember } from '../cale
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions } from './_RecurringOptions'
 import { CallTextCopy } from '../_components/CallTextCopy'
-import { generateInitialBatchDates, getRecurringDisplayName, buildSeriesUpdateData, type RecurringType, type RepeatEnd } from '@/lib/recurring'
+import { generateInitialBatchDates, getRecurringDisplayName, buildSeriesUpdateData, parseNaiveET, type RecurringType, type RepeatEnd } from '@/lib/recurring'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import BookingsSettings from './bookings-settings'
 import { SettingsHint } from '@/components/page-settings'
@@ -37,6 +37,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
 import { formatPhone, formatJobNumber } from '@/lib/format'
+import { formatNaiveDate, formatNaiveTime } from '@/lib/naive-time'
 import { stripPhone } from '@/lib/phone'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
@@ -1134,12 +1135,11 @@ function BookingsPage() {
   }
 
   const formatDate = (dateStr: string) => {
-    // Parse naive datetime string to avoid timezone shift
-    const [datePart, timePart] = dateStr.split('T')
-    const [y, mo, d] = datePart.split('-').map(Number)
-    const [h, m] = (timePart || '00:00').split(':').map(Number)
-    const dt = new Date(y, mo - 1, d, h, m)
-    return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+    // Naive Eastern wall-clock digits — the previous fix here ("Parse naive
+    // datetime string to avoid timezone shift") still round-tripped through
+    // new Date(...) + an explicit timeZone, which re-introduces the same
+    // shift it was trying to avoid. Parse and print the digits directly.
+    return `${formatNaiveDate(dateStr)}, ${formatNaiveTime(dateStr)}`
   }
 
   // created_at is a real tz-aware timestamp (unlike start_time's naive ET
@@ -1201,7 +1201,7 @@ function BookingsPage() {
   // ledgerYtdRevenue (from /api/finance/summary's yearRevenue) is already in
   // cents, same as bookings[].price — no conversion needed.
   const totalRevenue = activeFilterCount === 0 && ledgerYtdRevenue != null ? ledgerYtdRevenue : filteredCompletedRevenue
-  const upcomingCount = bookings.filter(b => (b.status === 'scheduled' || b.status === 'confirmed') && new Date(b.start_time) > new Date()).length
+  const upcomingCount = bookings.filter(b => (b.status === 'scheduled' || b.status === 'confirmed') && parseNaiveET(b.start_time).getTime() > Date.now()).length
   const thisWeekCount = bookings.filter(b => {
     const d = new Date(b.start_time)
     const now = new Date()

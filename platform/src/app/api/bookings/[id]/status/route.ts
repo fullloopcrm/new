@@ -9,6 +9,7 @@ import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { voidCommissionsForBooking } from '@/lib/finance/post-adjustments'
 import { reverseBookingRevenueIfPosted } from '@/lib/finance/post-revenue'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['scheduled', 'cancelled'],
@@ -85,7 +86,7 @@ export async function PATCH(
           .eq('id', tenantId)
           .single()
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
-        const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
 
         await notify({
           tenantId,

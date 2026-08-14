@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CallTextCopy } from '../../_components/CallTextCopy'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type Booking = {
   id: string
@@ -205,8 +206,8 @@ export default function BookingDetailPage() {
             {booking.service_type || 'Booking'}
           </h2>
           <p className="text-sm text-slate-400">
-            {new Date(booking.start_time).toLocaleString()}
-            {booking.end_time && ` — ${new Date(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })}`}
+            {naiveToAnchoredDate(booking.start_time).toLocaleString('en-US', { timeZone: 'UTC' })}
+            {booking.end_time && ` — ${naiveToAnchoredDate(booking.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'UTC' })}`}
           </p>
         </div>
         <div className="flex gap-2">

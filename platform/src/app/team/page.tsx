@@ -8,6 +8,7 @@ import TranslatedNotes from '@/components/TranslatedNotes'
 import TeamBookingNotes from '@/components/TeamBookingNotes'
 import PushPrompt from '@/components/PushPrompt'
 import { parseTimestamp } from '@/lib/dates'
+import { naiveToAnchoredDate, formatNaiveTime } from '@/lib/naive-time'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -182,12 +183,12 @@ function JobCard({ job, t, showDate, onCheckIn, onCheckOut, onHeadsUp, onOnMyWay
         <div className="flex-1 min-w-0">
           {showDate && (
             <p className="text-xs text-slate-400 mb-0.5">
-              {new Date(job.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
+              {naiveToAnchoredDate(job.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })}
             </p>
           )}
           <p className="font-semibold text-slate-800 text-sm">
-            {formatTime(job.start_time)}
-            {job.end_time && ` — ${formatTime(job.end_time)}`}
+            {formatNaiveTime(job.start_time)}
+            {job.end_time && ` — ${formatNaiveTime(job.end_time)}`}
           </p>
           <p className="text-xs text-slate-400 truncate">{job.clients?.name || t('Client', 'Cliente')}</p>
         </div>
@@ -840,9 +841,9 @@ export default function TeamHomePage() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="text-sm font-medium text-slate-800">
-                      {new Date(job.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
-                      {' '}{formatTime(job.start_time)}
-                      {job.end_time && ` — ${formatTime(job.end_time)}`}
+                      {naiveToAnchoredDate(job.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' , timeZone: 'UTC' })}
+                      {' '}{formatNaiveTime(job.start_time)}
+                      {job.end_time && ` — ${formatNaiveTime(job.end_time)}`}
                     </p>
                     <p className="text-xs text-slate-400">{job.clients?.name}</p>
                   </div>

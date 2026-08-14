@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type ReferralData = {
   referrer: {
@@ -428,7 +429,7 @@ function ReferralDashboard() {
                   <div key={b.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <div>
                       <p className="font-medium text-slate-800 text-sm">{b.client_name || 'Client'}</p>
-                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
+                      <p className="text-xs text-slate-400">{naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
                     </div>
                     <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
                       Scheduled — awaiting completion

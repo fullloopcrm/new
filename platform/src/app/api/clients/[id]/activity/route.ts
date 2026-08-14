@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('clients.view')
@@ -53,7 +54,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       activities.push({
         type: 'booking_created',
         title: 'Booking created',
-        description: `${b.notes || 'Service'} with ${memberName || 'unassigned'} - ${new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+        description: `${b.notes || 'Service'} with ${memberName || 'unassigned'} - ${naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })}`,
         timestamp: b.created_at || b.start_time
       })
 
@@ -91,7 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         activities.push({
           type: 'booking_cancelled',
           title: 'Booking cancelled',
-          description: `On ${new Date(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+          description: `On ${naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'UTC' })}`,
           timestamp: b.updated_at || b.start_time
         })
       }

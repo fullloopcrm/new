@@ -9,6 +9,7 @@ import AuthShell, {
   authErrorClass,
 } from '@/components/auth/AuthShell'
 import { useAuthLang } from '@/components/auth/useAuthLang'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 interface Partner {
   id: string
@@ -64,7 +65,7 @@ function formatMoney(cents: number): string {
 }
 
 function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
+  return naiveToAnchoredDate(d).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 const statusLabels: Record<string, string> = {

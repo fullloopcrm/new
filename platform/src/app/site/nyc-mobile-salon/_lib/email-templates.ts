@@ -3,6 +3,7 @@
 // ============================================
 
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
@@ -99,8 +100,8 @@ const noteBox = (content: string, type: 'info' | 'warning' | 'success' = 'info')
 // ============================================
 
 export function clientBookingReceivedEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const startTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
 
   const content = `
@@ -136,8 +137,8 @@ export function clientBookingReceivedEmail(booking: any) {
 }
 
 export function clientConfirmationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const startTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name || 'Your stylist'
   const cleanerFirst = (booking.cleaners?.name || 'Your stylist').split(' ')[0]
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
@@ -235,8 +236,8 @@ export function clientConfirmationEmail(booking: any) {
 }
 
 export function clientReminderEmail(booking: any, daysOut: string) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const startTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name || 'Your stylist'
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const isRecurring = booking.recurring_type ? true : false
@@ -267,7 +268,7 @@ export function clientReminderEmail(booking: any, daysOut: string) {
 }
 
 export function clientCancellationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
 
   const content = `
@@ -367,9 +368,9 @@ export function clientPaymentDueEmail(booking: any, amount: string) {
 // ============================================
 
 export function cleanerAssignmentEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-  const startTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const dateES = naiveToAnchoredDate(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' , timeZone: 'UTC' })
+  const startTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
   const hourlyRate = booking.hourly_rate || 75
@@ -417,18 +418,18 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
   // Group bookings by date
   const byDate = new Map<string, any[]>()
   for (const b of bookings) {
-    const dateKey = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    const dateKey = naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
     if (!byDate.has(dateKey)) byDate.set(dateKey, [])
     byDate.get(dateKey)!.push(b)
   }
 
   let jobsList = ''
   for (const [dateEN, dayBookings] of byDate) {
-    const dateES = new Date(dayBookings[0].start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+    const dateES = naiveToAnchoredDate(dayBookings[0].start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' , timeZone: 'UTC' })
     jobsList += `<p style="color: #000; font-size: 16px; margin: 24px 0 4px 0;"><strong>${dateEN}</strong></p>`
     jobsList += `<p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">${dateES}</p>`
     for (const b of dayBookings) {
-      const startTime = new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      const startTime = naiveToAnchoredDate(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
       const address = b.clients?.address || 'TBD'
       const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`
       const hourlyRate = b.hourly_rate || 75
@@ -464,9 +465,9 @@ export function cleanerDailySummaryEmail(cleanerName: string, bookings: any[]) {
 }
 
 export function cleanerCancellationEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const dateES = new Date(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const dateES = naiveToAnchoredDate(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const firstName = booking.cleaners?.name?.split(' ')[0] || ''
   
   const content = `
@@ -580,8 +581,8 @@ export function newReferrerAdminEmail(referrer: { name: string; email: string; p
 }
 
 export function newBookingAdminEmail(booking: any) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking</h1>
@@ -718,7 +719,7 @@ export function adminNewClientEmail(client: { name: string; phone?: string; emai
 }
 
 export function adminNewBookingRequestEmail(booking: any, details: { time?: string; ref_code?: string; referred_by?: string }) {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 24px 0;">New booking request</h1>
@@ -896,8 +897,8 @@ export function adminDailyOpsRecapEmail(data: {
 }
 
 export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const cleanerName = booking.cleaners?.name || 'Your stylist'
 
@@ -924,8 +925,8 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
 }
 
 export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
 
   const content = `
     <h1 style="font-size: 24px; font-weight: 600; color: #000; margin: 0 0 8px 0;">Booking rescheduled by client</h1>
@@ -947,9 +948,9 @@ export function adminRescheduleEmail(booking: any, oldDate: string, oldTime: str
 }
 
 export function cleanerRescheduleEmail(booking: any, oldDate: string, oldTime: string) {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const newDateES = new Date(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const newDateES = naiveToAnchoredDate(booking.start_time).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const firstName = booking.cleaners?.name?.split(' ')[0] || ''
   const address = booking.clients?.address || 'TBD'
   const mapsLink = `https://maps.google.com/?q=${encodeURIComponent(address)}`

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type BankTxn = { id: string; txn_date: string; description: string; amount_cents: number; bank_account_id: string }
 type Invoice = { id: string; invoice_number: string; total_cents: number; amount_paid_cents: number; due_date: string | null; contact_name: string | null; clients: { name: string } | null }
@@ -212,7 +213,7 @@ export default function ReconcilePage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-900 truncate">{b.clients?.name || 'Client'}</p>
-                        <p className="text-xs text-slate-500">{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
+                        <p className="text-xs text-slate-500">{naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
                       </div>
                       <p className="text-sm font-semibold text-amber-700">{formatCents(Math.round((Number(b.price) || 0) * 100))}</p>
                     </li>

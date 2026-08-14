@@ -4,6 +4,7 @@ import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth
 import { sendPushToTeamMember } from '@/lib/push'
 import { audit } from '@/lib/audit'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 // A lead/manager reassigns a job to another field member. Guardrails:
 //   - requires jobs.reassign
@@ -73,7 +74,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
   })
 
   // Notify both sides — accountability so no one silently loses/gains a job.
-  const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+  const when = booking.start_time ? naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' , timeZone: 'UTC' }) : ''
   try {
     await sendPushToTeamMember(to_member_id, 'New job assigned', `You've been assigned a job${when ? ` on ${when}` : ''}.`, '/team/jobs')
     if (previous && previous !== to_member_id) {

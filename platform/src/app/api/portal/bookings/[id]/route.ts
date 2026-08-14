@@ -4,6 +4,7 @@ import { tenantClient } from '@/lib/tenant-supabase'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const OPTIONS = corsPreflight
 
@@ -86,7 +87,7 @@ export const PUT = withMobileCors(async function PUT(
 
   // Notifications for reschedule
   if (start_time && start_time !== oldBooking.start_time) {
-    const oldDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const oldDate = naiveToAnchoredDate(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
     const newDate = new Date(start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     const newTime = new Date(start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
@@ -130,7 +131,7 @@ export const PUT = withMobileCors(async function PUT(
 
   // Notifications for cancellation
   if (status === 'cancelled') {
-    const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const bookingDate = naiveToAnchoredDate(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
 
     await tenantDb(auth.tid)
       .from('notifications') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper

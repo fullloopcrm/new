@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTeamAuth } from '../team-auth'
 import LoopCamRecorder from '@/components/LoopCamRecorder'
+import { formatNaiveTime } from '@/lib/naive-time'
 
 type ActiveJob = {
   id: string
@@ -16,7 +17,7 @@ type ActiveJob = {
 }
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' , timeZone: 'America/New_York' })
+  return formatNaiveTime(dateStr)
 }
 
 export default function LoopCamPage() {

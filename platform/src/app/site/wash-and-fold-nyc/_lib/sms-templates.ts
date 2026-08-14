@@ -3,6 +3,8 @@
 // All messages end with opt-out info per TCPA
 // ============================================
 
+import { naiveToAnchoredDate } from '@/lib/naive-time'
+
 const STOP_TEXT = '\nReply STOP to opt out.'
 const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 
@@ -11,14 +13,14 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 // ============================================
 
 export function smsBookingReceived(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: We received your booking request for ${date} at ${time}. We'll confirm with your cleaner's details shortly. Questions? (917) 970-6002${STOP_TEXT}`
 }
 
 export function smsBookingConfirmation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your cleaner'
   const isRecurring = !!booking.recurring_type
   const cancelPolicy = isRecurring
@@ -28,7 +30,7 @@ export function smsBookingConfirmation(booking: any): string {
 }
 
 export function smsReminder(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Your cleaner'
   const isRecurring = !!booking.recurring_type
   const policy = isRecurring
@@ -41,13 +43,13 @@ export function smsReminder(booking: any, timeframe: string): string {
 }
 
 export function smsCancellation(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: Your ${date} cleaning has been cancelled. Rebook: washandfoldnyc.com/book${STOP_TEXT}`
 }
 
 export function smsReschedule(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: Your cleaning has been rescheduled to ${newDate} at ${newTime}. Details: washandfoldnyc.com/book${STOP_TEXT}`
 }
 
@@ -65,14 +67,14 @@ export function smsVerificationCode(code: string): string {
 // ============================================
 
 export function smsBookingConfirmationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu limpiador/a'
   return `The NYC Wash and Fold Service Company: Tu limpieza está confirmada para ${date} a las ${time} con ${cleanerName}. Detalles: washandfoldnyc.com/book${STOP_TEXT_ES}`
 }
 
 export function smsReminderES(booking: any, timeframe: string): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name?.split(' ')[0] || 'Tu limpiador/a'
   const tfMap: Record<string, string> = {
     'in 2 hours': 'en 2 horas',
@@ -87,13 +89,13 @@ export function smsReminderES(booking: any, timeframe: string): string {
 }
 
 export function smsCancellationES(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: Tu limpieza del ${date} ha sido cancelada. Reservar de nuevo: washandfoldnyc.com/book${STOP_TEXT_ES}`
 }
 
 export function smsRescheduleES(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: Tu limpieza ha sido reprogramada para ${newDate} a las ${newTime}. Detalles: washandfoldnyc.com/book${STOP_TEXT_ES}`
 }
 
@@ -107,8 +109,8 @@ export function smsThankYouES(clientName: string): string {
 // ============================================
 
 export function smsJobAssignment(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const pin = booking.cleaners?.pin || ''
   return `The NYC Wash and Fold Service Company: New job ${date} ${time} - ${booking.clients?.name || 'Client'}. Portal: washandfoldnyc.com/team PIN: ${pin}\nNuevo trabajo ${date} ${time}. Portal: washandfoldnyc.com/team PIN: ${pin}${STOP_TEXT}`
 }
@@ -134,21 +136,21 @@ export function smsDailySummary(cleanerName: string, count: number, pin?: string
 }
 
 export function smsJobCancelled(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   const pin = booking.cleaners?.pin || ''
   return `The NYC Wash and Fold Service Company: Cancelled - ${date} job (${booking.clients?.name || 'Client'}). Portal: washandfoldnyc.com/team PIN: ${pin}\nCancelado - trabajo del ${date}. Portal: washandfoldnyc.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsJobRescheduled(booking: any): string {
-  const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const newDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const newTime = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const pin = booking.cleaners?.pin || ''
   return `The NYC Wash and Fold Service Company: Rescheduled - ${booking.clients?.name || 'Client'} moved to ${newDate} ${newTime}. Portal: washandfoldnyc.com/team PIN: ${pin}\nReprogramado al ${newDate} ${newTime}. Portal: washandfoldnyc.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsUrgentBroadcast(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const payRate = booking.cleaner_pay_rate || 40
   return `The NYC Wash and Fold Service Company URGENT: $${payRate}/hr job available ${date} ${time}. Claim now: washandfoldnyc.com/team\nURGENTE: Trabajo $${payRate}/hr ${date} ${time}. Reclamar: washandfoldnyc.com/team${STOP_TEXT}`
 }
@@ -180,14 +182,14 @@ export function smsNewClient(name: string): string {
 }
 
 export function smsLateCheckInCleaner(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const clientName = booking.clients?.name || 'Client'
   const pin = booking.cleaners?.pin || ''
   return `The NYC Wash and Fold Service Company: You're late for your ${time} job (${clientName}). Please check in ASAP: washandfoldnyc.com/team PIN: ${pin}\nEstás tarde para tu trabajo de las ${time} (${clientName}). Regístrate ahora: washandfoldnyc.com/team PIN: ${pin}${STOP_TEXT}`
 }
 
 export function smsLateCheckInAdmin(booking: any): string {
-  const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const time = naiveToAnchoredDate(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
   const cleanerName = booking.cleaners?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
   return `The NYC Wash and Fold Service Company: Late check-in — ${cleanerName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
@@ -206,7 +208,7 @@ export function smsLateCheckOutAdmin(booking: any): string {
 }
 
 export function smsNewBooking(booking: any): string {
-  const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const date = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
   return `The NYC Wash and Fold Service Company: New booking — ${booking.clients?.name || 'Unknown'} on ${date}`
 }
 

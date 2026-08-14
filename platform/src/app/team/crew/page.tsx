@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTeamAuth } from '../team-auth'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type CrewJob = {
   id: string
@@ -111,7 +112,7 @@ export default function CrewPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-800">{job.service_type || t('Service', 'Servicio')}</p>
-                  <p className="text-sm text-slate-400">{new Date(job.start_time).toLocaleString()}</p>
+                  <p className="text-sm text-slate-400">{naiveToAnchoredDate(job.start_time).toLocaleString('en-US', { timeZone: 'UTC' })}</p>
                   {client?.name && <p className="text-sm text-slate-500 truncate">{client.name}</p>}
                   {client?.address && <p className="text-xs text-slate-400 truncate">📍 {client.address}</p>}
                 </div>

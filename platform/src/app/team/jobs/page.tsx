@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTeamAuth } from '../team-auth'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type Job = {
   id: string
@@ -65,7 +66,7 @@ export default function OpenJobsPage() {
           <div key={job.id} className="bg-white border border-gray-200 rounded-xl p-4">
             <div className="mb-3">
               <p className="font-semibold text-slate-800">{job.service_type || 'Service'}</p>
-              <p className="text-sm text-slate-400">{new Date(job.start_time).toLocaleString()}</p>
+              <p className="text-sm text-slate-400">{naiveToAnchoredDate(job.start_time).toLocaleString('en-US', { timeZone: 'UTC' })}</p>
               {job.area && <p className="text-sm text-slate-400">📍 {job.area}</p>}
             </div>
             <button

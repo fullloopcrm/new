@@ -9,6 +9,7 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { bookingWallClockDate, nycmaidWallClockTime } from '@/lib/time-window'
 import { getTenantTimezone } from '@/lib/tenant-time'
+import { parseNaiveET } from '@/lib/recurring'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -425,7 +426,7 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be rescheduled.' })
     }
     const noticeDays = (booking.tenants as unknown as { reschedule_notice_days: number } | null)?.reschedule_notice_days || 2
-    const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const daysUntil = Math.ceil((parseNaiveET(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < noticeDays) {
       return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need ${noticeDays} days notice.` })
     }
@@ -459,7 +460,7 @@ export async function handleCancelBooking(tenantId: string, input: Record<string
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     }
     const noticeDays = (booking.tenants as unknown as { reschedule_notice_days: number } | null)?.reschedule_notice_days || 2
-    const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    const daysUntil = Math.ceil((parseNaiveET(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < noticeDays) {
       return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need ${noticeDays} days notice.` })
     }

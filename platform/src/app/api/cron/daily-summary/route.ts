@@ -7,6 +7,7 @@ import { sendSMS } from '@/lib/sms'
 import { isCommEnabled, getCommPrefs } from '@/lib/comms-prefs'
 import { getTenantTimezone, getTenantDayBoundaries, isTenantLocalHour, getTenantNaiveDayBoundaries, addCalendarDays, formatCalendarNaive } from '@/lib/tenant-time'
 import type { BookingTeamLookahead, RecurringScheduleWithClient, BookingAdminScheduleLine } from '@/lib/types'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -236,8 +237,8 @@ export async function GET(request: Request) {
         if (member.email) {
           const jobsForEmail = upcomingJobs.map(j => {
             const client = j.clients
-            const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            const date = naiveToAnchoredDate(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
+            const time = naiveToAnchoredDate(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })
             return {
               clientName: client?.name || 'Client',
               dateTime: `${date} ${time}`,

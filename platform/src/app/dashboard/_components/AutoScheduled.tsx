@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 interface AutoScheduledEntry {
   id: string
@@ -67,8 +68,8 @@ export default function AutoScheduled() {
           </div>
           {(e.start_time || e.end_time) && (
             <div style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.muted, marginTop: 2 }}>
-              {e.start_time ? new Date(e.start_time).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
-              {e.end_time ? ` – ${new Date(e.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })}` : ''}
+              {e.start_time ? naiveToAnchoredDate(e.start_time).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' }) : ''}
+              {e.end_time ? ` – ${naiveToAnchoredDate(e.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' , timeZone: 'UTC' })}` : ''}
             </div>
           )}
           <div className="mt-2" style={{ fontFamily: V.mono, fontSize: '10.5px', color: V.warn }}>

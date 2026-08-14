@@ -9,6 +9,7 @@ import AuthShell, {
   authErrorClass,
 } from '@/components/auth/AuthShell'
 import { useAuthLang } from '@/components/auth/useAuthLang'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 interface Partner {
   id: string
@@ -320,7 +321,7 @@ export default function SalesPartnerPortalPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">{b.client_name || 'A client'}</p>
                     <p className="text-xs text-gray-400">
-                      {b.referrer_name ? `Via ${b.referrer_name} · ` : ''}{new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                      {b.referrer_name ? `Via ${b.referrer_name} · ` : ''}{naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { timeZone: 'UTC' })}
                     </p>
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700">Scheduled</span>

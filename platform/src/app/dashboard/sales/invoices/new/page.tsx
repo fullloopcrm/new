@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 
@@ -99,7 +100,7 @@ export default function NewInvoicePage() {
           setContactEmail(b.clients?.email || '')
           setContactPhone(b.clients?.phone || '')
           setServiceAddress(b.clients?.address || b.address || '')
-          setTitle(`Service on ${new Date(b.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}`)
+          setTitle(`Service on ${naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', { timeZone: 'UTC' })}`)
           const hrs = Number(b.actual_hours) || 1
           const price = Number(b.price) || 0
           setItems([{

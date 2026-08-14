@@ -7,6 +7,7 @@ import { formatPhone } from '@/lib/phone'
 import { normalizeWorkingHours } from '@/lib/day-availability'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { CallTextCopy } from '../../_components/CallTextCopy'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 // Last-10-digits match so a formatted profile phone lines up with the
 // normalized application phone stored as digits.
@@ -1006,7 +1007,7 @@ export default function TeamMemberDetailPage() {
                   <Link key={b.id} href={`/dashboard/bookings/${b.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 border border-slate-200">
                     <div>
                       <p className="text-sm font-medium">{b.service_type || 'Service'}</p>
-                      <p className="text-xs text-slate-400">{new Date(b.start_time).toLocaleString()}</p>
+                      <p className="text-xs text-slate-400">{naiveToAnchoredDate(b.start_time).toLocaleString('en-US', { timeZone: 'UTC' })}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       b.status === 'completed' ? 'bg-green-50 text-green-700' :

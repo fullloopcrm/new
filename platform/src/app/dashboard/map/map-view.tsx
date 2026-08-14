@@ -6,6 +6,7 @@ import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { crewNames, type CrewRow } from '@/lib/crew'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 // Fix Leaflet default marker icons in Next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -103,25 +104,25 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
                 )}
                 <p className="text-xs">
                   <span className="font-medium text-slate-600">Date:</span>{' '}
-                  {new Date(b.start_time).toLocaleDateString('en-US', {
+                  {naiveToAnchoredDate(b.start_time).toLocaleDateString('en-US', {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric',
-                    timeZone: 'America/New_York',
+                    timeZone: 'UTC',
                   })}
                 </p>
                 <p className="text-xs">
                   <span className="font-medium text-slate-600">Time:</span>{' '}
-                  {new Date(b.start_time).toLocaleTimeString('en-US', {
+                  {naiveToAnchoredDate(b.start_time).toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
-                    timeZone: 'America/New_York',
+                    timeZone: 'UTC',
                   })}
                   {b.end_time &&
-                    ` - ${new Date(b.end_time).toLocaleTimeString('en-US', {
+                    ` - ${naiveToAnchoredDate(b.end_time).toLocaleTimeString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
-                      timeZone: 'America/New_York',
+                      timeZone: 'UTC',
                     })}`}
                 </p>
                 <p className="text-xs">

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePortalAuth } from './portal-auth'
 import PushPrompt from '@/components/PushPrompt'
+import { formatNaiveTime, naiveToAnchoredDate } from '@/lib/naive-time'
+import { parseNaiveET } from '@/lib/recurring'
 import ClientPhotoCapture from '@/components/ClientPhotoCapture'
 
 interface Booking {
@@ -131,13 +133,13 @@ export default function PortalHomePage() {
       const data = await res.json()
       const all: Booking[] = data.bookings || []
       if (data.do_not_service) setDoNotService(true)
-      const now = new Date()
+      const now = Date.now()
       setUpcomingBookings(
-        all.filter((b) => ['pending', 'scheduled', 'confirmed', 'in_progress'].includes(b.status) && new Date(b.start_time) >= now)
+        all.filter((b) => ['pending', 'scheduled', 'confirmed', 'in_progress'].includes(b.status) && parseNaiveET(b.start_time).getTime() >= now)
           .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
       )
       setPastBookings(
-        all.filter((b) => ['completed', 'paid', 'cancelled'].includes(b.status) || new Date(b.start_time) < now)
+        all.filter((b) => ['completed', 'paid', 'cancelled'].includes(b.status) || parseNaiveET(b.start_time).getTime() < now)
           .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
       )
     }
@@ -268,15 +270,14 @@ export default function PortalHomePage() {
   // Reschedule logic (like nycmaid: recurring only, 7+ days notice)
   const canReschedule = (booking: Booking) => {
     if (!booking.recurring_type) return false
-    const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / 86400000)
+    const daysUntil = Math.ceil((parseNaiveET(booking.start_time).getTime() - Date.now()) / 86400000)
     return daysUntil >= 7
   }
 
   // Helpers
   const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'America/New_York' })
-  const formatTime = (d: string) =>
-    new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' , timeZone: 'America/New_York' })
+    naiveToAnchoredDate(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })
+  const formatTime = (d: string) => formatNaiveTime(d)
   const formatPickedDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split('-').map(Number)
     return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' , timeZone: 'UTC' })

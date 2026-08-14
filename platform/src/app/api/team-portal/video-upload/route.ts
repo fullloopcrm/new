@@ -5,6 +5,7 @@ import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
 import { requireActiveTeamMember } from '@/lib/team-portal-auth'
 import { corsPreflight, withMobileCors } from '@/lib/mobile-cors'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
 const ALLOWED_MIMES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v']
@@ -124,7 +125,7 @@ export const POST = withMobileCors(async function POST(req: NextRequest) {
       const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
       const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'
       const videoLabel = type === 'walkthrough' ? 'Walkthrough' : 'Final'
-      const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const jobDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
 
       await notify({
         tenantId: auth.tid,
@@ -200,7 +201,7 @@ export const POST = withMobileCors(async function POST(req: NextRequest) {
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
     const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'
     const videoLabel = type === 'walkthrough' ? 'Walkthrough' : 'Final'
-    const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const jobDate = naiveToAnchoredDate(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'UTC' })
 
     await notify({
       tenantId: auth.tid,

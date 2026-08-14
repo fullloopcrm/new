@@ -14,6 +14,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { nowNaiveET } from '@/lib/recurring'
+import { naiveToAnchoredDate } from '@/lib/naive-time'
 
 export const maxDuration = 300
 
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
         tenantId: b.tenant_id,
         type: 'late_check_in',
         title: 'No-show detected',
-        message: `${client?.name || 'Client'} booking at ${new Date(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
+        message: `${client?.name || 'Client'} booking at ${naiveToAnchoredDate(b.start_time).toLocaleString('en-US', { timeZone: 'UTC' })} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
         bookingId: b.id,
       }).catch(() => {})
 
