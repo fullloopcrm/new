@@ -16,6 +16,8 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 const auditMock = vi.hoisted(() => vi.fn(async () => ({ success: true })))
 vi.mock('@/lib/audit', () => ({ audit: auditMock }))
+const notifyMock = vi.hoisted(() => vi.fn(async () => ({ success: true })))
+vi.mock('@/lib/notify', () => ({ notify: notifyMock }))
 
 import { POST } from './route'
 
@@ -33,6 +35,7 @@ beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
   auditMock.mockClear()
+  notifyMock.mockClear()
 })
 
 function ctx(id: string) {
@@ -57,6 +60,11 @@ describe('POST /api/clients/[id]/contacts — duplicate guardrail', () => {
       action: 'client_contact.duplicate_merged',
       details: expect.objectContaining({ matchedOn: 'phone' }),
     }))
+    expect(notifyMock).toHaveBeenCalledTimes(1)
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'client_contact_dedupe_merged',
+      recipientType: 'admin',
+    }))
   })
 
   it('merges into the existing contact instead of creating a duplicate when email matches', async () => {
@@ -73,5 +81,6 @@ describe('POST /api/clients/[id]/contacts — duplicate guardrail', () => {
     const body = await res.json()
     expect(body.merged).toBeUndefined()
     expect(h.seed.client_contacts).toHaveLength(2)
+    expect(notifyMock).not.toHaveBeenCalled()
   })
 })

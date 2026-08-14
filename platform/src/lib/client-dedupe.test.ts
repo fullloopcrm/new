@@ -9,6 +9,8 @@ vi.mock('@/lib/supabase', () => ({
 }))
 const auditMock = vi.hoisted(() => vi.fn(async () => ({ success: true })))
 vi.mock('@/lib/audit', () => ({ audit: auditMock }))
+const notifyMock = vi.hoisted(() => vi.fn(async () => ({ success: true })))
+vi.mock('@/lib/notify', () => ({ notify: notifyMock }))
 
 import {
   namesAgree,
@@ -17,6 +19,7 @@ import {
   findDuplicatePairs,
   queueForReview,
   resolveFullMatch,
+  sweepTenant,
 } from './client-dedupe'
 
 function seed() {
@@ -50,6 +53,7 @@ beforeEach(() => {
   holder.from = h.from
   holder.rpc = h.rpc
   auditMock.mockClear()
+  notifyMock.mockClear()
 })
 
 describe('namesAgree', () => {
@@ -169,5 +173,35 @@ describe('resolveFullMatch', () => {
     const result = await resolveFullMatch({ tenantId: TENANT_A, clientAId: 'a', clientBId: 'b', matchType: 'both', matchValue: 'jane@test.co' })
     expect(result.merged).toBe(false)
     expect(result.queued).toBe(true)
+  })
+})
+
+describe('sweepTenant', () => {
+  // Regression (2026-08-14, same incident as duplicate-bookings.ts's
+  // sweepTenantDuplicateBookings): a sweep resolving many pairs must send
+  // exactly ONE digest notify() call, never one per pair.
+  it('sends exactly ONE notify() call summarizing every merge and queued pair in the run', async () => {
+    const result = await sweepTenant(TENANT_A)
+
+    // seed: a+b full match (merges), a+c and b+c partial phone-only matches (queue).
+    expect(result.merged).toBe(1)
+    expect(result.queued).toBeGreaterThan(0)
+    expect(notifyMock).toHaveBeenCalledTimes(1)
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({
+      recipientType: 'admin',
+      title: 'Duplicate Clients Auto-Merged',
+      message: expect.stringContaining('Jane Doe'),
+    }))
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('Auto-merged 1 duplicate client(s)'),
+    }))
+  })
+
+  it('sends no notification when nothing to merge or queue', async () => {
+    h.seed.clients = [h.seed.clients.find((c) => c.id === 'd')!] // only the non-matching client
+    const result = await sweepTenant(TENANT_A)
+    expect(result.merged).toBe(0)
+    expect(result.queued).toBe(0)
+    expect(notifyMock).not.toHaveBeenCalled()
   })
 })
