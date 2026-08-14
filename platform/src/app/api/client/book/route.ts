@@ -678,8 +678,9 @@ export async function POST(request: Request) {
     if (error || !data) {
       // 23505 here means a concurrent request won the same-date race the
       // count check above can't close atomically (see
-      // uq_bookings_client_same_date_active) — surface the same duplicate
-      // error the pre-check gives, not a raw 500.
+      // uq_bookings_client_same_date_service_active,
+      // 2026_08_14_bookings_same_date_service_dedup.sql) — surface the same
+      // duplicate error the pre-check gives, not a raw 500.
       if ((error as { code?: string } | null)?.code === '23505') {
         await trackError(new Error('duplicate_date race on post-claim fetch'), { source: 'client/book:duplicate_date_race', tenantId: tenant.id, severity: 'low', extra: clientId, alwaysAlert: true })
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })

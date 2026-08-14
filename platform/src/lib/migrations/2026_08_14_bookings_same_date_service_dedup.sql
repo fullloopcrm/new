@@ -1,0 +1,43 @@
+-- APPLIED to prod 2026-08-14 (Jeff: "there should never be a duplicate
+-- booking", automated + immediate, all tenants).
+--
+-- Supersedes 2026_07_13_bookings_same_date_dedup_PROPOSED.sql (deleted --
+-- never applied, and its exact shape turned out wrong, see below).
+--
+-- WHY A DB-LEVEL CONSTRAINT AT ALL: create_booking_atomic (RPC used by
+-- POST /api/client/book) already closes the same-date race for the client
+-- self-booking path -- it row-locks the client and checks existing
+-- same-day active bookings before inserting, all inside one transaction.
+-- But that RPC is only ONE of several ways a booking row gets created
+-- (admin manual booking via create_admin_booking_atomic has no client-
+-- same-date check at all; CSV import and recurring-schedule generation
+-- don't either). A live-DB check this same day found the actual damage:
+-- a real NYC Maid customer had 142 ACTIVE bookings, schedule_id AND
+-- service_type both NULL, ~71 same-date pairs -- almost certainly created
+-- outside the protected self-booking path. This index is the origin-
+-- agnostic backstop: no code path, present or future, can insert a true
+-- duplicate, regardless of which RPC or script wrote it.
+--
+-- WHY service_type IS IN THE KEY (the PROPOSED version's mistake): a plain
+-- (tenant_id, client_id, date) unique index would ALSO reject two
+-- DIFFERENT-service bookings on the same day (e.g. a deep clean AM + a
+-- one-off carpet job PM) -- a legitimate, currently-allowed pattern, not a
+-- duplicate. The automated duplicate-booking cron (duplicate-bookings.ts,
+-- shipped same day) already encodes this exact distinction at the
+-- application layer: same client + same date + same service = true
+-- duplicate, auto-cancelled; different service = left alone, flagged for a
+-- human at most. This index enforces the identical rule atomically instead
+-- of relying on a nightly sweep to catch what a race let through.
+--
+-- COALESCE(service_type, '') because two NULLs are NOT equal for
+-- uniqueness purposes in Postgres -- a bare `service_type` column in the
+-- index would have let two both-NULL rows collide, which is exactly the
+-- real-world case this migration exists to close (the 71 NULL/NULL pairs
+-- above). Coalescing to '' makes NULL behave as its own single value.
+--
+-- Verified zero existing violations tenant-wide under this exact key
+-- (tenant_id, client_id, date, COALESCE(service_type,'')) before applying.
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bookings_client_same_date_service_active
+  ON bookings (tenant_id, client_id, (start_time::date), COALESCE(service_type, ''))
+  WHERE status IN ('scheduled', 'pending', 'confirmed', 'in_progress');
