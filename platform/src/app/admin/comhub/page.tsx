@@ -1348,6 +1348,19 @@ function ComposeModal(props: {
   const [results, setResults] = useState<RecipientResult[]>([])
   const [picked, setPicked] = useState<RecipientResult | null>(null)
   const [adminPhone, setAdminPhone] = useState('')
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
+
+  // Load reply templates filtered by the channel currently selected in this
+  // modal — same source the reply-box picker uses, just keyed off the
+  // channel tab (SMS/EMAIL) instead of an open thread.
+  useEffect(() => {
+    if (props.channel === 'call') { setTemplates([]); return }
+    fetch(`/api/admin/comhub/templates?channel=${props.channel}`)
+      .then(r => r.ok ? r.json() : { templates: [] })
+      .then(d => setTemplates((d.templates || []).filter((t: Template) => t.hotkey !== 'away')))
+      .catch(() => setTemplates([]))
+  }, [props.channel])
 
   // Persist admin's "ring me first" phone so they don't re-type it.
   useEffect(() => {
@@ -1544,14 +1557,45 @@ function ComposeModal(props: {
             setAdminPhone={setAdminPhone}
           />
         ) : (
-          <textarea
-            value={props.body}
-            onChange={(e) => props.setBody(e.target.value)}
-            placeholder="Message"
-            rows={6}
-            className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
-            style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
-          />
+          <>
+            {templates.length > 0 && (
+              <div className="flex justify-end mb-1 relative" style={{ fontFamily: 'var(--mono)' }}>
+                <button
+                  onClick={() => setShowTemplates(s => !s)}
+                  className="px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap"
+                  style={{ color: 'var(--color-loop-ink)', background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
+                >
+                  Templates ▾
+                </button>
+                {showTemplates && (
+                  <div className="absolute right-0 top-[calc(100%+4px)] w-72 rounded-md shadow-xl z-10 max-h-72 overflow-y-auto" style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}>
+                    {templates.map(tpl => (
+                      <button
+                        key={tpl.id}
+                        onClick={() => {
+                          props.setBody(props.body ? props.body + '\n\n' + tpl.body : tpl.body)
+                          setShowTemplates(false)
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-[var(--color-loop-bg)] border-b last:border-b-0"
+                        style={{ borderColor: 'var(--color-loop-line-soft)' }}
+                      >
+                        <div className="text-xs font-medium">{tpl.name}</div>
+                        <div className="text-[11px] truncate" style={{ color: 'var(--color-loop-muted)' }}>{tpl.body}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <textarea
+              value={props.body}
+              onChange={(e) => props.setBody(e.target.value)}
+              placeholder="Message"
+              rows={6}
+              className="w-full rounded-md px-3 py-2 text-sm resize-none focus:outline-none"
+              style={{ background: 'var(--color-loop-bg)', border: '1px solid var(--color-loop-line-soft)' }}
+            />
+          </>
         )}
         <div className="flex justify-end gap-2 mt-4" style={{ fontFamily: 'var(--mono)' }}>
           <button onClick={props.onClose} className="px-3 py-1.5 rounded-md text-sm hover:bg-[var(--color-loop-bg)]" style={{ border: '1px solid var(--color-loop-line-soft)', color: 'var(--color-loop-graphite)' }}>Cancel</button>
@@ -1769,11 +1813,6 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
       return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit', timeZone: tz })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: tz })}`
     } catch { return iso }
   }
-  const fmtPhone = (p: string | null | undefined) => {
-    if (!p) return ''
-    const d = p.replace(/\D/g, '').slice(-10)
-    return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p
-  }
   const cleanerName = (b: Booking): string => {
     if (!b.cleaners) return '—'
     const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
@@ -1827,8 +1866,6 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
           )}
         </div>
         <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>
-          {contact.phone && <div>{fmtPhone(contact.phone)}</div>}
-          {contact.email && <div className="truncate">{contact.email}</div>}
           {contact.ip_address && (
             <div title="City-level only — IP geolocation can't resolve an exact address or identity">
               {contact.ip_address}
@@ -1862,6 +1899,8 @@ function ContextPanelInline({ context, onTagChanged, onContactSaved }: { context
         contactId={contact.id}
         initialName={contact.name || cleaner?.name || client?.name || ''}
         initialAddress={contact.address || cleaner?.address || client?.address || client?.address_line1 || ''}
+        initialPhone={contact.phone || cleaner?.phone || client?.phone || ''}
+        initialEmail={contact.email || cleaner?.email || client?.email || ''}
         onSaved={onContactSaved}
       />
 
@@ -2090,21 +2129,27 @@ function ChannelInfoPanel({ thread }: { thread: Thread }) {
 // that haven't booked yet) — saves onto comhub_contacts, mirrored onto the
 // linked client record (if any) so the rest of the CRM stays in sync.
 // ─────────────────────────────────────────────────────────────────────────────
-function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved }: {
+function ContactDetailsEditor({ contactId, initialName, initialAddress, initialPhone, initialEmail, onSaved }: {
   contactId: string
   initialName: string
   initialAddress: string
+  initialPhone: string
+  initialEmail: string
   onSaved?: () => void
 }) {
   const [name, setName] = useState(initialName)
   const [address, setAddress] = useState(initialAddress)
+  const [phone, setPhone] = useState(initialPhone)
+  const [email, setEmail] = useState(initialEmail)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { setName(initialName); setAddress(initialAddress); setError(null) }, [initialName, initialAddress, contactId])
+  useEffect(() => {
+    setName(initialName); setAddress(initialAddress); setPhone(initialPhone); setEmail(initialEmail); setError(null)
+  }, [initialName, initialAddress, initialPhone, initialEmail, contactId])
 
-  const dirty = name !== initialName || address !== initialAddress
+  const dirty = name !== initialName || address !== initialAddress || phone !== initialPhone || email !== initialEmail
 
   const save = async () => {
     if (!dirty || saving) return
@@ -2114,7 +2159,7 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
       const res = await fetch(`/api/admin/comhub/contacts/${contactId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name || null, address: address || null }),
+        body: JSON.stringify({ name: name || null, address: address || null, phone: phone || null, email: email || null }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -2142,12 +2187,34 @@ function ContactDetailsEditor({ contactId, initialName, initialAddress, onSaved 
         />
       </div>
       <div>
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Phone</div>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="No phone on file"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+        />
+      </div>
+      <div>
         <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Address</div>
         <input
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="No address on file"
+          className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
+          style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
+        />
+      </div>
+      <div>
+        <div className="text-[10px] uppercase mb-1" style={{ fontFamily: 'var(--mono)', color: 'var(--color-loop-muted)' }}>Email</div>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="No email on file"
           className="w-full rounded-md px-2 py-1.5 text-sm focus:outline-none"
           style={{ background: 'var(--color-loop-canvas)', border: '1px solid var(--color-loop-line-soft)' }}
         />
