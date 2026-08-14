@@ -4,12 +4,27 @@
 // same calendar date and sent an admin notification -- nothing ever actually
 // resolved the duplicate, so it sat there until a human noticed the alert.
 //
+// Detection was originally scoped to schedule_id-linked collisions only
+// (`.not('schedule_id', 'is', null)`), matching the "two recurring schedules"
+// incident this cron was ported from (nycmaid, Daniel Mazur, 2026-07-14).
+// A live prod check the day this shipped found the actual dominant pattern is
+// different: a real NYC Maid customer (Catherine Mollerus) had 142 ACTIVE
+// bookings with schedule_id NULL -- ~71 same-date pairs stretching into 2027,
+// almost certainly a client-booking-race (two near-simultaneous inserts both
+// passing the pre-insert "does this date already have a booking" check before
+// either commits -- see 2026_07_13_bookings_same_date_dedup_PROPOSED.sql,
+// never applied). The schedule_id-only detection would never have caught this
+// at all. Detection now flags ANY 2+ active bookings for one client on one
+// date, regardless of whether either has a schedule_id.
+//
 // SAME "established wins" direction as client-dedupe.ts's canonical pick:
-// between the two colliding bookings, the one whose recurring_schedules row
-// is OLDER (earlier created_at -- the more established schedule) is kept;
-// the other is auto-cancelled via booking-cancel.ts (full finance/deal-sync
-// correctness, no client-facing notify -- the client is still served by the
-// surviving booking on that date).
+// the EARLIER-created booking survives; later duplicates are auto-cancelled
+// via booking-cancel.ts (full finance/deal-sync correctness, no client-facing
+// notify -- the client is still served by the surviving booking on that
+// date). For a schedule-linked booking, "established" is the recurring
+// schedule's own created_at (an old schedule generating one more occurrence
+// outranks a brand-new schedule); for a one-off booking, it's the booking's
+// own created_at.
 //
 // TRUE DUPLICATE requires matching service_type too. A same-date collision
 // across two DIFFERENT services (e.g. a standard clean + a one-off carpet
@@ -25,10 +40,11 @@ const ACTIVE_BOOKING_STATUSES = ['scheduled', 'pending', 'confirmed', 'in_progre
 interface BookingRow {
   id: string
   client_id: string
-  schedule_id: string
+  schedule_id: string | null
   service_type: string | null
   start_time: string
   status: string
+  created_at: string
 }
 
 export interface DuplicateBookingGroup {
@@ -39,14 +55,13 @@ export interface DuplicateBookingGroup {
   bookings: BookingRow[]
 }
 
-/** Same collision scan the original audit cron ran -- client_id -> date -> booking rows, flagged when 2+ schedule_ids land on the same date. */
+/** client_id -> date -> booking rows, flagged whenever 2+ active bookings land on the same date -- schedule-linked or one-off. */
 export async function findDuplicateBookingGroups(tenantId: string): Promise<DuplicateBookingGroup[]> {
   const { data: rows, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, schedule_id, service_type, start_time, status, clients(name)')
+    .select('id, client_id, schedule_id, service_type, start_time, status, created_at, clients(name)')
     .eq('tenant_id', tenantId)
     .in('status', ACTIVE_BOOKING_STATUSES)
-    .not('schedule_id', 'is', null)
     // start_time is naive ET -- see cron/duplicate-schedule-audit's own note
     // on the same real-instant-boundary bug this mirrors.
     .gte('start_time', `${nowNaiveET()}Z`)
@@ -62,14 +77,16 @@ export async function findDuplicateBookingGroups(tenantId: string): Promise<Dupl
     if (!byClientDate.has(b.client_id)) byClientDate.set(b.client_id, new Map())
     const dateMap = byClientDate.get(b.client_id)!
     if (!dateMap.has(date)) dateMap.set(date, [])
-    dateMap.get(date)!.push({ id: b.id, client_id: b.client_id, schedule_id: b.schedule_id, service_type: b.service_type, start_time: b.start_time, status: b.status })
+    dateMap.get(date)!.push({
+      id: b.id, client_id: b.client_id, schedule_id: b.schedule_id, service_type: b.service_type,
+      start_time: b.start_time, status: b.status, created_at: b.created_at,
+    })
   }
 
   const groups: DuplicateBookingGroup[] = []
   for (const [clientId, dateMap] of byClientDate) {
     for (const [date, bookings] of dateMap) {
-      const distinctSchedules = new Set(bookings.map((b) => b.schedule_id))
-      if (distinctSchedules.size > 1) {
+      if (bookings.length > 1) {
         groups.push({ tenantId, clientId, clientName: clientNames.get(clientId) || 'Unknown', date, bookings })
       }
     }
@@ -96,25 +113,24 @@ export async function resolveDuplicateBookingGroup(group: DuplicateBookingGroup)
     return { autoCancelledBookingIds: [], keptBookingId: null, autoResolved: false, reason: 'colliding bookings are different services -- needs a human look' }
   }
 
-  const scheduleIds = [...new Set(group.bookings.map((b) => b.schedule_id))]
-  const { data: schedules } = await supabaseAdmin
-    .from('recurring_schedules')
-    .select('id, created_at')
-    .in('id', scheduleIds)
+  const scheduleIds = [...new Set(group.bookings.map((b) => b.schedule_id).filter((id): id is string => !!id))]
+  const { data: schedules } = scheduleIds.length
+    ? await supabaseAdmin.from('recurring_schedules').select('id, created_at').in('id', scheduleIds)
+    : { data: [] }
   const scheduleCreatedAt = new Map((schedules || []).map((s: { id: string; created_at: string }) => [s.id, s.created_at]))
 
-  // Oldest schedule (earliest created_at) wins -- same "more established
-  // record wins" direction as client-dedupe.ts's canonical pick. A schedule
-  // missing from the lookup (shouldn't happen, FK-backed) sorts last so it's
-  // never mistaken for the established one.
-  const sortedScheduleIds = [...scheduleIds].sort((a, b) => {
-    const ca = scheduleCreatedAt.get(a) || '9999'
-    const cb = scheduleCreatedAt.get(b) || '9999'
+  // "Established at" = the linked schedule's created_at when there is one,
+  // else the booking's own created_at for a one-off. Earliest wins -- same
+  // "more established record wins" direction as client-dedupe.ts's canonical
+  // pick.
+  const establishedAt = (b: BookingRow): string => (b.schedule_id && scheduleCreatedAt.get(b.schedule_id)) || b.created_at
+  const sorted = [...group.bookings].sort((a, b) => {
+    const ca = establishedAt(a)
+    const cb = establishedAt(b)
     return ca < cb ? -1 : ca > cb ? 1 : 0
   })
-  const winningScheduleId = sortedScheduleIds[0]
-  const winningBooking = group.bookings.find((b) => b.schedule_id === winningScheduleId)
-  const losers = group.bookings.filter((b) => b.schedule_id !== winningScheduleId)
+  const winningBooking = sorted[0]
+  const losers = sorted.slice(1)
 
   const cancelledIds: string[] = []
   for (const loser of losers) {
@@ -137,9 +153,9 @@ export async function resolveDuplicateBookingGroup(group: DuplicateBookingGroup)
       notifyClient: false,
       auditAction: 'booking.duplicate_auto_cancelled',
       auditDetails: {
-        reason: 'duplicate booking -- same client, same date, same service, from a newer recurring schedule',
-        keptBookingId: winningBooking?.id,
-        keptScheduleId: winningScheduleId,
+        reason: 'duplicate booking -- same client, same date, same service, less established than the surviving booking',
+        keptBookingId: winningBooking.id,
+        keptScheduleId: winningBooking.schedule_id,
         cancelledScheduleId: loser.schedule_id,
         date: group.date,
       },
@@ -149,9 +165,9 @@ export async function resolveDuplicateBookingGroup(group: DuplicateBookingGroup)
 
   return {
     autoCancelledBookingIds: cancelledIds,
-    keptBookingId: winningBooking?.id || null,
+    keptBookingId: winningBooking.id,
     autoResolved: cancelledIds.length > 0,
-    reason: 'same service, colliding schedules -- kept the more established schedule\'s booking, cancelled the rest',
+    reason: 'same service, colliding bookings -- kept the more established one, cancelled the rest',
   }
 }
 
@@ -178,10 +194,10 @@ export async function sweepTenantDuplicateBookings(tenantId: string): Promise<Sw
       flaggedForReview++
     }
 
-    const messageType = result.autoResolved ? 'duplicate_recurring_schedule' : 'duplicate_recurring_schedule'
+    const messageType = 'duplicate_recurring_schedule'
     const message = result.autoResolved
-      ? `${group.clientName} had ${result.autoCancelledBookingIds.length + 1} bookings collide on ${group.date} (duplicate recurring schedules). Auto-cancelled the newer duplicate(s); the booking from the older schedule was kept.`
-      : `${group.clientName} has 2+ active recurring schedules generating bookings on the same date: ${group.date}. Different services on the colliding bookings -- couldn't auto-resolve, review and deactivate the duplicate.`
+      ? `${group.clientName} had ${result.autoCancelledBookingIds.length + 1} bookings collide on ${group.date}. Auto-cancelled the duplicate(s); the more established booking was kept.`
+      : `${group.clientName} has 2+ active bookings on the same date: ${group.date}. Different services on the colliding bookings -- couldn't auto-resolve, review and cancel the duplicate.`
 
     // Same once-per-~week dedupe as the original cron -- don't re-notify daily for a still-unresolved flagged case.
     if (!result.autoResolved) {
@@ -190,7 +206,7 @@ export async function sweepTenantDuplicateBookings(tenantId: string): Promise<Sw
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('type', messageType)
-        .ilike('message', `${group.clientName} has 2+ active recurring schedules%`)
+        .ilike('message', `${group.clientName} has 2+ active bookings%`)
         .gte('created_at', sixDaysAgo)
       if ((count || 0) > 0) continue
     }
@@ -198,7 +214,7 @@ export async function sweepTenantDuplicateBookings(tenantId: string): Promise<Sw
     await notify({
       tenantId,
       type: messageType,
-      title: result.autoResolved ? 'Duplicate Booking Auto-Cancelled' : 'Duplicate Recurring Schedule Detected',
+      title: result.autoResolved ? 'Duplicate Booking Auto-Cancelled' : 'Duplicate Booking Detected',
       message,
       recipientType: 'admin',
     })

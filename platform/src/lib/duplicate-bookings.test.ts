@@ -36,8 +36,8 @@ beforeEach(() => {
 describe('findDuplicateBookingGroups', () => {
   it('flags a client with two active bookings on the same date from different schedules', async () => {
     h.seed.bookings.push(
-      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey' } },
-      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
     )
     const groups = await findDuplicateBookingGroups(TENANT_A)
     expect(groups).toHaveLength(1)
@@ -45,10 +45,24 @@ describe('findDuplicateBookingGroups', () => {
     expect(groups[0].bookings).toHaveLength(2)
   })
 
+  // Real prod pattern found 2026-08-14: a NYC Maid customer had 142 ACTIVE
+  // bookings with schedule_id NULL, ~71 same-date pairs -- a client-booking
+  // race (two near-simultaneous inserts), not a duplicate recurring schedule.
+  // The schedule_id-linked-only version of this detector never caught it.
+  it('flags two one-off bookings (no schedule_id) on the same date -- the real prod pattern', async () => {
+    h.seed.bookings.push(
+      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: null, service_type: null, status: 'scheduled', start_time: '2027-08-23T09:00:00', created_at: '2026-08-11T12:25:28Z', clients: { name: 'Catherine Mollerus' } },
+      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: null, service_type: null, status: 'scheduled', start_time: '2027-08-23T13:00:00', created_at: '2026-08-11T12:27:12Z', clients: { name: 'Catherine Mollerus' } },
+    )
+    const groups = await findDuplicateBookingGroups(TENANT_A)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].bookings).toHaveLength(2)
+  })
+
   it('does not flag a legitimate recurring series across different dates', async () => {
     h.seed.bookings.push(
-      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-a', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey' } },
-      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-a', service_type: 'standard', status: 'scheduled', start_time: '2026-09-22T09:00:00', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-a', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-a', service_type: 'standard', status: 'scheduled', start_time: '2026-09-22T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
     )
     const groups = await findDuplicateBookingGroups(TENANT_A)
     expect(groups).toHaveLength(0)
@@ -56,8 +70,8 @@ describe('findDuplicateBookingGroups', () => {
 
   it('ignores cancelled bookings', async () => {
     h.seed.bookings.push(
-      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'cancelled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey' } },
-      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-1', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'cancelled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-2', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
     )
     const groups = await findDuplicateBookingGroups(TENANT_A)
     expect(groups).toHaveLength(0)
@@ -71,8 +85,8 @@ describe('resolveDuplicateBookingGroup', () => {
       { id: 'sched-new', tenant_id: TENANT_A, created_at: '2026-07-01T00:00:00Z' },
     )
     h.seed.bookings.push(
-      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey', phone: '5551234567', email: null } },
-      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey', phone: '5551234567', email: null } },
+      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey', phone: '5551234567', email: null } },
+      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey', phone: '5551234567', email: null } },
     )
     const groups = await findDuplicateBookingGroups(TENANT_A)
     const result = await resolveDuplicateBookingGroup(groups[0])
@@ -96,14 +110,29 @@ describe('resolveDuplicateBookingGroup', () => {
     expect(notifyMock).not.toHaveBeenCalled()
   })
 
+  it('auto-cancels one-off (no schedule_id) duplicates, keeping the earlier-created booking', async () => {
+    h.seed.bookings.push(
+      { id: 'bk-first', tenant_id: TENANT_A, client_id: 'c1', schedule_id: null, service_type: null, status: 'scheduled', start_time: '2027-08-23T09:00:00', created_at: '2026-08-11T12:25:28Z', clients: { name: 'Catherine Mollerus', phone: '+19144502875', email: 'catherine.mollerus@gmail.com' } },
+      { id: 'bk-second', tenant_id: TENANT_A, client_id: 'c1', schedule_id: null, service_type: null, status: 'scheduled', start_time: '2027-08-23T13:00:00', created_at: '2026-08-11T12:27:12Z', clients: { name: 'Catherine Mollerus', phone: '+19144502875', email: 'catherine.mollerus@gmail.com' } },
+    )
+    const groups = await findDuplicateBookingGroups(TENANT_A)
+    const result = await resolveDuplicateBookingGroup(groups[0])
+
+    expect(result.autoResolved).toBe(true)
+    expect(result.keptBookingId).toBe('bk-first')
+    expect(result.autoCancelledBookingIds).toEqual(['bk-second'])
+    expect(h.seed.bookings.find((b) => b.id === 'bk-second')!.status).toBe('cancelled')
+    expect(h.seed.bookings.find((b) => b.id === 'bk-first')!.status).toBe('scheduled')
+  })
+
   it('does not auto-cancel when the colliding bookings are different services', async () => {
     h.seed.recurring_schedules.push(
       { id: 'sched-old', tenant_id: TENANT_A, created_at: '2026-01-01T00:00:00Z' },
       { id: 'sched-new', tenant_id: TENANT_A, created_at: '2026-07-01T00:00:00Z' },
     )
     h.seed.bookings.push(
-      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey' } },
-      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'carpet', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'carpet', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
     )
     const groups = await findDuplicateBookingGroups(TENANT_A)
     const result = await resolveDuplicateBookingGroup(groups[0])
@@ -122,8 +151,8 @@ describe('sweepTenantDuplicateBookings', () => {
       { id: 'sched-new', tenant_id: TENANT_A, created_at: '2026-07-01T00:00:00Z' },
     )
     h.seed.bookings.push(
-      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey', phone: '555', email: null } },
-      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey', phone: '555', email: null } },
+      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey', phone: '555', email: null } },
+      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey', phone: '555', email: null } },
     )
     const result = await sweepTenantDuplicateBookings(TENANT_A)
 
@@ -142,14 +171,14 @@ describe('sweepTenantDuplicateBookings', () => {
       { id: 'sched-new', tenant_id: TENANT_A, created_at: '2026-07-01T00:00:00Z' },
     )
     h.seed.bookings.push(
-      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', clients: { name: 'Troy Bailey' } },
-      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'carpet', status: 'scheduled', start_time: '2026-09-01T14:00:00', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-old', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-old', service_type: 'standard', status: 'scheduled', start_time: '2026-09-01T09:00:00', created_at: '2026-01-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
+      { id: 'bk-new', tenant_id: TENANT_A, client_id: 'c1', schedule_id: 'sched-new', service_type: 'carpet', status: 'scheduled', start_time: '2026-09-01T14:00:00', created_at: '2026-07-01T00:00:00Z', clients: { name: 'Troy Bailey' } },
     )
     const result = await sweepTenantDuplicateBookings(TENANT_A)
 
     expect(result.autoCancelled).toBe(0)
     expect(result.flaggedForReview).toBe(1)
     expect(result.notified).toBe(1)
-    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Duplicate Recurring Schedule Detected' }))
+    expect(notifyMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Duplicate Booking Detected' }))
   })
 })
