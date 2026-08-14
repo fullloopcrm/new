@@ -1055,31 +1055,72 @@ function BookingsPage() {
         return
       }
 
-      // If repeat newly enabled on a non-recurring booking, create future bookings.
-      // These POSTs used to be fire-and-forget -- a same-date+service collision
-      // (uq_bookings_client_same_date_service_active) or any other rejection
-      // failed completely silently: the edit panel just closed as if the whole
-      // series was created, with zero indication some/all future occurrences
-      // never got made. Track failures and tell the admin what didn't take.
+      // If repeat newly enabled on a non-recurring booking: this used to loop
+      // raw POST /api/bookings calls over the ENTIRE editRecurringDates array
+      // with no cap and no schedule_id -- with repeat_end defaulting to
+      // 'never', that array runs through the end of NEXT calendar year
+      // (lib/recurring.ts's own HARD_CAP=500 convention), so "turning Repeat
+      // on" during an edit could silently create ~100 real future bookings
+      // (confirmed live: 99 attempted from one Save) despite the panel's own
+      // preview text saying "first 4 bookings created, then auto-generated
+      // weekly" -- and because no schedule_id/recurring_schedules row backed
+      // any of it, nothing ever continued the series afterward either. Route
+      // through the same endpoint CreateBookingForm's real recurring-create
+      // path already uses: it caps the initial batch to ~6 weeks out, falls
+      // back to per-row insert with skipped_dates on collision (instead of
+      // the silent fire-and-forget this replaces), and creates a real
+      // schedule_id so the daily cron actually continues the series.
       if (form.repeat_enabled && !editingBooking?.recurring_type && editRecurringDates.length > 1) {
-        const failedDates: string[] = []
-        for (let i = 1; i < editRecurringDates.length; i++) {
-          const date = editRecurringDates[i]
-          const futureRes = await fetch('/api/bookings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: editingBooking?.client_id, team_member_id: form.team_member_id,
-              start_time: buildNaiveTime(date, form.start_time), end_time: buildNaiveTime(date, form.start_time, form.hours),
-              service_type: form.service_type, price: calculateEditPrice(),
-              hourly_rate: form.hourly_rate, recurring_type: recurringType, notes: form.notes || null,
-              referrer_id: form.referrer_id || null, sales_partner_id: form.sales_partner_id || null,
-              skip_email: true
-            })
+        const sixWeeksOut = new Date(form.start_date + 'T12:00:00')
+        sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
+        const cutoff = sixWeeksOut.toISOString().split('T')[0]
+        // Skip index 0 -- that's editingBooking's own date, already updated
+        // by the PUT above. Unlike CreateBookingForm's fresh-create case,
+        // there's an existing row here; re-sending its date would collide
+        // with itself under uq_bookings_client_same_date_service_active.
+        const initialDates = editRecurringDates.slice(1).filter(d => d <= cutoff)
+
+        const scheduleRes = await fetch('/api/admin/recurring-schedules', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: editingBooking?.client_id,
+            property_id: form.property_id || null,
+            team_member_id: form.team_member_id,
+            recurring_type: rawRecurringType(form.repeat_type),
+            day_of_week: new Date(form.start_date + 'T12:00:00').getDay(),
+            preferred_time: form.start_time,
+            duration_hours: form.hours,
+            hourly_rate: form.hourly_rate,
+            pay_rate: form.pay_rate,
+            notes: form.notes || null,
+            start_date: form.start_date,
+            price: calculateEditPrice(),
+            service_type: form.service_type,
+            status: 'scheduled',
+            dates: initialDates,
+            discount_percent: form.discount_enabled ? form.discount_percent : null,
+            referrer_id: form.referrer_id || null,
+            sales_partner_id: form.sales_partner_id || null,
           })
-          if (!futureRes.ok) failedDates.push(date)
-        }
-        if (failedDates.length > 0) {
-          alert(`This booking saved, but ${failedDates.length} of ${editRecurringDates.length - 1} future occurrence(s) could not be created (likely a date/service conflict): ${failedDates.join(', ')}. Check these dates manually.`)
+        })
+        if (!scheduleRes.ok) {
+          const err = await scheduleRes.json().catch(() => ({ error: 'Unknown error' }))
+          alert(`This booking saved, but making it recurring failed: ${err.error || scheduleRes.statusText}`)
+        } else {
+          // Note: the anchor booking itself (editingBooking, updated by the PUT
+          // above) is NOT linked to the new schedule_id here -- that field is
+          // deliberately excluded from the plain booking PUT (see the comment
+          // on the allowlist in api/bookings/[id]/route.ts); only the
+          // recurring-schedules POST path has the ownership/consistency checks
+          // for attaching schedule_id. The anchor keeps recurring_type set with
+          // schedule_id null, same as before this fix -- a minor display
+          // inconsistency (not part of the "Cancel series" scope button check,
+          // which also accepts bare recurring_type), not the flood/silent-
+          // failure danger this fix addresses.
+          const scheduleResult = await scheduleRes.json().catch(() => null)
+          if (scheduleResult?.skipped_dates?.length > 0) {
+            alert(`This booking is now recurring, but ${scheduleResult.skipped_dates.length} occurrence(s) were skipped (date/service conflict): ${scheduleResult.skipped_dates.join(', ')}. Check these dates manually.`)
+          }
         }
       }
     }
