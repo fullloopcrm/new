@@ -8,6 +8,9 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizeNoteHtml, htmlTextLength } from '@/lib/sanitize-html'
+import { audit } from '@/lib/audit'
+import { notify } from '@/lib/notify'
+import { extractMentionedMemberIds } from '@/lib/boards'
 import type { BoardAttachment } from '@/components/boards/types'
 
 type Params = { params: Promise<{ id: string; itemId: string }> }
@@ -72,9 +75,10 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'body is required' }, { status: 400 })
     }
 
-    const { data: item } = await db.from('board_items').select('id').eq('board_id', boardId).eq('id', itemId).single()
+    const { data: item } = await db.from('board_items').select('id, name').eq('board_id', boardId).eq('id', itemId).single()
     if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 })
 
+    const authorName = tenant.owner_name || tenant.name || 'Team'
     const { data: note, error } = await db
       .from('board_item_notes')
       .insert({
@@ -82,13 +86,39 @@ export async function POST(request: Request, { params }: Params) {
         kind: 'note',
         author_type: 'team',
         author_id: userId,
-        author_name: tenant.owner_name || tenant.name || 'Team',
+        author_name: authorName,
         body: sanitizedBody,
         attachments,
       })
       .select('*')
       .single()
     if (error) throw error
+
+    await audit({ tenantId, action: 'board_item.note_added', entityType: 'board_item', entityId: itemId, userId, details: { board_id: boardId, item_name: item.name } })
+
+    // @mentions get a real, targeted email to that specific person — not just
+    // a shared in-app bell row every dashboard user sees (see notify()'s
+    // 'tenant_member' recipientType, added alongside this). A silent tag
+    // nobody actually gets pinged for isn't a notification.
+    const mentionedIds = extractMentionedMemberIds(sanitizedBody).filter((id) => id !== userId)
+    if (mentionedIds.length > 0) {
+      const { data: mentioned } = await db.from('tenant_members').select('id, name').in('id', mentionedIds)
+      const boardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.fullloopcrm.com'}/dashboard/boards/${boardId}`
+      await Promise.all(
+        (mentioned || []).map((m) =>
+          notify({
+            tenantId,
+            type: 'board_note_mention',
+            title: `${authorName} mentioned you on "${item.name}"`,
+            message: `${authorName} tagged you on the Task Board item "${item.name}":\n\n"${htmlTextLength(sanitizedBody) > 0 ? sanitizedBody.replace(/<[^>]+>/g, ' ').trim() : '(attachment)'}"\n\nOpen it here: ${boardUrl}`,
+            channel: 'email',
+            recipientType: 'tenant_member',
+            recipientId: m.id,
+          }).catch((err) => console.error('board mention email notify failed:', err)),
+        ),
+      )
+    }
+
     return NextResponse.json({ note }, { status: 201 })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

@@ -46,14 +46,14 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(({ items, comma
 
   if (items.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-2 text-xs text-slate-400">
+      <div className="relative z-[100] bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-2 text-xs text-slate-400">
         No matches
       </div>
     )
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto min-w-[160px]">
+    <div className="relative z-[100] bg-white border border-slate-200 rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto min-w-[160px]">
       {items.map((item, i) => (
         <button
           key={item.id}

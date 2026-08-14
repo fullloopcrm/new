@@ -81,3 +81,20 @@ export function describeValueChanges(
 export function describeAssignmentChange(assigneeName: string | null): string {
   return assigneeName ? `Assigned to ${assigneeName}` : 'Unassigned'
 }
+
+// Pulls tenant_member ids out of the @mention chips TipTap's Mention
+// extension writes into a note body (<span data-type="mention" data-id="...">),
+// after sanitizeNoteHtml has already run — data-type/data-id/data-label are
+// on that allowlist specifically so this keeps working post-sanitization.
+// Dedupes since the same person can be @mentioned more than once in one note.
+const MENTION_SPAN_RE = /<span[^>]*data-type="mention"[^>]*data-id="([^"]+)"[^>]*>/g
+
+export function extractMentionedMemberIds(sanitizedHtml: string): string[] {
+  const ids = new Set<string>()
+  let m: RegExpExecArray | null
+  MENTION_SPAN_RE.lastIndex = 0
+  while ((m = MENTION_SPAN_RE.exec(sanitizedHtml)) !== null) {
+    ids.add(m[1])
+  }
+  return Array.from(ids)
+}

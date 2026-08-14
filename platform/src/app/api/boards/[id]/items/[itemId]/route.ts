@@ -7,6 +7,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { describeValueChanges, describeAssignmentChange, NO_ROWS_ERROR_CODE } from '@/lib/boards'
+import { audit } from '@/lib/audit'
 
 type Params = { params: Promise<{ id: string; itemId: string }> }
 
@@ -92,6 +93,7 @@ export async function PATCH(request: Request, { params }: Params) {
           body: line,
         })),
       )
+      await audit({ tenantId, action: 'board_item.updated', entityType: 'board_item', entityId: itemId, userId, details: { board_id: boardId, item_name: item.name, changes: lines } })
     }
 
     return NextResponse.json({ item })

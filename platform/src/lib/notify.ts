@@ -86,6 +86,7 @@ export type NotificationType =
   | 'referral_lead'
   | 'cleaner_application'
   | 'auto_booking_assigned'
+  | 'board_note_mention'
 
 // Operational event types worth pushing to the tenant's Telegram, ported from
 // lib/nycmaid/notify.ts (2026-07-22) — that nycmaid-specific notify() had
@@ -281,7 +282,7 @@ export async function notify({
   title: string
   message: string
   channel?: 'email' | 'sms' | 'push'
-  recipientType?: 'client' | 'team_member' | 'admin'
+  recipientType?: 'client' | 'team_member' | 'admin' | 'tenant_member'
   recipientId?: string
   bookingId?: string
   booking_id?: string  // nycmaid-style alias
@@ -378,6 +379,13 @@ export async function notify({
     phone = data?.phone || null
   } else if (recipientId && recipientType === 'team_member') {
     const { data } = await supabaseAdmin.from('team_members').select('email, phone').eq('id', recipientId).single()
+    email = data?.email || null
+    phone = data?.phone || null
+  } else if (recipientId && recipientType === 'tenant_member') {
+    // Dashboard staff (owner/admin/virtual_assistant) — distinct from
+    // 'admin' below, which broadcasts to the tenant OWNER only. This path
+    // targets one specific named person (e.g. a Task Board @mention).
+    const { data } = await supabaseAdmin.from('tenant_members').select('email, phone').eq('id', recipientId).single()
     email = data?.email || null
     phone = data?.phone || null
   } else if (recipientType === 'admin') {

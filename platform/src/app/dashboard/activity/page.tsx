@@ -70,7 +70,7 @@ export default function ActivityPage() {
     ? logs.filter(l => l.action.includes(search.toLowerCase()) || l.entity_type.includes(search.toLowerCase()) || JSON.stringify(l.details || {}).toLowerCase().includes(search.toLowerCase()))
     : logs
 
-  const entityTypes = ['client', 'booking', 'team_member', 'schedule', 'campaign', 'review', 'referral', 'expense', 'service']
+  const entityTypes = ['client', 'booking', 'team_member', 'schedule', 'campaign', 'review', 'referral', 'expense', 'service', 'board_item']
 
   return (
     <div>

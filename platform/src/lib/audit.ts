@@ -18,6 +18,7 @@ type AuditAction =
   | 'auth.universal_pin_login'
   | 'admin.dashboard_login'
   | 'deal.created' | 'deal.updated' | 'deal.deleted'
+  | 'board_item.note_added' | 'board_item.updated'
   | 'yinez.tool_call' | 'yinez.tool_blocked'
   | 'selena_legacy.tool_call'
   | 'admin_ai_chat.tool_call'
