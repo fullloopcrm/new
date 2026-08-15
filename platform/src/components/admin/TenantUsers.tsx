@@ -5,6 +5,7 @@
  * Lives as the Users tab on the tenant profile so it's all one page.
  */
 import { useEffect, useState, useCallback } from 'react'
+import { ROLES as RBAC_ROLES } from '@/lib/rbac'
 
 interface TenantUser {
   id: string
@@ -16,7 +17,7 @@ interface TenantUser {
   last_login: string | null
 }
 
-const ROLES = ['owner', 'admin', 'manager', 'staff']
+const ROLES = RBAC_ROLES.map(r => r.value)
 
 export function TenantUsers({ tenantId }: { tenantId: string }) {
   const [users, setUsers] = useState<TenantUser[]>([])

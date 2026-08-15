@@ -44,6 +44,10 @@ export interface TenantSettings {
   // treated as closed for booking/availability. Default OFF (federal holidays
   // block, per lib/holidays.ts). Stored in tenants.selena_config jsonb.
   open_365: boolean
+  // Self-booking discount (dollars, as cents) shown on /book/standard and
+  // noted at billing by api/client/book — never auto-deducted. Default 1000
+  // ($10). Stored in tenants.selena_config.self_book_discount_cents jsonb.
+  self_book_discount_cents: number
   // Which funnel this tenant runs:
   //  'booking'   = direct book → schedule → pay → review (cleanings, appts)
   //  'pipeline'  = lead → quote/proposal → close → schedule → pay → review
@@ -256,6 +260,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
     open_365: Boolean(selenaConfig.open_365),
+    self_book_discount_cents: Number(selenaConfig.self_book_discount_cents ?? 1000),
     // Explicit selena_config choice wins; otherwise default from the trade
     // archetype — project/lead verticals quote-first ('pipeline'), everything
     // else books. This repairs tenants provisioned before funnel_mode was seeded.

@@ -57,20 +57,20 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
     return (
       <div className="mt-8">
         <div className="mb-5 space-y-1.5 text-sm text-zinc-400">
-          <p>&#10003; <strong className="text-green-400">Self-book &amp; save $10</strong> &mdash; the fastest way to get service</p>
+          <p>&#10003; <strong className="text-green-400">Self-book &amp; save $20</strong> &mdash; the fastest way to get service</p>
           <p>&#10003; <strong className="text-zinc-200">No money upfront</strong> &mdash; pay when the job is done</p>
           <p>&#10003; <strong className="text-zinc-200">2,847+</strong> five-star reviews</p>
           <p>&#10003; <strong className="text-zinc-200">Licensed &amp; insured</strong> NYS DEC exterminators</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Link
-            href="/book-exterminator-today"
+            href="/book/new"
             data-cta="self-book"
             data-cta-location={`cta-${variant}`}
             className="group inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-7 py-3.5 text-base font-bold text-white shadow-lg shadow-green-600/25 transition-all hover:bg-green-500 hover:shadow-green-500/30 hover:-translate-y-0.5"
           >
             <CalendarIcon />
-            Self-Book Online &mdash; Save $10
+            Self-Book Online &mdash; Save $20
           </Link>
           <a
             href={`sms:${phonePlain}`}
@@ -100,20 +100,20 @@ export default function CTAGroup({ variant, title, subtitle }: CTAGroupProps) {
           {sub}
         </p>
         <div className="mx-auto mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-green-100/80">
-          <span>&#10003; Self-book &amp; save $10</span>
+          <span>&#10003; Self-book &amp; save $20</span>
           <span>&#10003; No money upfront</span>
           <span>&#10003; 2,847+ five-star reviews</span>
           <span>&#10003; Licensed &amp; insured</span>
         </div>
         <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/book-exterminator-today"
+            href="/book/new"
             data-cta="self-book"
             data-cta-location={`cta-${variant}`}
             className="group inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-lg font-bold text-green-700 shadow-lg shadow-black/10 transition-all hover:bg-green-50 hover:-translate-y-0.5"
           >
             <CalendarIcon />
-            Self-Book Online &mdash; Save $10
+            Self-Book Online &mdash; Save $20
           </Link>
           <a
             href={`sms:${phonePlain}`}

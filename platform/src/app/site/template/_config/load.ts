@@ -155,6 +155,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     rating: hasReviews ? reviewStats.rating : 0,
     reviewCount: hasReviews ? reviewStats.count : '',
     services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
+    selfBookDiscountCents: typeof selena?.['self_book_discount_cents'] === 'number' ? selena['self_book_discount_cents'] : 1000,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
@@ -199,7 +200,7 @@ async function loadServices(tenantId: string | undefined): Promise<SiteConfig['s
   if (!tenantId) return null
   const { data } = await supabaseAdmin
     .from('service_types')
-    .select('name, default_duration_hours, active')
+    .select('name, default_duration_hours, default_hourly_rate, active')
     .eq('tenant_id', tenantId)
     .eq('active', true)
     .order('sort_order', { ascending: true })
@@ -214,6 +215,7 @@ async function loadServices(tenantId: string | undefined): Promise<SiteConfig['s
         label: value,
         hours: typeof s.default_duration_hours === 'number' ? s.default_duration_hours : 2,
         emergency: /same.?day|emergency/i.test(value),
+        rate: typeof s.default_hourly_rate === 'number' ? s.default_hourly_rate : undefined,
       }
     })
     .filter((o): o is NonNullable<typeof o> => o !== null)

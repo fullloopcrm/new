@@ -73,6 +73,8 @@ export interface ServiceOption {
   hours: number
   /** When true, hidden from the standard picker (e.g. same-day/emergency) */
   emergency?: boolean
+  /** service_types.default_hourly_rate — 0/undefined when unset. */
+  rate?: number
 }
 
 export interface SiteConfig {
@@ -89,6 +91,14 @@ export interface SiteConfig {
   reviewCount: string
   /** Bookable service options for /book/new — vertical-specific, config-driven */
   services: ServiceOption[]
+  /**
+   * Self-booking discount shown on /book/standard and applied as a billing
+   * note (never auto-deducted — no tenant has automated final-bill discounts
+   * yet). Tenant-configurable via tenants.selena_config.self_book_discount_cents,
+   * default 1000 ($10). NYC Maid's /book/new has its own separate, older
+   * $10 constant (lib/nycmaid/self-book-discount.ts) — unaffected by this.
+   */
+  selfBookDiscountCents: number
   /**
    * Which funnel the tenant runs — drives the front-end shape:
    *  'booking'   → book-now CTAs + /book/new
