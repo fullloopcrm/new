@@ -257,6 +257,48 @@ describe('middleware — custom domain routing wiring', () => {
     expect(domainSpy).toHaveBeenCalledWith('www.acmecustom.com')
     expect(res!.headers.get('x-tenant-id')).toBe('tenant-acme')
   })
+
+  // DOMAIN_SITE_SLUG_OVERRIDES: a tenant can own multiple domains that must
+  // render DIFFERENT bespoke sites (same tenant_id, distinct content), unlike
+  // every other BESPOKE_SITE_TENANTS case which is one folder per tenant
+  // slug shared across all that tenant's domains.
+  it('routes nyccommercialexterminator.com to its own /site/nyc-commercial-exterminator subtree, not the parent tenant\'s site', async () => {
+    const nycExterminator = { id: 'tenant-nyce', slug: 'the-nyc-exterminator', name: 'The NYC Exterminator', domain: null, status: 'active' }
+    byDomain = async (domain) => (domain === 'www.nyccommercialexterminator.com' ? nycExterminator : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.nyccommercialexterminator.com/schedule-service', { headers: { host: 'www.nyccommercialexterminator.com' } })
+    const res = await middleware(req)
+
+    expect(res!.headers.get('x-tenant-id')).toBe('tenant-nyce')
+    expect(res!.headers.get('x-tenant-slug')).toBe('the-nyc-exterminator')
+    expect(rewriteTarget(res)).toContain('/site/nyc-commercial-exterminator/schedule-service')
+    expect(rewriteTarget(res)).not.toContain('/site/the-nyc-exterminator/schedule-service')
+  })
+
+  it('the SAME tenant\'s primary domain still routes to /site/the-nyc-exterminator — override is domain-scoped, not tenant-scoped', async () => {
+    const nycExterminator = { id: 'tenant-nyce', slug: 'the-nyc-exterminator', name: 'The NYC Exterminator', domain: null, status: 'active' }
+    byDomain = async (domain) => (domain === 'www.thenycexterminator.com' ? nycExterminator : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thenycexterminator.com/schedule-service', { headers: { host: 'www.thenycexterminator.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/the-nyc-exterminator/schedule-service')
+    expect(rewriteTarget(res)).not.toContain('/site/nyc-commercial-exterminator')
+  })
+
+  it('serves its own /sitemap.xml too — not the parent tenant\'s 10,000+ URL sitemap', async () => {
+    const nycExterminator = { id: 'tenant-nyce', slug: 'the-nyc-exterminator', name: 'The NYC Exterminator', domain: null, status: 'active' }
+    byDomain = async (domain) => (domain === 'www.nyccommercialexterminator.com' ? nycExterminator : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.nyccommercialexterminator.com/sitemap.xml', { headers: { host: 'www.nyccommercialexterminator.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/nyc-commercial-exterminator/sitemap.xml')
+    expect(rewriteTarget(res)).not.toContain('/site/the-nyc-exterminator/sitemap.xml')
+  })
 })
 
 describe('middleware — main-host / subdomain Host-header case sensitivity', () => {
