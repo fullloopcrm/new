@@ -80,6 +80,7 @@ function BookFormContent() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const [waitlisted, setWaitlisted] = useState(false)
   const [pin, setPin] = useState('')
   const [showRecap, setShowRecap] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
@@ -169,6 +170,11 @@ function BookFormContent() {
   const discountEligible = !isEmergency && !isMultiCleaner
   const selfBookingDiscount = discountEligible ? 10 : 0
   const estimatedTotal = hourlyRate * estimatedHours * Math.max(1, form.team_size)
+  // Nobody's free that day and there's no alternate time to offer — same
+  // condition that already surfaces the "Join the waitlist" fallback below.
+  // When true, Confirm routes to the waitlist instead of a real booking, so a
+  // client submitting on a full day is never silently left off both.
+  const isFullyBooked = !loadingCleaners && availableCleaners.length === 0 && timeSuggestions.length === 0
 
   // Convert "12:00 PM" → "12:00" (24h)
   function to24h(t: string): string {
@@ -305,8 +311,10 @@ function BookFormContent() {
     trackBookingEvent('form_submit_click', sessionIdRef.current)
 
     // Most-common "button does nothing" cause: the policy box is unchecked.
-    // Pull their eye to it and flash it instead of failing silently.
-    if (!policyAccepted) {
+    // Pull their eye to it and flash it instead of failing silently. Doesn't
+    // apply when nobody's free that day — joining the waitlist isn't a real
+    // booking, so there's no billing/cancellation policy to agree to yet.
+    if (!policyAccepted && !isFullyBooked) {
       trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'policy' })
       policyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       setPolicyFlash(true)
@@ -331,6 +339,48 @@ function BookFormContent() {
   async function handleConfirmSubmit() {
     setError('')
     setSubmitting(true)
+
+    // Nobody's free that day — route to the waitlist instead of a real
+    // booking (same endpoint joinWaitlist() below uses) so every full-day
+    // submission actually lands in the waitlist table + Bookings' Pending/
+    // Waitlist badge + tenant Telegram alert, not just the ones a client
+    // happens to find the separate "Join the waitlist" button for.
+    if (isFullyBooked) {
+      try {
+        const res = await fetch('/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            phone: form.phone.trim(),
+            email: form.email.trim() || null,
+            address: form.address.trim() || null,
+            service_type: form.service_type,
+            preferred_date: form.date || null,
+            preferred_time: form.time || null,
+            estimated_hours: form.estimated_hours,
+            hourly_rate: hourlyRate,
+            notes: form.notes.trim() || null,
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (!data?.ok) {
+          setError(data?.error || 'Something went wrong. Please try again or text us.')
+          setSubmitting(false)
+          return
+        }
+        submittedRef.current = true
+        trackBookingEvent('form_success', sessionIdRef.current, { ref_code: refCode || null, waitlisted: true })
+        setShowRecap(false)
+        setWaitlisted(true)
+        setDone(true)
+      } catch {
+        setError('Network error. Please try again or text (212) 202-8400.')
+        setSubmitting(false)
+      }
+      return
+    }
+
     try {
       const res = await fetch('/api/client/book', {
         method: 'POST',
@@ -388,9 +438,19 @@ function BookFormContent() {
       <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] flex items-center justify-center px-4 py-16">
         <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">✓</div>
+          {waitlisted ? (
+            <>
+              <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Waitlisted</div>
+              <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">You&rsquo;re on the Waitlist.</h1>
+              <p className="text-gray-600 text-sm mb-6">Nobody&rsquo;s free on {form.date}{form.time ? ` around ${form.time}` : ''} right now. We&rsquo;ll text you the moment a spot opens up — no payment, no commitment, nothing else to do.</p>
+            </>
+          ) : (
+          <>
           <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Pending Owner Review</div>
           <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Request Submitted — Awaiting Confirmation.</h1>
           <p className="text-gray-600 text-sm mb-6">This is <strong>not finalized yet</strong>. The owner reviews + confirms within the hour. You&rsquo;ll get a second text/email locking in your date, time, and cleaner — until then please don&rsquo;t plan around this slot. {selfBookingDiscount > 0 ? <>Your <strong>$10 self-booking discount</strong> is locked in &mdash; it&rsquo;ll show on your final bill once confirmed</> : <>This is a {isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} booking, so no discounts apply{isMultiCleaner ? ' and a 4-hour minimum is in effect' : ''}</>}{pin ? '. A confirmation email with your client portal PIN is on its way' : ''}.</p>
+          </>
+          )}
           {pin && (
             <div className="bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6">
               <p className="text-xs text-[#1E2A4A]/60 tracking-widest uppercase mb-1">Your PIN</p>
@@ -779,7 +839,7 @@ function BookFormContent() {
                 : 'bg-[#A8F0DC]/50 text-[#1E2A4A]/70 hover:bg-[#A8F0DC]/70'
             }`}
           >
-            {submitting ? 'Submitting…' : policyAccepted ? 'Book my cleaning' : 'Check the box above, then book'}
+            {submitting ? 'Submitting…' : isFullyBooked ? 'Join the waitlist' : policyAccepted ? 'Book my cleaning' : 'Check the box above, then book'}
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-3">
@@ -792,19 +852,24 @@ function BookFormContent() {
     {showRecap && (
       <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4 py-8 overflow-y-auto" role="dialog" aria-modal="true">
         <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 my-auto">
-          <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">Confirm your booking</h2>
-          <p className="text-xs text-gray-500 mb-4">Review the details and the policy below — clicking Confirm locks it in.</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">{isFullyBooked ? 'Join the waitlist' : 'Confirm your booking'}</h2>
+          <p className="text-xs text-gray-500 mb-4">{isFullyBooked ? "Nobody's free that day yet — we'll text you the moment a spot opens. No payment, no commitment." : 'Review the details and the policy below — clicking Confirm locks it in.'}</p>
 
           <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-4 text-sm space-y-1.5 text-[#1E2A4A]">
             <div><span className="text-gray-500">Service:</span> {form.service_type}</div>
-            <div><span className="text-gray-500">When:</span> {form.date} @ {form.time}</div>
+            <div><span className="text-gray-500">{isFullyBooked ? 'Preferred date:' : 'When:'}</span> {form.date} @ {form.time}</div>
             <div><span className="text-gray-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
-            <div><span className="text-gray-500">Rate:</span> ${hourlyRate}/hr × ~{estimatedHours} hrs{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.team_size > 1 ? ' (4-hr minimum)' : ''}</div>
-            <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</span> {selfBookingDiscount > 0
+            {!isFullyBooked && <div><span className="text-gray-500">Rate:</span> ${hourlyRate}/hr × ~{estimatedHours} hrs{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.team_size > 1 ? ' (4-hr minimum)' : ''}</div>}
+            {!isFullyBooked && <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</span> {selfBookingDiscount > 0
               ? <span className="text-xs text-green-700">($10 self-booking discount applied at billing)</span>
-              : <span className="text-xs text-amber-700">({isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} — no discounts apply)</span>}</div>
+              : <span className="text-xs text-amber-700">({isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} — no discounts apply)</span>}</div>}
           </div>
 
+          {isFullyBooked ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-xs text-amber-900 leading-relaxed">
+              <p>You&apos;re not being booked or charged yet — this just adds you to the waitlist for {form.date}. We&apos;ll text the number you provided as soon as a cleaner opens up for that day, and you can book normally from there.</p>
+            </div>
+          ) : (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-xs text-amber-900 leading-relaxed">
             <p className="font-semibold mb-1">By clicking Confirm you agree to:</p>
             <ul className="list-disc list-inside space-y-0.5">
@@ -816,6 +881,7 @@ function BookFormContent() {
               <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App)</li>
             </ul>
           </div>
+          )}
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">{error}</div>}
 
@@ -834,7 +900,7 @@ function BookFormContent() {
               disabled={submitting}
               className="flex-1 bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition disabled:opacity-50"
             >
-              {submitting ? 'Confirming…' : 'Confirm'}
+              {submitting ? (isFullyBooked ? 'Adding…' : 'Confirming…') : isFullyBooked ? 'Join Waitlist' : 'Confirm'}
             </button>
           </div>
         </div>
