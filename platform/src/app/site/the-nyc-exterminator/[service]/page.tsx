@@ -141,7 +141,7 @@ export default async function ServiceHubPage({ params }: PageProps) {
                 Get a Free {service.name} Quote
               </h2>
               <p className="mt-1 text-sm text-zinc-400">
-                Free inspection. Upfront pricing. Same-day service available.
+                Inspection. Upfront pricing. Same-day service available.
               </p>
               <div className="mt-4">
                 <ContactForm service={service.name} compact dark />
