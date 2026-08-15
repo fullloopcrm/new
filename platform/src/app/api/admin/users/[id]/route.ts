@@ -6,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { ROLES } from '@/lib/rbac'
+
+const VALID_ROLES = ROLES.map(r => r.value)
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('settings.edit')
@@ -21,9 +24,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.email) updates.email = body.email.toLowerCase().trim()
     if (body.phone !== undefined) updates.phone = body.phone
     if (body.role) {
-      const validRoles = ['owner', 'admin', 'manager', 'staff']
-      if (!validRoles.includes(body.role)) {
-        return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+      if (!VALID_ROLES.includes(body.role)) {
+        return NextResponse.json({ error: `Invalid role. Must be: ${VALID_ROLES.join(', ')}` }, { status: 400 })
       }
       // Granting 'owner' is owner-only — otherwise any member with settings.edit
       // (e.g. the 'admin' role) could promote themselves to owner and, from

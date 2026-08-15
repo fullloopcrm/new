@@ -9,7 +9,7 @@
 // `owner` is never customizable — it always keeps every permission, which is
 // what prevents a tenant from locking itself out.
 
-export type Role = 'owner' | 'admin' | 'manager' | 'staff' | 'virtual_assistant'
+export type Role = 'owner' | 'admin' | 'manager' | 'staff' | 'virtual_assistant' | 'contractor'
 
 export type Permission =
   | 'clients.view' | 'clients.create' | 'clients.edit' | 'clients.delete'
@@ -121,6 +121,28 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'leads.view', 'notifications.view',
     'boards.view', 'boards.edit',
   ],
+  // External fulfillment partner (e.g. a licensed sub-contractor selling
+  // under their own license via a signed contractor agreement): full
+  // visibility into how the tenant runs, zero write access anywhere in the
+  // back end. Their actual day-to-day work (accepting/completing jobs) happens
+  // in the team portal via a separate team_members/portal-rbac.ts account, not
+  // here. team.compensation deliberately excluded — that's other people's pay
+  // rates/compliance docs, out of scope for "view how the business runs."
+  // Global role, usable by any tenant. 2026-08-14.
+  contractor: [
+    'clients.view',
+    'bookings.view',
+    'schedules.view',
+    'team.view',
+    'finance.view',
+    'campaigns.view',
+    'reviews.view',
+    'referrals.view',
+    'sales_partners.view',
+    'sales.view',
+    'leads.view', 'notifications.view',
+    'boards.view',
+  ],
 }
 
 // --- Catalog (drives the tenant-facing customization UI) ---
@@ -216,7 +238,7 @@ export function isValidPermission(value: string): value is Permission {
 }
 
 // Roles a tenant is allowed to customize (owner is excluded on purpose).
-export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff', 'virtual_assistant']
+export const CUSTOMIZABLE_ROLES: Exclude<Role, 'owner'>[] = ['admin', 'manager', 'staff', 'virtual_assistant', 'contractor']
 
 export function isCustomizableRole(value: string): value is Exclude<Role, 'owner'> {
   return (CUSTOMIZABLE_ROLES as string[]).includes(value)
@@ -267,4 +289,5 @@ export const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'manager', label: 'Manager', description: 'Manage day-to-day operations, no finance payroll or settings' },
   { value: 'staff', label: 'Staff', description: 'View-only access, can create bookings' },
   { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'The Loop, clients, ComHub/Connect, sales, production, full HR (including PIN reset and compensation data), payroll data, and marketing — no delete anywhere, no settings access, cannot run payroll' },
+  { value: 'contractor', label: 'Contractor', description: 'View-only across clients, ComHub, sales, production, and finance — no create, edit, or delete anywhere, no settings access' },
 ]

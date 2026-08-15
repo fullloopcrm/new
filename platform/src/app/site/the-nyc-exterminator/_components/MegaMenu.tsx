@@ -168,20 +168,20 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
         </div>
 
         <Link
-          href="/book-exterminator-today"
+          href="/book/new"
           className="ml-3 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-green-600/20 transition-all hover:bg-green-500 hover:shadow-green-500/30 hover:-translate-y-px"
         >
-          Book &middot; Save $10
+          Book &middot; Save $20
         </Link>
       </nav>
 
       {/* Mobile */}
       <div className="flex items-center gap-3 lg:hidden">
         <Link
-          href="/book-exterminator-today"
+          href="/book/new"
           className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-green-600/20 hover:bg-green-500"
         >
-          Book &middot; Save $10
+          Book &middot; Save $20
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -292,11 +292,11 @@ export default function MegaMenu({ categories, phone }: MegaMenuProps) {
           {/* Fixed bottom CTAs */}
           <div className="border-t border-white/[0.06] px-5 py-5 space-y-3">
             <Link
-              href="/book-exterminator-today"
+              href="/book/new"
               className="block w-full rounded-xl bg-green-600 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-green-600/20 hover:bg-green-500"
               onClick={() => setMobileOpen(false)}
             >
-              Self-Book Online &mdash; Save $10
+              Self-Book Online &mdash; Save $20
             </Link>
             <a
               href={`sms:${phonePlain}`}
