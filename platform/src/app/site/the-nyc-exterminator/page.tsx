@@ -250,8 +250,8 @@ export default function HomePage() {
                 desc: "Emergency pest problems can't wait. Wasp nests, rat infestations, bed bug discoveries — we offer same-day exterminator service for urgent situations across all five NYC boroughs, NJ, Long Island, and Westchester.",
               },
               {
-                title: "Free Pest Inspections",
-                desc: "Every pest control job starts with a thorough inspection by a licensed exterminator. We identify the pest species, locate the source of the infestation, assess the severity, and develop the most effective treatment plan — at no cost to you.",
+                title: "$199/hr Flat Rate",
+                desc: "Every pest control job starts with a thorough inspection by a licensed exterminator. We identify the pest species, locate the source of the infestation, assess the severity, and develop the most effective treatment plan — billed at one flat $199/hr rate, no matter the pest.",
               },
               {
                 title: "Guaranteed Pest Elimination",
