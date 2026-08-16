@@ -309,7 +309,7 @@ export default function ContactPage() {
                   contact information, property type, pest type, and a description of
                   the problem. It takes less than two minutes to complete and ensures
                   we have all the information we need to prepare for your appointment.
-                  Pest control pricing is $199/hr, and every quote comes with a free
+                  Pest control pricing is $199/hr, and every quote includes an
                   on-site inspection &mdash; no commitment required.
                 </p>
               </div>
@@ -426,7 +426,7 @@ export default function ContactPage() {
               <div>
                 <h3 className="text-xl font-semibold text-white">We Schedule Your Inspection</h3>
                 <p className="mt-2 text-zinc-300">
-                  Based on your availability and location, we will schedule a free
+                  Based on your availability and location, we will schedule your
                   on-site pest control inspection at a time that works for you. Same-day
                   exterminator appointments are available for most of NYC, and we offer
                   morning, afternoon, and evening time slots Monday through Sunday.

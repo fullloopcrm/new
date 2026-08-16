@@ -465,7 +465,7 @@ export default function PricingPage() {
             you anticipate costs, ask the right questions, and make informed
             decisions when choosing an exterminator. NYC pest control costs are
             not arbitrary. They are determined by a combination of measurable
-            factors that our licensed technicians assess during your free
+            factors that our licensed technicians assess during your
             inspection. Here are the primary variables that determine what you
             will pay for exterminator service in the New York City metro area:
           </p>

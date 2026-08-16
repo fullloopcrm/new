@@ -81,7 +81,7 @@ export default function ServicesPage() {
               The NYC Exterminator offers {totalServices} professional pest control services covering every type
               of infestation you might encounter in the New York City metro area. From cockroach extermination
               in Manhattan apartments to rat control in Brooklyn restaurants, our licensed and insured
-              pest control technicians deliver results you can count on. Every service includes a free
+              pest control technicians deliver results you can count on. Every service includes an
               on-site inspection, transparent upfront pricing at a flat $199/hr, and our satisfaction
               guarantee. Text{" "}
               <a href={`sms:$us`} className="font-semibold text-green-400 hover:underline">us</a>{" "}
