@@ -139,34 +139,38 @@ export async function resolveCoverage(opts: ResolveCoverageOptions): Promise<Cov
   const neighborhoods = neighborhoodsWithinRadius(center.lat, center.lng, opts.radiusMiles)
   const staticAreas = areasWithinRadius(center.lat, center.lng, opts.radiusMiles)
 
-  // Static NY/NJ dataset came back empty -> center is outside its footprint.
-  // Fall back to a live national lookup instead of returning nothing. Never
-  // throws (best-effort, see nearbyPlacesViaOverpass docstring); an empty
-  // result here just means the same as "no coverage found," same as before.
-  if (staticAreas.length === 0 && neighborhoods.length === 0) {
-    const livePlaces = await nearbyPlacesViaOverpass(center.lat, center.lng, opts.radiusMiles)
-    if (livePlaces.length > 0) {
-      return {
-        center,
-        radiusMiles: opts.radiusMiles,
-        neighborhoods: [],
-        areas: livePlaces.map((p) => ({
-          slug: p.slug,
-          urlSlug: p.urlSlug,
-          name: p.name,
-          state: p.state,
-          lat: p.lat,
-          lng: p.lng,
-          distanceMiles: p.distanceMiles,
-        })),
-      }
-    }
-  }
+  // The static NY/NJ dataset is a handful of hand-curated regional entries
+  // (5 total: manhattan, brooklyn, queens, one umbrella "long-island", new
+  // jersey) — real signal for nycmaid's own borough copy, but nowhere near
+  // "every town" coverage. Always merge in the live Overpass lookup (real
+  // OSM towns/cities/villages, works anywhere in the US) rather than only
+  // falling back to it when the static list is fully empty — otherwise any
+  // tenant centered near NYC/NJ (in range of those 5 static entries) never
+  // gets granular per-town coverage. Static entries take priority on a
+  // urlSlug collision (they carry hand-written descriptions the Overpass
+  // result doesn't). Never throws (best-effort, see nearbyPlacesViaOverpass
+  // docstring) — a live-lookup failure just means static-only, same as before.
+  const livePlaces = await nearbyPlacesViaOverpass(center.lat, center.lng, opts.radiusMiles)
+  const staticSlugs = new Set(staticAreas.map((a) => a.urlSlug))
+  const mergedAreas = [
+    ...staticAreas,
+    ...livePlaces
+      .filter((p) => !staticSlugs.has(p.urlSlug))
+      .map((p) => ({
+        slug: p.slug,
+        urlSlug: p.urlSlug,
+        name: p.name,
+        state: p.state,
+        lat: p.lat,
+        lng: p.lng,
+        distanceMiles: p.distanceMiles,
+      })),
+  ].sort((a, b) => a.distanceMiles - b.distanceMiles)
 
   return {
     center,
     radiusMiles: opts.radiusMiles,
     neighborhoods,
-    areas: staticAreas,
+    areas: mergedAreas,
   }
 }
