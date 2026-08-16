@@ -23,9 +23,9 @@ function parseHhMmToMinutes(hhmm: string | undefined): number | null {
   return h * 60 + min
 }
 
-// True when `at` falls inside the tenant's configured staffed/support window
-// for today (tenant-local calendar day, DST-safe via Intl). A day missing
-// from `supportHours` or marked `open: false` counts as unstaffed all day.
+// True when `at` falls inside the tenant's configured Yinez-hours window for
+// today (tenant-local calendar day, DST-safe via Intl). A day missing from
+// `supportHours` or marked `open: false` counts as off all day.
 function isWithinSupportHours(supportHours: SupportHours, timezone: string, at: Date): boolean {
   const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(at)
   const key = WEEKDAY_SHORT_TO_KEY[weekdayShort]
@@ -40,20 +40,21 @@ function isWithinSupportHours(supportHours: SupportHours, timezone: string, at: 
   return nowMin >= startMin && nowMin < endMin
 }
 
-// Yinez should auto-reply (SMS/email) exactly when the tenant is "away":
-// either a human has manually flagged away (covers/overrides for the day),
-// or the current tenant-local time falls outside the configured support
-// hours. Tenants that have never configured support_hours are unaffected —
-// they keep today's always-on behavior (no schedule = nothing to gate on).
-export function isTenantAiAway(opts: {
+// Yinez (webchat, SMS, email) should respond exactly when the tenant has
+// turned the hours switch ON and the current tenant-local time falls inside
+// the configured Mon-Sun schedule. Turning the switch off, or never
+// configuring a schedule while it's on, keeps the historical always-on
+// behavior — this only ever narrows availability, never silently disables it
+// by default.
+export function isTenantAiOnline(opts: {
   timezone?: string | null
   supportHours?: Partial<SupportHours> | null
-  manualAway?: boolean | null
+  hoursEnabled?: boolean | null
   at?: Date
 }): boolean {
-  const { supportHours, manualAway, at = new Date() } = opts
-  if (manualAway) return true
+  const { supportHours, hoursEnabled, at = new Date() } = opts
+  if (!hoursEnabled) return true
   if (!supportHours || Object.keys(supportHours).length === 0) return true
   const timezone = getTenantTimezone({ timezone: opts.timezone })
-  return !isWithinSupportHours(supportHours as SupportHours, timezone, at)
+  return isWithinSupportHours(supportHours as SupportHours, timezone, at)
 }

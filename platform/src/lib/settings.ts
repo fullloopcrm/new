@@ -98,13 +98,18 @@ export interface TenantSettings {
   // Tenant IANA timezone (tenants.timezone, defaults 'America/New_York') —
   // drives all Yinez away-hours math below, DST-safe.
   timezone: string
-  // Staffed/support hours per weekday (selena_config.support_hours jsonb, set
-  // via ComHub Settings -> Work hours). Null when the tenant has never
-  // configured it — isTenantAiAway() treats that as "no schedule to gate on".
+  // Master switch (selena_config.hours_enabled, set via ComHub Settings ->
+  // Yinez hours). When false, Yinez runs 24/7 regardless of support_hours —
+  // the historical always-on default. When true, isTenantAiOnline() gates
+  // webchat/SMS/email to the Mon-Sun schedule below.
+  hours_enabled: boolean
+  // Mon-Sun on-hours per weekday (selena_config.support_hours jsonb, set via
+  // ComHub Settings -> Yinez hours). Null when the tenant has never
+  // configured it — isTenantAiOnline() treats that as "nothing to gate on".
   support_hours: SupportHours | null
   // Manual override (selena_config.manual_away) — a human flips this from the
-  // ComHub inbox to force Yinez into after-hours coverage mode regardless of
-  // the support_hours schedule (e.g. short-staffed mid-day).
+  // ComHub inbox to force Yinez on immediately regardless of hours_enabled/
+  // support_hours (e.g. extra coverage outside normal hours).
   manual_away: boolean
   // Lead handling (selena_config + tenants columns)
   auto_respond_leads: boolean
@@ -288,6 +293,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
     sms_reply_enabled: selenaConfig.sms_reply_enabled !== false,
     timezone: getTenantTimezone(tenant as { timezone?: string | null } | null),
+    hours_enabled: Boolean(selenaConfig.hours_enabled),
     support_hours: (selenaConfig.support_hours as SupportHours | undefined) || null,
     manual_away: Boolean(selenaConfig.manual_away),
     chatbot_greeting: (selenaConfig.greeting as string) || (selenaConfig.chatbot_greeting as string) || DEFAULT_FALLBACKS.chatbot_greeting,

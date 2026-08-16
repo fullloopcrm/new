@@ -24,6 +24,7 @@ export type MailAccount = {
   emailFrom: string | null
   brand: Brand
   timezone: string
+  hoursEnabled: boolean
   supportHours: SupportHours | null
   manualAway: boolean
 }
@@ -63,6 +64,7 @@ export async function collectAccounts(): Promise<MailAccount[]> {
           primaryColor: t.primary_color,
         },
         timezone: getTenantTimezone(t as { timezone?: string | null }),
+        hoursEnabled: Boolean(selenaConfig.hours_enabled),
         supportHours: (selenaConfig.support_hours as SupportHours | undefined) || null,
         manualAway: Boolean(selenaConfig.manual_away),
       })
@@ -90,6 +92,7 @@ export async function collectAccounts(): Promise<MailAccount[]> {
       emailFrom: null,
       brand: { name: 'The NYC Maid' },
       timezone: getTenantTimezone(nycmaidTenant as { timezone?: string | null } | null),
+      hoursEnabled: Boolean(selenaConfig.hours_enabled),
       supportHours: (selenaConfig.support_hours as SupportHours | undefined) || null,
       manualAway: Boolean(selenaConfig.manual_away),
     })

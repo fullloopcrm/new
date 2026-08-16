@@ -9,7 +9,7 @@ import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { translateInboundComhubMessage } from '@/lib/comhub-translate'
 import { trackError } from '@/lib/error-tracking'
-import { isTenantAiAway } from '@/lib/comhub-away'
+import { isTenantAiOnline } from '@/lib/comhub-away'
 import { collectAccounts, type MailAccount } from './mail-accounts'
 
 // Automated/notification senders (payment processors, banks, dev-tool alerts,
@@ -183,12 +183,12 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           // 2026-07-25 — confirmed via comhub_messages that this had silently
           // stopped ALL nycmaid email auto-replies since 2026-07-22 (the FL
           // cutover), not just "inconsistently."
-          const away = isTenantAiAway({
+          const online = account.manualAway || isTenantAiOnline({
             timezone: account.timezone,
             supportHours: account.supportHours,
-            manualAway: account.manualAway,
+            hoursEnabled: account.hoursEnabled,
           })
-          if (!paused && !dnsClient?.do_not_service && away) {
+          if (!paused && !dnsClient?.do_not_service && online) {
             // Channel-parity fix (2026-07-25, Jeff): email used to always pass
             // phone=undefined, so Yinez's shared loadContext() (prior bookings,
             // notes, preferred cleaner, remembered facts, owner detection) never

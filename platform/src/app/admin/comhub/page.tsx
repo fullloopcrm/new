@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { useUserPrefs } from '@/lib/use-user-prefs'
 import { useTenantSettings } from '@/lib/use-tenant-settings'
-import { isTenantAiAway, type SupportHours } from '@/lib/comhub-away'
+import { isTenantAiOnline, type SupportHours } from '@/lib/comhub-away'
 import { formatPhone } from '@/lib/format'
 import ComhubSettings from './comhub-settings'
 
@@ -224,43 +224,45 @@ function renderWithMentions(text: string): React.ReactNode {
 }
 const threadTitle = (t: Thread) => t.kind === 'channel' ? (t.name || `#${t.slug || 'channel'}`) : contactDisplay(t.comhub_contacts)
 
-// Persistent status + one-click override for Yinez's SMS/email auto-reply
-// coverage. Schedule comes from ComHub Settings -> Work hours
-// (selena_config.support_hours); this button flips selena_config.manual_away
-// to force her on immediately regardless of the schedule (e.g. short-staffed
-// mid-day), independent of the per-thread "Away ▾" canned-reply templates.
+// Persistent status + one-click override for Yinez's webchat/SMS/email
+// coverage. Schedule comes from ComHub Settings -> Yinez hours
+// (selena_config.hours_enabled + selena_config.support_hours); this button
+// flips selena_config.manual_away to force her on immediately regardless of
+// the schedule (e.g. extra coverage outside normal hours), independent of
+// the per-thread "Away ▾" canned-reply templates.
 function AwayToggle() {
   const { tenant, updateSelenaConfig, saving } = useTenantSettings()
   if (!tenant) return null
 
   const selena = (tenant.selena_config as Record<string, unknown> | null) || {}
-  const manualAway = Boolean(selena.manual_away)
+  const manualOverride = Boolean(selena.manual_away)
+  const hoursEnabled = Boolean(selena.hours_enabled)
   const supportHours = (selena.support_hours as Partial<SupportHours> | null) || null
-  const scheduledAway = isTenantAiAway({
+  const scheduledOnline = isTenantAiOnline({
     timezone: tenant.timezone as string | null,
     supportHours,
-    manualAway: false,
+    hoursEnabled,
   })
-  const effectivelyAway = manualAway || scheduledAway
+  const effectivelyOnline = manualOverride || scheduledOnline
 
   return (
     <button
       type="button"
       disabled={saving}
-      onClick={() => updateSelenaConfig({ manual_away: !manualAway })}
+      onClick={() => updateSelenaConfig({ manual_away: !manualOverride })}
       className="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs mb-3 transition-colors disabled:opacity-60"
       style={{
         fontFamily: 'var(--mono)',
         border: '1px solid var(--color-loop-line-soft)',
-        background: effectivelyAway ? 'rgba(16,185,129,0.12)' : 'var(--color-loop-canvas)',
+        background: effectivelyOnline ? 'rgba(16,185,129,0.12)' : 'var(--color-loop-canvas)',
       }}
-      title={manualAway ? 'Manually marked away — click to hand coverage back to your team' : 'Click to hand coverage to Yinez right now, regardless of the schedule'}
+      title={manualOverride ? 'Manually forced on — click to hand control back to the schedule' : 'Click to force Yinez on right now, regardless of the schedule'}
     >
-      <span style={{ color: effectivelyAway ? '#10b981' : 'var(--color-loop-muted)' }}>
-        {effectivelyAway ? 'Yinez is responding' : 'Yinez is silent — support hours'}
+      <span style={{ color: effectivelyOnline ? '#10b981' : 'var(--color-loop-muted)' }}>
+        {effectivelyOnline ? 'Yinez is responding' : 'Yinez is silent — outside hours'}
       </span>
       <span className="font-medium" style={{ color: 'var(--color-loop-ink)' }}>
-        {manualAway ? 'End away' : 'Away'}
+        {manualOverride ? 'End override' : 'Force on'}
       </span>
     </button>
   )
