@@ -134,8 +134,13 @@ export default function HomePage() {
                 and <Link href="/services" className="text-green-400 hover:text-green-300">{totalServices}+ pest types</Link>{" "}
                 across{" "}
                 <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link>{" "}
-                in NYC, NJ, Long Island &amp; Westchester. All services billed at a flat <strong className="text-white">$199/hr</strong>. NYS DEC licensed exterminators. Free pest inspections. Same-day pest control service available. Upfront pricing with no hidden fees.
+                in NYC, NJ, Long Island &amp; Westchester. NYS DEC licensed exterminators. Same-day pest control service available. Upfront pricing with no hidden fees.
               </p>
+
+              <div className="mt-6 flex items-baseline gap-3 rounded-2xl border border-green-500/30 bg-green-500/5 px-6 py-5 w-fit">
+                <span className="text-6xl font-black leading-none text-green-400 sm:text-7xl">$199</span>
+                <span className="text-lg font-bold uppercase leading-tight tracking-wide text-zinc-200">per hour<br />flat rate</span>
+              </div>
 
               <CTAGroup variant="hero" />
             </div>
@@ -173,7 +178,7 @@ export default function HomePage() {
           <span className="hidden text-zinc-700 sm:inline">&bull;</span>
           <span><strong className="text-zinc-200">Fully Insured</strong> Pest Control</span>
           <span className="hidden text-zinc-700 sm:inline">&bull;</span>
-          <span><strong className="text-zinc-200">Free</strong> Pest Inspections</span>
+          <span><strong className="text-zinc-200">$199/hr</strong> Flat Rate</span>
           <span className="hidden text-zinc-700 sm:inline">&bull;</span>
           <span><strong className="text-zinc-200">Same-Day</strong> Service Available</span>
           <span className="hidden text-zinc-700 sm:inline">&bull;</span>
