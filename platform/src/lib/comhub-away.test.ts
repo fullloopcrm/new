@@ -59,4 +59,48 @@ describe('isTenantAiOnline', () => {
     const winterNoonEt = new Date('2026-01-21T17:00:00Z') // 12:00 ET in EST
     expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: ON_8_TO_20, hoursEnabled: true, at: winterNoonEt })).toBe(true)
   })
+
+  describe('overnight window (start > end, e.g. 20:00-08:00)', () => {
+    const OVERNIGHT_20_TO_8: SupportHours = {
+      mon: { open: true, start: '20:00', end: '08:00' },
+      tue: { open: true, start: '20:00', end: '08:00' },
+      wed: { open: true, start: '20:00', end: '08:00' },
+      thu: { open: true, start: '20:00', end: '08:00' },
+      fri: { open: true, start: '20:00', end: '08:00' },
+      sat: { open: true, start: '20:00', end: '08:00' },
+      sun: { open: true, start: '20:00', end: '08:00' },
+    }
+
+    // 2026-07-22 is a Wednesday, EDT (UTC-4).
+    const WED_9PM_ET = new Date('2026-07-23T01:00:00Z') // 21:00 ET Wed — evening portion, starts today
+    const WED_5AM_ET = new Date('2026-07-22T09:00:00Z') // 05:00 ET Wed — early-morning portion, carried from Tue's window
+    const WED_NOON_ET_2 = new Date('2026-07-22T16:00:00Z') // 12:00 ET Wed — midday, should be offline
+    const WED_759PM_ET_2 = new Date('2026-07-22T23:59:00Z') // 19:59 ET Wed — one minute before open
+    const WED_801AM_ET = new Date('2026-07-22T12:01:00Z') // 08:01 ET Wed — one minute after close
+
+    it('is online in the evening portion that starts today', () => {
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: OVERNIGHT_20_TO_8, hoursEnabled: true, at: WED_9PM_ET })).toBe(true)
+    })
+
+    it('is online in the early-morning portion carried over from yesterday', () => {
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: OVERNIGHT_20_TO_8, hoursEnabled: true, at: WED_5AM_ET })).toBe(true)
+    })
+
+    it('is offline mid-day, between the overnight windows', () => {
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: OVERNIGHT_20_TO_8, hoursEnabled: true, at: WED_NOON_ET_2 })).toBe(false)
+    })
+
+    it('treats the start boundary as inclusive and the minute before as offline', () => {
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: OVERNIGHT_20_TO_8, hoursEnabled: true, at: WED_759PM_ET_2 })).toBe(false)
+    })
+
+    it('treats the end boundary as exclusive and the minute after as offline', () => {
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: OVERNIGHT_20_TO_8, hoursEnabled: true, at: WED_801AM_ET })).toBe(false)
+    })
+
+    it('does not carry over from a closed yesterday', () => {
+      const closedTuesday: SupportHours = { ...OVERNIGHT_20_TO_8, tue: { open: false, start: '20:00', end: '08:00' } }
+      expect(isTenantAiOnline({ timezone: 'America/New_York', supportHours: closedTuesday, hoursEnabled: true, at: WED_5AM_ET })).toBe(false)
+    })
+  })
 })
