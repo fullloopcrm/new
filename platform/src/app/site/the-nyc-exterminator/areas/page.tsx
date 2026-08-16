@@ -14,13 +14,13 @@ import { SITE_URL, getFAQPageSchema, getBreadcrumbSchema } from "@/app/site/the-
 export const metadata: Metadata = {
   title: "Pest Control in 280+ NYC Neighborhoods | All 5 Boroughs, NJ, LI & Westchester",
   description:
-    "Find licensed pest control and exterminator services in your NYC neighborhood. 280+ service areas across Manhattan, Brooklyn, Queens, Bronx, Staten Island, New Jersey, Long Island & Westchester. 30+ services, free inspections, same-day appointments. Pricing from $49. Text us.",
+    "Find licensed pest control and exterminator services in your NYC neighborhood. 280+ service areas across Manhattan, Brooklyn, Queens, Bronx, Staten Island, New Jersey, Long Island & Westchester. 30+ services, inspections, same-day appointments. Pricing at $199/hr. Text us.",
   keywords:
     "pest control near me NYC, exterminator near me, pest control Manhattan, pest control Brooklyn, pest control Queens, exterminator Bronx, pest control NJ, Long Island exterminator, Westchester pest control",
   openGraph: {
     title: "Pest Control in 280+ NYC Neighborhoods | All 5 Boroughs, NJ, LI & Westchester",
     description:
-      "Find a licensed exterminator in your neighborhood. 280+ areas, 30+ services, pricing from $49. Text us.",
+      "Find a licensed exterminator in your neighborhood. 280+ areas, 30+ services, flat-rate pricing at $199/hr. Text us.",
     url: `${SITE_URL}/areas`,
     type: "website",
   },
@@ -71,7 +71,7 @@ export default function AreasPage() {
     },
     {
       q: "How do I know which pest control service I need?",
-      a: "If you are not sure what pest you are dealing with, start with a free inspection. Our licensed exterminators will identify the pest, assess the severity of the infestation, and recommend the most effective treatment plan. You can also text us a photo for a quick identification. We never upsell unnecessary services — you only pay for what you actually need.",
+      a: "If you are not sure what pest you are dealing with, start with a inspection. Our licensed exterminators will identify the pest, assess the severity of the infestation, and recommend the most effective treatment plan. You can also text us a photo for a quick identification. We never upsell unnecessary services — you only pay for what you actually need.",
     },
     {
       q: "What makes your pest control different from big national chains?",
@@ -107,7 +107,7 @@ export default function AreasPage() {
               <p className="mt-6 text-lg leading-8 text-zinc-300">
                 Every neighborhood gets access to our full range of{" "}
                 <Link href="/services" className="text-green-400 hover:text-green-300">{totalServices}+ pest control services</Link>.
-                Licensed exterminators. Same-day service. Free inspections.
+                Licensed exterminators. Same-day service. Inspections.
               </p>
 
               <CTAGroup variant="hero" />

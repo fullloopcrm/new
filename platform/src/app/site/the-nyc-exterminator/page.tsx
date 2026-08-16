@@ -22,13 +22,13 @@ export const metadata: Metadata = {
   title:
     "NYC Pest Control & Exterminator Services | Licensed Exterminators | The NYC Exterminator",
   description:
-    "Professional pest control and exterminator services across NYC, NJ, Long Island & Westchester. Pricing starting at $49. Cockroaches, bed bugs, rats, mice, termites & more. Licensed & insured. Same-day service. Text us!",
+    "Professional pest control and exterminator services across NYC, NJ, Long Island & Westchester. Flat-rate pricing at $199/hr. Cockroaches, bed bugs, rats, mice, termites & more. Licensed & insured. Same-day service. Text us!",
   keywords:
     "NYC pest control, NYC exterminator, pest control NYC, exterminator NYC, bed bug treatment NYC, cockroach extermination NYC, rat exterminator NYC, mouse exterminator, termite treatment, wildlife removal NYC, commercial pest control, residential pest control",
   openGraph: {
     title: "NYC Pest Control & Exterminator Services | The NYC Exterminator",
     description:
-      "Professional pest control and exterminator services across the NYC metro area. Pricing starting at $49. 30+ services. 280+ neighborhoods. Text us!",
+      "Professional pest control and exterminator services across the NYC metro area. Flat-rate pricing at $199/hr. 30+ services. 280+ neighborhoods. Text us!",
     url: SITE_URL,
     siteName: SITE_NAME,
     type: "website",
@@ -53,7 +53,7 @@ export default function HomePage() {
   const homeFaqs = [
     {
       q: "How much does pest control cost in NYC?",
-      a: "Pest control costs in NYC vary depending on the pest type, severity of infestation, and property size. General pest control treatments typically start at $125–$300 for a single visit. Bed bug heat treatment costs $1,000–$1,500 per room. Rodent control and exclusion work ranges from $200–$600. Termite treatment costs $500–$2,500 depending on the scope. We always provide a free inspection and upfront pricing before any work begins — no hidden fees, no surprises.",
+      a: "We charge one flat rate: $199/hr, 1-hour minimum, no matter the pest type, severity, or property size — residential or commercial. You're billed for actual time worked, never a worst-case flat quote. We always confirm the estimate with an inspection before any work begins — no hidden fees, no surprises.",
     },
     {
       q: "Do you offer same-day pest control and exterminator service?",
@@ -134,7 +134,7 @@ export default function HomePage() {
                 and <Link href="/services" className="text-green-400 hover:text-green-300">{totalServices}+ pest types</Link>{" "}
                 across{" "}
                 <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link>{" "}
-                in NYC, NJ, Long Island &amp; Westchester. Services starting at only <strong className="text-white">$49</strong>. NYS DEC licensed exterminators. Free pest inspections. Same-day pest control service available. Upfront pricing with no hidden fees.
+                in NYC, NJ, Long Island &amp; Westchester. All services billed at a flat <strong className="text-white">$199/hr</strong>. NYS DEC licensed exterminators. Free pest inspections. Same-day pest control service available. Upfront pricing with no hidden fees.
               </p>
 
               <CTAGroup variant="hero" />
@@ -217,7 +217,7 @@ export default function HomePage() {
                 Every exterminator on our team holds active NYS DEC Commercial Pesticide Applicator certification and undergoes ongoing training in the latest pest control techniques and safety protocols. Our wildlife control specialists carry additional NYS DEC Nuisance Wildlife Control licenses for <Link href="/raccoon-removal" className="text-green-400 hover:text-green-300">raccoon removal</Link>, <Link href="/squirrel-removal" className="text-green-400 hover:text-green-300">squirrel removal</Link>, <Link href="/pigeon-control" className="text-green-400 hover:text-green-300">pigeon control</Link>, and <Link href="/bat-removal" className="text-green-400 hover:text-green-300">bat removal</Link>. We carry full general liability insurance on every job and are happy to provide documentation for property managers, co-op boards, and commercial tenants.
               </p>
               <p>
-                Thousands of NYC property owners, tenants, and business operators trust The NYC Exterminator for reliable pest control. Check our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see why we maintain a 4.9-star rating across thousands of completed pest control jobs. Learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>, our commitment to excellence, and the Consortium NYC team behind every pest control treatment we perform. Ready to get started? <Link href="/book/new" className="text-green-400 hover:text-green-300">Self-book online & save $20</Link> — the fastest way to get service — or <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us</a>. We respond fast. With pest control pricing starting at just $49, there&apos;s no reason to wait. Don&apos;t let a small pest problem become a major infestation. Contact The NYC Exterminator today and let our licensed exterminators take care of the rest.
+                Thousands of NYC property owners, tenants, and business operators trust The NYC Exterminator for reliable pest control. Check our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link> to see why we maintain a 4.9-star rating across thousands of completed pest control jobs. Learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>, our commitment to excellence, and the Consortium NYC team behind every pest control treatment we perform. Ready to get started? <Link href="/book/new" className="text-green-400 hover:text-green-300">Self-book online & save $20</Link> — the fastest way to get service — or <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">text us</a>. We respond fast. With pest control pricing at a flat $199/hr, there&apos;s no reason to wait. Don&apos;t let a small pest problem become a major infestation. Contact The NYC Exterminator today and let our licensed exterminators take care of the rest.
               </p>
             </div>
           </div>
@@ -276,7 +276,7 @@ export default function HomePage() {
                 We believe pest control pricing should be straightforward and transparent. Before any exterminator begins treatment on your property, you receive a detailed written estimate that explains exactly what we&apos;ll do, which products we&apos;ll use, how many treatments are included, and the total cost. No hidden fees. No surprise charges. No pressure to upsell services you don&apos;t need.
               </p>
               <p>
-                Our <Link href="/pricing" className="text-green-400 hover:text-green-300">pest control pricing page</Link> provides detailed price ranges for every service we offer, from <Link href="/general-pest-control" className="text-green-400 hover:text-green-300">general pest control</Link> starting at $125 to specialized <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug heat treatment</Link> and <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment programs</Link>. We also offer monthly, bi-monthly, and quarterly maintenance plans for <Link href="/commercial-pest-control" className="text-green-400 hover:text-green-300">commercial pest control</Link> and residential properties that provide the best long-term value and prevention.
+                Our <Link href="/pricing" className="text-green-400 hover:text-green-300">pest control pricing page</Link> breaks down the flat $199/hr rate that applies to every service we offer, from <Link href="/general-pest-control" className="text-green-400 hover:text-green-300">general pest control</Link> to specialized <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug heat treatment</Link> and <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment programs</Link>, for both <Link href="/commercial-pest-control" className="text-green-400 hover:text-green-300">commercial pest control</Link> and residential properties.
               </p>
             </div>
           </div>
@@ -301,7 +301,7 @@ export default function HomePage() {
             Our Complete <span className="text-green-500">Pest Control</span> &amp; Exterminator Services
           </h2>
           <p className="mt-4 max-w-4xl text-zinc-300 leading-7">
-            The NYC Exterminator offers {totalServices} professional pest control and extermination services organized across {Object.keys(servicesByCategory).length} categories. Every service includes a free inspection, upfront pricing, EPA-approved treatments, and a satisfaction guarantee. Click any service below to see detailed information, pricing, FAQs, and coverage across all {totalNeighborhoods} neighborhoods we serve.
+            The NYC Exterminator offers {totalServices} professional pest control and extermination services organized across {Object.keys(servicesByCategory).length} categories. Every service is billed at a flat $199/hr, includes an inspection, EPA-approved treatments, and a satisfaction guarantee. Click any service below to see detailed information, pricing, FAQs, and coverage across all {totalNeighborhoods} neighborhoods we serve.
           </p>
 
           <div className="mt-12 space-y-14">
@@ -364,7 +364,7 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-7xl items-start gap-3">
           <span className="shrink-0 rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-400">Pro Tip</span>
           <p className="text-sm leading-6 text-zinc-300">
-            <strong className="text-white">Moving into a new apartment?</strong> Request a pest inspection BEFORE you move your furniture in. It&apos;s 10x easier (and cheaper) to treat an empty unit. We offer pre-move-in inspections that take about 30 minutes &mdash; and they&apos;re completely free. You&apos;ll thank us later.
+            <strong className="text-white">Moving into a new apartment?</strong> Request a pest inspection BEFORE you move your furniture in. It&apos;s 10x easier (and cheaper) to treat an empty unit. We offer pre-move-in inspections at the same flat $199/hr rate, and they only take about 30 minutes. You&apos;ll thank us later.
           </p>
         </div>
       </div>

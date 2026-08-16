@@ -8,15 +8,15 @@ import CTAGroup from "@/app/site/the-nyc-exterminator/_components/CTAGroup";
 
 export const metadata: Metadata = {
   title:
-    "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
+    "Pest Control Pricing NYC | Exterminator Costs at $199/hr | No Hidden Fees",
   description:
-    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Self-book online & save $10. Free inspections, upfront written quotes, no hidden fees. Licensed & insured.",
+    "See transparent pest control pricing and exterminator rates for NYC, NJ, Long Island & Westchester. Cockroach extermination from $150, bed bug treatment from $300, rat control from $200. Self-book online & save $20. Inspections, upfront written quotes, no hidden fees. Licensed & insured.",
   keywords:
     "pest control pricing NYC, exterminator cost NYC, how much does exterminator cost, bed bug treatment cost NYC, cockroach extermination price, rat exterminator cost, termite treatment pricing, commercial pest control pricing",
   openGraph: {
-    title: "Pest Control Pricing NYC | Exterminator Costs from $49 | No Hidden Fees",
+    title: "Pest Control Pricing NYC | Exterminator Costs at $199/hr | No Hidden Fees",
     description:
-      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Self-book online & save $10. Free inspections, no hidden fees.",
+      "Transparent pest control pricing for NYC. Cockroach treatment from $150, bed bugs from $300, rats from $200. Self-book online & save $20. Inspections, no hidden fees.",
     url: `${SITE_URL}/pricing`,
   },
   alternates: {
@@ -27,15 +27,15 @@ export const metadata: Metadata = {
 const pricingFaqs = [
   {
     q: "How much does pest control cost in NYC?",
-    a: "Pest control costs in New York City vary depending on the type of pest, severity of the infestation, property size, and treatment method selected. General pest control starts at $125 for a single treatment visit. Cockroach extermination typically ranges from $150 to $400 per treatment. Bed bug treatment ranges from $300 to $1,500 per room depending on whether you choose chemical treatment or heat treatment. Rat extermination costs between $200 and $600. Termite treatment, which requires more specialized methods and materials, ranges from $800 to $3,000. Every pest control engagement at The NYC Exterminator begins with a free inspection and a written quote, so you always know exactly what you will pay before any work begins.",
+    a: "We charge one flat rate: $199/hr, 1-hour minimum, no matter the pest type, severity, property size, or treatment method — residential or commercial. Every pest control engagement at The NYC Exterminator begins with an inspection and a written estimate, so you always know exactly what you will pay before any work begins.",
   },
   {
     q: "Do you charge for pest inspections?",
-    a: "No. Every pest control engagement starts with a completely free, no-obligation inspection. Our licensed exterminator will visit your property, identify the pest species present, assess the severity of the infestation, locate entry points and breeding sites, and provide you with a detailed written quote. There is never a charge for this initial inspection, whether you are a residential homeowner, a renter, a commercial property owner, or a restaurant operator. We believe the inspection is the foundation of effective pest control, and charging for it would discourage people from getting the help they need early, before the problem gets worse and more expensive to treat.",
+    a: "No. Every pest control engagement starts with a no-obligation inspection. Our licensed exterminator will visit your property, identify the pest species present, assess the severity of the infestation, locate entry points and breeding sites, and provide you with a detailed written quote. There is never a charge for this initial inspection, whether you are a residential homeowner, a renter, a commercial property owner, or a restaurant operator. We believe the inspection is the foundation of effective pest control, and charging for it would discourage people from getting the help they need early, before the problem gets worse and more expensive to treat.",
   },
   {
     q: "Are there hidden fees or extra charges after the initial quote?",
-    a: "Absolutely not. The NYC Exterminator operates on a fully transparent pricing model. The written quote you receive after your free inspection is the exact price you will pay. We do not add fuel surcharges, equipment rental fees, product upcharges, or surprise add-ons after the fact. If the scope of work needs to change during the treatment process, for example if we discover a more extensive infestation than initially assessed, we will discuss it with you, explain the additional work required, and get your written approval before proceeding with any changes to the original quote.",
+    a: "Absolutely not. The NYC Exterminator operates on a fully transparent pricing model. The written quote you receive after your inspection is the exact price you will pay. We do not add fuel surcharges, equipment rental fees, product upcharges, or surprise add-ons after the fact. If the scope of work needs to change during the treatment process, for example if we discover a more extensive infestation than initially assessed, we will discuss it with you, explain the additional work required, and get your written approval before proceeding with any changes to the original quote.",
   },
   {
     q: "Is a monthly pest control maintenance plan worth the cost?",
@@ -201,7 +201,7 @@ export default function PricingPage() {
               >
                 us
               </a>{" "}
-              to schedule your free inspection today.
+              to schedule your inspection today.
             </p>
 
             <CTAGroup variant="hero" />
@@ -266,11 +266,11 @@ export default function PricingPage() {
             {[
               {
                 title: "Free Inspections, Always",
-                desc: `Every pest control engagement at ${SITE_NAME} starts with a completely free, no-obligation property inspection. Our licensed exterminator arrives at your property and conducts a thorough assessment: identifying the pest species present, evaluating infestation severity, mapping entry points and harborage areas, and assessing environmental conditions that contribute to the problem. This is not a five-minute walk-through with a flashlight. Our inspections are comprehensive, covering kitchens, bathrooms, basements, attics, crawl spaces, utility areas, and exterior perimeters. For bed bug and termite concerns, we may deploy specialized detection equipment or K-9 teams. Only after this detailed assessment do we provide you with a quote. You will never pay for an inspection or consultation at The NYC Exterminator, regardless of whether you proceed with treatment.`,
+                desc: `Every pest control engagement at ${SITE_NAME} starts with a no-obligation property inspection. Our licensed exterminator arrives at your property and conducts a thorough assessment: identifying the pest species present, evaluating infestation severity, mapping entry points and harborage areas, and assessing environmental conditions that contribute to the problem. This is not a five-minute walk-through with a flashlight. Our inspections are comprehensive, covering kitchens, bathrooms, basements, attics, crawl spaces, utility areas, and exterior perimeters. For bed bug and termite concerns, we may deploy specialized detection equipment or K-9 teams. Only after this detailed assessment do we provide you with a quote. You will never pay for an inspection or consultation at The NYC Exterminator, regardless of whether you proceed with treatment.`,
               },
               {
                 title: "Upfront Written Quotes",
-                desc: "After your free inspection, you receive a detailed written quote that itemizes every aspect of the proposed treatment plan. You will see exactly what is included: the specific pest control methods and products we will use, the number of treatment visits required, the follow-up inspection schedule, any preparation you need to do before treatment, and the total cost of the engagement. The price on that quote is the price you pay. We do not add fuel surcharges, equipment fees, product upcharges, or hidden administrative costs. If the scope of work changes during treatment, we discuss it with you, explain why, and get your written approval before proceeding with any modifications to the original quote.",
+                desc: "After your inspection, you receive a detailed written quote that itemizes every aspect of the proposed treatment plan. You will see exactly what is included: the specific pest control methods and products we will use, the number of treatment visits required, the follow-up inspection schedule, any preparation you need to do before treatment, and the total cost of the engagement. The price on that quote is the price you pay. We do not add fuel surcharges, equipment fees, product upcharges, or hidden administrative costs. If the scope of work changes during treatment, we discuss it with you, explain why, and get your written approval before proceeding with any modifications to the original quote.",
               },
               {
                 title: "Results-Backed Guarantee",
@@ -357,7 +357,7 @@ export default function PricingPage() {
             and Westchester County. These ranges represent typical pricing for
             residential and commercial properties. Your actual cost depends on
             property size, infestation severity, treatment method, and the number
-            of visits required. Every price includes our free inspection,
+            of visits required. Every price includes our inspection,
             customized treatment plan, follow-up visit, and satisfaction
             guarantee.{" "}
             <Link
@@ -494,7 +494,7 @@ export default function PricingPage() {
               },
               {
                 title: "Location & Property Access",
-                desc: `Properties within our core pest control service area across the five NYC boroughs typically receive standard pricing. Service in outer areas of New Jersey, Long Island, and Westchester may include a modest travel fee for one-time exterminator visits, though this fee is waived for all maintenance plan customers. Access conditions can also affect pricing: high-rise buildings that require specialized equipment or extended setup time, properties with limited access points that complicate treatment, and crawl spaces or confined areas that require additional safety measures may factor into the final pest control quote. Our free inspection accounts for all of these variables so you receive an accurate price.`,
+                desc: `Properties within our core pest control service area across the five NYC boroughs typically receive standard pricing. Service in outer areas of New Jersey, Long Island, and Westchester may include a modest travel fee for one-time exterminator visits, though this fee is waived for all maintenance plan customers. Access conditions can also affect pricing: high-rise buildings that require specialized equipment or extended setup time, properties with limited access points that complicate treatment, and crawl spaces or confined areas that require additional safety measures may factor into the final pest control quote. Our inspection accounts for all of these variables so you receive an accurate price.`,
               },
             ].map((item) => (
               <div
@@ -516,7 +516,7 @@ export default function PricingPage() {
               href="/quote-request"
               className="text-green-400 hover:text-green-300"
             >
-              request a free inspection
+              request a inspection
             </Link>
             . Our licensed exterminator will assess all of these factors on-site
             and provide you with a detailed written quote before any work begins.
@@ -575,15 +575,13 @@ export default function PricingPage() {
                 Residential Pest Control Pricing
               </h3>
               <p className="mt-2 font-semibold text-green-400">
-                Starting at $125 per treatment
+                $199/hr, 1-hour minimum
               </p>
               <div className="mt-6 space-y-4 text-sm leading-6 text-zinc-300">
                 <p>
-                  Residential pest control pricing is based on the type of pest,
-                  the size of your home or apartment, and the severity of the
-                  infestation. Most residential exterminator visits in New York
-                  City cost between $125 and $600 for a single treatment. More
-                  complex problems like{" "}
+                  Residential pest control is billed at one flat rate, no matter
+                  the type of pest, the size of your home or apartment, or the
+                  severity of the infestation. More complex problems like{" "}
                   <Link
                     href="/bed-bug-treatment"
                     className="text-green-400 hover:text-green-300"
@@ -597,8 +595,7 @@ export default function PricingPage() {
                   >
                     termite treatment
                   </Link>{" "}
-                  can range from $800 to $3,000 depending on the scope of work
-                  required.
+                  simply take more billable hours — the rate itself never changes.
                 </p>
                 <p>
                   NYC apartments, brownstones, townhouses, and single-family
@@ -621,24 +618,24 @@ export default function PricingPage() {
               <ul className="mt-6 space-y-2 text-sm text-zinc-400">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Studio/1BR apartment: $125-$300 per treatment</span>
+                  <span>Studio/1BR apartment: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>2-3BR apartment/condo: $200-$500 per treatment</span>
+                  <span>2-3BR apartment/condo: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Townhouse/brownstone: $300-$800 per treatment</span>
+                  <span>Townhouse/brownstone: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Single-family home: $250-$600 per treatment</span>
+                  <span>Single-family home: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
                   <span>
-                    Multi-unit building (per unit): $100-$250 per treatment
+                    Multi-unit building (per unit): $199/hr, 1-hour minimum
                   </span>
                 </li>
               </ul>
@@ -650,24 +647,23 @@ export default function PricingPage() {
                 Commercial Pest Control Pricing
               </h3>
               <p className="mt-2 font-semibold text-green-400">
-                Starting at $150/month
+                $199/hr, same as residential
               </p>
               <div className="mt-6 space-y-4 text-sm leading-6 text-zinc-300">
                 <p>
-                  Commercial pest control pricing is structured differently than
-                  residential. Most commercial clients operate on monthly or
-                  quarterly{" "}
+                  Commercial pest control is billed at the same flat $199/hr rate
+                  as residential — no separate commercial pricing tier. Many
+                  commercial clients still set up recurring{" "}
                   <Link
                     href="/commercial-pest-control"
                     className="text-green-400 hover:text-green-300"
                   >
-                    maintenance plans
+                    maintenance visits
                   </Link>{" "}
-                  because consistent pest management is essential for business
-                  operations, health code compliance, customer confidence, and
-                  reputation protection. Commercial exterminator pricing is based
-                  on square footage, industry type, and required service
-                  frequency.
+                  on a weekly, monthly, or quarterly schedule because consistent
+                  pest management is essential for health code compliance,
+                  customer confidence, and reputation protection — each visit is
+                  just billed at $199/hr regardless of square footage or industry.
                 </p>
                 <p>
                   <Link
@@ -688,26 +684,26 @@ export default function PricingPage() {
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
                   <span>
-                    Small retail/office (&lt;2,000 sq ft): $150-$300/month
+                    Small retail/office: $199/hr, 1-hour minimum
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Restaurant/food service: $200-$600/month</span>
+                  <span>Restaurant/food service: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
                   <span>
-                    Large commercial (2,000-10,000 sq ft): $300-$800/month
+                    Large commercial: $199/hr, 1-hour minimum
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Warehouse/industrial: $400-$1,500/month</span>
+                  <span>Warehouse/industrial: $199/hr, 1-hour minimum</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 text-green-500">&#10003;</span>
-                  <span>Hotel/hospitality: $500-$2,000/month</span>
+                  <span>Hotel/hospitality: $199/hr, 1-hour minimum</span>
                 </li>
               </ul>
             </div>
@@ -784,9 +780,9 @@ export default function PricingPage() {
                 Best for low-risk residential properties
               </p>
               <p className="mt-4 text-3xl font-extrabold text-green-500">
-                $75-$150
+                $199/hr
                 <span className="text-lg font-normal text-zinc-400">
-                  /quarter
+                  per visit
                 </span>
               </p>
               <ul className="mt-6 flex-1 space-y-3 text-sm text-zinc-300">
@@ -831,9 +827,9 @@ export default function PricingPage() {
                 Ideal for most NYC apartments &amp; homes
               </p>
               <p className="mt-4 text-3xl font-extrabold text-green-500">
-                $50-$125
+                $199/hr
                 <span className="text-lg font-normal text-zinc-400">
-                  /month
+                  per visit
                 </span>
               </p>
               <ul className="mt-6 flex-1 space-y-3 text-sm text-zinc-300">
@@ -865,10 +861,6 @@ export default function PricingPage() {
                   <span className="text-green-500">&#10003;</span>
                   <span>Priority scheduling &amp; guarantee</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-green-500">&#10003;</span>
-                  <span>10% off additional pest control services</span>
-                </li>
               </ul>
               <Link
                 href="/quote-request"
@@ -885,9 +877,9 @@ export default function PricingPage() {
                 For restaurants, offices &amp; retail
               </p>
               <p className="mt-4 text-3xl font-extrabold text-green-500">
-                $150-$600
+                $199/hr
                 <span className="text-lg font-normal text-zinc-400">
-                  /month
+                  per visit
                 </span>
               </p>
               <ul className="mt-6 flex-1 space-y-3 text-sm text-zinc-300">
