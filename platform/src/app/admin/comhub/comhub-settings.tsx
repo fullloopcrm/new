@@ -36,11 +36,13 @@ const DEFAULT_SUPPORT_HOURS: SupportHours = {
   sun: { open: false, start: '09:00', end: '17:00' },
 }
 
-function WorkHours() {
+function YinezHours() {
   const tenantSettings = useTenantSettings()
-  // selena_config is an existing jsonb column — storing support_hours inside
-  // it avoids needing a real migration for a brand-new tenants column.
+  // selena_config is an existing jsonb column — storing hours_enabled/
+  // support_hours inside it avoids needing a real migration for brand-new
+  // tenants columns.
   const selena = (tenantSettings.tenant?.selena_config as Record<string, unknown> | null) || {}
+  const enabled = Boolean(selena.hours_enabled)
   const stored = selena.support_hours as Partial<SupportHours> | null | undefined
   const hours: SupportHours = { ...DEFAULT_SUPPORT_HOURS, ...stored }
 
@@ -51,45 +53,64 @@ function WorkHours() {
 
   return (
     <div className="space-y-3 border-t border-gray-800 pt-4">
-      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Work hours</p>
-      <p className="text-xs text-white/60">When your team is actually answering ComHub — used to know when to reach for an away message.</p>
-      <div className="space-y-1.5">
-        {DAY_KEYS.map((day) => {
-          const d = hours[day]
-          return (
-            <div key={day} className="flex items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={d.open}
-                onClick={() => updateDay(day, { open: !d.open })}
-                className={`w-14 shrink-0 text-xs font-medium rounded-md py-1.5 transition-colors ${d.open ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-400'}`}
-              >
-                {DAY_LABELS[day]}
-              </button>
-              {d.open ? (
-                <>
-                  <input
-                    type="time"
-                    value={d.start}
-                    onChange={(e) => updateDay(day, { start: e.target.value })}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
-                  />
-                  <span className="text-xs text-white/50">to</span>
-                  <input
-                    type="time"
-                    value={d.end}
-                    onChange={(e) => updateDay(day, { end: e.target.value })}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
-                  />
-                </>
-              ) : (
-                <span className="flex-1 text-xs text-white/40">Closed</span>
-              )}
-            </div>
-          )
-        })}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Yinez hours</p>
+          <p className="text-xs text-white/60 mt-0.5">
+            {enabled
+              ? 'Yinez answers webchat, SMS, and email only inside the hours below.'
+              : "Off — Yinez answers webchat, SMS, and email 24/7."}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={() => tenantSettings.updateSelenaConfig({ hours_enabled: !enabled })}
+          className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${enabled ? 'bg-teal-500' : 'bg-slate-600'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
+        </button>
       </div>
+      {enabled && (
+        <div className="space-y-1.5">
+          {DAY_KEYS.map((day) => {
+            const d = hours[day]
+            return (
+              <div key={day} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={d.open}
+                  onClick={() => updateDay(day, { open: !d.open })}
+                  className={`w-14 shrink-0 text-xs font-medium rounded-md py-1.5 transition-colors ${d.open ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-400'}`}
+                >
+                  {DAY_LABELS[day]}
+                </button>
+                {d.open ? (
+                  <>
+                    <input
+                      type="time"
+                      value={d.start}
+                      onChange={(e) => updateDay(day, { start: e.target.value })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
+                    />
+                    <span className="text-xs text-white/50">to</span>
+                    <input
+                      type="time"
+                      value={d.end}
+                      onChange={(e) => updateDay(day, { end: e.target.value })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-900"
+                    />
+                  </>
+                ) : (
+                  <span className="flex-1 text-xs text-white/40">Off all day</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
       {tenantSettings.saveMsg && <p className="text-xs text-emerald-400">{tenantSettings.saveMsg}</p>}
     </div>
   )
@@ -431,7 +452,7 @@ export default function ComhubSettings() {
       title="ComHub"
       tips={[
         'Default inbox filter and channel control which threads show when ComHub first opens.',
-        'Work hours are informational for now — they don’t auto-send anything yet.',
+        'Yinez hours: flip the switch on and she only answers webchat/SMS/email inside the Mon-Sun window you set below — off means 24/7.',
         'Preset replies show up as "Templates" in the reply box on SMS/email threads; ones marked "Away message" show up under a separate "Away" picker instead.',
         'Voice settings are per-admin — the fallback cell phone and ring order apply to whoever is logged in when they save them.',
       ]}
@@ -471,7 +492,7 @@ export default function ComhubSettings() {
             </label>
           </div>
 
-          <WorkHours />
+          <YinezHours />
           <TemplatesManager />
           <VoiceSettings />
         </div>
