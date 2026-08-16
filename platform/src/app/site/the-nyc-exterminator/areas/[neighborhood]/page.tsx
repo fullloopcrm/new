@@ -176,7 +176,7 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
           </h2>
           <p className="mt-3 max-w-3xl text-zinc-400">
             Browse every professional exterminator service available in {neighborhood.name},{" "}
-            {neighborhood.region}. Each service includes a free on-site inspection, upfront
+            {neighborhood.region}. Each service includes an on-site inspection, upfront
             pricing, and treatment by a licensed NYC pest control technician.
           </p>
 

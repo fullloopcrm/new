@@ -135,7 +135,7 @@ export default function PricingPage() {
               deserves to know exactly what pest control costs before a single
               treatment is applied. Our exterminator pricing model is built on
               radical transparency: every engagement starts with a{" "}
-              <strong className="text-white">free property inspection</strong>,
+              <strong className="text-white">property inspection</strong>,
               followed by a{" "}
               <strong className="text-white">detailed written quote</strong>{" "}
               that covers every aspect of your treatment plan. There are no
@@ -265,7 +265,7 @@ export default function PricingPage() {
           <div className="mt-10 grid gap-8 sm:grid-cols-3">
             {[
               {
-                title: "Free Inspections, Always",
+                title: "Inspections, Always",
                 desc: `Every pest control engagement at ${SITE_NAME} starts with a no-obligation property inspection. Our licensed exterminator arrives at your property and conducts a thorough assessment: identifying the pest species present, evaluating infestation severity, mapping entry points and harborage areas, and assessing environmental conditions that contribute to the problem. This is not a five-minute walk-through with a flashlight. Our inspections are comprehensive, covering kitchens, bathrooms, basements, attics, crawl spaces, utility areas, and exterior perimeters. For bed bug and termite concerns, we may deploy specialized detection equipment or K-9 teams. Only after this detailed assessment do we provide you with a quote. You will never pay for an inspection or consultation at The NYC Exterminator, regardless of whether you proceed with treatment.`,
               },
               {
@@ -516,12 +516,12 @@ export default function PricingPage() {
               href="/quote-request"
               className="text-green-400 hover:text-green-300"
             >
-              request a inspection
+              request an inspection
             </Link>
             . Our licensed exterminator will assess all of these factors on-site
             and provide you with a detailed written quote before any work begins.
             There is never any obligation, and pest control inspections are
-            always free of charge. You can also text{" "}
+            always included. You can also text{" "}
             <a
               href={`sms:${phonePlain}`}
               className="text-green-400 hover:text-green-300 font-semibold"
@@ -988,7 +988,7 @@ export default function PricingPage() {
             {[
               {
                 title: "1. Thorough Property Inspection",
-                desc: "Before any pest control treatment begins, our licensed exterminator conducts a complete and detailed inspection of your property. We identify the pest species present, locate nests, harborage areas, and breeding sites, map all entry points, and assess the overall severity of the infestation. This is not a quick walk-through. We inspect kitchens, bathrooms, bedrooms, basements, attics, crawl spaces, utility closets, laundry areas, and exterior perimeters. For bed bug and termite inspections, we deploy specialized detection equipment or certified K-9 detection teams. The inspection is always free, thorough, and forms the foundation of your customized treatment plan.",
+                desc: "Before any pest control treatment begins, our licensed exterminator conducts a complete and detailed inspection of your property. We identify the pest species present, locate nests, harborage areas, and breeding sites, map all entry points, and assess the overall severity of the infestation. This is not a quick walk-through. We inspect kitchens, bathrooms, bedrooms, basements, attics, crawl spaces, utility closets, laundry areas, and exterior perimeters. For bed bug and termite inspections, we deploy specialized detection equipment or certified K-9 detection teams. The inspection is always thorough, thorough, and forms the foundation of your customized treatment plan.",
               },
               {
                 title: "2. Customized Treatment Plan",

@@ -222,7 +222,7 @@ export default function AboutPage() {
               <p>
                 One of the most common complaints about pest control companies is surprise charges. A technician shows up, quotes one price, and
                 then tacks on fees for &quot;extra treatment areas,&quot; &quot;premium products,&quot; or &quot;follow-up visits&quot; that were
-                never discussed. At The NYC Exterminator, we do things differently. Every pest control job begins with a inspection, during
+                never discussed. At The NYC Exterminator, we do things differently. Every pest control job begins with an inspection, during
                 which our exterminator assesses the scope of the infestation, identifies the pest species involved, and provides a written quote
                 that covers the full cost of treatment. The price you are quoted is the price you pay &mdash; period. We publish our{" "}
                 <Link href="/pricing" className="text-green-400 hover:text-green-300">pricing information</Link>{" "}
@@ -496,7 +496,7 @@ export default function AboutPage() {
               we have structured our{" "}
               <Link href="/pricing" className="text-green-400 hover:text-green-300">pricing</Link>{" "}
               to start at just $199/hr &mdash; making professional exterminator services accessible to households and businesses at every
-              income level. We offer inspections and free quotes on every job, so you never have to commit to a purchase before
+              income level. We offer inspections and quotes on every job, so you never have to commit to a purchase before
               you know exactly what you are getting. We also offer flexible scheduling, including evenings and weekends, because we
               understand that not everyone can take time off work to wait for an exterminator. Our goal is to remove every barrier
               that might prevent someone from getting the pest control help they need.

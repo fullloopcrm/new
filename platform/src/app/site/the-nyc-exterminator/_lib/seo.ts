@@ -16,7 +16,7 @@ export function getMoneyPageMeta(service: Service, neighborhood: Neighborhood) {
     ? neighborhood.name
     : `${neighborhood.name}, ${neighborhood.region}`;
   const title = `${service.name} in ${neighborhood.name} | $199/hr | Self-Book & Save $20`;
-  const description = `${service.name} in ${location} — at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. Pay only when the job is done. No contracts, no deposits, no catches. Licensed & insured. Free inspection.`;
+  const description = `${service.name} in ${location} — at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. Pay only when the job is done. No contracts, no deposits, no catches. Licensed & insured. Inspection.`;
 
   return {
     title,
@@ -38,7 +38,7 @@ export function getServiceHubMeta(service: Service) {
 
 export function getNeighborhoodHubMeta(neighborhood: Neighborhood) {
   const title = `Pest Control in ${neighborhood.name} | $199/hr | Self-Book & Save $20`;
-  const description = `Pest control & exterminator services in ${neighborhood.name}, ${neighborhood.region} — at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. 30+ services. Pay only when the job is done. No contracts. No deposits. No catches. Free inspection.`;
+  const description = `Pest control & exterminator services in ${neighborhood.name}, ${neighborhood.region} — at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. 30+ services. Pay only when the job is done. No contracts. No deposits. No catches. Inspection.`;
 
   return {
     title,

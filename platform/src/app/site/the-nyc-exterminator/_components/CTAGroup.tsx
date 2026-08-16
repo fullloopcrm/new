@@ -12,11 +12,11 @@ interface CTAGroupProps {
 const defaults: Record<CTAVariant, { title: string; subtitle: string }> = {
   hero: {
     title: "Ready When You Are.",
-    subtitle: "Free inspection. Upfront pricing. Licensed pest control technicians on call.",
+    subtitle: "Inspection. Upfront pricing. Licensed pest control technicians on call.",
   },
   mid: {
     title: "Don\u2019t Let Pests Take Over Your Property.",
-    subtitle: "Every day you wait, the infestation grows. Get a free pest control inspection and same-day treatment options.",
+    subtitle: "Every day you wait, the infestation grows. Get a pest control inspection and same-day treatment options.",
   },
   preFaq: {
     title: "Licensed. Insured. Trusted by Thousands of NYC Properties.",

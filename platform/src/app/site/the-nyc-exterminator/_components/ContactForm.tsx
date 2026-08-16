@@ -269,7 +269,7 @@ export default function ContactForm({
         Booking online saves you $20 — we take it off your quote.
       </p>
       <p className={`text-center text-xs ${dark ? "text-zinc-500" : "text-zinc-500"}`}>
-        Free inspections. Upfront pricing. No obligation.
+        Inspections. Upfront pricing. No obligation.
         We&apos;ll respond within 2 hours during business hours.
       </p>
 

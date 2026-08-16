@@ -124,7 +124,7 @@ export default async function MoneyPage({ params }: PageProps) {
                   </span>
                 )}
                 <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm font-medium text-zinc-300">
-                  Free Inspection
+                  Inspection
                 </span>
               </div>
 
@@ -159,7 +159,7 @@ export default async function MoneyPage({ params }: PageProps) {
           </h2>
           <p className="mt-3 max-w-3xl text-zinc-400">
             Every {nameLower} appointment in {location} is performed by a licensed, insured
-            exterminator and includes a free on-site inspection, targeted treatment using
+            exterminator and includes an on-site inspection, targeted treatment using
             EPA-registered products, follow-up service, and our satisfaction guarantee. Here
             is what&apos;s included:
           </p>

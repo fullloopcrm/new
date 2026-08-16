@@ -31,7 +31,7 @@ const faqs = [
   },
   {
     q: "Why is your pricing better than a flat-rate quote?",
-    a: "Flat-rate quotes are priced for the worst-case version of your problem the exterminator has never seen. If your job is actually simpler, you still pay the inflated number. We are $199/hr and quote your specific job upfront after a inspection — a small ant trail is a small price, a serious roach job is quoted accordingly. You pay for your actual problem, not for the company's guess at a worst case.",
+    a: "Flat-rate quotes are priced for the worst-case version of your problem the exterminator has never seen. If your job is actually simpler, you still pay the inflated number. We are $199/hr and quote your specific job upfront after an inspection — a small ant trail is a small price, a serious roach job is quoted accordingly. You pay for your actual problem, not for the company's guess at a worst case.",
   },
   {
     q: "Do I pay anything upfront?",
@@ -55,7 +55,7 @@ const faqs = [
   },
   {
     q: "What pest services can I book?",
-    a: "Every service we offer is $199/hr — cockroaches, bed bugs, rats, mice, ants, termites, wasps, fleas, wildlife removal, commercial accounts, all of it. The pest type doesn't change the starting price. What you pay depends on the size and scope of your specific job, quoted upfront after a inspection.",
+    a: "Every service we offer is $199/hr — cockroaches, bed bugs, rats, mice, ants, termites, wasps, fleas, wildlife removal, commercial accounts, all of it. The pest type doesn't change the starting price. What you pay depends on the size and scope of your specific job, quoted upfront after an inspection.",
   },
 ];
 
@@ -98,7 +98,7 @@ export default function ScheduleServicePage() {
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-zinc-300">
               Fully inclusive &mdash; labor, products, treatment, follow-up. No contracts.
-              No catches. No money upfront. Every job is quoted upfront after a inspection, priced for
+              No catches. No money upfront. Every job is quoted upfront after an inspection, priced for
               the <span className="font-semibold text-white">actual problem you have</span>{" "}
               instead of a bloated flat-rate quote built for the worst case.
             </p>
@@ -259,7 +259,7 @@ export default function ScheduleServicePage() {
             </p>
             <p className="mx-auto mt-3 max-w-2xl text-zinc-300">
               Service starts at <span className="font-bold text-white">$199/hr</span>, fully inclusive, and your
-              exact price is quoted upfront after a inspection &mdash; a simple one-bedroom roach job is
+              exact price is quoted upfront after an inspection &mdash; a simple one-bedroom roach job is
               priced for what it actually needs, products and follow-up included. The same jobs flat-rate
               elsewhere in NYC quote at $400 to $800+, then add chemical and trip fees on top. Transparent
               pricing with no add-ons is almost always less &mdash; and you only ever pay for solving{" "}
@@ -313,7 +313,7 @@ export default function ScheduleServicePage() {
                 3
               </div>
               <div>
-                <p className="font-semibold text-white">Free on-site inspection. See the price first.</p>
+                <p className="font-semibold text-white">On-site inspection. See the price first.</p>
                 <p className="mt-1 text-sm text-zinc-400">
                   Your licensed exterminator inspects the property, identifies the pest, locates
                   entry points and nesting areas, and walks you through the plan with an exact,

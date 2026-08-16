@@ -262,7 +262,7 @@ export default function ContactPage() {
                   hours. Booking online means you skip the back-and-forth, keep a written
                   record, and get the online-only $20 discount applied to your quote.
                   It takes under two minutes and there is no commitment &mdash; every
-                  booking still comes with a free on-site inspection and upfront pricing
+                  booking still comes with an on-site inspection and upfront pricing
                   before any work begins.
                 </p>
               </div>
@@ -424,7 +424,7 @@ export default function ContactPage() {
                 3
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-white">We Schedule Your Free Inspection</h3>
+                <h3 className="text-xl font-semibold text-white">We Schedule Your Inspection</h3>
                 <p className="mt-2 text-zinc-300">
                   Based on your availability and location, we will schedule a free
                   on-site pest control inspection at a time that works for you. Same-day
@@ -623,11 +623,11 @@ export default function ContactPage() {
 
             <div className="rounded-xl border border-zinc-800 bg-[#141414] p-6">
               <h3 className="text-lg font-semibold text-green-400">
-                Is the pest control inspection really free?
+                Is there a charge for the pest control inspection?
               </h3>
               <p className="mt-3 text-zinc-300">
-                Absolutely. Every new client receives a no-obligation
-                pest control inspection. Our licensed exterminator will visit your
+                The inspection is part of every job, billed at the same flat
+                $199/hr rate — no separate inspection fee. Our licensed exterminator will visit your
                 property, inspect all affected areas, identify the pest species,
                 determine the extent of the infestation, and provide a detailed quote
                 with transparent pricing. You are under zero pressure to proceed with

@@ -71,7 +71,7 @@ export default function AreasPage() {
     },
     {
       q: "How do I know which pest control service I need?",
-      a: "If you are not sure what pest you are dealing with, start with a inspection. Our licensed exterminators will identify the pest, assess the severity of the infestation, and recommend the most effective treatment plan. You can also text us a photo for a quick identification. We never upsell unnecessary services — you only pay for what you actually need.",
+      a: "If you are not sure what pest you are dealing with, start with an inspection. Our licensed exterminators will identify the pest, assess the severity of the infestation, and recommend the most effective treatment plan. You can also text us a photo for a quick identification. We never upsell unnecessary services — you only pay for what you actually need.",
     },
     {
       q: "What makes your pest control different from big national chains?",

@@ -38,7 +38,7 @@ const faqs = [
     a: "Yes. Every pest control appointment includes a 1-hour arrival window. Your certified exterminator will arrive within that window, and you will receive a confirmation text message when they are on the way to your property. No waiting around all day — we respect your time.",
   },
   {
-    q: "Is the initial pest control inspection really free?",
+    q: "Is there a charge for the initial pest control inspection?",
     a: "We charge one flat rate: $199/hr, 1-hour minimum, no matter the pest type or severity. The licensed technician will inspect the property, identify entry points and nesting areas, and confirm the estimate before any work begins. No hidden fees, no pressure.",
   },
   {

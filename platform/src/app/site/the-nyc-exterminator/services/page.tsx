@@ -263,13 +263,13 @@ export default function ServicesPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-400 font-bold">
                 1
               </div>
-              <h3 className="mt-4 text-lg font-semibold">Free Inspection</h3>
+              <h3 className="mt-4 text-lg font-semibold">Inspection</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 Every pest control engagement begins with a thorough on-site inspection. Our licensed
                 exterminator technicians examine your property from top to bottom, identifying pest
                 species, locating nesting sites and entry points, assessing the severity of the
                 infestation, and documenting conditions that contributed to the problem. This
-                inspection is always free and comes with zero obligation. We believe you deserve to
+                inspection is always thorough and comes with zero obligation. We believe you deserve to
                 understand exactly what you are dealing with before you spend a dollar on treatment.
                 Our inspectors use professional-grade tools including moisture meters, fiber optic
                 scopes, and in some cases canine detection teams for bed bug inspections.
