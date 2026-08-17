@@ -1207,23 +1207,25 @@ function BookingsPage() {
           )
 
           if (futureBookings.length > 0) {
-            // Cancel first with email, rest skip email
-            const res = await fetch('/api/bookings/' + futureBookings[0].id, { method: 'DELETE' })
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({ error: res.statusText }))
-              alert(`Failed to cancel booking: ${err.error || 'Unknown error'}`)
-              setSaving(false)
-              return
-            }
-            if (futureBookings.length > 1) {
-              const rest = futureBookings.slice(1)
-              const results = await Promise.allSettled(
-                rest.map(b => fetch('/api/bookings/' + b.id + '?skip_email=true', { method: 'DELETE' }))
-              )
-              const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
-              if (failedCount > 0) {
-                alert(`Cancelled ${rest.length - failedCount} of ${rest.length} remaining bookings in this series. ${failedCount} could not be cancelled and are still scheduled — check the bookings list.`)
-              }
+            // Soft-cancel every booking in the series via PUT status=cancelled.
+            // NEVER DELETE here: these bookings have no schedule_id, so the
+            // backend's DELETE handler can't route them through its
+            // cancel_series soft-cancel branch (that branch requires
+            // booking.schedule_id) -- a bare DELETE falls straight through to
+            // the real hard-delete path. That's exactly what silently,
+            // permanently erased Simon Dolsten's (2026-08-14) and Liza
+            // Bradburn's (2026-08-17) entire future series when this button
+            // was clicked -- "Cancel > All future" was actually deleting.
+            const results = await Promise.allSettled(
+              futureBookings.map(b => fetch('/api/bookings/' + b.id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'cancelled' }),
+              }))
+            )
+            const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
+            if (failedCount > 0) {
+              alert(`Cancelled ${futureBookings.length - failedCount} of ${futureBookings.length} bookings in this series. ${failedCount} could not be cancelled — check the bookings list.`)
             }
           }
         }
