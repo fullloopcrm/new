@@ -190,7 +190,7 @@
     },
     {
       "path": "/api/cron/comhub-email",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/anthropic-health",
@@ -237,5 +237,5 @@
       "schedule": "30 3 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_ENV\" != \"production\" ]; then exit 1; fi; git log -1 --pretty=%B | grep -qE '\\[deploy\\]' && exit 1 || exit 0"
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then git log -1 --pretty=%B | grep -qE '\\[deploy\\]' && exit 1 || exit 0; fi; if [ -n \"$VERCEL_GIT_PULL_REQUEST_ID\" ]; then exit 1; fi; git log -1 --pretty=%B | grep -qE '\\[deploy\\]|\\[preview\\]' && exit 1 || exit 0"
 }
