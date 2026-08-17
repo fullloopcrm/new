@@ -236,6 +236,9 @@ export async function POST(request: Request) {
     // client record). Plausible fake success, not an error, so a scripted
     // bot gets no signal to adapt to.
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/client/book', tenantId: tenant?.id, severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const smsOptedIn = body.sms_opt_in === true

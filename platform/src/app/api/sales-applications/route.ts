@@ -5,6 +5,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { isSpamSubmission } from '@/lib/spam-guard'
+import { trackError } from '@/lib/error-tracking'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
@@ -61,6 +62,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/sales-applications', severity: 'low', alwaysAlert: true,
+        extra: `tenant_slug=${request.headers.get('x-tenant-slug') || (body as { tenant_slug?: string }).tenant_slug || 'unknown'}`,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const {
