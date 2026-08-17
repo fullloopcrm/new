@@ -14,6 +14,7 @@ import { logCommsFail } from '@/lib/comms-fail'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { audit } from '@/lib/audit'
+import { alertActiveBookingHardDeleted } from '@/lib/booking-deletion-alert'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { computeCheckoutPricing } from '@/lib/checkout-pricing'
 import { payCleanerAtCheckout, payExtraCrewAtCheckout } from '@/lib/finance/checkout-payout'
@@ -484,7 +485,7 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; service_type?: string | null; schedule_id?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; status?: string | null; service_type?: string | null; schedule_id?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
     if (!booking) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -573,6 +574,22 @@ export async function DELETE(
       .from('bookings')
       .delete()
       .eq('id', id)
+
+    // Guardrail (Jeff, 2026-08-17, after the Simon Dolsten / Liza Bradburn
+    // incidents): a booking that was still active (scheduled/pending) when
+    // it got hard-deleted is a data-loss signal, not routine cleanup -- a
+    // correctly-cancelled booking is 'cancelled' by the time it ever reaches
+    // this path. Always both Telegram AND email, deliberately bypassing
+    // notify()'s normal Telegram-exclusive routing ladder.
+    if (!error && (booking.status === 'scheduled' || booking.status === 'pending')) {
+      alertActiveBookingHardDeleted({
+        tenantId,
+        bookingId: id,
+        clientName: booking.clients?.name,
+        startTime: booking.start_time,
+        status: booking.status,
+      }).catch((err: unknown) => console.error('alertActiveBookingHardDeleted failed:', err))
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
