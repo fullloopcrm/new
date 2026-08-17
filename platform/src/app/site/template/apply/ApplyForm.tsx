@@ -1,10 +1,16 @@
 'use client'
 import { useState, useRef } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+)
 
 export default function ApplyForm({ businessName }: { businessName: string }) {
   const [form, setForm] = useState({
@@ -89,19 +95,32 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
     setError('')
 
     try {
-      // Upload photo first
+      // Upload photo first — via the signed-url pattern (same as /api/apply's
+      // working applicant upload). A brand-new applicant has no
+      // team_member_id yet, so /api/cleaners/upload (which requires one)
+      // always 401'd here; this uploads straight to storage instead.
       let photo_url = ''
-      const uploadData = new FormData()
-      uploadData.append('file', photoFile)
-      const uploadRes = await fetch('/api/cleaners/upload', { method: 'POST', body: uploadData })
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}))
+      const signedRes = await fetch('/api/apply/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'photo', filename: photoFile.name, contentType: photoFile.type }),
+      })
+      if (!signedRes.ok) {
+        const errData = await signedRes.json().catch(() => ({}))
         setError(errData.error || 'Failed to upload photo / Error al subir la foto')
         setLoading(false)
         return
       }
-      const uploadJson = await uploadRes.json()
-      photo_url = uploadJson.url
+      const { path, token, publicUrl } = await signedRes.json()
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .uploadToSignedUrl(path, token, photoFile, { contentType: photoFile.type })
+      if (uploadError) {
+        setError('Failed to upload photo / Error al subir la foto')
+        setLoading(false)
+        return
+      }
+      photo_url = publicUrl
 
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
