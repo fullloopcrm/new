@@ -1,7 +1,30 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifySvix } from '@/lib/webhook-verify'
-import { resolveTenantIdForInboundEmail } from '@/lib/inbound-email-tenant'
+import { resolveTenantIdForInboundEmail, parseRecipientAddresses } from '@/lib/inbound-email-tenant'
+import { translateInboundComhubMessage } from '@/lib/comhub-translate'
+
+// Same automated/notification-sender heuristic as the IMAP comhub-email cron
+// (src/app/api/cron/comhub-email/route.ts) — mirrored rather than imported
+// since it's one small regex and the two routes have no other shared surface.
+const AUTOMATED_LOCAL_PART = /^(no-?reply|notifications?|alerts?|do-?not-?reply|mailer-daemon|postmaster|bounces?|updates?|failed-payments|ship|service|support-reply)$/i
+
+function isAutomatedInboundSender(fromAddr: string, headers: unknown): boolean {
+  const local = fromAddr.split('@')[0] || ''
+  if (AUTOMATED_LOCAL_PART.test(local)) return true
+  const entries: [string, string][] = Array.isArray(headers)
+    ? (headers as Array<{ name?: string; value?: string }>).map((h) => [String(h?.name || '').toLowerCase(), String(h?.value || '')])
+    : headers && typeof headers === 'object'
+      ? Object.entries(headers as Record<string, unknown>).map(([k, v]) => [k.toLowerCase(), String(v)])
+      : []
+  const get = (name: string) => entries.find(([k]) => k === name)?.[1]?.toLowerCase()
+  if (get('list-unsubscribe')) return true
+  const precedence = get('precedence')
+  if (precedence && ['bulk', 'list', 'junk'].includes(precedence)) return true
+  const autoSubmitted = get('auto-submitted')
+  if (autoSubmitted && autoSubmitted !== 'no') return true
+  return false
+}
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +79,80 @@ export async function POST(request: Request) {
         headers: (d.headers as object) ?? null,
         raw: d,
       })
+
+      // Mirror into CommHub — same destination the IMAP comhub-email cron
+      // writes to, so tenants using Resend inbound receiving (MX -> Resend)
+      // instead of a polled mailbox get their inbound mail into CommHub too.
+      // Best-effort: the inbound_emails row above is already the durable
+      // record, so a failure here must not affect the webhook's response.
+      try {
+        const externalId = (d.email_id as string) || (d.id as string) || null
+        const fromRaw = join(d.from)
+        const fromAddr = fromRaw ? parseRecipientAddresses(fromRaw)[0] || null : null
+        const fromNameMatch = fromRaw ? fromRaw.match(/^"?([^"<]*)"?\s*<[^>]+>/) : null
+        const fromName = fromNameMatch ? fromNameMatch[1].trim() || null : null
+
+        if (externalId && fromAddr && !isAutomatedInboundSender(fromAddr, d.headers)) {
+          const { data: existing } = await supabaseAdmin
+            .from('comhub_messages')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('external_id', externalId)
+            .eq('channel', 'email')
+            .limit(1)
+
+          if (!existing || existing.length === 0) {
+            const { data: contactId } = await supabaseAdmin
+              .rpc('comhub_get_or_create_contact_by_email', { p_tenant_id: tenantId, p_email: fromAddr, p_name: fromName })
+            const { data: threadId } = contactId
+              ? await supabaseAdmin.rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: 'email' })
+              : { data: null }
+
+            if (threadId) {
+              const subject = (d.subject as string) || ''
+              const text = (d.text as string) || (typeof d.html === 'string' ? (d.html as string).replace(/<[^>]+>/g, ' ').slice(0, 8000) : '')
+              const sentAt = (d.created_at as string) || new Date().toISOString()
+
+              const { data: inboundMsg } = await supabaseAdmin.from('comhub_messages').insert({
+                tenant_id: tenantId,
+                thread_id: threadId,
+                contact_id: contactId,
+                channel: 'email',
+                direction: 'in',
+                author: 'customer',
+                subject,
+                body: text,
+                from_address: fromAddr,
+                to_address: toAddress,
+                external_id: externalId,
+                sent_at: sentAt,
+              }).select('id').single()
+              if (inboundMsg) translateInboundComhubMessage(inboundMsg.id, text)
+
+              const { data: cur } = await supabaseAdmin
+                .from('comhub_threads')
+                .select('unread_count')
+                .eq('tenant_id', tenantId)
+                .eq('id', threadId as string)
+                .single()
+              await supabaseAdmin
+                .from('comhub_threads')
+                .update({
+                  subject: subject || undefined,
+                  last_message_at: sentAt,
+                  last_message_preview: (subject ? subject + ' — ' : '') + text.slice(0, 120),
+                  unread_count: (cur?.unread_count ?? 0) + 1,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('tenant_id', tenantId)
+                .eq('id', threadId as string)
+            }
+          }
+        }
+      } catch (mirrorErr) {
+        console.error('[resend webhook] CommHub mirror failed:', mirrorErr)
+      }
+
       return NextResponse.json({ ok: true })
     }
 
