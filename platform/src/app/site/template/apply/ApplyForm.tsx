@@ -4,6 +4,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 export default function ApplyForm({ businessName }: { businessName: string }) {
   const [form, setForm] = useState({
@@ -34,6 +35,7 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -104,7 +106,7 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url })
+        body: JSON.stringify({ ...form, photo_url, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -147,6 +149,7 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
 
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           <div>
             <h2 className="text-xl font-bold text-[var(--brand)]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
             <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners in NYC.</p>

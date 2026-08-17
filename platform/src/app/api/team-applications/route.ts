@@ -3,9 +3,13 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
-import { escapeHtml } from '@/lib/escape-html'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
 import { isSpamSubmission } from '@/lib/spam-guard'
+import { emailAdmins } from '@/lib/admin-contacts'
+import { sendEmail } from '@/lib/email'
+import { emailShell } from '@/lib/messaging/shell'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 // Rate limiting: 3 applications per 10 minutes per IP
 // NOTE: In-memory — resets on server restart (serverless cold start).
@@ -83,7 +87,7 @@ export async function POST(request: Request) {
     // Look up tenant
     const { data: tenantData } = await supabaseAdmin
       .from('tenants')
-      .select('id, name')
+      .select('id, name, phone, email, address, logo_url, primary_color, resend_api_key, email_from, slug, domain')
       .eq('slug', tenant_slug)
       .single()
 
@@ -134,16 +138,65 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Notify admin
+    // Notify admin — 'cleaner_application' matches /api/apply, /api/lead, and
+    // /api/contact so this hits the registered "New team application" comm
+    // setting (comms-registry.ts) and the Telegram allowlist (notify.ts),
+    // instead of the unrelated team-member-added-to-payroll event.
     await notify({
       tenantId,
-      type: 'team_member_added',
+      type: 'cleaner_application',
       title: 'New Team Application',
       message: `${escapeHtml(name)} applied to join the team`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { applicantName: name, phone: cleanPhone },
-    })
+    }).catch((err) => console.error('Team application notify failed:', err))
+
+    // Email the tenant's admins too (mirrors /api/apply). notify() alone only
+    // fires when an owner tenant_member has an email; emailAdmins also falls
+    // back to tenant.email, so this reaches the inbox even for tenants with
+    // no member rows. Non-blocking.
+    try {
+      const adminUrl = `${tenantSiteUrl(tenantData)}/admin/team/applications`
+      const subject = `[${tenantData.name}] New job application: ${name}`
+      const html = `<h2>New Job Application</h2>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${email ? escapeHtml(email) : '—'}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(cleanPhone)}</p>
+        <p><a href="${safeUrl(adminUrl)}">View in admin</a></p>`
+      await emailAdmins(tenantData, subject, html)
+    } catch (emailErr) {
+      console.error('Team application admin email error:', emailErr)
+    }
+
+    // Applicant confirmation — same pattern as /api/apply.
+    try {
+      if (email) {
+        const firstName = String(name).split(' ')[0]
+        const html = emailShell({
+          brand: {
+            name: tenantData.name,
+            phone: tenantData.phone || null,
+            email: tenantData.email || null,
+            address: tenantData.address || null,
+            logoUrl: tenantData.logo_url || null,
+            primaryColor: tenantData.primary_color || null,
+          },
+          heading: `Thanks for applying, ${firstName}`,
+          bodyHtml: `<p>We received your application and our team will review it and follow up shortly. If you need to reach us, just reply to this email${tenantData.phone ? ` or call ${tenantData.phone}` : ''}.</p>`,
+          preheader: 'We received your application',
+        })
+        await sendEmail({
+          to: email,
+          subject: `We received your application — ${tenantData.name}`,
+          html,
+          resendApiKey: tenantData.resend_api_key || undefined,
+          from: tenantData.email_from || undefined,
+        })
+      }
+    } catch (ackErr) {
+      console.error('Team application confirmation email error:', ackErr)
+    }
 
     return NextResponse.json({ success: true, id: data.id }, { status: 201 })
   } catch (err) {

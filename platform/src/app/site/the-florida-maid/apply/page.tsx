@@ -4,6 +4,7 @@ import AddressAutocomplete from '@/app/site/the-florida-maid/_components/Address
 import { validateEmail } from '@/app/site/the-florida-maid/_lib/validate-email'
 import { SERVICE_ZONES } from '@/app/site/the-florida-maid/_lib/service-zones'
 import { trackApply, getAttribution } from '@/app/site/the-florida-maid/_lib/apply-tracking'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 export default function ApplyPage() {
   const [form, setForm] = useState({
@@ -33,6 +34,7 @@ export default function ApplyPage() {
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
   const [started, setStarted] = useState(false)
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const markStart = () => {
     if (!started) {
@@ -122,7 +124,7 @@ export default function ApplyPage() {
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url, attribution })
+        body: JSON.stringify({ ...form, photo_url, attribution, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -168,6 +170,7 @@ export default function ApplyPage() {
 
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} onFocusCapture={markStart} onBlurCapture={handleFieldBlur} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           <div>
             <h2 className="text-xl font-bold text-[#1E2A4A]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
             <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners across Florida.</p>
