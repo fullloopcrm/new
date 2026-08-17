@@ -1,5 +1,26 @@
 # FullLoop CRM — Architecture Rules
 
+## DEPLOY CADENCE (non-negotiable, added 2026-08-17)
+
+**Batch fixes into a handful of `[deploy]`-tagged pushes per day. Do not tag every commit.**
+
+- 2026-08-17: 65 `[deploy]`-tagged commits to `main` in 4 days (~16/day), each an
+  8-9min cold build, drove **$449.82 in Vercel Build CPU Minutes overage** in a
+  single billing cycle — see `fullloop_billing_cost_audit_2026_08_17.md` in
+  project memory for the full breakdown.
+- `~/.claude/hooks/verify-deploy-cadence.sh` now hard-blocks a second
+  `[deploy]`-tagged push to `main` within a 2-hour cooldown. This is a
+  mechanical backstop, not a substitute for batching in the first place.
+- `vercel.json`'s `ignoreCommand` only builds Preview deployments for an
+  actual open PR or an explicit `[deploy]`/`[preview]` tag — pushing a
+  throwaway worktree branch does **not** trigger a build anymore. Don't
+  work around this by tagging routine WIP pushes `[preview]` just to see
+  them build; that recreates the same problem.
+- **Worktree hygiene:** the session that merges a branch removes its own
+  worktree (`git worktree remove`) before ending. Don't leave it for a
+  later cleanup pass — as of 2026-08-17 there were 70+ live worktrees,
+  several weeks stale.
+
 ## THE GLOBAL RULE (non-negotiable)
 
 **Every operator/admin feature is GLOBAL: one shared codebase, edited once, applies to all tenants. Tenants differ by DATA, never by code.**
