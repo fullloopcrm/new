@@ -82,7 +82,7 @@
     },
     {
       "path": "/api/cron/seo-freshness",
-      "schedule": "0 3 * * *"
+      "schedule": "0 3 * * 0"
     },
     {
       "path": "/api/cron/seo-verify-revert",
