@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import BoardCell from './BoardCell'
 import BoardItemDrawer from './BoardItemDrawer'
 import { boardsFetch } from './boardsFetch'
@@ -29,6 +29,23 @@ const COLUMN_TYPE_ICONS: Record<BoardColumnType, string> = {
   checkbox: '☑',
 }
 
+const COLUMN_TYPE_OPTIONS: { value: BoardColumnType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'status', label: 'Status' },
+  { value: 'person', label: 'Person' },
+  { value: 'date', label: 'Date' },
+  { value: 'number', label: 'Number' },
+  { value: 'checkbox', label: 'Checkbox' },
+]
+
+// The group items funnel into once their checkbox is checked — see
+// handleCheckboxChange. Matched case-insensitively so a board's own
+// "Completed"/"completed" group is reused instead of creating a duplicate.
+const COMPLETED_GROUP_NAME = 'Completed'
+function isCompletedGroup(group: { name: string }): boolean {
+  return group.name.trim().toLowerCase() === COMPLETED_GROUP_NAME.toLowerCase()
+}
+
 export default function BoardBody({ apiBase, boardId, richUpdates = true }: BoardBodyProps) {
   const [data, setData] = useState<BoardData | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[] | undefined>(undefined)
@@ -39,11 +56,19 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
   const [newGroupName, setNewGroupName] = useState('')
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupName, setEditingGroupName] = useState('')
+  const [addingColumn, setAddingColumn] = useState(false)
+  const [newColumnName, setNewColumnName] = useState('')
+  const [newColumnType, setNewColumnType] = useState<BoardColumnType>('text')
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null)
+  const [editingColumnName, setEditingColumnName] = useState('')
   const [err, setErr] = useState('')
   const [view, setView] = useState<'table' | 'kanban'>('table')
   const [search, setSearch] = useState('')
   const [dragItem, setDragItem] = useState<{ id: string; fromStatus: string } | null>(null)
   const [dragColumnId, setDragColumnId] = useState<string | null>(null)
+  const [dragGroupId, setDragGroupId] = useState<string | null>(null)
+  const [dragTaskId, setDragTaskId] = useState<string | null>(null)
+  const ensuredCompletedGroup = useRef(false)
 
   const load = useCallback(() => {
     boardsFetch<BoardData>(`${apiBase}/${boardId}`).then((r) => {
@@ -52,6 +77,43 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
   }, [apiBase, boardId])
 
   useEffect(load, [load])
+
+  // Live auto-refresh so a board reflects what teammates are doing on it
+  // right now, not just at page load — matches the 15s polling cadence
+  // already used for Loop Connect elsewhere in the platform. Skipped while
+  // any inline editor/drag is in progress so a background refetch can't
+  // clobber an in-flight rename, add, or drag gesture.
+  const skipPollRef = useRef(false)
+  useEffect(() => {
+    skipPollRef.current = Boolean(
+      editingGroupId || editingColumnId || addingColumn || addingGroup || addingItemForGroup ||
+      dragColumnId || dragGroupId || dragTaskId || dragItem,
+    )
+  })
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!skipPollRef.current) load()
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [load])
+
+  useEffect(() => {
+    ensuredCompletedGroup.current = false
+  }, [boardId])
+
+  // Every board gets a "Completed" group (auto-created once, last position)
+  // so the checkbox-driven auto-move in handleCheckboxChange always has
+  // somewhere to send a finished item.
+  useEffect(() => {
+    if (!data || ensuredCompletedGroup.current) return
+    ensuredCompletedGroup.current = true
+    if (data.groups.some(isCompletedGroup)) return
+    boardsFetch(`${apiBase}/${boardId}/groups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: COMPLETED_GROUP_NAME }),
+    }).then((r) => { if (r.ok) load() })
+  }, [data, apiBase, boardId, load])
 
   useEffect(() => {
     if (!richUpdates) return // platform admin boards have no tenant session / team directory
@@ -153,6 +215,144 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
     if (!confirm(`Delete group "${groupName}"? This also deletes every item in it. This cannot be undone.`)) return
     setData((prev) => (prev ? { ...prev, groups: prev.groups.filter((g) => g.id !== groupId), items: prev.items.filter((i) => i.group_id !== groupId) } : prev))
     const r = await boardsFetch(`${apiBase}/${boardId}/groups/${groupId}`, { method: 'DELETE' })
+    if (!r.ok) { setErr(r.error); load() }
+  }
+
+  async function reorderGroup(fromId: string, toId: string) {
+    if (fromId === toId || !data) return
+    const fromIdx = data.groups.findIndex((g) => g.id === fromId)
+    const toIdx = data.groups.findIndex((g) => g.id === toId)
+    if (fromIdx === -1 || toIdx === -1) return
+    const reordered = [...data.groups]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+    setData((prev) => (prev ? { ...prev, groups: reordered } : prev))
+    const results = await Promise.all(
+      reordered.map((g, i) =>
+        boardsFetch(`${apiBase}/${boardId}/groups/${g.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: i }),
+        }),
+      ),
+    )
+    if (results.some((r) => !r.ok)) { setErr('Failed to save group order'); load() }
+  }
+
+  async function addColumn() {
+    const name = newColumnName.trim() || 'New Column'
+    const r = await boardsFetch(`${apiBase}/${boardId}/columns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, type: newColumnType }),
+    })
+    if (r.ok) {
+      setNewColumnName('')
+      setNewColumnType('text')
+      setAddingColumn(false)
+      load()
+    } else {
+      setErr(r.error)
+    }
+  }
+
+  async function renameColumn(columnId: string) {
+    const name = editingColumnName.trim()
+    setEditingColumnId(null)
+    if (!name || !data) return
+    const previousName = data.columns.find((c) => c.id === columnId)?.name
+    if (name === previousName) return
+    setData((prev) => (prev ? { ...prev, columns: prev.columns.map((c) => (c.id === columnId ? { ...c, name } : c)) } : prev))
+    const r = await boardsFetch(`${apiBase}/${boardId}/columns/${columnId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!r.ok) { setErr(r.error); load() }
+  }
+
+  async function deleteColumn(columnId: string, columnName: string) {
+    if (!confirm(`Delete column "${columnName}"? This removes its data from every item on this board. This cannot be undone.`)) return
+    setData((prev) => (prev ? { ...prev, columns: prev.columns.filter((c) => c.id !== columnId) } : prev))
+    const r = await boardsFetch(`${apiBase}/${boardId}/columns/${columnId}`, { method: 'DELETE' })
+    if (!r.ok) { setErr(r.error); load() }
+  }
+
+  // Reorders an item within a group, or moves it to a different group —
+  // backs both manual table-view drag-and-drop and the checkbox auto-move
+  // below. Computed from the outer `data` closure (like every other handler
+  // in this file), NOT read back out of a setData updater afterward — the
+  // updater callback isn't guaranteed to run before the next line executes,
+  // so a value assigned inside one and read right after can still be stale.
+  async function moveItem(itemId: string, toGroupId: string, beforeItemId: string | null) {
+    if (!data || itemId === beforeItemId) return
+    const moving = data.items.find((i) => i.id === itemId)
+    if (!moving) return
+    const others = data.items.filter((i) => i.id !== itemId)
+    const targetGroupItems = others.filter((i) => i.group_id === toGroupId).sort((a, b) => a.position - b.position)
+    const beforeIdx = beforeItemId ? targetGroupItems.findIndex((i) => i.id === beforeItemId) : -1
+    const insertAt = beforeIdx === -1 ? targetGroupItems.length : beforeIdx
+    const withMoved = [...targetGroupItems]
+    withMoved.splice(insertAt, 0, { ...moving, group_id: toGroupId })
+    const repositioned = withMoved.map((it, i) => ({ ...it, position: i }))
+    const changed = repositioned.filter((it) => {
+      const orig = data.items.find((o) => o.id === it.id)
+      return !orig || orig.position !== it.position || orig.group_id !== it.group_id
+    })
+    if (changed.length === 0) return
+    const repositionedIds = new Set(repositioned.map((i) => i.id))
+    const untouched = others.filter((i) => !repositionedIds.has(i.id))
+    setData((prev) => (prev ? { ...prev, items: [...untouched, ...repositioned] } : prev))
+    const results = await Promise.all(
+      changed.map((it) =>
+        boardsFetch(`${apiBase}/${boardId}/items/${it.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ position: it.position, group_id: it.group_id }),
+        }),
+      ),
+    )
+    if (results.some((r) => !r.ok)) { setErr('Failed to move item'); load() }
+  }
+
+  // Checking ANY checkbox column on an item sends it to the Completed group
+  // (remembering the group it came from in values.__prev_group_id);
+  // unchecking every checkbox column sends it back. Computed and persisted
+  // as one PATCH so the value flip and the move land atomically.
+  async function handleCheckboxChange(item: BoardItem, column: BoardColumn, checked: boolean) {
+    if (!data) return
+    const nextValues: Record<string, unknown> = { ...item.values, [column.id]: checked }
+    const checkboxCols = data.columns.filter((c) => c.type === 'checkbox')
+    const anyChecked = checkboxCols.some((c) => nextValues[c.id] === true)
+    const completedGroup = data.groups.find(isCompletedGroup)
+
+    let targetGroupId = item.group_id
+    if (completedGroup && item.group_id !== completedGroup.id && anyChecked) {
+      nextValues.__prev_group_id = item.group_id
+      targetGroupId = completedGroup.id
+    } else if (completedGroup && item.group_id === completedGroup.id && !anyChecked) {
+      const prevGroupId = typeof item.values.__prev_group_id === 'string' ? item.values.__prev_group_id : null
+      targetGroupId = (prevGroupId && data.groups.some((g) => g.id === prevGroupId))
+        ? prevGroupId
+        : (data.groups.find((g) => g.id !== completedGroup.id)?.id || item.group_id)
+      nextValues.__prev_group_id = null
+    }
+
+    const moved = targetGroupId !== item.group_id
+    const newPosition = moved ? data.items.filter((i) => i.group_id === targetGroupId && i.id !== item.id).length : item.position
+    const patchBody = moved
+      ? { values: nextValues, group_id: targetGroupId, position: newPosition }
+      : { values: nextValues }
+
+    setData((prev) => (prev
+      ? { ...prev, items: prev.items.map((i) => (i.id === item.id ? { ...i, values: nextValues, group_id: targetGroupId, position: newPosition } : i)) }
+      : prev))
+
+    const r = await boardsFetch(`${apiBase}/${boardId}/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patchBody),
+    })
     if (!r.ok) { setErr(r.error); load() }
   }
 
@@ -271,12 +471,26 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
         </div>
       ) : (
       <div className="overflow-x-auto">
-        <div style={{ minWidth: 480 + columns.length * 150 }}>
-          {groups.map((group) => {
+        <div style={{ minWidth: 500 + columns.length * 150 }}>
+          {groups.map((group, groupIndex) => {
             const groupItems = visibleItems.filter((i) => i.group_id === group.id).sort((a, b) => a.position - b.position)
             return (
-              <div key={group.id} className="mb-7 group/groupheader">
+              <div
+                key={group.id}
+                onDragOver={(e) => { if (dragGroupId) e.preventDefault() }}
+                onDrop={(e) => { e.preventDefault(); if (dragGroupId) reorderGroup(dragGroupId, group.id); setDragGroupId(null) }}
+                className={`mb-7 group/groupheader ${dragGroupId === group.id ? 'opacity-40' : ''}`}
+              >
                 <div className="flex items-center gap-2 mb-2.5">
+                  <span
+                    draggable
+                    onDragStart={() => setDragGroupId(group.id)}
+                    onDragEnd={() => setDragGroupId(null)}
+                    className="opacity-40 hover:opacity-70 cursor-move select-none"
+                    title="Drag to reorder"
+                  >
+                    ⠿
+                  </span>
                   {editingGroupId === group.id ? (
                     <input
                       autoFocus
@@ -320,26 +534,118 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                       {columns.map((col) => (
                         <div
                           key={col.id}
-                          draggable
-                          onDragStart={() => setDragColumnId(col.id)}
-                          onDragOver={(e) => e.preventDefault()}
+                          onDragOver={(e) => { if (dragColumnId) e.preventDefault() }}
                           onDrop={(e) => { e.preventDefault(); if (dragColumnId) reorderColumn(dragColumnId, col.id); setDragColumnId(null) }}
-                          onDragEnd={() => setDragColumnId(null)}
-                          className={`px-3 py-2.5 w-[150px] shrink-0 border-l border-slate-200/70 flex items-center gap-1 cursor-move select-none ${dragColumnId === col.id ? 'opacity-40' : ''}`}
-                          title="Drag to reorder"
+                          className={`group/colheader px-2 py-2.5 w-[150px] shrink-0 border-l border-slate-200/70 flex items-center gap-1 select-none ${dragColumnId === col.id ? 'opacity-40' : ''}`}
                         >
-                          <span className="opacity-40">⠿</span>
-                          <span className="opacity-60">{COLUMN_TYPE_ICONS[col.type]}</span> {col.name}
+                          <span
+                            draggable
+                            onDragStart={() => setDragColumnId(col.id)}
+                            onDragEnd={() => setDragColumnId(null)}
+                            className="opacity-40 hover:opacity-70 cursor-move shrink-0"
+                            title="Drag to reorder"
+                          >
+                            ⠿
+                          </span>
+                          <span className="opacity-60 shrink-0">{COLUMN_TYPE_ICONS[col.type]}</span>
+                          {/* Column headers repeat per group (one section per group), but a
+                              column is board-wide — rename/delete only render in the first
+                              group's copy, or every group's copy would mount its own
+                              autoFocus input for the same column and steal focus from each
+                              other. Later groups show a plain (non-interactive) label. */}
+                          {groupIndex === 0 && editingColumnId === col.id ? (
+                            <input
+                              autoFocus
+                              value={editingColumnName}
+                              onChange={(e) => setEditingColumnName(e.target.value)}
+                              onBlur={() => renameColumn(col.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') renameColumn(col.id)
+                                if (e.key === 'Escape') setEditingColumnId(null)
+                              }}
+                              className="min-w-0 flex-1 text-[11px] font-semibold normal-case bg-white border border-teal-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                            />
+                          ) : groupIndex === 0 ? (
+                            <span
+                              onClick={() => { setEditingColumnId(col.id); setEditingColumnName(col.name) }}
+                              title="Click to rename"
+                              className="truncate flex-1 cursor-text"
+                            >
+                              {col.name}
+                            </span>
+                          ) : (
+                            <span className="truncate flex-1">{col.name}</span>
+                          )}
+                          {groupIndex === 0 && (
+                            <button
+                              onClick={() => deleteColumn(col.id, col.name)}
+                              className="opacity-0 group-hover/colheader:opacity-100 text-slate-300 hover:text-red-500 transition-opacity shrink-0"
+                              title="Delete column"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
+                      ))}
+                      {/* Column headers repeat per group (one section per group), but
+                          columns are board-wide — the add-column control only needs to
+                          exist once, on the first group's header, or it'd open the same
+                          shared form under every group at once. */}
+                      {groupIndex === 0 && (addingColumn ? (
+                        <div className="w-[210px] shrink-0 border-l border-slate-200/70 px-2 py-1.5 flex items-center gap-1 normal-case font-normal">
+                          <input
+                            autoFocus
+                            value={newColumnName}
+                            onChange={(e) => setNewColumnName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addColumn()}
+                            placeholder="Column name"
+                            className="min-w-0 flex-1 text-xs border border-slate-300 rounded px-1.5 py-1"
+                          />
+                          <select
+                            value={newColumnType}
+                            onChange={(e) => setNewColumnType(e.target.value as BoardColumnType)}
+                            className="text-xs border border-slate-300 rounded px-1 py-1"
+                          >
+                            {COLUMN_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                          <button onClick={addColumn} className="text-teal-700 shrink-0" title="Add column">✓</button>
+                          <button onClick={() => setAddingColumn(false)} className="text-slate-400 shrink-0" title="Cancel">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddingColumn(true)}
+                          className="w-[64px] shrink-0 border-l border-slate-200/70 flex items-center justify-center text-slate-300 hover:text-teal-700 hover:bg-slate-50 normal-case font-normal"
+                          title="Add column"
+                        >
+                          <span className="text-base leading-none">+</span>
+                        </button>
                       ))}
                       <div className="w-[64px] shrink-0" />
                     </div>
 
                     {groupItems.map((item) => (
-                      <div key={item.id} className="flex border-b border-slate-100 last:border-b-0 hover:bg-teal-50/40 transition-colors group">
+                      <div
+                        key={item.id}
+                        onDragOver={(e) => { if (dragTaskId) e.preventDefault() }}
+                        onDrop={(e) => { e.preventDefault(); if (dragTaskId) moveItem(dragTaskId, group.id, item.id); setDragTaskId(null) }}
+                        className={`flex border-b border-slate-100 last:border-b-0 hover:bg-teal-50/40 transition-colors group ${dragTaskId === item.id ? 'opacity-40' : ''}`}
+                      >
+                        <span
+                          draggable
+                          onDragStart={() => setDragTaskId(item.id)}
+                          onDragEnd={() => setDragTaskId(null)}
+                          className="pl-2 flex items-center text-slate-300 opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-move select-none"
+                          title="Drag to reorder or move to another group"
+                        >
+                          ⠿
+                        </span>
                         <button
                           onClick={() => setOpenItemId(item.id)}
-                          className="px-3 py-2.5 flex-1 min-w-[220px] text-left text-sm text-slate-800 truncate font-medium group-hover:text-teal-800"
+                          className="px-2 py-2.5 flex-1 min-w-[220px] text-left text-sm text-slate-800 truncate font-medium group-hover:text-teal-800"
                         >
                           {item.name || 'Untitled'}
                         </button>
@@ -348,11 +654,11 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                             <BoardCell
                               column={col}
                               value={col.type === 'person' && teamMembers ? item.assigned_to : item.values?.[col.id]}
-                              onChange={(v) =>
-                                col.type === 'person' && teamMembers
-                                  ? updateItem(item.id, { assigned_to: v })
-                                  : updateItem(item.id, { values: { [col.id]: v } })
-                              }
+                              onChange={(v) => {
+                                if (col.type === 'person' && teamMembers) return updateItem(item.id, { assigned_to: v })
+                                if (col.type === 'checkbox') return handleCheckboxChange(item, col, v === true)
+                                return updateItem(item.id, { values: { [col.id]: v } })
+                              }}
                               teamMembers={teamMembers}
                             />
                           </div>
@@ -379,6 +685,10 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                       </div>
                     ))}
 
+                    <div
+                      onDragOver={(e) => { if (dragTaskId) e.preventDefault() }}
+                      onDrop={(e) => { e.preventDefault(); if (dragTaskId) moveItem(dragTaskId, group.id, null); setDragTaskId(null) }}
+                    >
                     {addingItemForGroup === group.id ? (
                       <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-100">
                         <input
@@ -397,9 +707,10 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                         onClick={() => setAddingItemForGroup(group.id)}
                         className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-teal-700 hover:bg-slate-50 flex items-center gap-1.5"
                       >
-                        <span className="text-sm leading-none">+</span> Add item
+                        <span className="text-sm leading-none">+</span> Add item{groupItems.length === 0 && dragTaskId ? ' (drop here)' : ''}
                       </button>
                     )}
+                    </div>
                   </div>
                 </div>
               </div>

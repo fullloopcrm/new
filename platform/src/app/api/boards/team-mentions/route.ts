@@ -14,8 +14,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-
-const BOARD_ASSIGNABLE_ROLES = ['owner', 'admin', 'virtual_assistant']
+import { BOARD_ASSIGNABLE_ROLES } from '@/lib/boards'
 
 export async function GET() {
   try {
