@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { requireNycmaidTenant } from '@/app/site/template/_lib/gate'
+import { requireCleaningTenant } from '@/app/site/template/_lib/gate'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { SERVICES, getServiceByUrlSlug } from '@/app/site/template/_lib/seo/services'
@@ -8,6 +8,10 @@ import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
 import { serviceContent, serviceFAQs, getServiceRichContent, commonServiceFAQs } from '@/app/site/template/_lib/seo/content'
 import { servicePageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { singleServiceContent, type LocationServiceInput } from '@/app/site/template/_lib/content/longform'
+import { getStoredOrFallbackContent } from '@/app/site/template/_lib/content/stored-content'
+import { LongformArticle } from '@/app/site/template/_components/LongformArticle'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -15,6 +19,15 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import { WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+
+// nycmaid's own real, hardcoded content below (pricing cards, "225+
+// neighborhoods", rich-content system) predates per-tenant config and stays
+// nycmaid-only. Every other cleaning tenant gets a generic, config-driven
+// version built from their own SiteConfig.services instead of 404ing — see
+// the early branch in generateMetadata/ServicePage below.
+function slugifyService(value: string): string {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -40,10 +53,29 @@ export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
+  const config = await getSiteConfig()
+  const isNycmaid = config.identity.url.includes('thenycmaid.com')
+
+  if (!isNycmaid) {
+    const svc = config.services.find((s) => slugifyService(s.value) === slug)
+    if (!svc) return {}
+    const tenant = (await getTenantFromHeaders()) as Record<string, unknown> | null
+    if (!tenant) return {}
+    const svcInput: LocationServiceInput = { value: svc.value, label: svc.label, hours: svc.hours, rate: svc.rate }
+    const fallback = singleServiceContent(config, svcInput)
+    const c = await getStoredOrFallbackContent(tenant.id as string, 'location-service', `svc-${slug}`, fallback)
+    const url = `${config.identity.url}/services/${slug}`
+    return {
+      title: { absolute: c.title },
+      description: c.metaDescription,
+      alternates: { canonical: url },
+      openGraph: { title: c.title, description: c.metaDescription, url, type: 'website' },
+    }
+  }
+
   const service = getServiceByUrlSlug(slug)
   if (!service) return {}
 
-  const config = await getSiteConfig()
   const base = config.identity.url.replace(/\/+$/, '')
   const brand = config.identity.siteName ?? config.identity.name
   const url = `${base}/services/${slug}`
@@ -77,8 +109,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServicePage({ params }: Props) {
-  await requireNycmaidTenant()
+  await requireCleaningTenant()
   const { slug } = await params
+  const configForBranch = await getSiteConfig()
+  const isNycmaidBranch = configForBranch.identity.url.includes('thenycmaid.com')
+
+  if (!isNycmaidBranch) {
+    const svc = configForBranch.services.find((s) => slugifyService(s.value) === slug)
+    if (!svc) notFound()
+    const tenant = (await getTenantFromHeaders()) as Record<string, unknown> | null
+    if (!tenant) notFound()
+    const svcInput: LocationServiceInput = { value: svc.value, label: svc.label, hours: svc.hours, rate: svc.rate }
+    const fallback = singleServiceContent(configForBranch, svcInput)
+    const content = await getStoredOrFallbackContent(tenant.id as string, 'location-service', `svc-${slug}`, fallback)
+    return (
+      <LongformArticle
+        config={configForBranch}
+        content={content}
+        eyebrow={svc.label}
+        ctaHeading={`Book ${svc.label} Today`}
+        ctaBody="Tell us what you need and we'll take it from there — a clear quote, a time that works, and work we stand behind."
+      />
+    )
+  }
+
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
   const siteConfig = await getSiteConfig()

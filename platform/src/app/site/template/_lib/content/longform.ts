@@ -2707,3 +2707,56 @@ export function locationServiceContent(config: SiteConfig, area: LocationInput, 
     faq,
   }
 }
+
+/**
+ * Single-service page, no location — the config-driven replacement for the
+ * old nycmaid-only services/[slug] route (real hardcoded NYC pricing cards,
+ * rich-content system, gated to thenycmaid.com). Same idea as
+ * locationServiceContent but service-only, for the tenant's whole coverage
+ * area rather than one town.
+ */
+export function singleServiceContent(config: SiteConfig, service: LocationServiceInput): LongformPage {
+  const v = vars(config)
+  const priceLine = service.rate ? `$${service.rate}/hr` : undefined
+  const durationLine = `about ${service.hours} hour${service.hours === 1 ? '' : 's'}`
+  const area = v.place
+
+  const sections: ContentSection[] = [
+    {
+      heading: `${service.label} — What's Included`,
+      paragraphs: [
+        ...(v.brandCopy?.aboutIntro ? [v.brandCopy.aboutIntro] : []),
+        `${v.brand} provides ${service.label.toLowerCase()} across ${area}${priceLine ? ` at ${priceLine}` : ''}. A typical visit runs ${durationLine}, though the exact time depends on the size and condition of the space.`,
+        `Every visit gets the same standard: a clear price before you commit, a vetted team, on-time service, and work we stand behind.`,
+      ],
+    },
+    {
+      heading: `Why Choose ${v.brand} for ${service.label}`,
+      paragraphs: [
+        ...(differentiatorsSentence(v) ? [differentiatorsSentence(v) as string] : []),
+        `We answer when you reach out, we show up when we say we will, and we charge exactly what we quoted.`,
+      ],
+    },
+    {
+      heading: `Booking ${service.label}`,
+      paragraphs: [
+        `Text ${v.phone}, call, or book online. We'll confirm the details, give you a clear price${priceLine ? ` (starting from ${priceLine})` : ''}, and lock in a time that works for you.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `What does ${service.label.toLowerCase()} include?`, a: `${service.label} covers a full, professional pass through the space. Text ${v.phone} for the exact checklist for your job.` },
+    { q: `How much does ${service.label.toLowerCase()} cost?`, a: priceLine ? `${service.label} starts at ${priceLine}, with no hidden fees. Final cost depends on the size and condition of the space.` : `Text ${v.phone} for a clear quote — pricing depends on the size and condition of the space.` },
+    { q: `How long does ${service.label.toLowerCase()} take?`, a: `A typical visit runs ${durationLine}, depending on the size and condition of the space.` },
+  ]
+
+  return {
+    title: `${service.label} | ${v.brand}`,
+    metaDescription: `${service.label}${priceLine ? ` starting at ${priceLine}` : ''} from ${v.brand}. Transparent pricing, vetted team, on-time service. Text ${v.phone}.`,
+    h1: service.label,
+    intro: v.brandCopy?.heroLine || `Professional ${service.label.toLowerCase()}${priceLine ? ` — starting at ${priceLine}` : ''}.`,
+    sections,
+    faq,
+  }
+}
