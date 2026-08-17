@@ -26,17 +26,21 @@ import { handleApprovalReply, handleExecutionReply } from '@/lib/finance/global-
 
 export const maxDuration = 60
 
-// NYC Maid's branded number, (212) 202-8400, forwards to the registered
-// Telnyx mainline for voice; (212) 202-9030 is the paired forward leg. Telnyx
-// echoes inbound SMS sent directly to either forward leg with the ORIGINAL
-// dialed number in `payload.to`, not the mainline — so a plain telnyx_phone
-// lookup never matches and real client texts sent to the branded number were
-// silently dropped (confirmed live 2026-07-27: 17 distinct real senders in 5
-// days). Outbound replies are unaffected — sendSMS() always sends from the
+// NYC Maid's branded numbers, (212) 202-8400 and (212) 202-9030, are forward
+// legs alongside the registered Telnyx mainline. Telnyx echoes inbound SMS
+// sent directly to any forward leg with the ORIGINAL dialed number in
+// `payload.to`, not the mainline — so a plain telnyx_phone lookup never
+// matches and real client texts sent to a branded number were silently
+// dropped (confirmed live 2026-07-27: 17 distinct real senders in 5 days).
+// (888) 316-4019 was the mainline itself until 2026-08-17, when 8400 (now
+// 10DLC-registered) took over as the mainline; 888 was added here so texts
+// sent to the old number keep resolving instead of silently dropping.
+// Outbound replies are unaffected — sendSMS() always sends from the
 // tenant's registered telnyx_phone (the mainline), never these aliases.
 const TENANT_PHONE_ALIASES: Record<string, string> = {
   '+12122028400': NYCMAID_TENANT_ID,
   '+12122029030': NYCMAID_TENANT_ID,
+  '+18883164019': NYCMAID_TENANT_ID,
 }
 
 const MMS_ALLOWED_TYPES = new Set([
