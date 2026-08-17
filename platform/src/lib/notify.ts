@@ -114,6 +114,11 @@ const TELEGRAM_NOTIFY_TYPES = new Set<NotificationType>([
   '15min_warning',
   'sms_received',
   'auto_booking_assigned',
+  // Job applications (Jeff, 2026-08-17): someone applying to join the team is
+  // exactly the kind of operational event this list already covers (new_lead,
+  // new_client, etc.) — it just never got added. Every tenant with a Telegram
+  // bot configured should get pinged the same way.
+  'cleaner_application',
   // Automated dedupe actions (Jeff, 2026-08-14): every resolved/queued
   // duplicate -- client, booking, or contact -- should reach the tenant's
   // Telegram if they have one, same as any other operational event. Each of
