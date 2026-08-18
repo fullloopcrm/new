@@ -15,6 +15,10 @@ export type CalendarEvent = {
   price_cents: number
   conflict: boolean
   tight: boolean
+  // Absent/'booking' = a bookings row (the default, pre-existing shape).
+  // 'job' = a sold Project (jobs table) surfaced onto the same grid — see
+  // /api/schedule/calendar's jobs merge and CalendarPopups' job branch.
+  kind?: 'booking' | 'job'
 }
 
 export type CalendarDay = {

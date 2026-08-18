@@ -95,7 +95,7 @@ export default function BookingsListTab() {
   const worker = useWorkerLabel()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<StatusKey>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusKey>('scheduled')
   const [smartFilter, setSmartFilter] = useState<SmartKey | null>(null)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())

@@ -5,15 +5,15 @@ import ContactForm from "@/app/site/the-nyc-exterminator/_components/ContactForm
 import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
-  title: "Schedule Service | Starting at $49 | Self-Book & Save $10",
+  title: "Schedule Service | $199/hr | Self-Book & Save $20",
   description:
-    "Schedule a licensed NYC exterminator online and save $10. Starting at $49 (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the rate. Pay only when the job is done. No contracts. No deposits. No catches.",
+    "Schedule a licensed NYC exterminator online and save $20. $199/hr (fully inclusive — no hidden fees). Labor, products, treatment, follow-up — all in the rate. Pay only when the job is done. No contracts. No deposits. No catches.",
   keywords:
-    "schedule NYC exterminator, pay-on-completion pest control, no contract exterminator, pest control starting at $49, fully inclusive pest control pricing, NYC pest control booking, same-day exterminator",
+    "schedule NYC exterminator, pay-on-completion pest control, no contract exterminator, pest control $199/hr, fully inclusive pest control pricing, NYC pest control booking, same-day exterminator",
   openGraph: {
-    title: "Schedule Service | Pest Control Starting at $49 | Fully Inclusive",
+    title: "Schedule Service | Pest Control $199/hr | Fully Inclusive",
     description:
-      "Starting at $49 (fully inclusive — no hidden fees). Pay on completion. Schedule in under 2 minutes.",
+      "$199/hr (fully inclusive — no hidden fees). Pay on completion. Schedule in under 2 minutes.",
     url: `${SITE_URL}/schedule-service`,
     siteName: SITE_NAME,
     type: "website",
@@ -31,7 +31,7 @@ const faqs = [
   },
   {
     q: "Why is your pricing better than a flat-rate quote?",
-    a: "Flat-rate quotes are priced for the worst-case version of your problem the exterminator has never seen. If your job is actually simpler, you still pay the inflated number. We start at $49 and quote your specific job upfront after a free inspection — a small ant trail is a small price, a serious roach job is quoted accordingly. You pay for your actual problem, not for the company's guess at a worst case.",
+    a: "Flat-rate quotes are priced for the worst-case version of your problem the exterminator has never seen. If your job is actually simpler, you still pay the inflated number. We are $199/hr and quote your specific job upfront after an inspection — a small ant trail is a small price, a serious roach job is quoted accordingly. You pay for your actual problem, not for the company's guess at a worst case.",
   },
   {
     q: "Do I pay anything upfront?",
@@ -43,7 +43,7 @@ const faqs = [
   },
   {
     q: "What are the catches?",
-    a: "There are no catches. We were tired of NYC pest control being a 'call for a quote' black box where the price is whatever the company thinks you'll pay. Starting at $49, fully inclusive, quoted upfront, pay on completion. That's the entire pricing model. No hidden fees, no chemical surcharges, no weekend rates, no upsells.",
+    a: "There are no catches. We were tired of NYC pest control being a 'call for a quote' black box where the price is whatever the company thinks you'll pay. $199/hr, fully inclusive, quoted upfront, pay on completion. That's the entire pricing model. No hidden fees, no chemical surcharges, no weekend rates, no upsells.",
   },
   {
     q: "How quickly will I hear back after scheduling?",
@@ -55,7 +55,7 @@ const faqs = [
   },
   {
     q: "What pest services can I book?",
-    a: "Every service we offer starts at $49 — cockroaches, bed bugs, rats, mice, ants, termites, wasps, fleas, wildlife removal, commercial accounts, all of it. The pest type doesn't change the starting price. What you pay depends on the size and scope of your specific job, quoted upfront after a free inspection.",
+    a: "Every service we offer is $199/hr — cockroaches, bed bugs, rats, mice, ants, termites, wasps, fleas, wildlife removal, commercial accounts, all of it. The pest type doesn't change the starting price. What you pay depends on the size and scope of your specific job, quoted upfront after an inspection.",
   },
 ];
 
@@ -92,13 +92,13 @@ export default function ScheduleServicePage() {
             </p>
             <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
               <span className="bg-gradient-to-r from-green-400 to-emerald-300 bg-clip-text text-transparent">
-                Starting at $49
+                $199/hr
               </span>
               . Pay only when the job is done.
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-zinc-300">
               Fully inclusive &mdash; labor, products, treatment, follow-up. No contracts.
-              No catches. No money upfront. Every job is quoted upfront after a free inspection, priced for
+              No catches. No money upfront. Every job is quoted upfront after an inspection, priced for
               the <span className="font-semibold text-white">actual problem you have</span>{" "}
               instead of a bloated flat-rate quote built for the worst case.
             </p>
@@ -111,7 +111,7 @@ export default function ScheduleServicePage() {
               <p className="mt-2 text-sm text-zinc-300">
                 Flat-rate quotes are priced for a worst-case version of your problem the exterminator
                 has never seen. We quote your job upfront for what it actually needs &mdash; a quick ant
-                trail starts at $49, not a worst-case flat fee. You don&apos;t subsidize the company&apos;s worst-day math.
+                trail is $199/hr, not a worst-case flat fee. You don&apos;t subsidize the company&apos;s worst-day math.
               </p>
             </div>
             <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-5">
@@ -186,7 +186,7 @@ export default function ScheduleServicePage() {
             </div>
             <div className="p-6 sm:p-8">
               <h2 className="mb-2 text-2xl font-bold">
-                Schedule Your <span className="text-green-400">Service from $49</span>
+                Schedule Your <span className="text-green-400">Service at $199/hr</span>
               </h2>
               <p className="mb-6 text-sm text-zinc-400">
                 Tell us about your pest problem. We&apos;ll match you with a certified NYC technician,
@@ -239,7 +239,7 @@ export default function ScheduleServicePage() {
 
             <div className="rounded-xl border border-green-700/40 bg-green-950/30 p-6">
               <p className="text-sm font-bold uppercase tracking-wider text-green-400">
-                Starting at $49, fully inclusive (us)
+                $199/hr, fully inclusive (us)
               </p>
               <ul className="mt-4 space-y-3 text-sm text-zinc-300">
                 <li>&#10003; An exact, upfront price for your actual job</li>
@@ -258,8 +258,8 @@ export default function ScheduleServicePage() {
               The honest math
             </p>
             <p className="mx-auto mt-3 max-w-2xl text-zinc-300">
-              Service starts at <span className="font-bold text-white">$49</span>, fully inclusive, and your
-              exact price is quoted upfront after a free inspection &mdash; a simple one-bedroom roach job is
+              Service starts at <span className="font-bold text-white">$199/hr</span>, fully inclusive, and your
+              exact price is quoted upfront after an inspection &mdash; a simple one-bedroom roach job is
               priced for what it actually needs, products and follow-up included. The same jobs flat-rate
               elsewhere in NYC quote at $400 to $800+, then add chemical and trip fees on top. Transparent
               pricing with no add-ons is almost always less &mdash; and you only ever pay for solving{" "}
@@ -313,7 +313,7 @@ export default function ScheduleServicePage() {
                 3
               </div>
               <div>
-                <p className="font-semibold text-white">Free on-site inspection. See the price first.</p>
+                <p className="font-semibold text-white">On-site inspection. See the price first.</p>
                 <p className="mt-1 text-sm text-zinc-400">
                   Your licensed exterminator inspects the property, identifies the pest, locates
                   entry points and nesting areas, and walks you through the plan with an exact,
@@ -327,7 +327,7 @@ export default function ScheduleServicePage() {
                 4
               </div>
               <div>
-                <p className="font-semibold text-white">Treatment from $49 &mdash; everything included</p>
+                <p className="font-semibold text-white">Treatment at $199/hr &mdash; everything included</p>
                 <p className="mt-1 text-sm text-zinc-400">
                   Products, equipment, entry-point sealing, and written treatment plan are all
                   included in the price you approved. No add-ons, no surprises, no second-stop fees.
@@ -369,7 +369,7 @@ export default function ScheduleServicePage() {
                 &ldquo;Small brown roaches in the kitchen at night&rdquo; tells us far more than
                 &ldquo;bugs.&rdquo; Include size, color, location, and time of day. Not sure what
                 it is? Describe what you see &mdash; the tech identifies it on-site during the
-                free inspection.
+                inspection.
               </p>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
@@ -433,7 +433,7 @@ export default function ScheduleServicePage() {
         <div className="mx-auto max-w-xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold sm:text-3xl">
             Ready to Schedule Your{" "}
-            <span className="text-green-400">Service from $49</span>?
+            <span className="text-green-400">Service at $199/hr</span>?
           </h2>
           <p className="mt-3 text-zinc-400">
             Scroll up to book in under 2 minutes &mdash; or text us right now. Same fully inclusive
@@ -444,7 +444,7 @@ export default function ScheduleServicePage() {
               href="#top"
               className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-500"
             >
-              Self-Book &mdash; Save $10 &uarr;
+              Self-Book &mdash; Save $20 &uarr;
             </a>
             <a
               href={`sms:${PHONE.replace(/-/g, "")}`}

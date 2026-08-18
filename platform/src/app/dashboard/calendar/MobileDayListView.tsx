@@ -17,6 +17,15 @@ type Booking = {
   team_members: { name: string } | null
 }
 
+type JobEvent = {
+  id: string
+  title: string
+  status: string
+  client_name: string
+  starts_on: string
+  total_cents: number
+}
+
 // Current ET calendar month's boundaries, expressed as UTC ISO timestamps.
 // Derived from "now" so DST is handled correctly for the current date;
 // re-derived on every mount/refresh, so the window naturally rolls to the
@@ -76,6 +85,7 @@ const STATUS_META: Record<string, { label: string; dotClass: string }> = {
 
 export default function MobileDayListView() {
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [jobs, setJobs] = useState<JobEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -90,6 +100,10 @@ export default function MobileDayListView() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+    fetch(`/api/jobs/calendar?from=${startISO.slice(0, 10)}&to=${endISO.slice(0, 10)}`)
+      .then(r => (r.ok ? r.json() : { jobs: [] }))
+      .then(d => setJobs(d.jobs || []))
+      .catch(() => setJobs([]))
   }
 
   useEffect(() => { load() }, [])
@@ -147,9 +161,15 @@ export default function MobileDayListView() {
     if (group) group.push(b)
     else byDay.set(key, [b])
   }
-  const dayKeys = Array.from(byDay.keys()).sort()
+  const jobsByDay = new Map<string, JobEvent[]>()
+  for (const j of jobs) {
+    const group = jobsByDay.get(j.starts_on)
+    if (group) group.push(j)
+    else jobsByDay.set(j.starts_on, [j])
+  }
+  const dayKeys = Array.from(new Set([...byDay.keys(), ...jobsByDay.keys()])).sort()
   for (const key of dayKeys) {
-    byDay.get(key)!.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    byDay.get(key)?.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }
 
   return (
@@ -159,16 +179,17 @@ export default function MobileDayListView() {
         <button onClick={load} className="text-xs text-teal-700 font-medium px-2 py-1 -mr-2">Refresh</button>
       </div>
 
-      {loading && bookings.length === 0 && (
+      {loading && bookings.length === 0 && jobs.length === 0 && (
         <p className="text-sm text-slate-400 text-center py-10">Loading this month&apos;s jobs…</p>
       )}
 
-      {!loading && bookings.length === 0 && (
+      {!loading && bookings.length === 0 && jobs.length === 0 && (
         <p className="text-sm text-slate-400 text-center py-10">No jobs this month.</p>
       )}
 
       {dayKeys.map(dayKey => {
-        const items = byDay.get(dayKey)!
+        const items = byDay.get(dayKey) || []
+        const dayJobs = jobsByDay.get(dayKey) || []
         const isToday = dayKey === todayKey
         return (
           <div key={dayKey}>
@@ -177,9 +198,21 @@ export default function MobileDayListView() {
                 {isToday ? 'Today' : formatDayLabel(dayKey)}
               </p>
               {isToday && <span className="text-[10px] font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-full px-1.5 py-0.5">{formatDayLabel(dayKey)}</span>}
-              <span className="text-[10px] text-slate-400">({items.length})</span>
+              <span className="text-[10px] text-slate-400">({items.length + dayJobs.length})</span>
             </div>
             <div className="space-y-2">
+              {dayJobs.map(j => (
+                <a key={j.id} href={`/dashboard/jobs/${j.id}`} className="block border border-purple-200 bg-purple-50 rounded-lg p-3 active:bg-purple-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-purple-500" />
+                      <p className="font-medium text-slate-900 text-sm">{j.client_name}</p>
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-purple-700">Project</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{j.title}</p>
+                </a>
+              ))}
               {items.map(b => {
                 const isBusy = busyId === b.id
                 const meta = STATUS_META[b.status] ?? { label: b.status, dotClass: 'bg-slate-300' }

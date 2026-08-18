@@ -18,6 +18,14 @@ interface Booking {
   team_member_id: string | null
   clients: { name: string } | null
 }
+interface JobEvent {
+  id: string
+  title: string
+  status: string
+  client_name: string
+  starts_on: string
+  total_cents: number
+}
 
 const DAY_START_MIN = 6 * 60   // 6 AM
 const DAY_END_MIN = 22 * 60    // 10 PM
@@ -43,6 +51,7 @@ function localYMD(d: Date): string {
 export default function TimelineView() {
   const [team, setTeam] = useState<TeamMember[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [jobs, setJobs] = useState<JobEvent[]>([])
   const [day, setDay] = useState<string>(() => localYMD(new Date()))
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -67,6 +76,19 @@ export default function TimelineView() {
   }, [])
 
   useEffect(() => { load(day) }, [day, load])
+
+  // Sold Projects landing on the same day — no time-of-day on a job, so these
+  // render as a strip above the dispatch grid rather than on the time axis.
+  useEffect(() => {
+    let cancelled = false
+    const [y, mo, d] = day.split('-').map(Number)
+    const next = localYMD(new Date(y, mo - 1, d + 1))
+    fetch(`/api/jobs/calendar?from=${day}&to=${next}`)
+      .then((r) => (r.ok ? r.json() : { jobs: [] }))
+      .then((d) => { if (!cancelled) setJobs(d.jobs || []) })
+      .catch(() => { if (!cancelled) setJobs([]) })
+    return () => { cancelled = true }
+  }, [day])
 
   const colorFor = useMemo(() => {
     const map: Record<string, string> = {}
@@ -144,6 +166,22 @@ export default function TimelineView() {
         <div className="mb-3 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
           {err}
           <button onClick={() => setErr('')} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
+
+      {jobs.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {jobs.map((j) => (
+            <a
+              key={j.id}
+              href={`/dashboard/jobs/${j.id}`}
+              className="flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100"
+              title={j.title}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+              Project · {j.client_name}
+            </a>
+          ))}
         </div>
       )}
 

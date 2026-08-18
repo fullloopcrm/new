@@ -69,13 +69,21 @@ export async function listComhubThreads(tenantId: string, params: ListThreadsPar
     `)
     .eq('tenant_id', tenantId)
     .order('last_message_at', { ascending: false })
-    .range(offset, offset + limit - 1)
     .is('archived_at', null)
 
   if (kind !== 'all') query = query.eq('kind', kind)
   if (status !== 'all') query = query.eq('status', status)
   if (channel !== 'all') query = query.eq('channel', channel)
   if (filter === 'unread') query = query.gt('unread_count', 0)
+
+  // The `q` search below runs in JS against the joined contact fields,
+  // which isn't expressible as a single DB-level predicate. Paginating
+  // with `offset`/`limit` before that filter would silently drop any
+  // match outside the most-recent page. So: page normally when not
+  // searching, but pull a much larger candidate set when `q` is set,
+  // then paginate the filtered results below instead.
+  const SEARCH_CANDIDATE_CAP = 1000
+  query = q ? query.limit(SEARCH_CANDIDATE_CAP) : query.range(offset, offset + limit - 1)
 
   const { data, error } = await query
   if (error) return { threads: null, error: error.message }
@@ -118,6 +126,9 @@ export async function listComhubThreads(tenantId: string, params: ListThreadsPar
           || (c?.email || '').toLowerCase().includes(ql)
           || (t.last_message_preview || '').toLowerCase().includes(ql)
     })
+    // Pagination is applied post-filter for a search, since the candidate
+    // set above is a broad pull rather than the requested page.
+    threads = threads.slice(offset, offset + limit)
   }
 
   // Direction of each thread's most recent message. `comhub_threads` has no

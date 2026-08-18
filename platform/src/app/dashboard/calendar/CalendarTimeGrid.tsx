@@ -88,12 +88,12 @@ export default function CalendarTimeGrid({
                       top, height,
                       left: `${lane * widthPct}%`,
                       width: `calc(${widthPct}% - 3px)`,
-                      background: colorFor(ev),
+                      background: ev.kind === 'job' ? 'var(--sched-project, #7c3aed)' : colorFor(ev),
                     }}
                     onClick={() => onSelectEvent(ev, day.date)}
-                    title={`${ev.client} · ${fmtTime(ev.start)}`}
+                    title={ev.kind === 'job' ? `${ev.client} · Project` : `${ev.client} · ${fmtTime(ev.start)}`}
                   >
-                    <span className="sched-timegrid-event-time">{fmtTime(ev.start)}</span>
+                    <span className="sched-timegrid-event-time">{ev.kind === 'job' ? 'PROJECT' : fmtTime(ev.start)}</span>
                     <span className="sched-timegrid-event-client">{ev.client}</span>
                   </div>
                 )

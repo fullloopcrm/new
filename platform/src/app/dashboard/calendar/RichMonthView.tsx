@@ -462,12 +462,12 @@ export default function RichMonthView() {
                             <div
                               key={ev.id}
                               className={cls}
-                              style={{ background: color, cursor: 'pointer' }}
+                              style={{ background: ev.kind === 'job' ? 'var(--sched-project, #7c3aed)' : color, cursor: 'pointer' }}
                               onClick={() => setPopupEvent({ event: ev, date: day.date })}
                             >
-                              <span className="sched-cal-event-time">{fmtTime(ev.start)}</span>
+                              <span className="sched-cal-event-time">{ev.kind === 'job' ? 'PROJECT' : fmtTime(ev.start)}</span>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {ev.client}{ev.team_member_id ? '' : ' · ?'}
+                                {ev.client}{ev.kind !== 'job' && !ev.team_member_id ? ' · ?' : ''}
                               </span>
                             </div>
                           )
@@ -527,9 +527,9 @@ export default function RichMonthView() {
                       <span className="text-xs text-slate-400 w-24 flex-shrink-0">
                         {new Date(ev.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' , timeZone: 'America/New_York' })}
                       </span>
-                      <span className="text-xs font-mono text-slate-500 w-14 flex-shrink-0">{fmtTime(ev.start)}</span>
+                      <span className="text-xs font-mono text-slate-500 w-14 flex-shrink-0">{ev.kind === 'job' ? 'Project' : fmtTime(ev.start)}</span>
                       <span className="text-sm text-slate-900 flex-1 truncate">{ev.client}</span>
-                      <span className="text-xs text-slate-400 hidden sm:inline">{ev.team_member_name || 'Unassigned'}</span>
+                      <span className="text-xs text-slate-400 hidden sm:inline">{ev.kind === 'job' ? '' : (ev.team_member_name || 'Unassigned')}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         ev.status === 'completed' ? 'bg-green-50 text-green-700' :
                         ev.status === 'in_progress' ? 'bg-blue-50 text-blue-700' :

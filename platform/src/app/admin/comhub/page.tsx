@@ -333,7 +333,10 @@ export default function ComhubPage() {
   const fetchThreads = useCallback(async () => {
     const params = new URLSearchParams({
       kind: 'contact',
-      status: 'open',
+      // A search query should find a match regardless of thread status —
+      // otherwise a closed/snoozed thread the admin is looking for can
+      // never surface. Browsing without a query still defaults to Open.
+      status: q.trim() ? 'all' : 'open',
       channel,
       filter,
     })

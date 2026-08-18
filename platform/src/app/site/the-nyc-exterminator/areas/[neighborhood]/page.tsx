@@ -72,11 +72,11 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
   const faqItems = [
     {
       q: `What pest control services are available in ${neighborhood.name}?`,
-      a: `We offer ${totalServices}+ pest control services in ${neighborhood.name} including cockroach extermination, bed bug treatment, rat and mouse control, termite treatment, wildlife removal, and more. All services include free inspection and upfront pricing.`,
+      a: `We offer ${totalServices}+ pest control services in ${neighborhood.name} including cockroach extermination, bed bug treatment, rat and mouse control, termite treatment, wildlife removal, and more. All services include inspection and upfront pricing.`,
     },
     {
       q: `How much does pest control cost in ${neighborhood.name}?`,
-      a: `Pest control costs in ${neighborhood.name} vary by service. General pest control starts at $125-$300. Bed bug treatment runs $300-$1,500. Rodent control starts at $200-$600. We provide free inspections and upfront quotes.`,
+      a: `We charge one flat rate in ${neighborhood.name}: $199/hr, 1-hour minimum, no matter the pest type or severity. We provide inspections and confirm the estimate before any work begins.`,
     },
     {
       q: `Do you offer same-day pest control in ${neighborhood.name}?`,
@@ -176,7 +176,7 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
           </h2>
           <p className="mt-3 max-w-3xl text-zinc-400">
             Browse every professional exterminator service available in {neighborhood.name},{" "}
-            {neighborhood.region}. Each service includes a free on-site inspection, upfront
+            {neighborhood.region}. Each service includes an on-site inspection, upfront
             pricing, and treatment by a licensed NYC pest control technician.
           </p>
 

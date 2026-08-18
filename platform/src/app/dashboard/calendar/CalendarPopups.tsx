@@ -63,13 +63,18 @@ export function BookingPopup({
             <div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--sched-ink, #1c1c1c)' }}>{event.client}</div>
               <div style={{ fontSize: 12.5, color: 'var(--sched-muted, #7a7a78)', marginTop: 2 }}>
-                {date ? `${dayLabel(date)} · ` : ''}{fmtTimeFull(event.start)}{event.end ? ` – ${fmtTimeFull(event.end)}` : ''}
+                {event.kind === 'job'
+                  ? (date ? dayLabel(date) : '')
+                  : <>{date ? `${dayLabel(date)} · ` : ''}{fmtTimeFull(event.start)}{event.end ? ` – ${fmtTimeFull(event.end)}` : ''}</>}
               </div>
             </div>
             <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: 18, lineHeight: 1, color: 'var(--sched-muted, #7a7a78)', cursor: 'pointer', padding: 4 }}>×</button>
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+            {event.kind === 'job' && (
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'rgba(124,58,237,0.12)', color: 'var(--sched-project, #7c3aed)' }}>Project</span>
+            )}
             <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'rgba(28,28,28,0.06)', color: 'var(--sched-ink, #1c1c1c)' }}>
               {STATUS_LABEL[event.status] || event.status}
             </span>
@@ -82,24 +87,32 @@ export function BookingPopup({
           </div>
 
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '80px 1fr', rowGap: 8, fontSize: 13 }}>
-            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Team</span>
-            <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{event.team_member_name || 'Unassigned'}</span>
-            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Service</span>
+            {event.kind !== 'job' && (
+              <>
+                <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Team</span>
+                <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{event.team_member_name || 'Unassigned'}</span>
+              </>
+            )}
+            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>{event.kind === 'job' ? 'Title' : 'Service'}</span>
             <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{event.service_type || '—'}</span>
-            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Price</span>
+            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>{event.kind === 'job' ? 'Contract' : 'Price'}</span>
             <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{fmtMoney(event.price_cents)}</span>
-            <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Payment</span>
-            <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{event.payment_status || '—'}</span>
+            {event.kind !== 'job' && (
+              <>
+                <span style={{ color: 'var(--sched-muted, #7a7a78)' }}>Payment</span>
+                <span style={{ color: 'var(--sched-ink, #1c1c1c)' }}>{event.payment_status || '—'}</span>
+              </>
+            )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
             <button type="button" onClick={onClose} style={{ fontSize: 13, background: 'none', border: '1px solid var(--sched-line-soft, #ddd)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>Close</button>
             <button
               type="button"
-              onClick={() => router.push(`/dashboard/bookings/${event.id}`)}
+              onClick={() => router.push(event.kind === 'job' ? `/dashboard/jobs/${event.id}` : `/dashboard/bookings/${event.id}`)}
               style={{ fontSize: 13, fontWeight: 600, background: 'var(--sched-ink, #1c1c1c)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}
             >
-              Open full booking
+              {event.kind === 'job' ? 'Open full project' : 'Open full booking'}
             </button>
           </div>
         </div>
@@ -146,7 +159,7 @@ export function DayEventsPopup({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: colorFor(ev) }} />
-              <span style={{ fontSize: 12, fontFamily: 'var(--sched-mono, monospace)', color: 'var(--sched-muted, #7a7a78)', width: 56, flexShrink: 0 }}>{fmtTimeFull(ev.start)}</span>
+              <span style={{ fontSize: 12, fontFamily: 'var(--sched-mono, monospace)', color: 'var(--sched-muted, #7a7a78)', width: 56, flexShrink: 0 }}>{ev.kind === 'job' ? 'Project' : fmtTimeFull(ev.start)}</span>
               <span style={{ fontSize: 13.5, color: 'var(--sched-ink, #1c1c1c)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.client}</span>
               <span style={{ fontSize: 11.5, color: 'var(--sched-muted, #7a7a78)', flexShrink: 0 }}>{ev.team_member_name || 'Unassigned'}</span>
             </div>

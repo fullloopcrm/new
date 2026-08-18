@@ -47,3 +47,6 @@ next-env.d.ts
 # Google Search Console service-account key (secret)
 .gsc-service-account.json
 supabase/.temp/
+
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json

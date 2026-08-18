@@ -5,15 +5,15 @@ import ContactForm from "@/app/site/the-nyc-exterminator/_components/ContactForm
 import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/the-nyc-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
-  title: "Book NYC Exterminator Today | Save $10 Booking Online",
+  title: "Book NYC Exterminator Today | Save $20 Booking Online",
   description:
-    "Book a licensed NYC exterminator online and save $10 — the fastest way to get service. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Free inspection, upfront pricing from $49.",
+    "Book a licensed NYC exterminator online and save $20 — the fastest way to get service. Same-day and next-day pest control appointments across all 5 boroughs, NJ, Long Island & Westchester. We respond within 10-30 minutes, schedule as soon as tomorrow, and your certified technician arrives on time within a 1-hour window. Inspection, upfront flat-rate pricing at $199/hr.",
   keywords:
     "book exterminator NYC, schedule pest control appointment, same-day exterminator NYC, next-day pest control, book bed bug treatment, schedule cockroach extermination, NYC pest control appointment, emergency exterminator booking, hire exterminator today",
   openGraph: {
-    title: "Book NYC Exterminator Today | Save $10 Booking Online",
+    title: "Book NYC Exterminator Today | Save $20 Booking Online",
     description:
-      "Book a licensed NYC exterminator online and save $10. We respond in 10-30 min, schedule next-day appointments, and your technician arrives on time within a 1-hour window.",
+      "Book a licensed NYC exterminator online and save $20. We respond in 10-30 min, schedule next-day appointments, and your technician arrives on time within a 1-hour window.",
     url: `${SITE_URL}/book-exterminator-today`,
     siteName: SITE_NAME,
     type: "website",
@@ -38,16 +38,16 @@ const faqs = [
     a: "Yes. Every pest control appointment includes a 1-hour arrival window. Your certified exterminator will arrive within that window, and you will receive a confirmation text message when they are on the way to your property. No waiting around all day — we respect your time.",
   },
   {
-    q: "Is the initial pest control inspection really free?",
-    a: "Yes. Your first on-site pest inspection is completely free with zero obligation. The licensed technician will assess the type and severity of your infestation, identify entry points and nesting areas, and provide a written treatment plan with upfront pricing before any work begins. No hidden fees, no pressure.",
+    q: "Is there a charge for the initial pest control inspection?",
+    a: "We charge one flat rate: $199/hr, 1-hour minimum, no matter the pest type or severity. The licensed technician will inspect the property, identify entry points and nesting areas, and confirm the estimate before any work begins. No hidden fees, no pressure.",
   },
   {
     q: "What pest control services can I book through this form?",
-    a: "You can book any of our 30+ pest control services including cockroach extermination, bed bug treatment, rat extermination, mouse extermination, termite treatment, ant control, flea treatment, wasp removal, wildlife removal, commercial pest control, and more. If you are unsure what pest you are dealing with, describe what you see in the form and our technician will identify it during the free inspection.",
+    a: "You can book any of our 30+ pest control services including cockroach extermination, bed bug treatment, rat extermination, mouse extermination, termite treatment, ant control, flea treatment, wasp removal, wildlife removal, commercial pest control, and more. If you are unsure what pest you are dealing with, describe what you see in the form and our technician will identify it during the inspection.",
   },
   {
     q: "How much does it cost to book an exterminator in NYC?",
-    a: "Pest control pricing starts at $49 for basic treatments. Most residential exterminator jobs range from $125 to $600 depending on the pest type, severity, and property size. Specialized services like bed bug heat treatment and termite treatment carry higher pricing. You will always receive a written quote after the free inspection — before any work begins.",
+    a: "Pest control pricing is $199/hr for basic treatments. Most residential exterminator jobs range from $125 to $600 depending on the pest type, severity, and property size. Specialized services like bed bug heat treatment and termite treatment carry higher pricing. You will always receive a written quote after the inspection — before any work begins.",
   },
 ];
 
@@ -133,7 +133,7 @@ export default function BookExterminatorTodayPage() {
             </h2>
             <p className="mb-6 text-sm text-zinc-400">
               Tell us about your pest problem and we&apos;ll match you with a certified NYC pest control
-              technician. Free inspection, upfront pricing, no obligation.
+              technician. Inspection, upfront pricing, no obligation.
             </p>
             <ContactForm />
           </div>
@@ -213,7 +213,7 @@ export default function BookExterminatorTodayPage() {
                 4
               </div>
               <div>
-                <p className="font-semibold text-white">Free inspection and upfront pest control quote</p>
+                <p className="font-semibold text-white">Inspection and upfront pest control quote</p>
                 <p className="mt-1 text-sm text-zinc-400">
                   The technician inspects your property top to bottom, identifies the pest species
                   and severity, locates entry points and nesting areas, and gives you a written
@@ -259,7 +259,7 @@ export default function BookExterminatorTodayPage() {
                 &ldquo;Small brown roaches in the kitchen at night&rdquo; tells our exterminator
                 team far more than &ldquo;bugs.&rdquo; Include size, color, location in the
                 property, and time of day if you can. Not sure what it is? Describe what you see
-                and our pest control technician will identify it on-site during the free inspection.
+                and our pest control technician will identify it on-site during the inspection.
               </p>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
@@ -330,7 +330,7 @@ export default function BookExterminatorTodayPage() {
             <span className="text-green-400">NYC Exterminator</span>?
           </h2>
           <p className="mt-3 text-zinc-400">
-            Scroll up to fill out the pest control booking form and save $10 — the
+            Scroll up to fill out the pest control booking form and save $20 — the
             fastest way to lock in your exterminator appointment. Prefer to text? We&apos;re here.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -338,7 +338,7 @@ export default function BookExterminatorTodayPage() {
               href="#top"
               className="inline-flex items-center rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700"
             >
-              Self-Book — Save $10
+              Self-Book — Save $20
             </a>
             <a
               href={`sms:${PHONE.replace(/-/g, "")}`}

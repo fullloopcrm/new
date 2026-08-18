@@ -15,13 +15,13 @@ import { SITE_URL, PHONE, getBreadcrumbSchema } from "@/app/site/the-nyc-extermi
 export const metadata: Metadata = {
   title: "30+ NYC Pest Control & Exterminator Services | Browse All Treatments",
   description:
-    "Browse all 30+ professional pest control and exterminator services from The NYC Exterminator. Cockroach extermination, bed bug treatment, rat control, mouse removal, termite treatment, wildlife removal, commercial pest control & more. Licensed & insured across NYC, NJ, LI & Westchester. Pricing from $49. Text us.",
+    "Browse all 30+ professional pest control and exterminator services from The NYC Exterminator. Cockroach extermination, bed bug treatment, rat control, mouse removal, termite treatment, wildlife removal, commercial pest control & more. Licensed & insured across NYC, NJ, LI & Westchester. Pricing at $199/hr. Text us.",
   keywords:
     "NYC pest control services, exterminator services NYC, cockroach extermination, bed bug treatment, rat exterminator, mouse exterminator, termite treatment, wildlife removal, commercial pest control, residential pest control NYC",
   openGraph: {
     title: "30+ NYC Pest Control & Exterminator Services | Browse All Treatments",
     description:
-      "30+ professional pest control services. Cockroaches, bed bugs, rats, mice, termites, wildlife & more. Pricing from $49. Text us.",
+      "30+ professional pest control services. Cockroaches, bed bugs, rats, mice, termites, wildlife & more. Pricing at $199/hr. Text us.",
     url: `${SITE_URL}/services`,
   },
   alternates: {
@@ -81,8 +81,8 @@ export default function ServicesPage() {
               The NYC Exterminator offers {totalServices} professional pest control services covering every type
               of infestation you might encounter in the New York City metro area. From cockroach extermination
               in Manhattan apartments to rat control in Brooklyn restaurants, our licensed and insured
-              pest control technicians deliver results you can count on. Every service includes a free
-              on-site inspection, transparent upfront pricing starting at just $49, and our satisfaction
+              pest control technicians deliver results you can count on. Every service includes an
+              on-site inspection, transparent upfront pricing at a flat $199/hr, and our satisfaction
               guarantee. Text{" "}
               <a href={`sms:$us`} className="font-semibold text-green-400 hover:underline">us</a>{" "}
               to schedule your pest control appointment today.
@@ -263,13 +263,13 @@ export default function ServicesPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-400 font-bold">
                 1
               </div>
-              <h3 className="mt-4 text-lg font-semibold">Free Inspection</h3>
+              <h3 className="mt-4 text-lg font-semibold">Inspection</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
                 Every pest control engagement begins with a thorough on-site inspection. Our licensed
                 exterminator technicians examine your property from top to bottom, identifying pest
                 species, locating nesting sites and entry points, assessing the severity of the
                 infestation, and documenting conditions that contributed to the problem. This
-                inspection is always free and comes with zero obligation. We believe you deserve to
+                inspection is always thorough and comes with zero obligation. We believe you deserve to
                 understand exactly what you are dealing with before you spend a dollar on treatment.
                 Our inspectors use professional-grade tools including moisture meters, fiber optic
                 scopes, and in some cases canine detection teams for bed bug inspections.
@@ -369,7 +369,7 @@ export default function ServicesPage() {
                   superintendents to coordinate treatment across units when necessary. Multi-unit
                   buildings often require coordinated pest control efforts to prevent pests from
                   simply migrating from treated units to untreated ones — we manage this process
-                  from start to finish. Pricing for residential pest control starts at just $49 for
+                  from start to finish. Pricing for residential pest control is a flat $199/hr for
                   single-service treatments, with discounted rates available for monthly and quarterly
                   maintenance plans. See full details on our{" "}
                   <Link href="/pricing" className="text-green-400 hover:underline">pricing page</Link>.

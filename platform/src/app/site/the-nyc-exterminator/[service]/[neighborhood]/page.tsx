@@ -124,7 +124,7 @@ export default async function MoneyPage({ params }: PageProps) {
                   </span>
                 )}
                 <span className="rounded-full bg-zinc-800 px-3 py-1 text-sm font-medium text-zinc-300">
-                  Free Inspection
+                  Inspection
                 </span>
               </div>
 
@@ -159,7 +159,7 @@ export default async function MoneyPage({ params }: PageProps) {
           </h2>
           <p className="mt-3 max-w-3xl text-zinc-400">
             Every {nameLower} appointment in {location} is performed by a licensed, insured
-            exterminator and includes a free on-site inspection, targeted treatment using
+            exterminator and includes an on-site inspection, targeted treatment using
             EPA-registered products, follow-up service, and our satisfaction guarantee. Here
             is what&apos;s included:
           </p>
@@ -251,7 +251,7 @@ export default async function MoneyPage({ params }: PageProps) {
             <p className="mt-2 max-w-3xl text-sm text-zinc-400">
               Beyond {nameLower}, The NYC Exterminator offers 30+ professional pest control
               services in {neighborhood.name} and throughout {neighborhood.region}. All services include
-              free inspection and upfront pricing.
+              inspection and upfront pricing.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[...relatedServices, ...crossCategoryServices].slice(0, 8).map((s) => (

@@ -10,13 +10,13 @@ import { getAllServices, getAllNeighborhoods } from "@/app/site/the-nyc-extermin
 export const metadata: Metadata = {
   title: "Free Pest Control Quote NYC | No-Obligation Exterminator Estimate",
   description:
-    "Request a free, no-obligation pest control quote from licensed NYC exterminators. Includes free on-site inspection, written treatment plan, and upfront pricing. Cockroaches, bed bugs, rats, mice, termites & more. Same-day service available across all 5 boroughs, NJ, Long Island & Westchester. Text us.",
+    "Request a no-obligation pest control quote from licensed NYC exterminators. Includes on-site inspection, written treatment plan, and upfront pricing. Cockroaches, bed bugs, rats, mice, termites & more. Same-day service available across all 5 boroughs, NJ, Long Island & Westchester. Text us.",
   keywords:
-    "free pest control quote NYC, exterminator estimate, pest control inspection free, cockroach extermination quote, bed bug treatment estimate, rat control quote, free exterminator inspection NYC",
+    "pest control quote NYC, exterminator estimate, pest control inspection, cockroach extermination quote, bed bug treatment estimate, rat control quote, exterminator inspection NYC",
   openGraph: {
     title: "Free Pest Control Quote NYC | No-Obligation Exterminator Estimate",
     description:
-      "Free pest control quote from licensed NYC exterminators. Free inspection, upfront pricing, same-day service. Text us.",
+      "Pest control quote from licensed NYC exterminators. Inspection, upfront pricing, same-day service. Text us.",
     url: `${SITE_URL}/quote-request`,
   },
   alternates: {
@@ -40,15 +40,15 @@ export default function QuoteRequestPage() {
         name: "How much does pest control cost in NYC?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Pest control pricing starts at $49 for basic treatments. Cockroach extermination ranges from $150 to $400, bed bug treatment from $300 to $1,500 per room, rat extermination from $200 to $600, and mouse extermination from $150 to $400. Every quote includes a free inspection with no obligation.",
+          text: "We charge one flat rate: $199/hr, 1-hour minimum, no matter the pest type — cockroach, bed bug, rat, mouse, or anything else. You're billed for actual time worked. Every quote includes an inspection with no obligation.",
         },
       },
       {
         "@type": "Question",
-        name: "Is the pest control inspection really free?",
+        name: "Is there a charge for the pest control inspection?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes. Every new client receives a completely free, no-obligation pest control inspection. A licensed exterminator visits your property, identifies the pest, assesses the infestation, and provides a transparent quote before any work begins.",
+          text: "The inspection is part of every job, billed at the same flat $199/hr rate. A licensed exterminator visits your property, identifies the pest, assesses the infestation, and confirms the estimate before any work begins.",
         },
       },
       {
@@ -56,7 +56,7 @@ export default function QuoteRequestPage() {
         name: "How long does it take to get a pest control quote?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "After you submit your quote request, we review it within 2 hours during business hours and contact you to schedule a free inspection. Many clients receive their on-site quote the same day they submit the form.",
+          text: "After you submit your quote request, we review it within 2 hours during business hours and contact you to schedule an inspection. Many clients receive their on-site quote the same day they submit the form.",
         },
       },
     ],
@@ -74,7 +74,7 @@ export default function QuoteRequestPage() {
 
           <div className="mt-10">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-500">
-              Free Inspection &middot; Upfront Pricing &middot; Same-Day Available
+              Inspection &middot; Upfront Pricing &middot; Same-Day Available
             </p>
             <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
               Get a Free{" "}
@@ -86,7 +86,7 @@ export default function QuoteRequestPage() {
             <p className="mt-6 text-lg text-zinc-300">
               Tell us about your pest problem. A licensed exterminator will
               contact you within 2 hours during business hours to schedule
-              your free inspection. Pest control pricing starts at $49, and every
+              your inspection. Pest control pricing is $199/hr, and every
               quote is backed by a thorough on-site assessment &mdash; not a guess
               over the phone.
             </p>
@@ -125,7 +125,7 @@ export default function QuoteRequestPage() {
           </h2>
           <p className="mt-4 text-lg text-zinc-300">
             The more details you provide in the form below, the faster and more
-            accurately our pest control team can prepare for your free inspection.
+            accurately our pest control team can prepare for your inspection.
             Here is what helps us give you the best exterminator quote possible:
           </p>
 
@@ -209,7 +209,7 @@ export default function QuoteRequestPage() {
           </h2>
           <p className="mt-3 text-zinc-400">
             Fill out the form below and a licensed NYC exterminator will contact you
-            within 2 hours during business hours. Pricing starting at $49. No
+            within 2 hours during business hours. Pricing $199/hr. No
             obligation, no pressure.
           </p>
 
@@ -227,7 +227,7 @@ export default function QuoteRequestPage() {
             </a>
             <p className="mt-2 text-sm text-zinc-600">
               Text us for the fastest response — a real exterminator
-              answers. Or <Link href="/book-exterminator-today" className="font-semibold text-green-400 hover:text-green-300">book online and save $10</Link>.
+              answers. Or <Link href="/book-exterminator-today" className="font-semibold text-green-400 hover:text-green-300">book online and save $20</Link>.
             </p>
           </div>
         </div>
@@ -269,10 +269,10 @@ export default function QuoteRequestPage() {
                 2
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-white">We Call to Schedule Your Free Inspection</h3>
+                <h3 className="text-xl font-semibold text-white">We Call to Schedule Your Inspection</h3>
                 <p className="mt-2 text-zinc-300">
                   One of our exterminators will text you to confirm the details
-                  of your pest problem and schedule a free on-site inspection at a
+                  of your pest problem and schedule an on-site inspection at a
                   time that works for you. We offer morning, afternoon, and evening
                   appointments seven days a week. If your situation is urgent, we will
                   do our best to send a pest control technician the same day. During
@@ -294,12 +294,12 @@ export default function QuoteRequestPage() {
                   at the scheduled time. They conduct a comprehensive inspection of
                   every affected area, identify the pest species with certainty, locate
                   entry points and nesting areas, and assess the full scope of the
-                  infestation. This free inspection is thorough &mdash; we check behind
+                  infestation. This inspection is thorough &mdash; we check behind
                   appliances, inside cabinets, along baseboards, in crawl spaces, and
                   everywhere else pests like to hide. Once the inspection is complete,
                   the exterminator presents you with a transparent, itemized quote. If
                   you approve, treatment can begin immediately. Pest control pricing
-                  starts at $49, and there are never hidden fees or surprise charges.
+                  is $199/hr, and there are never hidden fees or surprise charges.
                 </p>
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function QuoteRequestPage() {
                 cause structural damage that regular{" "}
                 <Link href="/ant-control" className="text-green-400 hover:text-green-300">ant control</Link>{" "}
                 products cannot address. A licensed exterminator identifies the exact
-                species during the free inspection and selects the precise treatment
+                species during the inspection and selects the precise treatment
                 method for that pest. This targeted approach is why professional pest
                 control resolves infestations that months of DIY attempts could not.
               </p>
@@ -369,14 +369,14 @@ export default function QuoteRequestPage() {
               </h3>
               <p className="mt-3 text-zinc-300">
                 There is literally zero risk in requesting a professional pest
-                control quote from The NYC Exterminator. The inspection is free. The
+                control quote from The NYC Exterminator. The inspection is included in the $199/hr rate. The
                 quote is free. There is no obligation to proceed with treatment.
                 You get a licensed exterminator&apos;s expert assessment of your pest
                 problem, a clear understanding of the species involved, and
                 transparent pricing for the recommended treatment &mdash; all at no
                 cost. Compare that to spending $50 to $200 on store-bought products
                 that may not work (and often do not), and the value of a professional
-                quote becomes clear. Our pest control pricing starts at $49, which is
+                quote becomes clear. Our pest control pricing is $199/hr, which is
                 competitive with many DIY products and delivers far better results.
               </p>
             </div>
@@ -404,12 +404,11 @@ export default function QuoteRequestPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-white">Pricing Starting at $49</h3>
+                <h3 className="font-semibold text-white">Flat $199/hr Pricing</h3>
                 <p className="mt-1 text-zinc-300">
-                  Our pest control services start at just $49 for basic treatments.
-                  The exact price depends on the pest type, severity of the
-                  infestation, property size, and treatment method required. You will
-                  know the exact cost before any work begins.
+                  Every pest control service is billed at $199/hr, 1-hour minimum,
+                  no matter the pest type, severity, or property size. You&apos;re
+                  billed for actual time worked — never a per-pest flat quote.
                 </p>
               </div>
             </div>
@@ -423,7 +422,7 @@ export default function QuoteRequestPage() {
               <div>
                 <h3 className="font-semibold text-white">No Hidden Fees</h3>
                 <p className="mt-1 text-zinc-300">
-                  The price our exterminator quotes after the free inspection is the
+                  The price our exterminator quotes after the inspection is the
                   price you pay. We do not add travel fees, emergency surcharges, or
                   inspection charges. If additional treatment is needed beyond the
                   original scope, we discuss it with you and provide a new quote
@@ -464,7 +463,7 @@ export default function QuoteRequestPage() {
                   with restaurants, multi-unit buildings, and property management
                   companies. Ask about maintenance plans when you{" "}
                   <Link href="/contact" className="text-green-400 hover:text-green-300">contact us</Link>{" "}
-                  or during your free inspection.
+                  or during your inspection.
                 </p>
               </div>
             </div>
@@ -491,19 +490,19 @@ export default function QuoteRequestPage() {
             While every pest control situation is unique and pricing depends on the
             specifics of your property and infestation, here are typical pricing
             ranges for our most popular exterminator services in the NYC metro area.
-            All quotes include a free inspection, and pricing starts at $49.
+            All quotes include an inspection, and pricing is $199/hr.
           </p>
 
           <div className="mt-10 space-y-4">
             {[
-              { slug: "cockroach-extermination", name: "Cockroach Extermination", range: "$150 - $400", note: "German and American cockroach treatments for apartments, homes, and restaurants. Multi-unit building discounts available." },
-              { slug: "bed-bug-treatment", name: "Bed Bug Treatment", range: "$300 - $1,500/room", note: "Heat treatment and chemical applications. K-9 detection available. Follow-up inspections included in the quoted price." },
-              { slug: "rat-extermination", name: "Rat Extermination", range: "$200 - $600", note: "Trapping, exclusion, and baiting for Norway and roof rats. Entry point sealing included to prevent re-entry." },
-              { slug: "mouse-extermination", name: "Mouse Extermination", range: "$150 - $400", note: "Comprehensive trapping and exclusion. Includes sealing entry points and sanitation recommendations." },
-              { slug: "ant-control", name: "Ant Control", range: "$150 - $350", note: "Targeted baiting and barrier treatments. Carpenter ant control available at higher price points for structural infestations." },
-              { slug: "termite-treatment", name: "Termite Treatment", range: "$800 - $3,000", note: "Liquid treatment, baiting systems, and wood treatment. Includes annual monitoring and warranty options." },
-              { slug: "mosquito-control", name: "Mosquito Control", range: "$75 - $200", note: "Yard treatment and larvicide application. Monthly maintenance plans available for ongoing protection." },
-              { slug: "flea-treatment", name: "Flea Treatment", range: "$200 - $400", note: "Whole-home treatment targeting adult fleas, eggs, and larvae. Pet-safe products used throughout." },
+              { slug: "cockroach-extermination", name: "Cockroach Extermination", range: "$199/hr", note: "German and American cockroach treatments for apartments, homes, and restaurants. Multi-unit building discounts available." },
+              { slug: "bed-bug-treatment", name: "Bed Bug Treatment", range: "$199/hr", note: "Heat treatment and chemical applications. K-9 detection available. Follow-up inspections included in the quoted price." },
+              { slug: "rat-extermination", name: "Rat Extermination", range: "$199/hr", note: "Trapping, exclusion, and baiting for Norway and roof rats. Entry point sealing included to prevent re-entry." },
+              { slug: "mouse-extermination", name: "Mouse Extermination", range: "$199/hr", note: "Comprehensive trapping and exclusion. Includes sealing entry points and sanitation recommendations." },
+              { slug: "ant-control", name: "Ant Control", range: "$199/hr", note: "Targeted baiting and barrier treatments. Carpenter ant control available at higher price points for structural infestations." },
+              { slug: "termite-treatment", name: "Termite Treatment", range: "$199/hr", note: "Liquid treatment, baiting systems, and wood treatment. Includes annual monitoring and warranty options." },
+              { slug: "mosquito-control", name: "Mosquito Control", range: "$199/hr", note: "Yard treatment and larvicide application. Monthly maintenance plans available for ongoing protection." },
+              { slug: "flea-treatment", name: "Flea Treatment", range: "$199/hr", note: "Whole-home treatment targeting adult fleas, eggs, and larvae. Pet-safe products used throughout." },
             ].map((item) => (
               <Link
                 key={item.slug}
@@ -531,7 +530,7 @@ export default function QuoteRequestPage() {
             Your actual quote may be higher or lower depending on the severity of
             the infestation, the size of your property, and the treatment method
             required. The only way to get an exact price is through our{" "}
-            <strong className="text-zinc-300">free on-site inspection</strong>.
+            <strong className="text-zinc-300">on-site inspection</strong>.
             Submit the form above or text{" "}
             <a href={`sms:${phonePlain}`} className="font-bold text-green-400 hover:text-green-300">
               us
@@ -565,10 +564,10 @@ export default function QuoteRequestPage() {
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { name: "Maria T.", area: "Upper West Side", text: "I texted them about a cockroach problem in my apartment and within 10 minutes I had a response. The exterminator came the next morning, did a thorough inspection, and gave me a clear quote with no pressure. Treatment started that same day. Pest control pricing was very fair — much less than I expected." },
-              { name: "David R.", area: "Park Slope", text: "After finding bed bug bites, I panicked and called three different exterminators. The NYC Exterminator was the only one who offered a free inspection before quoting. Their heat treatment quote was competitive and they explained every step of the process. Truly professional pest control service." },
+              { name: "David R.", area: "Park Slope", text: "After finding bed bug bites, I panicked and called three different exterminators. The NYC Exterminator was the only one who offered an inspection before quoting. Their heat treatment quote was competitive and they explained every step of the process. Truly professional pest control service." },
               { name: "Jennifer K.", area: "Hoboken", text: "We needed a termite inspection for our home purchase. The exterminator was incredibly thorough — spent over an hour inspecting the foundation, crawl space, and all wood contact areas. The detailed report helped us negotiate with the seller. Highly recommend their pest control team." },
               { name: "Marcus L.", area: "Astoria", text: "Restaurant owner here. Getting a pest control quote from The NYC Exterminator was refreshingly straightforward. They walked through my entire kitchen, identified potential problem areas, and put together a maintenance plan that keeps us DOH-compliant. No surprises on the bill, ever." },
-              { name: "Sarah W.", area: "Williamsburg", text: "Mice in my brownstone basement were driving me crazy. I submitted a quote request online at midnight and had a response by 8am. The exterminator came that afternoon, found where they were getting in, sealed everything up, and set traps. Problem solved within a week. Starting at $49 was a great deal." },
+              { name: "Sarah W.", area: "Williamsburg", text: "Mice in my brownstone basement were driving me crazy. I submitted a quote request online at midnight and had a response by 8am. The exterminator came that afternoon, found where they were getting in, sealed everything up, and set traps. Problem solved within a week. $199/hr was a great deal." },
               { name: "Tom H.", area: "White Plains", text: "Raccoons in our attic were keeping the whole family up at night. The wildlife control specialist they sent was knowledgeable and humane. The quote was transparent and they explained exactly what the removal process involved. Excellent pest control company — we use them for annual maintenance now." },
             ].map((review) => (
               <div key={review.name} className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">
@@ -595,10 +594,10 @@ export default function QuoteRequestPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-2">
             <div className="space-y-5 text-zinc-300 leading-7">
               <p>
-                Many pest control companies in NYC provide vague estimates over the phone, then surprise customers with higher prices once the technician arrives. At The NYC Exterminator, we believe in complete transparency. Our free quote process starts with a thorough on-site inspection by a NYS DEC-licensed exterminator who identifies the exact pest species, assesses the severity of the infestation, locates entry points and nesting sites, and evaluates property-specific factors that affect treatment. Only then do we provide a detailed written quote that includes the treatment plan, products to be used, number of visits, preparation requirements, safety precautions, and total cost. No hidden fees. No surprise charges. No pressure to buy services you don&apos;t need.
+                Many pest control companies in NYC provide vague estimates over the phone, then surprise customers with higher prices once the technician arrives. At The NYC Exterminator, we believe in complete transparency. Our quote process starts with a thorough on-site inspection by a NYS DEC-licensed exterminator who identifies the exact pest species, assesses the severity of the infestation, locates entry points and nesting sites, and evaluates property-specific factors that affect treatment. Only then do we provide a detailed written quote that includes the treatment plan, products to be used, number of visits, preparation requirements, safety precautions, and total cost. No hidden fees. No surprise charges. No pressure to buy services you don&apos;t need.
               </p>
               <p>
-                Our pest control pricing starts at just $49 for basic treatments, with most residential services ranging from $125 to $600 depending on the pest type and property size. Specialized services like <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug heat treatment</Link> and comprehensive <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment programs</Link> are priced higher due to the specialized equipment and extended treatment protocols involved. Visit our <Link href="/pricing" className="text-green-400 hover:text-green-300">pricing page</Link> for detailed price ranges across all {allServices.length} services we offer.
+                Our pest control pricing is a flat $199/hr, 1-hour minimum, across every service we offer — including <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug heat treatment</Link> and comprehensive <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment programs</Link>. You&apos;re billed for actual time worked, not a per-pest quote. Visit our <Link href="/pricing" className="text-green-400 hover:text-green-300">pricing page</Link> for the full breakdown across all {allServices.length} services we offer.
               </p>
               <p>
                 We also offer monthly, bi-monthly, and quarterly pest control maintenance plans that provide the best long-term value for both residential and <Link href="/commercial-pest-control" className="text-green-400 hover:text-green-300">commercial properties</Link>. Maintenance plans include scheduled inspections, preventive treatments, unlimited callbacks between visits, and priority scheduling for emergencies. For <Link href="/restaurant-pest-control" className="text-green-400 hover:text-green-300">restaurants and food service businesses</Link>, our maintenance programs include NYC DOH-compliant treatment documentation for health inspections.
@@ -611,7 +610,7 @@ export default function QuoteRequestPage() {
               </p>
               <h3 className="text-xl font-semibold text-white">Serving the Entire NYC Metro Area</h3>
               <p>
-                Our licensed exterminators provide pest control services across <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link> in all five NYC boroughs, northern New Jersey, Long Island, and Westchester County. No matter where your property is located in the metro area, we can provide a free on-site inspection and quote. Same-day appointments are often available for urgent pest situations. <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">Text us</a> right now to describe your pest problem — we&apos;ll respond fast with a plan.
+                Our licensed exterminators provide pest control services across <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link> in all five NYC boroughs, northern New Jersey, Long Island, and Westchester County. No matter where your property is located in the metro area, we can provide an on-site inspection and quote. Same-day appointments are often available for urgent pest situations. <a href={`sms:${phonePlain}`} className="text-green-400 hover:text-green-300">Text us</a> right now to describe your pest problem — we&apos;ll respond fast with a plan.
               </p>
               <p>
                 Join thousands of satisfied NYC property owners who trust The NYC Exterminator for reliable, affordable pest control. Read our <Link href="/reviews" className="text-green-400 hover:text-green-300">customer reviews</Link>, check our <Link href="/pricing" className="text-green-400 hover:text-green-300">transparent pricing</Link>, and learn more <Link href="/about" className="text-green-400 hover:text-green-300">about our company</Link>. Have questions? Visit our <Link href="/faq" className="text-green-400 hover:text-green-300">FAQ page</Link> or <Link href="/contact" className="text-green-400 hover:text-green-300">contact us</Link> directly. We&apos;re here to help you take back your property from pests — starting today.

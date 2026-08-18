@@ -26,6 +26,22 @@ async function fetchScheduleData(tenantId: string, gridStartISO: string, gridEnd
 }
 const fetchScheduleDataCached = unstable_cache(fetchScheduleData, ['schedule-calendar-data'], { revalidate: 30 })
 
+// Sold Projects (jobs table) whose starts_on falls inside the visible grid —
+// merged onto the same day cells as bookings so "booked, sold, or scheduled"
+// all land on one calendar (2026-08-14). One event per job on its starts_on
+// day; jobs have no time-of-day, so unlike bookings they render at the top
+// of the cell rather than at a specific hour.
+async function fetchJobsData(tenantId: string, fromDate: string, toDate: string) {
+  const { data } = await supabaseAdmin
+    .from('jobs')
+    .select('id, title, status, total_cents, starts_on, clients(name)')
+    .eq('tenant_id', tenantId)
+    .gte('starts_on', fromDate)
+    .lt('starts_on', toDate)
+  return data || []
+}
+const fetchJobsDataCached = unstable_cache(fetchJobsData, ['schedule-calendar-jobs'], { revalidate: 30 })
+
 type CalendarEvent = {
   id: string
   start: string
@@ -39,6 +55,7 @@ type CalendarEvent = {
   price_cents: number
   conflict: boolean
   tight: boolean
+  kind?: 'booking' | 'job'
 }
 
 type CalendarDay = {
@@ -114,7 +131,10 @@ export async function GET(request: NextRequest) {
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
 
-    const scheduleData = await fetchScheduleDataCached(tenantId, gridStart.toISOString(), gridEnd.toISOString())
+    const [scheduleData, jobsData] = await Promise.all([
+      fetchScheduleDataCached(tenantId, gridStart.toISOString(), gridEnd.toISOString()),
+      fetchJobsDataCached(tenantId, ymd(gridStart), ymd(gridEnd)),
+    ])
 
     const team = scheduleData.team as Array<{ id: string; name: string; status: string | null }>
     const teamById = new Map(team.map((t) => [t.id, t]))
@@ -203,6 +223,33 @@ export async function GET(request: NextRequest) {
     for (const d of days) {
       d.heat = heatLevel(d.jobs_count, max)
       d.is_idle = d.jobs_count === 0
+    }
+
+    // Merge sold Projects in after heat/idle are computed from bookings alone —
+    // a project shouldn't count toward booking load/heat, it's a different
+    // kind of work being surfaced on the same grid.
+    for (const j of jobsData as Array<Record<string, unknown>>) {
+      const status = (j.status as string | null) || 'scheduled'
+      if (status === 'cancelled') continue
+      const startsOn = j.starts_on as string | null
+      if (!startsOn) continue
+      const day = dayByKey.get(startsOn)
+      if (!day) continue
+      day.events.push({
+        id: j.id as string,
+        start: `${startsOn}T00:00:00`,
+        end: null,
+        client: ((j.clients as unknown as { name?: string } | null)?.name) || 'Unknown',
+        team_member_id: null,
+        team_member_name: null,
+        status,
+        payment_status: null,
+        service_type: (j.title as string | null) || 'Project',
+        price_cents: Number(j.total_cents || 0),
+        conflict: false,
+        tight: false,
+        kind: 'job',
+      })
     }
 
     // Outlook stats — for the focused month + this-week view. `now` is a
