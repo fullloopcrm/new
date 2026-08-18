@@ -8,20 +8,32 @@ const defaultResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !
   : null
 
 /**
+ * Every tenant's holding email address on the verified fullloopcrm.com apex —
+ * "<slug>@fullloopcrm.com" — the email-side counterpart to the holding
+ * SUBDOMAIN every tenant already gets automatically (<slug>.fullloopcrm.com,
+ * resolved by extractSubdomain() in middleware). Like the holding domain,
+ * this is computed on the fly, never stored — no DB column, no per-tenant
+ * setup, works identically for a brand-new tenant and a fully-configured one.
+ */
+export function tenantHoldingEmail(tenant: { slug?: string | null } | null | undefined): string {
+  const local =
+    (tenant?.slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'no-reply'
+  return `${local}@fullloopcrm.com`
+}
+
+/**
  * Sender identity for a tenant email. Uses the tenant's own verified sender
- * (email_from) when set; otherwise an IDENTIFIED address on the verified
- * fullloopcrm.com apex — "<Tenant Name> <slug@fullloopcrm.com>" — so a
- * platform-sent email always names the tenant, never a bare Full Loop address.
- * Auto-falls off the moment the tenant sets their own email_from.
+ * (email_from) when set; otherwise an IDENTIFIED address at the tenant's
+ * holding email — "<Tenant Name> <slug@fullloopcrm.com>" — so a platform-sent
+ * email always names the tenant, never a bare Full Loop address. Auto-falls
+ * off the moment the tenant sets their own email_from.
  */
 export function tenantSender(
   tenant: { name?: string | null; slug?: string | null; email_from?: string | null } | null | undefined,
 ): string {
   if (tenant?.email_from) return tenant.email_from
   const name = (tenant?.name || 'Full Loop CRM').replace(/["<>\r\n]/g, '').trim() || 'Full Loop CRM'
-  const local =
-    (tenant?.slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'no-reply'
-  return `${name} <${local}@fullloopcrm.com>`
+  return `${name} <${tenantHoldingEmail(tenant)}>`
 }
 
 export async function sendEmail({
