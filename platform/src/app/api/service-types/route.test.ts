@@ -20,9 +20,9 @@ const h = vi.hoisted(() => ({
 vi.mock('@/lib/tenant', () => ({ getCurrentTenant: h.getCurrentTenant }))
 vi.mock('@/lib/settings', () => ({ getSettings: h.getSettings }))
 
-const CATALOG_ROWS: Array<{ name: string; default_duration_hours: number | null; active: boolean }> = [
-  { name: 'Standard Cleaning', default_duration_hours: 2, active: true },
-  { name: 'Deep Cleaning', default_duration_hours: 3, active: true },
+let CATALOG_ROWS: Array<{ name: string; default_duration_hours: number | null; default_hourly_rate: number | null; active: boolean }> = [
+  { name: 'Standard Cleaning', default_duration_hours: 2, default_hourly_rate: 69, active: true },
+  { name: 'Deep Cleaning', default_duration_hours: 3, default_hourly_rate: 89, active: true },
 ]
 
 // Only reached when getCurrentTenant() actually resolved a tenant -- the
@@ -47,17 +47,49 @@ describe('GET /api/service-types', () => {
   beforeEach(() => {
     h.getCurrentTenant.mockReset()
     h.getSettings.mockReset()
+    CATALOG_ROWS = [
+      { name: 'Standard Cleaning', default_duration_hours: 2, default_hourly_rate: 69, active: true },
+      { name: 'Deep Cleaning', default_duration_hours: 3, default_hourly_rate: 89, active: true },
+    ]
   })
 
-  it('resolves the tenant via admin-impersonation session (no x-tenant-id header) and returns the catalog', async () => {
+  it('resolves the tenant via admin-impersonation session (no x-tenant-id header) and returns the catalog, including default_hourly_rate', async () => {
     h.getCurrentTenant.mockResolvedValue({ id: 'tenant-A' })
 
     const res = await GET()
     const json = await res.json()
 
     expect(json).toEqual([
-      { name: 'Standard Cleaning', default_hours: 2, active: true },
-      { name: 'Deep Cleaning', default_hours: 3, active: true },
+      { name: 'Standard Cleaning', default_hours: 2, default_hourly_rate: 69, active: true },
+      { name: 'Deep Cleaning', default_hours: 3, default_hourly_rate: 89, active: true },
+    ])
+  })
+
+  it('carries default_hourly_rate as null when a catalog row has no price set, instead of dropping the field', async () => {
+    h.getCurrentTenant.mockResolvedValue({ id: 'tenant-A' })
+    CATALOG_ROWS = [{ name: 'Pest Control', default_duration_hours: 1, default_hourly_rate: null, active: true }]
+
+    const res = await GET()
+    const json = await res.json()
+
+    expect(json).toEqual([{ name: 'Pest Control', default_hours: 1, default_hourly_rate: null, active: true }])
+  })
+
+  it('normalizes the legacy settings.service_types fallback\'s "rate" field to default_hourly_rate, so the booking form only ever checks one field name', async () => {
+    h.getCurrentTenant.mockResolvedValue({ id: 'tenant-B' })
+    CATALOG_ROWS = []
+    h.getSettings.mockResolvedValue({
+      service_types: [
+        { name: 'Standard Cleaning', default_hours: 2, rate: 69, active: true },
+        { name: 'Inactive Service', default_hours: 2, rate: 50, active: false },
+      ],
+    })
+
+    const res = await GET()
+    const json = await res.json()
+
+    expect(json).toEqual([
+      { name: 'Standard Cleaning', default_hours: 2, rate: 69, active: true, default_hourly_rate: 69 },
     ])
   })
 
