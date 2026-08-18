@@ -157,6 +157,11 @@ export default function BusinessDetailPage() {
   const [cl, setCl] = useState<Checklist | null>(null)
   const [progress, setProgress] = useState({ completed: 0, total: 0 })
   const [profileComplete, setProfileComplete] = useState(false)
+  // Real questionnaire completion — required fields filled / required fields
+  // total, the exact same count the Finish gate in api/tenant-profile POST
+  // enforces. Not the launch-checklist percentage in the tab bar below,
+  // which measures Full Loop's internal setup steps, not the tenant's answers.
+  const [profileCompletion, setProfileCompletion] = useState<{ filled: number; total: number; pct: number; missing: { key: string; label: string; section: string }[] }>({ filled: 0, total: 0, pct: 0, missing: [] })
   const [verifyChecks, setVerifyChecks] = useState<Record<string, { ok: boolean; detail: string }> | null>(null)
   const [verifying, setVerifying] = useState(false)
   const [provisioningStripe, setProvisioningStripe] = useState(false)
@@ -252,6 +257,7 @@ export default function BusinessDetailPage() {
         setCl(data.checklist || null)
         setProgress(data.progress || { completed: 0, total: 0 })
         setProfileComplete(!!data.profileComplete)
+        setProfileCompletion(data.profileCompletion || { filled: 0, total: 0, pct: 0, missing: [] })
         if (b) {
           setOwnerName(b.owner_name || '')
           setOwnerEmail(b.owner_email || '')
@@ -516,7 +522,13 @@ export default function BusinessDetailPage() {
     { key: 'users' as const, label: 'Users' },
     { key: 'integrations' as const, label: 'Integrations' },
     { key: 'billing' as const, label: 'Billing' },
-    { key: 'onboarding' as const, label: `Onboarding (${pct}%)` },
+    // Despite the tab key/section name, this percentage is Full Loop's own
+    // internal account/DNS/vendor setup checklist (accounts, DNS, Resend,
+    // Telnyx, Stripe, testing, handoff) — NOT the tenant's questionnaire.
+    // Labeled "Setup Checklist" so it can't be misread as the tenant's real
+    // completion, which is now shown separately in the pinned Onboarding
+    // Link banner below (profileCompletion).
+    { key: 'onboarding' as const, label: `Setup Checklist (${pct}%)` },
     { key: 'launch' as const, label: 'Launch' },
     { key: 'notes' as const, label: 'Notes' },
   ]
@@ -544,7 +556,22 @@ export default function BusinessDetailPage() {
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-heading font-semibold text-sm text-amber-900">Onboarding Link — not yet completed</h3>
+            <span className="text-xs font-mono text-amber-700">
+              {profileCompletion.filled}/{profileCompletion.total} required fields ({profileCompletion.pct}%)
+            </span>
           </div>
+          {/* This is the REAL number — required fields actually filled, the
+              same count that gates his Finish button. Not the Setup
+              Checklist percentage in the tab bar above (that's Full Loop's
+              own internal setup steps, unrelated to his questionnaire). */}
+          <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-amber-100">
+            <div className={`h-full rounded-full transition-all ${profileCompletion.pct >= 100 ? 'bg-green-500' : profileCompletion.pct >= 50 ? 'bg-teal-600' : 'bg-orange-500'}`} style={{ width: `${profileCompletion.pct}%` }} />
+          </div>
+          {profileCompletion.missing.length > 0 && (
+            <p className="mb-2 text-xs text-amber-800">
+              Still missing: {profileCompletion.missing.map((m) => m.label).join(', ')}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <input readOnly value={onboardingUrl} placeholder="Loading…"
               className="flex-1 min-w-[240px] bg-white border border-amber-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-600" />

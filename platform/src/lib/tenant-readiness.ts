@@ -19,10 +19,10 @@
 import {
   getTenantProfile,
   appliesToFunnel,
+  matchesDependsOn,
   type FunnelMode,
   type ProfileSection,
   type TenantProfile,
-  type LoadedField,
 } from './tenant-profile'
 import { runOnboardingGate, type GateStage } from './onboarding-gate'
 
@@ -56,24 +56,18 @@ export interface TenantReadiness {
   canLaunch: boolean
 }
 
-// A field with a `dependsOn` (e.g. `ein` depending on `einOptOut === false`) only counts toward
-// readiness when its dependency's CURRENT value actually matches -- otherwise a field hidden by a
-// live opt-out toggle still reads as "missing critical" forever, with no way to ever launch. Mirrors
-// ProfileWizard's matchesDependsOn exactly (dependsOn.value === false matches any falsy value, since an
-// untouched toggle reads as undefined and a field gated on "the toggle is off" should still show/count
-// by default) so the wizard's visibility and the readiness engine's scoring can never disagree.
-function matchesDependsOn(f: LoadedField, fieldsByKey: Map<string, LoadedField>): boolean {
-  if (!f.dependsOn) return true
-  const depValue = fieldsByKey.get(f.dependsOn.key)?.value
-  return f.dependsOn.value === false ? !depValue : depValue === f.dependsOn.value
-}
-
 export async function computeReadiness(tenantId: string): Promise<TenantReadiness | null> {
   const profile = await getTenantProfile(tenantId)
   if (!profile) return null
 
-  const fieldsByKey = new Map(profile.fields.map((f) => [f.key, f]))
-  const applicableFields = profile.fields.filter((f) => appliesToFunnel(f, profile.funnel) && matchesDependsOn(f, fieldsByKey))
+  const fieldsByKey = new Map(profile.fields.map((f) => [f.key, f.value]))
+  // A field with a `dependsOn` (e.g. `ein` depending on `einOptOut === false`) only counts toward
+  // readiness when its dependency's CURRENT value actually matches -- otherwise a field hidden by a
+  // live opt-out toggle still reads as "missing critical" forever, with no way to ever launch. Shared
+  // with ProfileWizard's visibility check and the Finish gate's requiredFieldStats (tenant-profile.ts)
+  // so the wizard, the Finish gate, and this readiness engine can never disagree on what "applicable"
+  // means for the same field.
+  const applicableFields = profile.fields.filter((f) => appliesToFunnel(f, profile.funnel) && matchesDependsOn(f.dependsOn, (k) => fieldsByKey.get(k)))
   const filled = applicableFields.filter((f) => f.filled).length
   const applicable = applicableFields.length
 

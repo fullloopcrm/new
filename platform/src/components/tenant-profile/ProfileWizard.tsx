@@ -27,7 +27,7 @@ import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { VoiceTextarea, VoiceMicButton } from './VoiceInput'
 import type { ServiceArea } from '@/lib/service-area'
-import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, type FieldValidation, type ProfileSection, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX, HOUR_OPTIONS, MIN_DAYS_OPTIONS, WEEKDAY_KEYS, WEEKDAY_LABELS } from '@/lib/tenant-profile'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, isFilled, matchesDependsOn, type FieldValidation, type ProfileSection, type FunnelMode, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX, HOUR_OPTIONS, MIN_DAYS_OPTIONS, WEEKDAY_KEYS, WEEKDAY_LABELS } from '@/lib/tenant-profile'
 import OnboardingCatalog from './OnboardingCatalog'
 import OnboardingClients from './OnboardingClients'
 import { OnboardingWelcome, useWelcomeGate } from './OnboardingWelcome'
@@ -104,6 +104,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const [missing, setMissing] = useState<{ key: string; label: string; section: ProfileSection }[]>([])
   const [businessName, setBusinessName] = useState('')
   const [tenantId, setTenantId] = useState('')
+  const [funnel, setFunnel] = useState<FunnelMode>('booking')
   // Which section INDICES have actually been landed on — not a contiguous
   // "0..step" range, because the tab nav lets the tenant jump straight to
   // section 9 from section 1. Only sections in this set are safe to
@@ -125,6 +126,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
         setFields(d.fields || [])
         setBusinessName((d.name as string) || '')
         setTenantId((d.tenantId as string) || '')
+        setFunnel((d.funnel as FunnelMode) || 'booking')
         const values: FormState = {}
         for (const f of (d.fields || []) as ApiField[]) values[f.key] = f.value
         const draft = (d.draft || {}) as Record<string, unknown>
@@ -243,18 +245,24 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const sectionKey = sections[step]
   const meta = SECTION_META[sectionKey] || { title: sectionKey, blurb: '' }
   const HOURS_BLOCK_HIDDEN = new Set(['businessHoursEnd', 'businessHoursSameDaily', 'businessHoursPerDay', 'allowSameDay'])
-  // dependsOn.value === false matches "falsy", not just literal false -- a
-  // toggle a tenant never touched reads as undefined, and a field gated on
-  // "the toggle is off" should still show by default, not only once the
-  // tenant has explicitly flipped it off and back. dependsOn.value === true
-  // stays strict (undefined correctly does NOT match true).
-  const matchesDependsOn = (dep?: { key: string; value: unknown } | null) =>
-    !dep || (dep.value === false ? !form[dep.key] : form[dep.key] === dep.value)
+  const currentValue = (key: string) => form[key]
   const sectionFields = fields.filter((f) =>
     f.section === sectionKey && !f.readonly && !f.onboardingHidden && f.key !== 'serviceRadius' && !HOURS_BLOCK_HIDDEN.has(f.key) &&
-    matchesDependsOn(f.dependsOn),
+    matchesDependsOn(f.dependsOn, currentValue),
   )
-  const pct = Math.round(((step + 1) / sections.length) * 100)
+  // Real completion, not "which section am I on" — required fields the
+  // tenant has actually filled in (live, off current `form` state) over
+  // required fields that currently apply. Mirrors requiredFieldStats /
+  // isRequiredNow (tenant-profile.ts), the exact same logic the Finish gate
+  // in api/tenant-profile POST enforces, so this number is never a promise
+  // Finish can't keep. A field the tenant opted out of via dependsOn (e.g.
+  // EIN behind "I don't have an EIN yet") drops out of both sides — it
+  // never counts against them.
+  const requiredFields = fields.filter((f) =>
+    !f.readonly && (!f.funnels || f.funnels.includes(funnel)) && f.tier === 'critical' && matchesDependsOn(f.dependsOn, currentValue),
+  )
+  const requiredFilled = requiredFields.filter((f) => isFilled(form[f.key]) && passesValidation(form[f.key], f.validation ?? undefined))
+  const pct = requiredFields.length > 0 ? Math.round((requiredFilled.length / requiredFields.length) * 100) : 100
 
   return (
     <div className="mx-auto max-w-6xl px-6 pt-8 pb-28 lg:px-10">
@@ -314,10 +322,10 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
       <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
         <span>Step {step + 1} of {sections.length} · {meta.title}</span>
-        <span>{pct}%</span>
+        <span>{requiredFilled.length}/{requiredFields.length} required fields · {pct}%</span>
       </div>
       <div className="mb-8 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-teal-600 transition-all" style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-green-500' : 'bg-teal-600'}`} style={{ width: `${pct}%` }} />
       </div>
 
       {msg && (

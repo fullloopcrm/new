@@ -7,7 +7,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { computeMonthly } from '@/lib/billing-pricing'
-import { getTenantProfile, isTenantVisible } from '@/lib/tenant-profile'
+import { getTenantProfile, requiredFieldStats } from '@/lib/tenant-profile'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
 // of truth so write paths can't drift (see secret-crypto.ts).
@@ -179,16 +179,19 @@ export async function GET(
   const completedCount = allItems.filter(Boolean).length
   const totalCount = allItems.length
 
-  // Onboarding-form completion — every tenant-visible CRITICAL field filled
-  // (the same registry/tiers the public /onboard/[token] link and the
-  // in-dashboard wizard both read). Distinct from `progress` above (the
-  // manual FL-internal launch checklist) and from `onboarding_completed_at`
-  // (stamped only when the tenant clicks Finish, whether or not every field
-  // is actually filled) — this is what "the onboarding form is 100%
-  // complete" should mean.
+  // Onboarding-form completion — every currently-required field filled (the
+  // exact same requiredFieldStats the Finish gate in api/tenant-profile POST
+  // enforces, so this number can never promise something Finish won't
+  // actually allow). Distinct from `progress` above (the manual FL-internal
+  // launch checklist, a completely different metric that happens to share
+  // the word "onboarding" in its tab label) and from `onboarding_completed_at`
+  // (stamped only when the tenant clicks Finish — see the gate for why that
+  // alone used to not mean "actually complete").
   const profile = await getTenantProfile(id)
-  const criticalTenantFields = (profile?.fields || []).filter((f) => isTenantVisible(f) && f.tier === 'critical')
-  const profileComplete = criticalTenantFields.length > 0 && criticalTenantFields.every((f) => f.filled)
+  const profileCompletion = profile
+    ? (({ filled, total, missing }) => ({ filled, total, pct: total > 0 ? Math.round((filled / total) * 100) : 100, missing: missing.map((f) => ({ key: f.key, label: f.label, section: f.section })) }))(requiredFieldStats(profile))
+    : { filled: 0, total: 0, pct: 0, missing: [] as { key: string; label: string; section: string }[] }
+  const profileComplete = profileCompletion.total > 0 && profileCompletion.filled === profileCompletion.total
 
   return NextResponse.json({
     business,
@@ -204,6 +207,7 @@ export async function GET(
     checklist,
     progress: { completed: completedCount, total: totalCount },
     profileComplete,
+    profileCompletion,
   })
 }
 

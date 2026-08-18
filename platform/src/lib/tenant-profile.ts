@@ -826,3 +826,49 @@ export function appliesToFunnel(f: FieldDef, funnel: FunnelMode): boolean {
 export function isTenantVisible(f: FieldDef): boolean {
   return (f.audience ?? 'tenant') === 'tenant'
 }
+
+/**
+ * Is this field actually applicable right now, given its `dependsOn`
+ * condition against the tenant's current answers? `readValue` abstracts over
+ * where "current answers" live — a `LoadedField[]` value map server-side
+ * (getTenantProfile output) vs. live in-progress `form` state client-side
+ * (ProfileWizard) — so both call the same logic instead of drifting.
+ *
+ * `dep.value === false` matches "falsy", not just literal false — a toggle
+ * the tenant never touched reads as undefined, and a field gated on "the
+ * toggle is off" should still count as applicable by default, not only once
+ * the tenant has explicitly flipped it off and back. `dep.value === true`
+ * stays strict (undefined correctly does NOT match true).
+ */
+export function matchesDependsOn(dep: { key: string; value: unknown } | null | undefined, readValue: (key: string) => unknown): boolean {
+  if (!dep) return true
+  return dep.value === false ? !readValue(dep.key) : readValue(dep.key) === dep.value
+}
+
+/**
+ * A field currently counts toward "required to finish" only if it's
+ * tenant-visible, not readonly/derived, applies to this tenant's funnel,
+ * tier is 'critical', AND its dependsOn condition (if any) is currently
+ * met — a critical field the tenant has legitimately opted out of (e.g. EIN
+ * behind "I don't have an EIN yet") must never count as missing, or opting
+ * out would permanently block Finish with no way to satisfy the gate.
+ */
+export function isRequiredNow(f: FieldDef, funnel: FunnelMode, readValue: (key: string) => unknown): boolean {
+  return isTenantVisible(f) && !f.readonly && appliesToFunnel(f, funnel) && f.tier === 'critical' && matchesDependsOn(f.dependsOn, readValue)
+}
+
+export interface CompletionStats {
+  filled: number
+  total: number
+  missing: LoadedField[]
+}
+
+/** Required-field completion for a loaded profile — the single source of
+ *  truth both the Finish gate (api/tenant-profile POST) and the admin
+ *  business page's real completion percentage read from. */
+export function requiredFieldStats(profile: TenantProfile): CompletionStats {
+  const valueByKey = new Map(profile.fields.map((f) => [f.key, f.value]))
+  const applicable = profile.fields.filter((f) => isRequiredNow(f, profile.funnel, (k) => valueByKey.get(k)))
+  const missing = applicable.filter((f) => !f.filled)
+  return { filled: applicable.length - missing.length, total: applicable.length, missing }
+}

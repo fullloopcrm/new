@@ -111,6 +111,11 @@ describe('POST /api/tenant-profile', () => {
   it('succeeds and alerts the owner on Telegram with the tenant name once a submission completes', async () => {
     resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
     applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    getTenantProfileMock.mockResolvedValue({
+      tenantId: 'tenant-A',
+      funnel: 'booking',
+      fields: [{ key: 'businessName', label: 'Business name', section: 'identity', tier: 'critical', filled: true, audience: 'tenant', value: 'Acme Cleaning' }],
+    })
 
     const res = await POST(new Request('http://x/api/tenant-profile', {
       method: 'POST',
@@ -178,6 +183,50 @@ describe('POST /api/tenant-profile', () => {
     }))
 
     expect(res.status).toBe(200)
+  })
+
+  it('does not block completion on a critical field the tenant opted out of via dependsOn (e.g. EIN)', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    getTenantProfileMock.mockResolvedValue({
+      tenantId: 'tenant-A',
+      funnel: 'booking',
+      fields: [
+        { key: 'businessName', label: 'Business name', section: 'identity', tier: 'critical', filled: true, audience: 'tenant', value: 'Acme Cleaning' },
+        { key: 'einOptOut', label: "I don't have an EIN yet", section: 'identity', tier: 'optional', filled: true, audience: 'tenant', value: true },
+        { key: 'ein', label: 'EIN / Tax ID', section: 'identity', tier: 'critical', filled: false, audience: 'tenant', dependsOn: { key: 'einOptOut', value: false }, value: null },
+      ],
+    })
+
+    const res = await POST(new Request('http://x/api/tenant-profile', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'whatever', data: { businessName: 'Acme Cleaning', einOptOut: true } }),
+    }))
+
+    expect(res.status).toBe(200)
+  })
+
+  it('DOES block completion on that same critical field once its dependsOn condition is met and it is still unfilled', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    getTenantProfileMock.mockResolvedValue({
+      tenantId: 'tenant-A',
+      funnel: 'booking',
+      fields: [
+        { key: 'businessName', label: 'Business name', section: 'identity', tier: 'critical', filled: true, audience: 'tenant', value: 'Acme Cleaning' },
+        { key: 'einOptOut', label: "I don't have an EIN yet", section: 'identity', tier: 'optional', filled: false, audience: 'tenant', value: false },
+        { key: 'ein', label: 'EIN / Tax ID', section: 'identity', tier: 'critical', filled: false, audience: 'tenant', dependsOn: { key: 'einOptOut', value: false }, value: null },
+      ],
+    })
+
+    const res = await POST(new Request('http://x/api/tenant-profile', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'whatever', data: { businessName: 'Acme Cleaning' } }),
+    }))
+
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.missing).toEqual([{ key: 'ein', label: 'EIN / Tax ID', section: 'identity' }])
   })
 })
 
