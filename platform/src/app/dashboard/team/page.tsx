@@ -60,6 +60,7 @@ type Application = {
   email: string | null
   phone: string
   address: string | null
+  unit: string | null
   experience: string | null
   availability: string | null
   referral_source: string | null
@@ -69,9 +70,69 @@ type Application = {
   video_url: string | null
   service_zones: string[] | null
   has_car: boolean | null
+  labor_only: boolean | null
+  max_travel_minutes: number | null
+  preferred_language: string | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
   reviewed_at: string | null
+}
+
+function AppDetailBody({ app }: { app: Application }) {
+  return (
+    <>
+      <div className="tm-app-name">{app.name}</div>
+      <div className="tm-app-meta">
+        {app.phone} · {app.email || 'no email'}
+      </div>
+      {(app.address || app.unit) && (
+        <div className="tm-app-meta">
+          📍 {app.address}
+          {app.unit ? `, Unit ${app.unit}` : ''}
+        </div>
+      )}
+      <div className="tm-app-meta">
+        {app.experience && <span>{app.experience} exp · </span>}
+        {app.availability && <span>{app.availability} · </span>}
+        {app.has_car !== null && <span>drives: {app.has_car ? 'yes' : 'no'}</span>}
+        {app.labor_only !== null && <span> · labor only: {app.labor_only ? 'yes' : 'no'}</span>}
+      </div>
+      {Array.isArray(app.service_zones) && app.service_zones.length > 0 && (
+        <div className="tm-app-meta">zones: {app.service_zones.join(', ')}</div>
+      )}
+      {app.max_travel_minutes != null && (
+        <div className="tm-app-meta">max travel: {app.max_travel_minutes} min</div>
+      )}
+      {app.preferred_language && (
+        <div className="tm-app-meta">preferred language: {app.preferred_language}</div>
+      )}
+      {app.referral_source && (
+        <div className="tm-app-meta">heard about us via: {app.referral_source}</div>
+      )}
+      {Array.isArray(app.references) && app.references.length > 0 && (
+        <div className="tm-app-meta">
+          refs: {app.references.map((r) => `${r.name} (${r.phone})`).join('; ')}
+        </div>
+      )}
+      {app.video_url && (
+        <div className="tm-app-meta">
+          <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+            ▶ Watch Video Selfie
+          </a>
+        </div>
+      )}
+      {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
+      <div className="tm-app-date">
+        applied{' '}
+        {new Date(app.created_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          timeZone: 'America/New_York',
+        })}
+      </div>
+    </>
+  )
 }
 
 const PALETTE = ['#D946A8', '#2563EB', '#EAB308', '#F97316', '#A855F7', '#F59E0B', '#DC2626', '#06B6D4', '#14B8A6']
@@ -483,35 +544,7 @@ export default function TeamPage() {
                           )}
                         </div>
                         <div className="tm-app-body">
-                          <div className="tm-app-name">{app.name}</div>
-                          <div className="tm-app-meta">
-                            {app.phone} · {app.email || 'no email'}
-                          </div>
-                          {app.address && <div className="tm-app-meta">📍 {app.address}</div>}
-                          <div className="tm-app-meta">
-                            {app.experience && <span>{app.experience} exp · </span>}
-                            {app.availability && <span>{app.availability} · </span>}
-                            {app.has_car !== null && <span>drives: {app.has_car ? 'yes' : 'no'}</span>}
-                          </div>
-                          {Array.isArray(app.service_zones) && app.service_zones.length > 0 && (
-                            <div className="tm-app-meta">zones: {app.service_zones.join(', ')}</div>
-                          )}
-                          {Array.isArray(app.references) && app.references.length > 0 && (
-                            <div className="tm-app-meta">
-                              refs: {app.references.map((r) => `${r.name} (${r.phone})`).join('; ')}
-                            </div>
-                          )}
-                          {app.video_url && (
-                            <div className="tm-app-meta">
-                              <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
-                                ▶ Watch Video Selfie
-                              </a>
-                            </div>
-                          )}
-                          {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
-                          <div className="tm-app-date">
-                            applied {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
-                          </div>
+                          <AppDetailBody app={app} />
                         </div>
                         <div className="tm-app-actions">
                           <button className="tm-action-btn" type="button" onClick={() => updateApplication(app.id, 'approved')}>Approve</button>
@@ -544,16 +577,7 @@ export default function TeamPage() {
                             )}
                           </div>
                           <div className="tm-app-body">
-                            <div className="tm-app-name">{app.name}</div>
-                            <div className="tm-app-meta">
-                              {app.phone} · {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' , timeZone: 'America/New_York' })}
-                              {app.video_url && (
-                                <>
-                                  {' · '}
-                                  <a href={app.video_url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>▶ Video</a>
-                                </>
-                              )}
-                            </div>
+                            <AppDetailBody app={app} />
                           </div>
                           <div className="tm-app-actions">
                             <span className={`tm-app-status ${app.status}`}>{app.status}</span>
