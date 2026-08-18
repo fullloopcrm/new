@@ -73,6 +73,7 @@ type Application = {
   labor_only: boolean | null
   max_travel_minutes: number | null
   preferred_language: string | null
+  sms_consent: boolean | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
   reviewed_at: string | null
@@ -108,6 +109,9 @@ function AppDetailBody({ app }: { app: Application }) {
       )}
       {app.referral_source && (
         <div className="tm-app-meta">heard about us via: {app.referral_source}</div>
+      )}
+      {app.sms_consent !== null && (
+        <div className="tm-app-meta">SMS consent: {app.sms_consent ? 'yes' : 'no'}</div>
       )}
       {Array.isArray(app.references) && app.references.length > 0 && (
         <div className="tm-app-meta">

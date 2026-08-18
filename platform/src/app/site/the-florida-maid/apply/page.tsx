@@ -1,9 +1,16 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import AddressAutocomplete from '@/app/site/the-florida-maid/_components/AddressAutocomplete'
 import { validateEmail } from '@/app/site/the-florida-maid/_lib/validate-email'
 import { SERVICE_ZONES } from '@/app/site/the-florida-maid/_lib/service-zones'
 import { trackApply, getAttribution } from '@/app/site/the-florida-maid/_lib/apply-tracking'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+)
 
 export default function ApplyPage() {
   const [form, setForm] = useState({
@@ -24,6 +31,7 @@ export default function ApplyPage() {
     service_zones: [] as string[],
     has_car: false,
     max_travel_minutes: '',
+    sms_consent: false,
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -33,6 +41,7 @@ export default function ApplyPage() {
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
   const [started, setStarted] = useState(false)
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const markStart = () => {
     if (!started) {
@@ -103,26 +112,40 @@ export default function ApplyPage() {
     setError('')
 
     try {
-      // Upload photo first
+      // Upload photo first — via the signed-url pattern (same as /api/apply's
+      // working applicant upload). A brand-new applicant has no
+      // team_member_id yet, so /api/cleaners/upload (which requires one)
+      // always 401'd here; this uploads straight to storage instead.
       let photo_url = ''
-      const uploadData = new FormData()
-      uploadData.append('file', photoFile)
-      const uploadRes = await fetch('/api/cleaners/upload', { method: 'POST', body: uploadData })
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json().catch(() => ({}))
+      const signedRes = await fetch('/api/apply/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'photo', filename: photoFile.name, contentType: photoFile.type }),
+      })
+      if (!signedRes.ok) {
+        const errData = await signedRes.json().catch(() => ({}))
         setError(errData.error || 'Failed to upload photo / Error al subir la foto')
         trackApply('apply_submit_error', { reason: 'photo_upload_failed' })
         setLoading(false)
         return
       }
-      const uploadJson = await uploadRes.json()
-      photo_url = uploadJson.url
+      const { path, token, publicUrl } = await signedRes.json()
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .uploadToSignedUrl(path, token, photoFile, { contentType: photoFile.type })
+      if (uploadError) {
+        setError('Failed to upload photo / Error al subir la foto')
+        trackApply('apply_submit_error', { reason: 'photo_upload_failed' })
+        setLoading(false)
+        return
+      }
+      photo_url = publicUrl
 
       const attribution = getAttribution()
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url, attribution })
+        body: JSON.stringify({ ...form, photo_url, attribution, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -168,6 +191,7 @@ export default function ApplyPage() {
 
       <div className="max-w-lg mx-auto p-4 pt-6">
         <form onSubmit={handleSubmit} onFocusCapture={markStart} onBlurCapture={handleFieldBlur} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
           <div>
             <h2 className="text-xl font-bold text-[#1E2A4A]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
             <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners across Florida.</p>
@@ -412,7 +436,14 @@ export default function ApplyPage() {
 
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
-              <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+              <input
+                type="checkbox"
+                name="sms_consent"
+                required
+                checked={form.sms_consent}
+                onChange={(e) => setForm({ ...form, sms_consent: e.target.checked })}
+                className="mt-1 min-w-[18px] min-h-[18px]"
+              />
               <span>
                 By checking this box, I consent to receive transactional text messages from <strong>The Florida Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply.
                 <br /><br />

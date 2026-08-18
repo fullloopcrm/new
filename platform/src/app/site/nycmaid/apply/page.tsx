@@ -5,6 +5,7 @@ import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 import { uploadViaSignedUrl } from '@/lib/client-upload'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 export default function ApplyPage() {
   const [form, setForm] = useState({
@@ -27,6 +28,7 @@ export default function ApplyPage() {
     has_car: false,
     labor_only: false,
     max_travel_minutes: '',
+    sms_consent: false,
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -35,6 +37,7 @@ export default function ApplyPage() {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -101,7 +104,7 @@ export default function ApplyPage() {
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url })
+        body: JSON.stringify({ ...form, photo_url, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -437,7 +440,14 @@ export default function ApplyPage() {
 
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
-              <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+              <input
+                type="checkbox"
+                name="sms_consent"
+                required
+                checked={form.sms_consent}
+                onChange={(e) => setForm({ ...form, sms_consent: e.target.checked })}
+                className="mt-1 min-w-[18px] min-h-[18px]"
+              />
               <span>
                 By checking this box, I consent to receive transactional text messages from <strong>The NYC Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply.
                 <br /><br />
@@ -447,6 +457,8 @@ export default function ApplyPage() {
               </span>
             </label>
           </div>
+
+          <Honeypot inputRef={honeypotRef} />
 
           <button
             type="submit"
