@@ -116,6 +116,7 @@ export async function generateMetadata({
     openGraph: { title: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, description, url, type: "website" },
     twitter: { card: "summary_large_image", title: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, description },
     alternates: { canonical: url },
+    robots: { index: false, follow: true },
   };
 }
 
