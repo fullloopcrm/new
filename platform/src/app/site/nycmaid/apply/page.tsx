@@ -5,6 +5,7 @@ import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 import { uploadViaSignedUrl } from '@/lib/client-upload'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
 
 export default function ApplyPage() {
   const [form, setForm] = useState({
@@ -35,6 +36,7 @@ export default function ApplyPage() {
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [emailSuggestion, setEmailSuggestion] = useState('')
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -101,7 +103,7 @@ export default function ApplyPage() {
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url })
+        body: JSON.stringify({ ...form, photo_url, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -447,6 +449,8 @@ export default function ApplyPage() {
               </span>
             </label>
           </div>
+
+          <Honeypot inputRef={honeypotRef} />
 
           <button
             type="submit"

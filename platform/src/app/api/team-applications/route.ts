@@ -6,6 +6,7 @@ import { notify } from '@/lib/notify'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
 import { isSpamSubmission } from '@/lib/spam-guard'
+import { trackError } from '@/lib/error-tracking'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
@@ -66,6 +67,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/team-applications', severity: 'low', alwaysAlert: true,
+        extra: `tenant_slug=${request.headers.get('x-tenant-slug') || (body as { tenant_slug?: string }).tenant_slug || 'unknown'}`,
+      }).catch(() => {})
       return NextResponse.json({ success: true }, { status: 201 })
     }
     const {

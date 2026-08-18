@@ -152,6 +152,9 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ContactBody
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/contact', tenantId: tenant.id, severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const name = body.name?.trim()

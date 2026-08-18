@@ -77,6 +77,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ApplyBody
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/apply', tenantId: tenant.id, severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const name = body.name?.trim()

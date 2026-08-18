@@ -8,6 +8,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { computeFit } from '@/lib/lead-fit'
 import { buildProspectNotificationHtml } from './notification-email'
 import { isSpamSubmission } from '@/lib/spam-guard'
+import { trackError } from '@/lib/error-tracking'
 
 // Cap free-text fields so a single submission can't balloon to megabytes.
 const MAX_TEXT = 2000
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/prospects', severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const required = ['business_name', 'owner_name', 'owner_email', 'trade']
