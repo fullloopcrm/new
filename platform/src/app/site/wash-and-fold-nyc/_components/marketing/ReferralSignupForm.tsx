@@ -17,6 +17,7 @@ export default function ReferralSignupForm() {
   })
   const [honeypot, setHoneypot] = useState('')
   const [loadedAt] = useState(Date.now())
+  const [smsOptIn, setSmsOptIn] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +32,8 @@ export default function ReferralSignupForm() {
           ...form,
           zelle_email: form.zelle_email || form.email,
           website: honeypot,
-          _t: loadedAt
+          _t: loadedAt,
+          sms_opt_in: smsOptIn
         })
       })
 
@@ -184,7 +186,14 @@ export default function ReferralSignupForm() {
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-600 leading-relaxed">
-            <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+            <input
+              type="checkbox"
+              name="sms_consent"
+              required
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+              className="mt-1 min-w-[18px] min-h-[18px]"
+            />
             <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Wash and Fold Service Company</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[#1a3a5c] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[#1a3a5c] underline underline-offset-2">Terms &amp; Conditions</a></span>
           </label>
         </div>

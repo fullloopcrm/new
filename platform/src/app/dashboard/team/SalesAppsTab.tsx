@@ -18,6 +18,7 @@ type SalesApplication = {
   linkedin_url: string | null
   video_url: string | null
   notes: string | null
+  sms_consent: boolean | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
   reviewed_at: string | null
@@ -143,6 +144,7 @@ export default function SalesAppsTab({ onPendingCount }: { onPendingCount?: (n: 
       {app.sales_background && <p style={{ marginTop: 10, fontSize: 13, color: '#4b5563', lineHeight: 1.5 }}><strong>Background:</strong> {app.sales_background}</p>}
       {app.why && <p style={{ marginTop: 6, fontSize: 13, color: '#4b5563', lineHeight: 1.5 }}><strong>Notes:</strong> {app.why}</p>}
       {app.referral_source && <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>Found us via: {app.referral_source}</p>}
+      {app.sms_consent !== null && <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>SMS consent: {app.sms_consent ? 'yes' : 'no'}</p>}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
         {app.status === 'pending' && (

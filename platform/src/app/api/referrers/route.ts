@@ -8,6 +8,7 @@ import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
+import { genericSmsConsentText, smsOptInFields } from '@/lib/sms-consent'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const { name, email, phone, preferred_payout, zelle_email, apple_cash_phone, _t, recruited_by_sales_partner_ref } = body
+  const smsOptedIn = body.sms_opt_in === true
 
   if (!name || !email) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
@@ -144,6 +146,8 @@ export async function POST(request: NextRequest) {
   }
 
   const db = tenantDb(tenant.id)
+  const userAgent = request.headers.get('user-agent') || 'unknown'
+  const consentText = genericSmsConsentText(tenant.name || 'the referral program')
 
   // Duplicate email — scoped to this tenant (same email may refer for two brands)
   const { data: existing } = await db
@@ -208,6 +212,7 @@ export async function POST(request: NextRequest) {
         total_paid: 0,
         status: 'active',
         recruited_by_sales_partner_id: recruitedBySalesPartnerId,
+        ...smsOptInFields(smsOptedIn, ip, userAgent, consentText),
       })
       .select()
       .single())

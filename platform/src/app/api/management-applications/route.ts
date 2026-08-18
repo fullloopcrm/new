@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       name, email, phone, location, current_role, years_experience,
       bilingual, management_experience, why_this_role, availability_start,
       referral_source, references, notes, position, resume_url, photo_url, video_url,
+      sms_consent,
     } = body
 
     if (!name || !email || !phone || !location || !photo_url || !video_url) {
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
         resume_url,
         photo_url,
         video_url,
+        sms_consent: typeof sms_consent === 'boolean' ? sms_consent : null,
         status: 'pending',
       })
       .select()

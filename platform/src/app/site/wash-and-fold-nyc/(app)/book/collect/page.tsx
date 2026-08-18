@@ -23,6 +23,7 @@ function CollectFormContent() {
     pet_name: '',
     pet_type: ''
   })
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
@@ -72,7 +73,8 @@ function CollectFormContent() {
           pet_name: form.pet_name || null,
           pet_type: form.pet_type || null,
           src: srcDomain || null,
-          convo_id: convoId || null
+          convo_id: convoId || null,
+          sms_opt_in: smsOptIn
         })
       })
 
@@ -237,7 +239,14 @@ function CollectFormContent() {
 
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
-              <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+              <input
+                type="checkbox"
+                name="sms_consent"
+                required
+                checked={smsOptIn}
+                onChange={(e) => setSmsOptIn(e.target.checked)}
+                className="mt-1 min-w-[18px] min-h-[18px]"
+              />
               <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Wash and Fold Service Company</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.washandfoldnyc.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.washandfoldnyc.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
             </label>
           </div>

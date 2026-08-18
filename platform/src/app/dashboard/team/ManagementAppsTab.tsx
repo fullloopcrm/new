@@ -21,6 +21,7 @@ type ManagementApplication = {
   resume_url: string | null
   photo_url: string | null
   video_url: string | null
+  sms_consent: boolean | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
   reviewed_at: string | null
@@ -169,6 +170,12 @@ export default function ManagementAppsTab() {
               <p style={{ marginTop: 6 }}>
                 <strong>References:</strong> {app.references.map((r) => `${r.name} (${r.phone})`).join(', ')}
               </p>
+            )}
+            {app.referral_source && (
+              <p style={{ marginTop: 6 }}><strong>Heard about us via:</strong> {app.referral_source}</p>
+            )}
+            {app.sms_consent !== null && (
+              <p style={{ marginTop: 6 }}><strong>SMS consent:</strong> {app.sms_consent ? 'yes' : 'no'}</p>
             )}
             {app.notes && (
               <div style={{ marginTop: 8, background: '#f9fafb', padding: 12, borderRadius: 8 }}>{renderRecordedNotes(app.notes)}</div>

@@ -14,7 +14,8 @@ const EMPTY_FORM = {
     { name: '', phone: '' },
     { name: '', phone: '' },
   ],
-  notes: ''
+  notes: '',
+  sms_consent: false,
 }
 
 export default function ApplyCoordinatorPage() {
@@ -474,7 +475,14 @@ export default function ApplyCoordinatorPage() {
 
           <div className="my-5 p-4 border border-gray-200 rounded-lg bg-gray-50">
             <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-relaxed text-gray-600">
-              <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+              <input
+                type="checkbox"
+                name="sms_consent"
+                required
+                checked={form.sms_consent}
+                onChange={(e) => setForm({ ...form, sms_consent: e.target.checked })}
+                className="mt-1 min-w-[18px] min-h-[18px]"
+              />
               <span>
                 By checking this box, I consent to receive text messages from <strong>The NYC Wash and Fold Service Company</strong> regarding my application. Reply STOP to opt out. Msg &amp; data rates may apply.
                 <br /><br />

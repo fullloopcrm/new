@@ -28,6 +28,7 @@ function ReferralSignupContent() {
   })
   const [honeypot, setHoneypot] = useState('')
   const [loadedAt] = useState(Date.now())
+  const [smsOptIn, setSmsOptIn] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,6 +45,7 @@ function ReferralSignupContent() {
           website: honeypot,
           _t: loadedAt,
           recruited_by_sales_partner_ref: recruitedBy || undefined,
+          sms_opt_in: smsOptIn,
         })
       })
 
@@ -246,7 +248,14 @@ function ReferralSignupContent() {
 
             <div style={{ margin: '20px 0', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', background: '#fafafa' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '13px', lineHeight: '1.5', color: '#555' }}>
-                <input type="checkbox" name="sms_consent" required style={{ marginTop: '3px', minWidth: '18px', minHeight: '18px' }} />
+                <input
+                  type="checkbox"
+                  name="sms_consent"
+                  required
+                  checked={smsOptIn}
+                  onChange={(e) => setSmsOptIn(e.target.checked)}
+                  style={{ marginTop: '3px', minWidth: '18px', minHeight: '18px' }}
+                />
                 <span>By checking this box, I consent to receive transactional text messages from <strong>The NYC Maid</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="https://www.thenycmaid.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Privacy Policy</a> | <a href="https://www.thenycmaid.com/terms-conditions" target="_blank" rel="noopener noreferrer" className="text-[#1E2A4A] hover:underline">Terms &amp; Conditions</a></span>
               </label>
             </div>

@@ -36,6 +36,7 @@ function ReferralSignupFormContent({ businessName = 'our', origin = '' }: Referr
   })
   const [honeypot, setHoneypot] = useState('')
   const [loadedAt] = useState(Date.now())
+  const [smsOptIn, setSmsOptIn] = useState(false)
   // Base for the shareable referral link: the tenant's configured origin,
   // falling back to the live host (this UI only renders after a client submit).
   const referralBase = origin || (typeof window !== 'undefined' ? window.location.origin : '')
@@ -55,6 +56,7 @@ function ReferralSignupFormContent({ businessName = 'our', origin = '' }: Referr
           website: honeypot,
           _t: loadedAt,
           recruited_by_sales_partner_ref: recruitedBy || undefined,
+          sms_opt_in: smsOptIn,
         })
       })
 
@@ -207,7 +209,14 @@ function ReferralSignupFormContent({ businessName = 'our', origin = '' }: Referr
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
           <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-600 leading-relaxed">
-            <input type="checkbox" name="sms_consent" required className="mt-1 min-w-[18px] min-h-[18px]" />
+            <input
+              type="checkbox"
+              name="sms_consent"
+              required
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+              className="mt-1 min-w-[18px] min-h-[18px]"
+            />
             <span>By checking this box, I consent to receive transactional text messages from <strong>{businessName}</strong> for appointment confirmations, reminders, and customer support. Reply STOP to opt out. Reply HELP for help. Msg frequency may vary. Msg &amp; data rates may apply. <a href="/privacy-policy" className="text-[var(--brand)] underline underline-offset-2">Privacy Policy</a> | <a href="/terms-conditions" className="text-[var(--brand)] underline underline-offset-2">Terms &amp; Conditions</a></span>
           </label>
         </div>

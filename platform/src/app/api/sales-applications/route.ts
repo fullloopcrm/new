@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const {
       name, email, phone, location, lane, sales_background,
       target_segments, warm_intros, bilingual, why,
-      referral_source, linkedin_url, notes, video_url,
+      referral_source, linkedin_url, notes, video_url, sms_consent,
     } = body
     let { tenant_slug } = body as { tenant_slug?: string }
 
@@ -126,6 +126,7 @@ export async function POST(request: Request) {
         linkedin_url: linkedin_url || null,
         notes: notes || null,
         video_url,
+        sms_consent: typeof sms_consent === 'boolean' ? sms_consent : null,
         status: 'pending',
       })
       .select()
