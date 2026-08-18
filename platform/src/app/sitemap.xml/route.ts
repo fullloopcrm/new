@@ -41,9 +41,14 @@ function junkSitemapXml(): string {
 // purpose-specific sitemaps instead of one file with every URL type mixed
 // together — sitemap-pages, sitemap-industries, sitemap-locations,
 // sitemap-combos (each its own route.ts under src/app/).
+//
+// 2026-08-18: sitemap-locations/sitemap-combos renamed to -v2 (now empty —
+// see their route.ts) as part of the page-bloat noindex cleanup, so Google
+// treats them as new sitemap resources instead of re-fetching the old
+// 20,800-URL versions from cache.
 function mainSitemapIndexXml(): string {
   const base = "https://homeservicesbusinesscrm.com";
-  const files = ["sitemap-pages.xml", "sitemap-industries.xml", "sitemap-locations.xml", "sitemap-combos.xml"];
+  const files = ["sitemap-pages.xml", "sitemap-industries.xml", "sitemap-locations-v2.xml", "sitemap-combos-v2.xml"];
   const entries = files.map((f) => `<sitemap><loc>${base}/${f}</loc></sitemap>`).join("");
   return `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}</sitemapindex>`;
 }
