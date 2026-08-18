@@ -223,6 +223,12 @@ export async function provisionApprovedApplicant(
   // notify()/portal_pin_reset primitive already proven out by the PIN-reset
   // flow (api/team/[id] regenerate_pin) and no-ops safely (success:false, no
   // throw) when the tenant has no SMS provider configured.
+  // Unlike the SMS leg below, this doesn't go through notify() (it needs the
+  // custom branded teamApplicationApprovedEmail template, not notify()'s
+  // generic renderer) -- so it never got a notifications row of its own.
+  // That meant there was no way to check after the fact whether a welcome
+  // email actually sent; write the same audit row shape notify() writes for
+  // 'sms' so both channels are equally checkable.
   let emailed = false
   if (app.email) {
     try {
@@ -247,8 +253,36 @@ export async function provisionApprovedApplicant(
         from: t.email_from || undefined,
       })
       emailed = true
+      await supabaseAdmin.from('notifications').insert({
+        tenant_id: tenantId,
+        type: 'portal_pin_reset',
+        title: `Your portal PIN: ${pin}`,
+        message: `Welcome to ${t.name || 'the team'}! Your team portal PIN is ${pin}. Log in at ${portalUrl}.`,
+        channel: 'email',
+        recipient_type: 'team_member',
+        recipient_id: memberId,
+        status: 'sent',
+        metadata: { recipientName: app.name || '', pin, portalUrl, wasReset: false, recipientEmail: app.email },
+        retry_count: 0,
+      })
     } catch (err) {
       console.error('[provisionApprovedApplicant] welcome email failed (member still provisioned):', err)
+      try {
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'portal_pin_reset',
+          title: `Your portal PIN: ${pin}`,
+          message: `Welcome to ${t.name || 'the team'}! Your team portal PIN is ${pin}. Log in at ${portalUrl}.`,
+          channel: 'email',
+          recipient_type: 'team_member',
+          recipient_id: memberId,
+          status: 'failed',
+          metadata: { recipientName: app.name || '', pin, portalUrl, wasReset: false, recipientEmail: app.email, error: err instanceof Error ? err.message : String(err) },
+          retry_count: 0,
+        })
+      } catch {
+        // Best-effort audit row -- the caught email failure above is already logged.
+      }
     }
   }
 
