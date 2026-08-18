@@ -290,7 +290,12 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
       !!(commPrefs.comms.owner_daily_summary?.email || commPrefs.comms.owner_daily_summary?.in_app),
     client_reminder_email: !!commPrefs.comms.booking_reminder?.email,
     client_reminder_sms: !!commPrefs.comms.booking_reminder?.sms,
-    chatbot_enabled: Boolean(selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
+    // ai_enabled is the key the Settings "AI Enabled" toggle (SelenaTab.tsx)
+    // and the Selena page Quick Settings toggle actually write — it must win
+    // over the legacy enabled/chatbot_enabled keys or the on/off button is a
+    // no-op (2026-08-17: nycmaid had enabled:true baked into selena_config
+    // with no ai_enabled key at all, so the toggle flipped a key nobody read).
+    chatbot_enabled: Boolean(selenaConfig.ai_enabled ?? selenaConfig.enabled ?? selenaConfig.chatbot_enabled ?? false),
     sms_reply_enabled: selenaConfig.sms_reply_enabled !== false,
     timezone: getTenantTimezone(tenant as { timezone?: string | null } | null),
     hours_enabled: Boolean(selenaConfig.hours_enabled),
