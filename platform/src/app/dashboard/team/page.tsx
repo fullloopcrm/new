@@ -176,9 +176,11 @@ export default function TeamPage() {
         return
       }
       const failed = Array.isArray(json.failures) ? json.failures.length : 0
+      const undelivered = Array.isArray(json.undelivered) ? json.undelivered.length : 0
       alert(
         `Approved ${json.approved}. Emailed/provisioned ${json.provisioned}.` +
-        (failed > 0 ? `\n${failed} applicant(s) approved but could not be emailed/provisioned — check their email/phone.` : '')
+        (failed > 0 ? `\n${failed} applicant(s) approved but could not be emailed/provisioned — check their email/phone.` : '') +
+        (undelivered > 0 ? `\n${undelivered} applicant(s) provisioned but their PIN could not be delivered by email or text — check their contact info, then use "Reset PIN" on their team profile to resend.` : '')
       )
       await Promise.all([loadApplications(), loadMembers()])
     } catch (e) {
@@ -199,6 +201,13 @@ export default function TeamPage() {
       const err = await res.json().catch(() => ({}))
       alert(`Failed: ${err.error || res.statusText}`)
       return
+    }
+    if (status === 'approved') {
+      const json = await res.json().catch(() => ({}))
+      const delivered = json.delivered as { emailed: boolean; texted: boolean } | null
+      if (delivered && !delivered.emailed && !delivered.texted) {
+        alert('Approved, but the PIN + portal link could not be delivered by email or text — check their contact info, then use "Reset PIN" on their team profile to resend.')
+      }
     }
     loadApplications()
     if (status === 'approved') loadMembers()

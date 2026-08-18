@@ -42,13 +42,18 @@ export async function POST() {
 
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 
-    // Provision + email each applicant. Best-effort, isolated per applicant.
+    // Provision + deliver PIN to each applicant. Best-effort, isolated per
+    // applicant. A thrown error is a provisioning failure (goes to `failures`);
+    // an approval that provisioned fine but delivered on neither channel is a
+    // separate, quieter failure mode also worth surfacing — see `undelivered`.
     const failures: Array<{ id: string; name: string | null; error: string }> = []
+    const undelivered: Array<{ id: string; name: string | null }> = []
     let provisioned = 0
     for (const app of pending) {
       try {
-        await provisionApprovedApplicant(tenant.tenantId, app as ApprovedApplication)
+        const { emailed, texted } = await provisionApprovedApplicant(tenant.tenantId, app as ApprovedApplication)
         provisioned++
+        if (!emailed && !texted) undelivered.push({ id: app.id, name: app.name })
       } catch (e) {
         failures.push({ id: app.id, name: app.name, error: e instanceof Error ? e.message : String(e) })
       }
@@ -58,6 +63,7 @@ export async function POST() {
       approved: pending.length,
       provisioned,
       failures,
+      undelivered,
     })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })

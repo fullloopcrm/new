@@ -233,16 +233,21 @@ export async function PUT(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // On approval, provision the applicant as a team member (PIN + portal) and
-    // email them. Best-effort: a failure here must never undo the status update.
+    // deliver their PIN. Best-effort: a failure here must never undo the status
+    // update, but delivery outcome IS returned so the admin UI can tell the
+    // difference between "approved and reachable" and "approved but the
+    // applicant got nothing" instead of assuming success either way.
+    let delivered: { emailed: boolean; texted: boolean } | null = null
     if (status === 'approved' && data) {
       try {
-        await provisionApprovedApplicant(tenant.tenantId, data as ApprovedApplication)
+        delivered = await provisionApprovedApplicant(tenant.tenantId, data as ApprovedApplication)
       } catch (provErr) {
         console.error('Approve provisioning/email failed:', provErr instanceof Error ? provErr.message : provErr)
+        delivered = { emailed: false, texted: false }
       }
     }
 
-    return NextResponse.json({ application: data })
+    return NextResponse.json({ application: data, delivered })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e

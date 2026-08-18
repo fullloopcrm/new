@@ -109,18 +109,27 @@ export type ApprovedApplication = {
 /**
  * Shared across ALL tenants (single- and bulk-approve): when an application is
  * approved, provision the applicant as a team member (with a portal PIN) and
- * email them their PIN + portal link — the branded "you're approved, here's
- * your portal access" email. Reuses the same PIN scheme as POST /api/team.
+ * deliver their PIN + portal link over every channel they have on file —
+ * branded email AND SMS, not email with a silent single point of failure.
+ * Reuses the same PIN scheme as POST /api/team.
  *
- * Best-effort — callers must not let a failure here undo the status update.
+ * Returns which channels actually delivered so callers can surface a failure
+ * to the admin instead of assuming success — a Resend outage or a tenant
+ * missing SMS config must be visible, not swallowed into a console.error
+ * only the platform operator can see.
+ *
+ * Best-effort — callers must not let a delivery failure here undo the status update.
  */
-export async function provisionApprovedApplicant(tenantId: string, app: ApprovedApplication): Promise<void> {
+export async function provisionApprovedApplicant(
+  tenantId: string,
+  app: ApprovedApplication,
+): Promise<{ emailed: boolean; texted: boolean }> {
   const { data: t } = await supabaseAdmin
     .from('tenants')
     .select('name, primary_color, logo_url, resend_api_key, email_from, phone, domain, slug')
     .eq('id', tenantId)
     .single()
-  if (!t) return
+  if (!t) return { emailed: false, texted: false }
 
   const cleanPhone = (app.phone || '').replace(/\D/g, '')
 
@@ -128,6 +137,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
   // creating a second record. Only mint a new PIN when creating fresh.
   let pin: string | null = null
   let memberExisted = false
+  let memberId: string | null = null
 
   if (cleanPhone) {
     const { data: existing } = await supabaseAdmin
@@ -139,6 +149,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
       .maybeSingle()
     if (existing) {
       memberExisted = true
+      memberId = existing.id
       pin = existing.pin ? decryptSecret(existing.pin) : null
     }
   }
@@ -174,7 +185,6 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
 
     // The DB enforces PIN uniqueness per tenant; retry on collision.
     let inserted = false
-    let newMemberId: string | null = null
     for (let attempt = 0; attempt < 4 && !inserted; attempt++) {
       pin = generateTeamPin()
       const { data: ins, error: insErr } = await supabaseAdmin
@@ -182,13 +192,14 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
         .insert({ ...base, pin: encryptSecretSafe(pin) })
         .select('id')
         .single()
-      if (!insErr) { inserted = true; newMemberId = ins?.id ?? null; break }
+      if (!insErr) { inserted = true; memberId = ins?.id ?? null; break }
       if (!/duplicate|unique/i.test(insErr.message)) throw new Error(insErr.message)
     }
     if (!inserted) throw new Error('Could not allocate a unique PIN after retries')
 
     // Geocode the home address so the new hire plots on the team coverage map.
-    if (newMemberId && app.address) {
+    if (memberId && app.address) {
+      const newMemberId = memberId
       geocodeAddress(app.address).then((coords) => {
         if (coords) {
           return supabaseAdmin
@@ -201,13 +212,20 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
     }
   }
 
-  // Email the applicant their PIN + portal link (only if we have both).
-  // Best-effort per the contract above: the team member is already created, so a
-  // comms failure (missing key, Resend outage) must NOT throw out of provisioning
-  // and make the caller think the hire failed. Log and move on.
-  if (app.email && pin) {
+  if (!pin) return { emailed: false, texted: false }
+
+  const portalUrl = `${tenantSiteUrl({ domain: t.domain, slug: t.slug })}/team/login`
+
+  // Deliver the PIN + portal link over EVERY channel the applicant has on
+  // file, not email alone — a single Resend hiccup used to mean the new hire
+  // got nothing at all, with no indication to the admin that it happened.
+  // Email keeps the branded "welcome" template; SMS reuses the same
+  // notify()/portal_pin_reset primitive already proven out by the PIN-reset
+  // flow (api/team/[id] regenerate_pin) and no-ops safely (success:false, no
+  // throw) when the tenant has no SMS provider configured.
+  let emailed = false
+  if (app.email) {
     try {
-      const portalUrl = `${tenantSiteUrl({ domain: t.domain, slug: t.slug })}/team/login`
       const html = teamApplicationApprovedEmail({
         tenantName: t.name || 'the team',
         primaryColor: t.primary_color || undefined,
@@ -228,8 +246,26 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
         // cosmetic, for tenants running independent email.
         from: t.email_from || undefined,
       })
+      emailed = true
     } catch (err) {
       console.error('[provisionApprovedApplicant] welcome email failed (member still provisioned):', err)
     }
   }
+
+  let texted = false
+  if (memberId && app.phone) {
+    const smsResult = await notify({
+      tenantId,
+      type: 'portal_pin_reset',
+      title: `Your portal PIN: ${pin}`,
+      message: `Welcome to ${t.name || 'the team'}! Your team portal PIN is ${pin}. Log in at ${portalUrl}.`,
+      channel: 'sms',
+      recipientType: 'team_member',
+      recipientId: memberId,
+      metadata: { recipientName: app.name || '', pin, portalUrl, wasReset: false },
+    })
+    texted = smsResult.success
+  }
+
+  return { emailed, texted }
 }
