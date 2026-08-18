@@ -133,6 +133,52 @@ describe('POST /api/tenant-profile', () => {
     expect(res.status).toBe(401)
     expect(applyProfileWriteMock).not.toHaveBeenCalled()
   })
+
+  it('rejects Finish with 400 when a tenant-visible critical field is still unfilled, and does not stamp completion', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    getTenantProfileMock.mockResolvedValue({
+      tenantId: 'tenant-A',
+      funnel: 'booking',
+      fields: [
+        { key: 'businessName', label: 'Business name', section: 'identity', tier: 'critical', filled: true, audience: 'tenant' },
+        { key: 'phone', label: 'Business phone', section: 'contact', tier: 'critical', filled: false, audience: 'tenant' },
+        { key: 'accountOwner', label: 'Account owner', section: 'account', tier: 'optional', filled: true, audience: 'admin' },
+      ],
+    })
+
+    const res = await POST(new Request('http://x/api/tenant-profile', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'whatever', data: { businessName: 'Acme Cleaning' } }),
+    }))
+
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.error).toBe('incomplete')
+    expect(json.missing).toEqual([{ key: 'phone', label: 'Business phone', section: 'contact' }])
+    expect(alertOwnerMock).not.toHaveBeenCalled()
+  })
+
+  it('excludes readonly and admin-only fields from the completion gate', async () => {
+    resolveOnboardingTenantIdMock.mockResolvedValue('tenant-A')
+    applyProfileWriteMock.mockResolvedValue({ saved: true, ignored: [] })
+    getTenantProfileMock.mockResolvedValue({
+      tenantId: 'tenant-A',
+      funnel: 'booking',
+      fields: [
+        { key: 'businessName', label: 'Business name', section: 'identity', tier: 'critical', filled: true, audience: 'tenant' },
+        { key: 'serviceScope', label: 'Service scope', section: 'contact', tier: 'critical', filled: false, readonly: true, audience: 'tenant' },
+        { key: 'accountOwner', label: 'Account owner', section: 'account', tier: 'critical', filled: false, audience: 'admin' },
+      ],
+    })
+
+    const res = await POST(new Request('http://x/api/tenant-profile', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'whatever', data: { businessName: 'Acme Cleaning' } }),
+    }))
+
+    expect(res.status).toBe(200)
+  })
 })
 
 describe('PUT /api/tenant-profile (autosave)', () => {

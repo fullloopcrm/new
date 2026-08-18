@@ -27,7 +27,7 @@ import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { VoiceTextarea, VoiceMicButton } from './VoiceInput'
 import type { ServiceArea } from '@/lib/service-area'
-import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, type FieldValidation, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX, HOUR_OPTIONS, MIN_DAYS_OPTIONS, WEEKDAY_KEYS, WEEKDAY_LABELS } from '@/lib/tenant-profile'
+import { PROFILE_SECTION_META as SECTION_META, PROFILE_SECTION_ORDER as SECTION_ORDER, PROFILE_FIELD_NUMBER, passesValidation, type FieldValidation, type ProfileSection, EXPENSE_CATEGORY_PRESETS, STATE_BASE_SALES_TAX, HOUR_OPTIONS, MIN_DAYS_OPTIONS, WEEKDAY_KEYS, WEEKDAY_LABELS } from '@/lib/tenant-profile'
 import OnboardingCatalog from './OnboardingCatalog'
 import OnboardingClients from './OnboardingClients'
 import { OnboardingWelcome, useWelcomeGate } from './OnboardingWelcome'
@@ -101,6 +101,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [missing, setMissing] = useState<{ key: string; label: string; section: ProfileSection }[]>([])
   const [businessName, setBusinessName] = useState('')
   const [tenantId, setTenantId] = useState('')
   // Which section INDICES have actually been landed on — not a contiguous
@@ -142,7 +143,10 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const set = (k: string, v: FieldValue) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: string, v: FieldValue) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    setMissing((m) => m.filter((x) => x.key !== k))
+  }
 
   const sections = useMemo(() => {
     const present = new Set(fields.map((f) => f.section))
@@ -203,6 +207,7 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
   const submit = async () => {
     setSaving(true)
+    setMissing([])
     try {
       const res = await fetch('/api/tenant-profile', {
         method: 'POST',
@@ -211,6 +216,14 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
       })
       if (res.ok) {
         onComplete?.()
+        return
+      }
+      const body = (await res.json().catch(() => ({}))) as { error?: string; missing?: { key: string; label: string; section: ProfileSection }[] }
+      if (body.error === 'incomplete' && Array.isArray(body.missing) && body.missing.length > 0) {
+        setMissing(body.missing)
+        const firstIdx = sections.indexOf(body.missing[0].section)
+        if (firstIdx >= 0) await goto(firstIdx)
+        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
       setMsg('Something went wrong saving. Your draft is safe — try again.')
@@ -309,6 +322,32 @@ export function ProfileWizard({ mode, onComplete }: { mode: Mode; onComplete?: (
 
       {msg && (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{msg}</div>
+      )}
+
+      {missing.length > 0 && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          <p className="font-medium">
+            {missing.length} required {missing.length === 1 ? 'question' : 'questions'} still need{missing.length === 1 ? 's' : ''} an answer before you can finish:
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {missing.map((m) => {
+              const idx = sections.indexOf(m.section)
+              const sectionTitle = SECTION_META[m.section]?.title
+              return (
+                <li key={m.key}>
+                  <button
+                    type="button"
+                    onClick={() => idx >= 0 && goto(idx)}
+                    className="underline decoration-red-300 underline-offset-2 hover:text-red-900"
+                  >
+                    {m.label}
+                  </button>
+                  {sectionTitle && <span className="text-red-500"> — {sectionTitle}</span>}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">

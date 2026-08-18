@@ -533,8 +533,14 @@ export default function BusinessDetailPage() {
       </div>
 
       {/* Onboarding Link — stays pinned here (not buried in a tab) until the
-          tenant has actually submitted their profile. */}
-      {!biz.onboarding_completed_at && !profileComplete && (
+          tenant has actually submitted their profile. Keyed off
+          `profileComplete` (every critical field actually filled), not
+          `onboarding_completed_at` — that column used to get stamped the
+          moment Finish was clicked regardless of how much was actually
+          filled in (fixed in /api/tenant-profile POST), so a tenant who hit
+          Finish early left this banner (and the only way to grab/resend
+          their link) permanently hidden even though they still needed it. */}
+      {!profileComplete && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-heading font-semibold text-sm text-amber-900">Onboarding Link — not yet completed</h3>

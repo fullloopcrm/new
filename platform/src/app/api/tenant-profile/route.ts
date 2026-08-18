@@ -22,7 +22,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantProfile, isTenantVisible, PROFILE_FIELD_BY_KEY } from '@/lib/tenant-profile'
+import { getTenantProfile, isTenantVisible, appliesToFunnel, PROFILE_FIELD_BY_KEY } from '@/lib/tenant-profile'
 import { applyProfileWrite } from '@/lib/tenant-profile-write'
 import { resolveOnboardingTenantId } from '@/lib/onboarding-auth'
 import { alertOwner } from '@/lib/telegram'
@@ -121,6 +121,28 @@ export async function POST(request: Request) {
 
     const { saved, ignored } = await applyProfileWrite(tenantId, filtered)
     if (!saved) return NextResponse.json({ error: 'No writable fields', ignored }, { status: 400 })
+
+    // Gate completion on every tenant-visible, funnel-applicable CRITICAL
+    // field actually being filled — re-read post-write so fields just
+    // submitted in this same call count. Without this, Finish stamped
+    // onboarding_completed_at off nothing more than "at least one field
+    // saved", which let a tenant land on the last section via the tab nav
+    // and complete with most of the profile still blank (readonly critical
+    // fields are excluded — they're derived, e.g. serviceScope from
+    // serviceArea, and the tenant has no direct control to unblock one).
+    const profile = await getTenantProfile(tenantId)
+    const missing = (profile?.fields || []).filter(
+      (f) => isTenantVisible(f) && !f.readonly && appliesToFunnel(f, profile!.funnel) && f.tier === 'critical' && !f.filled,
+    )
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'incomplete',
+          missing: missing.map((f) => ({ key: f.key, label: f.label, section: f.section })),
+        },
+        { status: 400 },
+      )
+    }
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
