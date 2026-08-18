@@ -39,6 +39,16 @@ import { parklandMaidConfig } from './parkland-maid'
 import { riverviewMaidConfig } from './riverview-maid'
 import { windermereMaidConfig } from './windermere-maid'
 import { altamonteSpringsMaidConfig } from './altamonte-springs-maid'
+import { brentMaidConfig } from './brent-maid'
+import { cordovaParkMaidConfig } from './cordova-park-maid'
+import { eastHillMaidConfig } from './east-hill-maid'
+import { ensleyMaidConfig } from './ensley-maid'
+import { ferryPassMaidConfig } from './ferry-pass-maid'
+import { northHillMaidConfig } from './north-hill-maid'
+import { paceMaidConfig } from './pace-maid'
+import { gulfBreezeMaidConfig } from './gulf-breeze-maid'
+import { perdidoKeyMaidConfig } from './perdido-key-maid'
+import { warringtonMaidConfig } from './warrington-maid'
 
 const CONFIGS: EmdMicrositeConfig[] = [
   miamiBeachMaidConfig,
@@ -81,6 +91,16 @@ const CONFIGS: EmdMicrositeConfig[] = [
   riverviewMaidConfig,
   windermereMaidConfig,
   altamonteSpringsMaidConfig,
+  brentMaidConfig,
+  cordovaParkMaidConfig,
+  eastHillMaidConfig,
+  ensleyMaidConfig,
+  ferryPassMaidConfig,
+  northHillMaidConfig,
+  paceMaidConfig,
+  gulfBreezeMaidConfig,
+  perdidoKeyMaidConfig,
+  warringtonMaidConfig,
 ]
 
 const BY_DOMAIN = new Map<string, EmdMicrositeConfig>(

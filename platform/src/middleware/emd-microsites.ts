@@ -49,6 +49,16 @@ export const EMD_MICROSITE_ROUTES: Record<string, string> = {
   'riverviewmaid.com': '/site/emd-microsites/riverview-maid',
   'windermeremaid.com': '/site/emd-microsites/windermere-maid',
   'altamontespringsmaid.com': '/site/emd-microsites/altamonte-springs-maid',
+  'brentmaid.com': '/site/emd-microsites/brent-maid',
+  'cordovaparkmaid.com': '/site/emd-microsites/cordova-park-maid',
+  'easthillmaid.com': '/site/emd-microsites/east-hill-maid',
+  'ensleymaid.com': '/site/emd-microsites/ensley-maid',
+  'ferrypassmaid.com': '/site/emd-microsites/ferry-pass-maid',
+  'northhillmaid.com': '/site/emd-microsites/north-hill-maid',
+  'pacemaid.com': '/site/emd-microsites/pace-maid',
+  'gulfbreezemaid.com': '/site/emd-microsites/gulf-breeze-maid',
+  'perdidokeymaid.com': '/site/emd-microsites/perdido-key-maid',
+  'warringtonmaid.com': '/site/emd-microsites/warrington-maid',
 }
 
 /**
