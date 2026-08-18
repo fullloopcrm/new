@@ -10,8 +10,9 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { hashAdminPin, generateAdminPin } from '@/lib/admin-pin'
+import { ROLES } from '@/lib/rbac'
 
-const VALID_ROLES = ['owner', 'admin', 'manager', 'staff']
+const VALID_ROLES = ROLES.map(r => r.value)
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()

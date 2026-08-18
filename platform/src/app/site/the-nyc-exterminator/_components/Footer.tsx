@@ -21,10 +21,10 @@ export default function Footer() {
             </p>
             <div className="mt-4 space-y-1 text-sm">
               <Link
-                href="/book-exterminator-today"
+                href="/book/new"
                 className="block font-semibold text-green-400 hover:text-green-300"
               >
-                Self-Book &amp; Save $10 &mdash; fastest way to get service
+                Self-Book &amp; Save $20 &mdash; fastest way to get service
               </Link>
               <a
                 href={`sms:${PHONE.replace(/-/g, "")}`}
@@ -88,7 +88,7 @@ export default function Footer() {
               <li><Link href="/faq" className="text-sm text-zinc-500 transition-colors hover:text-white">FAQ</Link></li>
               <li><Link href="/careers" className="text-sm text-zinc-500 transition-colors hover:text-white">Careers</Link></li>
               <li><Link href="/contact" className="text-sm text-zinc-500 transition-colors hover:text-white">Contact</Link></li>
-              <li><Link href="/book-exterminator-today" className="text-sm font-medium text-green-400 hover:text-green-300">Book &amp; Save $10 &rarr;</Link></li>
+              <li><Link href="/book/new" className="text-sm font-medium text-green-400 hover:text-green-300">Book &amp; Save $20 &rarr;</Link></li>
             </ul>
           </div>
         </div>

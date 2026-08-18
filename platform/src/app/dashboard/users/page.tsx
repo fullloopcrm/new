@@ -23,6 +23,7 @@ const ROLE_COLORS: Record<string, string> = {
   manager: 'bg-green-100 text-green-800',
   staff: 'bg-gray-100 text-gray-800',
   virtual_assistant: 'bg-teal-100 text-teal-800',
+  contractor: 'bg-amber-100 text-amber-800',
 }
 
 // Assignable at invite time — owner is granted separately (see addMember/POST).

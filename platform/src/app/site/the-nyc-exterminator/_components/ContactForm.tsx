@@ -68,7 +68,7 @@ export default function ContactForm({
       location: (form.elements.namedItem("location") as HTMLInputElement).value,
       urgency: (form.elements.namedItem("urgency") as HTMLSelectElement).value,
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
-      // Online form submission = self-book online → eligible for the $10 self-book discount
+      // Online form submission = self-book online → eligible for the $20 self-book discount
       selfBook: true,
       session_id: getSessionId(),
       ...getSpamGuardFields(),
@@ -180,9 +180,9 @@ export default function ContactForm({
           <textarea id="message" name="message" required rows={3} className={inputClass} placeholder="What pests are you seeing? Where in the property?" />
         </div>
         <button type="submit" disabled={status === "sending"} className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50">
-          {status === "sending" ? "Sending..." : "Self-Book — Save $10"}
+          {status === "sending" ? "Sending..." : "Self-Book — Save $20"}
         </button>
-        <p className="text-center text-xs text-green-500">Booking online saves you $10 — we take it off your quote.</p>
+        <p className="text-center text-xs text-green-500">Booking online saves you $20 — we take it off your quote.</p>
         {status === "error" && (
           <p className={`text-center text-sm ${dark ? "text-red-400" : "text-red-600"}`}>Something went wrong. Please try again or text us.</p>
         )}
@@ -262,11 +262,11 @@ export default function ContactForm({
         disabled={status === "sending"}
         className="w-full rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
       >
-        {status === "sending" ? "Submitting..." : "Self-Book — Save $10"}
+        {status === "sending" ? "Submitting..." : "Self-Book — Save $20"}
       </button>
 
       <p className="text-center text-xs font-medium text-green-500">
-        Booking online saves you $10 — we take it off your quote.
+        Booking online saves you $20 — we take it off your quote.
       </p>
       <p className={`text-center text-xs ${dark ? "text-zinc-500" : "text-zinc-500"}`}>
         Free inspections. Upfront pricing. No obligation.

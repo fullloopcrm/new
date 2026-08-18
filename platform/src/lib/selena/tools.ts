@@ -3616,7 +3616,10 @@ async function handleUpdateServiceArea(input: { service_area: unknown }, tid: st
 // /api/admin/users, PUT/DELETE /api/admin/users/[id], POST/DELETE /api/admin/
 // users/[id]/pin. Creating a member mints and hands over real login
 // credentials (PIN, sent via email/SMS) — a real access-control action.
-const DASHBOARD_USER_ROLES = ['owner', 'admin', 'manager', 'staff']
+async function getDashboardUserRoles(): Promise<string[]> {
+  const { ROLES } = await import('@/lib/rbac')
+  return ROLES.map(r => r.value)
+}
 
 async function handleListDashboardUsers(tid: string): Promise<string> {
   const { data, error } = await supabaseAdmin.from('tenant_members').select('id, email, name, role, clerk_user_id, phone, created_at, pin_hash, pin_set_at, pin_last_login').eq('tenant_id', tid).order('created_at', { ascending: true })
@@ -3629,7 +3632,8 @@ async function handleListDashboardUsers(tid: string): Promise<string> {
 
 async function handleCreateDashboardUser(input: { name: string; role?: string; email?: string; phone?: string }, tid: string): Promise<string> {
   if (!input.name?.trim()) return JSON.stringify({ error: 'name is required' })
-  const memberRole = DASHBOARD_USER_ROLES.includes(input.role || '') ? input.role! : 'staff'
+  const dashboardUserRoles = await getDashboardUserRoles()
+  const memberRole = dashboardUserRoles.includes(input.role || '') ? input.role! : 'staff'
   const { hashAdminPin, generateAdminPin } = await import('@/lib/admin-pin')
   const { ROLES } = await import('@/lib/rbac')
 
@@ -3678,7 +3682,8 @@ async function handleUpdateDashboardUser(input: { user_id: string; fields: Recor
   if (fields.email) update.email = String(fields.email).toLowerCase().trim()
   if (fields.phone !== undefined) update.phone = fields.phone
   if (fields.role) {
-    if (!DASHBOARD_USER_ROLES.includes(fields.role as string)) return JSON.stringify({ error: `invalid role — must be one of ${DASHBOARD_USER_ROLES.join(', ')}` })
+    const dashboardUserRoles = await getDashboardUserRoles()
+    if (!dashboardUserRoles.includes(fields.role as string)) return JSON.stringify({ error: `invalid role — must be one of ${dashboardUserRoles.join(', ')}` })
     update.role = fields.role
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })

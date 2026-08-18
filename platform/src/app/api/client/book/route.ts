@@ -530,16 +530,38 @@ export async function POST(request: Request) {
     const MIN_HOURLY_RATE = 20
     const MAX_HOURLY_RATE = 200
     const rawHourlyRate = Number(body.hourly_rate)
-    // Generic default; the NYC Maid tenant layers its supplies/emergency/
-    // self-book rules on top (tenant-scoped parity, not global).
-    let bkHourlyRate = Number.isFinite(rawHourlyRate) && rawHourlyRate > 0
-      ? Math.min(MAX_HOURLY_RATE, Math.max(MIN_HOURLY_RATE, rawHourlyRate))
-      : 75
+    // The tenant's OWN catalog rate for the submitted service_type is the
+    // authoritative source when it exists — a client can no longer lowball a
+    // known service (e.g. send hourly_rate=20 against a $199/hr listing) by
+    // just sending a different number. Only falls through to the client-sent/
+    // clamped value or the flat $75 default for a service_type the catalog
+    // doesn't recognize (legacy tenants with no service_types populated yet —
+    // matches loadServices()'s own "vertical-neutral until onboarding" stance).
+    // /book/standard (2026-08-14) was the first form to actually need this:
+    // it never sent hourly_rate at all, so every non-NYC-Maid tenant's
+    // self-booked jobs were silently priced at the flat $75 fallback
+    // regardless of their real configured rate.
+    const catalogService = (settings.service_types || []).find(
+      (s) => s.active && s.name === body.service_type && s.rate > 0,
+    )
+    let bkHourlyRate = catalogService
+      ? catalogService.rate
+      : Number.isFinite(rawHourlyRate) && rawHourlyRate > 0
+        ? Math.min(MAX_HOURLY_RATE, Math.max(MIN_HOURLY_RATE, rawHourlyRate))
+        : settings.standard_rate ? settings.standard_rate : 75
     // Floored at 1hr — an unfloored fractional value (e.g. 0.001) would slip
     // past the hourly-rate clamp above and still yield a near-zero total.
     const bkEstimatedHours = Math.max(1, Number(body.estimated_hours) || 2)
     let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
     let bkNotes = (body.notes as string) || ''
+    // Self-book discount for non-NYC-Maid tenants (StandardBookForm's own
+    // form): appended as a billing note, same pattern as NYC Maid's below —
+    // amount comes from the tenant's OWN configured setting, never trusted
+    // from the client, so a submission can't spoof a bigger discount.
+    if (body.self_book === true && !isNycMaid(tenant.id)) {
+      const discountCents = settings.self_book_discount_cents ?? 1000
+      bkNotes += `\n\n[Promo: $${(discountCents / 100).toFixed(2).replace(/\.00$/, '')} self-booking discount applies at billing]`
+    }
     const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
     let bkIsEmergency = false
     const bkMaxHours = typeof body.max_hours === 'number' && body.max_hours > 0 ? (body.max_hours as number) : null

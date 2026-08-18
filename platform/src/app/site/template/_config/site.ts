@@ -54,6 +54,7 @@ export const siteConfig: SiteConfig = {
     { value: 'Extended Service', label: 'Extended', hours: 4 },
     { value: 'Same-Day Emergency', label: 'Same-Day', hours: 2, emergency: true },
   ],
+  selfBookDiscountCents: 1000,
   funnelMode: 'booking',
   industry: 'general',
   layoutVariant: 'default',

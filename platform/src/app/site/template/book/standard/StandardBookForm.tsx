@@ -19,16 +19,16 @@ import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
  * (recurring, deposits, per-service mode). The cleaning-specific form at
  * /book/new stays untouched and live.
  *
- * The $10 self-booking discount is kept as the conversion hook. It is shown
- * to the client and flagged on the payload (self_book_discount_cents); it is
- * NOT yet auto-applied to the final bill — that is the payments phase.
+ * The self-booking discount (config.selfBookDiscountCents, tenant-configurable,
+ * default $10) is kept as the conversion hook. It is shown to the client and
+ * flagged on the payload (self_book_discount_cents); it is NOT yet
+ * auto-applied to the final bill — that is the payments phase. The server
+ * (api/client/book) appends it as a billing note rather than deducting it.
  */
 
 // Slots match the booking API's time map (9AM–4PM). Do not add 8AM here — the
 // API silently floors unknown labels to 9AM.
 const TIME_SLOTS = ['9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] as const
-
-const SELF_BOOK_DISCOUNT_CENTS = 1000
 
 function trackEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -48,7 +48,7 @@ function trackEvent(action: string, sessionId: string, extra: Record<string, unk
 }
 
 function StandardBookContent({ config }: { config: SiteConfig }) {
-  const { services, theme, contact, identity } = config
+  const { services, theme, contact, identity, selfBookDiscountCents } = config
   const primary = theme.primary
   const accent = theme.accent
 
@@ -91,6 +91,13 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
   }, [])
 
   const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  // 1-hour minimum, matching the server's own floor (api/client/book: bkEstimatedHours).
+  const selectedService = services.find((s) => s.value === form.service_type)
+  const hourlyRate = selectedService?.rate ?? 0
+  const estimatedHours = Math.max(1, selectedService?.hours ?? 1)
+  const selfBookDiscountDollars = selfBookDiscountCents / 100
+  const estimatedTotal = hourlyRate > 0 ? hourlyRate * estimatedHours : 0
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -135,8 +142,10 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
           date: form.date,
           time: form.time,
           notes: form.notes.trim(),
+          hourly_rate: hourlyRate > 0 ? hourlyRate : undefined,
+          estimated_hours: estimatedHours,
           self_book: true,
-          self_book_discount_cents: SELF_BOOK_DISCOUNT_CENTS,
+          self_book_discount_cents: selfBookDiscountCents,
           sms_opt_in: smsOptIn,
           ref_code: refCode || null,
           src: srcDomain || null,
@@ -178,7 +187,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
           <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Pending Confirmation</div>
           <h1 className="text-2xl font-bold tracking-tight mb-2" style={{ color: primary }}>Request submitted.</h1>
           <p className="text-slate-600 text-sm mb-6">
-            This isn&rsquo;t finalized yet — {identity.name} reviews and confirms shortly. You&rsquo;ll get a text/email locking in your date and time. Your <strong>$10 self-booking discount</strong> is noted on your request.
+            This isn&rsquo;t finalized yet — {identity.name} reviews and confirms shortly. You&rsquo;ll get a text/email locking in your date and time. Your <strong>${selfBookDiscountDollars} self-booking discount</strong> is noted on your request.
           </p>
           {pin && (
             <div className="rounded-lg p-4 mb-6 border" style={{ backgroundColor: `${accent}22`, borderColor: `${accent}66` }}>
@@ -198,10 +207,10 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
             <div className="inline-block text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4" style={{ backgroundColor: `${accent}33`, color: primary }}>
-              Book online &amp; save $10
+              Book online &amp; save ${selfBookDiscountDollars}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3" style={{ color: primary }}>Book your service.</h1>
-            <p className="text-slate-500 text-sm">Skip the call — fill this out and {identity.name} confirms your time. Self-bookers save <span className="font-semibold" style={{ color: primary }}>$10</span>.</p>
+            <p className="text-slate-500 text-sm">Skip the call — fill this out and {identity.name} confirms your time. Self-bookers save <span className="font-semibold" style={{ color: primary }}>${selfBookDiscountDollars}</span>.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5 border border-slate-100">
@@ -226,6 +235,17 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
                 })}
               </div>
             </div>
+
+            {hourlyRate > 0 && (
+              <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-500 tracking-widest uppercase">Estimate</p>
+                  <p className="text-xs text-slate-500 mt-0.5">${hourlyRate}/hr &middot; {estimatedHours}-hour minimum &middot; billed for actual time worked</p>
+                  <p className="text-xs text-green-700 font-semibold mt-1">&minus;${selfBookDiscountDollars} self-booking discount noted at billing</p>
+                </div>
+                <p className="text-2xl font-bold tracking-wide" style={{ color: primary }}>~${estimatedTotal}</p>
+              </div>
+            )}
 
             {/* Date + time */}
             <div className="grid grid-cols-2 gap-3">
@@ -302,7 +322,8 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
               <div><span className="text-slate-500">Service:</span> {form.service_type}</div>
               <div><span className="text-slate-500">When:</span> {form.date} @ {form.time}</div>
               <div><span className="text-slate-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
-              <div className="pt-1 border-t border-slate-200"><span className="text-slate-500">Discount:</span> <span className="font-semibold text-green-700">$10 self-booking discount noted</span></div>
+              {hourlyRate > 0 && <div><span className="text-slate-500">Rate:</span> ${hourlyRate}/hr &times; {estimatedHours}-hour minimum &middot; ~${estimatedTotal} estimate</div>}
+              <div className="pt-1 border-t border-slate-200"><span className="text-slate-500">Discount:</span> <span className="font-semibold text-green-700">${selfBookDiscountDollars} self-booking discount noted</span></div>
             </div>
             {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">{error}</div>}
             <div className="flex gap-3">
