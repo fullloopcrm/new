@@ -27,6 +27,20 @@ import { AREAS, type Area } from '@/lib/seo/data/areas'
 import { haversineDistance, geocodeAddress } from '@/lib/geo'
 import { nearbyPlacesViaOverpass } from './nearby-places'
 
+/**
+ * How many of a tenant's nearest coverage areas get submitted for indexing
+ * (sitemap.xml + <meta robots> on the area/careers pages themselves). Areas
+ * ranked beyond this still render normally — real geo data, no 404 — they're
+ * just excluded from the sitemap and marked noindex,follow, since the copy is
+ * template-generated prose until generate-tenant-site.ts writes real content
+ * for that area. Same containment already used for VA tenants' geo x service
+ * combos and the marketing site's industry x city matrix (both mass-noindexed
+ * after Google flagged them as near-duplicate). Combo pages
+ * (/areas/[location]/[service]) have no content-generation path at all yet,
+ * so those stay noindexed at every rank regardless of this limit.
+ */
+export const SITEMAP_AREA_LIMIT = 20
+
 export interface CoveredNeighborhood {
   slug: string
   urlSlug: string

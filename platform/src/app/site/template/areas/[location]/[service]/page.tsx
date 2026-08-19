@@ -65,6 +65,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: url },
     openGraph: { title: c.title, description: c.metaDescription, url, type: 'website' },
     other: { 'geo.region': `US-${area.state}`, 'geo.placename': area.name, 'geo.position': `${area.lat};${area.lng}`, ICBM: `${area.lat}, ${area.lng}` },
+    // Always noindex: generate-tenant-site.ts doesn't write 'location-service'
+    // content yet, so this is always the procedural fallback — same
+    // containment as the VA tenant geo x service combos. Revisit once these
+    // have a real content-generation path; page stays live/linkable (follow).
+    robots: { index: false, follow: true },
   }
 }
 

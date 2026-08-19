@@ -1,32 +1,17 @@
-import { ALL_NEIGHBORHOODS } from '@/app/site/template/_lib/seo/locations'
-import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
-import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
-import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
+import { pickLifestylePhoto, pickTeamPhoto } from '@/app/site/template/_lib/seo/photos'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { getTenantFromHeaders, getTenantServices } from '@/lib/tenant-site'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 import { blogPosts } from '@/app/site/template/_lib/content/longform'
+import { resolveCoverage, SITEMAP_AREA_LIMIT } from '@/lib/geo/coverage'
 
 // Reads the tenant from request headers (getSiteConfig) to emit their real
 // domain, so it must render dynamically — a static route reading headers() 500s
 // ("static to dynamic at runtime"). See [slug]/page.tsx for the same fix.
 export const dynamic = 'force-dynamic'
-
-const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
-  'deep-cleaning': 'kitchen',
-  'regular-cleaning': 'mop',
-  'weekly-cleaning': 'mop',
-  'bi-weekly-cleaning': 'dust',
-  'monthly-cleaning': 'mop',
-  'move-in-move-out-cleaning': 'team',
-  'post-renovation-cleaning': 'team',
-  'same-day-cleaning': 'vacuum',
-  'airbnb-cleaning': 'bed',
-  'office-cleaning': 'team',
-}
 
 export async function GET() {
   const config = await getSiteConfig()
@@ -122,6 +107,21 @@ ${genUrls
   interface ImageEntry { loc: string; title?: string; caption?: string }
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string; images?: ImageEntry[] }[] = []
 
+  // Tenant's real service area (resolveCoverage), not the static NYC dataset
+  // below — this is what actually powers /areas/[location] + /careers/[location]
+  // for every cleaning tenant on the template, including ones nowhere near NYC.
+  const tenant = await getTenantFromHeaders()
+  const radiusMiles = typeof tenant?.service_radius_miles === 'number' ? tenant.service_radius_miles : 25
+  const coverage = tenant
+    ? await resolveCoverage({
+        lat: tenant.service_area_lat as number | null,
+        lng: tenant.service_area_lng as number | null,
+        address: tenant.address as string | null,
+        radiusMiles,
+      })
+    : { areas: [] as { urlSlug: string; slug: string; name: string }[] }
+  const indexableAreas = coverage.areas.slice(0, SITEMAP_AREA_LIMIT)
+
   // Homepage
   const homepagePhoto = pickLifestylePhoto('homepage')
   urls.push({
@@ -161,11 +161,14 @@ ${genUrls
     urls.push({ loc: `${BASE_URL}${p.path}`, lastmod: now, changefreq: p.freq, priority: p.pri })
   }
 
-  // Area pages
-  for (const area of AREAS) {
-    const photo = pickLifestylePhoto(area.slug)
+  // Area pages — this tenant's own resolveCoverage() result, nearest first,
+  // capped at SITEMAP_AREA_LIMIT. Areas beyond the cap still render (see
+  // /areas/[location]/page.tsx) but are marked noindex there, so they're
+  // deliberately left out of the sitemap rather than submitted unfinished.
+  for (const area of indexableAreas) {
+    const photo = pickLifestylePhoto(area.urlSlug)
     urls.push({
-      loc: `${BASE_URL}/${area.urlSlug}`,
+      loc: `${BASE_URL}/areas/${area.urlSlug}`,
       lastmod: now,
       changefreq: 'weekly',
       priority: '0.9',
@@ -173,27 +176,17 @@ ${genUrls
     })
   }
 
-  // Service pages
-  for (const service of SERVICES) {
-    const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[service.slug] || 'mop', service.slug)
+  // Service pages — this tenant's actual configured services, not the static
+  // nycmaid-era SERVICES list (which may not match what they offer/charge).
+  for (const service of config.services) {
+    const serviceSlug = service.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const photo = pickLifestylePhoto(serviceSlug)
     urls.push({
-      loc: `${BASE_URL}/services/${service.urlSlug}`,
+      loc: `${BASE_URL}/services/${serviceSlug}`,
       lastmod: now,
       changefreq: 'weekly',
       priority: '0.8',
-      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — ${service.name}`, caption: `${photo.caption} — ${service.name}` }],
-    })
-  }
-
-  // Neighborhood pages
-  for (const n of ALL_NEIGHBORHOODS) {
-    const photo = pickLifestylePhoto(n.slug)
-    urls.push({
-      loc: `${BASE_URL}/${n.urlSlug}`,
-      lastmod: now,
-      changefreq: 'weekly',
-      priority: '0.8',
-      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — ${n.name}`, caption: `${photo.caption} — ${n.name} cleaning service` }],
+      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — ${service.label}`, caption: `${photo.caption} — ${service.label}` }],
     })
   }
 
@@ -209,31 +202,21 @@ ${genUrls
     })
   }
 
-  // Neighborhood job pages
-  for (const n of ALL_NEIGHBORHOODS) {
-    const photo = pickTeamPhoto(n.slug)
+  // Area job pages — same coverage + cap as the area pages above.
+  for (const area of indexableAreas) {
+    const photo = pickTeamPhoto(area.urlSlug)
     urls.push({
-      loc: `${BASE_URL}/careers/${n.slug}`,
+      loc: `${BASE_URL}/careers/${area.urlSlug}`,
       lastmod: now,
       changefreq: 'daily',
       priority: '0.8',
-      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — hiring in ${n.name}`, caption: `Now hiring in ${n.name}` }],
+      images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — hiring in ${area.name}`, caption: `Now hiring in ${area.name}` }],
     })
   }
 
-  // Neighborhood × Service cross pages
-  for (const n of ALL_NEIGHBORHOODS) {
-    for (const s of SERVICES) {
-      const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[s.slug] || 'mop', `${n.slug}-${s.slug}`)
-      urls.push({
-        loc: `${BASE_URL}/${n.urlSlug}/${s.slug}`,
-        lastmod: now,
-        changefreq: 'monthly',
-        priority: '0.6',
-        images: [{ loc: absoluteImageUrl(photo.src), title: `${photo.alt} — ${s.name} in ${n.name}`, caption: `${s.name} in ${n.name}` }],
-      })
-    }
-  }
+  // Area x service combo pages are intentionally NOT in the sitemap — they
+  // have no content-generation path yet (see areas/[location]/[service]/page.tsx)
+  // and are marked noindex there. Same containment as the VA tenant combos.
 
   const xmlEscape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 

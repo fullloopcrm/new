@@ -50,6 +50,12 @@ const INTENTIONAL_NOINDEX: Record<string, string> = {
     'thin neighborhood×service programmatic combos (follow kept for link equity)',
   'nycmaid/apply/administrator/page.tsx':
     'job-application form (video/audio interview flow), deliberately noindex/nofollow to avoid public discovery outside the careers listing page',
+  'template/areas/[location]/[service]/page.tsx':
+    'thin geo×service programmatic combos for cleaning tenants — no content-generation path exists yet (generate-tenant-site.ts covers location/job pages only), always noindex until one does (follow kept for link equity)',
+  'template/areas/[location]/page.tsx':
+    'conditionally noindex — only the nearest SITEMAP_AREA_LIMIT (20) coverage areas are indexed per tenant; areas beyond that rank are real geo pages but template-generated prose, kept crawlable (follow) but out of the index until they have real content or a sitemap slot',
+  'template/careers/[location]/page.tsx':
+    'same containment as areas/[location]/page.tsx — conditionally noindex beyond the same SITEMAP_AREA_LIMIT (20) cap',
 }
 
 // --- site discovery (same rule as the sibling tests) ---

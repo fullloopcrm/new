@@ -6,49 +6,62 @@ import { join } from 'node:path'
 // sweep, companion to seo-canonical-consistency.test.ts,
 // seo-metadata-completeness.test.ts and seo-indexing-safety.test.ts).
 //
-// THE RISK THIS GUARDS: `/sitemap.xml` is served header-driven. middleware.ts
-// rewrites the request based on TENANTS_WITH_RICH_SITEMAP:
-//   - slug IN the set   -> rewrite to /site/<slug>/sitemap.xml (the tenant's OWN
-//                          sitemap route: a sitemap.ts, a sitemap.xml/ Route
-//                          Handler, or a static sitemap.xml).
-//   - slug NOT in the set -> fall back to the generic /api/tenant-sitemap (7 URLs).
-// So the set and the on-disk routes MUST agree, and neither the code nor the
-// type checker enforces it:
+// THE RISK THIS GUARDS: `/sitemap.xml` is served header-driven. tenant-routing.ts
+// rewrites the request based on BESPOKE_SITE_TENANTS:
+//   - slug IN the set     -> rewrite to /site/<slug>/sitemap.xml (the tenant's OWN
+//                            sitemap route: a sitemap.ts, a sitemap.xml/ Route
+//                            Handler, or a static sitemap.xml).
+//   - slug NOT in the set -> rewrite to /site/template/sitemap.xml (the shared,
+//                            config-driven template's own real per-tenant sitemap).
+// So the set and the on-disk bespoke routes MUST agree, and neither the code
+// nor the type checker enforces it:
 //   * A slug added to the set with NO sitemap route on disk => middleware
 //     rewrites /sitemap.xml to a path that 404s. The flagship tenant losing its
 //     sitemap is a silent, real indexing hit that no build error catches.
-//   * A site that ships its own sitemap route but is NOT in the set => middleware
-//     silently serves the thin 7-URL fallback while the rich sitemap sits unused.
+//   * A site that ships its own /site/<slug> sitemap route but is NOT in the
+//     set => middleware silently serves it the generic /site/template sitemap
+//     instead while its real one sits unused.
 // This file makes both drifts impossible to merge.
 //
+// Until 2026-08-18 this checked a SECOND, separately-maintained set
+// (TENANTS_WITH_RICH_SITEMAP) against a fallback to the thin, selena_config
+// -driven /api/tenant-sitemap. That set was always identical in membership to
+// BESPOKE_SITE_TENANTS, and any template tenant NOT manually added to it (e.g.
+// every cleaning tenant created after the set was last updated) silently fell
+// through to the thin fallback instead of the template's real, per-tenant-
+// coverage sitemap. The rewrite now uses BESPOKE_SITE_TENANTS directly — one
+// list, not two — so this guard was updated to match.
+//
 // PURE SOURCE-READING, no bundler / no runtime eval, matching the sibling SEO
-// tests. The rich set is parsed OUT of src/middleware.ts (the real routing rule)
-// rather than hardcoded, so the guard can never disagree with production
+// tests. The bespoke set is parsed OUT of tenant-routing.ts (the real routing
+// rule) rather than hardcoded, so the guard can never disagree with production
 // routing. vitest runs with the platform package root as cwd.
 //
 // HONESTY — what this does NOT check: the runtime HTTP 200 of a served
 // /sitemap.xml (that needs a live curl — see
 // deploy-prep/sitemap-live-verification-plan.md). This asserts the source-level
-// invariant only: a rich-set slug always has a sitemap route FILE on disk.
+// invariant only: a bespoke-set slug always has a sitemap route FILE on disk.
 
 const SITE_ROOT = join(process.cwd(), 'src/app/site')
-// TENANTS_WITH_RICH_SITEMAP lives in the tenant-routing module (moved out of
+// BESPOKE_SITE_TENANTS lives in the tenant-routing module (moved out of
 // the monolithic src/middleware.ts on 2026-08-01 — see middleware.ts's own
 // top-of-file comment for why), not the middleware.ts orchestrator file
 // itself.
 const MIDDLEWARE = join(process.cwd(), 'src/middleware/tenant-routing.ts')
 
-// `template` is the scaffold every bespoke site is cloned from. It ships a
-// sitemap.xml/ Route Handler but is NEVER routed as a tenant — middleware never
-// rewrites /sitemap.xml to /site/template/... — so it is legitimately absent
-// from TENANTS_WITH_RICH_SITEMAP and must be excluded from the orphan check.
+// `template` is the scaffold every bespoke site is cloned from. It ships its
+// own sitemap.xml/ Route Handler and IS routed there — every non-bespoke
+// tenant's /sitemap.xml rewrites to it — so it's legitimately absent from
+// BESPOKE_SITE_TENANTS and must be excluded from the orphan check below (an
+// orphan is a slug shipping a sitemap route nothing routes it to; template's
+// route is very much used, just not via this set).
 const NON_TENANT_SCAFFOLDS = new Set(['template'])
 
-// Parse `TENANTS_WITH_RICH_SITEMAP = new Set(['a', 'b', ...])` out of the
+// Parse `BESPOKE_SITE_TENANTS = new Set<string>(['a', 'b', ...])` out of the
 // middleware source (same technique as reconcile-tenant-config.mjs::parseBespokeSet).
-function parseRichSitemapSet(middlewareSource: string): Set<string> {
+function parseBespokeSiteTenants(middlewareSource: string): Set<string> {
   const block = middlewareSource.match(
-    /TENANTS_WITH_RICH_SITEMAP\s*=\s*new Set\(\[([\s\S]*?)\]\)/,
+    /BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/,
   )
   return new Set(
     block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [],
@@ -57,10 +70,10 @@ function parseRichSitemapSet(middlewareSource: string): Set<string> {
 
 // DOMAIN_SITE_SLUG_OVERRIDES (see tenant-routing.ts) routes a specific
 // hostname's /sitemap.xml straight to /site/<slug>/sitemap.xml, bypassing
-// TENANTS_WITH_RICH_SITEMAP entirely (that set is keyed by tenant slug — one
+// BESPOKE_SITE_TENANTS entirely (that set is keyed by tenant slug — one
 // folder per tenant — while an override lets ONE tenant's second domain
 // serve a DIFFERENT folder's sitemap). A folder that's only reachable via an
-// override, not via the rich set, is not an orphan.
+// override, not via the bespoke set, is not an orphan.
 function parseDomainSiteSlugOverrideTargets(middlewareSource: string): Set<string> {
   const block = middlewareSource.match(
     /DOMAIN_SITE_SLUG_OVERRIDES\s*:\s*Record<string,\s*string>\s*=\s*\{([\s\S]*?)\}/,
@@ -90,7 +103,7 @@ function sitemapRouteKind(slugDir: string): string | null {
 }
 
 const middlewareSource = readFileSync(MIDDLEWARE, 'utf8')
-const richSet = parseRichSitemapSet(middlewareSource)
+const bespokeSet = parseBespokeSiteTenants(middlewareSource)
 const domainOverrideTargets = parseDomainSiteSlugOverrideTargets(middlewareSource)
 
 // Every immediate /site/<slug> directory that ships its own sitemap route.
@@ -99,20 +112,20 @@ const sitesWithSitemapRoute = readdirSync(SITE_ROOT, { withFileTypes: true })
   .map((e) => e.name)
   .filter((slug) => sitemapRouteKind(join(SITE_ROOT, slug)) !== null)
 
-describe('sitemap-presence invariant (middleware rich set <-> on-disk routes)', () => {
-  it('parses a non-empty TENANTS_WITH_RICH_SITEMAP out of middleware.ts', () => {
+describe('sitemap-presence invariant (bespoke set <-> on-disk routes)', () => {
+  it('parses a non-empty BESPOKE_SITE_TENANTS out of middleware.ts', () => {
     // If this fails, the middleware syntax changed and the parser above must be
     // updated — do NOT let the guard silently pass on an empty set.
-    expect(richSet.size).toBeGreaterThan(0)
+    expect(bespokeSet.size).toBeGreaterThan(0)
   })
 
-  it('every rich-sitemap tenant has a served sitemap route on disk (no 404 rewrite)', () => {
-    const missing = [...richSet].filter(
+  it('every bespoke tenant has a served sitemap route on disk (no 404 rewrite)', () => {
+    const missing = [...bespokeSet].filter(
       (slug) => sitemapRouteKind(join(SITE_ROOT, slug)) === null,
     )
     expect(
       missing,
-      `TENANTS_WITH_RICH_SITEMAP lists ${missing.length} slug(s) with NO sitemap ` +
+      `BESPOKE_SITE_TENANTS lists ${missing.length} slug(s) with NO sitemap ` +
         `route under src/app/site — middleware would rewrite /sitemap.xml to a 404: ` +
         `${missing.join(', ')}`,
     ).toEqual([])
@@ -124,18 +137,18 @@ describe('sitemap-presence invariant (middleware rich set <-> on-disk routes)', 
     expect(domainOverrideTargets.size).toBeGreaterThan(0)
   })
 
-  it('no site ships a rich sitemap route while missing from the set (no silent fallback)', () => {
+  it('no site ships a sitemap route while missing from the bespoke set (no silent fallback)', () => {
     const orphans = sitesWithSitemapRoute.filter(
       (slug) =>
-        !richSet.has(slug) &&
+        !bespokeSet.has(slug) &&
         !NON_TENANT_SCAFFOLDS.has(slug) &&
         !domainOverrideTargets.has(slug),
     )
     expect(
       orphans,
       `${orphans.length} site(s) ship their own sitemap route but are absent from ` +
-        `TENANTS_WITH_RICH_SITEMAP, so middleware serves them the thin 7-URL generic ` +
-        `fallback instead: ${orphans.join(', ')}`,
+        `BESPOKE_SITE_TENANTS, so middleware serves them the /site/template sitemap ` +
+        `instead of their own: ${orphans.join(', ')}`,
     ).toEqual([])
   })
 })
