@@ -403,7 +403,7 @@ export default async function IndustryPage({
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
             platform. The license includes your exclusive territory,
-            all 7 lifecycle stages, the Our AI receptionist assistant, client and team
+            all 7 lifecycle stages, the AI receptionist assistant, client and team
             portals, full bookkeeping with 1099-ready exports, and all
             core updates.
           </p>
