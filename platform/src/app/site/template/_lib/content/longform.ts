@@ -2187,8 +2187,261 @@ function retailBlogPosts(config: SiteConfig): BlogPost[] {
   ]
 }
 
+/** Real, film-photography-specific posts — practical guides, not the generic "how to hire a pro" service-business content or streetwear retail posts. */
+function photographyBlogPosts(config: SiteConfig): BlogPost[] {
+  const v = vars(config)
+  const smsLine = `Text ${v.phone}`
+
+  return [
+    {
+      slug: 'film-vs-digital-vs-ai-photography',
+      excerpt: `Film, digital, and AI-generated photography aren't three versions of the same thing. Here's what actually separates them, and what you're paying for with each.`,
+      page: {
+        title: `Film vs. Digital vs. AI Photography: What's the Real Difference? — ${v.brand}`,
+        metaDescription: `A practical breakdown of film, digital, and AI-generated photography — what each actually is, what you're paying for, and why the differences matter more than they used to.`,
+        h1: `Film vs. Digital vs. AI Photography: What's the Real Difference?`,
+        intro: `"Photography" now covers three genuinely different things — a real film negative, a digital sensor's file, and an AI model's statistical guess at an image. They're often priced and marketed as interchangeable. They aren't, and understanding the actual difference will change how you think about what you're paying for.`,
+        sections: [
+          { heading: `What a Film Photograph Actually Is`, paragraphs: [
+            `A film photograph starts as light passing through a lens and hitting a strip of chemically-coated plastic — the film. Where light hits, silver halide crystals react. That reaction is developed, fixed, and made permanent through real chemistry, producing a negative: a physical, unchangeable record of that exact moment of light.`,
+            `Everything downstream of that negative — a darkroom print, a digital scan — is a reproduction of something that verifiably happened. The negative itself doesn't update, doesn't regenerate, and can be reprinted identically decades later. That permanence is the entire value proposition of shooting film in the first place.`,
+          ]},
+          { heading: `What a Digital Photograph Actually Is`, paragraphs: [
+            `A digital photograph also starts with light through a lens, but instead of chemistry, it hits a digital sensor that converts light into an electronic signal, which a processor turns into a file. That file is real — it represents an actual moment the camera captured — but it's also infinitely editable, copyable, and, critically, mutable after the fact in ways a negative structurally isn't.`,
+            `Digital photography is faster, cheaper per frame, and gives instant feedback — real, practical advantages for a lot of work. What it gives up is the negative's built-in permanence. A digital file's "originality" depends entirely on whether anyone bothered to preserve it unedited, which in practice, almost never happens anymore.`,
+          ]},
+          { heading: `What an AI-Generated "Photograph" Actually Is`, paragraphs: [
+            `This is where the category breaks down entirely. An AI image generator doesn't capture light through a lens at all. It produces a statistically plausible arrangement of pixels based on a prompt and training data — an image that resembles a photograph without any camera, any lens, or any real moment behind it. Calling that a "photograph" is, strictly, inaccurate.`,
+            `The same applies to AI-edited photography — an AI tool that reshapes a face, invents background detail, or "enhances" a real photo past what the camera actually captured. At that point, some meaningful percentage of the final image is invention, not documentation, even if it started from a real photo.`,
+          ]},
+          { heading: `Why the Difference Matters More Than It Used To`, paragraphs: [
+            `For most of photography's history, a photograph was reasonably trustworthy evidence that something happened — a moment, a person, a place, in front of a real lens at a real time. AI image generation breaks that assumption for the first time at real scale, which is exactly why we think the distinction between "real photograph" and "AI-generated image" is going to matter more, not less, going forward.`,
+            `Film sits at the far end of that spectrum — the most physically verifiable, hardest-to-fake format available. Digital sits in the middle, real but fragile to invisible editing. AI-generated imagery sits outside the category of photography altogether, however convincingly it's styled to look like one.`,
+          ]},
+          { heading: `What This Means When You're Hiring a Photographer`, paragraphs: [
+            `If what you want is a genuine, verifiable image of a real moment — a portrait, a wedding, a headshot that's actually you — ask directly what's shot on film versus digital, and whether any AI editing touches the final result. A photographer confident in their process will answer plainly. One that gets vague is telling you something.`,
+            `At ${v.brand}, every session is shot on real 35mm black and white film, hand-developed and hand-printed, with no AI anywhere in the process — no AI retouching, no AI-generated backgrounds, none of it. ${smsLine} if you want to talk through what that actually looks like for your specific session.`,
+          ]},
+          { heading: `The Cost Difference, Explained Honestly`, paragraphs: [
+            `Film costs real money per frame before a single photo is even taken — the film stock itself, then developer, stop bath, and fixer chemistry, then archival photo paper for every print. A digital sensor's marginal cost per frame is close to zero once the camera is paid for. An AI generator's marginal cost is smaller still. That's the honest, unglamorous reason film photography costs more, and it's worth saying plainly instead of hiding it in a vague "premium service" framing.`,
+            `That cost buys something specific: a negative that exists independently of any software, service, or subscription, and a print made through a physical process that hasn't fundamentally changed in over a century because it still produces something nothing else does.`,
+          ]},
+          { heading: `A Simple Test You Can Use`, paragraphs: [
+            `Here's a practical way to think about it: ask whether the image could be reprinted, identically, in fifty years using only the original artifact — no software, no cloud account, no company still needing to exist. A film negative passes that test trivially. A digital file passes only if someone actively maintained it through every device and format change along the way. An AI-generated image doesn't really pass at all, since regenerating "the same" image from a prompt produces a different result every time.`,
+            `That test isn't about nostalgia — it's about which format actually behaves the way people assume "a photograph" behaves when they're trusting it with something that matters to them.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'how-to-prepare-for-a-black-and-white-portrait-session',
+      excerpt: `What to wear, how to think about your session, and a few small things that make a real difference in a black and white film portrait.`,
+      page: {
+        title: `How to Prepare for a Black and White Film Portrait Session — ${v.brand}`,
+        metaDescription: `A practical guide to preparing for a black and white film portrait session: what to wear, how to think about the day, and small details that actually matter.`,
+        h1: `How to Prepare for a Black and White Portrait Session`,
+        intro: `A little preparation makes a real difference in how a black and white film portrait turns out — not because the process is complicated, but because a few small choices genuinely change how the final print looks. Here's what actually matters.`,
+        sections: [
+          { heading: `Think in Tones, Not Colors`, paragraphs: [
+            `Without color to separate elements, black and white film reads everything as a tone — a shade of gray from pure white to pure black. That means the biggest question for your outfit isn't "what color looks good" but "what tone will this read as." Two colors that look completely different to your eye can photograph as nearly the same gray.`,
+            `Mid-tones — grays, blues, warm browns, olive — tend to print with the most range and detail. Pure white and pure black can lose detail if the lighting isn't matched precisely, since there's less room for the film to record variation at the extremes.`,
+          ]},
+          { heading: `Choose Solid Colors and Simple Patterns`, paragraphs: [
+            `Busy patterns — small checks, tight stripes, complex prints — can translate into visual noise in black and white, sometimes even creating a strange flickering effect called moiré where a pattern interacts oddly with the film grain. Solid colors and simple textures almost always photograph more cleanly.`,
+            `Texture itself, on the other hand, photographs beautifully in black and white — a wool sweater, a leather jacket, denim. Without color competing for attention, texture becomes one of the main things your eye reads, so it's worth thinking about fabric, not just color.`,
+          ]},
+          { heading: `Skip Heavy Makeup and Matte Powder`, paragraphs: [
+            `Film picks up skin texture in a genuine, flattering way — it's part of what makes a film portrait feel real rather than airbrushed. Heavy foundation or matte powder can flatten that texture and read strangely without color to soften the effect. A light, natural approach almost always photographs better on film than it does in a mirror.`,
+            `This isn't a rule against makeup — it's specifically about avoiding a very flat, powdery finish that black and white film renders unevenly. Normal, everyday makeup works fine.`,
+          ]},
+          { heading: `Give Yourself Warm-Up Time`, paragraphs: [
+            `Almost everyone feels a little stiff in front of a camera for the first few minutes, and that's completely normal — it's also exactly why a real session builds in time for it. The best frames rarely happen in the first thirty seconds; they happen once you've relaxed into the process.`,
+            `If you're genuinely nervous, say so before the camera comes out. A few minutes of just talking, camera down, does more to fix a stiff portrait than any direction during the shoot itself.`,
+          ]},
+          { heading: `Remember: There's No Instant Preview`, paragraphs: [
+            `Unlike a phone or digital camera, there's no chimping the back of a screen after every frame on a film session. That can feel unfamiliar if you're used to checking every shot, but it also means the session moves differently — less stopping to evaluate, more staying present in the moment. Most people find they relax faster once they stop expecting an instant preview.`,
+            `Trust that the photographer is shooting enough variation in expression and framing to give you real choices once the roll is developed — that's part of the craft, not a gap you need to manage yourself.`,
+          ]},
+          { heading: `A Few Small Logistics`, paragraphs: [
+            `If you're shooting on location around San Francisco, build in a few extra minutes for parking and transit — arriving relaxed matters more than arriving exactly on the dot. If you have a specific print size or frame in mind, mention it before the session so composition can account for that final crop.`,
+            `Beyond that, there's genuinely not much to prepare. ${smsLine} if you have questions before your session — no question is too small, and getting it right matters more than getting to it fast.`,
+          ]},
+          { heading: `If You're Bringing Someone Else`, paragraphs: [
+            `For a couples, family, or group session, the same tonal logic applies to everyone in frame — coordinate loosely around complementary mid-tones rather than trying to match outfits exactly, which tends to look stiffer in a photo than it does in person. A shared color family (not identical colors) usually photographs better than a strict match.`,
+            `If kids are involved, plan around their actual schedule rather than yours — a well-rested, recently-fed kid makes a bigger difference to how a session goes than any amount of outfit planning. We build extra time into family sessions for exactly this reason.`,
+          ]},
+          { heading: `What Happens With the Film Afterward`, paragraphs: [
+            `Once your session ends, the roll goes into the darkroom that week for development — a hand process that takes real time, which is why there's no same-day preview the way there would be with a digital camera. Knowing this in advance helps some people relax during the session itself, since there's no pressure to judge results on the spot; that judgment happens later, once the full contact sheet is ready to review.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'best-places-to-shoot-film-photography-in-san-francisco',
+      excerpt: `Fog, hills, architecture, and light that changes block by block — here's where and when to shoot black and white film in San Francisco.`,
+      page: {
+        title: `The Best Places to Shoot Black and White Film Photography in San Francisco — ${v.brand}`,
+        metaDescription: `A practical guide to San Francisco's best black and white film photography locations — fog timing, golden hour spots, and what makes each location work.`,
+        h1: `The Best Places to Shoot Black and White Film Photography in San Francisco`,
+        intro: `San Francisco's fog, hills, and architecture make it one of the best cities in the country for black and white film work — if you know where and when to point the camera. Here's a practical, honest guide to our favorite spots.`,
+        sections: [
+          { heading: `Twin Peaks — For Fog`, paragraphs: [
+            `Twin Peaks is the single best fog-watching vantage point in the city, and fog is arguably black and white film's best friend — it diffuses harsh light into an even, wide tonal range that plays beautifully into film's strengths. Evening fog rolling over the hills here produces some of the most dramatic black and white frames available anywhere in San Francisco.`,
+            `Timing matters more than the spot itself — check conditions close to your shoot rather than locking a date weeks out. Fog on demand isn't a real thing, but San Francisco produces it often enough that patience usually pays off.`,
+          ]},
+          { heading: `Lands End — For Drama`, paragraphs: [
+            `Rugged coastline, the Marin Headlands across the water, and the ruins of the Sutro Baths combine for one of the most visually dramatic black and white landscapes in the city. The uneven light along the coast — bright sky, dark rock, moving water — gives film a genuine tonal range to work with that a flatter urban scene doesn't offer.`,
+          ]},
+          { heading: `The Golden Gate Bridge — Two Real Angles`, paragraphs: [
+            `Battery Spencer, across the bridge in Marin, gives the classic elevated silhouette shot — the bridge against the city skyline, best around sunset when the light rakes across the towers. Fort Point, underneath the span on the San Francisco side, gives a completely different, much more dramatic low angle looking straight up at the structure.`,
+            `Both are genuinely different photographs of the same landmark, and worth knowing as two separate options rather than one obvious shot everyone already has.`,
+          ]},
+          { heading: `Haight-Ashbury — For Character`, paragraphs: [
+            `Haight-Ashbury's Victorian storefronts, murals, and street life give black and white street photography real texture and history to work with — it's a neighborhood that's been photographed for over half a century and still photographs like it means it. Good for portrait work with real urban character, not a blank studio backdrop.`,
+          ]},
+          { heading: `The Presidio — For Range`, paragraphs: [
+            `Forest, fog, and old military architecture inside one park give black and white film a huge amount of range to work with in a single session — moody, atmospheric portrait work is a favorite request here, and Golden Gate Bridge views are visible from several points inside the park too.`,
+          ]},
+          { heading: `Bernal Heights Summit — For the Skyline`, paragraphs: [
+            `A 360-degree view that captures downtown's skyline against the surrounding hills, especially striking at blue hour — the twenty or so minutes right after sunset when the sky still holds color but the city lights have come on. A quieter, less crowded alternative to Twin Peaks with a genuinely different angle on the city.`,
+          ]},
+          { heading: `Why Fog Matters So Much for Black and White`, paragraphs: [
+            `It's worth explaining why fog specifically matters this much. Direct, harsh sunlight creates a huge contrast range — bright highlights, hard shadows — that can be difficult for any film to hold detail across in a single frame. Fog diffuses that light, softening the range into something closer to what film handles best: even, wide tonal separation without blown-out highlights or crushed shadows.`,
+            `That's the practical, technical reason San Francisco produces such striking black and white work, beyond just being a photogenic city. The weather is doing real optical work for the photographer before the shutter ever opens — something a sunny, flat-light city simply can't offer as reliably.`,
+          ]},
+          { heading: `North Beach and the Mission — For Street Character`, paragraphs: [
+            `North Beach's old-world Italian-American storefronts and café culture give engagement and couples sessions a relaxed, walk-and-talk quality that a static backdrop can't match. The Mission's mural-covered walls, meanwhile, add real color and texture that, stripped to black and white, becomes pure graphic contrast — genuinely striking for portrait work with an edgier, more urban feel.`,
+            `Both neighborhoods reward a photographer who knows them well enough to plan a short walking route rather than a single fixed spot, since the light and backdrop shift meaningfully block to block.`,
+          ]},
+          { heading: `A Note on Timing`, paragraphs: [
+            `Golden hour — the hour or so before sunset — and blue hour — the twenty minutes after — are genuinely different lighting conditions worth planning around deliberately rather than treating as interchangeable "late afternoon." Golden hour gives warm, low, directional light; blue hour gives even, cool, moody tone with city lights beginning to show. Both work beautifully in black and white, but they produce noticeably different results, so it's worth telling your photographer which mood you're actually after.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'why-we-will-never-use-ai-photography',
+      excerpt: `Not a marketing line — a real explanation of why AI has no role in how this studio operates, and what that actually protects.`,
+      page: {
+        title: `Why We Will Never Use AI in Our Photography — ${v.brand}`,
+        metaDescription: `A real explanation, not a slogan, of why ${v.brand} has no AI anywhere in its process — no AI editing, no AI-generated images, no AI-written reviews.`,
+        h1: `Why We Will Never Use AI in Our Photography`,
+        intro: `"No AI" shows up on a lot of marketing pages as a vague vibe. We mean it specifically and operationally, and this is the actual reasoning behind it — not a slogan, an explanation.`,
+        sections: [
+          { heading: `A Photograph Used to Mean Something Specific`, paragraphs: [
+            `For most of photography's history, a photograph carried an implicit claim: this happened, in front of a real lens, at a real moment. That claim is what gave photography its unique power compared to a painting or a drawing — it wasn't just a representation, it was evidence.`,
+            `AI image generation breaks that claim for the first time at real scale. An AI-generated "photograph" can depict something that never happened, with no camera, no lens, and no real moment behind it at all. We think that's a fundamentally different product, and calling it photography quietly erodes what the word used to guarantee.`,
+          ]},
+          { heading: `The Craft Argument`, paragraphs: [
+            `A generative model can approximate what film grain looks like — the texture, the softness, the tonal falloff. It can't replicate what film grain actually is: the physical result of real light reacting with real silver halide crystals in a real emulsion. That distinction sounds abstract until you hold a real print next to a generated approximation of one side by side — the difference is visible, not theoretical.`,
+            `We spent real years learning a real craft — how ${v.brand} handles exposure, development, and hand-printing. Letting software shortcut any part of that isn't a neutral efficiency gain to us. It's giving away the actual skill the whole studio is built on.`,
+          ]},
+          { heading: `The Trust Argument`, paragraphs: [
+            `When someone books a wedding, a family portrait, or a professional headshot, they're trusting us with a real moment that matters to them. Quietly handing any part of that to an algorithm — even something that feels minor, like AI-assisted retouching — breaks the specific thing that made choosing film worth it in the first place.`,
+            `We'd rather tell a client honestly what film photography can and can't do than quietly patch a gap with AI and let them believe it's something it isn't.`,
+          ]},
+          { heading: `The Honesty Argument`, paragraphs: [
+            `This extends past the photos themselves. We don't run AI-generated "client testimonials," and we won't fabricate reviews while we wait for real ones — which is exactly why our Reviews page shows an honest zero instead of a manufactured wall of five stars. If we're not willing to fake a testimonial, we're certainly not willing to fake the actual product.`,
+            `We think a lot of businesses treat "no AI" as a marketing checkbox while quietly using it somewhere in the pipeline anyway. We'd rather hold a genuinely hard line than make a soft promise with an asterisk nobody sees.`,
+          ]},
+          { heading: `What This Costs Us, Honestly`, paragraphs: [
+            `This position is slower and more expensive to maintain than the alternative. AI editing is faster than darkroom printing. AI-generated backgrounds are cheaper than location scouting. AI-smoothed retouching is quicker than traditional dodge-and-burn work. We do the harder, slower version anyway, because we think the result is genuinely different, not just differently marketed.`,
+            `If that tradeoff — slower and more expensive for something structurally more real — matters to you the way it matters to us, ${smsLine} and let's talk about your session.`,
+          ]},
+          { heading: `This Isn't a Rejection of Technology`, paragraphs: [
+            `To be clear, this isn't a blanket stance against anything modern. We book online, we text, we run a normal service business by every reasonable measure. The line is specific and narrow: the actual photograph itself — the light hitting the film, the print developing under the safelight — stays entirely human, entirely un-automated, from the first frame to the final print.`,
+            `We think that's a coherent, defensible position rather than a contradiction. A business can use modern tools to be reachable and easy to work with while still refusing to let software touch the craft at its center.`,
+          ]},
+          { heading: `Why We Think This Will Matter More, Not Less`, paragraphs: [
+            `AI-generated imagery is only going to get more convincing and more common. We think that trend makes a genuinely real, verifiable photograph more valuable over time, not less — the rarer real things become in a category flooded with synthetic ones, the more they're worth to the people who actually want the real thing.`,
+            `We'd rather be positioned clearly on that side of the line now, while it's still easy to explain, than try to retrofit credibility later once "real photograph" needs its own certification to mean anything.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'how-to-care-for-and-preserve-darkroom-prints',
+      excerpt: `A hand-printed archival photograph can last over a century with basic care. Here's exactly how to make sure yours does.`,
+      page: {
+        title: `How to Care for and Preserve Your Darkroom Prints — ${v.brand}`,
+        metaDescription: `A practical guide to preserving an archival darkroom photograph — light, humidity, framing, and storage, so your print lasts for generations.`,
+        h1: `How to Care for and Preserve Your Darkroom Prints`,
+        intro: `A properly processed archival darkroom print is rated to last well over a century — but that number assumes basic, genuinely simple care. Here's exactly what protects a print, and what quietly damages one over time.`,
+        sections: [
+          { heading: `Light Is the Biggest Threat`, paragraphs: [
+            `Direct, prolonged sunlight is the single biggest real risk to any photographic print, film or digital. UV exposure gradually breaks down the silver and paper fibers, fading tonal range and yellowing the paper over years. A print in a bright, south-facing window will visibly degrade faster than the same print hung on an interior wall.`,
+            `If a bright room is your only option, UV-filtering glass in the frame meaningfully slows this process. It's a small added cost at framing time that pays off over decades.`,
+          ]},
+          { heading: `Humidity and Temperature Matter More Than People Expect`, paragraphs: [
+            `A damp basement or an un-climate-controlled attic is a genuinely poor storage environment — moisture accelerates chemical breakdown in the paper and can encourage mold growth on the print surface. A normal, climate-controlled living space is fine; extremes in either direction (very damp or very dry) aren't.`,
+            `If you're storing negatives or unframed prints long-term, a cool, dry, stable environment — a closet in a normal room, not a garage — is the simplest way to protect them for decades.`,
+          ]},
+          { heading: `Framing Materials Matter`, paragraphs: [
+            `Acid-free matting and backing board keep a print from slowly yellowing due to contact with lower-quality, acidic materials — a real, measurable effect over a long enough timeline, even if it's invisible in year one. If you're having a print framed, ask specifically for acid-free or archival-grade materials; it's a small detail with real long-term consequences.`,
+          ]},
+          { heading: `Handling and Storage`, paragraphs: [
+            `Handle unframed prints by the edges, not the surface — skin oils can leave marks that become visible over time. For storage, acid-free sleeves or archival boxes protect prints far better than a shoebox or a random envelope, especially against dust, moisture, and accidental bending.`,
+          ]},
+          { heading: `What We Do on Our End`, paragraphs: [
+            `Every print that leaves this studio is fixed and washed thoroughly during development — a step that directly affects archival longevity, since residual chemistry left in the paper is one of the main causes of premature fading. We also archive your negatives ourselves, so a reprint is always possible later without a new session.`,
+            `If you have questions about caring for a specific print, or want a reprint from an existing negative, ${smsLine} — we're glad to help either way.`,
+          ]},
+          { heading: `Digital Scans Age Differently — and Need Their Own Care`, paragraphs: [
+            `If you also ordered the Digital Scans Add-On, remember that a digital file has its own, completely different preservation needs — it depends on active maintenance, not passive storage. A single copy on one phone or one hard drive isn't archival; it's one failure away from gone. Back scans up in at least two places, ideally including one that isn't tied to a single device.`,
+            `This is actually one of the clearer, practical arguments for having both a physical print and a digital scan of the same image: the print survives with almost no maintenance at all, while the digital file gives you a shareable, easily reproducible backup as long as someone keeps it backed up. The two formats cover each other's weaknesses.`,
+          ]},
+          { heading: `Signs a Print Needs Attention`, paragraphs: [
+            `A healthy archival print should show minimal visible change over years of normal display. Watch for warm yellowing in the whites, a general loss of contrast, or any visible mold spotting — all signs the print's environment (usually light or humidity) needs adjusting. Caught early, moving a print out of direct light or a damp room usually stops further damage before it becomes visible loss.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+    {
+      slug: 'analog-vs-digital-what-a-negative-actually-gives-you',
+      excerpt: `A film negative isn't just "the old way" of making a photograph — it's a physically different object with real, practical advantages. Here's what it actually gives you.`,
+      page: {
+        title: `What a Film Negative Actually Gives You (That a Digital File Can't) — ${v.brand}`,
+        metaDescription: `A practical look at what a film negative actually is, why it behaves differently from a digital file, and what that difference means for you long-term.`,
+        h1: `What a Film Negative Actually Gives You`,
+        intro: `A digital file and a film negative are sometimes talked about as if they're the same thing in different formats. They're not — a negative is a physical object with real, permanent properties a digital file structurally can't replicate. Here's what that actually means in practice.`,
+        sections: [
+          { heading: `A Negative Is a Physical Object, Not Information`, paragraphs: [
+            `A digital photo is information — a specific sequence of data that can be copied perfectly, but also altered perfectly, deleted instantly, or corrupted silently. A film negative is a physical object: a strip of plastic with a permanent chemical record burned into it by real light. It doesn't have a "file format" that can go obsolete, and it can't be silently edited without physically altering the object itself.`,
+          ]},
+          { heading: `It Doesn't Depend on Anything Continuing to Exist`, paragraphs: [
+            `A digital file depends on a working device, a maintained backup, or a cloud service that stays in business — all things that quietly fail over a long enough timeline. A negative in a drawer needs nothing to keep existing except basic physical care. No software update, no subscription renewal, no company staying solvent.`,
+            `This is the single biggest practical argument for film over the multi-decade timeline most people actually care about for meaningful photos — a wedding, a family portrait, a milestone. Digital convenience is real for the first few years. Physical permanence is what matters at year thirty.`,
+          ]},
+          { heading: `It's Reprintable, Identically, Forever`, paragraphs: [
+            `Because the negative itself doesn't change, a print made from it in fifty years will be the same image as a print made from it today — not an approximation, not a re-scan of a re-scan, the same original source. That's a meaningfully different guarantee than "we hope the file survives," which is the honest state of most digital photo archives.`,
+          ]},
+          { heading: `It Can't Be Quietly Altered After the Fact`, paragraphs: [
+            `A digital file can be edited invisibly, at any point, by anyone with access to it — a skin smoothing pass, a background swap, an AI touch-up, none of which necessarily leaves a visible trace in the final image. A negative physically can't be altered that way without it being obvious. What was exposed onto it is what's there.`,
+          ]},
+          { heading: `The Takeaway`, paragraphs: [
+            `None of this makes digital photography bad — it's faster, cheaper, and more practical for a lot of real use cases. But for the photographs meant to actually last and actually mean something decades from now, a negative offers a kind of permanence a digital file structurally can't promise. That's the whole reason ${v.brand} still shoots film for exactly those moments. ${smsLine} if you want to talk through which of your own moments deserve that kind of permanence.`,
+          ]},
+        ],
+        faq: [],
+      },
+    },
+  ]
+}
+
 export function blogPosts(config: SiteConfig): BlogPost[] {
-  if (config.storefrontEnabled) return retailBlogPosts(config)
+  // retailBlogPosts is streetwear-authored content (sizing, hoodie vs.
+  // crewneck, fabric weight) — gating it on storefrontEnabled alone put
+  // streetwear apparel posts on every storefront tenant regardless of
+  // vertical, including a black-and-white film photography studio. Gate on
+  // the actual streetwear layout instead; other storefront verticals (e.g.
+  // photography's print shop) get their own vertical-appropriate posts below.
+  if (config.layoutVariant === 'streetwear-editorial') return retailBlogPosts(config)
+  if (industryProfile(config.industry).isPhotography) return photographyBlogPosts(config)
   const v = vars(config)
   const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
   const Label = v.label

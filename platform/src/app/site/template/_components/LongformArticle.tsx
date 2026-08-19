@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import JsonLd from '@/app/site/template/_components/JsonLd'
+import { linkifyPhones } from '@/app/site/template/_components/LinkifyPhone'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import type { LongformPage } from '@/app/site/template/_lib/content/longform'
 
@@ -25,6 +26,10 @@ export function LongformArticle({
 }) {
   const smsHref = `sms:${config.contact.phoneDigits}`
   const defaultCtaBody = `Tell us what you need and we'll take it from there — a clear quote, a time that works, and work we stand behind.`
+  const phones = [
+    { display: config.contact.phone, digits: config.contact.phoneDigits },
+    { display: config.contact.supportPhone, digits: config.contact.supportPhoneDigits },
+  ]
 
   // Only emit an AggregateRating backed by a real, positive integer review count.
   // Number('') → 0 and Number('50+') → NaN both fail, so a tenant without real
@@ -80,7 +85,7 @@ export function LongformArticle({
             </h2>
             <div className="space-y-4">
               {section.paragraphs.map((p, j) => (
-                <p key={j} className="text-gray-600 text-[17px] leading-relaxed">{p}</p>
+                <p key={j} className="text-gray-600 text-[17px] leading-relaxed">{linkifyPhones(p, phones)}</p>
               ))}
             </div>
           </section>
@@ -95,7 +100,7 @@ export function LongformArticle({
               {content.faq.map((f, i) => (
                 <div key={i}>
                   <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">{f.q}</h3>
-                  <p className="text-gray-600 text-[17px] leading-relaxed">{f.a}</p>
+                  <p className="text-gray-600 text-[17px] leading-relaxed">{linkifyPhones(f.a, phones)}</p>
                 </div>
               ))}
             </div>

@@ -45,7 +45,9 @@ export default async function ProjectsIndexPage() {
             Real {p.serviceLabel} Projects
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed">
-            A look at recent {p.serviceNoun} jobs completed by {config.identity.name} — real before-and-after results, not stock photos.
+            {p.isPhotography
+              ? `A look at recent ${p.serviceNoun} sessions shot by ${config.identity.name} — real film work from real clients, not stock photography.`
+              : `A look at recent ${p.serviceNoun} jobs completed by ${config.identity.name} — real before-and-after results, not stock photos.`}
           </p>
         </div>
       </section>

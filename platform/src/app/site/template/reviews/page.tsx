@@ -7,6 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import VideoReviews from '@/app/site/template/_components/VideoReviews'
 import ReviewsList from './ReviewsList'
+import { linkifyPhones } from '@/app/site/template/_components/LinkifyPhone'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { reviewsContent } from '@/app/site/template/_lib/content/longform'
@@ -78,7 +79,7 @@ export default async function ReviewsPage() {
 
         <div className="max-w-7xl mx-auto px-4 py-12">
           <Breadcrumbs items={[{ name: 'Reviews', href: '/reviews' }]} />
-          <ReviewsList />
+          <ReviewsList businessName={config.identity.name} reviewLink="https://g.page/r/CSX9IqciUG9SEAE/review" />
           <div className="text-center mt-12 mb-8">
             <p className="text-gray-500 mb-4">Had a great experience? We&apos;d love to hear from you.</p>
             {config.googleReviewLink && (
@@ -99,6 +100,10 @@ export default async function ReviewsPage() {
   // cleaning video testimonials, no NYC-slug links, no hardcoded Google place.
   const c = reviewsContent(config)
   const smsHref = `sms:${config.contact.phoneDigits}`
+  const phones = [
+    { display: config.contact.phone, digits: config.contact.phoneDigits },
+    { display: config.contact.supportPhone, digits: config.contact.supportPhoneDigits },
+  ]
   // Only emit an AggregateRating backed by a real, positive integer review count
   // (Number('') → 0, Number('50+') → NaN both fail) — no fabricated ratings.
   const reviewCount = Number(config.reviewCount)
@@ -133,7 +138,7 @@ export default async function ReviewsPage() {
       </section>
 
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <ReviewsList />
+        <ReviewsList businessName={config.identity.name} reviewLink={config.googleReviewLink} />
       </div>
 
       <article className="max-w-3xl mx-auto px-6 pb-16 md:pb-24">
@@ -142,7 +147,7 @@ export default async function ReviewsPage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">{section.heading}</h2>
             <div className="space-y-4">
               {section.paragraphs.map((para, j) => (
-                <p key={j} className="text-gray-600 text-[17px] leading-relaxed">{para}</p>
+                <p key={j} className="text-gray-600 text-[17px] leading-relaxed">{linkifyPhones(para, phones)}</p>
               ))}
             </div>
           </section>
@@ -153,7 +158,7 @@ export default async function ReviewsPage() {
             {c.faq.map((f, i) => (
               <div key={i}>
                 <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">{f.q}</h3>
-                <p className="text-gray-600 text-[17px] leading-relaxed">{f.a}</p>
+                <p className="text-gray-600 text-[17px] leading-relaxed">{linkifyPhones(f.a, phones)}</p>
               </div>
             ))}
           </div>
