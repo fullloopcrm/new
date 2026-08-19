@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { blogPosts } from '@/app/site/template/_lib/content/longform'
+import JsonLd from '@/app/site/template/_components/JsonLd'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,9 +24,24 @@ export default async function BlogIndexPage() {
   const config = await getSiteConfig()
   const p = industryProfile(config.industry)
   const posts = blogPosts(config)
+  const base = config.identity.url.replace(/\/+$/, '')
+  const blogLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: `${config.identity.name} Blog`,
+    url: `${base}/blog`,
+    publisher: { '@type': 'Organization', name: config.identity.name, url: base },
+    blogPost: posts.map((post) => ({
+      '@type': 'BlogPosting',
+      headline: post.page.h1,
+      description: post.excerpt,
+      url: `${base}/blog/${post.slug}`,
+    })),
+  }
 
   return (
     <div>
+      <JsonLd data={blogLd} />
       <section className="bg-[var(--brand)] text-white">
         <div className="max-w-4xl mx-auto px-6 py-20 md:py-28">
           <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.25em] uppercase mb-4">Blog</p>

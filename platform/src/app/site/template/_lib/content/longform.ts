@@ -294,7 +294,7 @@ function photographyAboutContent(config: SiteConfig, v: Vars): LongformPage {
         `Our core work is ${svc}, always shot on real black and white film. Whatever the specific session — a portrait, a wedding, a headshot batch for a team, a landscape print — the approach is the same: understand what you actually need, quote it honestly, and deliver it through a real physical process, start to finish.`,
         `We don't try to be a general digital studio that also happens to shoot some film. We do black and white film photography, specifically, and we do it at a level most studios reserve for their signature work only. That focus is deliberate — it's how a team gets genuinely good at a craft instead of being mediocre at ten different services.`,
         v.services.length > 1
-          ? `Because the right session depends on what you actually need, we'll tell you plainly which of our services — ${svc} — fits, and which doesn't. If a smaller, simpler session solves your problem, we'll say so.`
+          ? `Because the right session depends on what you actually need, we'll tell you plainly which of [our services](/services) — ${svc} — fits, and which doesn't. If a smaller, simpler session solves your problem, we'll say so.`
           : `If what you need falls outside our core film work, we'll tell you honestly and point you the right direction, even when that isn't us.`,
       ],
     },
@@ -335,7 +335,7 @@ function photographyAboutContent(config: SiteConfig, v: Vars): LongformPage {
       paragraphs: [
         `Every session is billed at one flat, transparent hourly rate — no separate "studio fee," no surprise processing charge, no vague package tiers designed to upsell you past what you need. The number you're quoted before booking is the number on the final invoice.`,
         `Film, chemistry, and hand-printing cost real, tangible money per frame in a way digital photography simply doesn't — that's the honest reason a film session costs more than a phone photo or an AI-generated one, and we'd rather explain that plainly than bury it in a confusing price sheet.`,
-        `See our full pricing page for exact rates by session type — there's no penalty for booking quickly, and self-booking online applies the standard $20 discount automatically.`,
+        `See our [full pricing page](/pricing) for exact rates by session type — there's no penalty for booking quickly, and self-booking online applies the standard $20 discount automatically.`,
       ],
     },
     {
@@ -953,7 +953,7 @@ function photographyPricingContent(config: SiteConfig, v: Vars): LongformPage {
       heading: `How to Compare Quotes Fairly`,
       paragraphs: [
         `If you're comparing us against another photographer, make sure you're comparing the same thing. A lower number from a competitor often means a digital-only session with none of the darkroom process, or "film-look" digital editing standing in for real analog work. Ask what's actually included — real film stock, real hand development, real hand printing — and how clearly they answer.`,
-        `A trustworthy quote is specific and complete: it tells you the rate, what's included, and what happens if the scope changes, without hedging. We put all of our pricing logic on this page precisely so you can compare us honestly against anyone else.`,
+        `A trustworthy quote is specific and complete: it tells you the rate, what's included, and what happens if the scope changes, without hedging. See our [full services list](/services) for what each session actually includes. We put all of our pricing logic on this page precisely so you can compare us honestly against anyone else.`,
       ],
     },
     {
@@ -1239,13 +1239,13 @@ function photographyFaqContent(config: SiteConfig, v: Vars): LongformPage {
     {
       heading: `Our Position on AI, Directly`,
       paragraphs: [
-        `No AI photo editing. No AI-generated backgrounds or portraits. No AI upscaling standing in for real resolution. No AI-written reviews or fabricated testimonials — if you see zero reviews on our Reviews page, it's because we haven't faked any while we wait for real ones. This isn't a marketing line; it's a working rule for how the studio operates, top to bottom.`,
+        `No AI photo editing. No AI-generated backgrounds or portraits. No AI upscaling standing in for real resolution. No AI-written reviews or fabricated testimonials — if you see zero reviews on [our Reviews page](/reviews), it's because we haven't faked any while we wait for real ones. This isn't a marketing line; it's a working rule for how the studio operates, top to bottom.`,
       ],
     },
     {
       heading: `Pricing, Honestly`,
       paragraphs: [
-        `Every session is billed at one flat, transparent hourly rate — no studio fee, no vague package tiers. The number you're quoted is the number on the invoice. Film, chemistry, and hand-printing cost real money per frame, which is the honest reason a film session costs more than a phone photo or an AI-generated one. See our pricing page for exact rates by session type.`,
+        `Every session is billed at one flat, transparent hourly rate — no studio fee, no vague package tiers. The number you're quoted is the number on the invoice. Film, chemistry, and hand-printing cost real money per frame, which is the honest reason a film session costs more than a phone photo or an AI-generated one. See our [pricing page](/pricing) for exact rates by session type.`,
       ],
     },
     {
@@ -1673,7 +1673,7 @@ function photographyContactContent(config: SiteConfig, v: Vars): LongformPage {
     {
       heading: `Reach Out Today`,
       paragraphs: [
-        `Whatever kind of session you're picturing in ${v.place}, the first step is simple: reach out. Text ${v.phone}, give us a call, or book online — whichever is easiest. You'll get a fast, honest response, a clear quote, and a straightforward path to a real photograph you'll still want in twenty years.`,
+        `Whatever kind of session you're picturing in ${v.place} — see our [full services list](/services) or [pricing](/pricing) if you're still deciding — the first step is simple: reach out. Text ${v.phone}, give us a call, or book online — whichever is easiest. You'll get a fast, honest response, a clear quote, and a straightforward path to a real photograph you'll still want in twenty years.`,
         `There's nothing to lose by getting in touch — no cost, no obligation, no pressure. Just a straight answer from a real photographer. We're ready whenever you are.`,
       ],
     },
@@ -2453,7 +2453,7 @@ export function careersContent(config: SiteConfig): LongformPage {
     {
       heading: `How to Apply`,
       paragraphs: [
-        `If this sounds like the kind of place you'd want to work, we'd love to hear from you. Getting in touch is simple — reach out at ${v.phone} or through our application, tell us a little about yourself and your experience, and we'll take it from there. You don't need a perfect résumé or a long list of credentials; we're most interested in who you are and how you work.`,
+        `If this sounds like the kind of place you'd want to work — [learn more about us](/about) — we'd love to hear from you. Getting in touch is simple — reach out at ${v.phone} or through our application, tell us a little about yourself and your experience, and we'll take it from there. You don't need a perfect résumé or a long list of credentials; we're most interested in who you are and how you work.`,
         `We try to make the process straightforward and respectful of your time, because how a company treats you as an applicant is a preview of how it'll treat you as an employee. We'll be honest with you about the opportunity, answer your questions directly, and let you know where things stand. Whether or not it's the right fit, you'll be treated the way we'd want to be treated ourselves.`,
       ],
     },
@@ -2994,7 +2994,7 @@ function photographyBlogPosts(config: SiteConfig): BlogPost[] {
             `We'd rather tell a client honestly what film photography can and can't do than quietly patch a gap with AI and let them believe it's something it isn't.`,
           ]},
           { heading: `The Honesty Argument`, paragraphs: [
-            `This extends past the photos themselves. We don't run AI-generated "client testimonials," and we won't fabricate reviews while we wait for real ones — which is exactly why our Reviews page shows an honest zero instead of a manufactured wall of five stars. If we're not willing to fake a testimonial, we're certainly not willing to fake the actual product.`,
+            `This extends past the photos themselves. We don't run AI-generated "client testimonials," and we won't fabricate reviews while we wait for real ones — which is exactly why [our Reviews page](/reviews) shows an honest zero instead of a manufactured wall of five stars. If we're not willing to fake a testimonial, we're certainly not willing to fake the actual product.`,
             `We think a lot of businesses treat "no AI" as a marketing checkbox while quietly using it somewhere in the pipeline anyway. We'd rather hold a genuinely hard line than make a soft promise with an asterisk nobody sees.`,
           ]},
           { heading: `What This Costs Us, Honestly`, paragraphs: [
