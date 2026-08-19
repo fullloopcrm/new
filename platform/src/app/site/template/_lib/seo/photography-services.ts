@@ -1011,5 +1011,13 @@ export function photographyExtraFaq(place: string): { q: string; a: string }[] {
     { q: 'How do I know which service is right for what I need?', a: `Text or call us and describe what you're looking for — we'll tell you plainly which service fits, and which doesn't, rather than upselling you into the wrong one.` },
     { q: 'Do you ship fine art prints outside San Francisco?', a: `Yes — prints can be shipped; mention your location when ordering so we can confirm packaging and shipping cost for safe delivery.` },
     { q: 'Are your darkroom chemicals and process environmentally responsible?', a: `We follow standard photographic-chemistry handling and disposal practices for a working darkroom; ask if you have specific questions about our process.` },
+    { q: 'What is the difference between 35mm and medium format film?', a: `35mm is smaller, faster to shoot, and better suited to movement — street work, weddings, documentary-style coverage. Medium format uses a physically larger negative, capturing more detail and a more forgiving tonal range, which is why we lean on it for certain portrait and studio work.` },
+    { q: 'Can I request a specific film camera or lens?', a: `Mention a specific preference when you book and we'll let you know if it fits the session — most of the time we'll recommend the body and stock that suits your specific shoot best.` },
+    { q: 'Do you offer black and white photography for real estate or interiors?', a: `This isn't a core service, but reach out and describe the project — we're glad to discuss whether it's a fit on a case-by-case basis.` },
+    { q: 'How do you handle low-light or indoor film sessions?', a: `Faster film stock, a tripod, or studio lighting depending on the setting — we'll plan the right approach for indoor or low-light conditions when you book.` },
+    { q: 'What is included in the price — just the shoot, or prints too?', a: `Darkroom prints are included as part of most sessions; digital scans are available as an add-on. Exact inclusions are confirmed when you book and reflected clearly in your quote.` },
+    { q: 'Do you photograph pets?', a: `Yes — pets are welcome as part of a portrait or family session; mention it when you book so we can plan timing and patience accordingly.` },
+    { q: 'Can I get a print made from a negative not from a session with you?', a: `In some cases yes — ask about printing from your own existing negatives; we'll confirm whether it's a fit for our darkroom process.` },
+    { q: 'Do you offer any kind of loyalty or repeat-client discount?', a: `Ask when you book — many of our best relationships are with returning clients, and we're glad to discuss what makes sense for an ongoing relationship.` },
   ]
 }

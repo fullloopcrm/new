@@ -14,6 +14,7 @@
  */
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile, type IndustryProfile } from '@/app/site/template/_lib/seo/industry'
+import { photographyExtraFaq } from '@/app/site/template/_lib/seo/photography-services'
 
 export interface ContentSection {
   /** H2 heading for the section. */
@@ -88,6 +89,7 @@ function list(items: string[], max = 4): string {
 
 export function aboutContent(config: SiteConfig): LongformPage {
   const v = vars(config)
+  if (v.profile.isPhotography) return photographyAboutContent(config, v)
   const svc = v.services.length > 0 ? list(v.services) : v.noun
   const locality = v.isRemote ? 'clients across the country' : `${v.place} and the surrounding area`
   const here = v.isRemote ? 'wherever you are' : `here in ${v.place}`
@@ -260,6 +262,163 @@ export function aboutContent(config: SiteConfig): LongformPage {
     metaDescription: `Learn about ${v.brand}, a ${v.noun} company serving ${v.place}. Transparent pricing, vetted people, and work we stand behind. Text ${v.phone}.`,
     h1: `About ${v.brand}`,
     intro: `${v.brand} is a ${v.noun} company serving ${locality} — built on transparent pricing, a vetted and well-treated team, and work we're willing to stand behind. Here's who we are and how we operate.`,
+    sections,
+    faq,
+  }
+}
+
+/** Photography-vertical About page — a real darkroom studio's voice, not a home-services template with the noun swapped in. */
+function photographyAboutContent(config: SiteConfig, v: Vars): LongformPage {
+  const svc = v.services.length > 0 ? list(v.services) : 'black and white film photography'
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Who ${v.brand} Is`,
+      paragraphs: [
+        ...(v.brandCopy?.aboutIntro ? [v.brandCopy.aboutIntro] : []),
+        `${v.brand} is a working black and white film photography studio in ${v.place} — real 35mm and medium format film, developed by hand in a real chemical darkroom, printed by hand under a real safelight. No AI photo editing, no AI-generated portraits, no digital filter dressed up to look like film.`,
+        `We built this studio around a simple, stubborn idea: a photograph should be evidence that something real happened, made by a real person, at a real moment. That idea has gotten harder to find as photography got more automated, and we think it's worth protecting rather than quietly abandoning.`,
+      ],
+    },
+    {
+      heading: `Why We Shoot Film`,
+      paragraphs: [
+        `Digital photography solved a problem nobody asked us to solve — it made photos infinite, disposable, and instantly editable, and somewhere in that convenience a lot of photographers stopped slowing down to actually look at the light. Film forces you to look. There's no chimping the back of a screen, no burning five hundred frames hoping one works. You get one negative, and you have to earn it before the shutter closes.`,
+        `That constraint isn't a limitation — it's the entire reason a film portrait feels different from a phone photo. A negative is a physical record of real light hitting real silver halide crystals. It existed, it happened, and it can't be quietly regenerated or reworded by an algorithm afterward.`,
+        `We do this work because we love it, not because it's efficient. Film costs money per frame, developing takes real hours in a real darkroom, and there's no undo button. We keep doing it anyway because we'd rather hand a client twenty photographs they'll keep forever than two thousand they'll never look at twice.`,
+      ],
+    },
+    {
+      heading: `What We Actually Do`,
+      paragraphs: [
+        `Our core work is ${svc}, always shot on real black and white film. Whatever the specific session — a portrait, a wedding, a headshot batch for a team, a landscape print — the approach is the same: understand what you actually need, quote it honestly, and deliver it through a real physical process, start to finish.`,
+        `We don't try to be a general digital studio that also happens to shoot some film. We do black and white film photography, specifically, and we do it at a level most studios reserve for their signature work only. That focus is deliberate — it's how a team gets genuinely good at a craft instead of being mediocre at ten different services.`,
+        v.services.length > 1
+          ? `Because the right session depends on what you actually need, we'll tell you plainly which of our services — ${svc} — fits, and which doesn't. If a smaller, simpler session solves your problem, we'll say so.`
+          : `If what you need falls outside our core film work, we'll tell you honestly and point you the right direction, even when that isn't us.`,
+      ],
+    },
+    {
+      heading: `Real Film, Real Darkroom — What That Actually Means`,
+      paragraphs: [
+        `We shoot real 35mm and medium format black and white film stock, hand-develop every roll ourselves in a real chemical darkroom, and print by hand under a real safelight on real archival photo paper. That means a session booked here goes through the same physical process photography has used for over a century: light through a lens, onto a negative, developed in chemistry, printed by hand.`,
+        `Nothing about that process runs on a server. Nothing about it can be regenerated if a hard drive fails. What you get is a physical object — a print and a negative — that exists independently of any cloud account, subscription, or software update.`,
+        `We know exactly what AI and digital editing can do. We choose real film anyway, because grain, dynamic range, and a physical negative do something a generated image still can't fake — and because we think that difference matters more now than it did five years ago, not less.`,
+      ],
+    },
+    {
+      heading: `How We Work`,
+      paragraphs: [
+        `Getting started is simple. You text ${v.phone}, call, or book online, and tell us what you need. We ask a few real questions so the quote and the plan are accurate, give you a clear price, and lock in a time that works.`,
+        `On session day, we shoot on real film — deliberate, composed frames, not a burst hoping one works. Your roll goes into the darkroom that week: a timed developer bath, a stop bath, a fixer, then a wash, done by feel as much as by the clock. Once negatives are dry, we print by hand under a real enlarger, dodging and burning with hands and cardboard, the way it's been done for a century.`,
+        `Darkroom prints are typically ready in 5-7 business days. If you added digital scans, those usually land in your inbox in 2-3 business days — useful for sharing online while the physical prints are still being made.`,
+      ],
+    },
+    {
+      heading: `The People Behind the Camera`,
+      paragraphs: [
+        `Behind ${v.brand} is a small team of photographers, darkroom printers, and film technicians with a combined 100+ years of photography experience across the San Francisco Bay Area. Some of that came from decades shooting the Bay Area's streets, weddings, and studios long before "analog" needed a name to distinguish it from anything else. Some came from years behind an enlarger, printing other photographers' negatives before ever picking up a camera of their own.`,
+        `That experience is what makes a session here look effortless — because it isn't. Every photographer and printer on this team has spent real years learning how ${v.place}'s fog changes exposure by the hour, how a roll of Tri-X behaves differently in a Victorian than on a foggy beach, and how to develop film by feel when the timer doesn't tell the whole story. That's not something an app can shortcut, and it's not something we're interested in shortcutting.`,
+        `We're a small team on purpose. A darkroom doesn't scale the way a digital operation does — there's only one enlarger running at a time. We'd rather stay small and good than grow past the point where every print gets real attention.`,
+      ],
+    },
+    {
+      heading: `Our Position on AI`,
+      paragraphs: [
+        `We don't say "no AI" as a marketing line. We mean it as a working rule for how this studio operates. No AI photo editing. No AI-generated backgrounds or portraits. No AI upscaling standing in for real resolution. No AI-written reviews, and no fabricated "client testimonials" — if you don't see reviews on our site yet, it's because we haven't faked any while we wait for real ones.`,
+        `Part of this is craft: a generative model can approximate what film grain looks like, but it can't replicate what film grain actually is — the physical result of light and silver halide reacting in a real emulsion. Part of it is trust: when a client books a wedding or a family portrait, they're trusting us with a real moment in their life, and handing that moment to an algorithm — even quietly, even just for "touch-ups" — breaks the thing that made film worth choosing in the first place.`,
+        `And part of it is simply that we think photography is getting worse the more automated it gets. We're not interested in competing in that direction. We're interested in the opposite one — slower, more honest, more human, and provably real.`,
+      ],
+    },
+    {
+      heading: `Straightforward Pricing`,
+      paragraphs: [
+        `Every session is billed at one flat, transparent hourly rate — no separate "studio fee," no surprise processing charge, no vague package tiers designed to upsell you past what you need. The number you're quoted before booking is the number on the final invoice.`,
+        `Film, chemistry, and hand-printing cost real, tangible money per frame in a way digital photography simply doesn't — that's the honest reason a film session costs more than a phone photo or an AI-generated one, and we'd rather explain that plainly than bury it in a confusing price sheet.`,
+        `See our full pricing page for exact rates by session type — there's no penalty for booking quickly, and self-booking online applies the standard $20 discount automatically.`,
+      ],
+    },
+    {
+      heading: `Easy to Reach`,
+      paragraphs: [
+        `Text ${v.phone} and a real person answers — not a chatbot, not an auto-reply queue. Booking, questions, changes to a session, all of it goes through the same real line. If a question feels too small to bother a photography studio with, it isn't; ask it anyway.`,
+        `We'd rather tell you honestly that a service isn't the right fit for what you need than book you into the wrong session and disappoint you later. That's not a sales tactic — it's just a more honest way to run a small studio.`,
+      ],
+    },
+    {
+      heading: `What Happens to Your Negatives`,
+      paragraphs: [
+        `Every roll we shoot for you is developed, sleeved, labeled, and archived by us. That matters because a negative isn't just the source of the prints you order today — it's a permanent master file that can be reprinted, at any size, years or decades later, without ever needing to reshoot.`,
+        `A digital file lives on a device, in a cloud account, or in a backup service — all of which can fail, lapse, or simply get lost in a phone upgrade. A negative doesn't need a subscription, a password, or a working device to still exist. If you ever want a reprint, text us and we'll print from your existing negative — no new session required.`,
+      ],
+    },
+    {
+      heading: `When Something Isn't Right`,
+      paragraphs: [
+        `No honest studio promises perfection — the work is done by people, and people are human. What separates a studio worth booking is what happens the rare time something isn't right. Our answer is simple: tell us, and we'll make it right. No arguing, no runaround.`,
+        `That's only possible because it happens rarely — we get it right the vast majority of the time, which is exactly what lets us treat the exceptions seriously. If a print doesn't meet the standard we hold ourselves to, we reprint it. That's the whole policy.`,
+      ],
+    },
+    {
+      heading: `Booked, Deposited, Confirmed`,
+      paragraphs: [
+        `A deposit secures your date once you book, with the balance due at the session itself. ${v.place}'s weather is genuinely part of the planning for outdoor sessions — fog, wind, and microclimates that shift block to block mean we schedule around real conditions, and reschedule at no charge for weather that would ruin the shot. Studio sessions are unaffected either way.`,
+        `Most sessions run 60-90 minutes for individual work and up to a full day for wedding coverage. Self-booking online applies the standard $20 discount automatically, no code required.`,
+      ],
+    },
+    {
+      heading: `The Film and Gear We Actually Use`,
+      paragraphs: [
+        `Most sessions here are shot on Kodak Tri-X 400, the black and white stock that's defined the look of street and documentary photography for over sixty years, or Ilford HP5 for a slightly cleaner, finer-grain look. We'll tell you honestly which stock fits your specific session rather than defaulting to one for every job.`,
+        `Camera bodies vary by session type — medium-format for portrait and headshot work, where a larger negative holds more real detail and a more forgiving tonal range for a face; 35mm rangefinders and SLRs for street, documentary, and location work, where a smaller, quieter camera lets a photographer stay close to a real moment without the subject performing for a lens.`,
+        `Every body in rotation is a real, mechanically serviced film camera — not a digital camera with a film-look preset, and not a phone. If you book our vintage camera consultation and rental service, you're getting the same caliber of working gear we use on paid sessions.`,
+      ],
+    },
+    {
+      heading: `Who We Work With`,
+      paragraphs: [
+        `Individuals booking a portrait or headshot who are tired of AI headshot generators and want a photo that actually looks like them. Couples who want engagement or wedding photography that won't look dated to a filter trend in five years. Families who want one real print worth framing instead of another folder of digital photos nobody prints.`,
+        `${v.place} startups and small businesses that need a team headshot page which actually looks like a real company. Designers, architects, and hospitality businesses looking for genuine black and white fine art prints of the city for a lobby, an office, or a restaurant. And a growing number of people who simply want to work with a photographer who isn't going to hand any part of the job to an algorithm.`,
+      ],
+    },
+    {
+      heading: `Rooted in ${v.place}`,
+      paragraphs: [
+        `We're a ${v.place} studio, and that shapes how we work — we know the fog patterns, the neighborhoods, and how the city's light behaves block to block, hour to hour. That local knowledge is part of what makes a session here look effortless, because getting the timing and location right isn't guesswork; it's years of paying attention.`,
+        `Serving ${v.place} also means we're invested in our reputation here. This is a city where word travels, and a good session earns a referral. That accountability is good for you — it means we can't afford to phone anything in.`,
+      ],
+    },
+    {
+      heading: `A Real Working Darkroom`,
+      paragraphs: [
+        `${v.brand} isn't a studio space rented by the hour with a printer that lives somewhere else — the darkroom is a working part of the studio itself, which is part of why turnaround stays consistent and why every print gets handled by someone who understands exactly how that day's light and film stock behaved during the shoot. Continuity between the shoot and the print is part of the craft, not an outsourced afterthought.`,
+        `"Hand-printed" describes an actual physical process: a dried negative goes into an enlarger, which projects it onto light-sensitive paper under a red safelight — the only light black and white paper doesn't react to. Exposure time, contrast, and any dodging or burning are judged and executed by hand, print by print, based on what that specific negative needs. None of it can be batch-automated the way a digital export can.`,
+      ],
+    },
+    {
+      heading: `Our Standing Promise`,
+      paragraphs: [
+        `Here's what you can count on from ${v.brand} every time: real film, hand-developed, hand-printed, no AI anywhere in the process, a clear price before you commit, and a real person on the other end of a text. That's the promise, and it doesn't change based on the size of the session or how busy we are.`,
+        `We know trust is earned in the doing, not the saying, so we're not asking you to take any of this on faith — we're asking you to give us one session and judge us on it. Text ${v.phone}, tell us what you need, and let's make something real.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `What areas does ${v.brand} serve?`, a: `We serve ${v.place} and the greater Bay Area. Studio sessions happen in-house; on-location sessions run anywhere in the city — text ${v.phone} with your location and we'll confirm.` },
+    { q: `How do I get a quote?`, a: `Text ${v.phone}, call, or book online and tell us what you need. We'll ask a few real questions so the price is accurate, then give you a clear quote before you commit to anything.` },
+    { q: `Is any part of your process AI-assisted?`, a: `No, none of it. No AI editing, no AI-generated backgrounds or portraits, no AI upscaling, no AI-written reviews. Every frame is shot on real film and every print is hand-developed and hand-printed.` },
+    { q: `What if I'm not happy with a print?`, a: `Tell us and we'll make it right — a reprint from the same negative, or a conversation about what went wrong. We'd rather fix it than keep money we didn't fully earn.` },
+    { q: `Do you shoot in color, or only black and white?`, a: `This studio specializes specifically in black and white film — it's the entire craft the darkroom, the printing process, and the team's experience are built around.` },
+    { q: `What happens to my negatives after the session?`, a: `They're developed, sleeved, labeled, and archived by us. You can order reprints or new sizes from your own negatives later without booking a new session.` },
+    { q: `How long has ${v.brand} been shooting film in ${v.place}?`, a: `Behind the studio is a team with a combined 100+ years of photography experience across the Bay Area — some of it shooting film here long before "analog" needed a name to distinguish it from anything else.` },
+  ]
+
+  return {
+    title: `About ${v.brand} — Black and White Film Photography in ${v.place}`,
+    metaDescription: `Learn about ${v.brand}, a real black and white film photography studio in ${v.place}. No AI, ever — real film, real darkroom, real prints.`,
+    h1: `About ${v.brand}`,
+    intro: `${v.brand} is a working black and white film photography studio in ${v.place} — real 35mm film, hand-developed and hand-printed, no AI anywhere in the process. Real people, real chemistry, real archival prints, and a real photographer behind every camera. Here's who we are and how we work.`,
     sections,
     faq,
   }
@@ -553,6 +712,7 @@ export function servicesContent(config: SiteConfig): LongformPage {
 
 export function pricingContent(config: SiteConfig): LongformPage {
   const v = vars(config)
+  if (v.profile.isPhotography) return photographyPricingContent(config, v)
   const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
 
   const sections: ContentSection[] = [
@@ -721,6 +881,180 @@ export function pricingContent(config: SiteConfig): LongformPage {
   }
 }
 
+/** Photography-vertical pricing page — real flat-hourly-rate philosophy, not the generic "job scope" home-services framing. */
+function photographyPricingContent(config: SiteConfig, v: Vars): LongformPage {
+  const sections: ContentSection[] = [
+    {
+      heading: `One Flat Rate, Explained Up Front`,
+      paragraphs: [
+        `Every session at ${v.brand} is billed at one flat, transparent hourly rate — no separate "studio fee," no surprise processing charge, no vague package tiers designed to upsell you past what you actually need. The number you're quoted before booking is the number on the final invoice. This page lays out exactly how that works and why film pricing looks the way it does.`,
+        `The short version: you tell us what you need, we quote you a clear rate for the session length, that's what you pay. The longer version — why film costs more than digital, what's included, and how to think about the tradeoff — is what the rest of this page covers.`,
+        `If you'd rather just get a number for your specific session, text ${v.phone} with a few details and we'll give you an honest quote quickly. If you want to understand the reasoning first, read on.`,
+      ],
+    },
+    {
+      heading: `Why Film Costs More Than Digital`,
+      paragraphs: [
+        `Film, chemistry, and archival photo paper cost real, tangible money per frame in a way digital photography simply doesn't. A digital sensor's marginal cost per additional shot is close to zero once the camera is paid for. A roll of film costs money before a single frame is exposed, then developer, stop bath, and fixer chemistry, then paper for every hand-printed image. That's the honest, unglamorous reason a film session costs more than a phone photo or an AI-generated one, and we'd rather say it plainly than hide it behind vague "premium service" language.`,
+        `That cost buys something specific: a negative that exists independently of any software or subscription, and a print made through a physical process that hasn't fundamentally changed in over a century because it still produces something nothing else does.`,
+      ],
+    },
+    {
+      heading: `What's Included in the Rate`,
+      paragraphs: [
+        `Our flat hourly rate covers the full session — consultation, shooting time, and development. There's no separate "studio fee" or hidden add-on layered on top. Darkroom prints are included as part of most sessions; the Digital Scans Add-On is available separately if you also want shareable digital files for online use.`,
+        `A typical individual session (portrait, headshot) runs 60-90 minutes; family and landscape sessions often run closer to 2 hours; full wedding-day coverage is billed for the full day. Exact session length is confirmed when you book, based on what you actually need — not padded to a round number.`,
+      ],
+    },
+    {
+      heading: `No Hidden Fees, Ever`,
+      paragraphs: [
+        `Hidden fees are the oldest trick in service pricing: quote a low number to win the booking, then pad the invoice with "processing fees," "location fees," or mysterious line items nobody agreed to. We don't play that game. The rate we quote covers the work we agreed to, full stop.`,
+        `This matters because hidden fees don't just cost money — they destroy trust in the one industry where trust is the entire product. We'd rather quote a fair, complete number the first time and keep a client for years than squeeze a few extra dollars out of one session and never see them again.`,
+      ],
+    },
+    {
+      heading: `The Quote Is the Price`,
+      paragraphs: [
+        `When we give you a quote, that's a commitment, not an opening bid. Barring a genuine change in scope — a session running meaningfully longer than planned, for instance — the number we quote is the number you pay. If something does change, we tell you before doing the extra work, not after, on a surprise invoice.`,
+      ],
+    },
+    {
+      heading: `Self-Booking Discount`,
+      paragraphs: [
+        `Self-booking online applies the standard $20 discount automatically, no code required. It's a small, real incentive for booking directly rather than through a longer back-and-forth, and it's applied the same way for every session type.`,
+      ],
+    },
+    {
+      heading: `Deposits and Booking`,
+      paragraphs: [
+        `A deposit secures your date once you book, with the balance due at the session itself. When a deposit applies, we tell you clearly up front how much it is and how it applies to your total — nothing ambiguous. Booking itself is simple: text ${v.phone}, tell us what you need, agree on the rate and the time, and you're on the calendar.`,
+      ],
+    },
+    {
+      heading: `Fine Art Print Pricing`,
+      paragraphs: [
+        `Standard darkroom prints run from 5x7 up to 16x20, hand-printed on archival photo paper, with custom sizing available on request. If you're ordering additional prints or a different size from an existing negative — rather than booking a new session — that's handled separately through the Fine Art Darkroom Prints service; ask when you reach out and we'll quote the specific size and quantity you want.`,
+      ],
+    },
+    {
+      heading: `Rush and Urgent Requests — No Gouging`,
+      paragraphs: [
+        `If you need something turned around faster than our standard timeline, tell us — we'll be honest about what's realistic given development takes real, hands-on darkroom time. There's no inflated "rush fee" designed to squeeze you when you're short on time; if we can prioritize your order, we'll quote it fairly.`,
+      ],
+    },
+    {
+      heading: `Weather and Rescheduling`,
+      paragraphs: [
+        `For outdoor sessions, we reschedule at no charge for weather that would genuinely ruin the shot — fog and light are often the whole point of a landscape or location session, so we'd rather wait for the right conditions than shoot a flat, gray afternoon and charge you full price for it. Studio sessions are unaffected by weather either way.`,
+      ],
+    },
+    {
+      heading: `How to Compare Quotes Fairly`,
+      paragraphs: [
+        `If you're comparing us against another photographer, make sure you're comparing the same thing. A lower number from a competitor often means a digital-only session with none of the darkroom process, or "film-look" digital editing standing in for real analog work. Ask what's actually included — real film stock, real hand development, real hand printing — and how clearly they answer.`,
+        `A trustworthy quote is specific and complete: it tells you the rate, what's included, and what happens if the scope changes, without hedging. We put all of our pricing logic on this page precisely so you can compare us honestly against anyone else.`,
+      ],
+    },
+    {
+      heading: `What the Guarantee Is Worth`,
+      paragraphs: [
+        `Part of what you're paying for is the guarantee behind the work. If a print doesn't meet the standard we hold ourselves to, we reprint it — no argument, no fine print exemption. That commitment has real value, because it moves the risk off your shoulders and onto ours.`,
+        `A guarantee is only worth what a studio is actually willing to do to honor it. Ours is simple: tell us what's wrong, and we fix it. That safety net is part of why clients feel comfortable paying a fair rate instead of gambling on whoever's cheapest that week.`,
+      ],
+    },
+    {
+      heading: `Corporate and Team Pricing`,
+      paragraphs: [
+        `Team headshot sessions are scheduled as one continuous booking rather than priced per person, since setup time is shared across the whole group. Reach out with your headcount and we'll quote the session accordingly — larger teams (10+) are typically the most efficient way to book, since setup happens once for everyone.`,
+      ],
+    },
+    {
+      heading: `What the No-AI Policy Costs Us — and Why We Still Charge Fair, Not Padded`,
+      paragraphs: [
+        `Shooting real film instead of using AI-assisted editing or generation is slower and more expensive to maintain on our end — real darkroom hours, real chemistry, no shortcuts. We absorb a meaningful part of that cost rather than passing every bit of it forward, because we'd rather compete on being genuinely worth the rate than on being the cheapest option in the city.`,
+      ],
+    },
+    {
+      heading: `Ask Us Anything About the Number`,
+      paragraphs: [
+        `If you take one thing from this page: you never have to guess about pricing with ${v.brand}. Before you commit anything, you'll know the rate and what's included. If anything is unclear, ask — we're happy to walk through exactly how a specific quote was built.`,
+        `Text ${v.phone} and ask us whatever you need to. Get a quote, get an explanation, compare it against another photographer's number — we're glad to help either way.`,
+      ],
+    },
+    {
+      heading: `No Pressure, No Obligation`,
+      paragraphs: [
+        `Getting a quote costs you nothing and commits you to nothing. Reach out, tell us about your session, get an honest rate, and take the time you need to decide. We won't hound you with follow-ups or pressure you to book before you're ready — the clients who choose us freely are the ones who stay, and those are the only ones worth having.`,
+      ],
+    },
+    {
+      heading: `Fair, Not Cheap — and Why That Matters`,
+      paragraphs: [
+        `We're not going to be the cheapest photographer you find in ${v.place}, and we're honest about that. The cheapest option is almost always cheap for a reason — an AI "film look" filter standing in for real film, a digital-only session with no real darkroom process behind it, or gear and technique that hasn't been developed over real years of practice. We price for a genuinely different, physically real product.`,
+        `Think about what "cheap" actually costs when it isn't real: a digital file that could be regenerated or edited by anyone with access to it, no physical negative to reprint from later, and nothing that survives past the next phone upgrade. Factor that in, and a fair-priced real film session is often the better value, not the more expensive one — you're paying once for something that lasts, instead of paying nothing for something that quietly degrades.`,
+      ],
+    },
+    {
+      heading: `Value That Shows Up Over Time`,
+      paragraphs: [
+        `The real value of choosing real film isn't fully visible on the day you pay the invoice — it shows up years later, when the print is still on the wall and the negative is still reprintable, long after a digital file from the same week has been lost to a device upgrade or a lapsed cloud subscription. That's not a marketing claim; it's just how physical media and digital files actually behave over a multi-decade timeline.`,
+        `Cheap digital or AI-assisted photography is a one-time transaction. A real film session is closer to an archive you're building — one negative, one print, one moment at a time, each one still exactly what it was the day you got it. We price for that long-term reality, not just for the hour we spend shooting.`,
+      ],
+    },
+    {
+      heading: `Pricing for Individuals, Couples, and Teams`,
+      paragraphs: [
+        `Whether you're booking a solo portrait, a couples session, a full wedding day, or a team of ten for headshots, the pricing philosophy is identical: one flat, transparent hourly rate, quoted before you commit, with no surprise line items. The specifics differ because the sessions differ — a wedding is billed for the full day, a team session is one continuous booking, an individual portrait is typically 60-90 minutes — but the honesty behind the number never changes.`,
+        `For businesses booking recurring headshot updates as their team grows, we'll keep notes on your original session's lighting and setup so later individual sittings match, and quote each addition fairly rather than re-charging for a full session's worth of setup time.`,
+      ],
+    },
+    {
+      heading: `Understanding Your Quote`,
+      paragraphs: [
+        `When we send you a quote, we want you to actually understand it, not just see a number and hope for the best. If anything is unclear, ask, and we'll walk you through exactly what's included — session length, what film stock, whether scans are part of it — and why it's priced the way it is.`,
+        `We'd genuinely rather answer ten questions before you book than have a single doubt afterward. A studio that gets impatient explaining its own pricing is a studio with something to hide from you; we're not, and we won't be.`,
+      ],
+    },
+    {
+      heading: `Why We're This Transparent About Pricing`,
+      paragraphs: [
+        `You might wonder why we spend a whole page walking through pricing logic when most photography studios would rather keep it vague or hide behind a "contact for a custom quote" form. The answer is simple: transparency is a real advantage when your pricing is genuinely fair. Studios hide pricing when they have something to hide — a rate that changes based on what they think you'll pay, or fees they'd rather not mention until you're already committed.`,
+        `We put ours in the open because we don't have anything to hide, and because the clients we want are exactly the ones who value knowing what they're paying for before they commit a single dollar. We'd genuinely rather lose a booking to someone who wants the cheapest possible AI-edited or digital-only option than win it and deliver something we're not proud of.`,
+      ],
+    },
+    {
+      heading: `The Full Cost Breakdown, Honestly`,
+      paragraphs: [
+        `Here's what actually goes into the hourly rate, in plain terms: real film stock (Kodak Tri-X or Ilford HP5, purchased per roll, not licensed per use like software), development chemistry (developer, stop bath, fixer, replaced regularly for consistent results), archival photo paper for hand-printing, and the real hours a trained photographer and darkroom printer spend on your specific session — shooting, developing, and printing, none of which can be batch-processed the way a digital export can.`,
+        `None of that is a markup dressed up as craftsmanship. It's the literal, itemizable cost of producing a physical photograph the way photography has always been made, before any of it could be simulated digitally. We think it's worth explaining that plainly rather than just asking you to trust that the number is fair.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `How much does a session cost?`, a: `Every session is billed at one flat hourly rate — the specific number depends on session type and length. Text ${v.phone} with what you need and we'll give you an honest quote.` },
+    { q: `Will the final price match the quote?`, a: `Yes. Barring a genuine change in scope, the rate we quote is the rate you pay — no hidden fees, no surprises on the invoice.` },
+    { q: `Is there a self-booking discount?`, a: `Yes — booking online applies the standard $20 discount automatically, no code required.` },
+    { q: `Do you require a deposit?`, a: `Yes, a deposit secures your date, with the balance due at the session. We'll tell you clearly up front how much it is.` },
+    { q: `Are darkroom prints included in the price?`, a: `Yes, prints are included as part of most sessions. Digital scans are available separately as an add-on if you also want shareable digital files.` },
+    { q: `What happens if weather ruins an outdoor session?`, a: `We reschedule at no charge for weather that would genuinely ruin the shot — no penalty for something outside anyone's control.` },
+    { q: `Do you charge more for urgent or rush requests?`, a: `No gouging — if we can prioritize your order, we'll quote it fairly. Tell us your timeline and we'll be honest about what's realistic.` },
+    { q: `Why does film photography cost more than a digital session?`, a: `Real film, chemistry, and archival paper cost tangible money per frame in a way digital simply doesn't — plus real, hands-on darkroom hours that can't be batch-automated. That's the honest reason, not a premium markup for the same product.` },
+    { q: `Is the digital scans add-on required, or optional?`, a: `Optional. Darkroom prints are included as part of most sessions; digital scans are available separately if you also want shareable digital files for online use.` },
+    { q: `Do you offer package pricing for multiple print sizes?`, a: `Additional prints or sizes from an existing negative are quoted individually through the Fine Art Darkroom Prints service — ask when you reach out and we'll give you a clear number for exactly what you want.` },
+  ]
+
+  return {
+    title: `Photography Pricing in ${v.place} — Transparent & Fair | ${v.brand}`,
+    metaDescription: `How ${v.brand} prices black and white film photography in ${v.place}: one flat hourly rate, no hidden fees, the quote you get is the price you pay.`,
+    h1: `Straightforward Film Photography Pricing`,
+    intro: `No games, no hidden fees, no mystery. Here's exactly how ${v.brand} prices black and white film photography in ${v.place} — what drives the real cost of shooting and hand-printing real film versus a digital or AI-generated alternative, what's included in the rate, how deposits and self-booking discounts work, and why the number we quote before you commit is the exact number you pay afterward, every time.`,
+    sections,
+    faq,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FAQ — floor 3,000 words. Framing sections + a deep, real Q&A set (which also
 // feeds FAQPage JSON-LD). Written dense to clear the floor in one pass.
@@ -728,6 +1062,7 @@ export function pricingContent(config: SiteConfig): LongformPage {
 
 export function faqContent(config: SiteConfig): LongformPage {
   const v = vars(config)
+  if (v.profile.isPhotography) return photographyFaqContent(config, v)
   const svc = v.services.length > 0 ? list(v.services) : v.noun
   const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
   const areaAns = v.isRemote
@@ -870,6 +1205,118 @@ export function faqContent(config: SiteConfig): LongformPage {
   }
 }
 
+/** Photography-vertical FAQ — real framing sections plus the deep, photography-specific Q&A set shared with the homepage. */
+function photographyFaqContent(config: SiteConfig, v: Vars): LongformPage {
+  const sections: ContentSection[] = [
+    {
+      heading: `Answers Before You Book`,
+      paragraphs: [
+        `Booking a photographer means trusting someone with a real moment — a portrait, a wedding, a headshot that's actually you. You deserve straight answers before you commit to that, so we put the most common questions right here. If yours isn't covered, text ${v.phone} — a real person answers, and no question is too small.`,
+        `We've organized this around what people actually ask: how film sessions work, what makes them different from digital or AI, how pricing works, and what happens after the shutter closes. Read as much as you need — the goal is that by the time you reach out, you already understand how a real film studio operates.`,
+      ],
+    },
+    {
+      heading: `How a Session Actually Works`,
+      paragraphs: [
+        `You text ${v.phone}, call, or book online and tell us what you need. We ask a few real questions so the plan and the quote are accurate, give you a clear price, and lock in a time. On session day we shoot real film — deliberate, composed frames, not a burst hoping one works. Your roll goes into the darkroom that week, and prints are typically ready in 5-7 business days.`,
+        `There's no instant preview the way there is with digital — development is a real, hand-timed chemical process. Most people find that once they know this going in, the session itself feels calmer, not more stressful; there's nothing to check between frames, just the moment in front of the camera.`,
+      ],
+    },
+    {
+      heading: `Our Darkroom, Briefly`,
+      paragraphs: [
+        `"Hand-printed" describes an actual physical process, not a marketing word. A dried negative goes into an enlarger, which projects it onto light-sensitive paper under a red safelight — the only light black and white paper doesn't react to. Exposure time and any dodging or burning are judged and executed by hand, print by print, based on what that specific negative needs. The exposed paper then goes through developer, stop bath, and fixer, then a thorough wash for archival longevity.`,
+        `None of that can be batch-automated the way a digital export can, which is part of why turnaround takes days, not minutes — and why the result has a tonal depth a screen or an inkjet reproduction still can't fully match.`,
+      ],
+    },
+    {
+      heading: `Why Film Instead of Digital or AI`,
+      paragraphs: [
+        `A film negative is a physical record of real light hitting real silver halide crystals — it existed, it happened, and it can't be quietly regenerated by an algorithm afterward. A digital file is real too, but infinitely editable after the fact. An AI-generated image isn't a photograph at all in the traditional sense — it's a statistically plausible arrangement of pixels with no camera or lens behind it.`,
+        `We shoot film because we think that difference matters, and because grain, dynamic range, and a physical negative do something a generated image still can't fake. It costs more and takes longer. We think it's worth it, and we'd rather explain why plainly than bury the reasoning in a slogan.`,
+      ],
+    },
+    {
+      heading: `Our Position on AI, Directly`,
+      paragraphs: [
+        `No AI photo editing. No AI-generated backgrounds or portraits. No AI upscaling standing in for real resolution. No AI-written reviews or fabricated testimonials — if you see zero reviews on our Reviews page, it's because we haven't faked any while we wait for real ones. This isn't a marketing line; it's a working rule for how the studio operates, top to bottom.`,
+      ],
+    },
+    {
+      heading: `Pricing, Honestly`,
+      paragraphs: [
+        `Every session is billed at one flat, transparent hourly rate — no studio fee, no vague package tiers. The number you're quoted is the number on the invoice. Film, chemistry, and hand-printing cost real money per frame, which is the honest reason a film session costs more than a phone photo or an AI-generated one. See our pricing page for exact rates by session type.`,
+      ],
+    },
+    {
+      heading: `What Happens After Your Session`,
+      paragraphs: [
+        `Your roll is developed and archived by us — sleeved, labeled, kept safe. That means a reprint, a different size, or an extra copy for family is always just a text away, with no new session required. A digital file depends on a device or a subscription staying alive; a negative just needs a dry, dark drawer.`,
+        `If anything about your prints isn't right, tell us and we'll make it right — a reprint from the same negative, or a real conversation about what went wrong. We'd rather fix it than keep money we didn't fully earn.`,
+      ],
+    },
+    {
+      heading: `The Film Stock and Gear, in More Detail`,
+      paragraphs: [
+        `Most sessions here run on Kodak Tri-X 400, the black and white stock that's defined street and documentary photography for over sixty years, or Ilford HP5 when a slightly cleaner, finer-grain look fits the session better. We'll tell you honestly which stock fits your specific job rather than defaulting to one for everything.`,
+        `Camera bodies vary by session type — medium format for portrait and headshot work, where a larger negative holds more real detail and a more forgiving range for a face; 35mm rangefinders and SLRs for street, documentary, and location work, where a smaller, quieter camera keeps a photographer close to a real moment without the subject performing for a big lens.`,
+      ],
+    },
+    {
+      heading: `Turnaround, Deposits, and Weather`,
+      paragraphs: [
+        `Darkroom prints typically take 5-7 business days; digital scans, when added, usually land in 2-3. A deposit secures your date, with the balance due at the session. For outdoor sessions, San Francisco's fog and wind are genuinely part of the planning — we reschedule at no charge for weather that would ruin the shot, and studio sessions are unaffected either way.`,
+        `Self-booking online applies the standard $20 discount automatically, no code required. Most sessions run 60-90 minutes for individual work and up to a full day for weddings.`,
+      ],
+    },
+    {
+      heading: `Who Books Us, and Why`,
+      paragraphs: [
+        `Individuals tired of AI headshot generators who want a photo that actually looks like them. Couples who want engagement or wedding photography that won't look dated to a filter trend in five years. Families who want one real print worth framing. San Francisco startups that need a team headshot page that looks like a real company. Designers and hospitality businesses looking for genuine black and white fine art prints of the city, and a growing number of people who simply want a photographer who isn't going to hand any part of the job to an algorithm.`,
+      ],
+    },
+    {
+      heading: `How We Handle It When Something's Off`,
+      paragraphs: [
+        `No honest studio promises perfection — the work is done by people, and people are human. What separates a studio worth booking is what happens the rare time something isn't right. Our answer is simple: tell us, and we'll make it right. No arguing, no runaround, no fine print to hide behind.`,
+        `That's only credible because it happens rarely — we get it right the large majority of the time, which is exactly what lets us treat the exceptions seriously. A studio drowning in mistakes couldn't afford to fix them all. We can, and we do, because high standards make the guarantee cheap to offer and the guarantee keeps the standards high.`,
+      ],
+    },
+    {
+      heading: `Preparing for Your Session`,
+      paragraphs: [
+        `Solid colors and simple patterns tend to photograph most cleanly in black and white — busy prints can translate into visual noise without color to separate them. Mid-tones (grays, blues, warm browns) hold the most range on film; pure white or black can lose detail if lighting isn't matched precisely. Skip heavy matte powder if possible, since film picks up texture in a way that flat, over-powdered skin can read strangely.`,
+        `If you're nervous in front of a camera, say so before we start — a few minutes of just talking, camera down, almost always fixes it. That warm-up time is built into every session, not something you have to ask for separately.`,
+      ],
+    },
+    {
+      heading: `If You Still Have a Question`,
+      paragraphs: [
+        `Not every situation fits neatly into a FAQ list. If yours doesn't, text ${v.phone} directly and a real person will answer — the same person who'd be shooting or printing your session, not a call center reading from a script. Asking costs you nothing and commits you to nothing.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = photographyExtraFaq(v.place)
+
+  const closingSection: ContentSection = {
+    heading: `Our Standing Promise`,
+    paragraphs: [
+      `Here's what you can count on from ${v.brand}, every session: real film, hand-developed and hand-printed, no AI anywhere in the process, a clear price before you commit, and a real person on the other end of a text. We know trust is earned in the doing, not the saying — so give us one session and judge us on it. Text ${v.phone} whenever you're ready.`,
+    ],
+  }
+  sections.push(closingSection)
+
+  return {
+    title: `Film Photography FAQ — Common Questions Answered | ${v.brand}`,
+    metaDescription: `Answers to the most common questions about booking ${v.brand} for black and white film photography in ${v.place}: pricing, film stock, turnaround, and our no-AI policy.`,
+    h1: `Frequently Asked Questions`,
+    intro: `Everything people ask us before booking a black and white film session in ${v.place} — how it works, what it costs, what film stock we shoot, how long development takes, and why there's no AI anywhere in the process, from the shutter to the darkroom to the reviews on this site. Straight answers, no sales pitch, no filler.`,
+    sections,
+    faq,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTACT — floor 3,000 words. Unique prose on how to reach us and what to
 // expect. `here` declared in-scope (build-verified).
@@ -877,6 +1324,7 @@ export function faqContent(config: SiteConfig): LongformPage {
 
 export function contactContent(config: SiteConfig): LongformPage {
   const v = vars(config)
+  if (v.profile.isPhotography) return photographyContactContent(config, v)
   const here = v.isRemote ? 'wherever you are' : `in ${v.place}`
   const areaLine = v.isRemote ? 'clients across the country' : `${v.place} and the surrounding area`
 
@@ -1044,6 +1492,208 @@ export function contactContent(config: SiteConfig): LongformPage {
     metaDescription: `Get in touch with ${v.brand} for ${v.noun} ${here}. Text ${v.phone}, call, or book online — fast, honest response, no pressure. Serving ${areaLine}.`,
     h1: `Contact ${v.brand}`,
     intro: `Text, call, or book online — whichever suits you. You'll get a fast, honest response from a real person, a clear quote, and no pressure. Here's everything about reaching us and what to expect.`,
+    sections,
+    faq,
+  }
+}
+
+/** Photography-vertical Contact page — real studio voice, not generic "job/property/day of service" home-services phrasing. */
+function photographyContactContent(config: SiteConfig, v: Vars): LongformPage {
+  const sections: ContentSection[] = [
+    {
+      heading: `Getting in Touch Is Easy`,
+      paragraphs: [
+        `Reaching ${v.brand} shouldn't be a chore. The fastest way is to text ${v.phone} — tell us what kind of session you're thinking about and we'll take it from there. You can also call or book online, whichever fits how you like to communicate. However you reach out, you'll deal with a real photographer or darkroom printer, not a call center that's never heard of you.`,
+        `We built the front door around being reachable because in photography, that's shockingly rare. If you've ever emailed a photographer and waited a week for a reply, you already know why we treat responsiveness as a feature, not an afterthought. When you contact us, you get a real person, real answers, and a clear next step.`,
+      ],
+    },
+    {
+      heading: `Text Us — the Fastest Route`,
+      paragraphs: [
+        `Texting ${v.phone} is the quickest way to get moving. A message with what you're thinking about — a portrait, a wedding, a headshot batch, a landscape print — and roughly when you'd want it is usually enough for us to help you right away. No phone tag, no navigating a booking form that doesn't have the option you want.`,
+        `Text also gives you a written record of what was discussed — the session type, the quote, the date — right there in your messages. Send us a message whenever it's convenient, even outside normal hours, and we'll get back to you as soon as we can.`,
+      ],
+    },
+    {
+      heading: `Prefer to Call? We Pick Up`,
+      paragraphs: [
+        `Some things are easier to talk through — especially a wedding or a session with a lot of moving pieces. If you'd rather explain what you're picturing out loud, call us. You'll reach someone who actually shoots and prints film here, not a scheduling assistant reading from a script.`,
+        `We know a call is a bigger ask than a text, so we respect it. No hold music, no being bounced around. You call, we listen, we help.`,
+      ],
+    },
+    {
+      heading: `Book Online, Anytime`,
+      paragraphs: [
+        `If you'd rather handle everything without a conversation first, you can book online at your own pace, day or night. Tell us what you need through the site and we'll follow up to confirm the details and lock in your time.`,
+        `Online booking is especially handy outside business hours — send it over whenever suits you and it'll be waiting for us. However you reach us, the result is the same: a fast, honest response and a clear path to getting your session on the calendar.`,
+      ],
+    },
+    {
+      heading: `How Quickly We Respond`,
+      paragraphs: [
+        `We aim to respond quickly, because when you're deciding on a photographer, momentum matters. Reach us during working hours and you'll typically hear back fast; message us after hours and we'll get to it as soon as we're able. Either way, you're not left wondering whether your message vanished.`,
+        `Fast, honest responses are a core part of how we operate. We'd rather set that expectation from your very first message than let you wonder whether we're going to disappear the way a lot of freelance photographers do.`,
+      ],
+    },
+    {
+      heading: `What to Tell Us`,
+      paragraphs: [
+        `To help us help you fast, a few details go a long way: what kind of session (portrait, wedding, headshots, landscape, prints), roughly when you're thinking, and whether you have a specific location or look in mind. The more specific you can be, the more accurate our quote and our recommendation will be.`,
+        `That said, don't worry about getting it perfect. If you're not sure how to describe what you want, tell us what you know and we'll ask the right follow-up questions. Part of our job is helping you land on the right session, not just taking an order.`,
+      ],
+    },
+    {
+      heading: `What Happens After You Reach Out`,
+      paragraphs: [
+        `Once you contact us, the process is simple: we'll ask a few questions to understand your session, give you a clear and honest quote, and — if you're happy with it — lock in a time. There's no drawn-out sales process and no pressure to decide on the spot.`,
+        `From there, we shoot your session on real film, develop it by hand in our darkroom, and print by hand under a real safelight. Darkroom prints are typically ready in 5-7 business days; digital scans, if added, usually land in 2-3. It's a straightforward path from first message to finished print, and we work hard to keep it that way.`,
+      ],
+    },
+    {
+      heading: `Where We Shoot`,
+      paragraphs: [
+        `Studio sessions happen in-house, with full lighting control — the default for headshots and formal portraits. On-location sessions run anywhere around ${v.place} and the greater Bay Area; text ${v.phone} with a location in mind, or ask us for a recommendation based on the mood you're going for.`,
+        `Knowing ${v.place} is part of doing this well — the fog patterns, the light at different times of day, which neighborhoods suit which look. That local knowledge isn't a generic playbook; it's years of paying attention to how this specific city photographs.`,
+      ],
+    },
+    {
+      heading: `When We're Available`,
+      paragraphs: [
+        `We keep hours that work for real schedules, and we try to be reachable when you actually need us. You don't have to catch us in a narrow window — send a text or book online anytime, and we'll respond as soon as we're able. For anything time-sensitive, tell us and we'll treat it that way.`,
+      ],
+    },
+    {
+      heading: `No Pressure, No Obligation`,
+      paragraphs: [
+        `Reaching out costs you nothing and commits you to nothing. Get a quote, ask a question about film stock or turnaround, compare us against another photographer — all of it is free and none of it obligates you to book. We're confident enough in what we do that we don't need to pressure you into a decision.`,
+        `You won't get hounded with follow-up calls. If we're the right fit, great; if not, no hard feelings and the door stays open.`,
+      ],
+    },
+    {
+      heading: `If Your Timeline Is Tight`,
+      paragraphs: [
+        `If you need a session or a print turned around quickly — a gift deadline, a press request, an event coming up — tell us that up front. We'll be honest about what we can do. If we can prioritize it, we will; if we can't, we'll tell you that too, so you're not left waiting on a maybe.`,
+        `Urgency won't cost you a penalty. There's no inflated "rush rate" designed to squeeze you when you're short on time — urgent requests are priced fairly, the same honest way as everything else.`,
+      ],
+    },
+    {
+      heading: `Getting a Quote`,
+      paragraphs: [
+        `The most useful thing you can get from reaching out is an honest quote for your specific session. Tell us the details and we'll give you a clear rate — one that covers what you actually need, with nothing hidden. And the quote we give is the quote you pay, barring a genuine change in scope we'd flag with you first.`,
+        `We ask real questions before quoting rather than throwing out a number, because a quote you can trust is worth more than a fast guess that falls apart. If anything about the price is unclear, ask — we're happy to walk you through exactly how we got there.`,
+      ],
+    },
+    {
+      heading: `Already a Client?`,
+      paragraphs: [
+        `If you've worked with us before, reaching out again is even easier — we keep your negatives archived, so a reprint, a different size, or an extra copy for family is just a text away. Text ${v.phone} and we can pick up right where we left off.`,
+        `Existing clients are the heart of what we do. A portrait client returning for a family session once kids arrive, an engagement couple returning for their wedding — we treat repeat business as something earned every time, not taken for granted.`,
+      ],
+    },
+    {
+      heading: `For Businesses and Teams`,
+      paragraphs: [
+        `If you're reaching out on behalf of a company — team headshots, corporate photography, editorial work — we're glad to help and understand your needs are a little different. Tell us your headcount or the scope of the project and we'll put together an arrangement that fits, with the same consistent black and white tone across everyone.`,
+      ],
+    },
+    {
+      heading: `We Actually Answer`,
+      paragraphs: [
+        `It's worth saying plainly, because it's so often not true elsewhere: when you contact ${v.brand}, we answer. Not a bot, not a "we'll get back to you" that quietly never happens — a real person who has your details and can genuinely help. That's the entire promise behind every way of reaching us.`,
+      ],
+    },
+    {
+      heading: `After Your Session`,
+      paragraphs: [
+        `Our relationship with you doesn't end once you've received your prints. If you have a question, want a reprint, or you're ready to book again, reaching out is just as easy as it was the first time. We stay reachable after the sale precisely because so many photographers go quiet then — and that difference is where trust is either built or broken.`,
+        `If anything about a completed session isn't right, we want to hear it, and we'll make it right. Tell us what's off and we'll fix it — no arguing, no runaround.`,
+      ],
+    },
+    {
+      heading: `What You Can Expect From Us`,
+      paragraphs: [
+        `When you contact ${v.brand}, here's what you can count on: a fast response, a real person, honest answers, and a clear quote — no pressure attached to any of it. That's the standard for every inquiry, whether it turns into a booking or not.`,
+        `And once you do book, the same standard carries through: we shoot on real film, develop and print by hand, charge exactly what we quoted, and make it right if anything falls short. Contacting us is simply the first step in a process designed to be clear, honest, and genuinely easy.`,
+      ],
+    },
+    {
+      heading: `Directions, Access, and Details`,
+      paragraphs: [
+        `For studio sessions, we'll confirm the address and any details you need — parking, entrance, timing — when you book. For on-location sessions, tell us the neighborhood or exact spot you have in mind, or ask us for a recommendation based on the light and mood you're after.`,
+        `If you're shooting on location, build in a few extra minutes for parking and Muni delays — arriving relaxed matters more than arriving exactly on the dot, and we'd rather use your booked time shooting than waiting.`,
+      ],
+    },
+    {
+      heading: `If You're Visiting San Francisco`,
+      paragraphs: [
+        `A real share of our clients aren't local — they're in ${v.place} for a trip, a proposal, or a work conference and want a real photograph to mark it. If that's you, mention your travel dates when you reach out; we'll work around a tight schedule and can often confirm a session within a day or two.`,
+        `Because development takes real time, out-of-town clients typically add the Digital Scans Add-On so there's a shareable digital file before they leave, with the physical prints shipped once they're hand-printed.`,
+      ],
+    },
+    {
+      heading: `Questions Before You Commit`,
+      paragraphs: [
+        `You don't need to already know exactly which session fits your situation before you reach out. Tell us roughly what you're picturing and we'll help you land on the right one — a portrait, a headshot, a couples session, a landscape print — rather than assuming and quoting the wrong thing.`,
+        `We'll also tell you plainly if something you're describing isn't quite the right fit for what we do, and point you somewhere that is. That honesty costs us a booking sometimes. We'd rather have it than oversell you once.`,
+      ],
+    },
+    {
+      heading: `Talking Through a Wedding`,
+      paragraphs: [
+        `Wedding inquiries usually benefit from an actual conversation rather than a single text — the date, the timeline, whether it's full-day or partial coverage, and how film fits into your other vendors' schedules. Text or call ${v.phone} to start that conversation, and we'll walk through what full-day black and white film coverage actually looks like for your specific day.`,
+      ],
+    },
+    {
+      heading: `Talking Through a Team Headshot Session`,
+      paragraphs: [
+        `If you're reaching out for a company, tell us your headcount and rough timeline and we'll scope the session as one continuous booking rather than pricing per person. Most individuals only need 10-15 minutes once lighting is set, so a team of 8-10 usually fits in a single studio session.`,
+        `We'll keep notes on your original session's setup so a new hire's headshot months later still matches the same look — mention that when you reach out and we'll build it into the plan.`,
+      ],
+    },
+    {
+      heading: `A Note on Trust`,
+      paragraphs: [
+        `Booking a photographer means trusting someone with a real moment — a portrait, a wedding day, a headshot that represents you professionally. We don't take that lightly, and we don't ask you to take our word for it either. Text us, ask hard questions, and judge the answers before you commit anything.`,
+        `If our answers feel evasive or vague, that's useful information. If they feel straightforward and specific, that's useful too. Either way, you'll know more about how we actually operate than a portfolio alone could tell you.`,
+      ],
+    },
+    {
+      heading: `What We Won't Do`,
+      paragraphs: [
+        `We won't pressure you into booking before you're ready. We won't quote one price and change it later without telling you first. We won't hand any part of your session to an AI tool and call it the same product. And we won't go quiet the moment you've paid — the relationship continues as long as you want it to.`,
+      ],
+    },
+    {
+      heading: `How We Communicate After You Book`,
+      paragraphs: [
+        `Once you're on the calendar, we'll confirm the date, time, and any location details clearly — you'll always know exactly when to expect us or when to expect us at the studio. If anything genuinely needs to shift on our end, you hear it from us first, with enough notice to matter, not a last-minute scramble.`,
+        `Between booking and your session, feel free to text with questions as they come up — what to wear, where to park, whether you can bring someone along. None of it is too small, and we'd rather answer five small questions than have you show up unsure about something we could have cleared up in advance.`,
+      ],
+    },
+    {
+      heading: `Reach Out Today`,
+      paragraphs: [
+        `Whatever kind of session you're picturing in ${v.place}, the first step is simple: reach out. Text ${v.phone}, give us a call, or book online — whichever is easiest. You'll get a fast, honest response, a clear quote, and a straightforward path to a real photograph you'll still want in twenty years.`,
+        `There's nothing to lose by getting in touch — no cost, no obligation, no pressure. Just a straight answer from a real photographer. We're ready whenever you are.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = [
+    { q: `What's the fastest way to reach you?`, a: `Text ${v.phone}. A quick message with what you're thinking about is usually enough for us to help right away.` },
+    { q: `Can I book without calling?`, a: `Yes. You can book online at your own pace, and we'll follow up to confirm the details. Text and phone work too.` },
+    { q: `How fast will you respond?`, a: `Quickly during working hours, and as soon as we're able after hours. You won't be left wondering whether your message got through.` },
+    { q: `What information should I include?`, a: `What kind of session you're thinking about, roughly when, and any specific location or look in mind. If you're unsure, just tell us what you know and we'll ask the rest.` },
+    { q: `Does reaching out obligate me to anything?`, a: `No. Getting a quote or asking a question costs nothing and commits you to nothing.` },
+    { q: `What if I have a tight deadline?`, a: `Tell us when you reach out and we'll be honest about what's realistic — with no inflated rush pricing.` },
+    { q: `Do you shoot outside San Francisco?`, a: `Yes, within the greater Bay Area — text ${v.phone} with your location and we'll confirm.` },
+  ]
+
+  return {
+    title: `Contact ${v.brand} — Film Photography in ${v.place} | Text ${v.phone}`,
+    metaDescription: `Get in touch with ${v.brand} for black and white film photography in ${v.place}. Text ${v.phone}, call, or book online — fast, honest response, no pressure.`,
+    h1: `Contact ${v.brand}`,
+    intro: `Text, call, or book online — whichever suits you. You'll get a fast, honest response from a real photographer, a clear quote, and no pressure. Here's everything about reaching us, what to tell us, and exactly what happens once you do — from the first message through your finished, hand-printed photograph.`,
     sections,
     faq,
   }
@@ -1712,7 +2362,7 @@ export function careersContent(config: SiteConfig): LongformPage {
     {
       heading: `What We Look For`,
       paragraphs: [
-        `Skill matters, but character matters more, because skill can be taught and character can't. We look for people who are reliable, honest, and respectful — the kind of person who shows up when they said they would, does the job properly even when no one's watching, and treats a client's ${v.isRemote ? 'time and trust' : 'home and property'} with genuine care. Those traits are the foundation everything else is built on.`,
+        `Skill matters, but character matters more, because skill can be taught and character can't. We look for people who are reliable, honest, and respectful — the kind of person who shows up when they said they would, does the job properly even when no one's watching, and treats a client's ${v.isRemote ? 'time and trust' : v.profile.isPhotography ? 'trust and real, personal moments' : 'home and property'} with genuine care. Those traits are the foundation everything else is built on.`,
         `We can teach the technical side of ${v.noun} to someone with the right attitude far more easily than we can instill a good attitude in someone who's technically skilled but unreliable. So while relevant experience is always welcome, what we're really screening for is whether you're someone we'd trust to represent us — because when you're on a job, you are the company in the client's eyes, and that's a responsibility we take seriously.`,
       ],
     },
@@ -2880,7 +3530,7 @@ export function locationCareersContent(config: SiteConfig, area: LocationInput):
     {
       heading: `What We Look For`,
       paragraphs: [
-        `Skill matters, but character matters more — reliability, honesty, and respect for a client's ${v.isRemote ? 'time and trust' : 'home and property'}. We hire for those traits and train the technical parts of ${v.noun} on the job.`,
+        `Skill matters, but character matters more — reliability, honesty, and respect for a client's ${v.isRemote ? 'time and trust' : v.profile.isPhotography ? 'trust and real, personal moments' : 'home and property'}. We hire for those traits and train the technical parts of ${v.noun} on the job.`,
       ],
     },
     {
