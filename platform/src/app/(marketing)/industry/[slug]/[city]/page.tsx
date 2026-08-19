@@ -22,7 +22,7 @@ import {
   type ComboIndustry,
   type ComboMetro,
 } from "@/lib/marketing/combos";
-import { buildCityContextSection, stateHubMetro, isHubOrMajorCity } from "@/lib/marketing/cityContext";
+import { buildCityContextSection } from "@/lib/marketing/cityContext";
 import { SectionBlock, RelatedLinksHub } from "@/components/marketing/SeoSection";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
@@ -82,13 +82,12 @@ export async function generateMetadata({
   const finalTitle = override?.title || title;
   const finalDescription = override?.description || description;
 
-  let canonicalUrl = url;
-  if (!override && !isHubOrMajorCity(metro)) {
-    const hub = stateHubMetro(metro.stateAbbr);
-    if (hub && hub.slug !== metro.slug) {
-      canonicalUrl = `https://homeservicesbusinesscrm.com${comboPath(industry, hub)}`;
-    }
-  }
+  // 2026-08-19: every combo page is self-canonical again — restored
+  // alongside the sitemap re-add (see src/lib/seo/main-sitemap.ts). Previously
+  // non-hub cities canonicalized to their state hub to avoid duplicate
+  // content across near-identical pages; that consolidation is off per
+  // Jeff's "we need them all back."
+  const canonicalUrl = url;
 
   return {
     title: finalTitle,

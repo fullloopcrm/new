@@ -1,4 +1,4 @@
-import { industries, industryPath } from "@/lib/marketing/combos";
+import { industries, metros, industryPath, locationPath, comboPath } from "@/lib/marketing/combos";
 import { features } from "@/lib/marketing/features";
 
 const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
@@ -29,12 +29,16 @@ const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
   { path: "/sub-processors", priority: "0.3", freq: "yearly" },
 ];
 
-// Single flat sitemap for the main host — static pages, the 51 pure
-// /industry/[slug] trade pages, and the /feature/[slug] pages.
+// Full flat sitemap for the main host — static pages, the 51 pure
+// /industry/[slug] trade pages, the /feature/[slug] pages, the 400
+// /locations/[state]/[city] pages, and the 20,400 /industry/[slug]/[city]
+// combo pages.
 //
-// 2026-08-18: consolidated from a 4-file sitemap index (sitemap-pages +
-// sitemap-industries + sitemap-locations + sitemap-combos) down to this one
-// list, now that locations/combos are noindexed (page-bloat cleanup).
+// 2026-08-19: restored the location + combo pages per Jeff's explicit call —
+// "we need them all back." These were pulled 2026-08-18 (see git history,
+// commit acd1f11d1) after GSC data showed zero clicks across every one of
+// them; that finding still stands, this is a deliberate reversal, not new
+// evidence the pages will perform differently. Re-flag before repeating.
 // Served from BOTH /sitemap.xml (kept live — other code/tests may still
 // expect it to exist) and /sitemap-current.xml (the URL actually submitted
 // to GSC, so Google treats it as a new resource instead of serving cached
@@ -50,6 +54,14 @@ export function mainSitemapXml(): string {
   const featureUrls = features.map(
     (f) => `<url><loc>${base}/feature/${f.slug}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>`
   );
-  const urls = [...staticUrls, ...industryUrls, ...featureUrls].join("");
+  const locationUrls = metros.map(
+    (m) => `<url><loc>${base}${locationPath(m)}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`
+  );
+  const comboUrls = industries.flatMap((i) =>
+    metros.map(
+      (m) => `<url><loc>${base}${comboPath(i, m)}</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>`
+    )
+  );
+  const urls = [...staticUrls, ...industryUrls, ...featureUrls, ...locationUrls, ...comboUrls].join("");
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
 }
