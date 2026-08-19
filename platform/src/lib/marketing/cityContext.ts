@@ -96,8 +96,11 @@ function geoPositionLine(metro: ComboMetro): string {
 
 /**
  * Real neighbor set for a city — same-state metros first, then the closest
- * out-of-state metros by list adjacency (proxy for proximity). Unique per city,
- * so it is a genuine differentiator between two cities in the same state.
+ * out-of-state metros by actual geographic distance (haversine over real
+ * lat/lng). Unique per city, so it is a genuine differentiator between two
+ * cities in the same state — and, unlike list-index adjacency, it doesn't
+ * hand Minneapolis "Oakland, Tampa, Miami" as neighbors just because they
+ * happen to sit near each other in the metros array.
  */
 export function getNeighborCities(metro: ComboMetro, limit = 8): ComboMetro[] {
   const sameState = metros.filter(
@@ -105,20 +108,43 @@ export function getNeighborCities(metro: ComboMetro, limit = 8): ComboMetro[] {
   );
   if (sameState.length >= limit) return sameState.slice(0, limit);
 
-  const idx = metros.findIndex((m) => m.slug === metro.slug);
+  const cd = getCityData(metro.slug);
   const out: ComboMetro[] = [...sameState];
-  // walk outward from the city's index position for nearest-by-list metros
-  let step = 1;
-  while (out.length < limit && step < metros.length) {
-    for (const d of [idx - step, idx + step]) {
-      const m = metros[d];
-      if (m && m.slug !== metro.slug && !out.some((x) => x.slug === m.slug)) {
-        out.push(m);
-        if (out.length >= limit) break;
-      }
-    }
-    step++;
+  const remaining = limit - out.length;
+
+  if (cd?.lat != null && cd?.lng != null) {
+    const ranked = metros
+      .filter((m) => m.stateAbbr !== metro.stateAbbr)
+      .map((m) => {
+        const d = getCityData(m.slug);
+        return d?.lat != null && d?.lng != null
+          ? { m, mi: haversineMi(cd.lat as number, cd.lng as number, d.lat, d.lng) }
+          : null;
+      })
+      .filter((x): x is { m: ComboMetro; mi: number } => x !== null)
+      .sort((a, b) => a.mi - b.mi)
+      .slice(0, remaining)
+      .map((x) => x.m);
+    out.push(...ranked);
   }
+
+  // Fallback for the rare city missing lat/lng data — list adjacency beats
+  // nothing, but only as a last resort now that real distance is available.
+  if (out.length < limit) {
+    const idx = metros.findIndex((m) => m.slug === metro.slug);
+    let step = 1;
+    while (out.length < limit && step < metros.length) {
+      for (const d of [idx - step, idx + step]) {
+        const m = metros[d];
+        if (m && m.slug !== metro.slug && !out.some((x) => x.slug === m.slug)) {
+          out.push(m);
+          if (out.length >= limit) break;
+        }
+      }
+      step++;
+    }
+  }
+
   return out.slice(0, limit);
 }
 
