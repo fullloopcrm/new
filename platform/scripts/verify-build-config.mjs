@@ -36,7 +36,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CHECKS = [
   {
     file: 'next.config.ts',
-    pattern: /ignoreBuildErrors\s*:\s*true/,
+    check: (content) => /ignoreBuildErrors\s*:\s*true/.test(content),
     why:
       "typescript.ignoreBuildErrors: true is missing from next.config.ts. " +
       "This duplicates CI's tsc --noEmit gate inside the Vercel build itself, " +
@@ -47,7 +47,22 @@ const CHECKS = [
   },
   {
     file: 'vercel.json',
-    pattern: /VERCEL_ENV.*!=.*production/,
+    // Checks the protective invariants, not an exact string match: the
+    // command must still gate production behind [deploy], and gate
+    // non-production, non-PR pushes behind an explicit tag. The exact shell
+    // logic implementing this legitimately changed once already (2026-08-17
+    // -> 2026-08-18, "$VERCEL_ENV" != vs = "production") without losing the
+    // protection — a brittle exact-string check would have false-positived
+    // on that refactor, which is exactly the kind of noise that makes people
+    // stop trusting a guard. Checking the concepts, not the syntax.
+    check: (content) =>
+      /ignoreCommand/.test(content) &&
+      /VERCEL_GIT_PULL_REQUEST_ID/.test(content) &&
+      // Backslash count before the brackets varies with shell/JSON escaping
+      // layers (already changed once between 08-17 and 08-18) -- tolerate
+      // any amount rather than hand-encoding an exact count that's fragile
+      // to re-break on the next legitimate escaping refactor.
+      /\\*\[deploy\\*\]/.test(content),
     why:
       "vercel.json's ignoreCommand no longer gates non-production builds. " +
       "Without this, every push to every branch (including throwaway " +
@@ -67,7 +82,7 @@ for (const check of CHECKS) {
     continue
   }
   const content = readFileSync(path, 'utf8')
-  if (!check.pattern.test(content)) {
+  if (!check.check(content)) {
     violations.push(`${check.file}: ${check.why}`)
   }
 }
