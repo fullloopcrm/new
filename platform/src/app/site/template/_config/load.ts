@@ -1,5 +1,6 @@
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dialDigits } from '@/lib/phone'
 import { siteConfig as defaultConfig } from './site'
 import type { SiteConfig } from './types'
 
@@ -19,7 +20,7 @@ import type { SiteConfig } from './types'
  */
 
 function toDigits(value?: string | null): string {
-  return (value || '').replace(/\D/g, '')
+  return dialDigits(value || '')
 }
 
 type TenantRow = Record<string, unknown>

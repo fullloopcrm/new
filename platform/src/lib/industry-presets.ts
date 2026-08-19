@@ -21,7 +21,7 @@ export type IndustryKey =
   | 'pest' | 'junk_removal' | 'dumpster' | 'towing' | 'appliance_repair'
   | 'garage_door' | 'locksmith' | 'home_inspection' | 'septic' | 'auto_detailing'
   | 'pet_grooming' | 'pet_waste' | 'handyman' | 'hvac' | 'plumbing' | 'electrical'
-  | 'mobile_salon' | 'laundry' | 'fitness'
+  | 'mobile_salon' | 'laundry' | 'fitness' | 'photography'
   // project (lead) verticals — can run days → a year
   | 'landscaping' | 'remodeling' | 'roofing' | 'siding' | 'painting' | 'flooring'
   | 'concrete' | 'deck' | 'fencing' | 'demolition' | 'drywall' | 'epoxy'
@@ -148,6 +148,7 @@ export function mapIndustry(raw: string | null | undefined): IndustryKey {
   if (/interior ?design|decorat|home ?stag|\bstager\b|\bstaging\b/.test(s)) return 'interior_design'
   if (/fitness|trainer|\bgym\b|personal train|\byoga\b|pilates/.test(s)) return 'fitness'
   if (/handy|\brepair\b|assembly|honey.?do/.test(s)) return 'handyman'
+  if (/photo|photographer|photography/.test(s)) return 'photography'
 
   return 'general'
 }
@@ -646,6 +647,16 @@ export const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     svc('Color & Material Palette', 'Paint, fabric, and finish selections', 2, 100, 6),
     svc('Virtual Design Package', 'Remote design plan + shopping list', 1, 85, 7),
   ],
+  photography: [
+    svc('Portrait Session', 'One-on-one portrait shoot', 1.5, 150, 1),
+    svc('Headshot Session', 'Professional headshots', 1, 150, 2),
+    svc('Family Session', 'Family portrait session', 1.5, 150, 3),
+    svc('Couples & Engagement Session', 'Portraits for couples and engagements', 1.5, 150, 4),
+    svc('Wedding Photography', 'Full wedding-day coverage', 8, 175, 5),
+    svc('Event Photography', 'Coverage for parties, launches, and gatherings', 3, 150, 6),
+    svc('Product Photography', 'Product shots for e-commerce or catalog', 2, 125, 7),
+    svc('Studio Session', 'In-studio session with backdrops and lighting', 2, 150, 8),
+  ],
   general: [
     svc('Service Call', 'Initial diagnostic visit', 1, 100, 1),
     svc('Standard Service', 'Typical service package', 2, 100, 2),
@@ -745,6 +756,7 @@ export const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, ChecklistField[]> = {
   mobile_salon: stdChecklist('Ask cut & style, color, blowout, or bridal — hair length/type + look.', opts(['Cut & style', 'Color', 'Blowout', 'Bridal'])),
   laundry: stdChecklist('Ask wash & fold, pickup & delivery, dry cleaning, or commercial — rough load size.', opts(['Wash & fold', 'Pickup', 'Dry clean', 'Commercial']), { emailRequired: false }),
   fitness: stdChecklist('Ask intro, single, package, or in-home — goals + any limitations.', opts(['Intro', 'Single', 'Package', 'In-home']), { addressRequired: false }),
+  photography: stdChecklist('Ask portrait, headshot, family, wedding, event, or product — location and any specific shots wanted.', opts(['Portrait', 'Headshot', 'Family', 'Wedding', 'Event', 'Product']), { addressRequired: false }),
   landscaping: stdChecklist('Ask mowing, cleanup, planting, or design & install — property size + access.', opts(['Mowing', 'Cleanup', 'Planting', 'Design'])),
   remodeling: stdChecklist('Ask kitchen, bathroom, basement, or addition — scope, finishes, and budget.', opts(['Kitchen', 'Bathroom', 'Basement', 'Addition'])),
   roofing: stdChecklist('Ask inspection, repair, full replacement, or storm — roof age + material.', opts(['Inspection', 'Repair', 'Replace', 'Storm'])),

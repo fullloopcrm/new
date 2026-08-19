@@ -15,6 +15,9 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import { WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { findServiceValueBySlug, slugifyService, SERVICE_DESCRIPTIONS as PHOTO_SERVICE_DESCRIPTIONS } from '@/app/site/template/_lib/seo/photography-services'
+import PhotographyServicePage from '@/app/site/template/_components/photography/PhotographyServicePage'
 
 const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
   'deep-cleaning': 'kitchen',
@@ -40,10 +43,31 @@ export async function generateStaticParams() { return [] }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
+  const config = await getSiteConfig()
+
+  // Photography tenants resolve entirely separately — their service list,
+  // slugs, and page content live in photography-services.ts, not the
+  // NYC-cleaning SERVICES catalog this route was originally built for.
+  if (industryProfile(config.industry).isPhotography) {
+    const value = findServiceValueBySlug(config.services, slug)
+    if (!value) return {}
+    const base = config.identity.url.replace(/\/+$/, '')
+    const brand = config.identity.siteName ?? config.identity.name
+    const url = `${base}/services/${slug}`
+    const title = `${value} in ${config.geo.placename} | ${brand}`
+    const description = PHOTO_SERVICE_DESCRIPTIONS[value] ?? `Real 35mm black and white film ${value.toLowerCase()} in ${config.geo.placename}, shot and hand-developed by ${brand} — no AI, ever. ${config.contact.phone}`
+    return {
+      title: { absolute: title },
+      description,
+      alternates: { canonical: url },
+      openGraph: { title, description, url, type: 'website', siteName: brand, locale: 'en_US' },
+      twitter: { card: 'summary_large_image', title, description },
+    }
+  }
+
   const service = getServiceByUrlSlug(slug)
   if (!service) return {}
 
-  const config = await getSiteConfig()
   const base = config.identity.url.replace(/\/+$/, '')
   const brand = config.identity.siteName ?? config.identity.name
   const url = `${base}/services/${slug}`
@@ -77,11 +101,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServicePage({ params }: Props) {
-  await requireNycmaidTenant()
   const { slug } = await params
+
+  // Photography dispatch — runs before requireNycmaidTenant(), which would
+  // otherwise 404 every non-nycmaid tenant including this one.
+  const preConfig = await getSiteConfig()
+  if (industryProfile(preConfig.industry).isPhotography) {
+    const matchedValue = findServiceValueBySlug(preConfig.services, slug)
+    if (!matchedValue) notFound()
+    const matched = preConfig.services.find((s) => s.value === matchedValue)
+    if (!matched) notFound()
+    const otherServices = preConfig.services.filter((s) => s.value !== matchedValue)
+    return <PhotographyServicePage config={preConfig} service={matched} otherServices={otherServices} />
+  }
+
+  await requireNycmaidTenant()
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
-  const siteConfig = await getSiteConfig()
+  const siteConfig = preConfig
   const biz = buildBusiness(siteConfig)
   const isNycmaid = siteConfig.identity.url.includes('thenycmaid.com')
 

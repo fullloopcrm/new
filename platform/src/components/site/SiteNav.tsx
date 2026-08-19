@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { dialDigits } from '@/lib/phone'
 
 interface ServiceType {
   id: string
@@ -45,7 +46,7 @@ export default function SiteNav({
 
   const closeMenu = () => setMobileOpen(false)
 
-  const phoneDigits = phone?.replace(/[^+\d]/g, '') || ''
+  const phoneDigits = phone ? dialDigits(phone) : ''
 
   const moreLinks = [
     { name: 'About', href: '/about' },

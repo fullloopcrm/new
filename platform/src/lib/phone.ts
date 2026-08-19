@@ -18,6 +18,31 @@ export function stripPhone(value: string): string {
   return value.replace(/\D/g, '')
 }
 
+const KEYPAD_LETTERS: Record<string, string> = {
+  A: '2', B: '2', C: '2',
+  D: '3', E: '3', F: '3',
+  G: '4', H: '4', I: '4',
+  J: '5', K: '5', L: '5',
+  M: '6', N: '6', O: '6',
+  P: '7', Q: '7', R: '7', S: '7',
+  T: '8', U: '8', V: '8',
+  W: '9', X: '9', Y: '9', Z: '9',
+}
+
+/**
+ * Strip a phone string to dialable digits for a `tel:` href, converting any
+ * vanity keypad letters (e.g. "(415) 573-FILM") to their numeric equivalent
+ * first. A plain numeric phone passes through exactly like `stripPhone`.
+ */
+export function dialDigits(value: string): string {
+  return value
+    .toUpperCase()
+    .split('')
+    .map((ch) => KEYPAD_LETTERS[ch] ?? ch)
+    .join('')
+    .replace(/\D/g, '')
+}
+
 /**
  * Normalize a phone number to E.164 (+1XXXXXXXXXX) for storage. Same
  * canonical format as client_contacts.phone_e164 and the normalization

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { dialDigits } from '@/lib/phone'
 
 interface FooterProps {
   businessName: string
@@ -9,7 +10,7 @@ interface FooterProps {
 }
 
 export default function MarketingFooter({ businessName, phone, email, services, areas }: FooterProps) {
-  const phoneDigits = phone.replace(/\D/g, '')
+  const phoneDigits = dialDigits(phone)
 
   // Split areas into two columns if there are enough
   const areasCol1 = areas.slice(0, Math.ceil(areas.length / 2))
