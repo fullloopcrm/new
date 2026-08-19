@@ -10,6 +10,12 @@
  * catalog. Falls back to the legacy settings.service_types JSON field only
  * for a tenant that hasn't populated the catalog yet, so no tenant
  * regresses to an empty dropdown.
+ *
+ * Carries default_hourly_rate alongside the name -- previously this endpoint
+ * only returned name/hours, so the booking form had no way to know a
+ * service's real catalog price and silently defaulted every new booking to
+ * a hardcoded rate (69, nycmaid's own standard-cleaning rate) regardless of
+ * tenant or which service was actually selected.
  */
 import { NextResponse } from 'next/server'
 import { getCurrentTenant } from '@/lib/tenant'
@@ -30,18 +36,28 @@ export async function GET() {
 
   const { data: catalogServices } = await tenantDb(tenant.id)
     .from('service_types')
-    .select('name, default_duration_hours, active')
+    .select('name, default_duration_hours, default_hourly_rate, active')
     .eq('item_type', 'service')
     .eq('active', true)
     .order('sort_order', { ascending: true })
 
   if (catalogServices && catalogServices.length > 0) {
     return NextResponse.json(
-      catalogServices.map((s) => ({ name: s.name, default_hours: s.default_duration_hours ?? 2, active: true })),
+      catalogServices.map((s) => ({
+        name: s.name,
+        default_hours: s.default_duration_hours ?? 2,
+        default_hourly_rate: s.default_hourly_rate ?? null,
+        active: true,
+      })),
     )
   }
 
+  // Legacy fallback carries its rate under `rate`, not `default_hourly_rate`
+  // -- normalize the key so every consumer of this endpoint only ever has to
+  // check one field name regardless of which branch served the response.
   const settings = await getSettings(tenant.id)
-  const active = (settings.service_types || []).filter((s) => s.active !== false)
+  const active = (settings.service_types || [])
+    .filter((s) => s.active !== false)
+    .map((s) => ({ ...s, default_hourly_rate: s.rate || null }))
   return NextResponse.json(active)
 }

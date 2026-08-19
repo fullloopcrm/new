@@ -332,8 +332,20 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
     }
 
     if (scope === 'all' && (booking.schedule_id || booking.recurring_type)) {
+      // booking.recurring_type is the RAW recurring_schedules key ('weekly',
+      // 'biweekly', ...) for every schedule-linked booking -- it's written
+      // straight from POST /api/admin/recurring-schedules's own recurring_type
+      // param (see route.ts), never through getRecurringDisplayName. Comparing
+      // it against the display-name `recurringType` computed above ('Weekly')
+      // made patternChanged true on EVERY "all future bookings" save, even
+      // pure time/cleaner edits with no pattern change -- routing every edit
+      // through the destructive /regenerate rebuild (capped to a ~6-week
+      // window, cron backfills the rest) instead of the lightweight in-place
+      // /api/bookings/batch-update path meant for this case. Compare raw to
+      // raw, same normalization already used to build the regenerate/create
+      // payloads elsewhere in this file.
       const oldRecurringType = booking.recurring_type
-      const patternChanged = recurringType !== oldRecurringType
+      const patternChanged = rawRecurringType(form.repeat_type) !== oldRecurringType
 
       if (patternChanged && booking.schedule_id && form.repeat_enabled) {
         const startDateObj = new Date(form.start_date + 'T12:00:00')
@@ -379,6 +391,12 @@ export default function EditBookingForm({ booking, hideCleanerPicker, onSaved, o
           alert(`Failed to update recurring series: ${err.error || res.statusText}`)
           setSaving(false)
           return
+        }
+        // Endpoint falls back to per-row insert and can succeed with some
+        // dates skipped (collision) instead of failing outright -- surface that.
+        const regenResult = await res.json().catch(() => null)
+        if (regenResult?.skipped_dates?.length > 0) {
+          alert(`Recurring series updated, but ${regenResult.skipped_dates.length} occurrence(s) were skipped (date/service conflict): ${regenResult.skipped_dates.join(', ')}. Check these dates manually.`)
         }
       } else {
         const deltaMinutes = naiveMinuteDiff(newStartStr, booking.start_time)

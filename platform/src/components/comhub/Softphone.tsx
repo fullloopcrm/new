@@ -1167,13 +1167,20 @@ function RecipientSearch({
     return cleaned.length === s.length && /\d/.test(s)
   }, [])
 
-  // When destination changes from outside (e.g. ?dial param), keep the input
-  // in sync so the user sees what they're calling.
+  // When destination changes from outside (e.g. the dial pad, or a ?dial
+  // param), keep the input in sync so the user sees what they're calling.
+  // Previously gated on `!query`, so this only ever fired for the FIRST
+  // digit -- every keypad press after that updated `destination` correctly
+  // underneath, but the visible box stayed frozen on that first digit.
+  // Reproduced live: dialing via the keypad displayed only "2" no matter how
+  // many more digits were pressed. Safe to sync unconditionally: the search
+  // branch below clears `destination` to '' while a name query is in
+  // progress, so this never fires mid-name-search.
   useEffect(() => {
-    if (destination && !query) {
+    if (destination) {
       setQuery(destination)
     }
-  }, [destination, query])
+  }, [destination])
 
   const onChange = useCallback(
     (v: string) => {

@@ -18,6 +18,7 @@ import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { sendTelegram } from '@/lib/telegram'
 import { getCommPrefs } from '@/lib/comms-prefs'
+import { ensureBookingPaymentLink, computeOutstandingCents } from '@/lib/booking-payment'
 
 const STAGES_MIN = [15, 60, 120, 240, 360]
 const SMS_TYPE = 'payment_nudge'
@@ -32,9 +33,25 @@ export interface ReminderTenant {
   owner_email: string | null
   telegram_bot_token: string | null
   telegram_chat_id: string | null
+  stripe_api_key?: string | null
 }
 
-function buildPayLink(tenant: ReminderTenant, bookingId: string): string {
+// Same real per-booking Stripe link (correct outstanding amount baked in,
+// tied to this booking via metadata) that the dashboard's manual Remind/Copy
+// buttons already use (send-payment-reminder, payment-link routes) — see
+// route.payment-link-hijack.witness.test.ts for why the tenant-wide static
+// link + a caller-editable client_reference_id can't be trusted alone. This
+// automated cadence used to build only the static-link fallback, so every
+// text a client got before an admin ever touched the booking carried the
+// weaker link — root cause of clients bouncing off it and claiming they
+// never got a working payment link.
+async function buildPayLink(tenant: ReminderTenant, bookingId: string, serviceType: string | null, outstandingCents: number): Promise<string> {
+  try {
+    const unique = await ensureBookingPaymentLink(tenant, bookingId, serviceType || 'Service', outstandingCents)
+    if (unique) return unique
+  } catch (err) {
+    console.error('Payment reminder cadence: unique link creation failed, falling back to static link', err)
+  }
   if (!tenant.payment_link) return ''
   const sep = tenant.payment_link.includes('?') ? '&' : '?'
   return `${tenant.payment_link}${sep}client_reference_id=${bookingId}`
@@ -65,7 +82,7 @@ export async function runPaymentReminderCadence(
 
   const { data: pending } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, price, fifteen_min_alert_time, payment_reminder_sent_at, clients(name, phone)')
+    .select('id, client_id, price, service_type, fifteen_min_alert_time, payment_reminder_sent_at, clients(name, phone)')
     .eq('tenant_id', tenant.id)
     .not('fifteen_min_alert_time', 'is', null)
     .not('payment_status', 'in', '("paid","partial")')
@@ -125,9 +142,11 @@ export async function runPaymentReminderCadence(
       }
       if (!claimed) continue
 
-      const amount = booking.price ? (Number(booking.price) / 100).toFixed(2) : '0.00'
+      const outstandingCents = await computeOutstandingCents(tenant.id, booking.id, booking.price || 0)
+      const amount = (outstandingCents / 100).toFixed(2)
       const firstName = client.name?.split(' ')[0] || 'there'
-      const text = stageText(stagesSent, firstName, amount, buildPayLink(tenant, booking.id))
+      const payLink = await buildPayLink(tenant, booking.id, booking.service_type, outstandingCents)
+      const text = stageText(stagesSent, firstName, amount, payLink)
 
       const result = await sendClientSMS(booking.client_id, text, {
         smsType: SMS_TYPE,

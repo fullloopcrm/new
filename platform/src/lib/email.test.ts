@@ -23,6 +23,29 @@ vi.mock('resend', () => {
   return { Resend: vi.fn(FakeResend) }
 })
 
+describe('tenantHoldingEmail', () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  it('builds <slug>@fullloopcrm.com, same slugification as tenantSender', async () => {
+    const { tenantHoldingEmail } = await import('./email')
+    expect(tenantHoldingEmail({ slug: 'acme-cleaning' })).toBe('acme-cleaning@fullloopcrm.com')
+  })
+
+  it('is present regardless of email_from -- it always reflects the tenant, never a custom sender', async () => {
+    const { tenantHoldingEmail } = await import('./email')
+    expect(tenantHoldingEmail({ slug: 'acme' })).toBe('acme@fullloopcrm.com')
+  })
+
+  it('defaults to no-reply@fullloopcrm.com when slug is missing or sanitizes to empty', async () => {
+    const { tenantHoldingEmail } = await import('./email')
+    expect(tenantHoldingEmail({})).toBe('no-reply@fullloopcrm.com')
+    expect(tenantHoldingEmail({ slug: '!!!' })).toBe('no-reply@fullloopcrm.com')
+    expect(tenantHoldingEmail(null)).toBe('no-reply@fullloopcrm.com')
+  })
+})
+
 describe('tenantSender', () => {
   beforeEach(() => {
     vi.resetModules()

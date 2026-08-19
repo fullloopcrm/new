@@ -55,6 +55,23 @@ function parseRichSitemapSet(middlewareSource: string): Set<string> {
   )
 }
 
+// DOMAIN_SITE_SLUG_OVERRIDES (see tenant-routing.ts) routes a specific
+// hostname's /sitemap.xml straight to /site/<slug>/sitemap.xml, bypassing
+// TENANTS_WITH_RICH_SITEMAP entirely (that set is keyed by tenant slug — one
+// folder per tenant — while an override lets ONE tenant's second domain
+// serve a DIFFERENT folder's sitemap). A folder that's only reachable via an
+// override, not via the rich set, is not an orphan.
+function parseDomainSiteSlugOverrideTargets(middlewareSource: string): Set<string> {
+  const block = middlewareSource.match(
+    /DOMAIN_SITE_SLUG_OVERRIDES\s*:\s*Record<string,\s*string>\s*=\s*\{([\s\S]*?)\}/,
+  )
+  if (!block) return new Set()
+  // Values are the second quoted string on each `'host': 'slug',` line.
+  return new Set(
+    [...block[1].matchAll(/['"][^'"]+['"]\s*:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]),
+  )
+}
+
 // What kind of sitemap route (if any) a /site/<slug> folder serves.
 function sitemapRouteKind(slugDir: string): string | null {
   const ts = join(slugDir, 'sitemap.ts')
@@ -72,7 +89,9 @@ function sitemapRouteKind(slugDir: string): string | null {
   return null
 }
 
-const richSet = parseRichSitemapSet(readFileSync(MIDDLEWARE, 'utf8'))
+const middlewareSource = readFileSync(MIDDLEWARE, 'utf8')
+const richSet = parseRichSitemapSet(middlewareSource)
+const domainOverrideTargets = parseDomainSiteSlugOverrideTargets(middlewareSource)
 
 // Every immediate /site/<slug> directory that ships its own sitemap route.
 const sitesWithSitemapRoute = readdirSync(SITE_ROOT, { withFileTypes: true })
@@ -99,9 +118,18 @@ describe('sitemap-presence invariant (middleware rich set <-> on-disk routes)', 
     ).toEqual([])
   })
 
+  it('parses a non-empty DOMAIN_SITE_SLUG_OVERRIDES out of middleware.ts', () => {
+    // If this fails, the override map's syntax changed and the parser above
+    // must be updated — do NOT let the guard silently pass on an empty set.
+    expect(domainOverrideTargets.size).toBeGreaterThan(0)
+  })
+
   it('no site ships a rich sitemap route while missing from the set (no silent fallback)', () => {
     const orphans = sitesWithSitemapRoute.filter(
-      (slug) => !richSet.has(slug) && !NON_TENANT_SCAFFOLDS.has(slug),
+      (slug) =>
+        !richSet.has(slug) &&
+        !NON_TENANT_SCAFFOLDS.has(slug) &&
+        !domainOverrideTargets.has(slug),
     )
     expect(
       orphans,

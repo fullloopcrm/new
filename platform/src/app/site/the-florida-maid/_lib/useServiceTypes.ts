@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 interface ServiceType {
   name: string
   default_hours: number
+  default_hourly_rate: number | null
   active: boolean
 }
 

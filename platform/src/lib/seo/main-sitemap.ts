@@ -1,4 +1,5 @@
-const BASE = "https://homeservicesbusinesscrm.com";
+import { industries, industryPath } from "@/lib/marketing/combos";
+import { features } from "@/lib/marketing/features";
 
 const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
   { path: "", priority: "1.0", freq: "daily" },
@@ -19,20 +20,36 @@ const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
   { path: "/home-service-business-blog/how-to-get-more-leads-home-service-2026", priority: "0.6", freq: "monthly" },
   { path: "/home-service-business-blog/hiring-retention-home-service-2026", priority: "0.6", freq: "monthly" },
   { path: "/home-service-business-blog/pricing-home-service-2026", priority: "0.6", freq: "monthly" },
+  { path: "/waitlist", priority: "0.6", freq: "monthly" },
   { path: "/agreement", priority: "0.4", freq: "yearly" },
+  { path: "/privacy", priority: "0.3", freq: "yearly" },
   { path: "/privacy-policy", priority: "0.3", freq: "yearly" },
   { path: "/terms", priority: "0.3", freq: "yearly" },
   { path: "/accessibility", priority: "0.3", freq: "yearly" },
+  { path: "/sub-processors", priority: "0.3", freq: "yearly" },
 ];
 
-export function GET() {
-  const urls = STATIC_PAGES.map(
-    (p) => `<url><loc>${BASE}${p.path}</loc><changefreq>${p.freq}</changefreq><priority>${p.priority}</priority></url>`
-  ).join("");
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
-
-  return new Response(xml, {
-    headers: { "Content-Type": "application/xml" },
-  });
+// Single flat sitemap for the main host — static pages, the 51 pure
+// /industry/[slug] trade pages, and the /feature/[slug] pages.
+//
+// 2026-08-18: consolidated from a 4-file sitemap index (sitemap-pages +
+// sitemap-industries + sitemap-locations + sitemap-combos) down to this one
+// list, now that locations/combos are noindexed (page-bloat cleanup).
+// Served from BOTH /sitemap.xml (kept live — other code/tests may still
+// expect it to exist) and /sitemap-current.xml (the URL actually submitted
+// to GSC, so Google treats it as a new resource instead of serving cached
+// data for the old /sitemap.xml).
+export function mainSitemapXml(): string {
+  const base = "https://homeservicesbusinesscrm.com";
+  const staticUrls = STATIC_PAGES.map(
+    (p) => `<url><loc>${base}${p.path}</loc><changefreq>${p.freq}</changefreq><priority>${p.priority}</priority></url>`
+  );
+  const industryUrls = industries.map(
+    (i) => `<url><loc>${base}${industryPath(i)}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`
+  );
+  const featureUrls = features.map(
+    (f) => `<url><loc>${base}/feature/${f.slug}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>`
+  );
+  const urls = [...staticUrls, ...industryUrls, ...featureUrls].join("");
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
 }

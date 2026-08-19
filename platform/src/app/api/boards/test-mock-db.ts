@@ -35,6 +35,10 @@ export function createFakeDb() {
         return c
       },
       single: () => Promise.resolve(next(table)),
+      // This fake doesn't model .single() vs .maybeSingle()'s real difference
+      // (an error on zero rows vs a clean null) — tests push whichever
+      // { data, error } shape they want either way, so both just dequeue.
+      maybeSingle: () => Promise.resolve(next(table)),
       // Supports `await db.from(t).select(...)` used without .single() (e.g.
       // the head:true count query, or a plain list select).
       then: (resolve: (r: Result) => void, reject?: (e: unknown) => void) =>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { SupportHours, SupportDayKey } from '@/lib/comhub-away'
 
 interface Conversation {
   id: string
@@ -28,6 +29,10 @@ interface Stats {
 }
 
 const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
+
+const HOURS_DAY_KEYS: SupportDayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const HOURS_DAY_LABELS: Record<SupportDayKey, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
+const DEFAULT_HOURS_DAY = { open: true, start: '09:00', end: '17:00' }
 
 export default function SelenaPage() {
   const [convos, setConvos] = useState<Conversation[]>([])
@@ -224,6 +229,66 @@ export default function SelenaPage() {
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selenaConfig.ai_enabled ? 'translate-x-5' : ''}`} />
               </button>
+            </div>
+            <div className="border-t border-slate-200" />
+
+            {/* Yinez Hours — on/off schedule, separate from the AI Enabled
+                kill switch above. Same selena_config.hours_enabled/
+                support_hours fields as ComHub Settings -> Yinez hours; both
+                UIs edit the same tenant data. */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between max-w-xs">
+                <label className="text-[10px] text-slate-400 uppercase tracking-wide">{agentName} Hours (on/off schedule)</label>
+                <button
+                  onClick={() => updateSelena('hours_enabled', !selenaConfig.hours_enabled)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${selenaConfig.hours_enabled ? 'bg-teal-600' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${selenaConfig.hours_enabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                {selenaConfig.hours_enabled
+                  ? `${agentName} answers webchat, SMS, and email only inside the hours below.`
+                  : `Off — ${agentName} answers webchat, SMS, and email 24/7.`}
+              </p>
+              {!!selenaConfig.hours_enabled && (
+                <div className="space-y-1.5">
+                  {HOURS_DAY_KEYS.map((day) => {
+                    const hours = { ...HOURS_DAY_KEYS.reduce((acc, d) => ({ ...acc, [d]: DEFAULT_HOURS_DAY }), {} as SupportHours), ...(selenaConfig.support_hours as Partial<SupportHours> | undefined) }
+                    const d = hours[day]
+                    return (
+                      <div key={day} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateSelena('support_hours', { ...hours, [day]: { ...d, open: !d.open } })}
+                          className={`w-12 shrink-0 text-xs font-medium rounded-md py-1.5 transition-colors ${d.open ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-500'}`}
+                        >
+                          {HOURS_DAY_LABELS[day]}
+                        </button>
+                        {d.open ? (
+                          <>
+                            <input
+                              type="time"
+                              value={d.start}
+                              onChange={(e) => updateSelena('support_hours', { ...hours, [day]: { ...d, start: e.target.value } })}
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-900"
+                            />
+                            <span className="text-xs text-slate-400">to</span>
+                            <input
+                              type="time"
+                              value={d.end}
+                              onChange={(e) => updateSelena('support_hours', { ...hours, [day]: { ...d, end: e.target.value } })}
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-900"
+                            />
+                          </>
+                        ) : (
+                          <span className="flex-1 text-xs text-slate-400">Off all day</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <div className="border-t border-slate-200" />
 

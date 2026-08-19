@@ -110,7 +110,7 @@ export const POSITIONS: Record<string, PositionConfig> = {
     tagline:
       'An entrepreneurial, all-in opportunity: this rebranded startup is 8 months old and already on pace for $600,000 in annual revenue, having just passed $40,000 in monthly revenue in month 7. We went from 30 cleanings in January to nearly 200 in July, and we’re just getting started — expanding into Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, this is a leadership and profit-sharing position with a real path to becoming CEO of a multi-million-dollar company. Full oversight of the day-to-day operation — team, clients, payments, hiring, quality control — plus learning to manage and implement the AI systems that run alongside you.',
     compSummary:
-      '$1,000/week (1099) to start — sweat equity while you learn the business. After 90 days: 10% of net profit, with a readjustment from there as the role and the company grow.',
+      'Based on experience — discussed directly during the process.',
     employmentType: '1099 Independent Contractor',
     schedule: 'Monday–Friday, 8:00 AM–6:00 PM',
     location: 'Remote — Anywhere in the U.S.',

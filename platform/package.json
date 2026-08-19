@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/verify-protected-tenants.mjs",
+    "prebuild": "node scripts/verify-protected-tenants.mjs && node scripts/verify-build-config.mjs",
     "build": "next build --webpack",
     "verify:tenants": "node scripts/verify-protected-tenants.mjs",
     "reconcile:tenants": "node scripts/reconcile-tenant-config.mjs",

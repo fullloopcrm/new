@@ -6,6 +6,10 @@ import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { trackError } from '@/lib/error-tracking'
+import { getSettings } from '@/lib/settings'
+import { isTenantAiOnline } from '@/lib/comhub-away'
+
+const OFFLINE_REPLY = "Thanks for reaching out! We're offline right now — leave your message and we'll get back to you as soon as we're back."
 
 export const maxDuration = 60
 
@@ -119,10 +123,22 @@ export async function POST(req: NextRequest) {
     // voice, self-book redirect, memory/skills. NYC Maid via her own verbatim
     // playbook, every other tenant via the config-driven one. Pass tenantId
     // explicitly (already resolved above from the signed header).
+    // Gated by the same ComHub Settings -> Yinez hours switch that governs
+    // SMS/email (src/lib/comhub-away.ts) — outside hours the inbound message
+    // still gets logged above (so it lands in ComHub for a human), but the
+    // agent itself isn't invoked; the visitor gets a static offline reply.
+    const settings = await getSettings(tenantId)
+    const online = settings.manual_away || isTenantAiOnline({
+      timezone: settings.timezone,
+      supportHours: settings.support_hours,
+      hoursEnabled: settings.hours_enabled,
+    })
     const quickReplies: string[] = []
-    const yz = await askYinez('web', message, conversationId, phone || undefined, undefined, tenantId)
-    const reply = yz.text || 'Something went wrong. Please try again or call us directly.'
-    const bookingCreated = !!yz.bookingCreated
+    const yz = online
+      ? await askYinez('web', message, conversationId, phone || undefined, undefined, tenantId)
+      : null
+    const reply = yz ? (yz.text || 'Something went wrong. Please try again or call us directly.') : OFFLINE_REPLY
+    const bookingCreated = !!yz?.bookingCreated
 
     // Log outbound
     await insertConversationMessage(

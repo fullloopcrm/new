@@ -26,6 +26,14 @@ export const DEFAULT_STATUS_OPTIONS: StatusOption[] = STAGE_OPTIONS
 
 export const DEFAULT_GROUP_COLOR = '#579bfc'
 
+// Task Board assignee eligibility — sourced from tenant_members (office
+// staff), never team_members (field workers). Restricted to exactly
+// owner/admin/virtual_assistant per Jeff's 2026-08-12 correction; 'manager'
+// and 'staff' are deliberately excluded, not an oversight. Shared by the
+// assignee-dropdown roster (team-mentions route) and item-creation
+// auto-assign (items route) so the two stay in lockstep.
+export const BOARD_ASSIGNABLE_ROLES: string[] = ['owner', 'admin', 'virtual_assistant']
+
 // Final spec (2026-08-10): every new board gets exactly these three columns
 // — Task Name is the item's own name field, not a column. Assignee/Stage/
 // Notes are the fixed, standard shape; boards no longer start empty and

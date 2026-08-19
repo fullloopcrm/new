@@ -7,7 +7,7 @@ import { getPosition } from '@/lib/positions/catalog'
 
 const pageUrl = 'https://www.thenycmaid.com/careers/administrator'
 const pageTitle = 'Administrator — Your Path to CEO of a Multi-Million-Dollar Company | The NYC Maid'
-const pageDescription = 'The NYC Maid went from 30 cleanings in January to nearly 200 in July — and we’re expanding to Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, we’re hiring an Administrator with a real long-term path to becoming CEO. $1,000/week to start, then 10% of net profit after 90 days. Remote, anywhere in the US.'
+const pageDescription = 'The NYC Maid went from 30 cleanings in January to nearly 200 in July — and we’re expanding to Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, we’re hiring an Administrator with a real long-term path to becoming CEO. Compensation based on experience. Remote, anywhere in the US.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -97,7 +97,7 @@ const ninetyDays = [
   { range: 'Weeks 1–2', focus: 'Production & Clients', detail: 'Learn bookings, scheduling, crews, and how client issues actually get handled — the parts of the business that break fastest if they’re neglected.' },
   { range: 'Weeks 3–4', focus: 'AI, People & Sales', detail: 'Get fluent in what the AI agent already automates, meet the team, and learn the sales pipeline it feeds.' },
   { range: 'Weeks 5–8', focus: 'Finance', detail: 'Ramp into payroll and the monthly close with real support — this is deliberately not rushed.' },
-  { range: 'Weeks 9–12', focus: 'Marketing & Systems', detail: 'Take on campaigns, reviews, and the settings that run the business — right around the 90-day compensation change.' },
+  { range: 'Weeks 9–12', focus: 'Marketing & Systems', detail: 'Take on campaigns, reviews, and the settings that run the business.' },
 ]
 
 const learningAreas = [
@@ -121,7 +121,7 @@ const qualifyingQuestions = [
 
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
-  { question: 'What does the compensation structure look like?', answer: '$1,000/week as a 1099 independent contractor for the first 90 days — sweat equity while you learn a business growing 7x and prove yourself. After 90 days, compensation moves to real profit sharing: 10% of net profit, with a readjustment from there as the role and the company grow. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
+  { question: 'What does the compensation structure look like?', answer: 'Compensation is based on experience and discussed directly as part of the process. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
   { question: 'Is the growth real, or is that just recruiting talk?', answer: 'It’s real, and verifiable in the operation itself: 30 cleanings in January, nearly 200 by July. This rebranded startup is 8 months old and just crossed $40,000 in monthly revenue in month 7 — on pace for $600,000 annually. The company is backed by someone with 20 years of experience in home services marketing, and that growth is the direct result of a repeatable playbook now being applied to three new markets.' },
   { question: 'Do I need to live in NYC?', answer: 'No. This is fully remote and open to candidates anywhere in the United States. We’re expanding beyond NYC into Philadelphia, Connecticut, and Florida, so this role was built to be location-independent from the start.' },
   { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
@@ -248,13 +248,7 @@ export default function AdministratorCareersPage() {
         </section>
 
         <section className="mb-16 bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-6 sm:p-10 -mx-4 sm:mx-0">
-          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide mb-4">Sweat Equity Now. Real Ownership Later.</h2>
-          <p className="text-blue-100/80 leading-relaxed mb-3">
-            The first 90 days are sweat equity — $1,000/week while you learn a business that’s growing 7x, prove yourself, and earn trust. That’s a deliberate trade, not a lowball: it’s what it takes to be handed real financial and operational control of a company this early in its growth.
-          </p>
-          <p className="text-blue-100/80 leading-relaxed mb-3">
-            After 90 days, that shifts to solid, real profit sharing — <strong className="text-[#A8F0DC]">10% of net profit</strong>, with a readjustment from there as your scope and the company grow. And that percentage means something: this business currently runs at a <strong className="text-[#A8F0DC]">50%+ net margin</strong>, so 10% of net profit isn’t 10% of a thin, squeezed-out number — it’s a real share of a genuinely profitable operation.
-          </p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#A8F0DC] tracking-wide mb-4">Real Ownership Later.</h2>
           <p className="text-blue-100/80 leading-relaxed mb-6">
             Long-term, this role is a genuine path toward taking over the entire business — Administrator is Stage 1, with General Manager and eventual CEO of a multi-million-dollar company ahead of it for the right person. This is the kind of opportunity that changes the trajectory of a career.
           </p>

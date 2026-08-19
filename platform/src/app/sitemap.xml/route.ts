@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { mainSitemapXml } from "@/lib/seo/main-sitemap";
 import { STATES as JUNK_STATES } from "@/app/site/we-pay-you-junk/_data/cities";
 import { SERVICES as JUNK_SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { CUSTOMER_TYPES as JUNK_CUSTOMER_TYPES } from "@/app/site/we-pay-you-junk/_data/customer-types";
@@ -37,17 +38,10 @@ function junkSitemapXml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`;
 }
 
-// Main host: /sitemap.xml is now a sitemap INDEX pointing to named,
-// purpose-specific sitemaps instead of one file with every URL type mixed
-// together — sitemap-pages, sitemap-industries, sitemap-locations,
-// sitemap-combos (each its own route.ts under src/app/).
-function mainSitemapIndexXml(): string {
-  const base = "https://homeservicesbusinesscrm.com";
-  const files = ["sitemap-pages.xml", "sitemap-industries.xml", "sitemap-locations.xml", "sitemap-combos.xml"];
-  const entries = files.map((f) => `<sitemap><loc>${base}/${f}</loc></sitemap>`).join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}</sitemapindex>`;
-}
-
+// 2026-08-18: kept live (not deleted) in case other code/tests/external
+// links expect /sitemap.xml to exist — but this is no longer the URL
+// submitted to GSC. See src/app/sitemap-current.xml/route.ts and
+// src/lib/seo/main-sitemap.ts.
 export async function GET() {
   const h = await headers();
   const host = (h.get("host") || "").split(":")[0].toLowerCase();
@@ -56,5 +50,5 @@ export async function GET() {
     return new Response(junkSitemapXml(), { headers: XML_HEADERS });
   }
 
-  return new Response(mainSitemapIndexXml(), { headers: XML_HEADERS });
+  return new Response(mainSitemapXml(), { headers: XML_HEADERS });
 }

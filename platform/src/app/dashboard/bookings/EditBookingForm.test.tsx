@@ -156,3 +156,69 @@ describe('EditBookingForm — convert one-time booking to recurring', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/bookings/bk-2/team')).toBe(false)
   })
 })
+
+// REGRESSION — patternChanged compared the display-name recurringType
+// ('Weekly') against booking.recurring_type, which is the RAW
+// recurring_schedules key ('weekly') for every schedule-linked booking. That
+// made patternChanged true on every single "all future bookings" save, even
+// pure time/cleaner edits with no pattern change, routing them through the
+// destructive /regenerate rebuild (capped to a ~6-week window) instead of the
+// in-place /api/bookings/batch-update path meant for this case -- the reason
+// "this and all future occurrences" appeared to silently do nothing on a
+// standard weekly/biweekly/etc client.
+describe('EditBookingForm — editing a recurring booking without changing its pattern', () => {
+  const recurringBooking: EditableBooking = {
+    id: 'bk-3',
+    client_id: 'client-3',
+    start_time: '2026-08-15T14:00:00',
+    end_time: '2026-08-15T16:00:00',
+    service_type: 'Standard Cleaning',
+    price: 15800,
+    status: 'scheduled',
+    notes: null,
+    team_member_id: null,
+    hourly_rate: 79,
+    pay_rate: null,
+    recurring_type: 'weekly',
+    schedule_id: 'sched-3',
+    actual_hours: null,
+    discount_percent: null,
+    one_time_credit_cents: null,
+    one_time_credit_reason: null,
+    clients: { name: 'Zztest Delete Me', phone: null, address: '123 Test St' },
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('LOCK: time/cleaner-only edit routes through /api/bookings/batch-update, never /regenerate', async () => {
+    const fetchMock = vi.fn(async (url: string, _opts?: RequestInit) => {
+      if (url.includes('/api/client/properties')) return { ok: true, json: async () => ({ properties: [] }) }
+      if (url.startsWith('/api/bookings?client_id=')) return { ok: true, json: async () => ({ bookings: [recurringBooking] }) }
+      return { ok: true, json: async () => ({}) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<EditBookingForm booking={recurringBooking} hideCleanerPicker onSaved={vi.fn()} onCancel={vi.fn()} />)
+
+    const saveBtn = await screen.findByRole('button', { name: 'Save' })
+    fireEvent.click(saveBtn)
+
+    const allFutureBtn = await screen.findByText('This and all future occurrences')
+    fireEvent.click(allFutureBtn)
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/bookings/batch-update')).toBe(true)
+    )
+
+    // Never routes an unchanged pattern through the capped regenerate rebuild.
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/regenerate'))
+    ).toBe(false)
+
+    const batchCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/bookings/batch-update')!
+    const batchBody = JSON.parse((batchCall[1] as RequestInit).body as string)
+    expect(Array.isArray(batchBody.updates)).toBe(true)
+    expect(batchBody.updates.length).toBeGreaterThan(0)
+  })
+})

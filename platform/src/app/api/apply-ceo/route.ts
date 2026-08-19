@@ -65,6 +65,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CeoBody
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/apply-ceo', tenantId: tenant.id, severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const name = body.name?.trim()

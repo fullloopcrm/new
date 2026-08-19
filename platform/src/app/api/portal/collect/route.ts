@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
     const db = tenantDb(tenant.id)
     const body = (await request.json()) as CollectBody
     if (isSpamSubmission(body)) {
+      trackError(new Error('Submission blocked by spam guard'), {
+        source: 'api/portal/collect', tenantId: tenant.id, severity: 'low', alwaysAlert: true,
+      }).catch(() => {})
       return NextResponse.json({ success: true })
     }
     const { name, email, phone, address, notes, referrer_name, referrer_phone, src, convo_id, pet_name, pet_type } = body

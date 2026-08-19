@@ -11,7 +11,7 @@
  * is never violated.
  */
 import { supabaseAdmin } from './supabase'
-import { sendEmail, tenantSender } from './email'
+import { sendEmail, tenantSender, tenantHoldingEmail } from './email'
 import { sendSMS } from './sms'
 import type { Tenant } from './tenant'
 
@@ -91,6 +91,15 @@ export async function getOwnerContacts(tenantOrId: TenantLike | string): Promise
 /**
  * Email every admin for a tenant. Uses tenant.resend_api_key / tenant.email_from
  * when set; falls back to platform defaults via sendEmail.
+ *
+ * Every tenant's holding email (<slug>@fullloopcrm.com, see tenantHoldingEmail())
+ * is ALWAYS one of the recipients here — not a fallback used only when the
+ * tenant has no real contact on file, but a guaranteed address alongside
+ * whatever real contacts exist, same as every tenant already has a working
+ * holding SUBDOMAIN regardless of whether it has a custom domain too. Before
+ * this, a tenant with no tenant_members admin and no tenants.email had every
+ * alert silently land on the platform-wide ADMIN_EMAIL inbox instead of
+ * anywhere tied to that specific tenant.
  */
 export async function emailAdmins(
   tenantOrId: TenantLike | string,
@@ -107,27 +116,37 @@ export async function emailAdmins(
   const t = tenant as TenantLike
   const resendKey = (t as { resend_api_key?: string | null }).resend_api_key || null
   const from = tenantSender(t as { name?: string | null; slug?: string | null; email_from?: string | null })
+  const holdingEmail = tenantHoldingEmail(t as { slug?: string | null })
 
   const tenantId = (tenant as TenantLike).id
-  const recipients: string[] = []
 
-  if (withEmail.length === 0) {
-    // Fallback to ADMIN_EMAIL env var (platform-level) — last resort only
-    const fallback = process.env.ADMIN_EMAIL
-    if (fallback) {
-      recipients.push(fallback)
-      await sendEmail({ to: fallback, subject, html, from, resendApiKey: resendKey }).catch(err =>
-        console.error('[admin-contacts] fallback ADMIN_EMAIL send failed:', err),
-      )
-    }
-  } else {
-    await Promise.allSettled(
-      withEmail.map(c => {
-        recipients.push(c.email!)
-        return sendEmail({ to: c.email!, subject, html, from, resendApiKey: resendKey })
-      }),
-    )
+  // Dedupe case-insensitively — a tenant whose real contact already happens
+  // to be the holding address (or whose withEmail somehow repeats it) should
+  // still only get one copy.
+  const seen = new Set<string>()
+  const recipients: string[] = []
+  for (const email of [...withEmail.map(c => c.email!), holdingEmail]) {
+    const key = email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    recipients.push(email)
   }
+
+  // If NEITHER a real contact NOR the holding address exist (holdingEmail is
+  // always truthy, so this only fires if recipients is somehow empty), fall
+  // back to the platform-wide ADMIN_EMAIL as a last resort.
+  if (recipients.length === 0) {
+    const fallback = process.env.ADMIN_EMAIL
+    if (fallback) recipients.push(fallback)
+  }
+
+  await Promise.allSettled(
+    recipients.map(to =>
+      sendEmail({ to, subject, html, from, resendApiKey: resendKey }).catch(err =>
+        console.error(`[admin-contacts] send to ${to} failed:`, err),
+      ),
+    ),
+  )
 
   // Log to email_logs so monitoring can count admin-alert deliveries.
   // Best-effort — never throws back to the caller.

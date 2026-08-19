@@ -53,6 +53,10 @@ const INHERITS_PARENT_OG_BASELINE: ReadonlySet<string> = new Set([
   'the-home-services-company',
   'fla-dumpster-rentals',
   'apply',
+  // Ported 2026-08-15 from its prior standalone repo, which never had an
+  // opengraph-image.tsx either — same pre-existing gap as its sibling
+  // tenant homepage 'the-nyc-exterminator' above, not a new defect.
+  'nyc-commercial-exterminator',
 ])
 
 // Extract a top-level `key: { ... }` block by brace-balancing (values may

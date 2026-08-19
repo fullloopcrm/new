@@ -60,9 +60,11 @@ vi.mock('./supabase', () => ({
 
 const sendEmail = vi.fn().mockResolvedValue({ id: 'email-1' })
 const tenantSender = vi.fn((t: { name?: string | null; slug?: string | null }) => `${t?.name} <${t?.slug}@fullloopcrm.com>`)
+const tenantHoldingEmail = vi.fn((t: { slug?: string | null }) => `${t?.slug}@fullloopcrm.com`)
 vi.mock('./email', () => ({
   sendEmail: (...args: unknown[]) => sendEmail(...args),
   tenantSender: (t: { name?: string | null; slug?: string | null }) => tenantSender(t),
+  tenantHoldingEmail: (t: { slug?: string | null }) => tenantHoldingEmail(t),
 }))
 
 const sendSMS = vi.fn().mockResolvedValue({ id: 'sms-1' })
@@ -96,6 +98,7 @@ beforeEach(() => {
   insertShouldThrow = false
   sendEmail.mockClear()
   tenantSender.mockClear()
+  tenantHoldingEmail.mockClear()
   sendSMS.mockClear()
   delete process.env.ADMIN_EMAIL
   delete process.env.ADMIN_FORWARD_PHONE
@@ -210,7 +213,7 @@ describe('emailAdmins', () => {
     expect(sendEmail).not.toHaveBeenCalled()
   })
 
-  it('emails every admin contact with an email, using the tenant sender + resend key', async () => {
+  it('emails every admin contact with an email, PLUS the holding email, using the tenant sender + resend key', async () => {
     handlers.tenants = () => FULL_TENANT
     handlers.tenant_members = () => [
       { email: 'a@acme.com', phone: null, name: 'Alice', role: 'owner' },
@@ -219,25 +222,29 @@ describe('emailAdmins', () => {
 
     await emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')
 
-    expect(sendEmail).toHaveBeenCalledTimes(2)
+    expect(sendEmail).toHaveBeenCalledTimes(3)
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'a@acme.com', subject: 'Subject', resendApiKey: 'resend-key' }),
     )
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'b@acme.com', subject: 'Subject', resendApiKey: 'resend-key' }),
     )
-    expect(insertCalls.email_logs).toHaveLength(2)
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'acme@fullloopcrm.com', subject: 'Subject', resendApiKey: 'resend-key' }),
+    )
+    expect(insertCalls.email_logs).toHaveLength(3)
   })
 
-  it('skips contacts with a blank email', async () => {
+  it('still emails the holding email even when the only real contact has a blank email', async () => {
     handlers.tenants = () => FULL_TENANT
     handlers.tenant_members = () => [{ email: '   ', phone: null, name: 'Blank', role: 'owner' }]
 
     await emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'acme@fullloopcrm.com' }))
   })
 
-  it('falls back to ADMIN_EMAIL env when no admin contact has an email', async () => {
+  it('the holding email is a guaranteed recipient, not just a fallback used when nothing else exists -- ADMIN_EMAIL is never reached while it exists', async () => {
     process.env.ADMIN_EMAIL = 'platform-fallback@fullloopcrm.com'
     handlers.tenants = () => ({ ...FULL_TENANT, email: null, phone: null })
     handlers.tenant_members = () => []
@@ -247,16 +254,25 @@ describe('emailAdmins', () => {
     await emailAdmins('t-1', 'Subject', '<p>body</p>')
 
     expect(sendEmail).toHaveBeenCalledTimes(1)
-    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'platform-fallback@fullloopcrm.com' }))
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'acme@fullloopcrm.com' }))
   })
 
-  it('sends nothing when there are no admin emails and ADMIN_EMAIL is unset', async () => {
+  it('sends to the holding email even when there are no admin emails and ADMIN_EMAIL is unset', async () => {
     handlers.tenants = () => ({ ...FULL_TENANT, email: null, phone: null })
     handlers.tenant_members = () => []
 
     await emailAdmins('t-1', 'Subject', '<p>body</p>')
-    expect(sendEmail).not.toHaveBeenCalled()
-    expect(insertCalls.email_logs).toBeUndefined()
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'acme@fullloopcrm.com' }))
+    expect(insertCalls.email_logs).toHaveLength(1)
+  })
+
+  it('deduplicates when a real contact already equals the holding email', async () => {
+    handlers.tenants = () => FULL_TENANT
+    handlers.tenant_members = () => [{ email: 'ACME@fullloopcrm.com', phone: null, name: 'Dup', role: 'owner' }]
+
+    await emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')
+    expect(sendEmail).toHaveBeenCalledTimes(1)
   })
 
   it('swallows an email_logs insert failure without throwing back to the caller', async () => {
@@ -265,7 +281,7 @@ describe('emailAdmins', () => {
     insertShouldThrow = true
 
     await expect(emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')).resolves.toBeUndefined()
-    expect(sendEmail).toHaveBeenCalledTimes(1)
+    expect(sendEmail).toHaveBeenCalledTimes(2)
   })
 })
 

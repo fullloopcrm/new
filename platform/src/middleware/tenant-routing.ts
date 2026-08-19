@@ -69,6 +69,23 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
 
   const tenantSig = signTenantHeader(tenantId)
 
+  // Per-DOMAIN site-folder override — narrower than BESPOKE_SITE_TENANTS,
+  // which is keyed by tenant slug (one folder per tenant, shared across every
+  // domain that tenant owns). Some tenants now own multiple domains with
+  // DISTINCT bespoke content (e.g. The NYC Exterminator's commercial-only
+  // sibling site), so this map lets one specific hostname serve a different
+  // /site/<slug> folder — and its own /sitemap.xml — than its tenant's
+  // primary domain does, without touching tenant-slug routing for anyone
+  // else. Only exact hosts listed here are affected; every other request
+  // resolves exactly as before. Declared here (not down by siteBase) because
+  // the /sitemap.xml rewrite branch immediately below needs it too.
+  const DOMAIN_SITE_SLUG_OVERRIDES: Record<string, string> = {
+    'nyccommercialexterminator.com': 'nyc-commercial-exterminator',
+    'www.nyccommercialexterminator.com': 'nyc-commercial-exterminator',
+  }
+  const requestHost = req.nextUrl.hostname.toLowerCase()
+  const domainSiteOverride = DOMAIN_SITE_SLUG_OVERRIDES[requestHost]
+
   // Rewrite /sitemap.xml. Tenants in TENANTS_WITH_RICH_SITEMAP own a
   // sitemap.ts at /site/<slug>/sitemap.xml that enumerates their full
   // route tree. All other tenants fall back to the generic 7-URL
@@ -76,7 +93,9 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
   const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator', 'the-florida-maid', 'nycmaid', 'nyc-mobile-salon', 'the-nyc-seo', 'consortium-nyc', 'the-nyc-marketing-company', 'nyc-tow', 'theroadsidehelper', 'toll-trucks-near-me', 'we-pay-you-junk', 'the-home-services-company', 'nycroadsideemergencyassistance', 'fla-dumpster-rentals', 'landscaping-in-nyc', 'the-nyc-interior-designer', 'debt-service-ratio-loan', 'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'wash-and-fold-nyc'])
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
-    if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {
+    if (domainSiteOverride) {
+      url.pathname = `/site/${domainSiteOverride}/sitemap.xml`
+    } else if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {
       url.pathname = `/site/${tenantSlug}/sitemap.xml`
     } else {
       url.pathname = '/api/tenant-sitemap'
@@ -226,11 +245,17 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
     (pathname === '/sales' || pathname.startsWith('/sales/')) &&
     !BESPOKE_TENANTS_WITH_OWN_SALES_PORTAL.has(tenantSlug)
 
-  const siteBase = ROOT_SITE_TENANTS.has(tenantSlug)
-    ? '/site'
-    : BESPOKE_SITE_TENANTS.has(tenantSlug)
-      ? (wantsSharedSalesPortal ? '/site/template' : `/site/${tenantSlug}`)
-      : '/site/template'
+  // domainSiteOverride is declared once, near the top of this function
+  // (it's also used by the /sitemap.xml branch above). The /sales carve-out
+  // only applies to page routing, so it's checked here, not baked into the
+  // shared override lookup.
+  const siteBase = domainSiteOverride && !wantsSharedSalesPortal
+    ? `/site/${domainSiteOverride}`
+    : ROOT_SITE_TENANTS.has(tenantSlug)
+      ? '/site'
+      : BESPOKE_SITE_TENANTS.has(tenantSlug)
+        ? (wantsSharedSalesPortal ? '/site/template' : `/site/${tenantSlug}`)
+        : '/site/template'
   const sitePathname = pathname === '/' ? siteBase : `${siteBase}${pathname}`
 
   const url = req.nextUrl.clone()

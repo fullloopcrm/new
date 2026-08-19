@@ -101,6 +101,29 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
     override_availability: false, property_id: '' as string,
     referrer_id: '' as string, sales_partner_id: '' as string,
   })
+
+  // The form's default service_type ('Standard Cleaning') only exists for
+  // cleaning tenants -- a tenant whose catalog doesn't include it (e.g. an
+  // exterminator whose only service is "Pest Control") is left with a
+  // service_type that matches no <option>. A <select> whose bound value
+  // matches nothing still visually shows the first option as selected (plain
+  // HTML/React behavior), so the form LOOKS correct while createForm's real
+  // state -- what actually gets submitted -- silently still holds the stale
+  // default, unless the admin happens to reopen the dropdown themselves.
+  // Once the real catalog loads, snap to its first entry (and that entry's
+  // real rate) whenever the current selection isn't actually in the list.
+  useEffect(() => {
+    if (serviceTypes.length === 0) return
+    if (serviceTypes.includes(createForm.service_type)) return
+    const first = serviceTypesData[0]
+    setCreateForm(prev => ({
+      ...prev,
+      service_type: first.name,
+      hourly_rate: first.default_hourly_rate && first.default_hourly_rate > 0 ? first.default_hourly_rate : prev.hourly_rate,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceTypes.join('|')])
+
   const [clientProperties, setClientProperties] = useState<{ id: string; address: string; is_primary: boolean }[]>([])
   const [showNewClientModal, setShowNewClientModal] = useState(false)
   const [newClientContactsId, setNewClientContactsId] = useState<string | null>(null)
@@ -572,7 +595,15 @@ export default function CreateBookingForm({ lockedClientId, hideCleanerPicker, i
               // normal booking. Switching between two non-emergency service types
               // must NOT wipe an admin's intentional per-cleaner rate override.
               const clearedPayRate = createForm.is_emergency && !isEmergency ? null : createForm.pay_rate
-              setCreateForm({ ...createForm, service_type: e.target.value, is_emergency: isEmergency, team_member_id: isEmergency ? '' : createForm.team_member_id, pay_rate: clearedPayRate })
+              // Selecting a service pulls its real price straight from the
+              // catalog -- previously this only set service_type, leaving
+              // hourly_rate stuck at its hardcoded 69 default (nycmaid's own
+              // rate) for every tenant regardless of which service, or price,
+              // was actually selected. Falls back to the current rate only
+              // when the catalog has no price on file for that service.
+              const catalogRate = serviceTypesData.find(s => s.name === e.target.value)?.default_hourly_rate
+              const nextRate = catalogRate && catalogRate > 0 ? catalogRate : createForm.hourly_rate
+              setCreateForm({ ...createForm, service_type: e.target.value, hourly_rate: nextRate, is_emergency: isEmergency, team_member_id: isEmergency ? '' : createForm.team_member_id, pay_rate: clearedPayRate })
             }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
               {serviceTypes.map(s => <option key={s}>{s}</option>)}
             </select>

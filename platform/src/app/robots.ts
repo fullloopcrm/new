@@ -70,6 +70,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         disallow,
       },
     ],
-    sitemap: `${origin}/sitemap.xml`,
+    sitemap: `${origin}/sitemap-current.xml`,
   }
 }
