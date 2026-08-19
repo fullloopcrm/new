@@ -12,7 +12,7 @@ import type { LongformPage } from '@/app/site/template/_lib/content/longform'
 
 export async function getStoredOrFallbackContent(
   tenantId: string,
-  pageType: 'location' | 'job',
+  pageType: 'location' | 'job' | 'location-service',
   slug: string,
   fallback: LongformPage,
 ): Promise<LongformPage> {

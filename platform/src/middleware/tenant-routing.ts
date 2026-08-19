@@ -86,20 +86,48 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
   const requestHost = req.nextUrl.hostname.toLowerCase()
   const domainSiteOverride = DOMAIN_SITE_SLUG_OVERRIDES[requestHost]
 
-  // Rewrite /sitemap.xml. Tenants in TENANTS_WITH_RICH_SITEMAP own a
-  // sitemap.ts at /site/<slug>/sitemap.xml that enumerates their full
-  // route tree. All other tenants fall back to the generic 7-URL
-  // /api/tenant-sitemap until they ship their own rich sitemap.
-  const TENANTS_WITH_RICH_SITEMAP = new Set(['the-nyc-exterminator', 'the-florida-maid', 'nycmaid', 'nyc-mobile-salon', 'the-nyc-seo', 'consortium-nyc', 'the-nyc-marketing-company', 'nyc-tow', 'theroadsidehelper', 'toll-trucks-near-me', 'we-pay-you-junk', 'the-home-services-company', 'nycroadsideemergencyassistance', 'fla-dumpster-rentals', 'landscaping-in-nyc', 'the-nyc-interior-designer', 'debt-service-ratio-loan', 'stretch-ny', 'stretch-service', 'sunnyside-clean-nyc', 'wash-and-fold-nyc'])
+  // Tenants with their own hand-built /site/<slug> subtree (own sitemap.ts
+  // too). Every other tenant is served by the shared /site/template — hoisted
+  // here (full definition + comment lives at its other call site below) so
+  // the /sitemap.xml rewrite can use the SAME set instead of a second,
+  // separately-maintained list. Previously this rewrite had its own
+  // TENANTS_WITH_RICH_SITEMAP set that happened to be identical to this one
+  // for every entry — any template tenant not manually added to that second
+  // list (e.g. a newly-created cleaning tenant) fell through to the generic
+  // /api/tenant-sitemap fallback (thin, selena_config.service_areas-driven,
+  // pointing at bare /<area> URLs that don't match the real /areas/<slug>
+  // route) instead of /site/template/sitemap.xml's real per-tenant coverage.
+  const BESPOKE_SITE_TENANTS = new Set<string>([
+    'nycmaid',
+    'we-pay-you-junk',
+    'nyc-mobile-salon',
+    'the-florida-maid',
+    'the-nyc-exterminator',
+    'nyc-tow',
+    'nycroadsideemergencyassistance',
+    'theroadsidehelper',
+    'toll-trucks-near-me',
+    'sunnyside-clean-nyc',
+    'wash-and-fold-nyc',
+    'landscaping-in-nyc',
+    'debt-service-ratio-loan',
+    'fla-dumpster-rentals',
+    'stretch-ny',
+    'stretch-service',
+    'the-home-services-company',
+    'the-nyc-interior-designer',
+    'the-nyc-marketing-company',
+    'the-nyc-seo',
+    'consortium-nyc',
+  ])
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()
     if (domainSiteOverride) {
       url.pathname = `/site/${domainSiteOverride}/sitemap.xml`
-    } else if (TENANTS_WITH_RICH_SITEMAP.has(tenantSlug)) {
+    } else if (BESPOKE_SITE_TENANTS.has(tenantSlug)) {
       url.pathname = `/site/${tenantSlug}/sitemap.xml`
     } else {
-      url.pathname = '/api/tenant-sitemap'
-      url.searchParams.set('slug', tenantSlug)
+      url.pathname = '/site/template/sitemap.xml'
     }
     const requestHeaders = new Headers(req.headers)
     requestHeaders.delete('x-tenant-sig') // strip any caller-supplied
@@ -206,35 +234,14 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
   // /site/<slug> subtree. nycmaid keeps its own bespoke site (the live primary).
   // CUTOVER: most non-nycmaid tenants are REAL tenants served by the shared,
   // config-driven global template (/site/template) — no forked per-tenant code.
-  // The tenants listed below are LIVE businesses whose bespoke site the template
-  // cannot represent, so they keep their own /site/<slug> subtree. This set is
-  // the single source of truth for that routing; dropping a live tenant from it
-  // (or deleting its folder) silently replaces their site with the template, so
-  // every entry here is locked by scripts/verify-protected-tenants.mjs, which
-  // runs at build time (npm prebuild) and fails the deploy if one goes missing.
-  const BESPOKE_SITE_TENANTS = new Set<string>([
-    'nycmaid',
-    'we-pay-you-junk',
-    'nyc-mobile-salon',
-    'the-florida-maid',
-    'the-nyc-exterminator',
-    'nyc-tow',
-    'nycroadsideemergencyassistance',
-    'theroadsidehelper',
-    'toll-trucks-near-me',
-    'sunnyside-clean-nyc',
-    'wash-and-fold-nyc',
-    'landscaping-in-nyc',
-    'debt-service-ratio-loan',
-    'fla-dumpster-rentals',
-    'stretch-ny',
-    'stretch-service',
-    'the-home-services-company',
-    'the-nyc-interior-designer',
-    'the-nyc-marketing-company',
-    'the-nyc-seo',
-    'consortium-nyc',
-  ])
+  // The tenants in BESPOKE_SITE_TENANTS (hoisted above, next to the
+  // /sitemap.xml rewrite that also needs it) are LIVE businesses whose
+  // bespoke site the template cannot represent, so they keep their own
+  // /site/<slug> subtree. That set is the single source of truth for this
+  // routing; dropping a live tenant from it (or deleting its folder) silently
+  // replaces their site with the template, so every entry is locked by
+  // scripts/verify-protected-tenants.mjs, which runs at build time (npm
+  // prebuild) and fails the deploy if one goes missing.
   // Sales-partner portal carve-out: /site/template/sales is tenant-agnostic
   // (no config coupling, resolves everything through tenant-scoped APIs), so
   // any BESPOKE_SITE_TENANTS tenant WITHOUT its own hand-built /sales subtree

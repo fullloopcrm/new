@@ -6,7 +6,7 @@ import { getStoredOrFallbackContent } from '@/app/site/template/_lib/content/sto
 import { LongformArticle } from '@/app/site/template/_components/LongformArticle'
 import { buildBusiness, jobPostingLd } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
-import { resolveCoverage, type CoveredArea } from '@/lib/geo/coverage'
+import { resolveCoverage, SITEMAP_AREA_LIMIT, type CoveredArea } from '@/lib/geo/coverage'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
 export const dynamic = 'force-dynamic'
 export async function generateStaticParams() { return [] }
 
-async function resolveArea(locationSlug: string): Promise<{ area: CoveredArea; tenantId: string } | null> {
+async function resolveArea(locationSlug: string): Promise<{ area: CoveredArea; tenantId: string; indexable: boolean } | null> {
   const tenant = (await getTenantFromHeaders()) as Record<string, unknown> | null
   if (!tenant) return null
   const radius = typeof tenant.service_radius_miles === 'number' ? tenant.service_radius_miles : 25
@@ -31,15 +31,16 @@ async function resolveArea(locationSlug: string): Promise<{ area: CoveredArea; t
     address: tenant.address as string | null,
     radiusMiles: radius,
   })
-  const area = coverage.areas.find((a) => a.urlSlug === locationSlug)
-  return area ? { area, tenantId: tenant.id as string } : null
+  const rank = coverage.areas.findIndex((a) => a.urlSlug === locationSlug)
+  if (rank === -1) return null
+  return { area: coverage.areas[rank], tenantId: tenant.id as string, indexable: rank < SITEMAP_AREA_LIMIT }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location } = await params
   const resolved = await resolveArea(location)
   if (!resolved) return {}
-  const { area, tenantId } = resolved
+  const { area, tenantId, indexable } = resolved
   const config = await getSiteConfig()
   const fallback = locationCareersContent(config, area)
   const c = await getStoredOrFallbackContent(tenantId, 'job', area.urlSlug, fallback)
@@ -49,6 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: c.metaDescription,
     alternates: { canonical: url },
     openGraph: { title: c.title, description: c.metaDescription, url, type: 'website' },
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
   }
 }
 
