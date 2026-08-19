@@ -15,7 +15,7 @@ import {
 import { industries as comboIndustries, metros, industryPath, comboPath } from "@/lib/marketing/combos";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
-import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
+import { getIndustryContentSlug, getCanonicalIndustrySlug } from "@/lib/marketing/industryMapping";
 import { faqs as globalFaqs } from "@/lib/marketing/faqs";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
 import LiveProofBand from "@/components/LiveProofBand";
@@ -51,6 +51,8 @@ export async function generateMetadata({
   const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
   const description = `The full-cycle, AI-managed CRM for ${trade} businesses — runs an automated business. Live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day. AI lead gen, sales, scheduling, GPS dispatch, invoicing & reviews in one platform.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
+  const canonicalSlug = getCanonicalIndustrySlug(slug);
+  const canonicalUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;
 
   return {
     title,
@@ -74,7 +76,7 @@ export async function generateMetadata({
       title: `Best CRM for ${industry.name} Businesses`,
       description,
     },
-    alternates: { canonical: url },
+    alternates: { canonical: canonicalUrl },
   };
 }
 

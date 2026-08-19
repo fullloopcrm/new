@@ -63,3 +63,21 @@ const comboToIndustrySlug: Record<string, string> = {
 export function getIndustryContentSlug(comboSlug: string): string | null {
   return comboToIndustrySlug[comboSlug] ?? null;
 }
+
+// 2026-08-19: 'cleaning-services'/'house-cleaning' and 'power-washing'/
+// 'pressure-washing' are genuine synonyms, not distinct trades — they
+// intentionally share the same deep content (see comboToIndustrySlug
+// above). Writing artificially distinct copy for the same search intent
+// is worse SEO than acknowledging the overlap, but two live pages with
+// identical body content need a canonical pointing to one authoritative
+// page or they compete against each other in search instead of the
+// combined signal going to one URL. Both URLs stay live and indexable —
+// this only sets which one Google should treat as authoritative.
+const SYNONYM_CANONICAL: Record<string, string> = {
+  'cleaning-services': 'house-cleaning',
+  'power-washing': 'pressure-washing',
+};
+
+export function getCanonicalIndustrySlug(comboSlug: string): string {
+  return SYNONYM_CANONICAL[comboSlug] ?? comboSlug;
+}
