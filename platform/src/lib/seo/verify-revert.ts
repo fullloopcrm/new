@@ -18,16 +18,33 @@ type AppliedChange = {
   id: string
   property: string
   target_url: string
-  before_metric: { query?: string; top_query?: string; position?: number; best_position?: number } | null
+  before_metric: {
+    query?: string
+    top_query?: string
+    position?: number
+    best_position?: number
+    our_position?: number // competitor-gap recipe (competitor-remediate.ts) uses this key instead of `position`
+  } | null
 }
 
-function baselinePosition(m: AppliedChange['before_metric']): number | null {
+// The position at the moment the issue was detected/proposed — NOT
+// best_position, which is the page's best-EVER rank (often a different query,
+// a different day, months back). Judging a change against best_position
+// compares it to an unrelated high-water mark instead of what it actually
+// replaced, which silently reverted genuine improvements (confirmed against
+// real seo_changes rows on 2026-08-19 — see fullloop_seo_manager_review).
+//
+// Falls back to our_position for the competitor-gap recipe, which stores the
+// pre-change rank under a different key — without this, every
+// competitor_title_meta change came back baseline=null and was silently kept
+// forever (skippedNoData), regardless of whether it actually helped or hurt.
+export function baselinePosition(m: AppliedChange['before_metric']): number | null {
   if (!m) return null
-  const p = m.best_position ?? m.position
+  const p = m.position ?? m.our_position
   return typeof p === 'number' ? p : null
 }
 
-function baselineQuery(m: AppliedChange['before_metric']): string | null {
+export function baselineQuery(m: AppliedChange['before_metric']): string | null {
   if (!m) return null
   return m.query ?? m.top_query ?? null
 }
