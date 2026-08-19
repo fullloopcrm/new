@@ -20,7 +20,7 @@ import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import { WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
-import { findServiceValueBySlug, slugifyService, SERVICE_DESCRIPTIONS as PHOTO_SERVICE_DESCRIPTIONS } from '@/app/site/template/_lib/seo/photography-services'
+import { findServiceValueBySlug, SERVICE_DESCRIPTIONS as PHOTO_SERVICE_DESCRIPTIONS } from '@/app/site/template/_lib/seo/photography-services'
 import PhotographyServicePage from '@/app/site/template/_components/photography/PhotographyServicePage'
 
 // nycmaid's own real, hardcoded content below (pricing cards, "225+
