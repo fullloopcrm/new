@@ -18,7 +18,7 @@ export interface SendComhubMessageBody {
   team_member_id?: string
   phone?: string
   email?: string
-  channel?: 'sms' | 'email' | 'internal' | 'web'
+  channel?: 'sms' | 'email' | 'internal' | 'web' | 'voice'
   body?: string
   subject?: string
   author_id?: string | null
@@ -133,6 +133,50 @@ export async function sendComhubMessage(
         thread_id: body.thread_id,
         contact_id: t.contact_id,
         channel: 'web',
+        direction: 'out',
+        author: authorLabel,
+        author_id: authorId,
+        body: body.body,
+        sent_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+    if (insErr) return fail(500, insErr.message)
+
+    await supabaseAdmin
+      .from('comhub_threads')
+      .update({
+        last_message_at: msg.sent_at,
+        last_message_preview: body.body.slice(0, 140),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', body.thread_id)
+      .eq('tenant_id', tenantId)
+
+    return ok({ ok: true, message_id: msg.id, thread_id: body.thread_id })
+  }
+
+  // Voice thread note. There's no channel to actually deliver text through
+  // on a voice-call thread (that's why the composer placeholder says "Add a
+  // note about this call") — this just logs the note against the thread
+  // instead of attempting an external send.
+  if (body.channel === 'voice') {
+    if (!body.thread_id) return fail(400, 'thread_id required for voice')
+    const { data: t } = await supabaseAdmin
+      .from('comhub_threads')
+      .select('id, contact_id')
+      .eq('id', body.thread_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!t) return fail(404, 'thread not found')
+
+    const { data: msg, error: insErr } = await supabaseAdmin
+      .from('comhub_messages')
+      .insert({
+        tenant_id: tenantId,
+        thread_id: body.thread_id,
+        contact_id: t.contact_id,
+        channel: 'voice',
         direction: 'out',
         author: authorLabel,
         author_id: authorId,

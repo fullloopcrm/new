@@ -940,6 +940,39 @@ export default function ComhubPage() {
                     Call
                   </button>
                 )}
+                {/* A voice-only thread (a call/voicemail log) has no channel
+                    to send text through — these route to Compose instead so
+                    a reply goes out on the contact's SMS/email thread (found
+                    or created for them), same as the dashboard-wide "Text"/
+                    "Email" quick actions elsewhere. */}
+                {thread.channel !== 'sms' && thread.comhub_contacts?.phone && (
+                  <button
+                    onClick={() => {
+                      setComposeChannel('sms')
+                      setComposeRecipient(thread.comhub_contacts!.phone!)
+                      setShowCompose(true)
+                    }}
+                    className="px-2.5 py-1 rounded text-xs whitespace-nowrap"
+                    style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+                    title="Text this contact — sends on their SMS thread"
+                  >
+                    Text
+                  </button>
+                )}
+                {thread.channel !== 'email' && thread.comhub_contacts?.email && (
+                  <button
+                    onClick={() => {
+                      setComposeChannel('email')
+                      setComposeRecipient(thread.comhub_contacts!.email!)
+                      setShowCompose(true)
+                    }}
+                    className="px-2.5 py-1 rounded text-xs whitespace-nowrap"
+                    style={{ background: 'var(--color-loop-ink)', color: 'var(--color-loop-canvas)' }}
+                    title="Email this contact — sends on their email thread"
+                  >
+                    Email
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     await fetch(`/api/admin/comhub/threads/${thread.id}`, {
