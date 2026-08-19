@@ -114,7 +114,6 @@ export async function generateMetadata({
       description: finalDescription,
     },
     alternates: { canonical: canonicalUrl },
-    robots: { index: false, follow: true },
   };
 }
 
