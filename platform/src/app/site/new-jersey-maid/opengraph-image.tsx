@@ -16,8 +16,6 @@ export default function Image() {
             <span>From $59/hr</span>
             <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
             <span>Licensed & Insured</span>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-            <span>5.0★ 50+ Reviews</span>
           </div>
           <div style={{ fontSize: 28, color: '#A8F0DC', marginTop: 40, fontWeight: 600, letterSpacing: '0.1em' }}>(973) 370-8800</div>
         </div>
