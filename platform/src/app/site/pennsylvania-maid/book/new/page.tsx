@@ -1,0 +1,920 @@
+'use client'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import AddressAutocomplete from '@/app/site/pennsylvania-maid/_components/AddressAutocomplete'
+import { validateEmail } from '@/app/site/pennsylvania-maid/_lib/validate-email'
+import { formatPhone } from '@/lib/format'
+import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
+import { LEAD_SOURCE_OPTIONS } from '@/lib/lead-sources'
+import { nowNaiveET } from '@/lib/recurring'
+import { useSpamGuard, Honeypot } from '@/hooks/useSpamGuard'
+
+function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
+  try {
+    const body = JSON.stringify({
+      domain: typeof window !== 'undefined' ? window.location.hostname : 'thepennsylvaniamaid.com',
+      page: '/book/new',
+      action,
+      session_id: sessionId,
+      ...extra,
+    })
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: 'application/json' })
+      navigator.sendBeacon('/api/track', blob)
+    } else {
+      fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {})
+    }
+  } catch {}
+}
+
+const SERVICE_TYPES = [
+  { value: 'Standard Cleaning', label: 'Standard', hours: 2 },
+  { value: 'Deep Cleaning', label: 'Deep Clean', hours: 4 },
+  { value: 'Move In/Out', label: 'Move In/Out', hours: 5 },
+  { value: 'Post Construction', label: 'Post-Reno', hours: 5 },
+  { value: 'Same-Day Emergency', label: 'Same-Day', hours: 2 },
+] as const
+
+const TIME_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] as const
+
+function BookFormContent() {
+  useEffect(() => { document.title = 'Book a Cleaning | The Pennsylvania Maid' }, [])
+  const searchParams = useSearchParams()
+  const refCode = searchParams.get('ref') || ''
+  const srcDomain = searchParams.get('src') || ''
+  const { honeypotRef, getSpamGuardFields } = useSpamGuard()
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    unit: '',
+    service_type: 'Standard Cleaning' as string,
+    date: '',
+    time: '12:00 PM',
+    supplies: 'we_bring' as 'we_bring' | 'client',
+    estimated_hours: 2,
+    max_hours: null as number | null,
+    notes: '',
+    lead_source: '',
+    referrer_name: '',
+    referrer_phone: '',
+    cleaner_id: '' as string,
+    extra_cleaner_ids: [] as string[],
+    team_size: 1,
+  })
+  const [availableCleaners, setAvailableCleaners] = useState<{ id: string; name: string; is_preferred?: boolean; zone_match?: boolean; reason: string }[]>([])
+  // Alternate on-the-hour times offered when the picked slot has no free cleaner.
+  const [timeSuggestions, setTimeSuggestions] = useState<{ time24: string; label: string; cleaner: string; reason: string }[]>([])
+  // Waitlist fallback: shown when the slot is full AND no alternate time works.
+  const [waitlistState, setWaitlistState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  // Day-level availability (which hourly slots have ANY cleaner free) so the time
+  // picker greys out full slots + closed/holiday days, instead of letting the
+  // client pick a slot that isn't really open. Source: /api/client/availability.
+  const [daySlots, setDaySlots] = useState<{ time: string; available: boolean }[]>([])
+  const [dayMessage, setDayMessage] = useState<string>('')
+  const [loadingCleaners, setLoadingCleaners] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string; email?: string; address?: string; lead_source?: string; date?: string }>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+  const [waitlisted, setWaitlisted] = useState(false)
+  const [pin, setPin] = useState('')
+  const [showRecap, setShowRecap] = useState(false)
+  const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [smsOptIn, setSmsOptIn] = useState(false)
+  const [policyFlash, setPolicyFlash] = useState(false)
+  const policyRef = useRef<HTMLDivElement>(null)
+
+  // ── Booking funnel tracking — fires events the analytics page reads to
+  // populate the Booking conversion card (form_start / form_step / form_success
+  // / form_abandon). Without these, /admin/analytics shows 0 / 0 / 0.
+  const sessionIdRef = useRef<string>('')
+  const startedRef = useRef(false)
+  const step2FiredRef = useRef(false)
+  const step3FiredRef = useRef(false)
+  const submittedRef = useRef(false)
+  const abandonFiredRef = useRef(false)
+
+  useEffect(() => {
+    if (startedRef.current) return
+    sessionIdRef.current = `bk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+    startedRef.current = true
+    trackBookingEvent('form_start', sessionIdRef.current, { ref_code: refCode || null })
+
+    // beforeunload + pagehide both fire on tab close in modern browsers; gate on
+    // a single ref so we emit at most one form_abandon per session.
+    const onUnload = () => {
+      if (submittedRef.current || abandonFiredRef.current) return
+      abandonFiredRef.current = true
+      trackBookingEvent('form_abandon', sessionIdRef.current)
+    }
+    window.addEventListener('beforeunload', onUnload)
+    window.addEventListener('pagehide', onUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onUnload)
+      window.removeEventListener('pagehide', onUnload)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // step_2 — Info captured (name + phone)
+  useEffect(() => {
+    if (step2FiredRef.current) return
+    if (form.name.trim() && form.phone.replace(/\D/g, '').length >= 10) {
+      step2FiredRef.current = true
+      trackBookingEvent('form_step', sessionIdRef.current, { placement: 'step_2' })
+    }
+  }, [form.name, form.phone])
+
+  // step_3 — Date/Time captured
+  useEffect(() => {
+    if (step3FiredRef.current) return
+    if (form.date && form.time) {
+      step3FiredRef.current = true
+      trackBookingEvent('form_step', sessionIdRef.current, { placement: 'step_3' })
+    }
+  }, [form.date, form.time])
+
+  // Same-day booking used to require 24 hours' notice; that floor is gone
+  // (Jeff, 2026-08-14) — clients can now book today directly, at same-day
+  // pricing, from either service tab. minDate uses ET (not raw UTC) so it
+  // matches the naive-ET convention start_time is stored in platform-wide.
+  const todayET = nowNaiveET().slice(0, 10)
+  const minDate = todayET
+  const isSameDay = form.service_type === 'Same-Day Emergency' || form.date === todayET
+  const isMultiCleaner = form.team_size >= 2
+  // The 48-hour rule applies ONLY to multi-cleaner bookings: a 2+ cleaner
+  // booking with under 48hr notice is billed at emergency pricing ($89/hr).
+  // Single-cleaner bookings under 48hr are NOT emergency unless the date is
+  // actually today (isSameDay above already covers that).
+  const bookingStart = form.date ? new Date(`${form.date}T${to24h(form.time)}:00`) : null
+  const hoursUntilBooking = bookingStart && !isNaN(bookingStart.getTime()) ? (bookingStart.getTime() - Date.now()) / 3_600_000 : Infinity
+  const isUnder48 = hoursUntilBooking < 48
+  const isEmergency = isSameDay || (isUnder48 && isMultiCleaner)
+  // Weekend (Sat/Sun) surcharge — new clients only (Jeff, 2026-07-27). This
+  // form has no live existing-client lookup, so it shows the weekend
+  // estimate for any Sat/Sun date; /api/client/book is the actual authority
+  // and silently keeps a matched existing client on their old rate
+  // regardless of what's estimated here.
+  const isWeekendBooking = !!form.date && isWeekendDate(form.date)
+  const hourlyRate = isWeekendBooking
+    ? (isEmergency ? WEEKEND_EMERGENCY_RATE : form.supplies === 'we_bring' ? WEEKEND_SUPPLIES_PROVIDED_RATE : WEEKEND_CLIENT_SUPPLIES_RATE)
+    : isEmergency ? 89 : form.supplies === 'we_bring' ? 69 : 59
+  // Minimums: 2hr standard, 4hr for multi-cleaner. Floor the billable estimate.
+  const minHours = isMultiCleaner ? 4 : 2
+  const estimatedHours = Math.max(form.estimated_hours, minHours)
+  // $10 self-booking discount does NOT apply to emergency or multi-cleaner bookings.
+  const discountEligible = !isEmergency && !isMultiCleaner
+  const selfBookingDiscount = discountEligible ? 10 : 0
+  const estimatedTotal = hourlyRate * estimatedHours * Math.max(1, form.team_size)
+  // Nobody's free that day and there's no alternate time to offer — same
+  // condition that already surfaces the "Join the waitlist" fallback below.
+  // When true, Confirm routes to the waitlist instead of a real booking, so a
+  // client submitting on a full day is never silently left off both.
+  const isFullyBooked = !loadingCleaners && availableCleaners.length === 0 && timeSuggestions.length === 0
+
+  // Convert "12:00 PM" → "12:00" (24h)
+  function to24h(t: string): string {
+    const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+    if (!m) return '12:00'
+    let h = parseInt(m[1], 10)
+    const min = parseInt(m[2], 10)
+    const ap = m[3].toUpperCase()
+    if (ap === 'PM' && h < 12) h += 12
+    if (ap === 'AM' && h === 12) h = 0
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+  }
+
+  // Clients pick (and we store) an exact start time, but it's shown as a 2-hour
+  // arrival window. "1:00 PM" → "1:00 PM–3:00 PM".
+  function slotWindow(t: string): string {
+    const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+    if (!m) return t
+    let h = parseInt(m[1], 10)
+    const min = parseInt(m[2], 10)
+    const ap = m[3].toUpperCase()
+    if (ap === 'PM' && h < 12) h += 12
+    if (ap === 'AM' && h === 12) h = 0
+    const fmt = (hh: number) =>
+      new Date(Date.UTC(2000, 0, 1, (hh + 24) % 24, min, 0)).toLocaleTimeString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' })
+    return `${fmt(h)}–${fmt(h + 2)}`
+  }
+
+  // Always show cleaners. When slot info is complete (date+time+address), fetch the
+  // scored/available list. When it's incomplete, the endpoint returns an unscored
+  // list of all active cleaners so the picker is never empty/gated.
+  useEffect(() => {
+    const ctrl = new AbortController()
+    setLoadingCleaners(true)
+    setWaitlistState('idle') // new slot params → clear any prior waitlist result
+    const slotComplete = !!(form.date && form.time && form.address && form.address.length >= 5)
+    const params = new URLSearchParams()
+    if (slotComplete) {
+      params.set('date', form.date)
+      params.set('start_time', to24h(form.time))
+      params.set('duration', String(form.estimated_hours))
+      params.set('address', form.address)
+      params.set('hourly_rate', String(hourlyRate))
+      params.set('suggest', '1') // get alternate times if this slot is full
+    }
+    fetch(`/api/client/smart-schedule?${params.toString()}`, { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { cleaners?: typeof availableCleaners; suggestions?: typeof timeSuggestions | null } | null) => {
+        if (data?.cleaners) setAvailableCleaners(data.cleaners)
+        setTimeSuggestions(data?.suggestions || [])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCleaners(false))
+    return () => ctrl.abort()
+  }, [form.date, form.time, form.address, form.estimated_hours, hourlyRate])
+
+  // Day-level availability → grey out full times + flag closed/holiday/no-cleaner
+  // days. Skipped for same-day emergency (owner-confirmed, its own path).
+  useEffect(() => {
+    if (isSameDay || !form.date) { setDaySlots([]); setDayMessage(''); return }
+    const ctrl = new AbortController()
+    fetch(`/api/client/availability?date=${form.date}&duration=${estimatedHours}`, { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { slots?: { time: string; available: boolean }[]; message?: string; sameDay?: boolean } | null) => {
+        if (!data) return
+        setDaySlots(data.slots || [])
+        setDayMessage(data.message || (data.sameDay ? 'Same-day bookings need a quick call to confirm — (215) 398-4500.' : ''))
+        // If the currently-picked time isn't actually open, shift to the first
+        // open one so the client never sits on a full slot.
+        const open = (data.slots || []).filter(s => s.available).map(s => s.time)
+        if (open.length && !open.includes(form.time)) update('time', open[0])
+      })
+      .catch(() => {})
+    return () => ctrl.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.date, estimatedHours, isSameDay])
+
+  function pickServiceType(value: string) {
+    const defaultHours = SERVICE_TYPES.find(s => s.value === value)?.hours ?? 2
+    setForm(prev => ({ ...prev, service_type: value, estimated_hours: defaultHours }))
+  }
+
+  function update<K extends keyof typeof form>(key: K, value: typeof form[K]) {
+    setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function joinWaitlist() {
+    if (!form.name.trim() || !form.phone.trim()) { setWaitlistState('error'); return }
+    setWaitlistState('sending')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || null,
+          address: form.address.trim() || null,
+          service_type: form.service_type,
+          preferred_date: form.date || null,
+          preferred_time: form.time || null,
+          estimated_hours: form.estimated_hours,
+          hourly_rate: hourlyRate,
+          notes: form.notes.trim() || null,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      setWaitlistState(data?.ok ? 'done' : 'error')
+    } catch {
+      setWaitlistState('error')
+    }
+  }
+
+  function validateForm(): typeof fieldErrors {
+    const errors: typeof fieldErrors = {}
+    if (!form.name.trim()) errors.name = 'Please enter your name.'
+    if (!form.phone.trim()) errors.phone = 'Please enter your phone number.'
+    else if (form.phone.replace(/\D/g, '').length < 10) errors.phone = 'Please enter a valid phone number.'
+    const emailCheck = validateEmail(form.email)
+    if (!emailCheck.valid) errors.email = emailCheck.error || 'Please enter a valid email.'
+    if (!form.address.trim()) errors.address = 'Please enter your address.'
+    if (!form.lead_source) errors.lead_source = 'Please tell us how you found us.'
+    if (!form.date) errors.date = 'Please choose a date.'
+    return errors
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    // Funnel instrumentation: log every submit click, then exactly which gate
+    // blocked it (or that the recap opened). Lets /admin/analytics show where the
+    // ~40 date-reached drop-offs actually die instead of guessing.
+    trackBookingEvent('form_submit_click', sessionIdRef.current)
+
+    // Most-common "button does nothing" cause: the policy box is unchecked.
+    // Pull their eye to it and flash it instead of failing silently. Doesn't
+    // apply when nobody's free that day — joining the waitlist isn't a real
+    // booking, so there's no billing/cancellation policy to agree to yet.
+    if (!policyAccepted && !isFullyBooked) {
+      trackBookingEvent('form_blocked', sessionIdRef.current, { placement: 'policy' })
+      policyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setPolicyFlash(true)
+      setTimeout(() => setPolicyFlash(false), 1600)
+      return
+    }
+
+    // Show every missing/invalid field at once (not one-at-a-time on repeat
+    // submits) so the client knows exactly what's blocking approval.
+    const errors = validateForm()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      trackBookingEvent('form_blocked', sessionIdRef.current, { placement: Object.keys(errors).join(',') })
+      setError('Please fix the highlighted fields below before booking.')
+      return
+    }
+
+    trackBookingEvent('form_recap', sessionIdRef.current)
+    setShowRecap(true)
+  }
+
+  async function handleConfirmSubmit() {
+    setError('')
+    setSubmitting(true)
+
+    // Nobody's free that day — route to the waitlist instead of a real
+    // booking (same endpoint joinWaitlist() below uses) so every full-day
+    // submission actually lands in the waitlist table + Bookings' Pending/
+    // Waitlist badge + tenant Telegram alert, not just the ones a client
+    // happens to find the separate "Join the waitlist" button for.
+    if (isFullyBooked) {
+      try {
+        const res = await fetch('/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            phone: form.phone.trim(),
+            email: form.email.trim() || null,
+            address: form.address.trim() || null,
+            service_type: form.service_type,
+            preferred_date: form.date || null,
+            preferred_time: form.time || null,
+            estimated_hours: form.estimated_hours,
+            hourly_rate: hourlyRate,
+            notes: form.notes.trim() || null,
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (!data?.ok) {
+          setError(data?.error || 'Something went wrong. Please try again or text us.')
+          setSubmitting(false)
+          return
+        }
+        submittedRef.current = true
+        trackBookingEvent('form_success', sessionIdRef.current, { ref_code: refCode || null, waitlisted: true })
+        setShowRecap(false)
+        setWaitlisted(true)
+        setDone(true)
+      } catch {
+        setError('Network error. Please try again or text (215) 398-4500.')
+        setSubmitting(false)
+      }
+      return
+    }
+
+    try {
+      const res = await fetch('/api/client/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+          unit: form.unit.trim(),
+          service_type: form.service_type,
+          date: form.date,
+          time: form.time,
+          hourly_rate: hourlyRate,
+          estimated_hours: estimatedHours,
+          max_hours: form.max_hours,
+          notes: form.notes.trim(),
+          lead_source: form.lead_source,
+          ref_code: refCode || null,
+          src: srcDomain || null,
+          referrer_name: form.referrer_name.trim() || null,
+          referrer_phone: form.referrer_phone.trim() || null,
+          cleaner_id: form.cleaner_id || null,
+          extra_cleaner_ids: form.extra_cleaner_ids,
+          team_size: form.team_size,
+          client_confirmed: true,
+          confirmed_at: new Date().toISOString(),
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          sms_opt_in: smsOptIn,
+          ...getSpamGuardFields(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again or text us.')
+        setSubmitting(false)
+        setShowRecap(false)
+        return
+      }
+      if (data.clients?.pin) setPin(data.clients.pin)
+      submittedRef.current = true
+      trackBookingEvent('form_success', sessionIdRef.current, { ref_code: refCode || null })
+      setShowRecap(false)
+      setDone(true)
+    } catch (err) {
+      setError('Network error. Please try again or text (215) 398-4500.')
+      setSubmitting(false)
+      setShowRecap(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <>
+      <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] flex items-center justify-center px-4 py-16">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">✓</div>
+          {waitlisted ? (
+            <>
+              <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Waitlisted</div>
+              <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">You&rsquo;re on the Waitlist.</h1>
+              <p className="text-gray-600 text-sm mb-6">Nobody&rsquo;s free on {form.date}{form.time ? ` around ${form.time}` : ''} right now. We&rsquo;ll text you the moment a spot opens up — no payment, no commitment, nothing else to do.</p>
+            </>
+          ) : (
+          <>
+          <div className="inline-block bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full mb-3">Pending Owner Review</div>
+          <h1 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-2">Request Submitted — Awaiting Confirmation.</h1>
+          <p className="text-gray-600 text-sm mb-6">This is <strong>not finalized yet</strong>. The owner reviews + confirms within the hour. You&rsquo;ll get a second text/email locking in your date, time, and cleaner — until then please don&rsquo;t plan around this slot. {selfBookingDiscount > 0 ? <>Your <strong>$10 self-booking discount</strong> is locked in &mdash; it&rsquo;ll show on your final bill once confirmed</> : <>This is a {isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} booking, so no discounts apply{isMultiCleaner ? ' and a 4-hour minimum is in effect' : ''}</>}{pin ? '. A confirmation email with your client portal PIN is on its way' : ''}.</p>
+          </>
+          )}
+          {pin && (
+            <div className="bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6">
+              <p className="text-xs text-[#1E2A4A]/60 tracking-widest uppercase mb-1">Your PIN</p>
+              <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-widest">{pin}</p>
+              <p className="text-xs text-[#1E2A4A]/60 mt-2">Save this — log in at <Link href="/portal/login" className="underline">thepennsylvaniamaid.com/portal/login</Link></p>
+            </div>
+          )}
+          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="block bg-[#A8F0DC]/30 border border-[#A8F0DC] rounded-lg p-4 mb-6 text-left hover:bg-[#A8F0DC]/40 transition-colors">
+            <p className="text-sm font-bold text-[#1E2A4A]">Earn 10% on every referral &rarr;</p>
+            <p className="text-xs text-[#1E2A4A]/70 mt-1">Refer friends and earn 10% of every cleaning they book — recurring, no cap.</p>
+          </Link>
+          <Link href="/" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90">Back home</Link>
+        </div>
+      </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+    <div className="min-h-screen bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-10 md:py-16 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="inline-block bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">The Pennsylvania Maid Self-Booking System</div>
+          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide mb-3">You&rsquo;re one of the smart ones.</h1>
+          <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[#A8F0DC] font-semibold">$10</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-5">
+          <Honeypot inputRef={honeypotRef} />
+          {/* Service type — main row excludes Same-Day. Team size, hours, and
+              supplies are now defaults (1 cleaner, hours derived from service,
+              we-bring); they can be tweaked from "More options" below. */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Service</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {SERVICE_TYPES.filter(s => s.value !== 'Same-Day Emergency').map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => pickServiceType(s.value)}
+                  className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${
+                    form.service_type === s.value
+                      ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => pickServiceType(isSameDay ? 'Standard Cleaning' : 'Same-Day Emergency')}
+              className="mt-2 text-xs text-amber-700 hover:text-amber-900 underline underline-offset-2"
+            >
+              {isSameDay ? '← Back to standard service' : `Need it today? Same-day +$${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr →`}
+            </button>
+          </div>
+
+          {isSameDay && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+              <p className="text-amber-800 text-sm">Same-day service is <strong>${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr</strong> — we bring everything. Subject to availability.</p>
+            </div>
+          )}
+
+          {isUnder48 && isMultiCleaner && !isSameDay && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+              <p className="text-amber-800 text-sm">Heads up — multi-cleaner bookings need 48 hours notice. This date is under 48 hours away, so your 2+ cleaner booking is billed at <strong>emergency pricing (${isWeekendBooking ? WEEKEND_EMERGENCY_RATE : 89}/hr)</strong> with no discounts. Pick a date 48+ hours out, or book a single cleaner, for standard rates.</p>
+            </div>
+          )}
+
+          {/* Date + time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Date</label>
+              <input
+                type="date"
+                required
+                min={minDate}
+                value={form.date}
+                onChange={(e) => { update('date', e.target.value); setFieldErrors(prev => ({ ...prev, date: undefined })) }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.date ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+              />
+              {fieldErrors.date && <p className="text-red-600 text-xs mt-1">{fieldErrors.date}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Arrival window</label>
+              <select
+                value={form.time}
+                onChange={(e) => update('time', e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+              >
+                {TIME_SLOTS.map(t => {
+                  // No day data yet (or same-day) → leave every slot pickable.
+                  const slot = daySlots.find(s => s.time === t)
+                  const gated = daySlots.length > 0
+                  const open = !gated || (slot ? slot.available : false)
+                  const suffix = !gated ? '' : slot ? (slot.available ? '' : ' — full') : ' — too late'
+                  return (
+                    <option key={t} value={t} disabled={!open}>
+                      {slotWindow(t)}{suffix}
+                    </option>
+                  )
+                })}
+              </select>
+              {dayMessage && <p className="text-[11px] text-amber-600 mt-1">{dayMessage}</p>}
+              {!dayMessage && daySlots.length > 0 && daySlots.every(s => !s.available) && (
+                <p className="text-[11px] text-amber-600 mt-1">That day is fully booked — pick another date or join the waitlist below.</p>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-500 -mt-1">
+            Weekends (Sat &amp; Sun) are ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr (we bring supplies) or ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr (your supplies) for new clients — Friday is not a weekend day.
+          </p>
+
+          {/* Name + phone */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Name</label>
+              <input
+                type="text"
+                required
+                placeholder="First and last"
+                value={form.name}
+                onChange={(e) => { update('name', e.target.value); setFieldErrors(prev => ({ ...prev, name: undefined })) }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.name ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+              />
+              {fieldErrors.name && <p className="text-red-600 text-xs mt-1">{fieldErrors.name}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Phone</label>
+              <input
+                type="tel"
+                required
+                placeholder="(212) 555-1234"
+                value={form.phone}
+                onChange={(e) => { update('phone', formatPhone(e.target.value)); setFieldErrors(prev => ({ ...prev, phone: undefined })) }}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.phone ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+              />
+              {fieldErrors.phone && <p className="text-red-600 text-xs mt-1">{fieldErrors.phone}</p>}
+            </div>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer -mt-1">
+            <input
+              type="checkbox"
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+              className="mt-0.5 min-w-[16px] min-h-[16px]"
+            />
+            <span className="text-[11px] text-gray-500 leading-relaxed">
+              By providing your phone number and clicking &ldquo;Submit,&rdquo; you agree to receive SMS updates and marketing messages from The Pennsylvania Maid. Message frequency may vary. Standard Message and Data Rates may apply. Reply STOP to opt out. Reply HELP for help. Consent is not a condition of purchase.
+            </span>
+          </label>
+
+          {/* Email */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Email</label>
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={(e) => { update('email', e.target.value); setFieldErrors(prev => ({ ...prev, email: undefined })) }}
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.email ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+            />
+            {fieldErrors.email && <p className="text-red-600 text-xs mt-1">{fieldErrors.email}</p>}
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Address</label>
+            <AddressAutocomplete
+              value={form.address}
+              onChange={(v) => { update('address', v); setFieldErrors(prev => ({ ...prev, address: undefined })) }}
+              placeholder="Start typing your street..."
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.address ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+            />
+            {fieldErrors.address && <p className="text-red-600 text-xs mt-1">{fieldErrors.address}</p>}
+            <input
+              type="text"
+              placeholder="Apt / Unit (optional)"
+              value={form.unit}
+              onChange={(e) => update('unit', e.target.value)}
+              className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"
+            />
+            <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
+              <strong>Address must be correct.</strong> If not, travel time will be charged to the client.
+            </div>
+          </div>
+
+          {/* How did you hear about us */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">How did you hear about us?</label>
+            <select
+              value={form.lead_source}
+              onChange={(e) => { update('lead_source', e.target.value); setFieldErrors(prev => ({ ...prev, lead_source: undefined })) }}
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#1E2A4A] ${fieldErrors.lead_source ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}
+            >
+              <option value="">Select one...</option>
+              {LEAD_SOURCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {fieldErrors.lead_source && <p className="text-red-600 text-xs mt-1">{fieldErrors.lead_source}</p>}
+          </div>
+
+          {/* More options — supplies, hours, team size, notes, referrer. Clients
+              no longer pick a specific cleaner here (2026-07-25) — we assign
+              the crew. Hidden by default to keep the form short. State stays
+              populated with defaults (we_bring / 1 cleaner / service-derived
+              hours / no notes). */}
+          <details className="group rounded-lg border border-gray-200 bg-gray-50/40">
+            <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-medium text-[#1E2A4A]">
+              <span>More options <span className="text-gray-400 font-normal">(supplies, hours, team size, notes, referrer)</span></span>
+              <span className="text-gray-400 group-open:rotate-180 transition">▾</span>
+            </summary>
+            <div className="px-4 pb-4 pt-1 space-y-4 border-t border-gray-200">
+
+              {!isSameDay && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Supplies</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => update('supplies', 'we_bring')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'we_bring' ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
+                      <div>We bring</div>
+                      <div className="text-xs opacity-70">${isWeekendBooking ? WEEKEND_SUPPLIES_PROVIDED_RATE : 69}/hr</div>
+                    </button>
+                    <button type="button" onClick={() => update('supplies', 'client')} className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition ${form.supplies === 'client' ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>
+                      <div>I provide</div>
+                      <div className="text-xs opacity-70">${isWeekendBooking ? WEEKEND_CLIENT_SUPPLIES_RATE : 59}/hr</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Hours <span className="normal-case font-normal text-gray-400">(estimate — billed for actual time)</span></label>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  {[2, 3, 4, 5, 6, 7, 8].map(h => (
+                    <button key={h} type="button" onClick={() => update('estimated_hours', h)} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.estimated_hours === h ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{h}hr</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Cleaners <span className="normal-case font-normal text-gray-400">(default 1 — billed × team size)</span></label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map(n => (
+                    <button key={n} type="button" onClick={() => { update('team_size', n); update('extra_cleaner_ids', form.extra_cleaner_ids.slice(0, Math.max(0, n - 1))) }} className={`px-2 py-2 rounded-lg border text-sm font-medium transition ${form.team_size === n ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}>{n}</button>
+                  ))}
+                </div>
+                <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-[11px] text-blue-900 leading-relaxed">
+                  <strong>Team-size policy:</strong> We only assign 2+ cleaners when the job is estimated at <strong>4 hours or longer for a single cleaner</strong>. The goal is to finish your cleaning in one day rather than stretch it across multiple visits. Smaller jobs go out as a 1-cleaner booking — if you select 2+ on a short job, we may rebalance to 1 cleaner during owner confirmation. <strong>Bookings with 2 or more cleaners have a 4-hour minimum, and discounts do not apply to multi-cleaner bookings.</strong>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 bg-white rounded-lg p-3">
+                {/* Clients no longer pick a specific cleaner here (2026-07-25) —
+                    we assign the crew. This block still checks slot availability:
+                    when nobody's available, it shows alternate open times or a
+                    waitlist join, same as before. */}
+                {loadingCleaners && <p className="text-xs text-gray-400">Checking availability…</p>}
+                {!loadingCleaners && availableCleaners.length === 0 && (
+                  <>
+                    {timeSuggestions.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-semibold text-amber-700 mb-1.5">That time&apos;s full — these times are open:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {timeSuggestions.map(s => {
+                            const slot = TIME_SLOTS.find(t => to24h(t) === s.time24)
+                            if (!slot) return null
+                            return (
+                              <button
+                                key={s.time24}
+                                type="button"
+                                onClick={() => update('time', slot)}
+                                className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-[#1E2A4A]"
+                              >
+                                {slotWindow(slot)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : waitlistState === 'done' ? (
+                      <p className="text-xs text-green-700 font-medium">You&apos;re on the waitlist — we&apos;ll text you the moment a spot opens. 😊</p>
+                    ) : (
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1.5">Nothing&apos;s open that day. Want us to text you when a spot frees up?</p>
+                        <button
+                          type="button"
+                          onClick={joinWaitlist}
+                          disabled={waitlistState === 'sending'}
+                          className="px-3 py-1.5 rounded-lg bg-[#1E2A4A] text-white text-sm font-semibold hover:bg-[#28365c] disabled:opacity-60"
+                        >
+                          {waitlistState === 'sending' ? 'Adding…' : 'Join the waitlist'}
+                        </button>
+                        {waitlistState === 'error' && (
+                          <p className="text-[11px] text-red-500 mt-1">
+                            {(!form.name.trim() || !form.phone.trim())
+                              ? 'Add your name and phone above first.'
+                              : 'Could not add you — please call (215) 398-4500.'}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+                {!loadingCleaners && availableCleaners.length > 0 && (
+                  <p className="text-xs text-gray-500">A cleaner will be assigned for this slot.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Notes</label>
+                <textarea placeholder="Doorman, pet, focus areas, allergies..." rows={2} value={form.notes} onChange={(e) => update('notes', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] resize-none" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Were you referred? <span className="normal-case font-normal text-gray-400">(they earn 10%)</span></label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <input type="text" placeholder="Their name" value={form.referrer_name} onChange={(e) => update('referrer_name', e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                  <input type="tel" placeholder="Their phone" value={form.referrer_phone} onChange={(e) => update('referrer_phone', formatPhone(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          {/* Estimate — stress that this is hourly, based on 1 cleaner × N hours */}
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 tracking-widest uppercase">Estimate</p>
+                <p className="text-xs text-gray-500 mt-0.5">{estimatedHours}hrs &times; ${hourlyRate}/hr{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''} &middot; pay after, never before</p>
+                {selfBookingDiscount > 0
+                  ? <p className="text-xs text-green-700 font-semibold mt-1">−$10 self-booking discount applied at billing</p>
+                  : <p className="text-xs text-amber-700 font-semibold mt-1">{isMultiCleaner ? `Multi-cleaner booking — no discounts apply · 4-hour minimum${isEmergency ? ' · under-48hr emergency rate' : ''}` : 'Same-day / emergency booking — no discounts apply'}</p>}
+              </div>
+              <div className="text-right">
+                <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</p>
+                {selfBookingDiscount > 0 && <p className="text-xs text-gray-400 line-through">${estimatedTotal}</p>}
+              </div>
+            </div>
+            <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="block bg-[#A8F0DC] hover:bg-[#8DE8CC] rounded-lg px-4 py-3 transition-colors">
+              <p className="text-sm font-bold text-[#1E2A4A]">Want FREE cleanings?</p>
+              <p className="text-xs text-[#1E2A4A]/80 mt-0.5 leading-relaxed">Earn <strong>10% of every service</strong> your referrals book — for life, no cap. Refer enough friends &amp; family and your own cleanings are free. <span className="font-semibold underline underline-offset-2">Get your link &rarr;</span></p>
+            </Link>
+            <div className="border-t border-gray-200 pt-3">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Heads up — this is an hourly service</p>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                The number above is an <strong>estimate</strong>, not a flat quote. You&rsquo;re billed for actual time worked, in 30-minute increments, at <strong>${hourlyRate}/hr</strong>{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}. This estimate is based on <strong>{form.team_size} cleaner{form.team_size > 1 ? 's' : ''} for {estimatedHours} hours</strong>. To change cleaners, hours, or supplies, open <strong>More options</strong> above.
+              </p>
+            </div>
+          </div>
+
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>}
+
+          <div ref={policyRef} className={`bg-red-50 border-2 rounded-lg p-4 text-sm text-red-900 leading-relaxed transition-all duration-300 ${policyFlash ? 'border-red-500 ring-4 ring-red-400/60 animate-pulse' : 'border-red-300'}`}>
+            <p className="font-bold uppercase tracking-wide mb-2">Read before booking</p>
+            <ul className="list-disc list-inside space-y-1 mb-3">
+              <li><strong>2-hour minimum on all bookings</strong>, first-time cleanings included.</li>
+              <li><strong>2 or more cleaners = 4-hour minimum</strong>, no discounts, and <strong>48 hours notice required</strong>. A multi-cleaner booking with under 48 hours notice is billed at emergency pricing (<strong>$89/hr</strong>).</li>
+              <li><strong>First-time bookings CANNOT be cancelled or rescheduled.</strong> We hold the slot and turn other clients away.</li>
+              <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel.</li>
+              <li>Hourly billing in 30-min increments. 30-min weekday / 60-min weekend arrival window.</li>
+              <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App).</li>
+            </ul>
+            <label className="flex items-start gap-2 mt-3 pt-3 border-t border-red-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
+                className="mt-0.5 min-w-[18px] min-h-[18px] accent-red-700"
+              />
+              <span className="text-sm font-semibold text-red-900">I understand and accept the no-cancellation / reschedule policy above.</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className={`w-full py-4 rounded-lg font-bold text-sm tracking-widest uppercase transition disabled:opacity-50 disabled:cursor-not-allowed ${
+              policyAccepted
+                ? 'bg-[#A8F0DC] text-[#1E2A4A] hover:bg-[#8DE8CC]'
+                : 'bg-[#A8F0DC]/50 text-[#1E2A4A]/70 hover:bg-[#A8F0DC]/70'
+            }`}
+          >
+            {submitting ? 'Submitting…' : isFullyBooked ? 'Join the waitlist' : policyAccepted ? 'Book my cleaning' : 'Check the box above, then book'}
+          </button>
+
+          <p className="text-center text-xs text-gray-400 mt-3">
+            No payment now &middot; You&apos;ll review &amp; confirm the recap on the next step &middot; Or text us at <a href="sms:2153984500" className="text-[#1E2A4A] underline">(215) 398-4500</a>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    {showRecap && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4 py-8 overflow-y-auto" role="dialog" aria-modal="true">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 my-auto">
+          <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-1">{isFullyBooked ? 'Join the waitlist' : 'Confirm your booking'}</h2>
+          <p className="text-xs text-gray-500 mb-4">{isFullyBooked ? "Nobody's free that day yet — we'll text you the moment a spot opens. No payment, no commitment." : 'Review the details and the policy below — clicking Confirm locks it in.'}</p>
+
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-4 text-sm space-y-1.5 text-[#1E2A4A]">
+            <div><span className="text-gray-500">Service:</span> {form.service_type}</div>
+            <div><span className="text-gray-500">{isFullyBooked ? 'Preferred date:' : 'When:'}</span> {form.date} @ {form.time}</div>
+            <div><span className="text-gray-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
+            {!isFullyBooked && <div><span className="text-gray-500">Rate:</span> ${hourlyRate}/hr × ~{estimatedHours} hrs{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.team_size > 1 ? ' (4-hr minimum)' : ''}</div>}
+            {!isFullyBooked && <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</span> {selfBookingDiscount > 0
+              ? <span className="text-xs text-green-700">($10 self-booking discount applied at billing)</span>
+              : <span className="text-xs text-amber-700">({isMultiCleaner ? 'multi-cleaner' : 'same-day / emergency'} — no discounts apply)</span>}</div>}
+          </div>
+
+          {isFullyBooked ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-xs text-amber-900 leading-relaxed">
+              <p>You&apos;re not being booked or charged yet — this just adds you to the waitlist for {form.date}. We&apos;ll text the number you provided as soon as a cleaner opens up for that day, and you can book normally from there.</p>
+            </div>
+          ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-xs text-amber-900 leading-relaxed">
+            <p className="font-semibold mb-1">By clicking Confirm you agree to:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Hourly billing in 30-min increments at the rate above (no flat total)</li>
+              <li><strong>2-hour minimum</strong> (first-time cleanings included); <strong>2+ cleaners = 4-hour minimum</strong>, no discounts, and 48 hours notice required (under 48 hours = $89/hr emergency rate)</li>
+              <li>30-min weekday / 60-min weekend arrival window</li>
+              <li><strong>No-cancellation policy on this first booking</strong> — first-time bookings can&apos;t be cancelled or rescheduled</li>
+              <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel</li>
+              <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App)</li>
+            </ul>
+          </div>
+          )}
+
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm mb-4">{error}</div>}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowRecap(false)}
+              disabled={submitting}
+              className="flex-1 bg-gray-100 text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-gray-200 transition disabled:opacity-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmSubmit}
+              disabled={submitting}
+              className="flex-1 bg-[#A8F0DC] text-[#1E2A4A] py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition disabled:opacity-50"
+            >
+              {submitting ? (isFullyBooked ? 'Adding…' : 'Confirming…') : isFullyBooked ? 'Join Waitlist' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    </>
+  )
+}
+
+export default function BookNewPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#1E2A4A] flex items-center justify-center text-white">Loading…</div>}>
+      <BookFormContent />
+    </Suspense>
+  )
+}
