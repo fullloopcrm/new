@@ -14,6 +14,12 @@ export const MAIN_HOSTS = new Set([
   'platform-ten-psi.vercel.app',
 ])
 
+// Private LAN ranges — dev-only, so a phone/laptop on the same wifi hitting
+// the Next dev server by its 192.168.x.x/10.x.x.x address (instead of
+// 'localhost') still resolves as the main host. No real tenant custom domain
+// is ever a raw private IP, so this can't shadow production routing.
+const PRIVATE_IP_RE = /^(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/
+
 export function isMainHost(hostname: string): boolean {
   // Strip port AND lowercase for comparison — MAIN_HOSTS entries are all
   // lowercase, so a mixed-case Host header (e.g. curl sending
@@ -22,7 +28,9 @@ export function isMainHost(hostname: string): boolean {
   // NextResponse.next() — skipping the auth gate entirely for the main
   // dashboard.
   const host = hostname.split(':')[0].toLowerCase()
-  return MAIN_HOSTS.has(host)
+  if (MAIN_HOSTS.has(host)) return true
+  if (process.env.NODE_ENV === 'development' && PRIVATE_IP_RE.test(host)) return true
+  return false
 }
 
 // A tenant's public site (carrying domain or custom domain) serves in every
