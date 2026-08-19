@@ -21,7 +21,7 @@ const subhead: React.CSSProperties = {
 export default function AIAgent() {
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="AI sales agent software"
           heading="The AI Agent Behind Full Loop CRM: One Assistant Across Phone, SMS, Web Chat & Email That Books, Quotes, and Collects"

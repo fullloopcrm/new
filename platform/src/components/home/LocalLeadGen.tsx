@@ -23,7 +23,7 @@ export default function LocalLeadGen() {
   const cities = metros.slice(0, 48);
   return (
     <section style={{ background: C.canvas, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Local SEO lead generation"
           heading="Home Service CRM by City: Local Lead Generation and Map-Pack Rankings in Every US Metro"

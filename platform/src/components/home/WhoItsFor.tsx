@@ -20,7 +20,7 @@ const subhead: React.CSSProperties = {
 export default function WhoItsFor() {
   return (
     <section style={{ background: C.canvas, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Who it's built for"
           heading="Who Full Loop CRM Is For: Solo Operators, Growing Crews, and Multi-Truck Home Service Companies"

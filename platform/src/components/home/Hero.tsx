@@ -35,44 +35,18 @@ export default function Hero() {
       />
 
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-10 pb-20">
-        {/* Topbar */}
-        <div className="flex items-center justify-between mb-12">
-          <span
-            style={{
-              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
-              fontSize: "11px",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: C.muted,
-            }}
-          >
-            Full Loop CRM <span style={{ color: C.line }}>·</span> The First Business Automation Platform
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
-              fontSize: "11px",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: C.muted,
-            }}
-          >
-            Live · NYC
-          </span>
-        </div>
-
-        {/* Pre-headline */}
+        {/* Welcome eyebrow */}
         <p
           className="mb-6"
           style={{
             fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
-            fontSize: "12px",
-            letterSpacing: "0.22em",
+            fontSize: "11px",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: C.good,
+            color: C.muted,
           }}
         >
-          One Trade Per City &middot; One Operator Gets Everything
+          Welcome to Full Loop CRM
         </p>
 
         {/* Masthead h1 — Fraunces, big, ink */}
@@ -83,37 +57,72 @@ export default function Hero() {
             letterSpacing: "-0.03em",
             lineHeight: 0.98,
             color: C.ink,
-            fontSize: "clamp(44px, 6.5vw, 92px)",
+            fontSize: "clamp(38px, 5.6vw, 78px)",
           }}
-          className="mb-6 max-w-5xl"
+          className="mb-6"
         >
-          The home service CRM that runs the business itself
+          The Home Service CRM <span style={{ fontStyle: "italic" }}>that runs your business</span>{" "}
+          <span style={{ textDecoration: "underline" }}>itself</span>
           <em style={{ fontStyle: "italic", fontWeight: 400, color: C.muted2 }}>.</em>
         </h1>
 
         {/* H2 — italic accent line */}
         <h2
           style={{
-            fontFamily: "var(--display, 'Fraunces', serif)",
-            fontStyle: "italic",
+            fontFamily: "var(--body, system-ui, sans-serif)",
             fontWeight: 400,
             letterSpacing: "-0.02em",
             lineHeight: 1.05,
             color: C.graphite,
-            fontSize: "clamp(28px, 3.6vw, 52px)",
+            fontSize: "clamp(22px, 2.8vw, 40px)",
           }}
-          className="mb-10 max-w-5xl"
+          className="mb-10"
         >
           Autonomous lead gen. Autonomous sales.
           <br />
-          Autonomous operations. Autonomous payments. Autonomous reviews.
-          <br />
-          <span style={{ color: "#2563EB" }}>AI: From Leads To Reviews.</span>
+          Autonomous operations. Autonomous payments. Autonomous reviews.{" "}
+          <span style={{ color: "#2563EB" }}>Autonomous Leads To Reviews.</span>
         </h2>
+
+        {/* Pricing line */}
+        <p
+          className="mb-2"
+          style={{
+            fontFamily: "var(--display, 'Fraunces', serif)",
+            fontSize: "56px",
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+            color: C.ink,
+            fontWeight: 500,
+          }}
+        >
+          $2,500/month: unlimited users
+          <br />
+          $25,000: full suite website
+        </p>
+        <p
+          className="mb-10"
+          style={{
+            fontFamily: "var(--mono, 'JetBrains Mono', monospace)",
+            fontSize: "13px",
+            letterSpacing: "0.02em",
+            color: C.muted,
+          }}
+        >
+          ($2,500/mo covers unlimited users and unlimited territories. The
+          $25K website connects directly to the CRM backend &mdash; strongly
+          suggested if full automation is what you&apos;re after. One website
+          per territory. The website generates both leads and job
+          applications.{" "}
+          <strong style={{ color: C.ink, fontWeight: 700 }}>
+            You own the website 100%.
+          </strong>
+          )
+        </p>
 
         {/* Subhead */}
         <p
-          className="max-w-3xl mb-10"
+          className="mb-10"
           style={{
             fontFamily: "var(--body, system-ui, sans-serif)",
             fontWeight: 400,
@@ -132,37 +141,6 @@ export default function Hero() {
           </strong>
         </p>
 
-        {/* Autonomy proof line */}
-        <p
-          className="max-w-3xl mb-10"
-          style={{
-            fontFamily: "var(--display, 'Fraunces', serif)",
-            fontStyle: "italic",
-            fontWeight: 500,
-            fontSize: "clamp(18px, 1.7vw, 24px)",
-            lineHeight: 1.35,
-            letterSpacing: "-0.01em",
-            color: C.ink,
-          }}
-        >
-          Proof: we built a real cleaning company on it — The NYC Maid —{" "}
-          <span style={{ color: C.good }}>700+ clients in under six months on $0 of ads or paid leads</span>,
-          now run by one person about an hour a day. No office, no managers, nobody
-          collecting payment, nobody chasing reviews.
-        </p>
-
-        {/* Includes / coming soon */}
-        <div
-          className="mb-10 flex flex-col gap-2"
-          style={{ fontFamily: "var(--mono, 'JetBrains Mono', monospace)", fontSize: "11px", letterSpacing: "0.06em" }}
-        >
-          <span style={{ color: C.graphite }}>
-            <span style={{ color: C.good }}>INCLUDES</span> &middot; AI lead gen &middot; AI sales &middot; scheduling &middot; dispatch &middot; payments &middot; payouts &middot; reviews &middot; retargeting
-          </span>
-          <span style={{ color: C.muted }}>
-            <span style={{ color: C.muted2 }}>COMING SOON</span> &middot; automated HR &middot; automated booking &middot; automated accounting &middot; and more
-          </span>
-        </div>
 
         {/* Access strip */}
         <div

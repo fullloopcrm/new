@@ -16,9 +16,9 @@ import {
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
   title:
-    "$2,500/Month Flat, Unlimited Users | Full Loop CRM — One Trade Per City",
+    "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory | Full Loop CRM",
   description:
-    "$2,500/month flat, unlimited users. $25,000 one-time setup. You own everything we build — your website, its code, and your domain are yours from day one. Cancel anytime and keep it all. AI sales (Yinez), full CRM, GPS field ops, bookkeeping, e-signature, route optimization, reviews, referrals, custom website + SEO.",
+    "$2,500/month gets unlimited users and unlimited locations — no territory lock. The $25,000 full-suite website is what claims your exclusive territory: one website per territory, connects straight to the CRM backend, generates leads and job applications, and it's yours — you own it 100%.",
   keywords: [
     "Full Loop CRM pricing",
     "home service CRM flat rate pricing",
@@ -29,18 +29,18 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
   openGraph: {
-    title: "$2,500/Month Flat, Unlimited Users — One Trade Per City",
+    title: "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory",
     description:
-      "One flat monthly rate. Unlimited users. Every feature, no tiers. Exclusive territory in your city. The first full-cycle CRM with an AI receptionist that books while you sleep.",
+      "$2,500/month flat — unlimited users, unlimited locations. Buy the $25,000 full-suite website and that territory is locked to you: one website per territory, you own it outright.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "$2,500/Month Flat, Unlimited Users — One Trade Per City",
+    title: "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory",
     description:
-      "One operator per trade per city. $2,500/month flat, unlimited users, every feature included. Claim the license before a competitor does.",
+      "$2,500/month flat, unlimited users, unlimited locations. The $25,000 website is what locks down your exclusive territory — and you own it 100%.",
   },
 };
 
@@ -63,7 +63,6 @@ const includedFeatures = [
   "Mobile team portal (PIN login, GPS check-in/out with 528ft validation, before/after video walkthroughs, 30-min heads-up)",
   "Stripe Connect crew payouts — auto-pay your team the moment a job closes",
   "IMAP email monitor — auto-matches Zelle / Apple Pay / Venmo / Cash App receipts to bookings",
-  "Full bookkeeping — bank import, ML-suggested transaction matching, chart of accounts, P&L, AR aging, cash flow, payroll, 1099-ready exports, CPA portal",
   "Review automation, negative-sentiment detection, AI escalation before bad reviews go public",
   "Win-back campaigns + referral program with commission tracking",
   "Google Business Profile + Facebook + Instagram posting from one place",
@@ -77,7 +76,7 @@ const pricingFaqs = [
   {
     question: "Why $2,500/month flat?",
     answer:
-      "That one number covers the whole platform — the AI receptionist that books leads at 11pm, the automated bookkeeping engine, the CRM, dispatch, e-signature, route optimizer, review machine, and per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. It doesn't change based on how many admins or field team members you add — the price is the price.",
+      "That one number covers the whole platform — the AI receptionist that books leads at 11pm, the CRM, dispatch, e-signature, route optimizer, review machine, and per-tenant SEO website network. Yinez alone replaces a $300–$400/mo answering service. It doesn't change based on how many admins or field team members you add — the price is the price.",
   },
   {
     question: "Is there a contract?",
@@ -146,7 +145,7 @@ export default function PricingPage() {
       <JsonLd
         data={webPageSchema(
           "Pricing | Full Loop CRM",
-          "$2,500/month flat, unlimited users. $25,000 one-time setup. You own everything we build — website, code, and domain are yours from day one. Cancel anytime and keep it all. One operator per trade per city.",
+          "$2,500/month: unlimited users and unlimited locations. $25,000: full-suite website — one per territory, and buying it is what locks that territory to you. You own the website 100%, it generates leads and job applications, and it connects straight to the CRM backend.",
           "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
           breadcrumbs
         )}
@@ -162,29 +161,31 @@ export default function PricingPage() {
       <section className="bg-slate-900 py-24 px-6 sm:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <p className="mb-4 text-sm font-mono uppercase tracking-widest text-teal-400">
-            One Trade. One City. One License.
+            Two Ways In — Only One Locks Your Territory
           </p>
           <h1 className="text-4xl font-extrabold font-heading text-white sm:text-5xl lg:text-6xl">
-            $2,500 a month.{" "}
-            {/* Explicit color, not the text-yellow-300 utility class — that
-                class is globally remapped to a brown "warn" tone in
-                globals.css for other contexts, which read wrong here on a
-                dark hero where it needs to actually read as yellow. */}
-            <span style={{ color: "#FDE047" }}>Unlimited users.</span>
+            $2,500/month:{" "}
+            <span style={{ color: "#FDE047" }}>unlimited users.</span>
+            <br />
+            $25,000:{" "}
+            <span style={{ color: "#FDE047" }}>full-suite website.</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 sm:text-xl max-w-2xl mx-auto">
-            One simple model: $2,500/mo flat, no matter how many admins or
-            field team members you add. The whole platform from day one —
-            Yinez AI, full CRM, GPS field operations, bookkeeping, e-signature,
-            routes, reviews, referrals, and your custom site network. No
-            per-seat fees, no tiers, no feature gates.
+            $2,500/mo flat gets you the whole platform — Yinez AI, full CRM, GPS
+            field operations, e-signature, routes, reviews,
+            referrals — with unlimited users and unlimited locations. No
+            per-seat fees, no tiers, no feature gates, and no territory lock on
+            its own.
           </p>
-          <p className="mt-4 text-base text-white font-semibold max-w-2xl mx-auto">
-            You own everything we build — your website, its code, and your domain
-            are yours from day one. Cancel anytime and you keep all of it.
+          <p className="mt-4 text-lg text-white font-semibold max-w-2xl mx-auto">
+            The $25,000 full-suite website is what claims your territory: one
+            website per territory, connects straight into the CRM backend,
+            generates both leads and job applications — and once you buy it,
+            you own it 100%.
           </p>
           <p className="mt-4 text-sm font-mono text-teal-400 tracking-wide">
-            No contracts. Month to month. But once a territory is claimed it&apos;s off the board.
+            No contracts on the subscription. Month to month. But once a
+            territory&apos;s website is claimed, it&apos;s off the board.
           </p>
         </div>
       </section>
@@ -194,39 +195,64 @@ export default function PricingPage() {
         <div className="mx-auto max-w-5xl">
           <div className="text-center mb-10">
             <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
-              $25,000 one-time setup &middot; All features included
+              Unlimited users &middot; Unlimited locations
             </p>
             <h2 className="text-3xl font-extrabold font-heading text-slate-900 sm:text-4xl">
-              One Price. Unlimited Users. Every Feature.
+              One Flat Price. Every Feature. No Territory Lock — Until You Want One.
             </h2>
           </div>
 
           {/* Headline price */}
-          <div className="mx-auto max-w-md rounded-2xl border-2 border-teal-600 bg-white p-10 shadow-xl text-center">
-            <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
-              Flat monthly rate
-            </p>
-            <p className="flex items-baseline justify-center gap-1">
-              <span className="text-6xl font-extrabold font-heading text-slate-900">
-                ${MONTHLY_PRICE.toLocaleString()}
-              </span>
-              <span className="text-xl text-slate-500">/mo</span>
-            </p>
-            <p className="mt-3 text-sm text-slate-500">
-              Every feature included. Add admins and field team members at no
-              extra cost — the price doesn&apos;t change. No gates, no upgrades,
-              no per-seat billing.
-            </p>
-            <Link
-              href="/waitlist"
-              className="mt-6 block w-full rounded-lg bg-teal-600 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-teal-700 transition-colors"
-            >
-              Inquire
-            </Link>
+          <div className="mx-auto max-w-2xl grid gap-6 sm:grid-cols-2">
+            <div className="rounded-2xl border-2 border-teal-600 bg-white p-10 shadow-xl text-center">
+              <p className="text-sm font-mono uppercase tracking-widest text-teal-600 mb-2">
+                Flat monthly rate
+              </p>
+              <p className="flex items-baseline justify-center gap-1">
+                <span className="text-6xl font-extrabold font-heading text-slate-900">
+                  ${MONTHLY_PRICE.toLocaleString()}
+                </span>
+                <span className="text-xl text-slate-500">/mo</span>
+              </p>
+              <p className="mt-3 text-sm text-slate-500">
+                Every feature included, unlimited users, unlimited locations —
+                no territory lock on the subscription alone. No gates, no
+                upgrades, no per-seat billing.
+              </p>
+              <Link
+                href="/waitlist"
+                className="mt-6 block w-full rounded-lg bg-teal-600 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-teal-700 transition-colors"
+              >
+                Inquire
+              </Link>
+            </div>
+            <div className="rounded-2xl border-2 border-slate-900 bg-white p-10 shadow-xl text-center">
+              <p className="text-sm font-mono uppercase tracking-widest text-slate-900 mb-2">
+                Full-suite website
+              </p>
+              <p className="flex items-baseline justify-center gap-1">
+                <span className="text-6xl font-extrabold font-heading text-slate-900">
+                  ${SETUP_FEE.toLocaleString()}
+                </span>
+              </p>
+              <p className="mt-3 text-sm text-slate-500">
+                This is what claims your territory — one website per
+                territory, connects straight into the CRM backend, generates
+                leads and job applications. Once you buy it, you own it 100%.
+              </p>
+              <Link
+                href="/waitlist"
+                className="mt-6 block w-full rounded-lg bg-slate-900 px-6 py-3 text-center text-sm font-cta font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors"
+              >
+                Claim My Territory
+              </Link>
+            </div>
           </div>
 
           <p className="mt-10 text-center text-sm text-slate-500">
-            No contracts. Month to month. Cancel anytime. ${SETUP_FEE.toLocaleString()} one-time setup.
+            No contracts on the subscription. Month to month. Cancel anytime.
+            The ${SETUP_FEE.toLocaleString()} website is a one-time purchase — once a
+            territory&apos;s website is claimed, it&apos;s off the board.
           </p>
           <p className="mt-3 text-center">
             <Link href="/agreement" className="text-teal-600 underline underline-offset-2 hover:text-teal-700 text-sm font-medium">
@@ -292,10 +318,10 @@ export default function PricingPage() {
                 EMD Micro Sites
               </h3>
               <p className="text-3xl font-extrabold font-heading text-teal-600 mb-1">
-                $500
+                $250
                 <span className="text-base font-normal text-slate-500">
                   {" "}
-                  build + $99/yr
+                  each
                 </span>
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-700">
@@ -319,7 +345,7 @@ export default function PricingPage() {
                     &#10003;
                   </span>
                   <span>
-                    $99/yr hosting &amp; maintenance after build
+                    Hosting &amp; maintenance included
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -349,7 +375,9 @@ export default function PricingPage() {
                     &#10003;
                   </span>
                   <span>
-                    Full GMB creation, verification &amp; optimization
+                    Full GMB creation &amp; optimization &mdash; we submit for
+                    verification, but Google&apos;s verification decision is
+                    theirs, not guaranteed
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -499,7 +527,7 @@ export default function PricingPage() {
               { name: "ComHub", desc: "Every conversation surface in one hub, including Loop Connect's Slack-style channels." },
               { name: "Sales", desc: "Leads, pipeline, quotes, e-signature, invoices — plus Catalog, Sales Partners, and Referrals." },
               { name: "Production", desc: "Bookings, multi-day Projects, Schedule, Crews, staffing lookup, announcements." },
-              { name: "Finance", desc: "Ledger, bank-import reconciliation, P&L, AR aging, payroll, 1099-ready exports." },
+              { name: "Finance", desc: "Ledger, bank-import reconciliation, P&L, AR aging, payroll, 1099-ready exports — not live yet, in active development." },
               { name: "HR", desc: "Team documents and onboarding — the newest module, still actively expanding." },
               { name: "Marketing", desc: "Campaigns, reviews, social, Google Business Profile, your website, analytics." },
               { name: "Platform", desc: "Onboarding checklist, settings, users, the AI agent's own admin surface, legal." },
@@ -576,7 +604,7 @@ export default function PricingPage() {
               The category doesn&apos;t have a comparison
             </p>
             <p className="text-2xl sm:text-3xl font-extrabold font-heading text-white max-w-3xl mx-auto leading-snug">
-              Yinez + the website + GPS + bookkeeping + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
+              Yinez + the website + GPS + e-sign + routes + reviews + referrals + Google + social — in one platform, with exclusive territory — doesn&apos;t exist anywhere else, at any price.
             </p>
             <p className="mt-4 text-yellow-300 font-cta uppercase tracking-widest text-sm">
               $2,500/month flat, unlimited users, is the floor.
@@ -615,7 +643,6 @@ export default function PricingPage() {
               <tbody className="divide-y divide-slate-200 text-slate-700">
                 <tr><td className="px-5 py-2.5">AI receptionist that books 24/7 (Ruby, Smith.ai)</td><td className="px-5 py-2.5 text-right font-mono">$400–$700</td></tr>
                 <tr><td className="px-5 py-2.5">Field service CRM (Jobber Grow, 5 users)</td><td className="px-5 py-2.5 text-right font-mono">$494</td></tr>
-                <tr><td className="px-5 py-2.5">Bookkeeping software + bookkeeper retainer</td><td className="px-5 py-2.5 text-right font-mono">$390+</td></tr>
                 <tr><td className="px-5 py-2.5">SEO agency + custom website maintenance</td><td className="px-5 py-2.5 text-right font-mono">$1,500</td></tr>
                 <tr><td className="px-5 py-2.5">Review management (Podium, NiceJob, Birdeye)</td><td className="px-5 py-2.5 text-right font-mono">$300</td></tr>
                 <tr><td className="px-5 py-2.5">Lead attribution / call tracking (CallRail + Hyros)</td><td className="px-5 py-2.5 text-right font-mono">$400</td></tr>
@@ -630,10 +657,10 @@ export default function PricingPage() {
               <tfoot>
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   <td className="px-5 py-3 font-bold text-slate-900">Total stack cost — 5-tech operation</td>
-                  <td className="px-5 py-3 text-right font-mono font-bold text-red-600">~$7,400+/mo</td>
+                  <td className="px-5 py-3 text-right font-mono font-bold text-red-600">~$7,000+/mo</td>
                 </tr>
                 <tr className="bg-teal-50">
-                  <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — unlimited users, all of it included</td>
+                  <td className="px-5 py-3 font-bold text-teal-700">Full Loop CRM — unlimited users, unlimited locations</td>
                   <td className="px-5 py-3 text-right font-mono font-bold text-teal-700">$2,500/mo</td>
                 </tr>
               </tfoot>

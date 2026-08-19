@@ -65,7 +65,7 @@ const groups: { title: string; jobs: Job[] }[] = [
 export default function Automations() {
   return (
     <section style={{ background: C.canvas, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Automated workflows & jobs"
           heading="Always-On Home Service Automation: The Background Jobs That Run Your Business While You Sleep"

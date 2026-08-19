@@ -23,7 +23,7 @@ const subhead: React.CSSProperties = {
 export default function IndustriesWeServe() {
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Industries we serve"
           heading="Home Service CRM Software for 50+ Field Service Industries — One Operator Per Trade Per City"

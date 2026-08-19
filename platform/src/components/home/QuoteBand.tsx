@@ -16,7 +16,7 @@ export default function QuoteBand({ quote, sub, dark = false }: QuoteBandProps) 
   const accent = dark ? "#6FB58A" : C.good;
   return (
     <section style={{ background: bg, color: fg }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-24 sm:py-32 text-center">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-24 sm:py-32 text-center">
         <span aria-hidden style={{ fontFamily: display, fontSize: "64px", lineHeight: 0.5, color: accent, display: "block", marginBottom: "8px" }}>
           &ldquo;
         </span>
