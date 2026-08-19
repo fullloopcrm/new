@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { toSlug } from '@/lib/tenant-site'
 import { TENANT_SEO, type UrlSpec } from '@/lib/seo/tenant-seo'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
+import { slugifyService } from '@/app/site/template/_lib/seo/photography-services'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 import { tenantServesSite } from '@/middleware/tenant-routing'
@@ -117,15 +118,42 @@ ${vaSpecs
 
   // Build URL entries
   const urls: Array<{ loc: string; priority: string; changefreq: string }> = []
+  const isPhotographyTenant = industryProfile((tenant as { industry?: string | null }).industry).isPhotography
 
-  // Static pages — match actual fullloop site routes
+  // Static pages — match actual fullloop site routes. This list previously
+  // covered only home/services/reviews — every tenant on this fallback
+  // (anyone without a TENANT_SEO descriptor) had About, Pricing, FAQ,
+  // Contact, Careers, Referral Program, and the entire Blog missing from
+  // their sitemap despite those being real, substantial, indexable pages.
   const staticPages = [
     { path: '/', priority: '1.0', changefreq: 'weekly' },
+    { path: '/about', priority: '0.8', changefreq: 'monthly' },
     { path: '/services', priority: '0.9', changefreq: 'weekly' },
+    { path: '/pricing', priority: '0.9', changefreq: 'weekly' },
     { path: '/reviews', priority: '0.8', changefreq: 'weekly' },
     { path: '/reviews/submit', priority: '0.5', changefreq: 'monthly' },
+    { path: '/faq', priority: '0.7', changefreq: 'monthly' },
+    { path: '/contact', priority: '0.8', changefreq: 'monthly' },
+    { path: '/careers', priority: '0.6', changefreq: 'monthly' },
+    { path: '/referral-program', priority: '0.5', changefreq: 'monthly' },
+    { path: '/blog', priority: '0.7', changefreq: 'weekly' },
     { path: '/portal/collect', priority: '0.7', changefreq: 'monthly' },
-    { path: '/chat-with-selena', priority: '0.6', changefreq: 'monthly' },
+    // The shared /site/template route group's AI-chat route is named
+    // chat-with-yinez, not chat-with-selena (that name only exists under the
+    // separate, non-template /site/chat-with-selena folder) — every tenant
+    // rendered through /site/template got a guaranteed-404 sitemap entry here.
+    { path: '/chat-with-yinez', priority: '0.6', changefreq: 'monthly' },
+  ]
+  // Photography blog posts have static, known slugs (see photographyBlogPosts
+  // in longform.ts) — listed directly here since constructing a full
+  // SiteConfig just to call blogPosts() isn't worth it for a fixed slug list.
+  const PHOTOGRAPHY_BLOG_SLUGS = [
+    'film-vs-digital-vs-ai-photography',
+    'how-to-prepare-for-a-black-and-white-portrait-session',
+    'best-places-to-shoot-film-photography-in-san-francisco',
+    'why-we-will-never-use-ai-photography',
+    'how-to-care-for-and-preserve-darkroom-prints',
+    'analog-vs-digital-what-a-negative-actually-gives-you',
   ]
 
   for (const page of staticPages) {
@@ -136,11 +164,22 @@ ${vaSpecs
     })
   }
 
-  // Service pages — /services/[slug]
+  if (isPhotographyTenant) {
+    for (const slug of PHOTOGRAPHY_BLOG_SLUGS) {
+      urls.push({ loc: `${baseUrl}/blog/${slug}`, priority: '0.6', changefreq: 'monthly' })
+    }
+  }
+
+  // Service pages — /services/[slug]. Photography tenants resolve their
+  // service pages via slugifyService (converts "&" -> "and"), not the
+  // generic toSlug (which drops "&" entirely) — using toSlug here produced
+  // sitemap URLs like /services/couples-engagement-session that 404 against
+  // the real route /services/couples-and-engagement-session.
   if (services) {
     for (const service of services) {
+      const slug = isPhotographyTenant ? slugifyService(service.name) : toSlug(service.name)
       urls.push({
-        loc: `${baseUrl}/services/${toSlug(service.name)}`,
+        loc: `${baseUrl}/services/${slug}`,
         priority: '0.8',
         changefreq: 'weekly',
       })
